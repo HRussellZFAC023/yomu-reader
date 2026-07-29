@@ -1,4 +1,5 @@
 import { validateGroundedLesson, type GroundedLessonContract } from '../domain/grounded-lesson';
+import { sha256Hex as sha256 } from '../web-crypto';
 import { getCompleteLessonRegistration } from './lesson-content-registry';
 
 const LESSON_CONTENT_ROOT = '/academy/content/lessons/';
@@ -47,9 +48,4 @@ async function resolveRegisteredLesson(
         throw new TypeError(`Grounded lesson ${lessonId} does not match its registered revision.`);
     }
     return lesson;
-}
-
-async function sha256(bytes: ArrayBuffer): Promise<string> {
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }

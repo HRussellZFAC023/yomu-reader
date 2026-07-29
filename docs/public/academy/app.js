@@ -323,6 +323,16 @@
   function nullableAvatar(value) {
     return value === null ? null : avatar$1(value);
   }
+  function webCryptoBuffer(value) {
+    const bytes = ArrayBuffer.isView(value) ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength) : new Uint8Array(value);
+    const nodeBuffer = globalThis.Buffer;
+    if (nodeBuffer) return nodeBuffer.from(bytes);
+    return bytes.slice().buffer;
+  }
+  async function sha256Hex$1(value) {
+    const digest2 = await crypto.subtle.digest("SHA-256", webCryptoBuffer(value));
+    return [...new Uint8Array(digest2)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
   const STORAGE_KEY$1 = "yomu:academy:profile-sync:v1";
   const SYNC_BATCH_SIZE = 50;
   const PAIRING_INFO = "yomu-academy-device-pairing-v1";
@@ -1281,7 +1291,7 @@
     const plaintext = new TextEncoder().encode(JSON.stringify(value));
     const hmacKey = await crypto.subtle.importKey(
       "raw",
-      cryptoBuffer(fromBase64Url(key2)),
+      webCryptoBuffer(fromBase64Url(key2)),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["sign"]
@@ -1289,7 +1299,7 @@
     const digest2 = new Uint8Array(await crypto.subtle.sign(
       "HMAC",
       hmacKey,
-      cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
+      webCryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
     ));
     const id2 = toBase64Url(digest2);
     const nonce = digest2.slice(0, 12);
@@ -1321,28 +1331,28 @@
   }
   async function derivePairingKey(code, salt) {
     const compact2 = code.normalize("NFKC").trim().toUpperCase().replaceAll(/[-\s]/gu, "");
-    const material = await crypto.subtle.importKey("raw", cryptoBuffer(new TextEncoder().encode(compact2)), "HKDF", false, ["deriveBits"]);
+    const material = await crypto.subtle.importKey("raw", webCryptoBuffer(new TextEncoder().encode(compact2)), "HKDF", false, ["deriveBits"]);
     const bits2 = await crypto.subtle.deriveBits(
-      { name: "HKDF", hash: "SHA-256", salt: cryptoBuffer(salt), info: cryptoBuffer(new TextEncoder().encode(PAIRING_INFO)) },
+      { name: "HKDF", hash: "SHA-256", salt: webCryptoBuffer(salt), info: webCryptoBuffer(new TextEncoder().encode(PAIRING_INFO)) },
       material,
       256
     );
     return new Uint8Array(bits2);
   }
   async function aesEncrypt(key2, nonce, plaintext, additionalData) {
-    const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key2), "AES-GCM", false, ["encrypt"]);
+    const cryptoKey = await crypto.subtle.importKey("raw", webCryptoBuffer(key2), "AES-GCM", false, ["encrypt"]);
     return new Uint8Array(await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+      { name: "AES-GCM", iv: webCryptoBuffer(nonce), additionalData: webCryptoBuffer(additionalData) },
       cryptoKey,
-      cryptoBuffer(plaintext)
+      webCryptoBuffer(plaintext)
     ));
   }
   async function aesDecrypt(key2, nonce, ciphertext, additionalData) {
-    const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key2), "AES-GCM", false, ["decrypt"]);
+    const cryptoKey = await crypto.subtle.importKey("raw", webCryptoBuffer(key2), "AES-GCM", false, ["decrypt"]);
     return new Uint8Array(await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+      { name: "AES-GCM", iv: webCryptoBuffer(nonce), additionalData: webCryptoBuffer(additionalData) },
       cryptoKey,
-      cryptoBuffer(ciphertext)
+      webCryptoBuffer(ciphertext)
     ));
   }
   function randomBytes(length) {
@@ -1366,14 +1376,11 @@
     return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
   }
   async function profileKeyCommitment(key2) {
-    return toBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", cryptoBuffer(fromBase64Url(key2)))));
+    return toBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", webCryptoBuffer(fromBase64Url(key2)))));
   }
   function fromBase64Url(value) {
     const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
     return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-  }
-  function cryptoBuffer(bytes) {
-    return bytes.slice().buffer;
   }
   class AccessError extends Error {
     constructor(code, message) {
@@ -4496,7 +4503,7 @@
   }
   function parseSourceVocabularySheet(component, path, sourceItemIds) {
     const provenance2 = record$18(component.provenance, `${path}.provenance`);
-    const payloadSha256 = sha256$1(provenance2.payloadSha256, `${path}.provenance.payloadSha256`);
+    const payloadSha256 = sha256(provenance2.payloadSha256, `${path}.provenance.payloadSha256`);
     const sourceTitle = text$o(provenance2.title, `${path}.provenance.title`);
     let previousPage = 0;
     let previousRow = 0;
@@ -4507,7 +4514,7 @@
       const itemId = text$o(source2.itemId, `${itemPath}.source.itemId`);
       if (sourceItemIds.has(itemId)) fail$4(`${itemPath}.source.itemId`, "must be unique in the package");
       sourceItemIds.add(itemId);
-      if (sha256$1(source2.payloadSha256, `${itemPath}.source.payloadSha256`) !== payloadSha256) {
+      if (sha256(source2.payloadSha256, `${itemPath}.source.payloadSha256`) !== payloadSha256) {
         fail$4(`${itemPath}.source.payloadSha256`, "must match the component payload SHA-256");
       }
       if (text$o(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
@@ -4844,7 +4851,7 @@
     if (value === null) return null;
     return text$o(value, path);
   }
-  function sha256$1(value, path) {
+  function sha256(value, path) {
     const digest2 = text$o(value, path);
     if (!/^[a-f0-9]{64}$/u.test(digest2)) fail$4(path, "must be a SHA-256 digest");
     return digest2;
@@ -17493,7 +17500,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return registration.validate(await response.arrayBuffer());
   }
   async function validateAuthoredWeekBytes(filename, packageId, expectedSha256, bytes) {
-    const sha2562 = await hashBytes(bytes);
+    const sha2562 = await sha256Hex$1(bytes);
     if (sha2562 !== expectedSha256) {
       throw new TypeError(`Authored Academy package ${packageId} does not match its registered bytes.`);
     }
@@ -17506,10 +17513,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError(`Authored Academy package ${packageId} resolved to another package.`);
     }
     return Object.freeze({ value, week });
-  }
-  async function hashBytes(bytes) {
-    const digest2 = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(digest2)].map((value) => value.toString(16).padStart(2, "0")).join("");
   }
   const LESSON_CONTENT_ROOT = "/academy/content/lessons/";
   function createGroundedLessonResolver(fetcher = fetch) {
@@ -17532,7 +17535,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const response = await fetcher(`${LESSON_CONTENT_ROOT}${registration.filename}`);
     if (!response.ok) throw new Error(`Could not resolve grounded lesson ${lessonId} (${response.status}).`);
     const bytes = await response.arrayBuffer();
-    const digest2 = await sha256(bytes);
+    const digest2 = await sha256Hex$1(bytes);
     if (digest2 !== registration.expectedSha256) {
       throw new TypeError(`Grounded lesson ${lessonId} does not match its registered bytes.`);
     }
@@ -17544,10 +17547,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError(`Grounded lesson ${lessonId} does not match its registered revision.`);
     }
     return lesson;
-  }
-  async function sha256(bytes) {
-    const digest2 = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(digest2)].map((value) => value.toString(16).padStart(2, "0")).join("");
   }
   const N3_SOURCE_OPENING_TRANCHE_ID = "n3-source-opening-v1";
   const N3_SOURCE_OPENING_SOURCE_RECORD = "module-local:n3-source-opening/source.ts";
@@ -305602,10 +305601,11 @@ ${newTabCardReading(card)}`;
       context2.getSettings().interfaceLanguage
     ));
   }
+  const APPS_NAV_LABEL = "Apps";
   const PRIMARY_NAV = Object.freeze([
     { text: "Get started", ja: "はじめる", link: "/getting-started" },
     { text: "Guides", ja: "ガイド", link: "/guides/" },
-    { text: "Tools", ja: "ツール", link: "/tools/" },
+    { text: APPS_NAV_LABEL, ja: "アプリ", link: "/tools/" },
     { text: "Study", ja: "学習", link: "/study/", target: "_self" },
     { text: "Academy", ja: "アカデミー", link: "/academy/", target: "_self" },
     // 'Help' rather than 'Support'. 'Support' answered two different questions at

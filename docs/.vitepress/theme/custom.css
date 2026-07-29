@@ -1468,11 +1468,15 @@ body:has(.yomu-home) .jpdb-reader-fab {
    ============================================================ */
 
 .yomu-home {
-  --ink: #0b0e14;
-  --paper: #fbf9f4;
-  --night-1: #0f1a2e;
-  --night-2: #16233d;
-  --lamp: #e8a33d;
+  --ink: #181b18;
+  --paper: #f1ead9;
+  --folded-paper: #ddd0b7;
+  --paper-ink: #29271f;
+  --pencil: #655f51;
+  --accent: var(--jpdb-reader-accent, #5ea780);
+  --night-1: #20251f;
+  --night-2: #2b312a;
+  --lamp: var(--accent);
   --rot-1: -3deg;
   --rot-2: -1.5deg;
   --rot-3: 2deg;
@@ -1488,11 +1492,11 @@ body:has(.yomu-home) .jpdb-reader-fab {
 }
 
 .dark .yomu-home {
-  --fold-bg: #0c1016;
-  --slab-bg: #141a23;
-  --slab-ink: var(--paper);
-  --keyline: #efece3;
-  --shadow-ink: #39414f;
+  --fold-bg: #181b18;
+  --slab-bg: var(--paper);
+  --slab-ink: var(--paper-ink);
+  --keyline: var(--paper-ink);
+  --shadow-ink: #0d0f0d;
 }
 
 .yomu-home .VPContent {
@@ -1566,7 +1570,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   display: inline-block;
   padding: 6px 18px 10px;
   border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
+  border-radius: 3px 15px 4px 11px;
   background: var(--slab-bg);
   box-shadow: 6px 6px 0 var(--shadow-ink);
   color: var(--slab-ink);
@@ -1582,7 +1586,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   margin: -10px 0 0 40px;
   padding: 5px 12px;
   border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
+  border-radius: 8px 3px 10px 4px;
   background: var(--keyline);
   color: var(--slab-bg);
   font-size: 13px;
@@ -1639,10 +1643,11 @@ body:has(.yomu-home) .jpdb-reader-fab {
 }
 
 .yomu-fold-arrow {
-  width: 44px;
-  height: 28px;
+  width: 52px;
+  height: 36px;
   flex: none;
-  margin-bottom: -6px;
+  margin-bottom: -10px;
+  overflow: visible;
 }
 
 .yomu-fold-prompt-fallback,
@@ -1661,7 +1666,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   margin: 0;
   padding: clamp(14px, 2.4vw, 26px) clamp(16px, 2.6vw, 30px) clamp(20px, 3vw, 32px);
   border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
+  border-radius: 4px 15px 5px 12px;
   background: var(--slab-bg);
   box-shadow: 8px 8px 0 var(--shadow-ink);
   transform: rotate(var(--rot-2));
@@ -1673,6 +1678,15 @@ body:has(.yomu-home) .jpdb-reader-fab {
   font-family: var(--ja-font);
   font-size: clamp(26px, 3.4vw, 46px);
   line-height: 2;
+}
+
+.yomu-fold-pitch-note {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 2px solid var(--accent);
+  color: var(--pencil);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 /* --- Install routes ---
@@ -1740,7 +1754,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   margin: 0;
   padding: 0 26px;
   border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
+  border-radius: 4px 13px 5px 11px;
   opacity: 1;
   background: var(--vp-button-brand-bg);
   box-shadow: 8px 8px 0 var(--shadow-ink);
@@ -1777,7 +1791,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   width: min(42vw, 460px);
   margin: 0;
   border: var(--keyline-w) solid var(--keyline);
-  border-radius: 2px;
+  border-radius: 5px 15px 4px 12px;
   background: var(--slab-bg);
   box-shadow: 10px 10px 0 var(--shadow-ink);
   transform: rotate(var(--rot-4));
@@ -1902,7 +1916,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(9, 13, 22, 0.86) 0%, rgba(9, 13, 22, 0.62) 46%, rgba(9, 13, 22, 0.9) 100%);
+  background: linear-gradient(180deg, rgba(24, 27, 24, 0.9) 0%, rgba(24, 27, 24, 0.7) 46%, rgba(24, 27, 24, 0.94) 100%);
 }
 
 .yomu-band-numeral {
@@ -1912,7 +1926,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   margin: 0;
   padding: 4px 16px 10px;
   border: var(--keyline-w) solid var(--paper);
-  border-radius: 2px;
+  border-radius: 3px 14px 4px 11px;
   background: transparent;
   color: var(--lamp);
   font-family: var(--ja-font);
@@ -1935,10 +1949,11 @@ body:has(.yomu-home) .jpdb-reader-fab {
   position: relative;
   z-index: 3;
   padding: clamp(20px, 2.6vw, 34px);
-  border: var(--keyline-w) solid var(--paper);
-  border-radius: 2px;
-  background: rgba(8, 12, 20, 0.82);
-  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.55);
+  border: var(--keyline-w) solid var(--paper-ink);
+  border-radius: 4px 15px 5px 12px;
+  background: color-mix(in srgb, var(--paper) 94%, transparent);
+  box-shadow: 8px 8px 0 rgba(24, 27, 24, 0.72);
+  color: var(--paper-ink);
 }
 
 .yomu-band[data-bleed="right"] .yomu-band-copy {
@@ -1951,7 +1966,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
 
 .yomu-band-kicker {
   margin: 0 0 10px;
-  color: var(--lamp);
+  color: color-mix(in srgb, var(--accent) 72%, var(--paper-ink));
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1960,7 +1975,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
 
 .yomu-band-copy h2 {
   margin: 0;
-  color: var(--paper);
+  color: var(--paper-ink);
   font-size: clamp(28px, 3.4vw, 44px);
   font-weight: 800;
   line-height: 1.06;
@@ -1970,7 +1985,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
 .yomu-band-lead {
   max-width: 40ch;
   margin: 14px 0 0;
-  color: color-mix(in srgb, var(--paper) 88%, transparent);
+  color: var(--pencil);
   font-size: clamp(17px, 1.4vw, 20px);
   line-height: 1.5;
 }
@@ -2041,7 +2056,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   z-index: 2;
   margin: 0;
   border: var(--keyline-w) solid var(--paper);
-  border-radius: 2px;
+  border-radius: 4px 15px 5px 12px;
   background: var(--night-2);
   box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
 }
@@ -2082,7 +2097,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
 .yomu-band-player {
   margin: 22px 0 0;
   border: 2px solid color-mix(in srgb, var(--paper) 62%, transparent);
-  border-radius: 2px;
+  border-radius: 3px 12px 4px 9px;
   background: #000;
 }
 
@@ -2104,7 +2119,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
 
 .yomu-band-pair img {
   border: var(--keyline-w) solid var(--paper);
-  border-radius: 2px;
+  border-radius: 4px 14px 5px 11px;
   background: var(--night-2);
   box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
 }
@@ -2386,6 +2401,10 @@ body:has(.yomu-home) .jpdb-reader-fab {
   font-weight: 800;
   line-height: 1.06;
   letter-spacing: -0.02em;
+}
+
+.yomu-install-inner > .yomu-band-lead {
+  color: color-mix(in srgb, var(--paper) 88%, transparent);
 }
 
 .yomu-home .yomu-install-steps {
@@ -2773,5 +2792,438 @@ body:has(.yomu-home) .jpdb-reader-fab {
   .yomu-fold-legend {
     font-size: 11px;
     gap: 4px 12px;
+  }
+}
+
+/* ============================================================
+   A28 landing story
+   Warm paper, warm ink, one inherited reader accent.
+   ============================================================ */
+
+.yomu-language-rotator {
+  display: inline-grid;
+  min-width: 10ch;
+  color: color-mix(in srgb, var(--accent) 74%, var(--slab-ink));
+  vertical-align: baseline;
+}
+
+.yomu-language-static,
+.yomu-language-cycle,
+.yomu-language-cycle > span {
+  grid-area: 1 / 1;
+}
+
+.yomu-language-cycle {
+  display: none;
+}
+
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
+  opacity: 0;
+}
+
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle {
+  display: grid;
+}
+
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span {
+  opacity: 0;
+  animation: yomu-language-welcome 18s ease-in-out infinite;
+}
+
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(2) { animation-delay: 2s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(3) { animation-delay: 4s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(4) { animation-delay: 6s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(5) { animation-delay: 8s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(6) { animation-delay: 10s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(7) { animation-delay: 12s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(8) { animation-delay: 14s; }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(9) { animation-delay: 16s; }
+
+@keyframes yomu-language-welcome {
+  0%, 9% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  12%, 100% {
+    opacity: 0;
+    transform: translateY(-0.12em);
+  }
+}
+
+.yomu-story {
+  display: grid;
+  gap: clamp(28px, 5vw, 64px);
+  padding: clamp(64px, 10vw, 132px) var(--gutter);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 9%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--folded-paper);
+  color: var(--paper-ink);
+}
+
+.yomu-paper,
+.yomu-discord {
+  position: relative;
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  padding: clamp(26px, 4vw, 48px);
+  border: 2px solid color-mix(in srgb, var(--paper-ink) 74%, transparent);
+  border-radius: 4px 15px 5px 12px;
+  background: var(--paper);
+  box-shadow: 8px 9px 0 color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+.yomu-paper::before,
+.yomu-no-install-copy::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: clamp(30px, 8vw, 96px);
+  width: 92px;
+  height: 20px;
+  background: color-mix(in srgb, var(--accent) 30%, var(--folded-paper));
+  transform: rotate(-2deg);
+}
+
+.yomu-paper h2,
+.yomu-discord h2,
+.yomu-no-install h2 {
+  max-width: 19ch;
+  margin: 0;
+  color: var(--paper-ink);
+  font-size: clamp(30px, 4.2vw, 52px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+
+.yomu-paper h3,
+.yomu-no-install h3 {
+  margin: 0;
+  color: var(--paper-ink);
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.15;
+}
+
+.yomu-paper p,
+.yomu-discord p,
+.yomu-no-install-copy > p {
+  max-width: 68ch;
+  margin: 20px 0 0;
+  color: var(--pencil);
+  font-size: clamp(17px, 1.45vw, 20px);
+  line-height: 1.65;
+}
+
+.yomu-eyebrow {
+  margin: 0 0 12px !important;
+  color: color-mix(in srgb, var(--accent) 38%, var(--paper-ink)) !important;
+  font-size: 12px !important;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  line-height: 1.3 !important;
+  text-transform: uppercase;
+}
+
+.yomu-founder {
+  transform: rotate(-0.35deg);
+}
+
+.yomu-method {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: clamp(26px, 5vw, 64px);
+  align-items: start;
+}
+
+.yomu-paper-note {
+  padding: 24px;
+  border-left: 4px solid var(--accent);
+  border-radius: 3px 13px 4px 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--folded-paper));
+}
+
+.yomu-paper-note p {
+  margin-top: 14px;
+  color: var(--paper-ink);
+  font-size: 16px;
+}
+
+.yomu-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 44px);
+  width: min(100%, 1120px);
+  margin: 0 auto;
+}
+
+.yomu-compare .yomu-paper {
+  width: 100%;
+  margin: 0;
+}
+
+.yomu-compare .yomu-paper:nth-child(2) {
+  margin-top: clamp(18px, 4vw, 54px);
+  transform: rotate(0.3deg);
+}
+
+.yomu-bring {
+  border-left: 8px solid var(--accent);
+}
+
+.yomu-approach-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  margin-top: 32px;
+  background: color-mix(in srgb, var(--paper-ink) 26%, transparent);
+}
+
+.yomu-approach-grid article {
+  padding: clamp(20px, 3vw, 30px);
+  background: color-mix(in srgb, var(--paper) 88%, white);
+}
+
+.yomu-approach-grid p {
+  margin-top: 12px;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.yomu-discord {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+}
+
+.yomu-discord a,
+.yomu-band-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 24px;
+  padding: 10px 20px;
+  border: 2px solid var(--paper-ink);
+  border-radius: 4px 13px 5px 10px;
+  background: var(--accent);
+  box-shadow: 4px 5px 0 var(--paper-ink);
+  color: var(--paper-ink) !important;
+  font-weight: 800;
+  text-decoration: none;
+  transition: box-shadow 150ms ease, translate 150ms ease;
+}
+
+.yomu-discord a:hover,
+.yomu-discord a:focus-visible,
+.yomu-band-action:hover,
+.yomu-band-action:focus-visible {
+  box-shadow: 2px 2px 0 var(--paper-ink);
+  translate: 2px 3px;
+}
+
+.yomu-band-action {
+  margin-top: 22px;
+}
+
+.yomu-band-concept {
+  min-height: min(78svh, 680px);
+  background:
+    radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--accent) 25%, transparent), transparent 34%),
+    linear-gradient(135deg, #343a31, var(--ink));
+}
+
+.yomu-band-concept::after {
+  background: linear-gradient(115deg, rgba(24, 27, 24, 0.24), rgba(24, 27, 24, 0.72));
+}
+
+.yomu-band-concept .yomu-band-copy {
+  grid-column: 1 / 7;
+}
+
+.yomu-band-academy .yomu-band-copy {
+  grid-column: 7 / 13;
+}
+
+.yomu-concept-note {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-column: 8 / 13;
+  gap: 12px;
+  align-content: center;
+  min-height: 300px;
+  padding: clamp(24px, 4vw, 46px);
+  border: 3px solid var(--accent);
+  border-radius: 5px 15px 4px 12px;
+  color: var(--paper);
+  font-size: clamp(28px, 5vw, 64px);
+  font-weight: 850;
+  line-height: 0.95;
+  text-transform: uppercase;
+  transform: rotate(1.4deg);
+}
+
+.yomu-concept-note span:nth-child(2) {
+  color: var(--accent);
+  transform: translateX(0.25em);
+}
+
+.yomu-concept-note span:nth-child(3) {
+  transform: translateX(0.5em);
+}
+
+.yomu-academy-note {
+  grid-column: 1 / 6;
+  grid-row: 1;
+  transform: rotate(-1.2deg);
+}
+
+.yomu-no-install {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: clamp(34px, 6vw, 84px);
+  align-items: center;
+  padding: clamp(64px, 10vw, 128px) var(--gutter);
+  background: var(--folded-paper);
+  color: var(--paper-ink);
+}
+
+.yomu-no-install-copy {
+  position: relative;
+  padding: clamp(26px, 4vw, 48px);
+  border: 2px solid var(--paper-ink);
+  border-radius: 4px 15px 5px 12px;
+  background: var(--paper);
+  box-shadow: 8px 9px 0 color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+.yomu-no-install-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.yomu-no-install-links a {
+  display: grid;
+  align-content: center;
+  min-height: 72px;
+  padding: 12px 15px;
+  border: 2px solid color-mix(in srgb, var(--paper-ink) 54%, transparent);
+  border-radius: 3px 12px 4px 9px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--paper));
+  color: var(--paper-ink);
+  text-decoration: none;
+}
+
+.yomu-no-install-links a:hover,
+.yomu-no-install-links a:focus-visible {
+  border-color: var(--accent);
+}
+
+.yomu-no-install-links span {
+  color: var(--pencil);
+  font-size: 13px;
+}
+
+.yomu-no-install .yomu-manga-figure {
+  max-width: 400px;
+  margin: 0 auto;
+  border-color: var(--paper-ink);
+  background: var(--paper);
+  box-shadow: 10px 11px 0 color-mix(in srgb, var(--ink) 42%, transparent);
+  transform: rotate(1.3deg);
+}
+
+.yomu-no-install .yomu-manga-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px 12px 3px 9px;
+}
+
+.yomu-install {
+  background: var(--ink);
+}
+
+.yomu-home .yomu-install-step-number {
+  background: var(--accent);
+}
+
+.yomu-install-route:is(
+    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  ) {
+  background: var(--accent);
+  color: var(--paper-ink);
+}
+
+.yomu-home .yomu-link-card {
+  border-radius: 4px 13px 5px 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
+    opacity: 1;
+  }
+
+  .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle {
+    display: none;
+  }
+
+  .yomu-discord a,
+  .yomu-band-action {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .yomu-method,
+  .yomu-no-install {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-approach-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-band-concept .yomu-band-copy,
+  .yomu-band-academy .yomu-band-copy,
+  .yomu-concept-note,
+  .yomu-academy-note {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .yomu-concept-note {
+    min-height: 220px;
+  }
+
+  .yomu-academy-note {
+    order: 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .yomu-language-rotator {
+    display: inline;
+    min-width: 0;
+  }
+
+  .yomu-compare {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-compare .yomu-paper:nth-child(2) {
+    margin-top: 0;
+  }
+
+  .yomu-no-install-links {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-fold-prompt {
+    margin-left: 24%;
   }
 }

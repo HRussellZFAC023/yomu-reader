@@ -71324,6 +71324,12 @@ ${spelling}`);
     }
     return value;
   }
+  function webCryptoBuffer(value) {
+    const bytes = ArrayBuffer.isView(value) ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength) : new Uint8Array(value);
+    const nodeBuffer = globalThis.Buffer;
+    if (nodeBuffer) return nodeBuffer.from(bytes);
+    return bytes.slice().buffer;
+  }
   const PAIRING_INFO = "yomu-academy-device-pairing-v1";
   async function wrapProfileKey(key, code, pairingId, keyVersion) {
     const salt = randomBytes(16);
@@ -71342,7 +71348,7 @@ ${spelling}`);
     const plaintext = new TextEncoder().encode(JSON.stringify(value));
     const hmacKey = await crypto.subtle.importKey(
       "raw",
-      cryptoBuffer(fromBase64Url(key)),
+      webCryptoBuffer(fromBase64Url(key)),
       { name: "HMAC", hash: "SHA-256" },
       false,
       ["sign"]
@@ -71350,7 +71356,7 @@ ${spelling}`);
     const digest = new Uint8Array(await crypto.subtle.sign(
       "HMAC",
       hmacKey,
-      cryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
+      webCryptoBuffer(new TextEncoder().encode(`${purpose}:${occurredAt}:${toBase64Url(plaintext)}`))
     ));
     const id = toBase64Url(digest);
     const nonce = digest.slice(0, 12);
@@ -71382,28 +71388,28 @@ ${spelling}`);
   }
   async function derivePairingKey(code, salt) {
     const compact2 = code.normalize("NFKC").trim().toUpperCase().replaceAll(/[-\s]/gu, "");
-    const material = await crypto.subtle.importKey("raw", cryptoBuffer(new TextEncoder().encode(compact2)), "HKDF", false, ["deriveBits"]);
+    const material = await crypto.subtle.importKey("raw", webCryptoBuffer(new TextEncoder().encode(compact2)), "HKDF", false, ["deriveBits"]);
     const bits2 = await crypto.subtle.deriveBits(
-      { name: "HKDF", hash: "SHA-256", salt: cryptoBuffer(salt), info: cryptoBuffer(new TextEncoder().encode(PAIRING_INFO)) },
+      { name: "HKDF", hash: "SHA-256", salt: webCryptoBuffer(salt), info: webCryptoBuffer(new TextEncoder().encode(PAIRING_INFO)) },
       material,
       256
     );
     return new Uint8Array(bits2);
   }
   async function aesEncrypt(key, nonce, plaintext, additionalData) {
-    const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["encrypt"]);
+    const cryptoKey = await crypto.subtle.importKey("raw", webCryptoBuffer(key), "AES-GCM", false, ["encrypt"]);
     return new Uint8Array(await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+      { name: "AES-GCM", iv: webCryptoBuffer(nonce), additionalData: webCryptoBuffer(additionalData) },
       cryptoKey,
-      cryptoBuffer(plaintext)
+      webCryptoBuffer(plaintext)
     ));
   }
   async function aesDecrypt(key, nonce, ciphertext, additionalData) {
-    const cryptoKey = await crypto.subtle.importKey("raw", cryptoBuffer(key), "AES-GCM", false, ["decrypt"]);
+    const cryptoKey = await crypto.subtle.importKey("raw", webCryptoBuffer(key), "AES-GCM", false, ["decrypt"]);
     return new Uint8Array(await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: cryptoBuffer(nonce), additionalData: cryptoBuffer(additionalData) },
+      { name: "AES-GCM", iv: webCryptoBuffer(nonce), additionalData: webCryptoBuffer(additionalData) },
       cryptoKey,
-      cryptoBuffer(ciphertext)
+      webCryptoBuffer(ciphertext)
     ));
   }
   function randomBytes(length) {
@@ -71421,9 +71427,6 @@ ${spelling}`);
   function fromBase64Url(value) {
     const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
     return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-  }
-  function cryptoBuffer(bytes) {
-    return bytes.slice().buffer;
   }
   const log$g = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
@@ -100230,10 +100233,11 @@ ${newTabCardReading(card)}`;
       context.getSettings().interfaceLanguage
     ));
   }
+  const APPS_NAV_LABEL = "Apps";
   const PRIMARY_NAV = Object.freeze([
     { text: "Get started", ja: "はじめる", link: "/getting-started" },
     { text: "Guides", ja: "ガイド", link: "/guides/" },
-    { text: "Tools", ja: "ツール", link: "/tools/" },
+    { text: APPS_NAV_LABEL, ja: "アプリ", link: "/tools/" },
     { text: "Study", ja: "学習", link: "/study/", target: "_self" },
     { text: "Academy", ja: "アカデミー", link: "/academy/", target: "_self" },
     // 'Help' rather than 'Support'. 'Support' answered two different questions at

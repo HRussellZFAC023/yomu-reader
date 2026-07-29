@@ -7,6 +7,7 @@
  * config and theme keep their import path.
  */
 export {
+    APPS_NAV_LABEL,
     MEMBERSHIP_NAV,
     OVERFLOW_LABEL,
     OVERFLOW_NAV,

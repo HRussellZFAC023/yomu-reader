@@ -333,16 +333,13 @@ async function assertHomepageDemo(page, label) {
             // for any page still on the single-button shape.
             installCta: [...document.querySelectorAll('.yomu-fold .yomu-install-route, .yomu-fold-cta')]
                 .map(link => link.getAttribute('href')),
-            legendSwatches: document.querySelectorAll('.yomu-fold-legend .yomu-dot').length,
-            // Every pitch class the fold paints must appear in the legend that
-            // claims to explain the colours.
+            pitchExplanation: document.querySelector('.yomu-fold-pitch-note')?.textContent?.trim() ?? '',
+            // The teaching copy below the live line replaces the old labelled
+            // legend. Keep checking the classes the reader actually paints so
+            // the prose cannot drift away from the sample.
             samplePitchClasses: [...new Set([...document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-word')]
                 .flatMap(word => [...word.classList])
                 .filter(name => name.startsWith('jpdb-pitch-')))].sort(),
-            legendPitchClasses: [...new Set([...document.querySelectorAll('.yomu-fold-legend .yomu-dot')]
-                .flatMap(dot => [...dot.classList])
-                .filter(name => name.startsWith('yomu-dot-'))
-                .map(name => name.replace('yomu-dot-', 'jpdb-pitch-')))].sort(),
         };
     });
 
@@ -365,9 +362,11 @@ async function assertHomepageDemo(page, label) {
             `${label} fold lost its ${store} install route: ${JSON.stringify(fold.installCta)}`,
         );
     }
+    const expectedPitchClasses = ['jpdb-pitch-atamadaka', 'jpdb-pitch-heiban', 'jpdb-pitch-nakadaka'];
     assertAudit(
-        fold.samplePitchClasses.every(name => fold.legendPitchClasses.includes(name)),
-        `${label} fold paints pitch colours the legend does not explain: ${JSON.stringify(fold)}`,
+        expectedPitchClasses.every(name => fold.samplePitchClasses.includes(name))
+            && ['blue', 'pink', 'amber'].every(colour => fold.pitchExplanation.toLowerCase().includes(colour)),
+        `${label} fold pitch sample and teaching copy drifted apart: ${JSON.stringify(fold)}`,
     );
 
     // The claim under the arrow is "press a word". Prove a press answers.

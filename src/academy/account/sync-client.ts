@@ -17,6 +17,7 @@ import {
     type AcademyProfileView,
 } from '../../reader/srs/account-contract';
 import type { LearnerEvent, LearnerEventRepository } from '../domain/learner-record';
+import { webCryptoBuffer as cryptoBuffer } from '../web-crypto';
 
 const STORAGE_KEY = 'yomu:academy:profile-sync:v1';
 const SYNC_BATCH_SIZE = 50;
@@ -1276,8 +1277,4 @@ async function profileKeyCommitment(key: string): Promise<string> {
 function fromBase64Url(value: string): Uint8Array {
     const padded = value.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - value.length % 4) % 4);
     return Uint8Array.from(atob(padded), character => character.charCodeAt(0));
-}
-
-function cryptoBuffer(bytes: Uint8Array): ArrayBuffer {
-    return bytes.slice().buffer as ArrayBuffer;
 }

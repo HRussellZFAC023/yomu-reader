@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -51,6 +51,14 @@ const PUBLIC_ROUTES = [
     'tools/youtube-japanese',
 ];
 
+// Static app routes are copied from docs/public rather than routed by
+// VitePress. Keep both PDF URL shapes explicit: a reported bare-route 404 must
+// not return while the index.html link continues to look healthy.
+const PUBLIC_STATIC_ROUTES = [
+    { route: '/pdf-reader/', file: 'docs/public/pdf-reader/index.html' },
+    { route: '/pdf-reader/index.html', file: 'docs/public/pdf-reader/index.html' },
+] as const;
+
 function readProjectFile(file: string): string {
     return readFileSync(path.join(ROOT, file), 'utf8');
 }
@@ -71,6 +79,16 @@ function routeFor(relativePath: string): string {
 }
 
 describe('published docs pages', () => {
+    it('publishes both PDF reader URL shapes', () => {
+        expect(PUBLIC_STATIC_ROUTES.map(entry => entry.route)).toEqual([
+            '/pdf-reader/',
+            '/pdf-reader/index.html',
+        ]);
+        for (const entry of PUBLIC_STATIC_ROUTES) {
+            expect(existsSync(path.join(ROOT, entry.file)), `${entry.route} is missing ${entry.file}`).toBe(true);
+        }
+    });
+
     it('routes only the user-facing pages', () => {
         const published = docsMarkdownFiles()
             .filter(file => !isInternalDocPath(file))
@@ -197,7 +215,7 @@ describe('sitemap filtering', () => {
         const routes = navigationRoutes([
             { text: 'Overview', link: '/' },
             { text: 'Privacy', link: '/privacy' },
-            { text: 'Tools', link: '/tools/' },
+            { text: 'Apps', link: '/tools/' },
         ]);
         const items = [
             { url: '' },

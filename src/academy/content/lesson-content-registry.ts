@@ -1,4 +1,5 @@
 import type { GroundedLessonContract } from '../domain/grounded-lesson';
+import { sha256Hex as hashBytes } from '../web-crypto';
 import {
     adaptAuthoredWeek,
     AUTHORED_WEEK_HASHES,
@@ -263,9 +264,4 @@ async function validateAuthoredWeekBytes(
         throw new TypeError(`Authored Academy package ${packageId} resolved to another package.`);
     }
     return Object.freeze({ value, week });
-}
-
-async function hashBytes(bytes: ArrayBuffer): Promise<string> {
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
 }

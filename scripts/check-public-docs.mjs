@@ -110,8 +110,11 @@ const blockedPublicCopy = [
         message: 'Public docs must not link to deleted or competitor-first gaming guides.',
     },
     {
-        pattern: /migaku-alternative|Migaku/i,
-        message: 'Public docs must not advertise competitor comparison pages.',
+        // A28 carries a short, factual owner-requested comparison on the
+        // homepage. Keep blocking the deleted SEO comparison route without
+        // banning the product name from every first-party sentence.
+        pattern: /migaku-alternative/i,
+        message: 'Public docs must not advertise the deleted competitor comparison page.',
     },
     {
         pattern: /Yomi\s*Ninja|YomiNinja|Decky|Tango Lens|Tango\b/i,

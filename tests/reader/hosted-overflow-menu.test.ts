@@ -40,7 +40,7 @@ describe('hosted overflow menus', () => {
 
         expect(theme).toContain("import { hostedOverflowLinks } from '../shared/nav';");
         expect(theme).toContain('const HOSTED_OVERFLOW_LINKS = hostedOverflowLinks();');
-        expect(config).toContain("import { docsNav } from './shared/nav';");
+        expect(config).toContain("import { APPS_NAV_LABEL, docsNav } from './shared/nav';");
         expect(config).toContain('const siteNav = docsNav();');
     });
 

@@ -56,10 +56,12 @@ export interface NavRoute {
  * — get started, then the things you do, then help. Deliberately short: an
  * entry earns its place by being something a learner reaches for repeatedly.
  */
+export const APPS_NAV_LABEL = 'Apps';
+
 export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
     { text: 'Get started', ja: 'はじめる', link: '/getting-started' },
     { text: 'Guides', ja: 'ガイド', link: '/guides/' },
-    { text: 'Tools', ja: 'ツール', link: '/tools/' },
+    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/tools/' },
     { text: 'Study', ja: '学習', link: '/study/', target: '_self' },
     { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
     // 'Help' rather than 'Support'. 'Support' answered two different questions at

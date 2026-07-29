@@ -6,7 +6,7 @@ import {
     sitemapItemsForRoutes,
 } from '../../config/docs/published-pages';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
-import { docsNav } from './shared/nav';
+import { APPS_NAV_LABEL, docsNav } from './shared/nav';
 import pkg from '../../package.json' with { type: 'json' };
 
 const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-appearance-boot.cjs') as {
@@ -229,9 +229,9 @@ const siteSidebar = [
         ],
     },
     {
-        text: 'Tools',
+        text: APPS_NAV_LABEL,
         items: [
-            { text: 'All tools', link: '/tools/' },
+            { text: 'All apps', link: '/tools/' },
             { text: 'OCR & manga', link: '/tools/japanese-ocr' },
             { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
             { text: 'Video Player', link: videoPlayerLink, target: '_self' },
