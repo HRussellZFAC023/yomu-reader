@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.61c19d58c0db.user.js#sha256=YcGdWMDbKpK3hF01TFqevnWMSm+G0myoqNOHXm4PScI=
-// @require https://yomureader.com/greasyfork/yomu-audio.8b23ee87c3c2.user.js#sha256=iyPuh8PCobphG2N5Kee7q0TOoc/Di5qfeB6l2C+fSAQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.109bfa40e515.user.js#sha256=EJv6QOUVvRtsPC4zy2dscjYyqB/iaeM98ndld7BgDkI=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b08b36622b03.user.js#sha256=sIs2YisDqcHLB20LEZZXeGcmCEfdqKPX99ZYvqVz1Vc=
+// @require https://yomureader.com/greasyfork/yomu-anki.5b02f51c58ec.user.js#sha256=WwL1HFjsg8bq/njHcT9d/1uq3QAxBM7pRfoVZB9v11k=
+// @require https://yomureader.com/greasyfork/yomu-audio.489e35b073cc.user.js#sha256=SJ41sHPMOV8GKrG3DAIDzNbBzsSsjO6CdRwp6aABxTY=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.46ef0a6a2290.user.js#sha256=Ru8KaiKQmzHDrhNJrPxxJs1T2Z3dTcv/iCBz2B1MD7E=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.fd634ba0b94d.user.js#sha256=/WNLoLlN28ZF07mKQmFgEZlUfpnDj/gDnq7fyVewtBE=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.771a348c0474.user.js#sha256=dxo0jAR0SNkkCOWX/inC9LR1TP8PbdYK/w9JsNC8b8o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.6af3399cb153.user.js#sha256=avM5nLFTvb2JKE0aqUsDLm891BhblfWHJsSfgY2OauE=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.98e641577e0c.user.js#sha256=mOZBV34Mr5F6ubkszAyq4CC7wjVtH+8tq0Oqvuv2m+A=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.a274a70b53ba.user.js#sha256=onSnC1O6oVGYmLG7tp2RUaRr4Qn/VmekZ6ZkXeE4NK8=
-// @require https://yomureader.com/greasyfork/yomu-jiten.52d62ffa1db8.user.js#sha256=UtYv+h24VtlHySqgGI+jIsRgX064jiKPNxuMFtr6Ux0=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.f2f1946e837d.user.js#sha256=8vGUboN9XsW5d6Ue7yn6c6GiKa13wgASPHq7D8KY8l4=
-// @require https://yomureader.com/greasyfork/yomu-video.1cd2cb62b4b4.user.js#sha256=HNLLYrS04uk6Vpc46IKOSdmKz/EFEBhT/5P/nZOJBEg=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.85d777ab3b74.user.js#sha256=hdd3qzt0njtIXDlq7SOXaCyBfWh7LdPw0sPMm2wfkWQ=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.f89175670966.user.js#sha256=+JF1ZwlmgkMP3WCyNSAWY6dsUxlsMvOLoRrCHJ+DU2Q=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.04e1193d8955.user.js#sha256=BOEZPYlVu2HXfM6gOsgwVElqnYCGnCswenXxmwMOoRE=
+// @require https://yomureader.com/greasyfork/yomu-jiten.e410c8a058cd.user.js#sha256=5BDIoFjNkDF/I52624HTTNeT7jEc2Rt2xqxnM0/y2d8=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.de0aceff281f.user.js#sha256=3grO/ygfEuh5n8Ro1h/NtVT3NFa64P4ClLrdEFBwjsg=
+// @require https://yomureader.com/greasyfork/yomu-video.3349dd954156.user.js#sha256=M0ndlUFW8RSERDBKU+DhIFThxQwq7RG90SSxYaQVV6w=
 // @resource yomuCss  https://yomureader.com/yomu.bbc40fc8026a.css#sha256=u8QPyAJqxPcAa18wa6+eqfvc4BaIxQt1Wsw8+rJas1g=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -2608,7 +2608,6 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   capabilities: {
     segmentation: true,
     "text-to-speech": true,
-    ocr: true,
     subtitles: true,
     typing: true
   },
@@ -2628,6 +2627,8 @@ function scriptDetector(scripts) {
 }
 const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
 const MODULES_BY_LANGUAGE = new Map();
+const MODULE_STACKS_BY_LANGUAGE = new Map();
+const BUILT_IN_MODULES_BY_LANGUAGE = new Map();
 let registryRevision = 0;
 function learningTargetRegistryRevision() {
   return registryRevision;
@@ -2640,6 +2641,9 @@ function registerLearningTargetModule(module) {
   }
   const base = languageSubtag(module.language);
   if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+  const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+  stack.push(module);
+  MODULE_STACKS_BY_LANGUAGE.set(base, stack);
   MODULES_BY_LANGUAGE.set(base, module);
   registryRevision++;
   return module;
@@ -2658,9 +2662,14 @@ function registeredLearningTargetModules() {
 function defaultLearningTargetModule() {
   return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
 }
-registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
-registerLearningTargetModule(KOREAN_LEARNING_TARGET);
-GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerLearningTargetModule);
+function registerBuiltInLearningTargetModule(module) {
+  registerLearningTargetModule(module);
+  const base = languageSubtag(module.language);
+  if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
+}
+registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
 let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
 let cachedTarget = null;
 let cachedForLanguage = "";
@@ -6463,7 +6472,7 @@ function adoptLearningTargetFromSettings(value) {
 function isTargetDefaultOcrLanguageTag(value) {
   const tag = value?.trim().toLowerCase();
   if (!tag) return false;
-  return registeredLearningTargetModules().some((module) => module.ocr.defaultLanguage.toLowerCase() === tag);
+  return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
 }
 function targetLookupCandidates(text) {
   return activeLearningTarget().lookupCandidates(text);

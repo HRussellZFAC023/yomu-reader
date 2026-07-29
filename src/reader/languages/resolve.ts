@@ -39,7 +39,7 @@ export function isTargetDefaultOcrLanguageTag(value: string | null | undefined):
     const tag = value?.trim().toLowerCase();
     if (!tag) return false;
     return registeredLearningTargetModules()
-        .some(module => module.ocr.defaultLanguage.toLowerCase() === tag);
+        .some(module => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
 }
 
 /**

@@ -220,6 +220,27 @@ describe('a second target needs registration and nothing else', () => {
             .toBe('https://tts.test/sw/habari');
     });
 
+    it('restores the built-in roster Module after a runtime override is removed', () => {
+        const builtIn = learningTargetModuleFor('sv');
+        const override = createLearningTargetModule({
+            id: 'swedish-temporary-override',
+            language: 'sv',
+            capabilities: { segmentation: true },
+            featureSemantics: {
+                characterSystem: 'latin',
+                phoneticScripts: ['latin'],
+                pronunciation: 'none',
+                readingAnnotation: 'none',
+            },
+            detectsText: /[A-Za-z]/u,
+        });
+
+        registerLearningTargetModule(override);
+        expect(learningTargetModuleFor('sv')).toBe(override);
+        expect(unregisterLearningTargetModule('sv')).toBe(true);
+        expect(learningTargetModuleFor('sv')).toBe(builtIn);
+    });
+
     it('refuses an unknown target and leaves the previous one in place', () => {
         expect(setActiveLearningTargetLanguage('ko')).toBe(KOREAN_LEARNING_TARGET);
         expect(setActiveLearningTargetLanguage('qqq')).toBeNull();

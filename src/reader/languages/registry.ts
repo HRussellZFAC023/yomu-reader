@@ -13,6 +13,8 @@ import {
 export const DEFAULT_LEARNING_TARGET_LANGUAGE: LanguageTag = 'ja';
 
 const MODULES_BY_LANGUAGE = new Map<string, LearningTargetModule>();
+const MODULE_STACKS_BY_LANGUAGE = new Map<string, LearningTargetModule[]>();
+const BUILT_IN_MODULES_BY_LANGUAGE = new Map<string, LearningTargetModule>();
 
 let registryRevision = 0;
 
@@ -39,15 +41,32 @@ export function registerLearningTargetModule(module: LearningTargetModule): Lear
     }
     const base = languageSubtag(module.language);
     if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
     MODULES_BY_LANGUAGE.set(base, module);
     registryRevision++;
     return module;
 }
 
-/** Test seam: drops a runtime-registered target so suites cannot leak into each other. */
+/**
+ * Test/plugin seam: drops the latest runtime override and reveals the previous
+ * registration. Built-in roster Modules are the floor and cannot be removed.
+ */
 export function unregisterLearningTargetModule(language: unknown): boolean {
     const base = languageSubtag(canonicalLanguageTag(language));
-    if (!base || !MODULES_BY_LANGUAGE.delete(base)) return false;
+    if (!base) return false;
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base);
+    if (!stack?.length) return false;
+    const builtIn = BUILT_IN_MODULES_BY_LANGUAGE.get(base);
+    if (stack.length === 1 && stack[0] === builtIn) return false;
+    stack.pop();
+    const previous = stack.at(-1);
+    if (previous) MODULES_BY_LANGUAGE.set(base, previous);
+    else {
+        MODULE_STACKS_BY_LANGUAGE.delete(base);
+        MODULES_BY_LANGUAGE.delete(base);
+    }
     registryRevision++;
     return true;
 }
@@ -91,6 +110,12 @@ export function defaultLearningTargetModule(): LearningTargetModule {
     return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
 }
 
-registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
-registerLearningTargetModule(KOREAN_LEARNING_TARGET);
-GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerLearningTargetModule);
+function registerBuiltInLearningTargetModule(module: LearningTargetModule): void {
+    registerLearningTargetModule(module);
+    const base = languageSubtag(module.language);
+    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
+}
+
+registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);

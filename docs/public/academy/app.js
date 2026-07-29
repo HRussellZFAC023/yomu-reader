@@ -32619,7 +32619,6 @@ ${spelling}`);
       capabilities: {
         segmentation: true,
         "text-to-speech": true,
-        ocr: true,
         subtitles: true,
         typing: true
       },
@@ -32639,6 +32638,8 @@ ${spelling}`);
   }
   const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
   const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   let registryRevision = 0;
   function learningTargetRegistryRevision() {
     return registryRevision;
@@ -32651,6 +32652,9 @@ ${spelling}`);
     }
     const base = languageSubtag(module.language);
     if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
     MODULES_BY_LANGUAGE.set(base, module);
     registryRevision++;
     return module;
@@ -32669,9 +32673,14 @@ ${spelling}`);
   function defaultLearningTargetModule() {
     return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
   }
-  registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
-  registerLearningTargetModule(KOREAN_LEARNING_TARGET);
-  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerLearningTargetModule);
+  function registerBuiltInLearningTargetModule(module) {
+    registerLearningTargetModule(module);
+    const base = languageSubtag(module.language);
+    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
+  }
+  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
   let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
   let cachedTarget = null;
   let cachedForLanguage = "";
@@ -34572,7 +34581,7 @@ ${spelling}`);
   function isTargetDefaultOcrLanguageTag(value) {
     const tag = value?.trim().toLowerCase();
     if (!tag) return false;
-    return registeredLearningTargetModules().some((module) => module.ocr.defaultLanguage.toLowerCase() === tag);
+    return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
   }
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;

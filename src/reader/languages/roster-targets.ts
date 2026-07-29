@@ -30,7 +30,6 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
             capabilities: {
                 segmentation: true,
                 'text-to-speech': true,
-                ocr: true,
                 subtitles: true,
                 typing: true,
             },
