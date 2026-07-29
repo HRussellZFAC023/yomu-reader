@@ -2871,858 +2871,8 @@ ${candidate.depth}`;
     },
     detectsText: HAS_HANGUL
   });
-  const ENGLISH_FALLBACK_MESSAGES = {
-    setupTitle: "Set up Yomu in your language",
-    learnerLanguageLabel: "Your language",
-    targetLanguageLabel: "Language you are learning",
-    targetJapanese: "Japanese",
-    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-    automaticTranslationLabel: "Translate automatically into {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-    setupProgress: "Language setup {current} of {total}",
-    continueAction: "Continue",
-    originalDefinitionLabel: "Original {language}"
-  };
-  function defineLocaleCatalog(locale, reviewStatus, messages) {
-    return Object.freeze({
-      locale,
-      reviewStatus,
-      sourceLocale: "en",
-      messages: Object.freeze(messages)
-    });
-  }
-  defineLocaleCatalog("ar", "machine-draft", {
-    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-    learnerLanguageLabel: "لغتك",
-    targetLanguageLabel: "اللغة التي تتعلمها",
-    targetJapanese: "اليابانية",
-    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-    continueAction: "متابعة",
-    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩"
-  });
-  defineLocaleCatalog("da", "machine-draft", {
-    setupTitle: "Opsæt よむ på dit sprog",
-    learnerLanguageLabel: "Dit sprog",
-    targetLanguageLabel: "Det sprog, du lærer",
-    targetJapanese: "Japansk",
-    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-    automaticTranslationLabel: "Oversæt automatisk til {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-    setupProgress: "Sprogopsætning: {current} af {total}",
-    continueAction: "Fortsæt",
-    originalDefinitionLabel: "Original på {language}"
-  });
-  defineLocaleCatalog("de", "machine-draft", {
-    setupTitle: "よむ in deiner Sprache einrichten",
-    learnerLanguageLabel: "Deine Sprache",
-    targetLanguageLabel: "Sprache, die du lernst",
-    targetJapanese: "Japanisch",
-    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-    setupProgress: "Sprache einrichten: {current} von {total}",
-    continueAction: "Weiter",
-    originalDefinitionLabel: "Originaldefinition auf {language}"
-  });
-  defineLocaleCatalog("el", "machine-draft", {
-    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-    learnerLanguageLabel: "Η γλώσσα σας",
-    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-    targetJapanese: "Ιαπωνικά",
-    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-    continueAction: "Συνέχεια",
-    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}"
-  });
-  defineLocaleCatalog(
-    "en",
-    "source-approved",
-    ENGLISH_FALLBACK_MESSAGES
-  );
-  defineLocaleCatalog("es", "machine-draft", {
-    setupTitle: "Configura Yomu en tu idioma",
-    learnerLanguageLabel: "Tu idioma",
-    targetLanguageLabel: "Idioma que estás aprendiendo",
-    targetJapanese: "Japonés",
-    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-    automaticTranslationLabel: "Traducir automáticamente al {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-    setupProgress: "Configuración del idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definición original ({language})"
-  });
-  defineLocaleCatalog("fa", "machine-draft", {
-    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-    learnerLanguageLabel: "زبان شما",
-    targetLanguageLabel: "زبانی که یاد می‌گیرید",
-    targetJapanese: "ژاپنی",
-    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-    continueAction: "ادامه",
-    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩"
-  });
-  defineLocaleCatalog("fi", "machine-draft", {
-    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-    learnerLanguageLabel: "Oma kielesi",
-    targetLanguageLabel: "Opiskelemasi kieli",
-    targetJapanese: "Japani",
-    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-    automaticTranslationLabel: "Käännä automaattisesti: {language}",
-    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-    continueAction: "Jatka",
-    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})"
-  });
-  defineLocaleCatalog("fr", "machine-draft", {
-    setupTitle: "Configurez よむ dans votre langue",
-    learnerLanguageLabel: "Votre langue",
-    targetLanguageLabel: "Langue que vous apprenez",
-    targetJapanese: "Japonais",
-    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-    automaticTranslationLabel: "Traduire automatiquement en {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-    setupProgress: "Configuration de la langue : {current} sur {total}",
-    continueAction: "Continuer",
-    originalDefinitionLabel: "Définition originale en {language}"
-  });
-  defineLocaleCatalog("grc", "machine-draft", {
-    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-    targetJapanese: "Ἰαπωνική",
-    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-    continueAction: "Πρόβαινε",
-    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})"
-  });
-  defineLocaleCatalog("hu", "machine-draft", {
-    setupTitle: "A よむ beállítása az Ön nyelvén",
-    learnerLanguageLabel: "Az Ön nyelve",
-    targetLanguageLabel: "A tanult nyelv",
-    targetJapanese: "Japán",
-    recommendedDictionariesTitle: "Ajánlott japán szótárak",
-    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-    setupProgress: "Nyelvi beállítás: {current}/{total}",
-    continueAction: "Folytatás",
-    originalDefinitionLabel: "Eredeti meghatározás ({language})"
-  });
-  defineLocaleCatalog("id", "machine-draft", {
-    setupTitle: "Siapkan Yomu dalam bahasa Anda",
-    learnerLanguageLabel: "Bahasa Anda",
-    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-    targetJapanese: "Bahasa Jepang",
-    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-    setupProgress: "Penyiapan bahasa {current} dari {total}",
-    continueAction: "Lanjutkan",
-    originalDefinitionLabel: "Definisi asli dalam {language}"
-  });
-  defineLocaleCatalog("it", "machine-draft", {
-    setupTitle: "Configura よむ nella tua lingua",
-    learnerLanguageLabel: "La tua lingua",
-    targetLanguageLabel: "Lingua che stai imparando",
-    targetJapanese: "Giapponese",
-    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-    automaticTranslationLabel: "Traduci automaticamente in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-    setupProgress: "Configurazione della lingua: {current} di {total}",
-    continueAction: "Continua",
-    originalDefinitionLabel: "Definizione originale in {language}"
-  });
-  defineLocaleCatalog("km", "machine-draft", {
-    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-    learnerLanguageLabel: "ភាសារបស់អ្នក",
-    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-    targetJapanese: "ភាសាជប៉ុន",
-    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-    continueAction: "បន្ត",
-    originalDefinitionLabel: "និយមន័យដើម ({language})"
-  });
-  defineLocaleCatalog("ko", "machine-draft", {
-    setupTitle: "내 언어로 よむ 설정하기",
-    learnerLanguageLabel: "사용 언어",
-    targetLanguageLabel: "학습할 언어",
-    targetJapanese: "일본어",
-    recommendedDictionariesTitle: "추천 일본어 사전",
-    automaticTranslationLabel: "{language}로 자동 번역",
-    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-    setupProgress: "언어 설정: {total}단계 중 {current}단계",
-    continueAction: "계속",
-    originalDefinitionLabel: "원문({language})"
-  });
-  defineLocaleCatalog("la", "machine-draft", {
-    setupTitle: "Configura よむ in lingua tua",
-    learnerLanguageLabel: "Lingua tua",
-    targetLanguageLabel: "Lingua quam discis",
-    targetJapanese: "Lingua Iaponica",
-    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-    automaticTranslationLabel: "Automatice verte in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-    setupProgress: "Configuratio linguae: {current} ex {total}",
-    continueAction: "Perge",
-    originalDefinitionLabel: "Definitio originalis ({language})"
-  });
-  defineLocaleCatalog("lo", "machine-draft", {
-    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-    continueAction: "ສືບຕໍ່",
-    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})"
-  });
-  defineLocaleCatalog("mn", "machine-draft", {
-    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-    learnerLanguageLabel: "Таны хэл",
-    targetLanguageLabel: "Таны сурч буй хэл",
-    targetJapanese: "Япон хэл",
-    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-    setupProgress: "Хэлний тохиргоо: {current}/{total}",
-    continueAction: "Үргэлжлүүлэх",
-    originalDefinitionLabel: "Эх тайлбар ({language})"
-  });
-  defineLocaleCatalog("nl", "machine-draft", {
-    setupTitle: "Stel よむ in jouw taal in",
-    learnerLanguageLabel: "Jouw taal",
-    targetLanguageLabel: "Taal die je leert",
-    targetJapanese: "Japans",
-    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-    automaticTranslationLabel: "Automatisch vertalen naar {language}",
-    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-    setupProgress: "Taal instellen: {current} van {total}",
-    continueAction: "Doorgaan",
-    originalDefinitionLabel: "Oorspronkelijke definitie ({language})"
-  });
-  defineLocaleCatalog("pl", "machine-draft", {
-    setupTitle: "Skonfiguruj Yomu w swoim języku",
-    learnerLanguageLabel: "Twój język",
-    targetLanguageLabel: "Język, którego się uczysz",
-    targetJapanese: "Japoński",
-    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-    setupProgress: "Konfiguracja języka: {current} z {total}",
-    continueAction: "Kontynuuj",
-    originalDefinitionLabel: "Oryginalna definicja ({language})"
-  });
-  defineLocaleCatalog("pt", "machine-draft", {
-    setupTitle: "Configure o Yomu no seu idioma",
-    learnerLanguageLabel: "O seu idioma",
-    targetLanguageLabel: "Idioma que está a aprender",
-    targetJapanese: "Japonês",
-    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-    automaticTranslationLabel: "Traduzir automaticamente para {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-    setupProgress: "Configuração do idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definição original ({language})"
-  });
-  defineLocaleCatalog("ro", "machine-draft", {
-    setupTitle: "Configurează Yomu în limba ta",
-    learnerLanguageLabel: "Limba ta",
-    targetLanguageLabel: "Limba pe care o înveți",
-    targetJapanese: "Japoneză",
-    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-    automaticTranslationLabel: "Tradu automat în {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-    setupProgress: "Configurarea limbii: {current} din {total}",
-    continueAction: "Continuă",
-    originalDefinitionLabel: "Definiția originală în {language}"
-  });
-  defineLocaleCatalog("ru", "machine-draft", {
-    setupTitle: "Настройте Yomu на своём языке",
-    learnerLanguageLabel: "Ваш язык",
-    targetLanguageLabel: "Язык, который вы изучаете",
-    targetJapanese: "Японский",
-    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-    automaticTranslationLabel: "Автоматически переводить на {language}",
-    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-    setupProgress: "Настройка языка: {current} из {total}",
-    continueAction: "Продолжить",
-    originalDefinitionLabel: "Оригинал определения ({language})"
-  });
-  defineLocaleCatalog("sh", "machine-draft", {
-    setupTitle: "Podesite Yomu na svom jeziku",
-    learnerLanguageLabel: "Vaš jezik",
-    targetLanguageLabel: "Jezik koji učite",
-    targetJapanese: "Japanski",
-    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-    automaticTranslationLabel: "Automatski prevod na jezik {language}",
-    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-    setupProgress: "Podešavanje jezika: {current} od {total}",
-    continueAction: "Nastavi",
-    originalDefinitionLabel: "Originalna definicija ({language})"
-  });
-  defineLocaleCatalog("sq", "machine-draft", {
-    setupTitle: "Konfiguro よむ në gjuhën tënde",
-    learnerLanguageLabel: "Gjuha jote",
-    targetLanguageLabel: "Gjuha që po mëson",
-    targetJapanese: "Japonisht",
-    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-    automaticTranslationLabel: "Përkthe automatikisht në {language}",
-    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-    continueAction: "Vazhdo",
-    originalDefinitionLabel: "Origjinali në {language}"
-  });
-  defineLocaleCatalog("sv", "machine-draft", {
-    setupTitle: "Ställ in よむ på ditt språk",
-    learnerLanguageLabel: "Ditt språk",
-    targetLanguageLabel: "Språket du lär dig",
-    targetJapanese: "Japanska",
-    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-    automaticTranslationLabel: "Översätt automatiskt till {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-    setupProgress: "Språkinställning: {current} av {total}",
-    continueAction: "Fortsätt",
-    originalDefinitionLabel: "Ursprunglig definition på {language}"
-  });
-  defineLocaleCatalog("th", "machine-draft", {
-    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-    learnerLanguageLabel: "ภาษาของคุณ",
-    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-    targetJapanese: "ภาษาญี่ปุ่น",
-    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-    continueAction: "ดำเนินการต่อ",
-    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})"
-  });
-  defineLocaleCatalog("tl", "machine-draft", {
-    setupTitle: "I-set up ang Yomu sa iyong wika",
-    learnerLanguageLabel: "Iyong wika",
-    targetLanguageLabel: "Wikang pinag-aaralan mo",
-    targetJapanese: "Wikang Hapon",
-    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-    setupProgress: "Pag-set up ng wika: {current} sa {total}",
-    continueAction: "Magpatuloy",
-    originalDefinitionLabel: "Orihinal na depinisyon ({language})"
-  });
-  defineLocaleCatalog("tr", "machine-draft", {
-    setupTitle: "Yomu'yu dilinizde ayarlayın",
-    learnerLanguageLabel: "Diliniz",
-    targetLanguageLabel: "Öğrendiğiniz dil",
-    targetJapanese: "Japonca",
-    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-    setupProgress: "Dil ayarı: {current}/{total}",
-    continueAction: "Devam et",
-    originalDefinitionLabel: "Orijinal tanım ({language})"
-  });
-  defineLocaleCatalog("vi", "machine-draft", {
-    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-    learnerLanguageLabel: "Ngôn ngữ của bạn",
-    targetLanguageLabel: "Ngôn ngữ bạn đang học",
-    targetJapanese: "Tiếng Nhật",
-    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-    automaticTranslationLabel: "Tự động dịch sang {language}",
-    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-    continueAction: "Tiếp tục",
-    originalDefinitionLabel: "Định nghĩa gốc ({language})"
-  });
-  defineLocaleCatalog("yue", "machine-draft", {
-    setupTitle: "用你嘅語言設定よむ",
-    learnerLanguageLabel: "你嘅語言",
-    targetLanguageLabel: "你學緊嘅語言",
-    targetJapanese: "日文",
-    recommendedDictionariesTitle: "推薦嘅日文字典",
-    automaticTranslationLabel: "自動翻譯做{language}",
-    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-    setupProgress: "語言設定：第{current}步，共{total}步",
-    continueAction: "繼續",
-    originalDefinitionLabel: "原文（{language}）"
-  });
-  defineLocaleCatalog("zh", "machine-draft", {
-    setupTitle: "用您的语言设置よむ",
-    learnerLanguageLabel: "您的语言",
-    targetLanguageLabel: "您正在学习的语言",
-    targetJapanese: "日语",
-    recommendedDictionariesTitle: "推荐日语词典",
-    automaticTranslationLabel: "自动翻译为{language}",
-    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-    setupProgress: "语言设置：第{current}步，共{total}步",
-    continueAction: "继续",
-    originalDefinitionLabel: "{language}原文"
-  });
-  const languages = [
-    {
-      id: "sq",
-      runtimeLocale: "sq",
-      englishName: "Albanian",
-      nativeName: "Shqip",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "grc",
-      runtimeLocale: "grc",
-      englishName: "Ancient Greek",
-      nativeName: "Ἑλληνιστί",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ar",
-      runtimeLocale: "ar",
-      englishName: "Arabic",
-      nativeName: "العربية",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "yue",
-      runtimeLocale: "yue-Hant",
-      englishName: "Cantonese",
-      nativeName: "粵語",
-      defaultScript: "Hant",
-      scripts: [
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "zh",
-      runtimeLocale: "zh-Hans",
-      englishName: "Chinese",
-      nativeName: "中文（简体）",
-      defaultScript: "Hans",
-      scripts: [
-        "Hans",
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "da",
-      runtimeLocale: "da",
-      englishName: "Danish",
-      nativeName: "Dansk",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "nl",
-      runtimeLocale: "nl",
-      englishName: "Dutch",
-      nativeName: "Nederlands",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "en",
-      runtimeLocale: "en",
-      englishName: "English",
-      nativeName: "English",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fi",
-      runtimeLocale: "fi",
-      englishName: "Finnish",
-      nativeName: "Suomi",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fr",
-      runtimeLocale: "fr",
-      englishName: "French",
-      nativeName: "Français",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "de",
-      runtimeLocale: "de",
-      englishName: "German",
-      nativeName: "Deutsch",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "el",
-      runtimeLocale: "el",
-      englishName: "Greek",
-      nativeName: "Ελληνικά",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "hu",
-      runtimeLocale: "hu",
-      englishName: "Hungarian",
-      nativeName: "Magyar",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "id",
-      runtimeLocale: "id",
-      englishName: "Indonesian",
-      nativeName: "Bahasa Indonesia",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "it",
-      runtimeLocale: "it",
-      englishName: "Italian",
-      nativeName: "Italiano",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "km",
-      runtimeLocale: "km",
-      englishName: "Khmer",
-      nativeName: "ខ្មែរ",
-      defaultScript: "Khmr",
-      scripts: [
-        "Khmr"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ko",
-      runtimeLocale: "ko",
-      englishName: "Korean",
-      nativeName: "한국어",
-      defaultScript: "Kore",
-      scripts: [
-        "Kore"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "lo",
-      runtimeLocale: "lo",
-      englishName: "Lao",
-      nativeName: "ລາວ",
-      defaultScript: "Laoo",
-      scripts: [
-        "Laoo"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "la",
-      runtimeLocale: "la",
-      englishName: "Latin",
-      nativeName: "Latina",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "mn",
-      runtimeLocale: "mn-Cyrl",
-      englishName: "Mongolian",
-      nativeName: "Монгол",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl",
-        "Mong"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fa",
-      runtimeLocale: "fa",
-      englishName: "Persian",
-      nativeName: "فارسی",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "pl",
-      runtimeLocale: "pl",
-      englishName: "Polish",
-      nativeName: "Polski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "pt",
-      runtimeLocale: "pt",
-      englishName: "Portuguese",
-      nativeName: "Português",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ro",
-      runtimeLocale: "ro",
-      englishName: "Romanian",
-      nativeName: "Română",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ru",
-      runtimeLocale: "ru",
-      englishName: "Russian",
-      nativeName: "Русский",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sh",
-      runtimeLocale: "sr-Latn",
-      englishName: "Serbo-Croatian",
-      nativeName: "Srpskohrvatski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn",
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "es",
-      runtimeLocale: "es",
-      englishName: "Spanish",
-      nativeName: "Español",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sv",
-      runtimeLocale: "sv",
-      englishName: "Swedish",
-      nativeName: "Svenska",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tl",
-      runtimeLocale: "fil",
-      englishName: "Tagalog",
-      nativeName: "Tagalog",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "th",
-      runtimeLocale: "th",
-      englishName: "Thai",
-      nativeName: "ไทย",
-      defaultScript: "Thai",
-      scripts: [
-        "Thai"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tr",
-      runtimeLocale: "tr",
-      englishName: "Turkish",
-      nativeName: "Türkçe",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "vi",
-      runtimeLocale: "vi",
-      englishName: "Vietnamese",
-      nativeName: "Tiếng Việt",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    }
-  ];
-  const languageConfig = {
-    languages
-  };
-  const LEARNER_LANGUAGE_IDS = [
-    "sq",
-    "grc",
-    "ar",
-    "yue",
-    "zh",
-    "da",
-    "nl",
-    "en",
-    "fi",
-    "fr",
-    "de",
-    "el",
-    "hu",
-    "id",
-    "it",
-    "km",
-    "ko",
-    "lo",
-    "la",
-    "mn",
-    "fa",
-    "pl",
-    "pt",
-    "ro",
-    "ru",
-    "sh",
-    "es",
-    "sv",
-    "tl",
-    "th",
-    "tr",
-    "vi"
-  ];
-  const configuredLanguages = languageConfig.languages;
-  const LEARNER_LANGUAGES = Object.freeze(
-    configuredLanguages.map(
-      (language) => Object.freeze({
-        ...language,
-        scripts: Object.freeze([...language.scripts])
-      })
-    )
-  );
-  const LANGUAGE_BY_ID = new Map(
-    LEARNER_LANGUAGES.map((language) => [language.id, language])
-  );
-  function learnerLanguageById(id) {
-    const language = LANGUAGE_BY_ID.get(id);
-    if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
-    return language;
-  }
-  function isLearnerLanguageId(value) {
-    return LEARNER_LANGUAGE_IDS.includes(value);
-  }
-  const SCRIPT_PROPERTY_NAMES = Object.freeze({
-    Arab: "Arabic",
-    Cyrl: "Cyrillic",
-    Grek: "Greek",
-    Hans: "Han",
-    Hant: "Han",
-    Khmr: "Khmer",
-    Laoo: "Lao",
-    Latn: "Latin",
-    Mong: "Mongolian",
-    Thai: "Thai"
-  });
-  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => createLearningTargetModule({
-      id: `${language.id}-roster-v1`,
-      language: language.runtimeLocale,
-      direction: language.direction,
-      capabilities: {
-        segmentation: true,
-        "text-to-speech": true,
-        subtitles: true,
-        typing: true
-      },
-      featureSemantics: {
-        characterSystem: language.defaultScript,
-        phoneticScripts: [],
-        pronunciation: "none",
-        readingAnnotation: "none"
-      },
-      detectsText: scriptDetector(language.scripts)
-    }))
-  );
-  function scriptDetector(scripts) {
-    const properties = [...new Set(scripts.map((script) => SCRIPT_PROPERTY_NAMES[script]).filter((script) => Boolean(script)))];
-    if (!properties.length) return /\p{Letter}/u;
-    return new RegExp(properties.map((script) => `\\p{Script=${script}}`).join("|"), "u");
-  }
   const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
   const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   function registerLearningTargetModule(module) {
     if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
       throw new Error(
@@ -3731,9 +2881,6 @@ ${candidate.depth}`;
     }
     const base = languageSubtag(module.language);
     if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-    stack.push(module);
-    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
     MODULES_BY_LANGUAGE.set(base, module);
     return module;
   }
@@ -3748,14 +2895,8 @@ ${candidate.depth}`;
   function defaultLearningTargetModule() {
     return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
   }
-  function registerBuiltInLearningTargetModule(module) {
-    registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
-  }
-  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
+  registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerLearningTargetModule(KOREAN_LEARNING_TARGET);
   const CORE_COLOR_TOKENS = {
     white: "#ffffff"
   };
@@ -4482,20 +3623,421 @@ ${candidate.depth}`;
     return value.replace(/[_\s-]+/g, "").toLowerCase();
   }
   new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+  const languages = [
+    {
+      id: "sq",
+      runtimeLocale: "sq",
+      englishName: "Albanian",
+      nativeName: "Shqip",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "grc",
+      runtimeLocale: "grc",
+      englishName: "Ancient Greek",
+      nativeName: "Ἑλληνιστί",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ar",
+      runtimeLocale: "ar",
+      englishName: "Arabic",
+      nativeName: "العربية",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "yue",
+      runtimeLocale: "yue-Hant",
+      englishName: "Cantonese",
+      nativeName: "粵語",
+      defaultScript: "Hant",
+      scripts: [
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "zh",
+      runtimeLocale: "zh-Hans",
+      englishName: "Chinese",
+      nativeName: "中文（简体）",
+      defaultScript: "Hans",
+      scripts: [
+        "Hans",
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "da",
+      runtimeLocale: "da",
+      englishName: "Danish",
+      nativeName: "Dansk",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "nl",
+      runtimeLocale: "nl",
+      englishName: "Dutch",
+      nativeName: "Nederlands",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "en",
+      runtimeLocale: "en",
+      englishName: "English",
+      nativeName: "English",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fi",
+      runtimeLocale: "fi",
+      englishName: "Finnish",
+      nativeName: "Suomi",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fr",
+      runtimeLocale: "fr",
+      englishName: "French",
+      nativeName: "Français",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "de",
+      runtimeLocale: "de",
+      englishName: "German",
+      nativeName: "Deutsch",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "el",
+      runtimeLocale: "el",
+      englishName: "Greek",
+      nativeName: "Ελληνικά",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "hu",
+      runtimeLocale: "hu",
+      englishName: "Hungarian",
+      nativeName: "Magyar",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "id",
+      runtimeLocale: "id",
+      englishName: "Indonesian",
+      nativeName: "Bahasa Indonesia",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "it",
+      runtimeLocale: "it",
+      englishName: "Italian",
+      nativeName: "Italiano",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "km",
+      runtimeLocale: "km",
+      englishName: "Khmer",
+      nativeName: "ខ្មែរ",
+      defaultScript: "Khmr",
+      scripts: [
+        "Khmr"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ko",
+      runtimeLocale: "ko",
+      englishName: "Korean",
+      nativeName: "한국어",
+      defaultScript: "Kore",
+      scripts: [
+        "Kore"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "lo",
+      runtimeLocale: "lo",
+      englishName: "Lao",
+      nativeName: "ລາວ",
+      defaultScript: "Laoo",
+      scripts: [
+        "Laoo"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "la",
+      runtimeLocale: "la",
+      englishName: "Latin",
+      nativeName: "Latina",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "mn",
+      runtimeLocale: "mn-Cyrl",
+      englishName: "Mongolian",
+      nativeName: "Монгол",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl",
+        "Mong"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fa",
+      runtimeLocale: "fa",
+      englishName: "Persian",
+      nativeName: "فارسی",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "pl",
+      runtimeLocale: "pl",
+      englishName: "Polish",
+      nativeName: "Polski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "pt",
+      runtimeLocale: "pt",
+      englishName: "Portuguese",
+      nativeName: "Português",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ro",
+      runtimeLocale: "ro",
+      englishName: "Romanian",
+      nativeName: "Română",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ru",
+      runtimeLocale: "ru",
+      englishName: "Russian",
+      nativeName: "Русский",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sh",
+      runtimeLocale: "sr-Latn",
+      englishName: "Serbo-Croatian",
+      nativeName: "Srpskohrvatski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn",
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "es",
+      runtimeLocale: "es",
+      englishName: "Spanish",
+      nativeName: "Español",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sv",
+      runtimeLocale: "sv",
+      englishName: "Swedish",
+      nativeName: "Svenska",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tl",
+      runtimeLocale: "fil",
+      englishName: "Tagalog",
+      nativeName: "Tagalog",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "th",
+      runtimeLocale: "th",
+      englishName: "Thai",
+      nativeName: "ไทย",
+      defaultScript: "Thai",
+      scripts: [
+        "Thai"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tr",
+      runtimeLocale: "tr",
+      englishName: "Turkish",
+      nativeName: "Türkçe",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "vi",
+      runtimeLocale: "vi",
+      englishName: "Vietnamese",
+      nativeName: "Tiếng Việt",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    }
+  ];
+  const languageConfig = {
+    languages
+  };
+  const LEARNER_LANGUAGE_IDS = [
+    "sq",
+    "grc",
+    "ar",
+    "yue",
+    "zh",
+    "da",
+    "nl",
+    "en",
+    "fi",
+    "fr",
+    "de",
+    "el",
+    "hu",
+    "id",
+    "it",
+    "km",
+    "ko",
+    "lo",
+    "la",
+    "mn",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "sh",
+    "es",
+    "sv",
+    "tl",
+    "th",
+    "tr",
+    "vi"
+  ];
+  const configuredLanguages = languageConfig.languages;
+  const LEARNER_LANGUAGES = Object.freeze(
+    configuredLanguages.map(
+      (language) => Object.freeze({
+        ...language,
+        scripts: Object.freeze([...language.scripts])
+      })
+    )
+  );
+  const LANGUAGE_BY_ID = new Map(
+    LEARNER_LANGUAGES.map((language) => [language.id, language])
+  );
+  function learnerLanguageById(id) {
+    const language = LANGUAGE_BY_ID.get(id);
+    if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+    return language;
+  }
+  function isLearnerLanguageId(value) {
+    return LEARNER_LANGUAGE_IDS.includes(value);
+  }
   const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    scripts: Object.freeze(["Jpan"]),
-    direction: "ltr"
-  });
-  Object.freeze([
-    JAPANESE_TARGET_ROSTER_ENTRY,
-    ...LEARNER_LANGUAGES
-  ]);
   const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
     LEARNER_LANGUAGES.map((language) => [
       languageSubtag(language.runtimeLocale) ?? language.id,
@@ -4652,8 +4194,6 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
-finishSetup	セットアップを完了
-finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
@@ -4675,8 +4215,6 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。

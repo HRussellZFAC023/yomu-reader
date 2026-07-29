@@ -9,6 +9,7 @@ import {
     isBunproGradeableCard,
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import { LocalYomuSrsStorageError } from '../../src/reader/srs/local-yomu';
 
 function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
     return { ...DEFAULT_SETTINGS, ...overrides };
@@ -232,5 +233,37 @@ describe('Academy provider mutation state', () => {
 
         await provider!.reviewCard(target, 'okay');
         expect(target).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', dueAt: 2_000, lastReviewAt: 1_000 });
+    });
+
+    it('localizes storage failures before they reach learner-facing actions', async () => {
+        const failure = async (): Promise<never> => {
+            throw new LocalYomuSrsStorageError();
+        };
+        const [provider] = createApiSrsProviderAdapters({
+            jpdb: {} as never,
+            yomuLocal: {
+                id: 'yomu-local',
+                label: 'Academy',
+                capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+                hasCredential: () => true,
+                verify: async () => true,
+                stats: async () => ({ providerId: 'yomu-local', fetchedAt: 0 }),
+                queue: async () => ({ providerId: 'yomu-local', fetchedAt: 0, cards: [], dueCount: 0, newCount: 0, reviewCount: 0 }),
+                mine: failure,
+                review: failure,
+            },
+            isJpdbBackedCard,
+        }, settings({
+            apiKey: '',
+            yomuLocalSrsEnabled: true,
+            interfaceLanguage: 'ja',
+        })).filter(candidate => candidate.id === 'yomu-local');
+
+        await expect(provider!.addToDeck('yomu-local', { ...baseCard })).rejects.toThrow(
+            'Academyデッキを保存できませんでした。',
+        );
+        await expect(provider!.reviewCard({ ...baseCard }, 'okay')).rejects.toThrow(
+            'Academyデッキを保存できませんでした。',
+        );
     });
 });

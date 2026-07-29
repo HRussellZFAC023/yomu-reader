@@ -3913,403 +3913,387 @@ ${candidate.depth}`;
     },
     detectsText: HAS_HANGUL
   });
-  const ENGLISH_FALLBACK_MESSAGES = {
-    setupTitle: "Set up Yomu in your language",
-    learnerLanguageLabel: "Your language",
-    targetLanguageLabel: "Language you are learning",
-    targetJapanese: "Japanese",
-    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-    automaticTranslationLabel: "Translate automatically into {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-    setupProgress: "Language setup {current} of {total}",
-    continueAction: "Continue",
-    originalDefinitionLabel: "Original {language}"
-  };
-  function defineLocaleCatalog(locale, reviewStatus, messages) {
-    return Object.freeze({
-      locale,
-      reviewStatus,
-      sourceLocale: "en",
-      messages: Object.freeze(messages)
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  let registryRevision = 0;
+  function learningTargetRegistryRevision() {
+    return registryRevision;
+  }
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    MODULES_BY_LANGUAGE.set(base, module);
+    registryRevision++;
+    return module;
+  }
+  function learningTargetModuleFor(language) {
+    const canonical = canonicalLanguageTag(language);
+    const base = languageSubtag(canonical);
+    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+  }
+  function normalizeLearningTargetLanguage(value) {
+    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function defaultLearningTargetModule() {
+    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerLearningTargetModule(KOREAN_LEARNING_TARGET);
+  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+  let cachedTarget = null;
+  let cachedForLanguage = "";
+  let cachedForRegistryRevision = -1;
+  function activeLearningTarget() {
+    const revision = learningTargetRegistryRevision();
+    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
+      return cachedTarget;
+    }
+    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
+    cachedForLanguage = requestedTargetLanguage;
+    cachedForRegistryRevision = revision;
+    return cachedTarget;
+  }
+  function isTargetLanguageText(text2) {
+    return activeLearningTarget().isLookupableText(text2);
+  }
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  roleSelectors("menu,menubar,toolbar,tablist");
+  const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+  const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+  const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
+  const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+  const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+  let trustedHtmlPolicy;
+  function setInnerHtml(element, html) {
+    if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+  }
+  function parseHtmlDocument(html) {
+    const parsed = parseHtmlWithDomParser(html);
+    if (parsed) return parsed;
+    const fallback = document.implementation.createHTMLDocument("");
+    fallback.body.textContent = html;
+    return fallback;
+  }
+  function replaceWithHtmlFragment(element, html) {
+    try {
+      const ownerDocument = element.ownerDocument || document;
+      const { source, rootSelector } = contextualSanitizerSource(element, html);
+      const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+      const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+      if (!parsedRoot) return false;
+      sanitizeChildren(parsedRoot, parsed);
+      const fragment = ownerDocument.createDocumentFragment();
+      fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+      sanitizeChildren(fragment, ownerDocument);
+      const target = element.localName === "template" && "content" in element ? element.content : element;
+      target.replaceChildren(fragment);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function contextualSanitizerSource(element, html) {
+    if (element.namespaceURI === SVG_NAMESPACE) {
+      return {
+        source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+        rootSelector: "[data-yomu-sanitize-root]"
+      };
+    }
+    switch (element.localName.toLowerCase()) {
+      case "table":
+        return {
+          source: `<table data-yomu-sanitize-root>${html}</table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "thead":
+      case "tbody":
+      case "tfoot":
+        return {
+          source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "tr":
+        return {
+          source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "colgroup":
+        return {
+          source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "select":
+        return {
+          source: `<select data-yomu-sanitize-root>${html}</select>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "optgroup":
+        return {
+          source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      default:
+        return { source: html, rootSelector: "" };
+    }
+  }
+  function parseXmlDocument(source, mimeType = "text/xml") {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(source), mimeType);
+    } catch {
+      return document.implementation.createDocument(null, "");
+    }
+  }
+  function parseHtmlWithDomParser(html) {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+    } catch {
+      return null;
+    }
+  }
+  function escapeHtml(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function sanitizeChildren(parent, ownerDocument) {
+    for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType !== 1) continue;
+      const element = node;
+      const localName = element.localName.toLowerCase();
+      if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+        element.remove();
+        continue;
+      }
+      if (localName.includes("-")) {
+        sanitizeChildren(element, ownerDocument);
+        element.replaceWith(...Array.from(element.childNodes));
+        continue;
+      }
+      sanitizeElement(element, ownerDocument);
+      const childRoot = localName === "template" && "content" in element ? element.content : element;
+      sanitizeChildren(childRoot, ownerDocument);
+    }
+  }
+  function sanitizeElement(element, ownerDocument) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (name === "style") {
+        const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+        if (style) element.setAttribute(attribute.name, style);
+        else element.removeAttribute(attribute.name);
+      }
+    }
+    if (element.getAttribute("target")?.toLowerCase() === "_blank") {
+      const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+      rel.add("noopener");
+      rel.add("noreferrer");
+      element.setAttribute("rel", [...rel].join(" "));
+    }
+  }
+  function sanitizedInlineStyle(value, ownerDocument) {
+    const declaration = ownerDocument.createElement("span").style;
+    declaration.cssText = value;
+    const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+    let removedProperty = false;
+    for (const property of Array.from(declaration)) {
+      const propertyValue = declaration.getPropertyValue(property);
+      if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+        declaration.removeProperty(property);
+        removedProperty = true;
+      }
+    }
+    return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+  }
+  function isSafeHtmlUrl(value) {
+    const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+    if (!candidate) return true;
+    if (candidate.startsWith("#")) return true;
+    if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+    try {
+      const parsed = new URL(candidate, "https://yomureader.invalid/");
+      return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+    } catch {
+      return false;
+    }
+  }
+  function trustedHtml(value) {
+    try {
+      const factory = trustedTypesFactory();
+      if (!factory) return value;
+      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+      return trustedHtmlPolicy?.createHTML(value) ?? value;
+    } catch {
+      trustedHtmlPolicy = null;
+      return value;
+    }
+  }
+  function trustedTypesFactory() {
+    const root = globalThis;
+    return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+      (factory) => Boolean(factory)
+    );
+  }
+  function createTrustedHtmlPolicy(factory) {
+    const existing = factory.getPolicy?.("yomu-reader");
+    if (existing?.createHTML) return existing;
+    const options = { createHTML: (html) => html };
+    return createTrustedHtmlPolicyWithOptions(
+      factory,
+      pageCompartmentValue(options, {
+        cloneFunctions: true,
+        wrapReflectors: true
+      })
+    ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  let sandboxCompanions = {};
+  function registerYomuCompanion(key, value) {
+    writeYomuCompanions({
+      ...yomuCompanions(),
+      [key]: value
     });
   }
-  defineLocaleCatalog("ar", "machine-draft", {
-    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-    learnerLanguageLabel: "لغتك",
-    targetLanguageLabel: "اللغة التي تتعلمها",
-    targetJapanese: "اليابانية",
-    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-    continueAction: "متابعة",
-    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩"
-  });
-  defineLocaleCatalog("da", "machine-draft", {
-    setupTitle: "Opsæt よむ på dit sprog",
-    learnerLanguageLabel: "Dit sprog",
-    targetLanguageLabel: "Det sprog, du lærer",
-    targetJapanese: "Japansk",
-    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-    automaticTranslationLabel: "Oversæt automatisk til {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-    setupProgress: "Sprogopsætning: {current} af {total}",
-    continueAction: "Fortsæt",
-    originalDefinitionLabel: "Original på {language}"
-  });
-  defineLocaleCatalog("de", "machine-draft", {
-    setupTitle: "よむ in deiner Sprache einrichten",
-    learnerLanguageLabel: "Deine Sprache",
-    targetLanguageLabel: "Sprache, die du lernst",
-    targetJapanese: "Japanisch",
-    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-    setupProgress: "Sprache einrichten: {current} von {total}",
-    continueAction: "Weiter",
-    originalDefinitionLabel: "Originaldefinition auf {language}"
-  });
-  defineLocaleCatalog("el", "machine-draft", {
-    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-    learnerLanguageLabel: "Η γλώσσα σας",
-    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-    targetJapanese: "Ιαπωνικά",
-    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-    continueAction: "Συνέχεια",
-    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}"
-  });
-  defineLocaleCatalog(
-    "en",
-    "source-approved",
-    ENGLISH_FALLBACK_MESSAGES
+  function yomuKanjiStudyCompanion() {
+    return yomuCompanions().kanjiStudy;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    sandboxCompanions = value;
+    writeYomuCompanionsTarget(globalThis, value);
+    if (typeof window !== "undefined" && window !== globalThis) {
+      const pageValue = pageCompartmentRegistryValue(value);
+      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+  }
+  function pageCompartmentRegistryValue(value) {
+    const cloneInto = globalThis.cloneInto;
+    if (typeof cloneInto !== "function") return value;
+    try {
+      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return void 0;
+    }
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
+    }
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
+  function readerWordSurfaceText(element) {
+    const surface = readerWordChildSurfaceText(element);
+    return surface || element.getAttribute("data-surface") || "";
+  }
+  function readerWordChildSurfaceText(element) {
+    let text2 = "";
+    element.childNodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text2 += node.textContent ?? "";
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const child = node;
+      if (isSurfaceIgnoredElement(child)) return;
+      text2 += readerWordChildSurfaceText(child);
+    });
+    return text2;
+  }
+  function isSurfaceIgnoredElement(element) {
+    return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+  }
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
   );
-  defineLocaleCatalog("es", "machine-draft", {
-    setupTitle: "Configura Yomu en tu idioma",
-    learnerLanguageLabel: "Tu idioma",
-    targetLanguageLabel: "Idioma que estás aprendiendo",
-    targetJapanese: "Japonés",
-    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-    automaticTranslationLabel: "Traducir automáticamente al {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-    setupProgress: "Configuración del idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definición original ({language})"
-  });
-  defineLocaleCatalog("fa", "machine-draft", {
-    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-    learnerLanguageLabel: "زبان شما",
-    targetLanguageLabel: "زبانی که یاد می‌گیرید",
-    targetJapanese: "ژاپنی",
-    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-    continueAction: "ادامه",
-    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩"
-  });
-  defineLocaleCatalog("fi", "machine-draft", {
-    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-    learnerLanguageLabel: "Oma kielesi",
-    targetLanguageLabel: "Opiskelemasi kieli",
-    targetJapanese: "Japani",
-    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-    automaticTranslationLabel: "Käännä automaattisesti: {language}",
-    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-    continueAction: "Jatka",
-    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})"
-  });
-  defineLocaleCatalog("fr", "machine-draft", {
-    setupTitle: "Configurez よむ dans votre langue",
-    learnerLanguageLabel: "Votre langue",
-    targetLanguageLabel: "Langue que vous apprenez",
-    targetJapanese: "Japonais",
-    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-    automaticTranslationLabel: "Traduire automatiquement en {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-    setupProgress: "Configuration de la langue : {current} sur {total}",
-    continueAction: "Continuer",
-    originalDefinitionLabel: "Définition originale en {language}"
-  });
-  defineLocaleCatalog("grc", "machine-draft", {
-    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-    targetJapanese: "Ἰαπωνική",
-    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-    continueAction: "Πρόβαινε",
-    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})"
-  });
-  defineLocaleCatalog("hu", "machine-draft", {
-    setupTitle: "A よむ beállítása az Ön nyelvén",
-    learnerLanguageLabel: "Az Ön nyelve",
-    targetLanguageLabel: "A tanult nyelv",
-    targetJapanese: "Japán",
-    recommendedDictionariesTitle: "Ajánlott japán szótárak",
-    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-    setupProgress: "Nyelvi beállítás: {current}/{total}",
-    continueAction: "Folytatás",
-    originalDefinitionLabel: "Eredeti meghatározás ({language})"
-  });
-  defineLocaleCatalog("id", "machine-draft", {
-    setupTitle: "Siapkan Yomu dalam bahasa Anda",
-    learnerLanguageLabel: "Bahasa Anda",
-    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-    targetJapanese: "Bahasa Jepang",
-    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-    setupProgress: "Penyiapan bahasa {current} dari {total}",
-    continueAction: "Lanjutkan",
-    originalDefinitionLabel: "Definisi asli dalam {language}"
-  });
-  defineLocaleCatalog("it", "machine-draft", {
-    setupTitle: "Configura よむ nella tua lingua",
-    learnerLanguageLabel: "La tua lingua",
-    targetLanguageLabel: "Lingua che stai imparando",
-    targetJapanese: "Giapponese",
-    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-    automaticTranslationLabel: "Traduci automaticamente in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-    setupProgress: "Configurazione della lingua: {current} di {total}",
-    continueAction: "Continua",
-    originalDefinitionLabel: "Definizione originale in {language}"
-  });
-  defineLocaleCatalog("km", "machine-draft", {
-    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-    learnerLanguageLabel: "ភាសារបស់អ្នក",
-    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-    targetJapanese: "ភាសាជប៉ុន",
-    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-    continueAction: "បន្ត",
-    originalDefinitionLabel: "និយមន័យដើម ({language})"
-  });
-  defineLocaleCatalog("ko", "machine-draft", {
-    setupTitle: "내 언어로 よむ 설정하기",
-    learnerLanguageLabel: "사용 언어",
-    targetLanguageLabel: "학습할 언어",
-    targetJapanese: "일본어",
-    recommendedDictionariesTitle: "추천 일본어 사전",
-    automaticTranslationLabel: "{language}로 자동 번역",
-    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-    setupProgress: "언어 설정: {total}단계 중 {current}단계",
-    continueAction: "계속",
-    originalDefinitionLabel: "원문({language})"
-  });
-  defineLocaleCatalog("la", "machine-draft", {
-    setupTitle: "Configura よむ in lingua tua",
-    learnerLanguageLabel: "Lingua tua",
-    targetLanguageLabel: "Lingua quam discis",
-    targetJapanese: "Lingua Iaponica",
-    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-    automaticTranslationLabel: "Automatice verte in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-    setupProgress: "Configuratio linguae: {current} ex {total}",
-    continueAction: "Perge",
-    originalDefinitionLabel: "Definitio originalis ({language})"
-  });
-  defineLocaleCatalog("lo", "machine-draft", {
-    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-    continueAction: "ສືບຕໍ່",
-    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})"
-  });
-  defineLocaleCatalog("mn", "machine-draft", {
-    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-    learnerLanguageLabel: "Таны хэл",
-    targetLanguageLabel: "Таны сурч буй хэл",
-    targetJapanese: "Япон хэл",
-    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-    setupProgress: "Хэлний тохиргоо: {current}/{total}",
-    continueAction: "Үргэлжлүүлэх",
-    originalDefinitionLabel: "Эх тайлбар ({language})"
-  });
-  defineLocaleCatalog("nl", "machine-draft", {
-    setupTitle: "Stel よむ in jouw taal in",
-    learnerLanguageLabel: "Jouw taal",
-    targetLanguageLabel: "Taal die je leert",
-    targetJapanese: "Japans",
-    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-    automaticTranslationLabel: "Automatisch vertalen naar {language}",
-    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-    setupProgress: "Taal instellen: {current} van {total}",
-    continueAction: "Doorgaan",
-    originalDefinitionLabel: "Oorspronkelijke definitie ({language})"
-  });
-  defineLocaleCatalog("pl", "machine-draft", {
-    setupTitle: "Skonfiguruj Yomu w swoim języku",
-    learnerLanguageLabel: "Twój język",
-    targetLanguageLabel: "Język, którego się uczysz",
-    targetJapanese: "Japoński",
-    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-    setupProgress: "Konfiguracja języka: {current} z {total}",
-    continueAction: "Kontynuuj",
-    originalDefinitionLabel: "Oryginalna definicja ({language})"
-  });
-  defineLocaleCatalog("pt", "machine-draft", {
-    setupTitle: "Configure o Yomu no seu idioma",
-    learnerLanguageLabel: "O seu idioma",
-    targetLanguageLabel: "Idioma que está a aprender",
-    targetJapanese: "Japonês",
-    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-    automaticTranslationLabel: "Traduzir automaticamente para {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-    setupProgress: "Configuração do idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definição original ({language})"
-  });
-  defineLocaleCatalog("ro", "machine-draft", {
-    setupTitle: "Configurează Yomu în limba ta",
-    learnerLanguageLabel: "Limba ta",
-    targetLanguageLabel: "Limba pe care o înveți",
-    targetJapanese: "Japoneză",
-    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-    automaticTranslationLabel: "Tradu automat în {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-    setupProgress: "Configurarea limbii: {current} din {total}",
-    continueAction: "Continuă",
-    originalDefinitionLabel: "Definiția originală în {language}"
-  });
-  defineLocaleCatalog("ru", "machine-draft", {
-    setupTitle: "Настройте Yomu на своём языке",
-    learnerLanguageLabel: "Ваш язык",
-    targetLanguageLabel: "Язык, который вы изучаете",
-    targetJapanese: "Японский",
-    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-    automaticTranslationLabel: "Автоматически переводить на {language}",
-    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-    setupProgress: "Настройка языка: {current} из {total}",
-    continueAction: "Продолжить",
-    originalDefinitionLabel: "Оригинал определения ({language})"
-  });
-  defineLocaleCatalog("sh", "machine-draft", {
-    setupTitle: "Podesite Yomu na svom jeziku",
-    learnerLanguageLabel: "Vaš jezik",
-    targetLanguageLabel: "Jezik koji učite",
-    targetJapanese: "Japanski",
-    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-    automaticTranslationLabel: "Automatski prevod na jezik {language}",
-    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-    setupProgress: "Podešavanje jezika: {current} od {total}",
-    continueAction: "Nastavi",
-    originalDefinitionLabel: "Originalna definicija ({language})"
-  });
-  defineLocaleCatalog("sq", "machine-draft", {
-    setupTitle: "Konfiguro よむ në gjuhën tënde",
-    learnerLanguageLabel: "Gjuha jote",
-    targetLanguageLabel: "Gjuha që po mëson",
-    targetJapanese: "Japonisht",
-    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-    automaticTranslationLabel: "Përkthe automatikisht në {language}",
-    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-    continueAction: "Vazhdo",
-    originalDefinitionLabel: "Origjinali në {language}"
-  });
-  defineLocaleCatalog("sv", "machine-draft", {
-    setupTitle: "Ställ in よむ på ditt språk",
-    learnerLanguageLabel: "Ditt språk",
-    targetLanguageLabel: "Språket du lär dig",
-    targetJapanese: "Japanska",
-    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-    automaticTranslationLabel: "Översätt automatiskt till {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-    setupProgress: "Språkinställning: {current} av {total}",
-    continueAction: "Fortsätt",
-    originalDefinitionLabel: "Ursprunglig definition på {language}"
-  });
-  defineLocaleCatalog("th", "machine-draft", {
-    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-    learnerLanguageLabel: "ภาษาของคุณ",
-    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-    targetJapanese: "ภาษาญี่ปุ่น",
-    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-    continueAction: "ดำเนินการต่อ",
-    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})"
-  });
-  defineLocaleCatalog("tl", "machine-draft", {
-    setupTitle: "I-set up ang Yomu sa iyong wika",
-    learnerLanguageLabel: "Iyong wika",
-    targetLanguageLabel: "Wikang pinag-aaralan mo",
-    targetJapanese: "Wikang Hapon",
-    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-    setupProgress: "Pag-set up ng wika: {current} sa {total}",
-    continueAction: "Magpatuloy",
-    originalDefinitionLabel: "Orihinal na depinisyon ({language})"
-  });
-  defineLocaleCatalog("tr", "machine-draft", {
-    setupTitle: "Yomu'yu dilinizde ayarlayın",
-    learnerLanguageLabel: "Diliniz",
-    targetLanguageLabel: "Öğrendiğiniz dil",
-    targetJapanese: "Japonca",
-    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-    setupProgress: "Dil ayarı: {current}/{total}",
-    continueAction: "Devam et",
-    originalDefinitionLabel: "Orijinal tanım ({language})"
-  });
-  defineLocaleCatalog("vi", "machine-draft", {
-    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-    learnerLanguageLabel: "Ngôn ngữ của bạn",
-    targetLanguageLabel: "Ngôn ngữ bạn đang học",
-    targetJapanese: "Tiếng Nhật",
-    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-    automaticTranslationLabel: "Tự động dịch sang {language}",
-    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-    continueAction: "Tiếp tục",
-    originalDefinitionLabel: "Định nghĩa gốc ({language})"
-  });
-  defineLocaleCatalog("yue", "machine-draft", {
-    setupTitle: "用你嘅語言設定よむ",
-    learnerLanguageLabel: "你嘅語言",
-    targetLanguageLabel: "你學緊嘅語言",
-    targetJapanese: "日文",
-    recommendedDictionariesTitle: "推薦嘅日文字典",
-    automaticTranslationLabel: "自動翻譯做{language}",
-    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-    setupProgress: "語言設定：第{current}步，共{total}步",
-    continueAction: "繼續",
-    originalDefinitionLabel: "原文（{language}）"
-  });
-  defineLocaleCatalog("zh", "machine-draft", {
-    setupTitle: "用您的语言设置よむ",
-    learnerLanguageLabel: "您的语言",
-    targetLanguageLabel: "您正在学习的语言",
-    targetJapanese: "日语",
-    recommendedDictionariesTitle: "推荐日语词典",
-    automaticTranslationLabel: "自动翻译为{language}",
-    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-    setupProgress: "语言设置：第{current}步，共{total}步",
-    continueAction: "继续",
-    originalDefinitionLabel: "{language}原文"
-  });
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+  );
+  ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
   const languages = [
     {
       id: "sq",
@@ -4724,449 +4708,7 @@ ${candidate.depth}`;
   function isLearnerLanguageId(value) {
     return LEARNER_LANGUAGE_IDS.includes(value);
   }
-  const SCRIPT_PROPERTY_NAMES = Object.freeze({
-    Arab: "Arabic",
-    Cyrl: "Cyrillic",
-    Grek: "Greek",
-    Hans: "Han",
-    Hant: "Han",
-    Khmr: "Khmer",
-    Laoo: "Lao",
-    Latn: "Latin",
-    Mong: "Mongolian",
-    Thai: "Thai"
-  });
-  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => createLearningTargetModule({
-      id: `${language.id}-roster-v1`,
-      language: language.runtimeLocale,
-      direction: language.direction,
-      capabilities: {
-        segmentation: true,
-        "text-to-speech": true,
-        subtitles: true,
-        typing: true
-      },
-      featureSemantics: {
-        characterSystem: language.defaultScript,
-        phoneticScripts: [],
-        pronunciation: "none",
-        readingAnnotation: "none"
-      },
-      detectsText: scriptDetector(language.scripts)
-    }))
-  );
-  function scriptDetector(scripts) {
-    const properties = [...new Set(scripts.map((script) => SCRIPT_PROPERTY_NAMES[script]).filter((script) => Boolean(script)))];
-    if (!properties.length) return /\p{Letter}/u;
-    return new RegExp(properties.map((script) => `\\p{Script=${script}}`).join("|"), "u");
-  }
-  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  let registryRevision = 0;
-  function learningTargetRegistryRevision() {
-    return registryRevision;
-  }
-  function registerLearningTargetModule(module) {
-    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-      throw new Error(
-        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
-      );
-    }
-    const base = languageSubtag(module.language);
-    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-    stack.push(module);
-    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    MODULES_BY_LANGUAGE.set(base, module);
-    registryRevision++;
-    return module;
-  }
-  function learningTargetModuleFor(language) {
-    const canonical = canonicalLanguageTag(language);
-    const base = languageSubtag(canonical);
-    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
-  }
-  function normalizeLearningTargetLanguage(value) {
-    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-  }
-  function defaultLearningTargetModule() {
-    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-  }
-  function registerBuiltInLearningTargetModule(module) {
-    registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
-  }
-  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
-  let cachedTarget = null;
-  let cachedForLanguage = "";
-  let cachedForRegistryRevision = -1;
-  function activeLearningTarget() {
-    const revision = learningTargetRegistryRevision();
-    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
-      return cachedTarget;
-    }
-    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
-    cachedForLanguage = requestedTargetLanguage;
-    cachedForRegistryRevision = revision;
-    return cachedTarget;
-  }
-  function isTargetLanguageText(text2) {
-    return activeLearningTarget().isLookupableText(text2);
-  }
-  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-  roleSelectors("menu,menubar,toolbar,tablist");
-  const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-  const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-  const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
-  const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-  const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-  let trustedHtmlPolicy;
-  function setInnerHtml(element, html) {
-    if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
-  }
-  function parseHtmlDocument(html) {
-    const parsed = parseHtmlWithDomParser(html);
-    if (parsed) return parsed;
-    const fallback = document.implementation.createHTMLDocument("");
-    fallback.body.textContent = html;
-    return fallback;
-  }
-  function replaceWithHtmlFragment(element, html) {
-    try {
-      const ownerDocument = element.ownerDocument || document;
-      const { source, rootSelector } = contextualSanitizerSource(element, html);
-      const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-      const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-      if (!parsedRoot) return false;
-      sanitizeChildren(parsedRoot, parsed);
-      const fragment = ownerDocument.createDocumentFragment();
-      fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-      sanitizeChildren(fragment, ownerDocument);
-      const target = element.localName === "template" && "content" in element ? element.content : element;
-      target.replaceChildren(fragment);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function contextualSanitizerSource(element, html) {
-    if (element.namespaceURI === SVG_NAMESPACE) {
-      return {
-        source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-        rootSelector: "[data-yomu-sanitize-root]"
-      };
-    }
-    switch (element.localName.toLowerCase()) {
-      case "table":
-        return {
-          source: `<table data-yomu-sanitize-root>${html}</table>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      case "thead":
-      case "tbody":
-      case "tfoot":
-        return {
-          source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      case "tr":
-        return {
-          source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      case "colgroup":
-        return {
-          source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      case "select":
-        return {
-          source: `<select data-yomu-sanitize-root>${html}</select>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      case "optgroup":
-        return {
-          source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-          rootSelector: "[data-yomu-sanitize-root]"
-        };
-      default:
-        return { source: html, rootSelector: "" };
-    }
-  }
-  function parseXmlDocument(source, mimeType = "text/xml") {
-    try {
-      return new DOMParser().parseFromString(trustedHtml(source), mimeType);
-    } catch {
-      return document.implementation.createDocument(null, "");
-    }
-  }
-  function parseHtmlWithDomParser(html) {
-    try {
-      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
-    } catch {
-      return null;
-    }
-  }
-  function escapeHtml(value) {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-  function sanitizeChildren(parent, ownerDocument) {
-    for (const node of Array.from(parent.childNodes)) {
-      if (node.nodeType !== 1) continue;
-      const element = node;
-      const localName = element.localName.toLowerCase();
-      if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-        element.remove();
-        continue;
-      }
-      if (localName.includes("-")) {
-        sanitizeChildren(element, ownerDocument);
-        element.replaceWith(...Array.from(element.childNodes));
-        continue;
-      }
-      sanitizeElement(element, ownerDocument);
-      const childRoot = localName === "template" && "content" in element ? element.content : element;
-      sanitizeChildren(childRoot, ownerDocument);
-    }
-  }
-  function sanitizeElement(element, ownerDocument) {
-    for (const attribute of Array.from(element.attributes)) {
-      const name = attribute.name.toLowerCase();
-      if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-        element.removeAttribute(attribute.name);
-        continue;
-      }
-      if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-        element.removeAttribute(attribute.name);
-        continue;
-      }
-      if (name === "style") {
-        const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-        if (style) element.setAttribute(attribute.name, style);
-        else element.removeAttribute(attribute.name);
-      }
-    }
-    if (element.getAttribute("target")?.toLowerCase() === "_blank") {
-      const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-      rel.add("noopener");
-      rel.add("noreferrer");
-      element.setAttribute("rel", [...rel].join(" "));
-    }
-  }
-  function sanitizedInlineStyle(value, ownerDocument) {
-    const declaration = ownerDocument.createElement("span").style;
-    declaration.cssText = value;
-    const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-    let removedProperty = false;
-    for (const property of Array.from(declaration)) {
-      const propertyValue = declaration.getPropertyValue(property);
-      if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-        declaration.removeProperty(property);
-        removedProperty = true;
-      }
-    }
-    return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-  }
-  function isSafeHtmlUrl(value) {
-    const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-    if (!candidate) return true;
-    if (candidate.startsWith("#")) return true;
-    if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-    try {
-      const parsed = new URL(candidate, "https://yomureader.invalid/");
-      return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-    } catch {
-      return false;
-    }
-  }
-  function trustedHtml(value) {
-    try {
-      const factory = trustedTypesFactory();
-      if (!factory) return value;
-      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-      return trustedHtmlPolicy?.createHTML(value) ?? value;
-    } catch {
-      trustedHtmlPolicy = null;
-      return value;
-    }
-  }
-  function trustedTypesFactory() {
-    const root = globalThis;
-    return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-      (factory) => Boolean(factory)
-    );
-  }
-  function createTrustedHtmlPolicy(factory) {
-    const existing = factory.getPolicy?.("yomu-reader");
-    if (existing?.createHTML) return existing;
-    const options = { createHTML: (html) => html };
-    return createTrustedHtmlPolicyWithOptions(
-      factory,
-      pageCompartmentValue(options, {
-        cloneFunctions: true,
-        wrapReflectors: true
-      })
-    ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-  }
-  function createTrustedHtmlPolicyWithOptions(factory, options) {
-    try {
-      return factory.createPolicy?.("yomu-reader", options) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuKanjiStudyCompanion() {
-    return yomuCompanions().kanjiStudy;
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    writeYomuCompanionsTarget(globalThis, value);
-    if (typeof window !== "undefined" && window !== globalThis) {
-      const pageValue = pageCompartmentRegistryValue(value);
-      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-    }
-  }
-  function pageCompartmentRegistryValue(value) {
-    const cloneInto = globalThis.cloneInto;
-    if (typeof cloneInto !== "function") return value;
-    try {
-      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return void 0;
-    }
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
-  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-  function readerWordSurfaceText(element) {
-    const surface = readerWordChildSurfaceText(element);
-    return surface || element.getAttribute("data-surface") || "";
-  }
-  function readerWordChildSurfaceText(element) {
-    let text2 = "";
-    element.childNodes.forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        text2 += node.textContent ?? "";
-        return;
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return;
-      const child = node;
-      if (isSurfaceIgnoredElement(child)) return;
-      text2 += readerWordChildSurfaceText(child);
-    });
-    return text2;
-  }
-  function isSurfaceIgnoredElement(element) {
-    return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-  );
-  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-  );
-  ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  function normalizeAnkiFieldName(value) {
-    return value.replace(/[_\s-]+/g, "").toLowerCase();
-  }
-  new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
   const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    scripts: Object.freeze(["Jpan"]),
-    direction: "ltr"
-  });
-  Object.freeze([
-    JAPANESE_TARGET_ROSTER_ENTRY,
-    ...LEARNER_LANGUAGES
-  ]);
   const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
     LEARNER_LANGUAGES.map((language) => [
       languageSubtag(language.runtimeLocale) ?? language.id,
@@ -5990,8 +5532,6 @@ ${candidate.depth}`;
       download: "Download",
       update: "Update",
       checkingDictionaries: "Checking imported dictionaries...",
-      targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
-      targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -6457,8 +5997,6 @@ ${candidate.depth}`;
       jpdbKanjiActionBlacklist: "Blacklist",
       jpdbKanjiActionReview: "Review",
       noDefinitions: "No enabled definition source returned results.",
-      finishSetup: "Finish setup",
-      finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
       enabledHeader: "On",
       labelHeader: "Label",
       detailsHeader: "Details",
@@ -6665,8 +6203,6 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
-finishSetup	セットアップを完了
-finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
@@ -6688,8 +6224,6 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。

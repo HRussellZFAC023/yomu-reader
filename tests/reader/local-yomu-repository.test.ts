@@ -1,4 +1,8 @@
-import { LocalYomuSrsRepository, yomuSrsImportBatch } from '../../src/reader/srs/local-yomu';
+import {
+    LocalYomuSrsRepository,
+    subscribeLocalYomuSrsMutations,
+    yomuSrsImportBatch,
+} from '../../src/reader/srs/local-yomu';
 import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import { mergeStoredYomuSrsDecks } from '../../src/reader/srs/local-yomu-deck';
 
@@ -49,8 +53,9 @@ describe('LocalYomuSrsRepository semantic collection', () => {
         expect(queue.cards[0]?.meanings[0]?.glosses).toEqual(['read A', 'A reading']);
 
         await repository.review({ card: queue.cards[0]!, grade: 'good' });
-        const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as { cards?: Record<string, unknown> };
-        expect(Object.keys(persisted.cards ?? {})).toEqual([semanticId]);
+        expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+        const persisted = await repository.snapshot();
+        expect(Object.keys(persisted.cards)).toEqual([semanticId]);
     });
 
     it('serializes concurrent normalized retries and merges distinct lesson provenance into one card', async () => {
@@ -100,8 +105,8 @@ describe('LocalYomuSrsRepository semantic collection', () => {
             second.mine({ expression: '書く', reading: 'かく', meaning: 'to write' }),
         ]);
 
-        const stored = values.get(STORAGE_KEY) as { cards?: Record<string, unknown> };
-        expect(Object.keys(stored.cards ?? {}).sort()).toEqual([
+        const stored = await first.snapshot();
+        expect(Object.keys(stored.cards).sort()).toEqual([
             canonicalStudyCardKey('書く', 'かく'),
             canonicalStudyCardKey('読む', 'よむ'),
         ].sort());
@@ -232,6 +237,66 @@ describe('LocalYomuSrsRepository semantic collection', () => {
             card: { state: ['learning'], dueAt: now + 2 * 86_400_000, lastReviewAt: now },
             raw: { imported: 0, skipped: 1 },
         });
+    });
+
+    it('reports hosted Study quota exhaustion without announcing a saved mine', async () => {
+        const originalSetItem = Storage.prototype.setItem;
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM_setValue', undefined);
+        const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+            if (key.startsWith('yomu:srs-local:')) {
+                throw new DOMException(`Quota filled at ${value.length} chars`, 'QuotaExceededError');
+            }
+            originalSetItem.call(this, key, value);
+        });
+        const mutation = vi.fn();
+        const unsubscribe = subscribeLocalYomuSrsMutations(mutation);
+
+        try {
+            const mine = new LocalYomuSrsRepository(() => 1_000_000).mine({
+                expression: '守る',
+                reading: 'まもる',
+                meaning: 'to protect',
+                sentence: 'デッキを守る。',
+                sourceUrl: 'https://yomureader.com/study/',
+            });
+
+            await expect(mine).rejects.toMatchObject({ name: 'LocalYomuSrsStorageError' });
+            expect(mutation).not.toHaveBeenCalled();
+        } finally {
+            unsubscribe();
+            setItem.mockRestore();
+        }
+    });
+
+    it('migrates the legacy single-key deck idempotently', async () => {
+        const now = 1_000_000;
+        const firstId = canonicalStudyCardKey('読む', 'よむ');
+        const secondId = canonicalStudyCardKey('書く', 'かく');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            version: 1,
+            cards: {
+                [firstId]: storedCard({ id: firstId, expression: '読む', reading: 'よむ' }),
+                [secondId]: storedCard({ id: secondId, expression: '書く', reading: 'かく' }),
+            },
+            tombstones: { deleted: now - 1 },
+        }));
+
+        const repository = new LocalYomuSrsRepository(() => now);
+        const first = await repository.snapshot();
+        const second = await repository.snapshot();
+        const index = JSON.parse(localStorage.getItem('yomu:srs-local:v2:index') ?? '{}') as {
+            cardIds?: string[];
+            tombstoneIds?: string[];
+        };
+
+        expect(first).toEqual(second);
+        expect(Object.keys(second.cards).sort()).toEqual([firstId, secondId].sort());
+        expect(index.cardIds).toEqual([firstId, secondId].sort());
+        expect(index.tombstoneIds).toEqual(['deleted']);
+        expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+        expect([...Array(localStorage.length)].map((_, position) => localStorage.key(position))
+            .filter(key => key?.includes(':card:'))).toHaveLength(2);
     });
 
     it('never deletes an independently mined card when Academy provenance is undone', async () => {

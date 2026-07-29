@@ -27817,7 +27817,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
     // Local no-account SRS deck.
-    { owner: "app/storage", kind: "gm", key: "yomu:srs-local:v1" },
+    { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
+    { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
     // Anki status index (GM leases + IndexedDB store).
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
     { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
@@ -27888,7 +27889,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
-  const YOMU_LOCAL_SRS_STORAGE_KEY$1 = "yomu:srs-local:v1";
+  const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
+  const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+  const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
+  const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
   const MANAGED_CACHE_NAME_PREFIXES = [
     "yomu-newtab-",
     "yomu-pdf-reader-",
@@ -28093,7 +28097,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         debugStorageError("GM storage write failed", key2, error);
       }
     }
-    localStorageSet(key2, localFallbackValueForWrite(key2, value));
+    localStorageSetOrThrow(key2, localFallbackValueForWrite(key2, value));
   }
   async function gmPrivateStorageSet(key2, value) {
     assertPrivateStorageKey(key2);
@@ -28174,13 +28178,60 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function importStoredValues(values) {
     let count2 = 0;
-    for (const [key2, value] of managedStoredValueEntries(values)) {
-      const storedValue = key2 === YOMU_LOCAL_SRS_STORAGE_KEY$1 ? await mergeYomuLocalSrsDeckImport(value) : value;
+    const entries2 = managedStoredValueEntries(values).sort(([left], [right]) => Number(left === YOMU_LOCAL_SRS_V2_INDEX_KEY) - Number(right === YOMU_LOCAL_SRS_V2_INDEX_KEY));
+    for (const [key2, value] of entries2) {
+      const storedValue = key2 === YOMU_LOCAL_SRS_STORAGE_KEY ? await mergeYomuLocalSrsDeckImport(value) : await mergeYomuLocalSrsV2Import(key2, value);
       await gmStorageSet(key2, storedValue);
       localStorageSet(key2, storedValue);
       count2++;
     }
     return count2;
+  }
+  async function mergeYomuLocalSrsV2Import(key2, imported) {
+    if (key2 === YOMU_LOCAL_SRS_V2_INDEX_KEY) {
+      const existing = await gmStorageGet(key2, null).catch(() => null);
+      if (!isPlainRecord$1(imported) || !isPlainRecord$1(existing)) return imported;
+      return {
+        version: 2,
+        revision: Math.max(
+          nonNegativeSafeInteger(existing.revision),
+          nonNegativeSafeInteger(imported.revision)
+        ) + 1,
+        cardIds: mergedStringIds(existing.cardIds, imported.cardIds),
+        tombstoneIds: mergedStringIds(existing.tombstoneIds, imported.tombstoneIds)
+      };
+    }
+    if (key2.startsWith(YOMU_LOCAL_SRS_V2_CARD_PREFIX)) {
+      const id2 = decodeStoredYomuSrsId(key2.slice(YOMU_LOCAL_SRS_V2_CARD_PREFIX.length));
+      const existing = await gmStorageGet(key2, null).catch(() => null);
+      if (!id2 || !isPlainRecord$1(imported) || !isPlainRecord$1(existing)) return imported;
+      return mergeYomuLocalSrsCards(
+        { [id2]: existing },
+        { [id2]: imported }
+      )[id2] ?? imported;
+    }
+    if (key2.startsWith(YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX)) {
+      const existing = await gmStorageGet(key2, null).catch(() => null);
+      return Math.max(nonNegativeSafeInteger(existing), nonNegativeSafeInteger(imported));
+    }
+    return imported;
+  }
+  function mergedStringIds(left, right) {
+    return [.../* @__PURE__ */ new Set([
+      ...Array.isArray(left) ? left.filter((value) => typeof value === "string") : [],
+      ...Array.isArray(right) ? right.filter((value) => typeof value === "string") : []
+    ])].sort();
+  }
+  function nonNegativeSafeInteger(value) {
+    const number = Number(value);
+    return Number.isSafeInteger(number) && number >= 0 ? number : 0;
+  }
+  function decodeStoredYomuSrsId(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return null;
+    }
   }
   function managedStoredValueEntries(values) {
     return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
@@ -28191,7 +28242,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function mergeYomuLocalSrsDeckImport(imported) {
     const importedDeck = yomuLocalSrsDeckRecord(imported);
     if (!importedDeck) return imported;
-    const existingDeck = yomuLocalSrsDeckRecord(await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY$1, null).catch(() => null));
+    const existingDeck = yomuLocalSrsDeckRecord(await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null));
     if (!existingDeck) return importedDeck;
     return {
       version: 1,
@@ -28474,6 +28525,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       localStorage.setItem(key2, JSON.stringify(value));
     } catch {
     }
+  }
+  function localStorageSetOrThrow(key2, value) {
+    localStorage.setItem(key2, JSON.stringify(value));
   }
   function removeLocalStorageKey(key2) {
     try {
@@ -29558,7 +29612,109 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function nonNegativeInteger$3(value) {
     return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
   }
-  const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
+  const LEGACY_DECK_KEY = "yomu:srs-local:v1";
+  const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
+  const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
+  const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+  class LocalYomuSrsStorageError extends Error {
+    constructor(options) {
+      super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+      this.name = "LocalYomuSrsStorageError";
+    }
+  }
+  function isLocalYomuSrsStorageError(error) {
+    return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+  }
+  class LocalYomuSrsStore {
+    async read() {
+      const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+      const index = normalizeIndex(rawIndex);
+      const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
+      const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
+      if (legacy === null || legacy === void 0) return current;
+      const migrated = mergeStoredYomuSrsDecks(current, legacy);
+      await this.write(current, migrated);
+      await gmStorageDelete(LEGACY_DECK_KEY);
+      return migrated;
+    }
+    async write(previousValue, nextValue) {
+      const previous = normalizeStoredYomuSrsDeck(previousValue);
+      const next = normalizeStoredYomuSrsDeck(nextValue);
+      const previousIndex = indexForDeck(previous);
+      const storedIndex = normalizeIndex(await gmStorageGet(DECK_INDEX_KEY, null));
+      const nextIndex = indexForDeck(next, (storedIndex?.revision ?? 0) + 1);
+      const newlyCreatedKeys = [];
+      try {
+        for (const [id2, card] of Object.entries(next.cards)) {
+          if (sameStoredValue(previous.cards[id2], card)) continue;
+          const key2 = cardStorageKey(id2);
+          await gmStorageSet(key2, card);
+          if (!previous.cards[id2]) newlyCreatedKeys.push(key2);
+        }
+        for (const [id2, deletedAt] of Object.entries(next.tombstones ?? {})) {
+          if (previous.tombstones?.[id2] === deletedAt) continue;
+          const key2 = tombstoneStorageKey(id2);
+          await gmStorageSet(key2, deletedAt);
+          if (previous.tombstones?.[id2] === void 0) newlyCreatedKeys.push(key2);
+        }
+        await gmStorageSet(DECK_INDEX_KEY, nextIndex);
+      } catch (error) {
+        await Promise.all(newlyCreatedKeys.map((key2) => gmStorageDelete(key2)));
+        throw new LocalYomuSrsStorageError({ cause: error });
+      }
+      await Promise.all([
+        ...previousIndex.cardIds.filter((id2) => !next.cards[id2]).map((id2) => gmStorageDelete(cardStorageKey(id2))),
+        ...previousIndex.tombstoneIds.filter((id2) => next.tombstones?.[id2] === void 0).map((id2) => gmStorageDelete(tombstoneStorageKey(id2)))
+      ]);
+    }
+    async readIndexedDeck(index) {
+      const cards = await Promise.all(index.cardIds.map(async (id2) => [
+        id2,
+        await gmStorageGet(cardStorageKey(id2), null)
+      ]));
+      const tombstones = await Promise.all(index.tombstoneIds.map(async (id2) => [
+        id2,
+        await gmStorageGet(tombstoneStorageKey(id2), null)
+      ]));
+      return normalizeStoredYomuSrsDeck({
+        version: 1,
+        cards: Object.fromEntries(cards.filter((entry2) => Boolean(entry2[1] && typeof entry2[1] === "object"))),
+        tombstones: Object.fromEntries(tombstones.filter((entry2) => typeof entry2[1] === "number" && Number.isFinite(entry2[1])))
+      });
+    }
+  }
+  function normalizeIndex(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const candidate2 = value;
+    if (candidate2.version !== 2) return null;
+    if (!Array.isArray(candidate2.cardIds) || !candidate2.cardIds.every((id2) => typeof id2 === "string")) return null;
+    if (!Array.isArray(candidate2.tombstoneIds) || !candidate2.tombstoneIds.every((id2) => typeof id2 === "string")) return null;
+    return {
+      version: 2,
+      revision: Number.isSafeInteger(candidate2.revision) && Number(candidate2.revision) >= 0 ? Number(candidate2.revision) : 0,
+      cardIds: [...new Set(candidate2.cardIds)].sort(),
+      tombstoneIds: [...new Set(candidate2.tombstoneIds)].sort()
+    };
+  }
+  function indexForDeck(deck, revision2 = 0) {
+    return {
+      version: 2,
+      revision: revision2,
+      cardIds: Object.keys(deck.cards).sort(),
+      tombstoneIds: Object.keys(deck.tombstones ?? {}).sort()
+    };
+  }
+  function sameStoredValue(left, right) {
+    if (left === right) return true;
+    if (left === void 0 || right === void 0) return false;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  function cardStorageKey(id2) {
+    return `${CARD_KEY_PREFIX}${encodeURIComponent(id2)}`;
+  }
+  function tombstoneStorageKey(id2) {
+    return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id2)}`;
+  }
   let localDeckMutation = Promise.resolve();
   const localDeckMutationListeners = /* @__PURE__ */ new Set();
   function subscribeLocalYomuSrsMutations(listener) {
@@ -29569,6 +29725,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     constructor(now = () => Date.now()) {
       this.now = now;
     }
+    store = new LocalYomuSrsStore();
     async importBatch(batch) {
       return this.mutateDeck((deck) => {
         let imported = 0;
@@ -29737,19 +29894,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return result2;
     }
     async readDeckUncoordinated() {
-      const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-      return normalizeStoredYomuSrsDeck(stored);
+      return this.store.read();
     }
-    writeDeck(deck) {
-      return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
+    writeDeck(previous, deck) {
+      return this.store.write(previous, deck);
     }
     mutateDeck(operation, notifyMutations = true) {
       const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
         const deck = await this.readDeckUncoordinated();
+        const previousDeck = structuredClone(deck);
         const previousCards = new Map(Object.entries(deck.cards));
         const previousTombstones = { ...deck.tombstones ?? {} };
         const value = operation(deck);
-        await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+        await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
         const changedCardIds = /* @__PURE__ */ new Set([
           ...previousCards.keys(),
           ...Object.keys(deck.cards),
@@ -36625,6 +36782,7 @@ ${spelling}`);
       bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
       wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
       yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+      yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
       chooseJitenStudyDeck: "Choose a Jiten study deck first.",
       addedToJiten: "Added to Jiten.",
       addedToBunpro: "Added to Bunpro.",
@@ -37222,6 +37380,7 @@ jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
 yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
+yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。
@@ -285302,21 +285461,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
       selectedDeckId: () => "yomu-local",
       selectedDeckLabel: () => ACADEMY_SRS_LABEL,
       addToDeck: async (_deckId, card, sentence, context2) => {
-        const result2 = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2));
+        const result2 = await localYomuMutation(
+          settings,
+          () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context2))
+        );
         if (result2.card) applyYomuLocalReviewableToCard(card, result2.card);
       },
       reviewCard: async (card, grade2, reviewOptions = {}) => {
         const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-        const result2 = await adapter.review({
+        const result2 = await localYomuMutation(settings, () => adapter.review({
           card: yomuLocalReviewableFromCard(card),
           grade: grade2,
           sentence: reviewOptions.sentence
-        });
+        }));
         if (result2.card) applyYomuLocalReviewableToCard(card, result2.card);
         return { addedBeforeReview: wasNotInDeck };
       },
       setDeckState: async () => void 0
     };
+  }
+  async function localYomuMutation(settings, operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (isLocalYomuSrsStorageError(error)) {
+        throw new Error(uiText(settings.interfaceLanguage, "yomuLocalSrsStorageFailed"), { cause: error });
+      }
+      throw error;
+    }
   }
   function createJitenSrsProviderAdapter(jiten, settings) {
     return {
@@ -320368,6 +320540,12 @@ ${entry2.url}`),
     }
     async handleFailedGrade(target2, grade2, selectedTarget, isCorrection, error) {
       log$6.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
+      if (this.localYomuStorageFailure(error)) {
+        const message = this.text("yomuLocalSrsStorageFailed");
+        this.setStatus(target2.root, message);
+        this.dependencies.toast?.(message);
+        return false;
+      }
       if (target2.card.source === "bunpro" || target2.card.reviewSource === "bunpro-api") {
         await this.reloadAfterAmbiguousBunproGrade(target2.root, target2.card);
         return true;
@@ -320376,6 +320554,10 @@ ${entry2.url}`),
       const promptResult = await this.resolveFailedGradePrompt(target2, grade2, selectedTarget, queueTargets, error);
       if (promptResult !== null) return promptResult;
       return this.queueGradeForLater(target2, grade2, queueTargets, isCorrection);
+    }
+    localYomuStorageFailure(error) {
+      if (isLocalYomuSrsStorageError(error)) return true;
+      return error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => isLocalYomuSrsStorageError(failure.error));
     }
     async resolveFailedGradePrompt(target2, grade2, selectedTarget, queueTargets, error) {
       if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target2.card, selectedTarget, error)) return null;
@@ -339300,7 +339482,7 @@ ${entry2.url}`),
   const DEVICE_STATE_KEY = "yomu:private:academy-device:v1";
   const PENDING_CLAIM_KEY = "yomu:private:academy-device-pending:v1";
   const EVENT_PURPOSE = "reader-srs-event";
-  const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v1";
+  const LOCAL_DECK_STORAGE_KEY = "yomu:srs-local:v2:index";
   const PUSH_BATCH_SIZE = 20;
   let pending = Promise.resolve(void 0);
   let scheduled = false;

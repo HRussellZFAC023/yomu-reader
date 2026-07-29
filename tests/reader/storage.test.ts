@@ -478,4 +478,58 @@ describe('managed storage backup', () => {
             updatedAt: 2000,
         });
     });
+
+    it('merges per-card Yomu SRS backups and commits their index last', async () => {
+        const readId = '読む\u0000よむ';
+        const bookId = '図鑑\u0000ずかん';
+        const readKey = `yomu:srs-local:v2:card:${encodeURIComponent(readId)}`;
+        const bookKey = `yomu:srs-local:v2:card:${encodeURIComponent(bookId)}`;
+        const indexKey = 'yomu:srs-local:v2:index';
+        const card = (id: string, updatedAt: number, meanings: string[]) => ({
+            id,
+            expression: id.split('\u0000')[0],
+            reading: id.split('\u0000')[1],
+            meanings,
+            tags: [],
+            dueAt: updatedAt,
+            lastReviewAt: null,
+            createdAt: 500,
+            updatedAt,
+            reviews: updatedAt === 2_000 ? 3 : 0,
+            lapses: 0,
+            intervalDays: updatedAt === 2_000 ? 7 : 0,
+            ease: 2.5,
+        });
+        localStorage.setItem(readKey, JSON.stringify(card(readId, 2_000, ['read'])));
+        localStorage.setItem(indexKey, JSON.stringify({
+            version: 2,
+            revision: 4,
+            cardIds: [readId],
+            tombstoneIds: [],
+        }));
+
+        const count = await importStoredValues({
+            [indexKey]: { version: 2, revision: 2, cardIds: [readId, bookId], tombstoneIds: [] },
+            [readKey]: card(readId, 1_200, ['to read']),
+            [bookKey]: card(bookId, 500, ['illustrated reference book']),
+        });
+        const index = JSON.parse(localStorage.getItem(indexKey) ?? '{}') as {
+            revision?: number;
+            cardIds?: string[];
+        };
+        const read = JSON.parse(localStorage.getItem(readKey) ?? '{}');
+
+        expect(count).toBe(3);
+        expect(index).toMatchObject({ revision: 5, cardIds: [bookId, readId].sort() });
+        expect(read).toMatchObject({
+            updatedAt: 2_000,
+            reviews: 3,
+            intervalDays: 7,
+            meanings: ['to read', 'read'],
+        });
+        expect(JSON.parse(localStorage.getItem(bookKey) ?? '{}')).toMatchObject({
+            id: bookId,
+            meanings: ['illustrated reference book'],
+        });
+    });
 });

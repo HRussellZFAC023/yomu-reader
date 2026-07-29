@@ -504,7 +504,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       once-rehearsed restore procedure per store, and a second copy of the dictionary bucket that does not
       depend on Google Drive. Write down that Time Travel exists and what it does not cover (a deleted
       database, a deleted account).
-- [ ] **A35.2 — HIGH: the mined deck is one storage key and its writes fail silently.**
+- [x] **A35.2 — HIGH: the mined deck is one storage key and its writes fail silently.**
       `src/reader/srs/local-yomu.ts:265-267` writes the whole deck as one value under
       `yomu:srs-local:v1`. `gmStorageSet` (`src/reader/app/storage.ts:351-365`) falls back to
       `localStorageSet` on any GM failure, and `localStorageSet`

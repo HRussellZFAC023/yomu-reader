@@ -1090,6 +1090,7 @@ const COPY = {
         bunproAddApiKeyRequired: 'Add a Bunpro frontend API token, or use Add to Anki.',
         wanikaniAddApiKeyRequired: 'Add a WaniKani personal access token to review due assignments.',
         yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+        yomuLocalSrsStorageFailed: 'Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.',
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
         addedToBunpro: 'Added to Bunpro.',
@@ -1692,6 +1693,7 @@ jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 bunproAddApiKeyRequired	Bunproのfrontend_api_tokenかAnki追加が必要です。
 wanikaniAddApiKeyRequired	期限が来た課題を復習するには、WaniKaniのパーソナルアクセストークンを追加してください。
 yomuLocalSrsDisabled	先に設定でAcademyを有効にしてください。
+yomuLocalSrsStorageFailed	Academyデッキを保存できませんでした。ブラウザーの保存容量が不足している可能性があります。サイトの保存容量を空けてから、もう一度お試しください。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 addedToBunpro	Bunproに追加しました。

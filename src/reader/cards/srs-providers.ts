@@ -3,9 +3,15 @@ import { jpdbDeckLabel } from './deck-choice';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
-import type { UiCopyKey } from '../app/i18n';
+import { uiText, type UiCopyKey } from '../app/i18n';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
-import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
+import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
+import type {
+    YomuSrsAdapter,
+    YomuSrsMiningRequest,
+    YomuSrsReviewable,
+    YomuSrsReviewableKind,
+} from '../srs/types';
 import { applyYomuLocalReviewableToCard } from '../srs/local-yomu-state';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { activeLearningTargetLanguage } from '../languages';
@@ -396,22 +402,39 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         selectedDeckId: () => 'yomu-local',
         selectedDeckLabel: () => ACADEMY_SRS_LABEL,
         addToDeck: async (_deckId, card, sentence, context) => {
-            const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+            const result = await localYomuMutation(
+                settings,
+                () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context)),
+            );
             if (result.card) applyYomuLocalReviewableToCard(card, result.card);
         },
         reviewCard: async (card, grade, reviewOptions = {}) => {
             const wasNotInDeck = normalizeCardStates(card.cardState).includes('not-in-deck')
                 || card.reviewSource !== 'yomu-local';
-            const result = await adapter.review({
+            const result = await localYomuMutation(settings, () => adapter.review({
                 card: yomuLocalReviewableFromCard(card),
                 grade,
                 sentence: reviewOptions.sentence,
-            });
+            }));
             if (result.card) applyYomuLocalReviewableToCard(card, result.card);
             return { addedBeforeReview: wasNotInDeck };
         },
         setDeckState: async () => undefined,
     };
+}
+
+async function localYomuMutation<Result>(
+    settings: ReaderSettings,
+    operation: () => Promise<Result>,
+): Promise<Result> {
+    try {
+        return await operation();
+    } catch (error) {
+        if (isLocalYomuSrsStorageError(error)) {
+            throw new Error(uiText(settings.interfaceLanguage, 'yomuLocalSrsStorageFailed'), { cause: error });
+        }
+        throw error;
+    }
 }
 
 function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSettings): ApiSrsProviderAdapter {

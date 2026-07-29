@@ -27,6 +27,9 @@ function isMissingSentinel(value: unknown): boolean {
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
 const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
+const YOMU_LOCAL_SRS_V2_INDEX_KEY = 'yomu:srs-local:v2:index';
+const YOMU_LOCAL_SRS_V2_CARD_PREFIX = 'yomu:srs-local:v2:card:';
+const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = 'yomu:srs-local:v2:tombstone:';
 const MANAGED_CACHE_NAME_PREFIXES = [
     'yomu-newtab-',
     'yomu-pdf-reader-',
@@ -361,7 +364,7 @@ export async function gmStorageSet(key: string, value: unknown): Promise<void> {
             debugStorageError('GM storage write failed', key, error);
         }
     }
-    localStorageSet(key, localFallbackValueForWrite(key, value));
+    localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
 }
 
 /** Store secret material fail-closed; page localStorage is never a fallback. */
@@ -453,15 +456,67 @@ export async function exportManagedStoredValues(): Promise<Record<string, unknow
 
 export async function importStoredValues(values: unknown): Promise<number> {
     let count = 0;
-    for (const [key, value] of managedStoredValueEntries(values)) {
+    const entries = managedStoredValueEntries(values).sort(([left], [right]) =>
+        Number(left === YOMU_LOCAL_SRS_V2_INDEX_KEY) - Number(right === YOMU_LOCAL_SRS_V2_INDEX_KEY));
+    for (const [key, value] of entries) {
         const storedValue = key === YOMU_LOCAL_SRS_STORAGE_KEY
             ? await mergeYomuLocalSrsDeckImport(value)
-            : value;
+            : await mergeYomuLocalSrsV2Import(key, value);
         await gmStorageSet(key, storedValue);
         localStorageSet(key, storedValue);
         count++;
     }
     return count;
+}
+
+async function mergeYomuLocalSrsV2Import(key: string, imported: unknown): Promise<unknown> {
+    if (key === YOMU_LOCAL_SRS_V2_INDEX_KEY) {
+        const existing = await gmStorageGet<unknown>(key, null).catch(() => null);
+        if (!isPlainRecord(imported) || !isPlainRecord(existing)) return imported;
+        return {
+            version: 2,
+            revision: Math.max(
+                nonNegativeSafeInteger(existing.revision),
+                nonNegativeSafeInteger(imported.revision),
+            ) + 1,
+            cardIds: mergedStringIds(existing.cardIds, imported.cardIds),
+            tombstoneIds: mergedStringIds(existing.tombstoneIds, imported.tombstoneIds),
+        };
+    }
+    if (key.startsWith(YOMU_LOCAL_SRS_V2_CARD_PREFIX)) {
+        const id = decodeStoredYomuSrsId(key.slice(YOMU_LOCAL_SRS_V2_CARD_PREFIX.length));
+        const existing = await gmStorageGet<unknown>(key, null).catch(() => null);
+        if (!id || !isPlainRecord(imported) || !isPlainRecord(existing)) return imported;
+        return mergeYomuLocalSrsCards(
+            { [id]: existing },
+            { [id]: imported },
+        )[id] ?? imported;
+    }
+    if (key.startsWith(YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX)) {
+        const existing = await gmStorageGet<unknown>(key, null).catch(() => null);
+        return Math.max(nonNegativeSafeInteger(existing), nonNegativeSafeInteger(imported));
+    }
+    return imported;
+}
+
+function mergedStringIds(left: unknown, right: unknown): string[] {
+    return [...new Set([
+        ...(Array.isArray(left) ? left.filter((value): value is string => typeof value === 'string') : []),
+        ...(Array.isArray(right) ? right.filter((value): value is string => typeof value === 'string') : []),
+    ])].sort();
+}
+
+function nonNegativeSafeInteger(value: unknown): number {
+    const number = Number(value);
+    return Number.isSafeInteger(number) && number >= 0 ? number : 0;
+}
+
+function decodeStoredYomuSrsId(value: string): string | null {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return null;
+    }
 }
 
 function managedStoredValueEntries(values: unknown): Array<[string, unknown]> {
@@ -828,6 +883,10 @@ function localStorageSet(key: string, value: unknown): void {
     } catch {
         // Best effort only.
     }
+}
+
+function localStorageSetOrThrow(key: string, value: unknown): void {
+    localStorage.setItem(key, JSON.stringify(value));
 }
 
 function removeLocalStorageKey(key: string): void {

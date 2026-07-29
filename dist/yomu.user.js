@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.608f5c5ef76e.user.js#sha256=YI9cXvduIRbxQaVn9f9XTqDEm4tPBVs7c0obdiFL38I=
-// @require https://yomureader.com/greasyfork/yomu-audio.cf77f7c24fa7.user.js#sha256=z3f3wk+nbp5SQ+4CL3ZKTBRIhCavFd+bMtfgRbVHUow=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.dbcd8102a18c.user.js#sha256=282BAqGMj34qtDyxWiaTKfXKCrsS3OLVxrFwPKRtJIs=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.bcca72996e75.user.js#sha256=vMpymW51wWPZpR2U/4G2S+/PP0bO6IBcO3ar1Rtu1CU=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.9431f08c4b19.user.js#sha256=lDHwjEsZzzqiR6SabdcG5GdsLJW0TBUvAxVehNk4JTQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.3291576689c5.user.js#sha256=MpFXZonFMBE/Ag7sxAZcuWKyTFAnq9S0PslHOcZcKq0=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.eb34feed61a3.user.js#sha256=6zT+7WGjVk9yU0a5zlXXt9V1mvpB7ObJRwFsKw1Gh84=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.4eff4cb44975.user.js#sha256=Tv9MtEl17DhHGHnYYzi/KuIasR84hpzuGVRT51v2H3o=
-// @require https://yomureader.com/greasyfork/yomu-jiten.fd6b23818e86.user.js#sha256=/WsjgY6G95hI6pCQPaCqje5HVz36fPWDYHDlx1DGdYQ=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.eab21ecf972a.user.js#sha256=6rIez5cqh3HXYG/OalnV577g3wPWs5iTMBpRbkaIdes=
-// @require https://yomureader.com/greasyfork/yomu-video.914cbac80520.user.js#sha256=kUy6yAUgnx/rSdzruEaZdlJyuDKnneEmCBf+1nz6+Nc=
+// @require https://yomureader.com/greasyfork/yomu-anki.ced1d5acb787.user.js#sha256=ztHVrLeHfdqUyQCAlGSVmVONtnJonh57zCdpaq2xWyk=
+// @require https://yomureader.com/greasyfork/yomu-audio.902a8a99b7b2.user.js#sha256=kCqKmbeylwW/j9PEnWnA+L6urgXCY8rq5dNGtSqBBiU=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.417a9062e09c.user.js#sha256=QXqQYuCctvu8DkBfj4/DoG4krZ8/9s5rHMMTzYOXXB4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.2cdd0a216d81.user.js#sha256=LN0KIW2BWCDJCvYB6+fga6AVGeXrkXEkeb/HfmqNVmw=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ee2e0e476221.user.js#sha256=7i4OR2IhDLHwN6YMKEDpBXdn0Spyzhq1uesfVP+VQv4=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.aeefea017809.user.js#sha256=ru/qAXgJUN7BP1UnE1aKfp1f84swT4W/t++4t4FsIOU=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.09950a9adfdc.user.js#sha256=CZUKmt/cR2AxroO9aqdM+YzZ6xjhS+wMMSD0P45MgRA=
+// @require https://yomureader.com/greasyfork/yomu-jiten.6447875b5855.user.js#sha256=ZEeHW1hVHg3ZKl78wbhAUkLW8UQdh5IRRUA6Hy8zKyY=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.40da6f70c720.user.js#sha256=QNpvcMcgdSQbwEL01G9zHeBa6EFwmmU6IP35BFHkh80=
+// @require https://yomureader.com/greasyfork/yomu-video.1779d49f2810.user.js#sha256=F3nUnygQbJQvM+agDkLiksV6P3lb8gMM2iGgOb5PJ/8=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5244,7 +5244,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
-  { owner: "app/storage", kind: "gm", key: "yomu:srs-local:v1" },
+  { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
+  { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
   { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
   { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
@@ -5481,7 +5482,7 @@ async function gmStorageSet(key, value) {
     debugStorageError("GM storage write failed", key, error);
   }
   }
-  localStorageSet(key, localFallbackValueForWrite(key, value));
+  localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
 }
 function gmStorageSetSync(key, value) {
   if (typeof GM_setValue === "function") {
@@ -5712,6 +5713,9 @@ function localStorageSet(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
   } catch {
   }
+}
+function localStorageSetOrThrow(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 function removeLocalStorageKey(key) {
   try {
@@ -14911,6 +14915,763 @@ function isSpecialJpdbDeck(settings, deck) {
 function normalizeDeckChoiceRenderOptions(value) {
   return typeof value === "boolean" ? { includeJpdb: value } : value;
 }
+function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
+  const normalizedExpression = expression.normalize("NFKC").trim();
+  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
+  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+  const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
+  const language = canonicalLanguageTag(options.language ?? "ja");
+  if (!language) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
+  const slots = [
+  normalizedExpression,
+  normalizedReading,
+  partOfSpeech,
+  language === "ja" ? "" : language
+  ];
+  while (slots.at(-1) === "") slots.pop();
+  return {
+  key: slots.join("\0"),
+  expression: normalizedExpression,
+  reading: normalizedReading,
+  partOfSpeech,
+  language
+  };
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function normalizeStoredYomuSrsDeck(value) {
+  if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
+  const cards = {};
+  for (const candidate of Object.values(value.cards)) {
+  const normalized = normalizeStoredCard(candidate);
+  if (!normalized) continue;
+  cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
+  }
+  const tombstones = {};
+  if (isRecord(value.tombstones)) {
+  for (const [id, timestamp] of Object.entries(value.tombstones)) {
+    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+    const card = cards[id];
+    if (card && card.updatedAt > timestamp) continue;
+    delete cards[id];
+    tombstones[id] = timestamp;
+  }
+  }
+  return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+}
+function mergeStoredYomuSrsDecks(leftValue, rightValue) {
+  const left = normalizeStoredYomuSrsDeck(leftValue);
+  const right = normalizeStoredYomuSrsDeck(rightValue);
+  const cards = { ...left.cards };
+  const tombstones = { ...left.tombstones ?? {} };
+  for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
+  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
+  }
+  for (const [id, incoming] of Object.entries(right.cards)) {
+  const tombstone = tombstones[id];
+  if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
+  if (tombstone !== void 0) delete tombstones[id];
+  cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id], incoming) : incoming;
+  }
+  return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
+}
+function mergeStoredYomuSrsCards(existing, incoming) {
+  const existingIdentity = storedCardIdentity(existing);
+  const incomingIdentity = storedCardIdentity(incoming);
+  if (existingIdentity.key !== incomingIdentity.key) {
+  throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
+  }
+  const identity = existingIdentity;
+  const schedule = preferredSchedule(existing, incoming);
+  const scheduleFields = { ...schedule };
+  delete scheduleFields.language;
+  delete scheduleFields.partOfSpeech;
+  return {
+  ...scheduleFields,
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+  ...identity.language !== "ja" ? { language: identity.language } : {},
+  meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
+  sentence: existing.sentence || incoming.sentence,
+  sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
+  sourceCardId: existing.sourceCardId || incoming.sourceCardId,
+  sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+  tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
+  createdAt: Math.min(existing.createdAt, incoming.createdAt),
+  updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
+  reviews: Math.max(existing.reviews, incoming.reviews),
+  lapses: Math.max(existing.lapses, incoming.lapses),
+  retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
+  academyProvenance: {
+    ...incoming.academyProvenance ?? {},
+    ...existing.academyProvenance ?? {}
+  }
+  };
+}
+function upsertAcademyVocabulary(deck, input, now) {
+  const identity = canonicalStudyCardIdentity(input.expression, input.reading);
+  const meanings = uniqueText(input.meanings);
+  const provenance = normalizeProvenance(input.provenance, now);
+  const existing = deck.cards[identity.key];
+  const previousProvenance = existing?.academyProvenance?.[provenance.id];
+  if (previousProvenance && !sameProvenance(previousProvenance, provenance)) {
+  throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance.id}`);
+  }
+  const incoming = {
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  meanings,
+  sentence: cleanOptional(input.sentence),
+  tags: ["academy"],
+  dueAt: finiteDueAt(input.dueAt, now),
+  lastReviewAt: null,
+  createdAt: now,
+  updatedAt: now,
+  reviews: 0,
+  lapses: 0,
+  intervalDays: 0,
+  ease: 2.5,
+  retainWithoutAcademyProvenance: false,
+  academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
+  };
+  const card = existing ? preserveExistingSchedule(
+  mergeStoredYomuSrsCards(existing, incoming),
+  existing,
+  input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
+  ) : incoming;
+  deck.cards[identity.key] = card;
+  return {
+  card,
+  cardCreated: !existing,
+  provenanceAdded: !previousProvenance,
+  provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+  };
+}
+function finiteDueAt(value, fallback) {
+  return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+}
+function preserveExistingSchedule(merged, existing, notBefore) {
+  return {
+  ...merged,
+  dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
+  lastReviewAt: existing.lastReviewAt,
+  reviews: existing.reviews,
+  lapses: existing.lapses,
+  intervalDays: existing.intervalDays,
+  ease: existing.ease
+  };
+}
+function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
+  const direct = deck.cards[cardId];
+  const card = direct ?? Object.values(deck.cards).find((candidate) => candidate.academyProvenance?.[provenanceId]);
+  if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
+  if (!card.academyProvenance?.[provenanceId]) {
+  return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
+  }
+  const academyProvenance = { ...card.academyProvenance };
+  delete academyProvenance[provenanceId];
+  const remaining = Object.keys(academyProvenance).length;
+  if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
+  delete deck.cards[card.id];
+  deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
+  return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
+  }
+  const updated = {
+  ...card,
+  updatedAt: now,
+  tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
+  academyProvenance
+  };
+  deck.cards[card.id] = updated;
+  const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
+  return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
+}
+function normalizeStoredCard(value) {
+  if (!isRecord(value) || typeof value.expression !== "string") return null;
+  let identity;
+  try {
+  identity = canonicalStudyCardIdentity(
+    value.expression,
+    typeof value.reading === "string" ? value.reading : "",
+    {
+      ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
+      ...typeof value.language === "string" ? { language: value.language } : {}
+    }
+  );
+  } catch {
+  return null;
+  }
+  const createdAt = finiteNumber(value.createdAt, 0);
+  const updatedAt = finiteNumber(value.updatedAt, createdAt);
+  return {
+  id: identity.key,
+  expression: identity.expression,
+  reading: identity.reading,
+  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+  ...identity.language !== "ja" ? { language: identity.language } : {},
+  meanings: stringArray(value.meanings),
+  ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
+  ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
+  ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
+  ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+  tags: stringArray(value.tags),
+  dueAt: finiteNumber(value.dueAt, createdAt),
+  lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
+  createdAt,
+  updatedAt,
+  reviews: nonNegativeInteger(value.reviews),
+  lapses: nonNegativeInteger(value.lapses),
+  intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
+  ease: finiteNumber(value.ease, 2.5),
+  retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
+  academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+  };
+}
+function storedCardIdentity(card) {
+  return canonicalStudyCardIdentity(card.expression, card.reading, {
+  partOfSpeech: card.partOfSpeech,
+  language: card.language ?? "ja"
+  });
+}
+function preferredSchedule(left, right) {
+  if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
+  const leftReviewed = left.lastReviewAt ?? -1;
+  const rightReviewed = right.lastReviewAt ?? -1;
+  if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
+  if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
+  return left.updatedAt >= right.updatedAt ? left : right;
+}
+function normalizeProvenance(value, addedAt) {
+  const id = requiredText(value.id, "Academy vocabulary provenance id");
+  if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
+  throw new TypeError("Academy vocabulary provenance kind is invalid.");
+  }
+  return {
+  id,
+  kind: value.kind,
+  addedAt,
+  ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
+  ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
+  ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
+  ...value.reason ? { reason: value.reason } : {}
+  };
+}
+function normalizeProvenanceRecord(value, fallbackAt) {
+  if (!isRecord(value)) return {};
+  const result = {};
+  for (const candidate of Object.values(value)) {
+  if (!isRecord(candidate)) continue;
+  try {
+    const normalized = normalizeProvenance({
+      id: String(candidate.id ?? ""),
+      kind: candidate.kind,
+      ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
+      ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
+      ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
+      ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
+    }, finiteNumber(candidate.addedAt, fallbackAt));
+    result[normalized.id] = normalized;
+  } catch {
+  }
+  }
+  return result;
+}
+function sameProvenance(left, right) {
+  return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
+}
+function retainsWithoutAcademy(card) {
+  return card.retainWithoutAcademyProvenance !== false;
+}
+function hasStudyHistory(card) {
+  return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
+}
+function requiredText(value, label) {
+  const normalized = value.trim();
+  if (!normalized) throw new TypeError(`${label} is required.`);
+  return normalized;
+}
+function cleanOptional(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function stringArray(value) {
+  return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
+}
+function uniqueText(values) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+function finiteNumber(value, fallback) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+function nonNegativeInteger(value) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+const LEGACY_DECK_KEY = "yomu:srs-local:v1";
+const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
+const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
+const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+class LocalYomuSrsStorageError extends Error {
+  constructor(options) {
+  super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+  this.name = "LocalYomuSrsStorageError";
+  }
+}
+function isLocalYomuSrsStorageError(error) {
+  return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+}
+class LocalYomuSrsStore {
+  async read() {
+  const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+  const index = normalizeIndex(rawIndex);
+  const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
+  const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
+  if (legacy === null || legacy === void 0) return current;
+  const migrated = mergeStoredYomuSrsDecks(current, legacy);
+  await this.write(current, migrated);
+  await gmStorageDelete(LEGACY_DECK_KEY);
+  return migrated;
+  }
+  async write(previousValue, nextValue) {
+  const previous = normalizeStoredYomuSrsDeck(previousValue);
+  const next = normalizeStoredYomuSrsDeck(nextValue);
+  const previousIndex = indexForDeck(previous);
+  const storedIndex = normalizeIndex(await gmStorageGet(DECK_INDEX_KEY, null));
+  const nextIndex = indexForDeck(next, (storedIndex?.revision ?? 0) + 1);
+  const newlyCreatedKeys = [];
+  try {
+    for (const [id, card] of Object.entries(next.cards)) {
+      if (sameStoredValue(previous.cards[id], card)) continue;
+      const key = cardStorageKey(id);
+      await gmStorageSet(key, card);
+      if (!previous.cards[id]) newlyCreatedKeys.push(key);
+    }
+    for (const [id, deletedAt] of Object.entries(next.tombstones ?? {})) {
+      if (previous.tombstones?.[id] === deletedAt) continue;
+      const key = tombstoneStorageKey(id);
+      await gmStorageSet(key, deletedAt);
+      if (previous.tombstones?.[id] === void 0) newlyCreatedKeys.push(key);
+    }
+    await gmStorageSet(DECK_INDEX_KEY, nextIndex);
+  } catch (error) {
+    await Promise.all(newlyCreatedKeys.map((key) => gmStorageDelete(key)));
+    throw new LocalYomuSrsStorageError({ cause: error });
+  }
+  await Promise.all([
+    ...previousIndex.cardIds.filter((id) => !next.cards[id]).map((id) => gmStorageDelete(cardStorageKey(id))),
+    ...previousIndex.tombstoneIds.filter((id) => next.tombstones?.[id] === void 0).map((id) => gmStorageDelete(tombstoneStorageKey(id)))
+  ]);
+  }
+  async readIndexedDeck(index) {
+  const cards = await Promise.all(index.cardIds.map(async (id) => [
+    id,
+    await gmStorageGet(cardStorageKey(id), null)
+  ]));
+  const tombstones = await Promise.all(index.tombstoneIds.map(async (id) => [
+    id,
+    await gmStorageGet(tombstoneStorageKey(id), null)
+  ]));
+  return normalizeStoredYomuSrsDeck({
+    version: 1,
+    cards: Object.fromEntries(cards.filter((entry) => Boolean(entry[1] && typeof entry[1] === "object"))),
+    tombstones: Object.fromEntries(tombstones.filter((entry) => typeof entry[1] === "number" && Number.isFinite(entry[1])))
+  });
+  }
+}
+function normalizeIndex(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value;
+  if (candidate.version !== 2) return null;
+  if (!Array.isArray(candidate.cardIds) || !candidate.cardIds.every((id) => typeof id === "string")) return null;
+  if (!Array.isArray(candidate.tombstoneIds) || !candidate.tombstoneIds.every((id) => typeof id === "string")) return null;
+  return {
+  version: 2,
+  revision: Number.isSafeInteger(candidate.revision) && Number(candidate.revision) >= 0 ? Number(candidate.revision) : 0,
+  cardIds: [...new Set(candidate.cardIds)].sort(),
+  tombstoneIds: [...new Set(candidate.tombstoneIds)].sort()
+  };
+}
+function indexForDeck(deck, revision = 0) {
+  return {
+  version: 2,
+  revision,
+  cardIds: Object.keys(deck.cards).sort(),
+  tombstoneIds: Object.keys(deck.tombstones ?? {}).sort()
+  };
+}
+function sameStoredValue(left, right) {
+  if (left === right) return true;
+  if (left === void 0 || right === void 0) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+function cardStorageKey(id) {
+  return `${CARD_KEY_PREFIX}${encodeURIComponent(id)}`;
+}
+function tombstoneStorageKey(id) {
+  return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id)}`;
+}
+let localDeckMutation = Promise.resolve();
+const localDeckMutationListeners = new Set();
+class LocalYomuSrsRepository {
+  constructor(now = () => Date.now()) {
+  this.now = now;
+  }
+  store = new LocalYomuSrsStore();
+  async importBatch(batch) {
+  return this.mutateDeck((deck) => {
+    let imported = 0;
+    let skipped = 0;
+    for (const item of batch.items) {
+      const card = this.cardFromImportItem(item, batch.importedAt);
+      if (!card) {
+        skipped++;
+        continue;
+      }
+      const existing = deck.cards[card.id];
+      deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
+      if (existing) skipped++;
+      else imported++;
+    }
+    return { imported, skipped };
+  });
+  }
+  /** Atomically upserts one semantic card and one idempotent Academy provenance. */
+  async collectAcademyVocabulary(input) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const result = upsertAcademyVocabulary(deck, input, now);
+    return {
+      cardId: result.card.id,
+      cardCreated: result.cardCreated,
+      provenanceAdded: result.provenanceAdded,
+      provenanceCount: result.provenanceCount,
+      card: this.toReviewable(result.card, now)
+    };
+  });
+  }
+  /** Reads the shared deck without changing any card or schedule. */
+  async academySyllabusProgress(items) {
+  const deck = await this.readDeck();
+  const identities = new Set(items.map((item) => canonicalStudyCardIdentity(item.expression, item.reading).key));
+  const seeded = [...identities].filter((id) => Boolean(deck.cards[id])).length;
+  return { total: identities.size, seeded, unseeded: identities.size - seeded };
+  }
+  /**
+   * Removes only the requested provenance. Independent, multiply-sourced,
+   * or reviewed cards are retained even when their final Academy source is undone.
+   */
+  async removeAcademyVocabularyProvenance(cardId, provenanceId) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const result = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
+    return {
+      provenanceRemoved: result.provenanceRemoved,
+      cardDeleted: result.cardDeleted,
+      reason: result.reason,
+      ...result.card ? { card: this.toReviewable(result.card, now) } : {}
+    };
+  });
+  }
+  async queue(limit = 50) {
+  const now = this.now();
+  const cards = Object.values((await this.readDeck()).cards);
+  const cap = normalizedQueueLimit(limit);
+  const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
+  const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
+  const dueNew = due.filter((card) => card.reviews === 0).length;
+  const dueReviews = due.length - dueNew;
+  const queue = due.slice(0, cap).map((card) => this.toReviewable(card, now));
+  return {
+    providerId: "yomu-local",
+    fetchedAt: now,
+    cards: queue,
+    dueCount: dueReviews,
+    newCount: dueNew,
+    reviewCount: due.length
+  };
+  }
+  async stats() {
+  const now = this.now();
+  const cards = Object.values((await this.readDeck()).cards);
+  const today = startOfLocalDay(now);
+  return {
+    providerId: "yomu-local",
+    fetchedAt: now,
+    reviewsDue: cards.filter((card) => card.dueAt <= now).length,
+    reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
+    newToday: cards.filter((card) => card.createdAt >= today).length,
+    levelCounts: {
+      new: cards.filter((card) => card.reviews === 0).length,
+      learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
+      known: cards.filter((card) => card.intervalDays >= 21).length
+    }
+  };
+  }
+  /** Read the normalized encrypted-sync payload without exposing the storage key. */
+  async snapshot() {
+  return structuredClone(await this.readDeck());
+  }
+  /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+  async mergeSnapshot(value, options = {}) {
+  return this.mutateDeck((deck) => {
+    const merged = mergeStoredYomuSrsDecks(deck, value);
+    deck.cards = merged.cards;
+    deck.tombstones = merged.tombstones;
+    return structuredClone(merged);
+  }, options.notifyMutations !== false);
+  }
+  /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+  async lookupCards(items) {
+  const now = this.now();
+  const deck = await this.readDeck();
+  const cards = new Map();
+  for (const item of items) {
+    try {
+      const identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+        partOfSpeech: item.partOfSpeech,
+        language: item.language
+      });
+      const stored = deck.cards[identity.key];
+      if (stored) cards.set(identity.key, this.toReviewable(stored, now));
+    } catch {
+    }
+  }
+  return [...cards.values()];
+  }
+  async review(request) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading, {
+      partOfSpeech: request.card.partOfSpeech,
+      language: request.card.language
+    });
+    const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
+    const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
+    if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
+      delete deck.cards[request.card.providerCardId];
+      deck.tombstones = { ...deck.tombstones ?? {}, [request.card.providerCardId]: now };
+    }
+    deck.cards[identity.key] = updated;
+    if ((deck.tombstones?.[identity.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity.key];
+    return { card: this.toReviewable(updated, now), raw: updated };
+  });
+  }
+  async mine(request) {
+  return this.mutateDeck((deck) => {
+    const now = this.now();
+    const candidate = this.cardFromImportItem({
+      expression: request.expression,
+      reading: request.reading,
+      partOfSpeech: request.partOfSpeech,
+      language: request.language,
+      meanings: request.meaning ? [request.meaning] : [],
+      sentence: request.sentence,
+      sourceUrl: request.sourceUrl
+    }, now);
+    if (!candidate) throw new TypeError("Vocabulary expression is required.");
+    const existing = deck.cards[candidate.id];
+    const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
+    deck.cards[candidate.id] = stored;
+    if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
+    return {
+      card: this.toReviewable(stored, now),
+      raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
+    };
+  });
+  }
+  readDeck() {
+  const result = localDeckMutation.then(() => this.readDeckUncoordinated());
+  localDeckMutation = result.then(() => void 0, () => void 0);
+  return result;
+  }
+  async readDeckUncoordinated() {
+  return this.store.read();
+  }
+  writeDeck(previous, deck) {
+  return this.store.write(previous, deck);
+  }
+  mutateDeck(operation, notifyMutations = true) {
+  const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
+    const deck = await this.readDeckUncoordinated();
+    const previousDeck = structuredClone(deck);
+    const previousCards = new Map(Object.entries(deck.cards));
+    const previousTombstones = { ...deck.tombstones ?? {} };
+    const value = operation(deck);
+    await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
+    const changedCardIds = new Set([
+      ...previousCards.keys(),
+      ...Object.keys(deck.cards),
+      ...Object.keys(previousTombstones),
+      ...Object.keys(deck.tombstones ?? {})
+    ]);
+    const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
+    if (notifyMutations) {
+      localDeckMutationListeners.forEach((listener) => {
+        try {
+          listener(changed);
+        } catch {
+        }
+      });
+    }
+    return value;
+  }));
+  localDeckMutation = result.then(() => void 0, () => void 0);
+  return result;
+  }
+  cardFromImportItem(item, now) {
+  let identity;
+  try {
+    identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+      partOfSpeech: item.partOfSpeech,
+      language: item.language
+    });
+  } catch {
+    return null;
+  }
+  return {
+    id: identity.key,
+    expression: identity.expression,
+    reading: identity.reading,
+    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+    ...identity.language !== "ja" ? { language: identity.language } : {},
+    meanings: uniqueTrimmedStrings(item.meanings ?? []),
+    sentence: item.sentence?.trim() || void 0,
+    sourceProviderId: item.sourceProviderId,
+    sourceCardId: item.sourceCardId,
+    sourceUrl: item.sourceUrl,
+    tags: uniqueTrimmedStrings(item.tags ?? []),
+    dueAt: item.dueAt ?? now,
+    lastReviewAt: null,
+    createdAt: now,
+    updatedAt: now,
+    reviews: 0,
+    lapses: 0,
+    intervalDays: 0,
+    ease: 2.5,
+    retainWithoutAcademyProvenance: true,
+    academyProvenance: {}
+  };
+  }
+  cardFromReviewable(card, now) {
+  const identity = canonicalStudyCardIdentity(card.expression, card.reading, {
+    partOfSpeech: card.partOfSpeech,
+    language: card.language
+  });
+  return {
+    id: identity.key,
+    expression: identity.expression,
+    reading: identity.reading,
+    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+    ...identity.language !== "ja" ? { language: identity.language } : {},
+    meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+    sourceProviderId: card.providerId,
+    sourceCardId: card.providerCardId,
+    sourceUrl: card.sourceUrl,
+    dueAt: card.dueAt ?? now,
+    lastReviewAt: card.lastReviewAt ?? null,
+    createdAt: now,
+    updatedAt: now,
+    reviews: 0,
+    lapses: 0,
+    intervalDays: 0,
+    ease: 2.5,
+    retainWithoutAcademyProvenance: true,
+    academyProvenance: {}
+  };
+  }
+  toReviewable(card, now) {
+  return {
+    providerId: "yomu-local",
+    providerCardId: card.id,
+    providerReviewId: card.id,
+    kind: "vocabulary",
+    expression: card.expression,
+    reading: card.reading,
+    ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
+    ...card.language ? { language: card.language } : {},
+    meanings: meaningsFromGlosses(card.meanings),
+    sentence: card.sentence,
+    state: localCardState(card, now),
+    srsLevel: localSrsLevel(card),
+    dueAt: card.dueAt,
+    lastReviewAt: card.lastReviewAt,
+    sourceUrl: card.sourceUrl,
+    raw: card
+  };
+  }
+}
+function sameStoredCard(left, right) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
+  return {
+  id: "yomu-local",
+  label: ACADEMY_SRS_LABEL,
+  capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+  hasCredential: () => true,
+  verify: async () => true,
+  stats: () => repository.stats(),
+  queue: (limit) => repository.queue(limit),
+  review: (request) => repository.review(request),
+  mine: (request) => repository.mine(request),
+  lookupCards: (items) => repository.lookupCards(items),
+  importBatch: (batch) => repository.importBatch(batch)
+  };
+}
+function scheduleReviewedCard(card, grade, now) {
+  const failed = grade === "nothing" || grade === "something" || grade === "fail" || grade === "again";
+  const intervalDays = failed ? 0 : nextIntervalDays(card, grade);
+  return {
+  ...card,
+  reviews: card.reviews + 1,
+  lapses: card.lapses + (failed ? 1 : 0),
+  intervalDays,
+  ease: Math.min(3.2, Math.max(1.3, card.ease + easeDelta(grade))),
+  dueAt: now + (failed ? 10 * 6e4 : intervalDays * 864e5),
+  lastReviewAt: now,
+  updatedAt: now
+  };
+}
+function nextIntervalDays(card, grade) {
+  if (card.reviews <= 0) return grade === "easy" ? 4 : grade === "hard" ? 1 : 2;
+  const multiplier = grade === "easy" ? card.ease + 0.7 : grade === "hard" ? 1.2 : card.ease;
+  return Math.max(1, Math.round(Math.max(1, card.intervalDays) * multiplier));
+}
+function easeDelta(grade) {
+  if (grade === "easy") return 0.15;
+  if (grade === "hard") return -0.15;
+  if (grade === "nothing" || grade === "something" || grade === "fail" || grade === "again") return -0.25;
+  return 0;
+}
+function meaningsFromGlosses(glosses) {
+  const normalized = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
+  return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
+}
+function localCardState(card, now) {
+  if (card.reviews === 0) return ["new"];
+  if (card.dueAt <= now) return ["due"];
+  if (card.intervalDays >= 21) return ["known"];
+  return ["learning"];
+}
+function localSrsLevel(card) {
+  if (card.reviews === 0) return "New";
+  if (card.intervalDays >= 21) return "Known";
+  if (card.intervalDays >= 7) return "Young";
+  return "Learning";
+}
+function startOfLocalDay(now) {
+  const date = new Date(now);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+function normalizedQueueLimit(limit) {
+  if (Number.isNaN(limit) || limit <= 0) return 0;
+  return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
+}
 function cssColorToHex(value, backdrop) {
   const color = cssColorToRgba(value);
   if (!color) return null;
@@ -15440,28 +16201,6 @@ function applyNeutralPageBackdrop(word, background) {
 function clearContrastVars(word) {
   RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
 }
-function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
-  const normalizedExpression = expression.normalize("NFKC").trim();
-  if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
-  const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
-  const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
-  const language = canonicalLanguageTag(options.language ?? "ja");
-  if (!language) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
-  const slots = [
-  normalizedExpression,
-  normalizedReading,
-  partOfSpeech,
-  language === "ja" ? "" : language
-  ];
-  while (slots.at(-1) === "") slots.pop();
-  return {
-  key: slots.join("\0"),
-  expression: normalizedExpression,
-  reading: normalizedReading,
-  partOfSpeech,
-  language
-  };
-}
 function applyYomuLocalReviewableToCard(card, reviewable) {
   card.cardState = [...reviewable.state];
   card.reviewSource = "yomu-local";
@@ -15767,21 +16506,34 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   selectedDeckId: () => "yomu-local",
   selectedDeckLabel: () => ACADEMY_SRS_LABEL,
   addToDeck: async (_deckId, card, sentence, context) => {
-    const result = await adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context));
+    const result = await localYomuMutation(
+      settings,
+      () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context))
+    );
     if (result.card) applyYomuLocalReviewableToCard(card, result.card);
   },
   reviewCard: async (card, grade, reviewOptions = {}) => {
     const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-    const result = await adapter.review({
+    const result = await localYomuMutation(settings, () => adapter.review({
       card: yomuLocalReviewableFromCard(card),
       grade,
       sentence: reviewOptions.sentence
-    });
+    }));
     if (result.card) applyYomuLocalReviewableToCard(card, result.card);
     return { addedBeforeReview: wasNotInDeck };
   },
   setDeckState: async () => void 0
   };
+}
+async function localYomuMutation(settings, operation) {
+  try {
+  return await operation();
+  } catch (error) {
+  if (isLocalYomuSrsStorageError(error)) {
+    throw new Error(uiText(settings.interfaceLanguage, "yomuLocalSrsStorageFailed"), { cause: error });
+  }
+  throw error;
+  }
 }
 function createJitenSrsProviderAdapter(jiten, settings) {
   return {
@@ -17698,9 +18450,6 @@ function fetchWithTimeout$1(url, options) {
   });
 }
 Logger.scope("Yomitan");
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 const GLOSSARY_DISPLAY_TEXT_KEYS = new Set(["text", "content", "description", "alt", "title"]);
 function glossaryValueToText(value) {
   return glossaryValueToProfileText(value, {
@@ -25426,19 +26175,19 @@ function renderDefinitionSourcesStack(params) {
 }
 function renderDictionarySetupNudge(language) {
   return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
-        <span><strong>${escapeHtml$1(uiText(language, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language, "finishSetupDictionaryHelp"))}</span>
-        <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language, "finishSetup"))}</button>
-    </aside>`;
+    <span><strong>${escapeHtml$1(uiText(language, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language, "finishSetupDictionaryHelp"))}</span>
+    <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language, "finishSetup"))}</button>
+  </aside>`;
 }
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled) return "";
   const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
-        </details>
-    `;
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
+        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+        <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
+    </details>
+  `;
 }
 function definitionSourceStackContext(params) {
   const { options, extraSections } = normalizedDefinitionSourceStackOptions(params);
@@ -27791,12 +28540,12 @@ class PopupNavigationController {
 }
 function renderModalNavigation(options) {
   return `
-        <div class="jpdb-reader-modal-nav">
-            <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
-            <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
-            ${options.controlsHtml ?? ""}
-        </div>
-    `;
+    <div class="jpdb-reader-modal-nav">
+        <button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml$1(options.backAction)}" title="${escapeHtml$1(options.backTitle)}" aria-label="${escapeHtml$1(options.backTitle)}">←</button>
+        <span title="${escapeHtml$1(options.label)}">${escapeHtml$1(options.label)}</span>
+        ${options.controlsHtml ?? ""}
+    </div>
+  `;
 }
 function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
@@ -28044,14 +28793,14 @@ function renderTokenListHtml(tokens, selected, previousNavigationEntry, settings
   const language = settings.interfaceLanguage;
   const title = uiText(language, "search");
   return `
-            <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml$1(selected)}">
-                ${renderTokenListNavigation(previousNavigationEntry, language)}
-                <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
-                ${renderSelectionLookupPills(selected, settings)}
-                ${renderTokenSentence(tokens, selected, settings)}
-            </div>
-        `;
+        <div class="jpdb-reader-sheet-handle"></div>
+        <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml$1(selected)}">
+            ${renderTokenListNavigation(previousNavigationEntry, language)}
+            <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
+            ${renderSelectionLookupPills(selected, settings)}
+            ${renderTokenSentence(tokens, selected, settings)}
+        </div>
+    `;
 }
 function installTokenListHandlers(popover, tokens, anchor, context, callbacks) {
   popover.addEventListener("click", (event) => {
@@ -29976,635 +30725,6 @@ function recolorRenderedAnkiWordsFromCache(options) {
   const promise = options.recolorRenderedAnkiWordsFromCache();
   if (options.onRecolorError) void promise.catch(options.onRecolorError);
 }
-function normalizeStoredYomuSrsDeck(value) {
-  if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
-  const cards = {};
-  for (const candidate of Object.values(value.cards)) {
-  const normalized = normalizeStoredCard(candidate);
-  if (!normalized) continue;
-  cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
-  }
-  const tombstones = {};
-  if (isRecord(value.tombstones)) {
-  for (const [id, timestamp] of Object.entries(value.tombstones)) {
-    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
-    const card = cards[id];
-    if (card && card.updatedAt > timestamp) continue;
-    delete cards[id];
-    tombstones[id] = timestamp;
-  }
-  }
-  return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
-}
-function mergeStoredYomuSrsDecks(leftValue, rightValue) {
-  const left = normalizeStoredYomuSrsDeck(leftValue);
-  const right = normalizeStoredYomuSrsDeck(rightValue);
-  const cards = { ...left.cards };
-  const tombstones = { ...left.tombstones ?? {} };
-  for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
-  tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
-  }
-  for (const [id, incoming] of Object.entries(right.cards)) {
-  const tombstone = tombstones[id];
-  if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
-  if (tombstone !== void 0) delete tombstones[id];
-  cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id], incoming) : incoming;
-  }
-  return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
-}
-function mergeStoredYomuSrsCards(existing, incoming) {
-  const existingIdentity = storedCardIdentity(existing);
-  const incomingIdentity = storedCardIdentity(incoming);
-  if (existingIdentity.key !== incomingIdentity.key) {
-  throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
-  }
-  const identity = existingIdentity;
-  const schedule = preferredSchedule(existing, incoming);
-  const scheduleFields = { ...schedule };
-  delete scheduleFields.language;
-  delete scheduleFields.partOfSpeech;
-  return {
-  ...scheduleFields,
-  id: identity.key,
-  expression: identity.expression,
-  reading: identity.reading,
-  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-  ...identity.language !== "ja" ? { language: identity.language } : {},
-  meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
-  sentence: existing.sentence || incoming.sentence,
-  sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
-  sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-  sourceUrl: existing.sourceUrl || incoming.sourceUrl,
-  tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
-  createdAt: Math.min(existing.createdAt, incoming.createdAt),
-  updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
-  reviews: Math.max(existing.reviews, incoming.reviews),
-  lapses: Math.max(existing.lapses, incoming.lapses),
-  retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
-  academyProvenance: {
-    ...incoming.academyProvenance ?? {},
-    ...existing.academyProvenance ?? {}
-  }
-  };
-}
-function upsertAcademyVocabulary(deck, input, now) {
-  const identity = canonicalStudyCardIdentity(input.expression, input.reading);
-  const meanings = uniqueText(input.meanings);
-  const provenance = normalizeProvenance(input.provenance, now);
-  const existing = deck.cards[identity.key];
-  const previousProvenance = existing?.academyProvenance?.[provenance.id];
-  if (previousProvenance && !sameProvenance(previousProvenance, provenance)) {
-  throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance.id}`);
-  }
-  const incoming = {
-  id: identity.key,
-  expression: identity.expression,
-  reading: identity.reading,
-  meanings,
-  sentence: cleanOptional(input.sentence),
-  tags: ["academy"],
-  dueAt: finiteDueAt(input.dueAt, now),
-  lastReviewAt: null,
-  createdAt: now,
-  updatedAt: now,
-  reviews: 0,
-  lapses: 0,
-  intervalDays: 0,
-  ease: 2.5,
-  retainWithoutAcademyProvenance: false,
-  academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
-  };
-  const card = existing ? preserveExistingSchedule(
-  mergeStoredYomuSrsCards(existing, incoming),
-  existing,
-  input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
-  ) : incoming;
-  deck.cards[identity.key] = card;
-  return {
-  card,
-  cardCreated: !existing,
-  provenanceAdded: !previousProvenance,
-  provenanceCount: Object.keys(card.academyProvenance ?? {}).length
-  };
-}
-function finiteDueAt(value, fallback) {
-  return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
-}
-function preserveExistingSchedule(merged, existing, notBefore) {
-  return {
-  ...merged,
-  dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
-  lastReviewAt: existing.lastReviewAt,
-  reviews: existing.reviews,
-  lapses: existing.lapses,
-  intervalDays: existing.intervalDays,
-  ease: existing.ease
-  };
-}
-function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
-  const direct = deck.cards[cardId];
-  const card = direct ?? Object.values(deck.cards).find((candidate) => candidate.academyProvenance?.[provenanceId]);
-  if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
-  if (!card.academyProvenance?.[provenanceId]) {
-  return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
-  }
-  const academyProvenance = { ...card.academyProvenance };
-  delete academyProvenance[provenanceId];
-  const remaining = Object.keys(academyProvenance).length;
-  if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
-  delete deck.cards[card.id];
-  deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
-  return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
-  }
-  const updated = {
-  ...card,
-  updatedAt: now,
-  tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
-  academyProvenance
-  };
-  deck.cards[card.id] = updated;
-  const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
-  return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
-}
-function normalizeStoredCard(value) {
-  if (!isRecord(value) || typeof value.expression !== "string") return null;
-  let identity;
-  try {
-  identity = canonicalStudyCardIdentity(
-    value.expression,
-    typeof value.reading === "string" ? value.reading : "",
-    {
-      ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
-      ...typeof value.language === "string" ? { language: value.language } : {}
-    }
-  );
-  } catch {
-  return null;
-  }
-  const createdAt = finiteNumber(value.createdAt, 0);
-  const updatedAt = finiteNumber(value.updatedAt, createdAt);
-  return {
-  id: identity.key,
-  expression: identity.expression,
-  reading: identity.reading,
-  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-  ...identity.language !== "ja" ? { language: identity.language } : {},
-  meanings: stringArray(value.meanings),
-  ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
-  ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
-  ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
-  ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-  tags: stringArray(value.tags),
-  dueAt: finiteNumber(value.dueAt, createdAt),
-  lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
-  createdAt,
-  updatedAt,
-  reviews: nonNegativeInteger(value.reviews),
-  lapses: nonNegativeInteger(value.lapses),
-  intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
-  ease: finiteNumber(value.ease, 2.5),
-  retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
-  academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
-  };
-}
-function storedCardIdentity(card) {
-  return canonicalStudyCardIdentity(card.expression, card.reading, {
-  partOfSpeech: card.partOfSpeech,
-  language: card.language ?? "ja"
-  });
-}
-function preferredSchedule(left, right) {
-  if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
-  const leftReviewed = left.lastReviewAt ?? -1;
-  const rightReviewed = right.lastReviewAt ?? -1;
-  if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
-  if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
-  return left.updatedAt >= right.updatedAt ? left : right;
-}
-function normalizeProvenance(value, addedAt) {
-  const id = requiredText(value.id, "Academy vocabulary provenance id");
-  if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
-  throw new TypeError("Academy vocabulary provenance kind is invalid.");
-  }
-  return {
-  id,
-  kind: value.kind,
-  addedAt,
-  ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
-  ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
-  ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
-  ...value.reason ? { reason: value.reason } : {}
-  };
-}
-function normalizeProvenanceRecord(value, fallbackAt) {
-  if (!isRecord(value)) return {};
-  const result = {};
-  for (const candidate of Object.values(value)) {
-  if (!isRecord(candidate)) continue;
-  try {
-    const normalized = normalizeProvenance({
-      id: String(candidate.id ?? ""),
-      kind: candidate.kind,
-      ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
-      ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
-      ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-      ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
-    }, finiteNumber(candidate.addedAt, fallbackAt));
-    result[normalized.id] = normalized;
-  } catch {
-  }
-  }
-  return result;
-}
-function sameProvenance(left, right) {
-  return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
-}
-function retainsWithoutAcademy(card) {
-  return card.retainWithoutAcademyProvenance !== false;
-}
-function hasStudyHistory(card) {
-  return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
-}
-function requiredText(value, label) {
-  const normalized = value.trim();
-  if (!normalized) throw new TypeError(`${label} is required.`);
-  return normalized;
-}
-function cleanOptional(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : void 0;
-}
-function stringArray(value) {
-  return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
-}
-function uniqueText(values) {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-function finiteNumber(value, fallback) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-function nonNegativeInteger(value) {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
-}
-const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
-let localDeckMutation = Promise.resolve();
-const localDeckMutationListeners = new Set();
-class LocalYomuSrsRepository {
-  constructor(now = () => Date.now()) {
-  this.now = now;
-  }
-  async importBatch(batch) {
-  return this.mutateDeck((deck) => {
-    let imported = 0;
-    let skipped = 0;
-    for (const item of batch.items) {
-      const card = this.cardFromImportItem(item, batch.importedAt);
-      if (!card) {
-        skipped++;
-        continue;
-      }
-      const existing = deck.cards[card.id];
-      deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
-      if (existing) skipped++;
-      else imported++;
-    }
-    return { imported, skipped };
-  });
-  }
-  /** Atomically upserts one semantic card and one idempotent Academy provenance. */
-  async collectAcademyVocabulary(input) {
-  return this.mutateDeck((deck) => {
-    const now = this.now();
-    const result = upsertAcademyVocabulary(deck, input, now);
-    return {
-      cardId: result.card.id,
-      cardCreated: result.cardCreated,
-      provenanceAdded: result.provenanceAdded,
-      provenanceCount: result.provenanceCount,
-      card: this.toReviewable(result.card, now)
-    };
-  });
-  }
-  /** Reads the shared deck without changing any card or schedule. */
-  async academySyllabusProgress(items) {
-  const deck = await this.readDeck();
-  const identities = new Set(items.map((item) => canonicalStudyCardIdentity(item.expression, item.reading).key));
-  const seeded = [...identities].filter((id) => Boolean(deck.cards[id])).length;
-  return { total: identities.size, seeded, unseeded: identities.size - seeded };
-  }
-  /**
-   * Removes only the requested provenance. Independent, multiply-sourced,
-   * or reviewed cards are retained even when their final Academy source is undone.
-   */
-  async removeAcademyVocabularyProvenance(cardId, provenanceId) {
-  return this.mutateDeck((deck) => {
-    const now = this.now();
-    const result = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
-    return {
-      provenanceRemoved: result.provenanceRemoved,
-      cardDeleted: result.cardDeleted,
-      reason: result.reason,
-      ...result.card ? { card: this.toReviewable(result.card, now) } : {}
-    };
-  });
-  }
-  async queue(limit = 50) {
-  const now = this.now();
-  const cards = Object.values((await this.readDeck()).cards);
-  const cap = normalizedQueueLimit(limit);
-  const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
-  const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
-  const dueNew = due.filter((card) => card.reviews === 0).length;
-  const dueReviews = due.length - dueNew;
-  const queue = due.slice(0, cap).map((card) => this.toReviewable(card, now));
-  return {
-    providerId: "yomu-local",
-    fetchedAt: now,
-    cards: queue,
-    dueCount: dueReviews,
-    newCount: dueNew,
-    reviewCount: due.length
-  };
-  }
-  async stats() {
-  const now = this.now();
-  const cards = Object.values((await this.readDeck()).cards);
-  const today = startOfLocalDay(now);
-  return {
-    providerId: "yomu-local",
-    fetchedAt: now,
-    reviewsDue: cards.filter((card) => card.dueAt <= now).length,
-    reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
-    newToday: cards.filter((card) => card.createdAt >= today).length,
-    levelCounts: {
-      new: cards.filter((card) => card.reviews === 0).length,
-      learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
-      known: cards.filter((card) => card.intervalDays >= 21).length
-    }
-  };
-  }
-  /** Read the normalized encrypted-sync payload without exposing the storage key. */
-  async snapshot() {
-  return structuredClone(await this.readDeck());
-  }
-  /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
-  async mergeSnapshot(value, options = {}) {
-  return this.mutateDeck((deck) => {
-    const merged = mergeStoredYomuSrsDecks(deck, value);
-    deck.cards = merged.cards;
-    deck.tombstones = merged.tombstones;
-    return structuredClone(merged);
-  }, options.notifyMutations !== false);
-  }
-  /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
-  async lookupCards(items) {
-  const now = this.now();
-  const deck = await this.readDeck();
-  const cards = new Map();
-  for (const item of items) {
-    try {
-      const identity = canonicalStudyCardIdentity(item.expression, item.reading, {
-        partOfSpeech: item.partOfSpeech,
-        language: item.language
-      });
-      const stored = deck.cards[identity.key];
-      if (stored) cards.set(identity.key, this.toReviewable(stored, now));
-    } catch {
-    }
-  }
-  return [...cards.values()];
-  }
-  async review(request) {
-  return this.mutateDeck((deck) => {
-    const now = this.now();
-    const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading, {
-      partOfSpeech: request.card.partOfSpeech,
-      language: request.card.language
-    });
-    const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
-    const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
-    if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
-      delete deck.cards[request.card.providerCardId];
-      deck.tombstones = { ...deck.tombstones ?? {}, [request.card.providerCardId]: now };
-    }
-    deck.cards[identity.key] = updated;
-    if ((deck.tombstones?.[identity.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity.key];
-    return { card: this.toReviewable(updated, now), raw: updated };
-  });
-  }
-  async mine(request) {
-  return this.mutateDeck((deck) => {
-    const now = this.now();
-    const candidate = this.cardFromImportItem({
-      expression: request.expression,
-      reading: request.reading,
-      partOfSpeech: request.partOfSpeech,
-      language: request.language,
-      meanings: request.meaning ? [request.meaning] : [],
-      sentence: request.sentence,
-      sourceUrl: request.sourceUrl
-    }, now);
-    if (!candidate) throw new TypeError("Vocabulary expression is required.");
-    const existing = deck.cards[candidate.id];
-    const stored = existing ? mergeStoredYomuSrsCards(existing, candidate) : candidate;
-    deck.cards[candidate.id] = stored;
-    if ((deck.tombstones?.[candidate.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate.id];
-    return {
-      card: this.toReviewable(stored, now),
-      raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
-    };
-  });
-  }
-  readDeck() {
-  const result = localDeckMutation.then(() => this.readDeckUncoordinated());
-  localDeckMutation = result.then(() => void 0, () => void 0);
-  return result;
-  }
-  async readDeckUncoordinated() {
-  const stored = await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-  return normalizeStoredYomuSrsDeck(stored);
-  }
-  writeDeck(deck) {
-  return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
-  }
-  mutateDeck(operation, notifyMutations = true) {
-  const result = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
-    const deck = await this.readDeckUncoordinated();
-    const previousCards = new Map(Object.entries(deck.cards));
-    const previousTombstones = { ...deck.tombstones ?? {} };
-    const value = operation(deck);
-    await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
-    const changedCardIds = new Set([
-      ...previousCards.keys(),
-      ...Object.keys(deck.cards),
-      ...Object.keys(previousTombstones),
-      ...Object.keys(deck.tombstones ?? {})
-    ]);
-    const changed = [...changedCardIds].filter((id) => !sameStoredCard(previousCards.get(id), deck.cards[id]) || previousTombstones[id] !== deck.tombstones?.[id]);
-    if (notifyMutations) {
-      localDeckMutationListeners.forEach((listener) => {
-        try {
-          listener(changed);
-        } catch {
-        }
-      });
-    }
-    return value;
-  }));
-  localDeckMutation = result.then(() => void 0, () => void 0);
-  return result;
-  }
-  cardFromImportItem(item, now) {
-  let identity;
-  try {
-    identity = canonicalStudyCardIdentity(item.expression, item.reading, {
-      partOfSpeech: item.partOfSpeech,
-      language: item.language
-    });
-  } catch {
-    return null;
-  }
-  return {
-    id: identity.key,
-    expression: identity.expression,
-    reading: identity.reading,
-    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-    ...identity.language !== "ja" ? { language: identity.language } : {},
-    meanings: uniqueTrimmedStrings(item.meanings ?? []),
-    sentence: item.sentence?.trim() || void 0,
-    sourceProviderId: item.sourceProviderId,
-    sourceCardId: item.sourceCardId,
-    sourceUrl: item.sourceUrl,
-    tags: uniqueTrimmedStrings(item.tags ?? []),
-    dueAt: item.dueAt ?? now,
-    lastReviewAt: null,
-    createdAt: now,
-    updatedAt: now,
-    reviews: 0,
-    lapses: 0,
-    intervalDays: 0,
-    ease: 2.5,
-    retainWithoutAcademyProvenance: true,
-    academyProvenance: {}
-  };
-  }
-  cardFromReviewable(card, now) {
-  const identity = canonicalStudyCardIdentity(card.expression, card.reading, {
-    partOfSpeech: card.partOfSpeech,
-    language: card.language
-  });
-  return {
-    id: identity.key,
-    expression: identity.expression,
-    reading: identity.reading,
-    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-    ...identity.language !== "ja" ? { language: identity.language } : {},
-    meanings: card.meanings.flatMap((meaning) => meaning.glosses),
-    sourceProviderId: card.providerId,
-    sourceCardId: card.providerCardId,
-    sourceUrl: card.sourceUrl,
-    dueAt: card.dueAt ?? now,
-    lastReviewAt: card.lastReviewAt ?? null,
-    createdAt: now,
-    updatedAt: now,
-    reviews: 0,
-    lapses: 0,
-    intervalDays: 0,
-    ease: 2.5,
-    retainWithoutAcademyProvenance: true,
-    academyProvenance: {}
-  };
-  }
-  toReviewable(card, now) {
-  return {
-    providerId: "yomu-local",
-    providerCardId: card.id,
-    providerReviewId: card.id,
-    kind: "vocabulary",
-    expression: card.expression,
-    reading: card.reading,
-    ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
-    ...card.language ? { language: card.language } : {},
-    meanings: meaningsFromGlosses(card.meanings),
-    sentence: card.sentence,
-    state: localCardState(card, now),
-    srsLevel: localSrsLevel(card),
-    dueAt: card.dueAt,
-    lastReviewAt: card.lastReviewAt,
-    sourceUrl: card.sourceUrl,
-    raw: card
-  };
-  }
-}
-function sameStoredCard(left, right) {
-  if (left === right) return true;
-  if (!left || !right) return false;
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
-  return {
-  id: "yomu-local",
-  label: ACADEMY_SRS_LABEL,
-  capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
-  hasCredential: () => true,
-  verify: async () => true,
-  stats: () => repository.stats(),
-  queue: (limit) => repository.queue(limit),
-  review: (request) => repository.review(request),
-  mine: (request) => repository.mine(request),
-  lookupCards: (items) => repository.lookupCards(items),
-  importBatch: (batch) => repository.importBatch(batch)
-  };
-}
-function scheduleReviewedCard(card, grade, now) {
-  const failed = grade === "nothing" || grade === "something" || grade === "fail" || grade === "again";
-  const intervalDays = failed ? 0 : nextIntervalDays(card, grade);
-  return {
-  ...card,
-  reviews: card.reviews + 1,
-  lapses: card.lapses + (failed ? 1 : 0),
-  intervalDays,
-  ease: Math.min(3.2, Math.max(1.3, card.ease + easeDelta(grade))),
-  dueAt: now + (failed ? 10 * 6e4 : intervalDays * 864e5),
-  lastReviewAt: now,
-  updatedAt: now
-  };
-}
-function nextIntervalDays(card, grade) {
-  if (card.reviews <= 0) return grade === "easy" ? 4 : grade === "hard" ? 1 : 2;
-  const multiplier = grade === "easy" ? card.ease + 0.7 : grade === "hard" ? 1.2 : card.ease;
-  return Math.max(1, Math.round(Math.max(1, card.intervalDays) * multiplier));
-}
-function easeDelta(grade) {
-  if (grade === "easy") return 0.15;
-  if (grade === "hard") return -0.15;
-  if (grade === "nothing" || grade === "something" || grade === "fail" || grade === "again") return -0.25;
-  return 0;
-}
-function meaningsFromGlosses(glosses) {
-  const normalized = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
-  return normalized.length ? [{ glosses: normalized, partOfSpeech: [] }] : [];
-}
-function localCardState(card, now) {
-  if (card.reviews === 0) return ["new"];
-  if (card.dueAt <= now) return ["due"];
-  if (card.intervalDays >= 21) return ["known"];
-  return ["learning"];
-}
-function localSrsLevel(card) {
-  if (card.reviews === 0) return "New";
-  if (card.intervalDays >= 21) return "Known";
-  if (card.intervalDays >= 7) return "Young";
-  return "Learning";
-}
-function startOfLocalDay(now) {
-  const date = new Date(now);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-function normalizedQueueLimit(limit) {
-  if (Number.isNaN(limit) || limit <= 0) return 0;
-  return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
-}
 const installAcademyReaderSrsSync = () => {
   yomuSettingsSurfaceCompanion()?.installAcademyReaderSrsSync?.();
 };
@@ -30984,11 +31104,11 @@ function renderKanjiImmersionKitMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return "";
   const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
-            <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
-        </details>
-    `;
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
+        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+        <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
+    </details>
+  `;
 }
 function renderKanjiSourceMount(sourceId, options) {
   const staticMount = (options.staticMounts ?? KANJI_STATIC_SOURCE_MOUNTS)[sourceId];
@@ -31005,20 +31125,20 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
   const title = options.sourceTitle(KANJI_STROKE_SOURCE_ID);
   const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
-                <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
-            </div>
-            <div class="jpdb-reader-doodle-tools">
-                <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
-            </div>
-            <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
-        </details>
-    `;
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
+        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
+        <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
+            <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
+            <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
+        </div>
+        <div class="jpdb-reader-doodle-tools">
+            <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
+            <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
+        </div>
+        <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
+    </details>
+  `;
 }
 const ARMOURED_PROPERTIES = new Set([
   "border-radius",
@@ -37842,35 +37962,35 @@ class ReaderApp {
   }
   renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language) {
   setInnerHtml(popover, `
-        <div class="jpdb-reader-sheet-handle"></div>
-        <div class="jpdb-reader-popover-body">
-            ${renderModalNavigation({
-  ...this.navigation.kanjiModalBack(card, language),
-  controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
-  })}
-            <div class="jpdb-reader-header">
-                <div class="jpdb-reader-heading">
-                    <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
-                        <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
-                        <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
-                        ${renderWordPills({
-  card,
-  jpdbUrl,
-  settings: this.settings,
-  metaEntries: [],
-  overrideQuery: kanji,
-  isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
-  dictionaryLabel: (name) => this.dictionaryLabel(name)
-  })}
+            <div class="jpdb-reader-sheet-handle"></div>
+            <div class="jpdb-reader-popover-body">
+                ${renderModalNavigation({
+      ...this.navigation.kanjiModalBack(card, language),
+      controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
+    })}
+                <div class="jpdb-reader-header">
+                    <div class="jpdb-reader-heading">
+                        <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
+                            <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
+                            ${renderWordPills({
+      card,
+      jpdbUrl,
+      settings: this.settings,
+      metaEntries: [],
+      overrideQuery: kanji,
+      isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
+      dictionaryLabel: (name) => this.dictionaryLabel(name)
+    })}
+                        </div>
                     </div>
                 </div>
+                <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
+                    ${this.renderKanjiSourceMounts(kanji, language)}
+                </div>
             </div>
-            <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-                ${this.renderKanjiSourceMounts(kanji, language)}
-            </div>
-        </div>
-        ${this.renderKanjiActionBar(card)}
-    `);
+            ${this.renderKanjiActionBar(card)}
+        `);
   }
   renderKanjiNavigationControls(kanjiCharacters, kanji, language) {
   if (kanjiCharacters.length <= 1) return "";
@@ -37878,9 +37998,9 @@ class ReaderApp {
   const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
   const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
   return `
-        <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
-        <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
-    `;
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
+        `;
   }
   installKanjiCardActions(popover, card, kanji, sentence, anchor) {
   installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
@@ -37973,14 +38093,14 @@ class ReaderApp {
   renderKanjiActionBar(card) {
   const reviewButtons = this.renderKanjiReviewButtons(card);
   return `
-        <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
-            <div class="jpdb-reader-actions-gutter" hidden>
-                <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
+            <div class="jpdb-reader-actions" data-kanji-actions data-kanji-has-review="${reviewButtons ? "true" : "false"}"${reviewButtons ? "" : " hidden"}>
+                <div class="jpdb-reader-actions-gutter" hidden>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}" aria-label="${escapeHtml$1(uiText(this.settings.interfaceLanguage, "showMiningActions"))}"></button>
+                </div>
+                <div data-kanji-mining-mount hidden></div>
+                ${reviewButtons}
             </div>
-            <div data-kanji-mining-mount hidden></div>
-            ${reviewButtons}
-        </div>
-    `;
+        `;
   }
   renderKanjiReviewButtons(card) {
   if (!this.settings.enableReviews) return "";

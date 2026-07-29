@@ -1,4 +1,4 @@
-import { gmStorageGet, gmStorageSet, withGmStorageLease } from '../app/storage';
+import { withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
@@ -27,6 +27,7 @@ import type {
     YomuSrsReviewable,
     YomuSrsStatsSnapshot,
 } from './types';
+import { LocalYomuSrsStore } from './local-yomu-store';
 
 export type {
     AcademyVocabularyInput,
@@ -34,8 +35,11 @@ export type {
     AcademyVocabularyProvenanceKind,
     AcademyVocabularyRetentionReason,
 } from './local-yomu-deck';
+export {
+    LocalYomuSrsStorageError,
+    isLocalYomuSrsStorageError,
+} from './local-yomu-store';
 
-const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 let localDeckMutation = Promise.resolve();
 const localDeckMutationListeners = new Set<(cardIds: readonly string[]) => void>();
 
@@ -71,6 +75,8 @@ export interface AcademySyllabusProgress {
 }
 
 export class LocalYomuSrsRepository {
+    private readonly store = new LocalYomuSrsStore();
+
     constructor(private readonly now: () => number = () => Date.now()) {}
 
     async importBatch(batch: YomuSrsImportBatch): Promise<{ imported: number; skipped: number }> {
@@ -259,21 +265,21 @@ export class LocalYomuSrsRepository {
     }
 
     private async readDeckUncoordinated(): Promise<StoredYomuSrsDeck> {
-        const stored = await gmStorageGet<unknown>(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null);
-        return normalizeStoredYomuSrsDeck(stored);
+        return this.store.read();
     }
 
-    private writeDeck(deck: StoredYomuSrsDeck): Promise<void> {
-        return gmStorageSet(YOMU_LOCAL_SRS_STORAGE_KEY, deck);
+    private writeDeck(previous: StoredYomuSrsDeck, deck: StoredYomuSrsDeck): Promise<void> {
+        return this.store.write(previous, deck);
     }
 
     private mutateDeck<Result>(operation: (deck: StoredYomuSrsDeck) => Result, notifyMutations = true): Promise<Result> {
         const result = localDeckMutation.then(() => withGmStorageLease('local-yomu-srs-deck', async () => {
             const deck = await this.readDeckUncoordinated();
+            const previousDeck = structuredClone(deck);
             const previousCards = new Map(Object.entries(deck.cards));
             const previousTombstones = { ...(deck.tombstones ?? {}) };
             const value = operation(deck);
-            await this.writeDeck(normalizeStoredYomuSrsDeck(deck));
+            await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
             const changedCardIds = new Set([...previousCards.keys(), ...Object.keys(deck.cards),
                 ...Object.keys(previousTombstones), ...Object.keys(deck.tombstones ?? {})]);
             const changed = [...changedCardIds].filter(id => !sameStoredCard(previousCards.get(id), deck.cards[id])

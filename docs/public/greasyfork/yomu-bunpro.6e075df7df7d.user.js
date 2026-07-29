@@ -1307,6 +1307,7 @@
     return typeof status === "number" && Number.isFinite(status) ? status : void 0;
   }
   const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
+  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
   const REQUEST_TIMEOUT_MS = 3e4;
   const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
   const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
@@ -1322,6 +1323,7 @@
     getFrontendToken;
     getLegacyApiKey;
     frontendBaseUrl;
+    legacyBaseUrl;
     requestImpl;
     timeoutMs;
     getProxyUrl;
@@ -1332,6 +1334,7 @@
       this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
       this.getProxyUrl = options.getProxyUrl ?? (() => "");
       this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
+      this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
       this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
       this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
@@ -1461,6 +1464,13 @@
         body
       });
     }
+    getLegacyStudyQueue() {
+      return this.legacy("/study_queue");
+    }
+    // fallow-ignore-next-line unused-class-member
+    getLegacyRecentItems(limit = 10) {
+      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
+    }
     async frontend(path, options = {}) {
       const token = this.getFrontendToken().trim();
       const optionalAuth = options.auth === "optional";
@@ -1486,6 +1496,14 @@
         },
         data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
         statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
+      });
+    }
+    legacy(path) {
+      const apiKey = this.getLegacyApiKey().trim();
+      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
+      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
       });
     }
     async requestJson(url, options) {
@@ -3066,8 +3084,6 @@
       download: "Download",
       update: "Update",
       checkingDictionaries: "Checking imported dictionaries...",
-      targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
-      targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -3533,8 +3549,6 @@
       jpdbKanjiActionBlacklist: "Blacklist",
       jpdbKanjiActionReview: "Review",
       noDefinitions: "No enabled definition source returned results.",
-      finishSetup: "Finish setup",
-      finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
       enabledHeader: "On",
       labelHeader: "Label",
       detailsHeader: "Details",
@@ -3722,8 +3736,6 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
-finishSetup	セットアップを完了
-finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
@@ -3745,8 +3757,6 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
@@ -6259,403 +6269,317 @@ ${candidate.depth}`;
     },
     detectsText: HAS_HANGUL
   });
-  const ENGLISH_FALLBACK_MESSAGES = {
-    setupTitle: "Set up Yomu in your language",
-    learnerLanguageLabel: "Your language",
-    targetLanguageLabel: "Language you are learning",
-    targetJapanese: "Japanese",
-    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-    automaticTranslationLabel: "Translate automatically into {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-    setupProgress: "Language setup {current} of {total}",
-    continueAction: "Continue",
-    originalDefinitionLabel: "Original {language}"
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    MODULES_BY_LANGUAGE.set(base, module);
+    return module;
+  }
+  function learningTargetModuleFor(language) {
+    const canonical = canonicalLanguageTag(language);
+    const base = languageSubtag(canonical);
+    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+  }
+  function normalizeLearningTargetLanguage(value) {
+    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function defaultLearningTargetModule() {
+    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerLearningTargetModule(KOREAN_LEARNING_TARGET);
+  const CORE_COLOR_TOKENS = {
+    white: "#ffffff"
   };
-  function defineLocaleCatalog(locale, reviewStatus, messages) {
-    return Object.freeze({
-      locale,
-      reviewStatus,
-      sourceLocale: "en",
-      messages: Object.freeze(messages)
+  const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
+    consoleAccent: "#247a58"
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  roleSelectors("menu,menubar,toolbar,tablist");
+  function escapeHtml(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  let sandboxCompanions = {};
+  function registerYomuCompanion(key, value) {
+    writeYomuCompanions({
+      ...yomuCompanions(),
+      [key]: value
     });
   }
-  defineLocaleCatalog("ar", "machine-draft", {
-    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-    learnerLanguageLabel: "لغتك",
-    targetLanguageLabel: "اللغة التي تتعلمها",
-    targetJapanese: "اليابانية",
-    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-    continueAction: "متابعة",
-    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩"
-  });
-  defineLocaleCatalog("da", "machine-draft", {
-    setupTitle: "Opsæt よむ på dit sprog",
-    learnerLanguageLabel: "Dit sprog",
-    targetLanguageLabel: "Det sprog, du lærer",
-    targetJapanese: "Japansk",
-    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-    automaticTranslationLabel: "Oversæt automatisk til {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-    setupProgress: "Sprogopsætning: {current} af {total}",
-    continueAction: "Fortsæt",
-    originalDefinitionLabel: "Original på {language}"
-  });
-  defineLocaleCatalog("de", "machine-draft", {
-    setupTitle: "よむ in deiner Sprache einrichten",
-    learnerLanguageLabel: "Deine Sprache",
-    targetLanguageLabel: "Sprache, die du lernst",
-    targetJapanese: "Japanisch",
-    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-    setupProgress: "Sprache einrichten: {current} von {total}",
-    continueAction: "Weiter",
-    originalDefinitionLabel: "Originaldefinition auf {language}"
-  });
-  defineLocaleCatalog("el", "machine-draft", {
-    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-    learnerLanguageLabel: "Η γλώσσα σας",
-    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-    targetJapanese: "Ιαπωνικά",
-    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-    continueAction: "Συνέχεια",
-    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}"
-  });
-  defineLocaleCatalog(
-    "en",
-    "source-approved",
-    ENGLISH_FALLBACK_MESSAGES
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    sandboxCompanions = value;
+    writeYomuCompanionsTarget(globalThis, value);
+    if (typeof window !== "undefined" && window !== globalThis) {
+      const pageValue = pageCompartmentRegistryValue(value);
+      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+  }
+  function pageCompartmentRegistryValue(value) {
+    const cloneInto = globalThis.cloneInto;
+    if (typeof cloneInto !== "function") return value;
+    try {
+      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return void 0;
+    }
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
+    }
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  const __vite_import_meta_env__ = { "DEV": false };
+  const LOG_PREFIX = "[Yomu]";
+  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+  const RUNTIME_LOG_KEY = "yomu:enable-logs";
+  const REDACTED = "[redacted]";
+  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
+  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+  const env = __vite_import_meta_env__;
+  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+  class ScopedLogger {
+    constructor(parent, scopeName) {
+      this.parent = parent;
+      this.scopeName = scopeName;
+    }
+    debug(message, ...args) {
+      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+    }
+    info(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.info, "");
+    }
+    warn(message, ...args) {
+      const optional = args.some(isOptionalCorsBridgeError);
+      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
+    }
+    error(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+    }
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+    }
+    time(label, ...args) {
+      if (!this.parent.isEnabled()) return () => void 0;
+      const start = nowMs();
+      this.debug(`${label} started`, ...args);
+      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+    }
+  }
+  class LoggerImpl {
+    settingsProvider;
+    forceEnabled = false;
+    onceKeys = /* @__PURE__ */ new Set();
+    configure(options) {
+      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+    }
+    scope(scopeName) {
+      return new ScopedLogger(this, scopeName);
+    }
+    isEnabled() {
+      if (BUILD_LOGGING_ENABLED) return true;
+      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+      try {
+        return this.settingsProvider?.().enableLogging === true;
+      } catch {
+        return false;
+      }
+    }
+    isDevMode() {
+      return isDevMode();
+    }
+    enable(persist = false) {
+      this.forceEnabled = true;
+      if (persist) setRuntimeLoggingOverride(true);
+      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+    }
+    disable(persist = false) {
+      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+      this.forceEnabled = false;
+      if (persist) setRuntimeLoggingOverride(false);
+    }
+    reset() {
+      this.onceKeys.clear();
+    }
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
+      this.write(scope, message, args, console.warn, WARN_STYLE);
+    }
+    write(scope, message, args, writer, levelStyle) {
+      if (!this.isEnabled()) return;
+      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+    }
+  }
+  const Logger = new LoggerImpl();
+  function isDevMode() {
+    return BUILD_IS_DEV_MODE;
+  }
+  function writeDebugToConsole(...args) {
+    if (isDevMode()) console.log(...args);
+    else console.debug(...args);
+  }
+  function isOptionalCorsBridgeError(value) {
+    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
+  }
+  function getRuntimeLoggingOverride() {
+    try {
+      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+    } catch {
+      return false;
+    }
+  }
+  function setRuntimeLoggingOverride(enabled) {
+    try {
+      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+    } catch {
+    }
+  }
+  function nowMs() {
+    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }
+  function sanitizeForConsole(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value === null || value === void 0 || typeof value !== "object") return value;
+    const sanitized = sanitizeSpecialConsoleValue(value);
+    if (sanitized.handled) return sanitized.value;
+    if (Array.isArray(value)) return value.map(sanitizeForConsole);
+    return sanitizeRecordForConsole(value);
+  }
+  function sanitizeSpecialConsoleValue(value) {
+    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+      const sanitized = sanitizer(value);
+      if (sanitized.handled) return sanitized;
+    }
+    return { handled: false };
+  }
+  const CONSOLE_VALUE_SANITIZERS = [
+    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+  ];
+  function sanitizeRecordForConsole(record) {
+    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+    ]));
+  }
+  function sanitizeFlatValue(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value instanceof Error) return { name: value.name, message: value.message };
+    return value;
+  }
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
+    return true;
+  }
+  function redactString(value) {
+    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+  }
+  if (typeof window !== "undefined") {
+    window.__YOMU_LOGGER__ = Logger;
+    window.YomuLogger = Logger;
+  }
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
   );
-  defineLocaleCatalog("es", "machine-draft", {
-    setupTitle: "Configura Yomu en tu idioma",
-    learnerLanguageLabel: "Tu idioma",
-    targetLanguageLabel: "Idioma que estás aprendiendo",
-    targetJapanese: "Japonés",
-    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-    automaticTranslationLabel: "Traducir automáticamente al {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-    setupProgress: "Configuración del idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definición original ({language})"
-  });
-  defineLocaleCatalog("fa", "machine-draft", {
-    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-    learnerLanguageLabel: "زبان شما",
-    targetLanguageLabel: "زبانی که یاد می‌گیرید",
-    targetJapanese: "ژاپنی",
-    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-    continueAction: "ادامه",
-    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩"
-  });
-  defineLocaleCatalog("fi", "machine-draft", {
-    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-    learnerLanguageLabel: "Oma kielesi",
-    targetLanguageLabel: "Opiskelemasi kieli",
-    targetJapanese: "Japani",
-    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-    automaticTranslationLabel: "Käännä automaattisesti: {language}",
-    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-    continueAction: "Jatka",
-    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})"
-  });
-  defineLocaleCatalog("fr", "machine-draft", {
-    setupTitle: "Configurez よむ dans votre langue",
-    learnerLanguageLabel: "Votre langue",
-    targetLanguageLabel: "Langue que vous apprenez",
-    targetJapanese: "Japonais",
-    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-    automaticTranslationLabel: "Traduire automatiquement en {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-    setupProgress: "Configuration de la langue : {current} sur {total}",
-    continueAction: "Continuer",
-    originalDefinitionLabel: "Définition originale en {language}"
-  });
-  defineLocaleCatalog("grc", "machine-draft", {
-    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-    targetJapanese: "Ἰαπωνική",
-    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-    continueAction: "Πρόβαινε",
-    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})"
-  });
-  defineLocaleCatalog("hu", "machine-draft", {
-    setupTitle: "A よむ beállítása az Ön nyelvén",
-    learnerLanguageLabel: "Az Ön nyelve",
-    targetLanguageLabel: "A tanult nyelv",
-    targetJapanese: "Japán",
-    recommendedDictionariesTitle: "Ajánlott japán szótárak",
-    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-    setupProgress: "Nyelvi beállítás: {current}/{total}",
-    continueAction: "Folytatás",
-    originalDefinitionLabel: "Eredeti meghatározás ({language})"
-  });
-  defineLocaleCatalog("id", "machine-draft", {
-    setupTitle: "Siapkan Yomu dalam bahasa Anda",
-    learnerLanguageLabel: "Bahasa Anda",
-    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-    targetJapanese: "Bahasa Jepang",
-    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-    setupProgress: "Penyiapan bahasa {current} dari {total}",
-    continueAction: "Lanjutkan",
-    originalDefinitionLabel: "Definisi asli dalam {language}"
-  });
-  defineLocaleCatalog("it", "machine-draft", {
-    setupTitle: "Configura よむ nella tua lingua",
-    learnerLanguageLabel: "La tua lingua",
-    targetLanguageLabel: "Lingua che stai imparando",
-    targetJapanese: "Giapponese",
-    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-    automaticTranslationLabel: "Traduci automaticamente in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-    setupProgress: "Configurazione della lingua: {current} di {total}",
-    continueAction: "Continua",
-    originalDefinitionLabel: "Definizione originale in {language}"
-  });
-  defineLocaleCatalog("km", "machine-draft", {
-    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-    learnerLanguageLabel: "ភាសារបស់អ្នក",
-    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-    targetJapanese: "ភាសាជប៉ុន",
-    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-    continueAction: "បន្ត",
-    originalDefinitionLabel: "និយមន័យដើម ({language})"
-  });
-  defineLocaleCatalog("ko", "machine-draft", {
-    setupTitle: "내 언어로 よむ 설정하기",
-    learnerLanguageLabel: "사용 언어",
-    targetLanguageLabel: "학습할 언어",
-    targetJapanese: "일본어",
-    recommendedDictionariesTitle: "추천 일본어 사전",
-    automaticTranslationLabel: "{language}로 자동 번역",
-    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-    setupProgress: "언어 설정: {total}단계 중 {current}단계",
-    continueAction: "계속",
-    originalDefinitionLabel: "원문({language})"
-  });
-  defineLocaleCatalog("la", "machine-draft", {
-    setupTitle: "Configura よむ in lingua tua",
-    learnerLanguageLabel: "Lingua tua",
-    targetLanguageLabel: "Lingua quam discis",
-    targetJapanese: "Lingua Iaponica",
-    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-    automaticTranslationLabel: "Automatice verte in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-    setupProgress: "Configuratio linguae: {current} ex {total}",
-    continueAction: "Perge",
-    originalDefinitionLabel: "Definitio originalis ({language})"
-  });
-  defineLocaleCatalog("lo", "machine-draft", {
-    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-    continueAction: "ສືບຕໍ່",
-    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})"
-  });
-  defineLocaleCatalog("mn", "machine-draft", {
-    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-    learnerLanguageLabel: "Таны хэл",
-    targetLanguageLabel: "Таны сурч буй хэл",
-    targetJapanese: "Япон хэл",
-    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-    setupProgress: "Хэлний тохиргоо: {current}/{total}",
-    continueAction: "Үргэлжлүүлэх",
-    originalDefinitionLabel: "Эх тайлбар ({language})"
-  });
-  defineLocaleCatalog("nl", "machine-draft", {
-    setupTitle: "Stel よむ in jouw taal in",
-    learnerLanguageLabel: "Jouw taal",
-    targetLanguageLabel: "Taal die je leert",
-    targetJapanese: "Japans",
-    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-    automaticTranslationLabel: "Automatisch vertalen naar {language}",
-    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-    setupProgress: "Taal instellen: {current} van {total}",
-    continueAction: "Doorgaan",
-    originalDefinitionLabel: "Oorspronkelijke definitie ({language})"
-  });
-  defineLocaleCatalog("pl", "machine-draft", {
-    setupTitle: "Skonfiguruj Yomu w swoim języku",
-    learnerLanguageLabel: "Twój język",
-    targetLanguageLabel: "Język, którego się uczysz",
-    targetJapanese: "Japoński",
-    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-    setupProgress: "Konfiguracja języka: {current} z {total}",
-    continueAction: "Kontynuuj",
-    originalDefinitionLabel: "Oryginalna definicja ({language})"
-  });
-  defineLocaleCatalog("pt", "machine-draft", {
-    setupTitle: "Configure o Yomu no seu idioma",
-    learnerLanguageLabel: "O seu idioma",
-    targetLanguageLabel: "Idioma que está a aprender",
-    targetJapanese: "Japonês",
-    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-    automaticTranslationLabel: "Traduzir automaticamente para {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-    setupProgress: "Configuração do idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definição original ({language})"
-  });
-  defineLocaleCatalog("ro", "machine-draft", {
-    setupTitle: "Configurează Yomu în limba ta",
-    learnerLanguageLabel: "Limba ta",
-    targetLanguageLabel: "Limba pe care o înveți",
-    targetJapanese: "Japoneză",
-    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-    automaticTranslationLabel: "Tradu automat în {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-    setupProgress: "Configurarea limbii: {current} din {total}",
-    continueAction: "Continuă",
-    originalDefinitionLabel: "Definiția originală în {language}"
-  });
-  defineLocaleCatalog("ru", "machine-draft", {
-    setupTitle: "Настройте Yomu на своём языке",
-    learnerLanguageLabel: "Ваш язык",
-    targetLanguageLabel: "Язык, который вы изучаете",
-    targetJapanese: "Японский",
-    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-    automaticTranslationLabel: "Автоматически переводить на {language}",
-    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-    setupProgress: "Настройка языка: {current} из {total}",
-    continueAction: "Продолжить",
-    originalDefinitionLabel: "Оригинал определения ({language})"
-  });
-  defineLocaleCatalog("sh", "machine-draft", {
-    setupTitle: "Podesite Yomu na svom jeziku",
-    learnerLanguageLabel: "Vaš jezik",
-    targetLanguageLabel: "Jezik koji učite",
-    targetJapanese: "Japanski",
-    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-    automaticTranslationLabel: "Automatski prevod na jezik {language}",
-    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-    setupProgress: "Podešavanje jezika: {current} od {total}",
-    continueAction: "Nastavi",
-    originalDefinitionLabel: "Originalna definicija ({language})"
-  });
-  defineLocaleCatalog("sq", "machine-draft", {
-    setupTitle: "Konfiguro よむ në gjuhën tënde",
-    learnerLanguageLabel: "Gjuha jote",
-    targetLanguageLabel: "Gjuha që po mëson",
-    targetJapanese: "Japonisht",
-    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-    automaticTranslationLabel: "Përkthe automatikisht në {language}",
-    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-    continueAction: "Vazhdo",
-    originalDefinitionLabel: "Origjinali në {language}"
-  });
-  defineLocaleCatalog("sv", "machine-draft", {
-    setupTitle: "Ställ in よむ på ditt språk",
-    learnerLanguageLabel: "Ditt språk",
-    targetLanguageLabel: "Språket du lär dig",
-    targetJapanese: "Japanska",
-    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-    automaticTranslationLabel: "Översätt automatiskt till {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-    setupProgress: "Språkinställning: {current} av {total}",
-    continueAction: "Fortsätt",
-    originalDefinitionLabel: "Ursprunglig definition på {language}"
-  });
-  defineLocaleCatalog("th", "machine-draft", {
-    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-    learnerLanguageLabel: "ภาษาของคุณ",
-    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-    targetJapanese: "ภาษาญี่ปุ่น",
-    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-    continueAction: "ดำเนินการต่อ",
-    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})"
-  });
-  defineLocaleCatalog("tl", "machine-draft", {
-    setupTitle: "I-set up ang Yomu sa iyong wika",
-    learnerLanguageLabel: "Iyong wika",
-    targetLanguageLabel: "Wikang pinag-aaralan mo",
-    targetJapanese: "Wikang Hapon",
-    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-    setupProgress: "Pag-set up ng wika: {current} sa {total}",
-    continueAction: "Magpatuloy",
-    originalDefinitionLabel: "Orihinal na depinisyon ({language})"
-  });
-  defineLocaleCatalog("tr", "machine-draft", {
-    setupTitle: "Yomu'yu dilinizde ayarlayın",
-    learnerLanguageLabel: "Diliniz",
-    targetLanguageLabel: "Öğrendiğiniz dil",
-    targetJapanese: "Japonca",
-    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-    setupProgress: "Dil ayarı: {current}/{total}",
-    continueAction: "Devam et",
-    originalDefinitionLabel: "Orijinal tanım ({language})"
-  });
-  defineLocaleCatalog("vi", "machine-draft", {
-    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-    learnerLanguageLabel: "Ngôn ngữ của bạn",
-    targetLanguageLabel: "Ngôn ngữ bạn đang học",
-    targetJapanese: "Tiếng Nhật",
-    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-    automaticTranslationLabel: "Tự động dịch sang {language}",
-    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-    continueAction: "Tiếp tục",
-    originalDefinitionLabel: "Định nghĩa gốc ({language})"
-  });
-  defineLocaleCatalog("yue", "machine-draft", {
-    setupTitle: "用你嘅語言設定よむ",
-    learnerLanguageLabel: "你嘅語言",
-    targetLanguageLabel: "你學緊嘅語言",
-    targetJapanese: "日文",
-    recommendedDictionariesTitle: "推薦嘅日文字典",
-    automaticTranslationLabel: "自動翻譯做{language}",
-    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-    setupProgress: "語言設定：第{current}步，共{total}步",
-    continueAction: "繼續",
-    originalDefinitionLabel: "原文（{language}）"
-  });
-  defineLocaleCatalog("zh", "machine-draft", {
-    setupTitle: "用您的语言设置よむ",
-    learnerLanguageLabel: "您的语言",
-    targetLanguageLabel: "您正在学习的语言",
-    targetJapanese: "日语",
-    recommendedDictionariesTitle: "推荐日语词典",
-    automaticTranslationLabel: "自动翻译为{language}",
-    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-    setupProgress: "语言设置：第{current}步，共{total}步",
-    continueAction: "继续",
-    originalDefinitionLabel: "{language}原文"
-  });
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+  );
+  ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
   const languages = [
     {
       id: "sq",
@@ -7070,379 +6994,7 @@ ${candidate.depth}`;
   function isLearnerLanguageId(value) {
     return LEARNER_LANGUAGE_IDS.includes(value);
   }
-  const SCRIPT_PROPERTY_NAMES = Object.freeze({
-    Arab: "Arabic",
-    Cyrl: "Cyrillic",
-    Grek: "Greek",
-    Hans: "Han",
-    Hant: "Han",
-    Khmr: "Khmer",
-    Laoo: "Lao",
-    Latn: "Latin",
-    Mong: "Mongolian",
-    Thai: "Thai"
-  });
-  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => createLearningTargetModule({
-      id: `${language.id}-roster-v1`,
-      language: language.runtimeLocale,
-      direction: language.direction,
-      capabilities: {
-        segmentation: true,
-        "text-to-speech": true,
-        subtitles: true,
-        typing: true
-      },
-      featureSemantics: {
-        characterSystem: language.defaultScript,
-        phoneticScripts: [],
-        pronunciation: "none",
-        readingAnnotation: "none"
-      },
-      detectsText: scriptDetector(language.scripts)
-    }))
-  );
-  function scriptDetector(scripts) {
-    const properties = [...new Set(scripts.map((script) => SCRIPT_PROPERTY_NAMES[script]).filter((script) => Boolean(script)))];
-    if (!properties.length) return /\p{Letter}/u;
-    return new RegExp(properties.map((script) => `\\p{Script=${script}}`).join("|"), "u");
-  }
-  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  function registerLearningTargetModule(module) {
-    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-      throw new Error(
-        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
-      );
-    }
-    const base = languageSubtag(module.language);
-    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-    stack.push(module);
-    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    MODULES_BY_LANGUAGE.set(base, module);
-    return module;
-  }
-  function learningTargetModuleFor(language) {
-    const canonical = canonicalLanguageTag(language);
-    const base = languageSubtag(canonical);
-    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
-  }
-  function normalizeLearningTargetLanguage(value) {
-    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-  }
-  function defaultLearningTargetModule() {
-    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-  }
-  function registerBuiltInLearningTargetModule(module) {
-    registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
-  }
-  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-  const CORE_COLOR_TOKENS = {
-    white: "#ffffff"
-  };
-  const BRAND_COLOR_TOKENS = {
-    accent: "#5ea780",
-    consoleAccent: "#247a58"
-  };
-  const OVERLAY_COLOR_TOKENS = {
-    text: CORE_COLOR_TOKENS.white
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-  roleSelectors("menu,menubar,toolbar,tablist");
-  function escapeHtml(value) {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    writeYomuCompanionsTarget(globalThis, value);
-    if (typeof window !== "undefined" && window !== globalThis) {
-      const pageValue = pageCompartmentRegistryValue(value);
-      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-    }
-  }
-  function pageCompartmentRegistryValue(value) {
-    const cloneInto = globalThis.cloneInto;
-    if (typeof cloneInto !== "function") return value;
-    try {
-      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return void 0;
-    }
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
-  const __vite_import_meta_env__ = { "DEV": false };
-  const LOG_PREFIX = "[Yomu]";
-  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-  const RUNTIME_LOG_KEY = "yomu:enable-logs";
-  const REDACTED = "[redacted]";
-  const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
-  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-  const env = __vite_import_meta_env__;
-  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-  class ScopedLogger {
-    constructor(parent, scopeName) {
-      this.parent = parent;
-      this.scopeName = scopeName;
-    }
-    debug(message, ...args) {
-      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-    }
-    info(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.info, "");
-    }
-    warn(message, ...args) {
-      const optional = args.some(isOptionalCorsBridgeError);
-      this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
-    }
-    error(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-    }
-    warnOnce(key, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-    }
-    time(label, ...args) {
-      if (!this.parent.isEnabled()) return () => void 0;
-      const start = nowMs();
-      this.debug(`${label} started`, ...args);
-      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-    }
-  }
-  class LoggerImpl {
-    settingsProvider;
-    forceEnabled = false;
-    onceKeys = /* @__PURE__ */ new Set();
-    configure(options) {
-      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-    }
-    scope(scopeName) {
-      return new ScopedLogger(this, scopeName);
-    }
-    isEnabled() {
-      if (BUILD_LOGGING_ENABLED) return true;
-      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-      try {
-        return this.settingsProvider?.().enableLogging === true;
-      } catch {
-        return false;
-      }
-    }
-    isDevMode() {
-      return isDevMode();
-    }
-    enable(persist = false) {
-      this.forceEnabled = true;
-      if (persist) setRuntimeLoggingOverride(true);
-      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-    }
-    disable(persist = false) {
-      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-      this.forceEnabled = false;
-      if (persist) setRuntimeLoggingOverride(false);
-    }
-    reset() {
-      this.onceKeys.clear();
-    }
-    warnOnce(key, scope, message, args) {
-      if (this.onceKeys.has(key)) return;
-      this.onceKeys.add(key);
-      this.write(scope, message, args, console.warn, WARN_STYLE);
-    }
-    write(scope, message, args, writer, levelStyle) {
-      if (!this.isEnabled()) return;
-      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-    }
-  }
-  const Logger = new LoggerImpl();
-  function isDevMode() {
-    return BUILD_IS_DEV_MODE;
-  }
-  function writeDebugToConsole(...args) {
-    if (isDevMode()) console.log(...args);
-    else console.debug(...args);
-  }
-  function isOptionalCorsBridgeError(value) {
-    return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
-  }
-  function getRuntimeLoggingOverride() {
-    try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-    } catch {
-      return false;
-    }
-  }
-  function setRuntimeLoggingOverride(enabled) {
-    try {
-      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-    } catch {
-    }
-  }
-  function nowMs() {
-    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-  }
-  function sanitizeForConsole(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value === null || value === void 0 || typeof value !== "object") return value;
-    const sanitized = sanitizeSpecialConsoleValue(value);
-    if (sanitized.handled) return sanitized.value;
-    if (Array.isArray(value)) return value.map(sanitizeForConsole);
-    return sanitizeRecordForConsole(value);
-  }
-  function sanitizeSpecialConsoleValue(value) {
-    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-      const sanitized = sanitizer(value);
-      if (sanitized.handled) return sanitized;
-    }
-    return { handled: false };
-  }
-  const CONSOLE_VALUE_SANITIZERS = [
-    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-  ];
-  function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
-      key,
-      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-    ]));
-  }
-  function sanitizeFlatValue(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value instanceof Error) return { name: value.name, message: value.message };
-    return value;
-  }
-  function shouldRedactEntry(key, value) {
-    if (!SECRET_KEY_PATTERN.test(key)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key)) return false;
-    return true;
-  }
-  function redactString(value) {
-    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-  }
-  if (typeof window !== "undefined") {
-    window.__YOMU_LOGGER__ = Logger;
-    window.YomuLogger = Logger;
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-  );
-  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-  );
-  ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  function normalizeAnkiFieldName(value) {
-    return value.replace(/[_\s-]+/g, "").toLowerCase();
-  }
-  new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
   const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    scripts: Object.freeze(["Jpan"]),
-    direction: "ltr"
-  });
-  Object.freeze([
-    JAPANESE_TARGET_ROSTER_ENTRY,
-    ...LEARNER_LANGUAGES
-  ]);
   const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
     LEARNER_LANGUAGES.map((language) => [
       languageSubtag(language.runtimeLocale) ?? language.id,

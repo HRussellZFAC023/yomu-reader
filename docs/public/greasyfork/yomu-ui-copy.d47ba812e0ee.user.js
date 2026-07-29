@@ -1811,8 +1811,6 @@
       download: "Download",
       update: "Update",
       checkingDictionaries: "Checking imported dictionaries...",
-      targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
-      targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking index...",
@@ -2278,8 +2276,6 @@
       jpdbKanjiActionBlacklist: "Blacklist",
       jpdbKanjiActionReview: "Review",
       noDefinitions: "No enabled definition source returned results.",
-      finishSetup: "Finish setup",
-      finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
       enabledHeader: "On",
       labelHeader: "Label",
       detailsHeader: "Details",
@@ -2486,8 +2482,6 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
-finishSetup	セットアップを完了
-finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
@@ -2509,8 +2503,6 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
-targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
-targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。

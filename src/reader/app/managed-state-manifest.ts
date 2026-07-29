@@ -39,7 +39,8 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'app/preferred-site-language', kind: 'session', key: 'yomu:jps:hosts' },
 
     // Local no-account SRS deck.
-    { owner: 'app/storage', kind: 'gm', key: 'yomu:srs-local:v1' },
+    { owner: 'srs/local-yomu-store (legacy)', kind: 'gm', key: 'yomu:srs-local:v1' },
+    { owner: 'srs/local-yomu-store', kind: 'gm', prefix: 'yomu:srs-local:v2:' },
 
     // Anki status index (GM leases + IndexedDB store).
     { owner: 'anki/status-index', kind: 'gm', key: 'yomu:anki-status-index:v1' },

@@ -24,7 +24,7 @@ const API_ORIGIN = 'https://yomureader.com';
 const DEVICE_STATE_KEY = 'yomu:private:academy-device:v1';
 const PENDING_CLAIM_KEY = 'yomu:private:academy-device-pending:v1';
 const EVENT_PURPOSE = 'reader-srs-event';
-const LOCAL_DECK_STORAGE_KEY = 'yomu:srs-local:v1';
+const LOCAL_DECK_STORAGE_KEY = 'yomu:srs-local:v2:index';
 // A push uses two D1 statements per envelope. Twenty stays below the Workers
 // Free plan's 50-query invocation ceiling after authentication/rate limiting.
 const PUSH_BATCH_SIZE = 20;

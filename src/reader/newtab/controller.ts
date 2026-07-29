@@ -203,6 +203,7 @@ import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-ca
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
 import { NewTabReviewSubmitter } from './review-submitter';
+import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
 import { NewTabImmersionAudioPlayer } from './immersion-audio';
@@ -9321,6 +9322,12 @@ export class NewTabController {
         error: unknown,
     ): Promise<boolean> {
         log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
+        if (this.localYomuStorageFailure(error)) {
+            const message = this.text('yomuLocalSrsStorageFailed');
+            this.setStatus(target.root, message);
+            this.dependencies.toast?.(message);
+            return false;
+        }
         if (target.card.source === 'bunpro' || target.card.reviewSource === 'bunpro-api') {
             // A lost response is ambiguous: Bunpro may have accepted the
             // grade and consumed this session review id. Retire the local
@@ -9335,6 +9342,12 @@ export class NewTabController {
         const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error);
         if (promptResult !== null) return promptResult;
         return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+    }
+
+    private localYomuStorageFailure(error: unknown): boolean {
+        if (isLocalYomuSrsStorageError(error)) return true;
+        return error instanceof NewTabGradeSubmissionError
+            && error.failures.some(failure => isLocalYomuSrsStorageError(failure.error));
     }
 
     private async resolveFailedGradePrompt(
