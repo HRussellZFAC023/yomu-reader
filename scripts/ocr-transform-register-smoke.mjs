@@ -66,7 +66,7 @@ try {
     const entry = path.join(workspace, 'entry.ts');
     const out = path.join(workspace, 'bundle.js');
     writeFileSync(entry, 'export { composedOcrSurfaceTransform, imageContentBox, layoutOcrOverlayLines,'
-        + " ocrOverlayLayerPlacement, paintedImageFrame } from '"
+        + " ocrOverlayLayerPlacement, paintedImageFrame, parseCssTransformLinear } from '"
         + path.join(ROOT, 'src', 'reader', 'ocr', 'ocr-overlay-geometry').replaceAll('\\', '/') + "';\n");
     buildSync({
         absWorkingDir: ROOT,
@@ -105,6 +105,7 @@ const failures = [];
 const rows = [];
 const consumerRows = [];
 let upright;
+let ancestorWalkCost;
 try {
     const tab = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: 1 });
     await tab.setContent(page, { waitUntil: 'load' });
@@ -153,6 +154,8 @@ try {
             + ` | elementFromPoint agrees ${audit.pointerHits}/${audit.words}`);
         consumerRows.push({ degrees, ...audit });
     }
+
+    ancestorWalkCost = await tab.evaluate(measureAncestorWalkCost, { iterations: 20_000, rounds: 7 });
 } finally {
     await browser.close();
 }
@@ -167,6 +170,11 @@ for (const row of rows) {
         + ` | drift shipped ${row.legacyDrift.toFixed(2)}px -> fixed ${row.fixedDrift.toFixed(2)}px`
         + ` | line rect inflation ${row.lineInflation.toFixed(3)}x`);
 }
+console.log(`[ocr-perf] untransformed ${ancestorWalkCost.depth}-ancestor chain in Chromium`
+    + ` (${ancestorWalkCost.iterations.toLocaleString()} calls x ${ancestorWalkCost.rounds} rounds, median):`
+    + ` full-chain walk ${ancestorWalkCost.walkUs.toFixed(3)}us/call`
+    + ` vs removed rect-size early exit ${ancestorWalkCost.earlyExitUs.toFixed(3)}us/call`
+    + ` (${ancestorWalkCost.deltaUs >= 0 ? '+' : ''}${ancestorWalkCost.deltaUs.toFixed(3)}us)`);
 
 if (failures.length) {
     console.error('\n[ocr-transform] FAIL');
@@ -214,6 +222,73 @@ function judge(failures, degrees, measured, upright) {
                 + ` the upright layer put it, mapped through the same transform`);
         }
     }
+}
+
+// The old report quoted a hot-path number without an instrument. Keep the comparison in
+// the decisive Chromium smoke so a future report can be reproduced. The baseline is the
+// removed rect-size early exit, including its computed-style parse and layout-size reads;
+// the current side calls the production ancestor walk over a real six-level DOM chain.
+function measureAncestorWalkCost({ iterations, rounds }) {
+    const { composedOcrSurfaceTransform, parseCssTransformLinear } = window.YomuOcrGeometry;
+    const root = document.createElement('div');
+    root.style.position = 'fixed';
+    root.style.left = '-2000px';
+    root.style.top = '0';
+    let parent = root;
+    const depth = 6;
+    // `root` is the first ancestor; add five more for six in total.
+    for (let index = 1; index < depth; index += 1) {
+        const next = document.createElement('div');
+        parent.append(next);
+        parent = next;
+    }
+    const surface = document.createElement('img');
+    surface.style.width = '414px';
+    surface.style.height = '589px';
+    parent.append(surface);
+    document.body.append(root);
+    const rect = surface.getBoundingClientRect();
+
+    const earlyExit = () => {
+        const own = parseCssTransformLinear(getComputedStyle(surface).transform);
+        if (own
+            && Math.abs(own.a - 1) < 1e-6
+            && Math.abs(own.d - 1) < 1e-6
+            && Math.abs(own.b) < 1e-6
+            && Math.abs(own.c) < 1e-6
+            && Math.abs(rect.width - surface.offsetWidth) <= 1
+            && Math.abs(rect.height - surface.offsetHeight) <= 1) return null;
+        return composedOcrSurfaceTransform(surface, document.body, rect);
+    };
+    const walk = () => composedOcrSurfaceTransform(surface, document.body, rect);
+    for (let index = 0; index < 2_000; index += 1) {
+        earlyExit();
+        walk();
+    }
+
+    const earlyExitSamples = [];
+    const walkSamples = [];
+    for (let round = 0; round < rounds; round += 1) {
+        const order = round % 2 ? [[walk, walkSamples], [earlyExit, earlyExitSamples]]
+            : [[earlyExit, earlyExitSamples], [walk, walkSamples]];
+        for (const [operation, samples] of order) {
+            const startedAt = performance.now();
+            for (let index = 0; index < iterations; index += 1) operation();
+            samples.push((performance.now() - startedAt) * 1000 / iterations);
+        }
+    }
+    root.remove();
+    const median = values => [...values].sort((left, right) => left - right)[Math.floor(values.length / 2)];
+    const earlyExitUs = median(earlyExitSamples);
+    const walkUs = median(walkSamples);
+    return {
+        depth,
+        iterations,
+        rounds,
+        earlyExitUs,
+        walkUs,
+        deltaUs: walkUs - earlyExitUs,
+    };
 }
 
 // Paint the picture, remember each line's ink box, and pin a zero-size probe at each ink

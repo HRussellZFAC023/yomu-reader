@@ -8,6 +8,7 @@ import {
     objectPositionOffset,
     ocrOverlayLayerPlacement,
     paintedImageFrame,
+    parseCssTransformLinear,
     type OcrLinearTransform,
     type OcrOverlayFrame,
 } from '../../src/reader/ocr/ocr-overlay-geometry';
@@ -264,6 +265,25 @@ describe('composedOcrSurfaceTransform', () => {
         expect(linear?.d).toBeCloseTo(0, 6);
     });
 
+    it('does not miss an ancestor half-turn whose bounding box matches the layout box', () => {
+        const image = tree({ grandparent: 'rotate(180deg)' });
+        const linear = composedOcrSurfaceTransform(image, document.body, rectOf(0, 0, 414, 589));
+        expect(linear?.a).toBeCloseTo(-1, 6);
+        expect(linear?.b).toBeCloseTo(0, 6);
+        expect(linear?.c).toBeCloseTo(0, 6);
+        expect(linear?.d).toBeCloseTo(-1, 6);
+        expect(ocrOverlayLayerPlacement(rectOf(0, 0, 414, 589), linear ?? null, { width: 414, height: 589 }).transform)
+            .toBe('');
+    });
+
+    it('does not miss an ancestor horizontal flip whose bounding box matches the layout box', () => {
+        const image = tree({ grandparent: 'scaleX(-1)' });
+        const linear = composedOcrSurfaceTransform(image, document.body, rectOf(0, 0, 414, 589));
+        expect(linear).toEqual({ a: -1, b: 0, c: 0, d: 1 });
+        expect(ocrOverlayLayerPlacement(rectOf(0, 0, 414, 589), linear, { width: 414, height: 589 }).transform)
+            .toBe('');
+    });
+
     // The layer is mounted inside the fullscreen host, so it already inherits whatever
     // that host is transformed by. Counting it again would rotate the layer twice.
     it('stops at the element the layer is mounted in', () => {
@@ -285,6 +305,11 @@ describe('composedOcrSurfaceTransform', () => {
     it('is null for a 3D transform', () => {
         const image = tree({ image: 'perspective(500px) rotateY(20deg)' });
         expect(composedOcrSurfaceTransform(image, document.body, rectOf(0, 0, 400, 589))).toBeNull();
+    });
+
+    it('rejects non-finite single-axis scales', () => {
+        expect(parseCssTransformLinear('scaleX(foo)')).toBeNull();
+        expect(parseCssTransformLinear('scaleY(foo)')).toBeNull();
     });
 });
 
@@ -318,6 +343,37 @@ describe('ocrOverlayLayerPlacement', () => {
             linear: null,
         });
     });
+
+    it('keeps an exact half-turn on the readable shipped path', () => {
+        const rect = rectOf(100, 50, 414, 589);
+        expect(ocrOverlayLayerPlacement(rect, rotation(180), LAYOUT)).toEqual({
+            left: 100,
+            top: 50,
+            width: 414,
+            height: 589,
+            transform: '',
+            linear: null,
+        });
+    });
+
+    it.each([
+        ['horizontal', { a: -1, b: 0, c: 0, d: 1 }],
+        ['vertical', { a: 1, b: 0, c: 0, d: -1 }],
+        ['skewed horizontal', { a: -1, b: 0.1, c: 0.2, d: 1 }],
+    ] satisfies Array<[string, OcrLinearTransform]>)(
+        'keeps a %s flip on the readable shipped path',
+        (_name, linear) => {
+            const rect = rectOf(100, 50, 414, 589);
+            expect(ocrOverlayLayerPlacement(rect, linear, LAYOUT)).toEqual({
+                left: 100,
+                top: 50,
+                width: 414,
+                height: 589,
+                transform: '',
+                linear: null,
+            });
+        },
+    );
 
     it('recovers the untransformed box of the rotated image from its bounding box', () => {
         const linear = rotation(-3);
@@ -447,19 +503,6 @@ describe('layoutOcrOverlayLines under a transformed layer', () => {
         expect(lineBoxOf(withNull)).toBe(lineBoxOf(withoutArgument));
     });
 
-    // A rotated bounding box is bigger than the box, so a layer that took it at face value
-    // sized the line to something wider than the text in it.
-    it('reproduces the defect when the bounding box is taken at face value', () => {
-        const linear = rotation(20);
-        const naive = layerWithLine({
-            width: Math.abs(linear.a) * CONTENT.width + Math.abs(linear.c) * CONTENT.height,
-            height: Math.abs(linear.b) * CONTENT.width + Math.abs(linear.d) * CONTENT.height,
-        });
-        layoutOcrOverlayLines(naive, FRAME, 1);
-        const upright = layerWithLine(CONTENT);
-        layoutOcrOverlayLines(upright, FRAME, 1);
-        expect(lineBoxOf(naive)).not.toBe(lineBoxOf(upright));
-    });
 });
 
 function rotation(degrees: number): OcrLinearTransform {

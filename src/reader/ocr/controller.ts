@@ -3295,7 +3295,12 @@ export class ImageOcrController {
         setOcrLayerTransform(state.overlay, placement.transform);
         layoutOcrOverlayLines(
             state.overlay,
-            this.renderedOcrImageFrameForState(image, ocrPlacedSurfaceRect(rect, placement), state.result),
+            this.renderedOcrImageFrameForState(
+                image,
+                ocrPlacedSurfaceRect(rect, placement),
+                state.result,
+                rect.bottom,
+            ),
             this.options.getSettings().ocrFontScale,
             placement.linear,
         );
@@ -3340,13 +3345,18 @@ export class ImageOcrController {
     // furniture at the true viewport bottom under a reader raster surface. Player
     // chrome inside the page never qualifies — the OCR layer paints above it, and
     // a video's own subtitles live in exactly that bottom strip.
-    private renderedOcrImageFrameForState(image: HTMLImageElement, rect: OcrSurfaceRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+    private renderedOcrImageFrameForState(
+        image: HTMLImageElement,
+        rect: OcrSurfaceRect,
+        result: OcrResult | undefined,
+        viewportBottom = rect.bottom,
+    ): OcrRenderedImageFrame {
         const frame = this.canvasFrameSources.has(image)
             ? renderedCanvasReaderFrame(rect)
             : renderedOcrImageFrame(image, rect, result);
         if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
         const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (!viewportHeight || rect.bottom < viewportHeight - 2) return frame;
+        if (!viewportHeight || viewportBottom < viewportHeight - 2) return frame;
         const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
         return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
@@ -4596,15 +4606,15 @@ function setOcrLayerTransform(overlay: HTMLElement, transform: string): void {
     overlay.style.transformOrigin = transform ? '0 0' : '';
 }
 
-// The frame math answers in the layer's own space, so it has to be handed the box the
-// layer actually covers. Everything else about the rect (where it sits against the
-// viewport bottom, in particular) still comes from the measurement.
+// The frame math answers in the layer's own space, so every rect field must describe the
+// same box. The measured bounding-box bottom is passed separately to the viewport-chrome
+// check; mixing it into this rect made `bottom !== top + height`.
 function ocrPlacedSurfaceRect(rect: DOMRect, placement: OcrLayerPlacement): OcrSurfaceRect {
     if (placement.width === rect.width && placement.height === rect.height) return rect;
     return {
-        left: rect.left,
-        top: rect.top,
-        bottom: rect.bottom,
+        left: placement.left,
+        top: placement.top,
+        bottom: placement.top + placement.height,
         width: placement.width,
         height: placement.height,
     };

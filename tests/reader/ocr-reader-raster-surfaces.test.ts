@@ -184,6 +184,118 @@ function mokuroBackgroundPageAt(index: number, rect: () => DOMRect): HTMLElement
     return page;
 }
 
+describe('OCR transform controller wiring', () => {
+    function bareController(): ImageOcrController {
+        return new ImageOcrController({
+            getSettings: () => ({
+                ...testEnSettings(),
+                ocrEnabled: true,
+                ocrAutoScanImages: false,
+                ocrMinImageArea: 1,
+            } as ReaderSettings),
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+        });
+    }
+
+    it('uses the real positionState path with a top-left transform origin and one-space placed rect', () => {
+        const controller = bareController();
+        const image = document.createElement('img');
+        image.style.transform = 'rotate(-3deg)';
+        Object.defineProperty(image, 'offsetWidth', { configurable: true, value: 414 });
+        Object.defineProperty(image, 'offsetHeight', { configurable: true, value: 589 });
+        const measured = new DOMRect(120, 60, 444.25, 609.66);
+        image.getBoundingClientRect = () => measured;
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-ocr-layer';
+        document.body.append(image, overlay);
+        const result = { width: 828, height: 1178, lines: [] } satisfies OcrResult;
+        const renderedFrame = vi.fn((
+            _image: HTMLImageElement,
+            _rect: { left: number; top: number; bottom: number; width: number; height: number },
+            _result: OcrResult | undefined,
+            _viewportBottom: number,
+        ) => ({
+            imageLeft: 0,
+            imageTop: 0,
+            imageWidth: 414,
+            imageHeight: 589,
+        }));
+        const internals = controller as unknown as {
+            states: Map<HTMLImageElement, {
+                image: HTMLImageElement;
+                overlay: HTMLElement;
+                key: string;
+                result: OcrResult;
+                loading: boolean;
+                overlayRequested: boolean;
+                manualRequested: boolean;
+                autoSkipped: boolean;
+            }>;
+            positionState(image: HTMLImageElement): void;
+            renderedOcrImageFrameForState: typeof renderedFrame;
+        };
+        internals.states.set(image, {
+            image,
+            overlay,
+            key: 'transform-position-state-probe',
+            result,
+            loading: false,
+            overlayRequested: true,
+            manualRequested: true,
+            autoSkipped: false,
+        });
+        internals.renderedOcrImageFrameForState = renderedFrame;
+
+        try {
+            internals.positionState(image);
+            expect(overlay.style.transform).toContain('matrix(');
+            expect(overlay.style.transformOrigin).toBe('0 0');
+            const placedRect = renderedFrame.mock.calls[0]?.[1];
+            expect(placedRect).toBeDefined();
+            expect(Number.parseFloat(overlay.style.width)).toBeCloseTo(placedRect!.width, 10);
+            expect(Number.parseFloat(overlay.style.height)).toBeCloseTo(placedRect!.height, 10);
+            expect(placedRect!.width).not.toBe(measured.width);
+            expect(placedRect!.height).not.toBe(measured.height);
+            expect(placedRect!.bottom).toBeCloseTo(placedRect!.top + placedRect!.height, 10);
+            expect(renderedFrame.mock.calls[0]?.[3]).toBe(measured.bottom);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('selects the pixel-painting surface and rejects canvas sub-boxes', () => {
+        const controller = bareController();
+        const frame = document.createElement('img');
+        const canvas = document.createElement('canvas');
+        const background = document.createElement('div');
+        const internals = controller as unknown as {
+            ocrLayerTransformSurface(image: HTMLImageElement): HTMLElement | null;
+            canvasFrameSources: Map<HTMLImageElement, HTMLCanvasElement>;
+            canvasFrameRegionFractions: Map<HTMLImageElement, DOMRect>;
+            canvasFrameStaticRects: Map<HTMLImageElement, DOMRect>;
+            backgroundFrameSources: Map<HTMLImageElement, HTMLElement>;
+        };
+
+        try {
+            expect(internals.ocrLayerTransformSurface(frame)).toBe(frame);
+            internals.canvasFrameSources.set(frame, canvas);
+            expect(internals.ocrLayerTransformSurface(frame)).toBe(canvas);
+            internals.canvasFrameRegionFractions.set(frame, new DOMRect(0, 0, 0.5, 1));
+            expect(internals.ocrLayerTransformSurface(frame)).toBeNull();
+            internals.canvasFrameRegionFractions.delete(frame);
+            internals.canvasFrameStaticRects.set(frame, new DOMRect(10, 20, 300, 400));
+            expect(internals.ocrLayerTransformSurface(frame)).toBeNull();
+            internals.canvasFrameStaticRects.delete(frame);
+            internals.canvasFrameSources.delete(frame);
+            internals.backgroundFrameSources.set(frame, background);
+            expect(internals.ocrLayerTransformSurface(frame)).toBe(background);
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
 // These integration-style controller cases share the CI polling floor from
 // waitForExpect. Give the suite a matching ceiling so a busy four-shard runner
 // cannot abort a valid poll at Vitest's shorter default timeout.

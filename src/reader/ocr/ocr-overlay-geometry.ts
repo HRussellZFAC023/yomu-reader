@@ -579,9 +579,14 @@ function isVerticalPositionKeyword(token: string | undefined): token is string {
 // wrapper), and the canvas/background/video paths overlay a synthesized <img> appended to
 // document.body that has no host parent to mount into at all.
 //
-// Only the linear part of the transform is read. The translation is recovered from the
-// measured rect below, which is what makes this correct through scroll containers, sticky
-// and fixed ancestors, and nested transforms without reimplementing any of it.
+// Only the linear part of each representable 2D transform is read. The translation is
+// recovered from the measured rect below, so ordinary rotations and skews compose through
+// transformed ancestors without reimplementing layout. This is deliberately not a claim
+// for every CSS transform: perspective/3D stays on the shipped path, as do exact half-turns
+// and orientation-reversing flips because carrying those transforms would make OCR text
+// upside-down or mirrored. Canvas sub-region rects and visible paused-video frame images
+// are also kept axis-aligned by the controller because they are not whole transformed
+// element boxes.
 export interface OcrLinearTransform {
     a: number;
     b: number;
@@ -614,12 +619,6 @@ const TRANSFORM_EPSILON = 1e-6;
 // extents are the same sum of the two sides), so the box cannot be inverted and the
 // element's own layout box has to answer instead.
 const MIN_INVERTIBLE_DETERMINANT = 0.05;
-// The bounding box of a rotated or skewed box is larger than the box on at least one axis,
-// which is the whole defect — so a rect that agrees with the layout box to within a pixel
-// of rounding is evidence enough that nothing above the element rotates it, and the
-// ancestor walk can be skipped on the hot path.
-const LAYOUT_SIZE_AGREEMENT_PX = 1;
-
 /**
  * The transform between the surface's own box and the space the OCR layer is positioned
  * in, or null when there is nothing to apply.
@@ -630,12 +629,11 @@ const LAYOUT_SIZE_AGREEMENT_PX = 1;
 export function composedOcrSurfaceTransform(
     element: HTMLElement,
     mountParent: Element | null,
-    rect: OcrSurfaceRect,
+    _rect: OcrSurfaceRect,
 ): OcrLinearTransform | null {
     const view = element.ownerDocument.defaultView;
     if (!view) return null;
     const own = parseCssTransformLinear(view.getComputedStyle(element).transform);
-    if (own && isIdentityTransform(own) && agreesWithLayoutBox(rect, elementLayoutSize(element))) return null;
     const stop = mountParent?.contains(element) ? mountParent : element.ownerDocument.body;
     let composed = own;
     for (let node = element.parentElement; node && node !== stop && composed; node = node.parentElement) {
@@ -666,7 +664,7 @@ export function ocrOverlayLayerPlacement(
         transform: '',
         linear: null,
     };
-    if (!linear || isUprightTransform(linear)) return axisAligned;
+    if (!linear || keepsReadableAxisAlignedPath(linear)) return axisAligned;
     const size = untransformedBoxSize(rect, linear, layout);
     if (!size) return axisAligned;
     const { a, b, c, d } = linear;
@@ -707,16 +705,6 @@ function untransformedBoxSize(
     return layout.width > 0 && layout.height > 0 ? layout : null;
 }
 
-function elementLayoutSize(element: HTMLElement): OcrLayoutSize {
-    return { width: element.offsetWidth, height: element.offsetHeight };
-}
-
-function agreesWithLayoutBox(rect: OcrSurfaceRect, layout: OcrLayoutSize): boolean {
-    if (!(layout.width > 0) || !(layout.height > 0)) return true;
-    return Math.abs(rect.width - layout.width) <= LAYOUT_SIZE_AGREEMENT_PX
-        && Math.abs(rect.height - layout.height) <= LAYOUT_SIZE_AGREEMENT_PX;
-}
-
 function isIdentityTransform(linear: OcrLinearTransform): boolean {
     return Math.abs(linear.a - 1) < TRANSFORM_EPSILON
         && Math.abs(linear.d - 1) < TRANSFORM_EPSILON
@@ -724,14 +712,17 @@ function isIdentityTransform(linear: OcrLinearTransform): boolean {
         && Math.abs(linear.c) < TRANSFORM_EPSILON;
 }
 
-// Upright: axes still map to axes, the same way round. A flip counts as rotated — its
-// bounding box is the right size but the picture inside it is mirrored, so lines have to
-// be mirrored with it to stay on their glyphs.
-function isUprightTransform(linear: OcrLinearTransform): boolean {
-    return Math.abs(linear.b) < TRANSFORM_EPSILON
-        && Math.abs(linear.c) < TRANSFORM_EPSILON
-        && linear.a > 0
-        && linear.d > 0;
+// Upright positive scales already have a truthful bounding box. Orientation-reversing
+// transforms and exact axis-aligned half-turns stay here as an explicit readability
+// trade-off: their OCR text can be offset, but it remains readable instead of being
+// mirrored or upside-down with the pixels.
+function keepsReadableAxisAlignedPath(linear: OcrLinearTransform): boolean {
+    const axisAligned = Math.abs(linear.b) < TRANSFORM_EPSILON
+        && Math.abs(linear.c) < TRANSFORM_EPSILON;
+    if (axisAligned && linear.a > 0 && linear.d > 0) return true;
+    const determinant = linear.a * linear.d - linear.b * linear.c;
+    if (determinant < -TRANSFORM_EPSILON) return true;
+    return axisAligned && linear.a < 0 && linear.d < 0;
 }
 
 function multiplyTransforms(
@@ -802,9 +793,9 @@ function transformFunctionLinear(name: string, args: Array<number | string>): Oc
             return { a: scaleX, b: 0, c: 0, d: scaleY };
         }
         case 'scalex':
-            return { a: numbers[0], b: 0, c: 0, d: 1 };
+            return Number.isFinite(numbers[0]) ? { a: numbers[0], b: 0, c: 0, d: 1 } : null;
         case 'scaley':
-            return { a: 1, b: 0, c: 0, d: numbers[0] };
+            return Number.isFinite(numbers[0]) ? { a: 1, b: 0, c: 0, d: numbers[0] } : null;
         case 'rotate':
         case 'rotatez': {
             const radians = cssAngleRadians(String(args[0] ?? ''));
