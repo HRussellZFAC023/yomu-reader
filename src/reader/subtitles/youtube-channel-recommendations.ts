@@ -79,7 +79,10 @@ const YOUTUBE_CHANNEL_RECOMMENDATIONS = [
     { handle: '@TheNihongoNook', name: 'The Nihongo Nook', level: 'N5', topics: ['Education'], captions: [], sources: ['nihongotube'] },
     { handle: '@afromask', name: 'アフロマスク', level: 'N2', topics: ['Gaming'], captions: [], sources: ['nihongotube'] },
     { handle: '@joevlog7', name: 'JOE VLOG', level: 'N2', topics: ['Travel', 'Documentary'], captions: ['hard'], sources: ['nihongotube'] },
-    { handle: '@chinese-muimui', name: 'とある中国人のむいむい', level: 'N2', topics: ['Lifestyle', 'Culture'], captions: ['hard'], sources: ['nihongotube'] },
+    // Dropped: youtube.com/@chinese-muimui 404s and no replacement handle could
+    // be identified. @muimui resolves but is a different channel (nothing on it
+    // carries むいむい), so pointing a learner there would be a worse answer than
+    // one fewer recommendation. Restore it if the real handle turns up.
     { handle: '@hima_hima', name: 'HIMA HIMA CHANNEL', level: 'N3', topics: ['Lifestyle'], captions: ['hard', 'soft'], sources: ['nihongotube'] },
     { handle: '@tsuchikure-princess', name: '土くれプリンセス さおりの暮らし', level: 'N3', topics: ['Nature', 'Lifestyle'], captions: ['hard'], sources: ['nihongotube'] },
     { handle: '@DailyJapanese', name: 'Daily Japanese with Naoko', level: 'N5', topics: ['Education'], captions: ['hard', 'soft', 'furigana'], sources: ['nihongotube'] },
@@ -106,7 +109,10 @@ const YOUTUBE_CHANNEL_RECOMMENDATIONS = [
     { handle: '@tobalog_toba', name: 'トバログ', level: 'N1', topics: ['Technology'], captions: ['soft', 'hard'], sources: ['nihongotube'] },
     { handle: '@bossb5553', name: '天文物理学者BossB', level: 'N1', topics: ['Science', 'Education'], captions: ['hard'], sources: ['nihongotube'] },
     { handle: '@Shimizu_OC', name: '清水貴裕', level: 'N1', topics: ['Hobby', 'Technology'], captions: [], sources: ['nihongotube'] },
-    { handle: '@cijapanese', name: 'Comprehensible Japanese', level: 'N5', topics: ['Education'], captions: ['soft'], sources: ['nihongotube', 'jpdb', 'search'] },
+    // Renamed: youtube.com/@cijapanese 404s. YouTube's own canonicalBaseUrl for
+    // the surviving /c/ComprehensibleJapanese URL is @nijapanese, titled
+    // "Natural Japanese (NIJ)" — same creator, new name (cijapanese.com agrees).
+    { handle: '@nijapanese', name: 'Natural Japanese', level: 'N5', topics: ['Education'], captions: ['soft'], sources: ['nihongotube', 'jpdb', 'search'] },
     { handle: '@nihongoconteppei', name: 'Teppei', level: 'N5', topics: ['Education'], captions: [], sources: ['nihongotube'] },
     { handle: '@Udonsobakantou', name: 'うどんそば 関東', level: 'N1', topics: ['Travel', 'Food'], captions: ['soft'], sources: ['nihongotube'] },
     { handle: '@KozueChibaManga', name: '千葉コズエ', level: 'N2', topics: ['Art', 'Anime & Manga'], captions: ['soft'], sources: ['nihongotube'] },
