@@ -5357,6 +5357,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
     { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
+    { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -5663,6 +5664,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       } catch (error) {
         debugStorageError("GM storage write failed", key, error);
+        try {
+          localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
+        } catch (fallbackError) {
+          throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+        }
+        throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
       }
     }
     localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
@@ -6095,7 +6102,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function localStorageSetOrThrow(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      const serialized = JSON.stringify(value);
+      localStorage.setItem(key, serialized);
+      if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+    } catch (error) {
+      throw storageWriteError(key, "localStorage write failed", error);
+    }
+  }
+  function storageWriteError(key, message, ...causes) {
+    const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+    return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
   }
   function removeLocalStorageKey(key) {
     try {
@@ -12609,6 +12626,7 @@ ${spelling}`);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
   const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+  const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
     "yomu-reader-settings",
@@ -12619,6 +12637,21 @@ ${spelling}`);
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
   const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+  const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+    "annotationsPaused",
+    "manualScanEnabled",
+    "showFurigana",
+    "furiganaMode",
+    "puckFuriganaModeBeforeHide",
+    "ocrEnabled",
+    "ocrAutoScanImages",
+    "youtubeImmersionEnabled",
+    "subtitleOverlayVisible",
+    "subtitleSecondaryVisible",
+    "subtitleOverlayVisibleChosen",
+    "subtitleSecondaryVisibleChosen"
+  ];
   const log$K = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -14051,6 +14084,10 @@ ${spelling}`);
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         void 0
       );
+      const explicitUserSettings = settingsRecord(await gmStorageGet(
+        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+        null
+      ));
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
@@ -14075,6 +14112,7 @@ ${spelling}`);
           settings.preferJapaneseSiteLanguage
         )
       };
+      settings = applyExplicitUserSettings(settings, explicitUserSettings);
       if (recoveredLegacySettings) await persistSettings(settings);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -14146,7 +14184,8 @@ ${spelling}`);
     };
     const unsubscribers = [
       subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
-      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh)
+      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
+      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh)
     ];
     return () => {
       active = false;
@@ -14164,17 +14203,47 @@ ${spelling}`);
       if (options.persistPreferredJapaneseSiteLanguage) {
         await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
       }
-      await persistSettings(normalizedSettings);
+      await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
     } catch (error) {
       log$K.warn("Settings save failed", { error });
       throw error;
     }
   }
-  async function persistSettings(settings) {
+  async function persistSettings(settings, explicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
-    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    let storedSettings = normalizedSettings;
+    await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+      const existingExplicitSettings = settingsRecord(await gmStorageGet(
+        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+        null
+      ));
+      const nextExplicitSettings = { ...existingExplicitSettings };
+      for (const key of explicitUserChoiceKeys) {
+        assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
+      }
+      if (explicitUserChoiceKeys.length > 0) {
+        await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
+      }
+      storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+      const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
+      await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+      storedSettings = supportedSettings;
+    });
     dispatchSettingsChange(storedSettings);
+  }
+  function assignSetting(settings, key, value) {
+    settings[key] = value;
+  }
+  function applyExplicitUserSettings(settings, explicitSettings) {
+    if (!explicitSettings) return settings;
+    const candidate = { ...settings };
+    for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
+      if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
+    }
+    return mergeSettings(candidate);
+  }
+  function changedAutomationProtectedSettingsKeys(previous, next) {
+    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]));
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -14193,10 +14262,15 @@ ${spelling}`);
   async function deleteSettingsStorage() {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+    await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
   }
   async function settingsStorageKeysStillPresent() {
     const keys = [];
-    for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
+    for (const key of [
+      ...SETTINGS_STORAGE_KEYS,
+      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+      EXPLICIT_USER_SETTINGS_STORAGE_KEY
+    ]) {
       if (await storedValueExists(key)) keys.push(key);
     }
     return keys;
@@ -53967,7 +54041,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.36".trim() ? "1.8.36".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.37".trim() ? "1.8.37".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -99623,7 +99697,8 @@ ${spelling}`);
       const settings = this.settings;
       try {
         await saveSettings(settings, {
-          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
@@ -101905,7 +101980,8 @@ ${spelling}`);
       try {
         this.options.setSettings(settings);
         await saveSettings(settings, {
-          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
         });
         this.close();
         await this.options.onComplete?.(settings);

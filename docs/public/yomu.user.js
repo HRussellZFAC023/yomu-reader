@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.36
+// @version 1.8.37
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.5bcdd959084a.user.js#sha256=W83ZWQhKai9cxe9RVWVXAdYMCZToS0GTeXXGnxlIG00=
-// @require https://yomureader.com/greasyfork/yomu-audio.fe33af55dc44.user.js#sha256=/jOvVdxEGfmbRPM8jkcisQkY20r22NvS13W2uuDp3NA=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.81dd6d489e28.user.js#sha256=gd1tSJ4ocUtcEPbD/0ZZMNxDucE/L3fwLKfdwtq4ltU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.1150ec05e87b.user.js#sha256=EVDsBeh7joh0mtflD/O/0QoSTBd0cuz53JoOa3lFp4k=
+// @require https://yomureader.com/greasyfork/yomu-anki.1d291cb40c3a.user.js#sha256=HSkctAw6mJHqid0qw6aB08yWsmJ3JMLvF55uGNXPIWs=
+// @require https://yomureader.com/greasyfork/yomu-audio.3e898fa74295.user.js#sha256=PomPp0KV+xj4HTcFMRJLQWaWs6+pi4dUDNAFuwcK3ls=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.8231d202fd63.user.js#sha256=gjHSAv1jV5CcJWEOhdxL3BVRMEbYaqDefhRTD1D8St8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.cae3349107f0.user.js#sha256=yuM0kQfwHRAaNkoG7Y/5zBev5D4Dn0BBlQ06Pt+d9Dc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.77a160927487.user.js#sha256=d6FgknSHYKVbvE1Vg204dOOKLSJNhmHOrA2Oks1NiwA=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.b11c2cfe9cbf.user.js#sha256=sRws/py/agQ46UutE8W9Y3KmLSdmRxfLrtpSURLteVA=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.5e27042a25b2.user.js#sha256=XicEKiWyzYs/g52KFCp0MPTuPV9cMkVUmbzFZgN6v18=
-// @require https://yomureader.com/greasyfork/yomu-jiten.62888656ec78.user.js#sha256=YoiGVux48K5sk2CEpeI7vUnTT/BlsUHeY15iz7v/7Cs=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.87ac57454cce.user.js#sha256=h6xXRUzOTnXJl01IbCZL3wHKg4xlP3r3O4A5i9pY5/8=
-// @require https://yomureader.com/greasyfork/yomu-video.245c0cf24b0c.user.js#sha256=JFwM8ksMMHO88cnk5m/TUIGQwas9Uohly4avYeL+puA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.a362e255a166.user.js#sha256=o2LiVaFm1Ic95O1E6+ulCT6+rJVCUemo/xGVjxbpI44=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.30f20519d731.user.js#sha256=MPIFGdcxTREqvyG1sLc2g/UUCv0gYdUfjOG3rejw/bI=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.c0245e114c89.user.js#sha256=wCReEUyJmkL6k04m2detvt81b4cFiAssZ8wzlqGhMMU=
+// @require https://yomureader.com/greasyfork/yomu-jiten.2b804e607423.user.js#sha256=K4BOYHQjyLF+bu94XiLIepQUFZ4tTAwgjdSh1izqqNE=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.ee115343b6b8.user.js#sha256=7hFTQ7a4F15BUR9kdAFRhqsGnn/FlJm/wT8X1vhY4FE=
+// @require https://yomureader.com/greasyfork/yomu-video.b60ce5c22cf4.user.js#sha256=tgzlwiz0GsBfEAy42jj82p7EgZf3U5uznuGdw9nDGNs=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5217,6 +5217,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
   { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
+  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
@@ -5464,6 +5465,12 @@ async function gmStorageSet(key, value) {
     return;
   } catch (error) {
     debugStorageError("GM storage write failed", key, error);
+    try {
+      localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
+    } catch (fallbackError) {
+      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+    }
+    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
   }
   }
   localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
@@ -5699,7 +5706,17 @@ function localStorageSet(key, value) {
   }
 }
 function localStorageSetOrThrow(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+  const serialized = JSON.stringify(value);
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
 }
 function removeLocalStorageKey(key) {
   try {
@@ -7029,6 +7046,7 @@ function isModifierKey(key) {
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
   "yomu-reader-settings",
@@ -7039,6 +7057,21 @@ const SETTINGS_STORAGE_KEYS = [
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+  "annotationsPaused",
+  "manualScanEnabled",
+  "showFurigana",
+  "furiganaMode",
+  "puckFuriganaModeBeforeHide",
+  "ocrEnabled",
+  "ocrAutoScanImages",
+  "youtubeImmersionEnabled",
+  "subtitleOverlayVisible",
+  "subtitleSecondaryVisible",
+  "subtitleOverlayVisibleChosen",
+  "subtitleSecondaryVisibleChosen"
+];
 const log$7 = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -8467,6 +8500,10 @@ async function loadSettings() {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     void 0
   );
+  const explicitUserSettings = settingsRecord(await gmStorageGet(
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    null
+  ));
   const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
   const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   let settings = mergeSettings(currentRecord);
@@ -8491,6 +8528,7 @@ async function loadSettings() {
       settings.preferJapaneseSiteLanguage
     )
   };
+  settings = applyExplicitUserSettings(settings, explicitUserSettings);
   if (recoveredLegacySettings) await persistSettings(settings);
   else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
     cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -8576,7 +8614,8 @@ function subscribeToSettingsStorageChanges(onSettings) {
   };
   const unsubscribers = [
   subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
-  subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh)
+  subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
+  subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh)
   ];
   return () => {
   active = false;
@@ -8594,17 +8633,44 @@ async function saveSettings(settings, options = {}) {
   if (options.persistPreferredJapaneseSiteLanguage) {
     await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
   }
-  await persistSettings(normalizedSettings);
+  await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
   } catch (error) {
   log$7.warn("Settings save failed", { error });
   throw error;
   }
 }
-async function persistSettings(settings) {
+async function persistSettings(settings, explicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
-  const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-  await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+  let storedSettings = normalizedSettings;
+  await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+  const existingExplicitSettings = settingsRecord(await gmStorageGet(
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    null
+  ));
+  const nextExplicitSettings = { ...existingExplicitSettings };
+  for (const key of explicitUserChoiceKeys) {
+    assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
+  }
+  if (explicitUserChoiceKeys.length > 0) {
+    await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
+  }
+  storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+  const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
+  await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+  storedSettings = supportedSettings;
+  });
   dispatchSettingsChange(storedSettings);
+}
+function assignSetting(settings, key, value) {
+  settings[key] = value;
+}
+function applyExplicitUserSettings(settings, explicitSettings) {
+  if (!explicitSettings) return settings;
+  const candidate = { ...settings };
+  for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
+  if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
+  }
+  return mergeSettings(candidate);
 }
 function dispatchSettingsChange(settings) {
   try {
@@ -8621,10 +8687,15 @@ function endSettingsResetGuard() {
 async function deleteSettingsStorage() {
   for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
   await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+  await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
 }
 async function settingsStorageKeysStillPresent() {
   const keys = [];
-  for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
+  for (const key of [
+  ...SETTINGS_STORAGE_KEYS,
+  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+  EXPLICIT_USER_SETTINGS_STORAGE_KEY
+  ]) {
   if (await storedValueExists(key)) keys.push(key);
   }
   return keys;
@@ -31405,8 +31476,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.36"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.36"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.37"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.37"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -31549,7 +31620,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.36"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.37"}`;
   } catch {
   return null;
   }
@@ -33479,11 +33550,19 @@ class ReaderApp {
   await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
   }
   async setYoutubeImmersionEnabled(enabled) {
+  const previous = this.settings.youtubeImmersionEnabled;
   this.settings.youtubeImmersionEnabled = enabled;
   this.youtube.refresh();
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
   log.info("YouTube immersion filter toggled", { enabled });
-  await saveSettings(this.settings);
+  try {
+    await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeImmersionEnabled"] });
+  } catch (error) {
+    this.settings.youtubeImmersionEnabled = previous;
+    this.youtube.refresh();
+    this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
+    throw error;
+  }
   }
   async setYoutubeFilterNoticeVisible(visible) {
   this.settings.youtubeShowFilterNotice = visible;
@@ -34235,9 +34314,17 @@ class ReaderApp {
   }
   async setAnnotationsPaused(paused) {
   if (this.settings.annotationsPaused === paused) return;
+  const previous = this.settings.annotationsPaused;
   this.settings.annotationsPaused = paused;
   this.applyAnnotationsPausedState();
-  await saveSettings(this.settings);
+  try {
+    await saveSettings(this.settings, { explicitUserChoiceKeys: ["annotationsPaused"] });
+  } catch (error) {
+    this.settings.annotationsPaused = previous;
+    this.applyAnnotationsPausedState();
+    this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
+    throw error;
+  }
   log.info("Annotations paused toggled", { paused });
   this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
   }
@@ -34301,7 +34388,9 @@ class ReaderApp {
   async applyFuriganaMode(mode) {
   this.settings.showFurigana = this.settings.showFurigana || mode !== "off";
   this.settings.furiganaMode = mode;
-  await saveSettings(this.settings);
+  await saveSettings(this.settings, {
+    explicitUserChoiceKeys: ["showFurigana", "furiganaMode", "puckFuriganaModeBeforeHide"]
+  });
   this.clearAllAnnotations();
   if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
     this.scheduleAutoScan(0, { force: true });
@@ -34311,7 +34400,7 @@ class ReaderApp {
   async cycleOcrMode() {
   const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
   applyOcrInteractionMode(this.settings, nextMode);
-  await saveSettings(this.settings);
+  await saveSettings(this.settings, { explicitUserChoiceKeys: ["ocrEnabled", "ocrAutoScanImages"] });
   this.ocr.refreshForModeChange();
   log.info("OCR mode changed", { mode: nextMode });
   this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
@@ -35219,7 +35308,9 @@ class ReaderApp {
   event.preventDefault();
   this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
   this.settings.subtitleOverlayVisibleChosen = true;
-  void saveSettings(this.settings);
+  void saveSettings(this.settings, {
+    explicitUserChoiceKeys: ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"]
+  });
   this.subtitles.refresh();
   log.info("Shortcut toggled subtitle overlay", { visible: this.settings.subtitleOverlayVisible });
   this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? "subtitleOverlayEnabled" : "subtitleOverlayHidden"));

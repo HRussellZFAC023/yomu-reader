@@ -2119,7 +2119,7 @@ async function persistSettings(
     explicitUserChoiceKeys: readonly AutomationProtectedSettingsKey[] = [],
 ): Promise<void> {
     const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-    let storedSettings = normalizedSettings;
+    let storedSettings: Partial<ReaderSettings> = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
         const existingExplicitSettings = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(
             EXPLICIT_USER_SETTINGS_STORAGE_KEY,

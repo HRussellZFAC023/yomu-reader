@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.37] - 2026-07-29
+
+### Fixed
+
+- Explicit annotation, furigana, OCR, YouTube, and subtitle visibility choices now survive refreshes and cannot be replaced by stale listeners or setup defaults. Rejected userscript, extension, and local-storage writes are reported instead of appearing to save successfully.
+
 ## [1.8.36] - 2026-07-29
 
 ### Fixed

@@ -27801,6 +27801,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
     { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
+    { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -28095,6 +28096,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       } catch (error) {
         debugStorageError("GM storage write failed", key2, error);
+        try {
+          localStorageSetOrThrow(key2, localFallbackValueForWrite(key2, value));
+        } catch (fallbackError) {
+          throw storageWriteError(key2, "GM storage and localStorage fallback writes failed", error, fallbackError);
+        }
+        throw storageWriteError(key2, "GM storage write failed; saved only to localStorage fallback", error);
       }
     }
     localStorageSetOrThrow(key2, localFallbackValueForWrite(key2, value));
@@ -28527,7 +28534,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function localStorageSetOrThrow(key2, value) {
-    localStorage.setItem(key2, JSON.stringify(value));
+    try {
+      const serialized = JSON.stringify(value);
+      localStorage.setItem(key2, serialized);
+      if (localStorage.getItem(key2) !== serialized) throw new Error("read-back did not match");
+    } catch (error) {
+      throw storageWriteError(key2, "localStorage write failed", error);
+    }
+  }
+  function storageWriteError(key2, message, ...causes) {
+    const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+    return new Error(`${message} for "${key2}"${details ? `: ${details}` : ""}`);
   }
   function removeLocalStorageKey(key2) {
     try {
@@ -38995,6 +39012,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
   const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+  const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
     "yomu-reader-settings",
@@ -39005,6 +39023,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
   const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+  const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+    "annotationsPaused",
+    "manualScanEnabled",
+    "showFurigana",
+    "furiganaMode",
+    "puckFuriganaModeBeforeHide",
+    "ocrEnabled",
+    "ocrAutoScanImages",
+    "youtubeImmersionEnabled",
+    "subtitleOverlayVisible",
+    "subtitleSecondaryVisible",
+    "subtitleOverlayVisibleChosen",
+    "subtitleSecondaryVisibleChosen"
+  ];
   const log$u = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -40437,6 +40470,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         void 0
       );
+      const explicitUserSettings = settingsRecord(await gmStorageGet(
+        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+        null
+      ));
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
@@ -40461,6 +40498,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           settings.preferJapaneseSiteLanguage
         )
       };
+      settings = applyExplicitUserSettings(settings, explicitUserSettings);
       if (recoveredLegacySettings) await persistSettings(settings);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -40532,7 +40570,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const unsubscribers = [
       subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh2),
-      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh2)
+      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh2),
+      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh2)
     ];
     return () => {
       active = false;
@@ -40550,17 +40589,47 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (options.persistPreferredJapaneseSiteLanguage) {
         await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
       }
-      await persistSettings(normalizedSettings);
+      await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
     } catch (error) {
       log$u.warn("Settings save failed", { error });
       throw error;
     }
   }
-  async function persistSettings(settings) {
+  async function persistSettings(settings, explicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
-    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    let storedSettings = normalizedSettings;
+    await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+      const existingExplicitSettings = settingsRecord(await gmStorageGet(
+        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+        null
+      ));
+      const nextExplicitSettings = { ...existingExplicitSettings };
+      for (const key2 of explicitUserChoiceKeys) {
+        assignSetting(nextExplicitSettings, key2, normalizedSettings[key2]);
+      }
+      if (explicitUserChoiceKeys.length > 0) {
+        await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
+      }
+      storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+      const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
+      await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+      storedSettings = supportedSettings;
+    });
     dispatchSettingsChange(storedSettings);
+  }
+  function assignSetting(settings, key2, value) {
+    settings[key2] = value;
+  }
+  function applyExplicitUserSettings(settings, explicitSettings) {
+    if (!explicitSettings) return settings;
+    const candidate2 = { ...settings };
+    for (const key2 of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
+      if (hasOwn(explicitSettings, key2)) assignSetting(candidate2, key2, explicitSettings[key2]);
+    }
+    return mergeSettings(candidate2);
+  }
+  function changedAutomationProtectedSettingsKeys(previous, next) {
+    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key2) => !settingsValueEquals(previous[key2], next[key2]));
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -40579,10 +40648,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function deleteSettingsStorage() {
     for (const key2 of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key2);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+    await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
   }
   async function settingsStorageKeysStillPresent() {
     const keys = [];
-    for (const key2 of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
+    for (const key2 of [
+      ...SETTINGS_STORAGE_KEYS,
+      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+      EXPLICIT_USER_SETTINGS_STORAGE_KEY
+    ]) {
       if (await storedValueExists(key2)) keys.push(key2);
     }
     return keys;
@@ -366622,7 +366696,8 @@ ${entry2.url}`),
       const settings = this.settings;
       try {
         await saveSettings(settings, {
-          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
