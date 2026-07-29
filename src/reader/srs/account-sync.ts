@@ -18,6 +18,7 @@ import type { JPDBCard } from '../app/types';
 import { requestPrivateApi } from '../network/private-request';
 import { LocalYomuSrsRepository, subscribeLocalYomuSrsMutations } from './local-yomu';
 import { mergeStoredYomuSrsDecks, type StoredYomuSrsCard, type StoredYomuSrsDeck } from './local-yomu-deck';
+import type { YomuSrsLookupItem } from './types';
 
 const API_ORIGIN = 'https://yomureader.com';
 const DEVICE_STATE_KEY = 'yomu:private:academy-device:v1';
@@ -78,7 +79,18 @@ interface RemoteEventPage {
 
 type ReaderDeckEvent =
     | { readonly version: 1; readonly kind: 'card'; readonly card: StoredYomuSrsCard }
-    | { readonly version: 1; readonly kind: 'delete'; readonly id: string; readonly expression: string; readonly reading: string; readonly deletedAt: number };
+    | {
+        readonly version: 1;
+        readonly kind: 'delete';
+        readonly id: string;
+        readonly expression: string;
+        readonly reading: string;
+        readonly partOfSpeech?: string;
+        readonly language?: string;
+        readonly deletedAt: number;
+    };
+
+type ReaderDeckIdentity = Omit<YomuSrsLookupItem, 'reading'> & { readonly reading: string };
 
 let pending = Promise.resolve<unknown>(undefined);
 let scheduled = false;
@@ -225,7 +237,7 @@ export async function disconnectAcademyReaderDevice(): Promise<void> {
 async function syncAcademyReaderSrsNow(repository = new LocalYomuSrsRepository()): Promise<AcademyReaderDeviceStatus> {
     let state = await loadDeviceState();
     if (!state) return { connected: false, displayName: '', lastSyncAt: null, error: null };
-    const changed = new Map<string, { expression: string; reading: string }>();
+    const changed = new Map<string, ReaderDeckIdentity>();
     state = await pullRemoteEvents(state, repository, changed);
     state = await pushLocalEvents(state, await repository.snapshot());
     state = await pullRemoteEvents(state, repository, changed);
@@ -238,7 +250,7 @@ async function syncAcademyReaderSrsNow(repository = new LocalYomuSrsRepository()
 async function pullRemoteEvents(
     initial: StoredDeviceState,
     repository: LocalYomuSrsRepository,
-    changed: Map<string, { expression: string; reading: string }>,
+    changed: Map<string, ReaderDeckIdentity>,
 ): Promise<StoredDeviceState> {
     let state = initial;
     let hasMore = true;
@@ -252,20 +264,23 @@ async function pullRemoteEvents(
         for (const envelope of page.events) {
             const event = parseReaderDeckEvent(await decryptProfileEvent(state.key, EVENT_PURPOSE, envelope));
             if (event.kind === 'card') {
-                pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-                    version: 1,
-                    cards: { [event.card.id]: event.card },
+                pageDeck = applyReaderDeckEvent(pageDeck, event);
+                changed.set(event.card.id, {
+                    expression: event.card.expression,
+                    reading: event.card.reading,
+                    partOfSpeech: event.card.partOfSpeech,
+                    language: event.card.language,
                 });
-                changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
                 synced[event.card.id] = envelope.id;
                 latestEnvelopeByCard.set(event.card.id, envelope);
             } else {
-                pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-                    version: 1,
-                    cards: {},
-                    tombstones: { [event.id]: event.deletedAt },
+                pageDeck = applyReaderDeckEvent(pageDeck, event);
+                changed.set(event.id, {
+                    expression: event.expression,
+                    reading: event.reading,
+                    partOfSpeech: event.partOfSpeech,
+                    language: event.language,
                 });
-                changed.set(event.id, { expression: event.expression, reading: event.reading });
                 synced[event.id] = envelope.id;
                 latestEnvelopeByCard.set(event.id, envelope);
             }
@@ -363,22 +378,46 @@ function deckEvents(deck: StoredYomuSrsDeck): Array<{ cardId: string; occurredAt
         event: { version: 1 as const, kind: 'card' as const, card },
     }));
     for (const [id, deletedAt] of Object.entries(deck.tombstones ?? {})) {
-        const [expression = id, reading = expression] = id.split('\u0000');
-        events.push({ cardId: id, occurredAt: deletedAt, event: { version: 1, kind: 'delete', id, expression, reading, deletedAt } });
+        const identity = deletedCardIdentity(id);
+        events.push({
+            cardId: id,
+            occurredAt: deletedAt,
+            event: { version: 1, kind: 'delete', id, ...identity, deletedAt },
+        });
     }
     return events;
 }
 
+/** Replays decrypted version-1 events, including legacy cards with no language field. */
+export function rebuildReaderDeckEventStream(values: readonly unknown[]): StoredYomuSrsDeck {
+    return values.reduce<StoredYomuSrsDeck>(
+        (deck, value) => applyReaderDeckEvent(deck, parseReaderDeckEvent(value)),
+        { version: 1, cards: {} },
+    );
+}
+
+function applyReaderDeckEvent(deck: StoredYomuSrsDeck, event: ReaderDeckEvent): StoredYomuSrsDeck {
+    return event.kind === 'card'
+        ? mergeStoredYomuSrsDecks(deck, { version: 1, cards: { [event.card.id]: event.card } })
+        : mergeStoredYomuSrsDecks(deck, {
+            version: 1,
+            cards: {},
+            tombstones: { [event.id]: event.deletedAt },
+        });
+}
+
 async function publishChangedCards(
     repository: LocalYomuSrsRepository,
-    changed: Map<string, { expression: string; reading: string }>,
+    changed: Map<string, ReaderDeckIdentity>,
 ): Promise<void> {
     if (!changed.size) return;
     const cards = await repository.lookupCards([...changed.values()]);
     const found = new Set(cards.map(card => card.providerCardId));
     cards.forEach(card => publishCardStateSignal({
         vid: 0, sid: 0, rid: 0, spelling: card.expression, reading: card.reading,
-        meanings: card.meanings, partOfSpeech: [], pitchAccent: [], frequencyRank: null,
+        language: card.language, meanings: card.meanings,
+        partOfSpeech: card.partOfSpeech ? [card.partOfSpeech] : [],
+        pitchAccent: [], frequencyRank: null,
         wordWithReading: null, cardState: card.state, source: 'yomu-local', reviewSource: 'yomu-local',
         dueAt: card.dueAt, lastReviewAt: card.lastReviewAt,
     } satisfies JPDBCard));
@@ -386,10 +425,20 @@ async function publishChangedCards(
         if (found.has(id)) continue;
         publishCardStateSignal({
             vid: 0, sid: 0, rid: 0, spelling: identity.expression, reading: identity.reading,
-            meanings: [], partOfSpeech: [], pitchAccent: [], frequencyRank: null,
+            language: identity.language, meanings: [], partOfSpeech: [], pitchAccent: [], frequencyRank: null,
             wordWithReading: null, cardState: ['not-in-deck'], source: 'yomu-local', reviewSource: 'yomu-local',
         } satisfies JPDBCard);
     }
+}
+
+function deletedCardIdentity(id: string): ReaderDeckIdentity {
+    const [expression = id, reading = expression, partOfSpeech = '', language = ''] = id.split('\u0000');
+    return {
+        expression,
+        reading,
+        ...(partOfSpeech ? { partOfSpeech } : {}),
+        ...(language ? { language } : {}),
+    };
 }
 
 function deviceRequest(path: string, state: StoredDeviceState, init: RequestInit = {}): Promise<Response> {
@@ -455,7 +504,10 @@ function parseReaderDeckEvent(value: unknown): ReaderDeckEvent {
     if (!isRecord(value) || value.version !== 1) throw new Error('Reader SRS event was malformed.');
     if (value.kind === 'card' && isRecord(value.card)) return value as unknown as ReaderDeckEvent;
     if (value.kind === 'delete' && typeof value.id === 'string' && typeof value.expression === 'string'
-        && typeof value.reading === 'string' && Number.isSafeInteger(value.deletedAt)) return value as unknown as ReaderDeckEvent;
+        && typeof value.reading === 'string'
+        && (value.partOfSpeech === undefined || typeof value.partOfSpeech === 'string')
+        && (value.language === undefined || typeof value.language === 'string')
+        && Number.isSafeInteger(value.deletedAt)) return value as unknown as ReaderDeckEvent;
     throw new Error('Reader SRS event was malformed.');
 }
 

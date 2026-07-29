@@ -3499,6 +3499,7 @@ export class NewTabController {
             rid: stableNegativeNewTabId(`srs-review:${card.providerReviewId || card.providerCardId}`),
             spelling: expression,
             reading,
+            language: card.language,
             frequencyRank: null,
             partOfSpeech: srsReviewablePartOfSpeech(card),
             meanings: card.meanings,

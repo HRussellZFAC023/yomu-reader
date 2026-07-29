@@ -158,6 +158,8 @@ export interface JPDBCard {
     rid: number;
     spelling: string;
     reading: string;
+    /** Target language for language-aware local card identity; missing means Japanese. */
+    language?: LanguageProfile['targetLanguage'];
     frequencyRank: number | null;
     partOfSpeech: string[];
     meanings: JPDBMeaning[];

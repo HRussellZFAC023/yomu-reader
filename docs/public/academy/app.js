@@ -3715,17 +3715,86 @@
       });
     });
   }
-  function canonicalStudyCardKey(expression, reading = "") {
-    return canonicalStudyCardIdentity(expression, reading).key;
+  const RTL_SCRIPTS = /* @__PURE__ */ new Set([
+    "Adlm",
+    "Arab",
+    "Hebr",
+    "Nkoo",
+    "Rohg",
+    "Syrc",
+    "Thaa"
+  ]);
+  const RTL_LANGUAGES = /* @__PURE__ */ new Set([
+    "ar",
+    "dv",
+    "fa",
+    "he",
+    "ku",
+    "ps",
+    "ur",
+    "yi"
+  ]);
+  function canonicalLanguageTag(value) {
+    if (typeof value !== "string") return null;
+    const candidate2 = value.trim().replace(/_/g, "-");
+    if (!candidate2 || candidate2.length > 255) return null;
+    try {
+      return Intl.getCanonicalLocales(candidate2)[0] ?? null;
+    } catch {
+      return null;
+    }
   }
-  function canonicalStudyCardIdentity(expression, reading = "") {
+  function languageSubtag(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return null;
+    try {
+      return new Intl.Locale(canonical).language;
+    } catch {
+      return canonical.split("-")[0]?.toLowerCase() ?? null;
+    }
+  }
+  function languageDisplayName(language2, locale = "en") {
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+    } catch {
+      return language2;
+    }
+  }
+  function localeDirection(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return "ltr";
+    try {
+      const locale = new Intl.Locale(canonical);
+      const script = locale.script || locale.maximize().script;
+      if (script && RTL_SCRIPTS.has(script)) return "rtl";
+      return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
+    } catch {
+      return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
+    }
+  }
+  function canonicalStudyCardKey(expression, reading = "", options = {}) {
+    return canonicalStudyCardIdentity(expression, reading, options).key;
+  }
+  function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
     const normalizedExpression = expression.normalize("NFKC").trim();
     if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
     const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+    const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
+    const language2 = canonicalLanguageTag(options.language ?? "ja");
+    if (!language2) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
+    const slots = [
+      normalizedExpression,
+      normalizedReading,
+      partOfSpeech,
+      language2 === "ja" ? "" : language2
+    ];
+    while (slots.at(-1) === "") slots.pop();
     return {
-      key: `${normalizedExpression}\0${normalizedReading}`,
+      key: slots.join("\0"),
       expression: normalizedExpression,
-      reading: normalizedReading
+      reading: normalizedReading,
+      partOfSpeech,
+      language: language2
     };
   }
   const DEFAULT_STUDY_DURATION_MS = 15 * 60 * 1e3;
@@ -29258,13 +29327,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
   }
   function mergeStoredYomuSrsCards(existing, incoming) {
-    const identity2 = canonicalStudyCardIdentity(existing.expression, existing.reading);
+    const existingIdentity = storedCardIdentity(existing);
+    const incomingIdentity = storedCardIdentity(incoming);
+    if (existingIdentity.key !== incomingIdentity.key) {
+      throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
+    }
+    const identity2 = existingIdentity;
     const schedule = preferredSchedule(existing, incoming);
+    const scheduleFields = { ...schedule };
+    delete scheduleFields.language;
+    delete scheduleFields.partOfSpeech;
     return {
-      ...schedule,
+      ...scheduleFields,
       id: identity2.key,
       expression: identity2.expression,
       reading: identity2.reading,
+      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+      ...identity2.language !== "ja" ? { language: identity2.language } : {},
       meanings: uniqueText$1([...existing.meanings, ...incoming.meanings]),
       sentence: existing.sentence || incoming.sentence,
       sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
@@ -29365,7 +29444,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!isRecord$8(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
-      identity2 = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
+      identity2 = canonicalStudyCardIdentity(
+        value.expression,
+        typeof value.reading === "string" ? value.reading : "",
+        {
+          ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
+          ...typeof value.language === "string" ? { language: value.language } : {}
+        }
+      );
     } catch {
       return null;
     }
@@ -29375,6 +29461,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: identity2.key,
       expression: identity2.expression,
       reading: identity2.reading,
+      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+      ...identity2.language !== "ja" ? { language: identity2.language } : {},
       meanings: stringArray$4(value.meanings),
       ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
       ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
@@ -29392,6 +29480,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
       academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
     };
+  }
+  function storedCardIdentity(card) {
+    return canonicalStudyCardIdentity(card.expression, card.reading, {
+      partOfSpeech: card.partOfSpeech,
+      language: card.language ?? "ja"
+    });
   }
   function preferredSchedule(left, right) {
     if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
@@ -29586,7 +29680,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const cards = /* @__PURE__ */ new Map();
       for (const item2 of items) {
         try {
-          const identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading);
+          const identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
+            partOfSpeech: item2.partOfSpeech,
+            language: item2.language
+          });
           const stored = deck.cards[identity2.key];
           if (stored) cards.set(identity2.key, this.toReviewable(stored, now));
         } catch {
@@ -29597,7 +29694,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async review(request2) {
       return this.mutateDeck((deck) => {
         const now = this.now();
-        const identity2 = canonicalStudyCardIdentity(request2.card.expression, request2.card.reading);
+        const identity2 = canonicalStudyCardIdentity(request2.card.expression, request2.card.reading, {
+          partOfSpeech: request2.card.partOfSpeech,
+          language: request2.card.language
+        });
         const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
         const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
         if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
@@ -29615,6 +29715,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const candidate2 = this.cardFromImportItem({
           expression: request2.expression,
           reading: request2.reading,
+          partOfSpeech: request2.partOfSpeech,
+          language: request2.language,
           meanings: request2.meaning ? [request2.meaning] : [],
           sentence: request2.sentence,
           sourceUrl: request2.sourceUrl
@@ -29672,7 +29774,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     cardFromImportItem(item2, now) {
       let identity2;
       try {
-        identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading);
+        identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
+          partOfSpeech: item2.partOfSpeech,
+          language: item2.language
+        });
       } catch {
         return null;
       }
@@ -29680,6 +29785,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         id: identity2.key,
         expression: identity2.expression,
         reading: identity2.reading,
+        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+        ...identity2.language !== "ja" ? { language: identity2.language } : {},
         meanings: uniqueTrimmedStrings(item2.meanings ?? []),
         sentence: item2.sentence?.trim() || void 0,
         sourceProviderId: item2.sourceProviderId,
@@ -29699,11 +29806,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     cardFromReviewable(card, now) {
-      const identity2 = canonicalStudyCardIdentity(card.expression, card.reading);
+      const identity2 = canonicalStudyCardIdentity(card.expression, card.reading, {
+        partOfSpeech: card.partOfSpeech,
+        language: card.language
+      });
       return {
         id: identity2.key,
         expression: identity2.expression,
         reading: identity2.reading,
+        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+        ...identity2.language !== "ja" ? { language: identity2.language } : {},
         meanings: card.meanings.flatMap((meaning) => meaning.glosses),
         sourceProviderId: card.providerId,
         sourceCardId: card.providerCardId,
@@ -29728,6 +29840,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         kind: "vocabulary",
         expression: card.expression,
         reading: card.reading,
+        ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
+        ...card.language ? { language: card.language } : {},
         meanings: meaningsFromGlosses(card.meanings),
         sentence: card.sentence,
         state: localCardState(card, now),
@@ -30595,63 +30709,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
-  const RTL_SCRIPTS = /* @__PURE__ */ new Set([
-    "Adlm",
-    "Arab",
-    "Hebr",
-    "Nkoo",
-    "Rohg",
-    "Syrc",
-    "Thaa"
-  ]);
-  const RTL_LANGUAGES = /* @__PURE__ */ new Set([
-    "ar",
-    "dv",
-    "fa",
-    "he",
-    "ku",
-    "ps",
-    "ur",
-    "yi"
-  ]);
-  function canonicalLanguageTag(value) {
-    if (typeof value !== "string") return null;
-    const candidate2 = value.trim().replace(/_/g, "-");
-    if (!candidate2 || candidate2.length > 255) return null;
-    try {
-      return Intl.getCanonicalLocales(candidate2)[0] ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function languageSubtag(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return null;
-    try {
-      return new Intl.Locale(canonical).language;
-    } catch {
-      return canonical.split("-")[0]?.toLowerCase() ?? null;
-    }
-  }
-  function languageDisplayName(language2, locale = "en") {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
-  }
-  function localeDirection(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return "ltr";
-    try {
-      const locale = new Intl.Locale(canonical);
-      const script = locale.script || locale.maximize().script;
-      if (script && RTL_SCRIPTS.has(script)) return "rtl";
-      return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
-    } catch {
-      return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
-    }
-  }
   const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
   function cardHighlightTargets(card) {
     const spelling = cleanCardHighlightValue(card.spelling);
@@ -280319,6 +280376,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       rid: card.rid,
       spelling: card.spelling,
       reading: card.reading,
+      language: card.language,
       cardState: [...card.cardState],
       pitchAccent: [...card.pitchAccent],
       source: card.source,
@@ -280413,6 +280471,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         rid: Number(card.rid) || 0,
         spelling: card.spelling,
         reading: typeof card.reading === "string" ? card.reading : "",
+        language: typeof card.language === "string" ? card.language : void 0,
         cardState: card.cardState,
         pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
         source: card.source ?? "jpdb",
@@ -284407,6 +284466,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     card.reviewSource = "yomu-local";
     card.dueAt = reviewable.dueAt;
     card.lastReviewAt = reviewable.lastReviewAt;
+    card.language = reviewable.language;
     delete card.provisionalState;
     return card;
   }
@@ -284415,17 +284475,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
     const identities = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const identity2 = localIdentity(card.spelling, card.reading);
+      const identity2 = localIdentity(card.spelling, card.reading, card.language);
       if (identity2) identities.set(identity2.key, identity2);
     }
     if (!identities.size) return parsed;
     const reviewables = await adapter.lookupCards([...identities.values()]);
     const indexed = new Map(reviewables.map((reviewable) => [
-      canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+      canonicalStudyCardIdentity(reviewable.expression, reviewable.reading, {
+        partOfSpeech: reviewable.partOfSpeech,
+        language: reviewable.language
+      }).key,
       reviewable
     ]));
     for (const card of cards) {
-      const identity2 = localIdentity(card.spelling, card.reading);
+      const identity2 = localIdentity(card.spelling, card.reading, card.language);
       const reviewable = identity2 ? indexed.get(identity2.key) : void 0;
       if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
     }
@@ -284433,7 +284496,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
     if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
-    const target2 = localIdentity(card.spelling, card.reading);
+    const target2 = localIdentity(card.spelling, card.reading, card.language);
     if (!target2) return 0;
     const words = /* @__PURE__ */ new Set();
     for (const root of roots) {
@@ -284442,16 +284505,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const changed = [];
     for (const word of words) {
-      const identity2 = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+      const identity2 = localIdentity(
+        word.dataset.expression ?? "",
+        word.dataset.reading ?? "",
+        word.dataset.language
+      );
       if (!identity2 || identity2.key !== target2.key) continue;
       if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
     }
     refreshContrastForChangedWords(changed);
     return changed.length;
   }
-  function localIdentity(expression, reading) {
+  function localIdentity(expression, reading, language2) {
     try {
-      return canonicalStudyCardIdentity(expression, reading);
+      return canonicalStudyCardIdentity(expression, reading, { language: language2 });
     } catch {
       return null;
     }
@@ -284814,6 +284881,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       kind: "vocabulary",
       expression,
       reading,
+      language: card.language,
       meanings: card.meanings,
       state: card.cardState,
       dueAt: card.dueAt,
@@ -284825,6 +284893,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       expression: card.spelling,
       reading: card.reading,
+      language: card.language,
       meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
       sentence,
       sourceTitle: context2?.sourceTitle,
@@ -310758,6 +310827,7 @@ ${entry2.url}`),
         kind: source2 === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : source2 === "wanikani" && card.wanikaniSubjectType === "kanji" ? "kanji" : source2 === "wanikani" && card.wanikaniSubjectType === "radical" ? "unknown" : "vocabulary",
         expression,
         reading,
+        language: card.language,
         meanings: card.meanings,
         state: card.cardState,
         srsLevel: source2 === "bunpro" ? card.bunproSrsLevel : source2 === "wanikani" ? card.wanikaniSrsStage : void 0,
@@ -314860,6 +314930,7 @@ ${entry2.url}`),
         rid: stableNegativeNewTabId(`srs-review:${card.providerReviewId || card.providerCardId}`),
         spelling: expression,
         reading,
+        language: card.language,
         frequencyRank: null,
         partOfSpeech: srsReviewablePartOfSpeech(card),
         meanings: card.meanings,
@@ -339138,20 +339209,23 @@ ${entry2.url}`),
       for (const envelope of page.events) {
         const event = parseReaderDeckEvent(await decryptProfileEvent(state.key, EVENT_PURPOSE, envelope));
         if (event.kind === "card") {
-          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-            version: 1,
-            cards: { [event.card.id]: event.card }
+          pageDeck = applyReaderDeckEvent(pageDeck, event);
+          changed.set(event.card.id, {
+            expression: event.card.expression,
+            reading: event.card.reading,
+            partOfSpeech: event.card.partOfSpeech,
+            language: event.card.language
           });
-          changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
           synced[event.card.id] = envelope.id;
           latestEnvelopeByCard.set(event.card.id, envelope);
         } else {
-          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-            version: 1,
-            cards: {},
-            tombstones: { [event.id]: event.deletedAt }
+          pageDeck = applyReaderDeckEvent(pageDeck, event);
+          changed.set(event.id, {
+            expression: event.expression,
+            reading: event.reading,
+            partOfSpeech: event.partOfSpeech,
+            language: event.language
           });
-          changed.set(event.id, { expression: event.expression, reading: event.reading });
           synced[event.id] = envelope.id;
           latestEnvelopeByCard.set(event.id, envelope);
         }
@@ -339243,10 +339317,21 @@ ${entry2.url}`),
       event: { version: 1, kind: "card", card }
     }));
     for (const [id2, deletedAt] of Object.entries(deck.tombstones ?? {})) {
-      const [expression = id2, reading = expression] = id2.split("\0");
-      events.push({ cardId: id2, occurredAt: deletedAt, event: { version: 1, kind: "delete", id: id2, expression, reading, deletedAt } });
+      const identity2 = deletedCardIdentity(id2);
+      events.push({
+        cardId: id2,
+        occurredAt: deletedAt,
+        event: { version: 1, kind: "delete", id: id2, ...identity2, deletedAt }
+      });
     }
     return events;
+  }
+  function applyReaderDeckEvent(deck, event) {
+    return event.kind === "card" ? mergeStoredYomuSrsDecks(deck, { version: 1, cards: { [event.card.id]: event.card } }) : mergeStoredYomuSrsDecks(deck, {
+      version: 1,
+      cards: {},
+      tombstones: { [event.id]: event.deletedAt }
+    });
   }
   async function publishChangedCards(repository, changed) {
     if (!changed.size) return;
@@ -339258,7 +339343,9 @@ ${entry2.url}`),
       rid: 0,
       spelling: card.expression,
       reading: card.reading,
+      language: card.language,
       meanings: card.meanings,
+      partOfSpeech: card.partOfSpeech ? [card.partOfSpeech] : [],
       pitchAccent: [],
       cardState: card.state,
       source: "yomu-local",
@@ -339274,12 +339361,22 @@ ${entry2.url}`),
         rid: 0,
         spelling: identity2.expression,
         reading: identity2.reading,
+        language: identity2.language,
         pitchAccent: [],
         cardState: ["not-in-deck"],
         source: "yomu-local",
         reviewSource: "yomu-local"
       });
     }
+  }
+  function deletedCardIdentity(id2) {
+    const [expression = id2, reading = expression, partOfSpeech = "", language2 = ""] = id2.split("\0");
+    return {
+      expression,
+      reading,
+      ...partOfSpeech ? { partOfSpeech } : {},
+      ...language2 ? { language: language2 } : {}
+    };
   }
   function deviceRequest(path, state, init = {}) {
     const headers = new Headers(init.headers);
@@ -339316,7 +339413,7 @@ ${entry2.url}`),
   function parseReaderDeckEvent(value) {
     if (!isRecord$1(value) || value.version !== 1) throw new Error("Reader SRS event was malformed.");
     if (value.kind === "card" && isRecord$1(value.card)) return value;
-    if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && Number.isSafeInteger(value.deletedAt)) return value;
+    if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && (value.partOfSpeech === void 0 || typeof value.partOfSpeech === "string") && (value.language === void 0 || typeof value.language === "string") && Number.isSafeInteger(value.deletedAt)) return value;
     throw new Error("Reader SRS event was malformed.");
   }
   function normalizedPairingCode(value) {

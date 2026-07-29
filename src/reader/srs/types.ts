@@ -1,4 +1,5 @@
 import type { CardState, JPDBGrade, JPDBMeaning } from '../app/types';
+import type { LanguageTag } from '../languages/types';
 
 export type YomuSrsProviderId = 'jpdb' | 'jiten' | 'anki' | 'bunpro' | 'yomu-local' | 'wanikani';
 export type YomuSrsReviewableKind = 'vocabulary' | 'grammar' | 'kanji' | 'sentence' | 'unknown';
@@ -19,6 +20,8 @@ export interface YomuSrsReviewable {
     kind: YomuSrsReviewableKind;
     expression: string;
     reading: string;
+    partOfSpeech?: string;
+    language?: LanguageTag;
     meanings: JPDBMeaning[];
     sentence?: string;
     state: CardState[];
@@ -63,6 +66,8 @@ export interface YomuSrsReviewResult {
 export interface YomuSrsMiningRequest {
     expression: string;
     reading?: string;
+    partOfSpeech?: string;
+    language?: LanguageTag;
     meaning?: string;
     sentence?: string;
     sourceTitle?: string;
@@ -79,11 +84,15 @@ export interface YomuSrsMiningResult {
 export interface YomuSrsLookupItem {
     expression: string;
     reading?: string;
+    partOfSpeech?: string;
+    language?: LanguageTag;
 }
 
 export interface YomuSrsImportItem {
     expression: string;
     reading?: string;
+    partOfSpeech?: string;
+    language?: LanguageTag;
     meanings?: string[];
     sentence?: string;
     sourceProviderId?: YomuSrsProviderId;

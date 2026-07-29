@@ -1,5 +1,6 @@
 import { isRecord } from '../core/object-utils';
 import { canonicalStudyCardIdentity } from './shared';
+import type { LanguageTag } from '../languages/types';
 
 export interface StoredYomuSrsDeck {
     version: 1;
@@ -12,6 +13,9 @@ export interface StoredYomuSrsCard {
     id: string;
     expression: string;
     reading: string;
+    partOfSpeech?: string;
+    /** Missing on legacy cards is the elided Japanese default. */
+    language?: LanguageTag;
     meanings: string[];
     sentence?: string;
     sourceProviderId?: string;
@@ -123,13 +127,23 @@ export function mergeStoredYomuSrsCards(
     existing: StoredYomuSrsCard,
     incoming: StoredYomuSrsCard,
 ): StoredYomuSrsCard {
-    const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
+    const existingIdentity = storedCardIdentity(existing);
+    const incomingIdentity = storedCardIdentity(incoming);
+    if (existingIdentity.key !== incomingIdentity.key) {
+        throw new TypeError('Cannot merge Yomu SRS cards with different identities.');
+    }
+    const identity = existingIdentity;
     const schedule = preferredSchedule(existing, incoming);
+    const scheduleFields = { ...schedule };
+    delete scheduleFields.language;
+    delete scheduleFields.partOfSpeech;
     return {
-        ...schedule,
+        ...scheduleFields,
         id: identity.key,
         expression: identity.expression,
         reading: identity.reading,
+        ...(identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {}),
+        ...(identity.language !== 'ja' ? { language: identity.language } : {}),
         meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
         sentence: existing.sentence || incoming.sentence,
         sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
@@ -264,7 +278,14 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
     if (!isRecord(value) || typeof value.expression !== 'string') return null;
     let identity: ReturnType<typeof canonicalStudyCardIdentity>;
     try {
-        identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === 'string' ? value.reading : '');
+        identity = canonicalStudyCardIdentity(
+            value.expression,
+            typeof value.reading === 'string' ? value.reading : '',
+            {
+                ...(typeof value.partOfSpeech === 'string' ? { partOfSpeech: value.partOfSpeech } : {}),
+                ...(typeof value.language === 'string' ? { language: value.language } : {}),
+            },
+        );
     } catch {
         return null;
     }
@@ -274,6 +295,8 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
         id: identity.key,
         expression: identity.expression,
         reading: identity.reading,
+        ...(identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {}),
+        ...(identity.language !== 'ja' ? { language: identity.language } : {}),
         meanings: stringArray(value.meanings),
         ...(cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {}),
         ...(cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {}),
@@ -293,6 +316,13 @@ function normalizeStoredCard(value: unknown): StoredYomuSrsCard | null {
             : true,
         academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt),
     };
+}
+
+function storedCardIdentity(card: StoredYomuSrsCard): ReturnType<typeof canonicalStudyCardIdentity> {
+    return canonicalStudyCardIdentity(card.expression, card.reading, {
+        partOfSpeech: card.partOfSpeech,
+        language: card.language ?? 'ja',
+    });
 }
 
 function preferredSchedule(left: StoredYomuSrsCard, right: StoredYomuSrsCard): StoredYomuSrsCard {

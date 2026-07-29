@@ -22,6 +22,7 @@ export interface CardStateSignalCard {
     rid: number;
     spelling: string;
     reading: string;
+    language?: JPDBCard['language'];
     cardState: CardState[];
     pitchAccent: string[];
     source: JPDBCard['source'];
@@ -47,6 +48,7 @@ export function cardStateSignalCard(card: JPDBCard): CardStateSignalCard {
         rid: card.rid,
         spelling: card.spelling,
         reading: card.reading,
+        language: card.language,
         cardState: [...card.cardState],
         pitchAccent: [...card.pitchAccent],
         source: card.source,
@@ -158,6 +160,7 @@ function parseCardStateSignal(value: unknown): CardStateSignal | null {
             rid: Number(card.rid) || 0,
             spelling: card.spelling,
             reading: typeof card.reading === 'string' ? card.reading : '',
+            language: typeof card.language === 'string' ? card.language : undefined,
             cardState: card.cardState as CardState[],
             pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent as string[] : [],
             source: (card.source ?? 'jpdb') as JPDBCard['source'],

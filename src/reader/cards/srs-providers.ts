@@ -530,6 +530,7 @@ function yomuLocalReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
         kind: 'vocabulary',
         expression,
         reading,
+        language: card.language,
         meanings: card.meanings,
         state: card.cardState,
         dueAt: card.dueAt,
@@ -542,6 +543,7 @@ function yomuLocalMiningRequestFromCard(card: JPDBCard, sentence: string | undef
     return {
         expression: card.spelling,
         reading: card.reading,
+        language: card.language,
         meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
         sentence,
         sourceTitle: context?.sourceTitle,

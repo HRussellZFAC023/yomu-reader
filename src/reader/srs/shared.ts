@@ -1,3 +1,5 @@
+import { canonicalLanguageTag } from '../languages/locale';
+
 export interface AcademyStudyAccess {
     readonly accountId: string | null;
     readonly enrolled: boolean;
@@ -13,23 +15,50 @@ export function academyStudyAccessMessage(access: AcademyStudyAccess, language: 
         : 'Sign in to sync Academy. Study still works on this device.';
 }
 
-export function canonicalStudyCardKey(expression: string, reading = ''): string {
-    return canonicalStudyCardIdentity(expression, reading).key;
+export interface StudyCardIdentityOptions {
+    readonly partOfSpeech?: string;
+    readonly language?: string;
+}
+
+export function canonicalStudyCardKey(
+    expression: string,
+    reading = '',
+    options: StudyCardIdentityOptions = {},
+): string {
+    return canonicalStudyCardIdentity(expression, reading, options).key;
 }
 
 /** One semantic identity shared by local Study imports, Academy evidence, and reviews. */
-export function canonicalStudyCardIdentity(expression: string, reading = ''): Readonly<{
+export function canonicalStudyCardIdentity(
+    expression: string,
+    reading = '',
+    options: StudyCardIdentityOptions = {},
+): Readonly<{
     key: string;
     expression: string;
     reading: string;
+    partOfSpeech: string;
+    language: string;
 }> {
     const normalizedExpression = expression.normalize('NFKC').trim();
     if (!normalizedExpression) throw new TypeError('Vocabulary expression is required.');
     const normalizedReading = (reading || normalizedExpression).normalize('NFKC').trim() || normalizedExpression;
+    const partOfSpeech = options.partOfSpeech?.normalize('NFKC').trim() ?? '';
+    const language = canonicalLanguageTag(options.language ?? 'ja');
+    if (!language) throw new TypeError('Vocabulary language must be a valid BCP-47 tag.');
+    const slots = [
+        normalizedExpression,
+        normalizedReading,
+        partOfSpeech,
+        language === 'ja' ? '' : language,
+    ];
+    while (slots.at(-1) === '') slots.pop();
     return {
-        key: `${normalizedExpression}\u0000${normalizedReading}`,
+        key: slots.join('\u0000'),
         expression: normalizedExpression,
         reading: normalizedReading,
+        partOfSpeech,
+        language,
     };
 }
 

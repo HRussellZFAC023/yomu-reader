@@ -562,13 +562,19 @@ these are the shared seams. **Read this before touching anything in the left col
 | Shared seam | Owner | Contract |
 |---|---|---|
 | `src/academy/**`, Academy content/art/story/engine | **Academy thread** | This thread does not edit it. |
-| `src/reader/srs/**` (local deck, card identity) | **This thread** | Academy consumes it via `src/academy/integration/yomu-local-review.ts`. **U44/U97 (adding a language field to card identity) is a breaking change for Academy reviews** — it must be announced and landed before Academy decks populate, because retrofitting after E2EE sync cannot run server-side. |
+| `src/reader/srs/**` (local deck, card identity) | **This thread** | Academy consumes it via `src/academy/integration/yomu-local-review.ts`. U44/U97's language slot landed as an elided-default extension: Japanese expression/reading keys are byte-identical, so Academy stays on its two-argument Japanese identity calls and needs no deck, tombstone, or E2EE-event migration. |
 | Study page / new-tab review surface | **This thread** (plan A2) | Academy's study module renders inside it; the dashboard redesign must keep `src/academy/integration/study-module.ts` mounting. |
 | `/academy/api/account`, `/academy/api/session` (**A5**, 401 live) | **Either — fix once** | Blocks account sync here AND Academy sign-up/payments there. Whoever fixes it says so; do not both fix it. |
 | Cloudflare R2 `dictionaries.yomureader.com` (**A7**, ~1,484 objects) | **This thread** | Academy assets must not share this bucket/prefix. Beware [[wrangler-remote-flag-silent-noop]]: `r2 put/get` default to LOCAL. |
 | Cloudflare workers + Pages deploys | **Coordinate** | Both threads deploy; a `wrangler deploy` from one can overwrite the other's config. Announce before deploying a shared worker. |
 | `docs/**` site, nav, copy | **This thread** | Academy owns `docs/public/academy/**` output only. Academy's nav entry stays until sign-in works (A5). |
 | Release tags / version bumps | **This thread** | Academy work rides normal patch releases; 1.9.0 stays gated (A8). |
+
+- [x] **A10 / U44 / U97 card-identity seam retired.** The fixed tuple is
+      `(dictionary form, secondary reading, part of speech, language)`, with trailing default slots
+      elided. Missing language remains Japanese and missing part of speech remains empty, so every
+      pre-existing Japanese key is unchanged. Academy therefore keeps its existing two-argument calls
+      and its existing local cards, tombstones and version-1 encrypted sync events require no migration.
 
 - [ ] **A8 — 1.9.0 stays gated on the multilingual rewrite.** BLOCKED BY: the owner's ruling that the minor ships only after the multilingual rewrite is complete, and it is not: 6 of 32 roster languages have dictionary supply. Consequence: the browser stores keep serving 1.8.15 while main runs ahead on patches. (owner, verbatim, 2026-07-26: "ship the
       minor after the complete multilingual rewrite is completed"). A prior handoff's "time to bump

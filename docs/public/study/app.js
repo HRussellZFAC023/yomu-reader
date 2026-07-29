@@ -40071,14 +40071,26 @@ ${normalizedReading}`;
   function clearContrastVars(word) {
     RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
   }
-  function canonicalStudyCardIdentity(expression, reading = "") {
+  function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
     const normalizedExpression = expression.normalize("NFKC").trim();
     if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
     const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+    const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
+    const language2 = canonicalLanguageTag(options.language ?? "ja");
+    if (!language2) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
+    const slots = [
+      normalizedExpression,
+      normalizedReading,
+      partOfSpeech,
+      language2 === "ja" ? "" : language2
+    ];
+    while (slots.at(-1) === "") slots.pop();
     return {
-      key: `${normalizedExpression}\0${normalizedReading}`,
+      key: slots.join("\0"),
       expression: normalizedExpression,
-      reading: normalizedReading
+      reading: normalizedReading,
+      partOfSpeech,
+      language: language2
     };
   }
   const DEFAULT_STUDY_DURATION_MS = 15 * 60 * 1e3;
@@ -40087,6 +40099,7 @@ ${normalizedReading}`;
     card.reviewSource = "yomu-local";
     card.dueAt = reviewable.dueAt;
     card.lastReviewAt = reviewable.lastReviewAt;
+    card.language = reviewable.language;
     delete card.provisionalState;
     return card;
   }
@@ -40095,17 +40108,20 @@ ${normalizedReading}`;
     const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
     const identities = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const identity = localIdentity(card.spelling, card.reading);
+      const identity = localIdentity(card.spelling, card.reading, card.language);
       if (identity) identities.set(identity.key, identity);
     }
     if (!identities.size) return parsed;
     const reviewables = await adapter.lookupCards([...identities.values()]);
     const indexed = new Map(reviewables.map((reviewable) => [
-      canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+      canonicalStudyCardIdentity(reviewable.expression, reviewable.reading, {
+        partOfSpeech: reviewable.partOfSpeech,
+        language: reviewable.language
+      }).key,
       reviewable
     ]));
     for (const card of cards) {
-      const identity = localIdentity(card.spelling, card.reading);
+      const identity = localIdentity(card.spelling, card.reading, card.language);
       const reviewable = identity ? indexed.get(identity.key) : void 0;
       if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
     }
@@ -40113,7 +40129,7 @@ ${normalizedReading}`;
   }
   function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
     if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
-    const target = localIdentity(card.spelling, card.reading);
+    const target = localIdentity(card.spelling, card.reading, card.language);
     if (!target) return 0;
     const words = /* @__PURE__ */ new Set();
     for (const root of roots) {
@@ -40122,16 +40138,20 @@ ${normalizedReading}`;
     }
     const changed = [];
     for (const word of words) {
-      const identity = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+      const identity = localIdentity(
+        word.dataset.expression ?? "",
+        word.dataset.reading ?? "",
+        word.dataset.language
+      );
       if (!identity || identity.key !== target.key) continue;
       if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
     }
     refreshContrastForChangedWords(changed);
     return changed.length;
   }
-  function localIdentity(expression, reading) {
+  function localIdentity(expression, reading, language2) {
     try {
-      return canonicalStudyCardIdentity(expression, reading);
+      return canonicalStudyCardIdentity(expression, reading, { language: language2 });
     } catch {
       return null;
     }
@@ -71222,6 +71242,7 @@ ${spelling}`);
       rid: card.rid,
       spelling: card.spelling,
       reading: card.reading,
+      language: card.language,
       cardState: [...card.cardState],
       pitchAccent: [...card.pitchAccent],
       source: card.source,
@@ -71316,6 +71337,7 @@ ${spelling}`);
         rid: Number(card.rid) || 0,
         spelling: card.spelling,
         reading: typeof card.reading === "string" ? card.reading : "",
+        language: typeof card.language === "string" ? card.language : void 0,
         cardState: card.cardState,
         pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
         source: card.source ?? "jpdb",
@@ -71397,13 +71419,23 @@ ${spelling}`);
     return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
   }
   function mergeStoredYomuSrsCards(existing, incoming) {
-    const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
+    const existingIdentity = storedCardIdentity(existing);
+    const incomingIdentity = storedCardIdentity(incoming);
+    if (existingIdentity.key !== incomingIdentity.key) {
+      throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
+    }
+    const identity = existingIdentity;
     const schedule = preferredSchedule(existing, incoming);
+    const scheduleFields = { ...schedule };
+    delete scheduleFields.language;
+    delete scheduleFields.partOfSpeech;
     return {
-      ...schedule,
+      ...scheduleFields,
       id: identity.key,
       expression: identity.expression,
       reading: identity.reading,
+      ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+      ...identity.language !== "ja" ? { language: identity.language } : {},
       meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
       sentence: existing.sentence || incoming.sentence,
       sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
@@ -71504,7 +71536,14 @@ ${spelling}`);
     if (!isRecord$4(value) || typeof value.expression !== "string") return null;
     let identity;
     try {
-      identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
+      identity = canonicalStudyCardIdentity(
+        value.expression,
+        typeof value.reading === "string" ? value.reading : "",
+        {
+          ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
+          ...typeof value.language === "string" ? { language: value.language } : {}
+        }
+      );
     } catch {
       return null;
     }
@@ -71514,6 +71553,8 @@ ${spelling}`);
       id: identity.key,
       expression: identity.expression,
       reading: identity.reading,
+      ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+      ...identity.language !== "ja" ? { language: identity.language } : {},
       meanings: stringArray(value.meanings),
       ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
       ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
@@ -71531,6 +71572,12 @@ ${spelling}`);
       retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
       academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
     };
+  }
+  function storedCardIdentity(card) {
+    return canonicalStudyCardIdentity(card.expression, card.reading, {
+      partOfSpeech: card.partOfSpeech,
+      language: card.language ?? "ja"
+    });
   }
   function preferredSchedule(left, right) {
     if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
@@ -71725,7 +71772,10 @@ ${spelling}`);
       const cards = /* @__PURE__ */ new Map();
       for (const item of items) {
         try {
-          const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+          const identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+            partOfSpeech: item.partOfSpeech,
+            language: item.language
+          });
           const stored = deck.cards[identity.key];
           if (stored) cards.set(identity.key, this.toReviewable(stored, now));
         } catch {
@@ -71736,7 +71786,10 @@ ${spelling}`);
     async review(request) {
       return this.mutateDeck((deck) => {
         const now = this.now();
-        const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+        const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading, {
+          partOfSpeech: request.card.partOfSpeech,
+          language: request.card.language
+        });
         const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
         const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
         if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
@@ -71754,6 +71807,8 @@ ${spelling}`);
         const candidate = this.cardFromImportItem({
           expression: request.expression,
           reading: request.reading,
+          partOfSpeech: request.partOfSpeech,
+          language: request.language,
           meanings: request.meaning ? [request.meaning] : [],
           sentence: request.sentence,
           sourceUrl: request.sourceUrl
@@ -71811,7 +71866,10 @@ ${spelling}`);
     cardFromImportItem(item, now) {
       let identity;
       try {
-        identity = canonicalStudyCardIdentity(item.expression, item.reading);
+        identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+          partOfSpeech: item.partOfSpeech,
+          language: item.language
+        });
       } catch {
         return null;
       }
@@ -71819,6 +71877,8 @@ ${spelling}`);
         id: identity.key,
         expression: identity.expression,
         reading: identity.reading,
+        ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+        ...identity.language !== "ja" ? { language: identity.language } : {},
         meanings: uniqueTrimmedStrings(item.meanings ?? []),
         sentence: item.sentence?.trim() || void 0,
         sourceProviderId: item.sourceProviderId,
@@ -71838,11 +71898,16 @@ ${spelling}`);
       };
     }
     cardFromReviewable(card, now) {
-      const identity = canonicalStudyCardIdentity(card.expression, card.reading);
+      const identity = canonicalStudyCardIdentity(card.expression, card.reading, {
+        partOfSpeech: card.partOfSpeech,
+        language: card.language
+      });
       return {
         id: identity.key,
         expression: identity.expression,
         reading: identity.reading,
+        ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+        ...identity.language !== "ja" ? { language: identity.language } : {},
         meanings: card.meanings.flatMap((meaning) => meaning.glosses),
         sourceProviderId: card.providerId,
         sourceCardId: card.providerCardId,
@@ -71867,6 +71932,8 @@ ${spelling}`);
         kind: "vocabulary",
         expression: card.expression,
         reading: card.reading,
+        ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
+        ...card.language ? { language: card.language } : {},
         meanings: meaningsFromGlosses(card.meanings),
         sentence: card.sentence,
         state: localCardState(card, now),
@@ -72108,20 +72175,23 @@ ${spelling}`);
       for (const envelope of page.events) {
         const event = parseReaderDeckEvent(await decryptProfileEvent(state2.key, EVENT_PURPOSE, envelope));
         if (event.kind === "card") {
-          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-            version: 1,
-            cards: { [event.card.id]: event.card }
+          pageDeck = applyReaderDeckEvent(pageDeck, event);
+          changed.set(event.card.id, {
+            expression: event.card.expression,
+            reading: event.card.reading,
+            partOfSpeech: event.card.partOfSpeech,
+            language: event.card.language
           });
-          changed.set(event.card.id, { expression: event.card.expression, reading: event.card.reading });
           synced[event.card.id] = envelope.id;
           latestEnvelopeByCard.set(event.card.id, envelope);
         } else {
-          pageDeck = mergeStoredYomuSrsDecks(pageDeck, {
-            version: 1,
-            cards: {},
-            tombstones: { [event.id]: event.deletedAt }
+          pageDeck = applyReaderDeckEvent(pageDeck, event);
+          changed.set(event.id, {
+            expression: event.expression,
+            reading: event.reading,
+            partOfSpeech: event.partOfSpeech,
+            language: event.language
           });
-          changed.set(event.id, { expression: event.expression, reading: event.reading });
           synced[event.id] = envelope.id;
           latestEnvelopeByCard.set(event.id, envelope);
         }
@@ -72213,10 +72283,21 @@ ${spelling}`);
       event: { version: 1, kind: "card", card }
     }));
     for (const [id, deletedAt] of Object.entries(deck.tombstones ?? {})) {
-      const [expression = id, reading = expression] = id.split("\0");
-      events.push({ cardId: id, occurredAt: deletedAt, event: { version: 1, kind: "delete", id, expression, reading, deletedAt } });
+      const identity = deletedCardIdentity(id);
+      events.push({
+        cardId: id,
+        occurredAt: deletedAt,
+        event: { version: 1, kind: "delete", id, ...identity, deletedAt }
+      });
     }
     return events;
+  }
+  function applyReaderDeckEvent(deck, event) {
+    return event.kind === "card" ? mergeStoredYomuSrsDecks(deck, { version: 1, cards: { [event.card.id]: event.card } }) : mergeStoredYomuSrsDecks(deck, {
+      version: 1,
+      cards: {},
+      tombstones: { [event.id]: event.deletedAt }
+    });
   }
   async function publishChangedCards(repository, changed) {
     if (!changed.size) return;
@@ -72228,7 +72309,9 @@ ${spelling}`);
       rid: 0,
       spelling: card.expression,
       reading: card.reading,
+      language: card.language,
       meanings: card.meanings,
+      partOfSpeech: card.partOfSpeech ? [card.partOfSpeech] : [],
       pitchAccent: [],
       cardState: card.state,
       source: "yomu-local",
@@ -72244,12 +72327,22 @@ ${spelling}`);
         rid: 0,
         spelling: identity.expression,
         reading: identity.reading,
+        language: identity.language,
         pitchAccent: [],
         cardState: ["not-in-deck"],
         source: "yomu-local",
         reviewSource: "yomu-local"
       });
     }
+  }
+  function deletedCardIdentity(id) {
+    const [expression = id, reading = expression, partOfSpeech = "", language2 = ""] = id.split("\0");
+    return {
+      expression,
+      reading,
+      ...partOfSpeech ? { partOfSpeech } : {},
+      ...language2 ? { language: language2 } : {}
+    };
   }
   function deviceRequest(path, state2, init = {}) {
     const headers = new Headers(init.headers);
@@ -72286,7 +72379,7 @@ ${spelling}`);
   function parseReaderDeckEvent(value) {
     if (!isRecord$2(value) || value.version !== 1) throw new Error("Reader SRS event was malformed.");
     if (value.kind === "card" && isRecord$2(value.card)) return value;
-    if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && Number.isSafeInteger(value.deletedAt)) return value;
+    if (value.kind === "delete" && typeof value.id === "string" && typeof value.expression === "string" && typeof value.reading === "string" && (value.partOfSpeech === void 0 || typeof value.partOfSpeech === "string") && (value.language === void 0 || typeof value.language === "string") && Number.isSafeInteger(value.deletedAt)) return value;
     throw new Error("Reader SRS event was malformed.");
   }
   function normalizedPairingCode(value) {
@@ -81132,6 +81225,7 @@ ${reading}`);
       kind: "vocabulary",
       expression,
       reading,
+      language: card.language,
       meanings: card.meanings,
       state: card.cardState,
       dueAt: card.dueAt,
@@ -81143,6 +81237,7 @@ ${reading}`);
     return {
       expression: card.spelling,
       reading: card.reading,
+      language: card.language,
       meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
       sentence,
       sourceTitle: context?.sourceTitle,
@@ -105371,6 +105466,7 @@ ${entry.url}`),
         kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : source === "wanikani" && card.wanikaniSubjectType === "kanji" ? "kanji" : source === "wanikani" && card.wanikaniSubjectType === "radical" ? "unknown" : "vocabulary",
         expression,
         reading,
+        language: card.language,
         meanings: card.meanings,
         state: card.cardState,
         srsLevel: source === "bunpro" ? card.bunproSrsLevel : source === "wanikani" ? card.wanikaniSrsStage : void 0,
@@ -108386,6 +108482,7 @@ ${entry.url}`),
         rid: stableNegativeNewTabId(`srs-review:${card.providerReviewId || card.providerCardId}`),
         spelling: expression,
         reading,
+        language: card.language,
         frequencyRank: null,
         partOfSpeech: srsReviewablePartOfSpeech(card),
         meanings: card.meanings,

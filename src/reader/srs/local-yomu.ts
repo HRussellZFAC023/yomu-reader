@@ -194,7 +194,10 @@ export class LocalYomuSrsRepository {
         const cards = new Map<string, YomuSrsReviewable>();
         for (const item of items) {
             try {
-                const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+                const identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+                    partOfSpeech: item.partOfSpeech,
+                    language: item.language,
+                });
                 const stored = deck.cards[identity.key];
                 if (stored) cards.set(identity.key, this.toReviewable(stored, now));
             } catch {
@@ -207,7 +210,10 @@ export class LocalYomuSrsRepository {
     async review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult> {
         return this.mutateDeck(deck => {
             const now = this.now();
-            const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+            const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading, {
+                partOfSpeech: request.card.partOfSpeech,
+                language: request.card.language,
+            });
             const existing = deck.cards[request.card.providerCardId]
                 ?? deck.cards[identity.key]
                 ?? this.cardFromReviewable(request.card, now);
@@ -228,6 +234,8 @@ export class LocalYomuSrsRepository {
             const candidate = this.cardFromImportItem({
                 expression: request.expression,
                 reading: request.reading,
+                partOfSpeech: request.partOfSpeech,
+                language: request.language,
                 meanings: request.meaning ? [request.meaning] : [],
                 sentence: request.sentence,
                 sourceUrl: request.sourceUrl,
@@ -284,7 +292,10 @@ export class LocalYomuSrsRepository {
     private cardFromImportItem(item: YomuSrsImportItem, now: number): StoredYomuSrsCard | null {
         let identity: ReturnType<typeof canonicalStudyCardIdentity>;
         try {
-            identity = canonicalStudyCardIdentity(item.expression, item.reading);
+            identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+                partOfSpeech: item.partOfSpeech,
+                language: item.language,
+            });
         } catch {
             return null;
         }
@@ -292,6 +303,8 @@ export class LocalYomuSrsRepository {
             id: identity.key,
             expression: identity.expression,
             reading: identity.reading,
+            ...(identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {}),
+            ...(identity.language !== 'ja' ? { language: identity.language } : {}),
             meanings: uniqueStrings(item.meanings ?? []),
             sentence: item.sentence?.trim() || undefined,
             sourceProviderId: item.sourceProviderId,
@@ -312,11 +325,16 @@ export class LocalYomuSrsRepository {
     }
 
     private cardFromReviewable(card: YomuSrsReviewable, now: number): StoredYomuSrsCard {
-        const identity = canonicalStudyCardIdentity(card.expression, card.reading);
+        const identity = canonicalStudyCardIdentity(card.expression, card.reading, {
+            partOfSpeech: card.partOfSpeech,
+            language: card.language,
+        });
         return {
             id: identity.key,
             expression: identity.expression,
             reading: identity.reading,
+            ...(identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {}),
+            ...(identity.language !== 'ja' ? { language: identity.language } : {}),
             meanings: card.meanings.flatMap(meaning => meaning.glosses),
             sourceProviderId: card.providerId,
             sourceCardId: card.providerCardId,
@@ -342,6 +360,8 @@ export class LocalYomuSrsRepository {
             kind: 'vocabulary',
             expression: card.expression,
             reading: card.reading,
+            ...(card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {}),
+            ...(card.language ? { language: card.language } : {}),
             meanings: meaningsFromGlosses(card.meanings),
             sentence: card.sentence,
             state: localCardState(card, now),

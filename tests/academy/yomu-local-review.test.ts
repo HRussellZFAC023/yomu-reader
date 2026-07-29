@@ -43,6 +43,24 @@ describe('Academy Yomu review bridge', () => {
         expect((await repository.stats()).reviewsToday).toBe(1);
     });
 
+    it('resolves an Academy review through the unchanged Japanese identity after the language slot lands', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        const service = createYomuLocalReviewService(repository, () => now);
+        const seed = repeatSeed();
+
+        await service.ingest([seed]);
+
+        const identity = canonicalStudyCardKey(seed.content.expression, seed.content.reading);
+        const [due] = await service.due(1);
+        expect(identity).toBe('もう一度お願いします\u0000もういちどおねがいします');
+        expect(due?.id).toBe(identity);
+        await expect(service.rate(identity, 'good')).resolves.toBeUndefined();
+        const stored = (await repository.snapshot()).cards[identity];
+        expect(stored).toMatchObject({ id: identity, reviews: 1 });
+        expect(Object.hasOwn(stored!, 'language')).toBe(false);
+    });
+
     it('does not miss a due card beyond the review-ahead insertion window', async () => {
         const now = 1_000_000;
         const repository = new LocalYomuSrsRepository(() => now);

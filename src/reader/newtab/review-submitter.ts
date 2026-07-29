@@ -219,6 +219,7 @@ export class NewTabReviewSubmitter {
                         : 'vocabulary',
             expression,
             reading,
+            language: card.language,
             meanings: card.meanings,
             state: card.cardState,
             srsLevel: source === 'bunpro' ? card.bunproSrsLevel : source === 'wanikani' ? card.wanikaniSrsStage : undefined,

@@ -10,6 +10,7 @@ export function applyYomuLocalReviewableToCard(card: JPDBCard, reviewable: YomuS
     card.reviewSource = 'yomu-local';
     card.dueAt = reviewable.dueAt;
     card.lastReviewAt = reviewable.lastReviewAt;
+    card.language = reviewable.language;
     delete card.provisionalState;
     return card;
 }
@@ -21,19 +22,22 @@ export async function hydrateYomuLocalSrsCardStates(
 ): Promise<JPDBToken[][]> {
     if (typeof adapter.lookupCards !== 'function') return parsed;
     const cards = parsed.flatMap(tokens => tokens.map(token => token.card));
-    const identities = new Map<string, { expression: string; reading: string }>();
+    const identities = new Map<string, { expression: string; reading: string; language?: string }>();
     for (const card of cards) {
-        const identity = localIdentity(card.spelling, card.reading);
+        const identity = localIdentity(card.spelling, card.reading, card.language);
         if (identity) identities.set(identity.key, identity);
     }
     if (!identities.size) return parsed;
     const reviewables = await adapter.lookupCards([...identities.values()]);
     const indexed = new Map(reviewables.map(reviewable => [
-        canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+        canonicalStudyCardIdentity(reviewable.expression, reviewable.reading, {
+            partOfSpeech: reviewable.partOfSpeech,
+            language: reviewable.language,
+        }).key,
         reviewable,
     ]));
     for (const card of cards) {
-        const identity = localIdentity(card.spelling, card.reading);
+        const identity = localIdentity(card.spelling, card.reading, card.language);
         const reviewable = identity ? indexed.get(identity.key) : undefined;
         if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
     }
@@ -46,7 +50,7 @@ export function repaintYomuLocalSrsRenderedWords(
     roots: readonly ParentNode[] = typeof document === 'undefined' ? [] : [document],
 ): number {
     if (card.reviewSource !== 'yomu-local' && card.source !== 'yomu-local') return 0;
-    const target = localIdentity(card.spelling, card.reading);
+    const target = localIdentity(card.spelling, card.reading, card.language);
     if (!target) return 0;
     const words = new Set<HTMLElement>();
     for (const root of roots) {
@@ -55,7 +59,11 @@ export function repaintYomuLocalSrsRenderedWords(
     }
     const changed: HTMLElement[] = [];
     for (const word of words) {
-        const identity = localIdentity(word.dataset.expression ?? '', word.dataset.reading ?? '');
+        const identity = localIdentity(
+            word.dataset.expression ?? '',
+            word.dataset.reading ?? '',
+            word.dataset.language,
+        );
         if (!identity || identity.key !== target.key) continue;
         if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
     }
@@ -63,9 +71,13 @@ export function repaintYomuLocalSrsRenderedWords(
     return changed.length;
 }
 
-function localIdentity(expression: string, reading: string): ReturnType<typeof canonicalStudyCardIdentity> | null {
+function localIdentity(
+    expression: string,
+    reading: string,
+    language?: string,
+): ReturnType<typeof canonicalStudyCardIdentity> | null {
     try {
-        return canonicalStudyCardIdentity(expression, reading);
+        return canonicalStudyCardIdentity(expression, reading, { language });
     } catch {
         return null;
     }

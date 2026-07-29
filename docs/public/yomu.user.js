@@ -17,7 +17,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.d189c7a03196.user.js#sha256=0YnHoDGWDZa5WdJQ67KCh0QL5hUYyZA5xGKYoR2wIxU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.aa2be83f504c.user.js#sha256=qivoP1BMw7IJM1z+qxvGmfAhQr6pOPeK2qlUL2E5QbA=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.a7ff2d0c0862.user.js#sha256=p/8tDAhiboQDp4roSyAuK2SNnwnFO5b2B3rJmMIgcAA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.29eb9b8ad8ad.user.js#sha256=Keubitit7b3xaB6fdyTvJkaf5xkTtVUFBXYnNXPCnuE=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.cebe66564444.user.js#sha256=zr5mVkREU5Z53YLXIX7hvGLBMojYRp+8XO8Md8jubbY=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.58f6ca7a2ced.user.js#sha256=WPbKeiztniDHv2AxDFRAkHRXISD8nEvMZvGn+XApDMY=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.c48570de51b9.user.js#sha256=xIVw3lG50zihCSXrEmPg6LFcyZeTh5wTh22E/rxauBM=
 // @require https://yomureader.com/greasyfork/yomu-jiten.323e81dde85b.user.js#sha256=Mj6B3ehbH1eazHBybrlkaJHIVPlb9T5vfblXPTmphQ8=
@@ -14260,6 +14260,7 @@ function cardStateSignalCard(card) {
   rid: card.rid,
   spelling: card.spelling,
   reading: card.reading,
+  language: card.language,
   cardState: [...card.cardState],
   pitchAccent: [...card.pitchAccent],
   source: card.source,
@@ -14354,6 +14355,7 @@ function parseCardStateSignal(value) {
     rid: Number(card.rid) || 0,
     spelling: card.spelling,
     reading: typeof card.reading === "string" ? card.reading : "",
+    language: typeof card.language === "string" ? card.language : void 0,
     cardState: card.cardState,
     pitchAccent: Array.isArray(card.pitchAccent) ? card.pitchAccent : [],
     source: card.source ?? "jpdb",
@@ -14977,14 +14979,26 @@ function applyNeutralPageBackdrop(word, background) {
 function clearContrastVars(word) {
   RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
 }
-function canonicalStudyCardIdentity(expression, reading = "") {
+function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
   const normalizedExpression = expression.normalize("NFKC").trim();
   if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
   const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
+  const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
+  const language = canonicalLanguageTag(options.language ?? "ja");
+  if (!language) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
+  const slots = [
+  normalizedExpression,
+  normalizedReading,
+  partOfSpeech,
+  language === "ja" ? "" : language
+  ];
+  while (slots.at(-1) === "") slots.pop();
   return {
-  key: `${normalizedExpression}\0${normalizedReading}`,
+  key: slots.join("\0"),
   expression: normalizedExpression,
-  reading: normalizedReading
+  reading: normalizedReading,
+  partOfSpeech,
+  language
   };
 }
 function applyYomuLocalReviewableToCard(card, reviewable) {
@@ -14992,6 +15006,7 @@ function applyYomuLocalReviewableToCard(card, reviewable) {
   card.reviewSource = "yomu-local";
   card.dueAt = reviewable.dueAt;
   card.lastReviewAt = reviewable.lastReviewAt;
+  card.language = reviewable.language;
   delete card.provisionalState;
   return card;
 }
@@ -15000,17 +15015,20 @@ async function hydrateYomuLocalSrsCardStates(parsed, adapter) {
   const cards = parsed.flatMap((tokens) => tokens.map((token) => token.card));
   const identities = new Map();
   for (const card of cards) {
-  const identity = localIdentity(card.spelling, card.reading);
+  const identity = localIdentity(card.spelling, card.reading, card.language);
   if (identity) identities.set(identity.key, identity);
   }
   if (!identities.size) return parsed;
   const reviewables = await adapter.lookupCards([...identities.values()]);
   const indexed = new Map(reviewables.map((reviewable) => [
-  canonicalStudyCardIdentity(reviewable.expression, reviewable.reading).key,
+  canonicalStudyCardIdentity(reviewable.expression, reviewable.reading, {
+    partOfSpeech: reviewable.partOfSpeech,
+    language: reviewable.language
+  }).key,
   reviewable
   ]));
   for (const card of cards) {
-  const identity = localIdentity(card.spelling, card.reading);
+  const identity = localIdentity(card.spelling, card.reading, card.language);
   const reviewable = identity ? indexed.get(identity.key) : void 0;
   if (reviewable) applyYomuLocalReviewableToCard(card, reviewable);
   }
@@ -15018,7 +15036,7 @@ async function hydrateYomuLocalSrsCardStates(parsed, adapter) {
 }
 function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
   if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
-  const target = localIdentity(card.spelling, card.reading);
+  const target = localIdentity(card.spelling, card.reading, card.language);
   if (!target) return 0;
   const words = new Set();
   for (const root of roots) {
@@ -15027,16 +15045,20 @@ function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "und
   }
   const changed = [];
   for (const word of words) {
-  const identity = localIdentity(word.dataset.expression ?? "", word.dataset.reading ?? "");
+  const identity = localIdentity(
+    word.dataset.expression ?? "",
+    word.dataset.reading ?? "",
+    word.dataset.language
+  );
   if (!identity || identity.key !== target.key) continue;
   if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
   }
   refreshContrastForChangedWords(changed);
   return changed.length;
 }
-function localIdentity(expression, reading) {
+function localIdentity(expression, reading, language) {
   try {
-  return canonicalStudyCardIdentity(expression, reading);
+  return canonicalStudyCardIdentity(expression, reading, { language });
   } catch {
   return null;
   }
@@ -15397,6 +15419,7 @@ function yomuLocalReviewableFromCard(card) {
   kind: "vocabulary",
   expression,
   reading,
+  language: card.language,
   meanings: card.meanings,
   state: card.cardState,
   dueAt: card.dueAt,
@@ -15408,6 +15431,7 @@ function yomuLocalMiningRequestFromCard(card, sentence, context) {
   return {
   expression: card.spelling,
   reading: card.reading,
+  language: card.language,
   meaning: card.meanings.flatMap((meaning) => meaning.glosses).join("; "),
   sentence,
   sourceTitle: context?.sourceTitle,
@@ -29511,13 +29535,23 @@ function mergeStoredYomuSrsDecks(leftValue, rightValue) {
   return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
 }
 function mergeStoredYomuSrsCards(existing, incoming) {
-  const identity = canonicalStudyCardIdentity(existing.expression, existing.reading);
+  const existingIdentity = storedCardIdentity(existing);
+  const incomingIdentity = storedCardIdentity(incoming);
+  if (existingIdentity.key !== incomingIdentity.key) {
+  throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
+  }
+  const identity = existingIdentity;
   const schedule = preferredSchedule(existing, incoming);
+  const scheduleFields = { ...schedule };
+  delete scheduleFields.language;
+  delete scheduleFields.partOfSpeech;
   return {
-  ...schedule,
+  ...scheduleFields,
   id: identity.key,
   expression: identity.expression,
   reading: identity.reading,
+  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+  ...identity.language !== "ja" ? { language: identity.language } : {},
   meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
   sentence: existing.sentence || incoming.sentence,
   sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
@@ -29618,7 +29652,14 @@ function normalizeStoredCard(value) {
   if (!isRecord(value) || typeof value.expression !== "string") return null;
   let identity;
   try {
-  identity = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
+  identity = canonicalStudyCardIdentity(
+    value.expression,
+    typeof value.reading === "string" ? value.reading : "",
+    {
+      ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
+      ...typeof value.language === "string" ? { language: value.language } : {}
+    }
+  );
   } catch {
   return null;
   }
@@ -29628,6 +29669,8 @@ function normalizeStoredCard(value) {
   id: identity.key,
   expression: identity.expression,
   reading: identity.reading,
+  ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+  ...identity.language !== "ja" ? { language: identity.language } : {},
   meanings: stringArray(value.meanings),
   ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
   ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
@@ -29645,6 +29688,12 @@ function normalizeStoredCard(value) {
   retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
   academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
   };
+}
+function storedCardIdentity(card) {
+  return canonicalStudyCardIdentity(card.expression, card.reading, {
+  partOfSpeech: card.partOfSpeech,
+  language: card.language ?? "ja"
+  });
 }
 function preferredSchedule(left, right) {
   if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
@@ -29835,7 +29884,10 @@ class LocalYomuSrsRepository {
   const cards = new Map();
   for (const item of items) {
     try {
-      const identity = canonicalStudyCardIdentity(item.expression, item.reading);
+      const identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+        partOfSpeech: item.partOfSpeech,
+        language: item.language
+      });
       const stored = deck.cards[identity.key];
       if (stored) cards.set(identity.key, this.toReviewable(stored, now));
     } catch {
@@ -29846,7 +29898,10 @@ class LocalYomuSrsRepository {
   async review(request) {
   return this.mutateDeck((deck) => {
     const now = this.now();
-    const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading);
+    const identity = canonicalStudyCardIdentity(request.card.expression, request.card.reading, {
+      partOfSpeech: request.card.partOfSpeech,
+      language: request.card.language
+    });
     const existing = deck.cards[request.card.providerCardId] ?? deck.cards[identity.key] ?? this.cardFromReviewable(request.card, now);
     const updated = scheduleReviewedCard({ ...existing, id: identity.key }, request.grade, now);
     if (request.card.providerCardId !== identity.key && deck.cards[request.card.providerCardId]) {
@@ -29864,6 +29919,8 @@ class LocalYomuSrsRepository {
     const candidate = this.cardFromImportItem({
       expression: request.expression,
       reading: request.reading,
+      partOfSpeech: request.partOfSpeech,
+      language: request.language,
       meanings: request.meaning ? [request.meaning] : [],
       sentence: request.sentence,
       sourceUrl: request.sourceUrl
@@ -29921,7 +29978,10 @@ class LocalYomuSrsRepository {
   cardFromImportItem(item, now) {
   let identity;
   try {
-    identity = canonicalStudyCardIdentity(item.expression, item.reading);
+    identity = canonicalStudyCardIdentity(item.expression, item.reading, {
+      partOfSpeech: item.partOfSpeech,
+      language: item.language
+    });
   } catch {
     return null;
   }
@@ -29929,6 +29989,8 @@ class LocalYomuSrsRepository {
     id: identity.key,
     expression: identity.expression,
     reading: identity.reading,
+    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+    ...identity.language !== "ja" ? { language: identity.language } : {},
     meanings: uniqueTrimmedStrings(item.meanings ?? []),
     sentence: item.sentence?.trim() || void 0,
     sourceProviderId: item.sourceProviderId,
@@ -29948,11 +30010,16 @@ class LocalYomuSrsRepository {
   };
   }
   cardFromReviewable(card, now) {
-  const identity = canonicalStudyCardIdentity(card.expression, card.reading);
+  const identity = canonicalStudyCardIdentity(card.expression, card.reading, {
+    partOfSpeech: card.partOfSpeech,
+    language: card.language
+  });
   return {
     id: identity.key,
     expression: identity.expression,
     reading: identity.reading,
+    ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
+    ...identity.language !== "ja" ? { language: identity.language } : {},
     meanings: card.meanings.flatMap((meaning) => meaning.glosses),
     sourceProviderId: card.providerId,
     sourceCardId: card.providerCardId,
@@ -29977,6 +30044,8 @@ class LocalYomuSrsRepository {
     kind: "vocabulary",
     expression: card.expression,
     reading: card.reading,
+    ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
+    ...card.language ? { language: card.language } : {},
     meanings: meaningsFromGlosses(card.meanings),
     sentence: card.sentence,
     state: localCardState(card, now),
