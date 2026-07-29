@@ -572,6 +572,7 @@ interface NewTabGradeTarget {
 type PortableStudyCardIdentity = Omit<PortableStudyCardRoute, 'kind'>;
 
 interface NewTabSupportStatus {
+    goalMet?: boolean;
     donationGoalGbp?: number;
     donationsTodayGbp?: number;
     donationsThisMonthGbp?: number;
@@ -677,7 +678,7 @@ function rememberNewTabSupportBannerDismissal(version: string): void {
 }
 
 function formatNewTabSupportGbp(value: number): string {
-    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
+    return `£${Math.round(value)}`;
 }
 
 // Consolidated per-card study-step state (NB-41a). One entry per card key holds
@@ -1998,7 +1999,7 @@ export class NewTabController {
         banner.dataset.supportDismissVersion = version;
         banner.replaceChildren(
             el('div', { class: 'jpdb-reader-newtab-support-copy' },
-                el('strong', {}, this.text('supportBannerMessage')),
+                el('strong', {}, this.text(status.goalMet ? 'supportBannerFunded' : 'supportBannerMessage')),
                 el('span', {}, newTabSupportMeta(status, this.language())),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },

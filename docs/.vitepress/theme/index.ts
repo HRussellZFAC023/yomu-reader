@@ -185,6 +185,7 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Verified support payments are now recorded before Academy delivery can fail. Ko-fi uses its documented transaction field; provider rows keep the payer's native amount and currency plus a converted amount in the configured reporting currency, or an explicit needs-rate marker when FX is unavailable. Donation totals and goals display as whole units, funded copy appears when the exact goal is met, and the support banner stays in normal flow beneath the navigation.": '確認済みの支援金は、Academyへの配信が失敗する可能性のある処理より先に記録されるようになりました。Ko-fiでは公式の取引フィールドを使用し、プロバイダーの行には支払者の元の金額と通貨に加えて、設定された集計通貨へ換算した金額を保存します。為替レートを取得できない場合も、寄付を消さず、レート待ちとして明示します。寄付総額と目標は整数単位で表示され、正確な目標額を達成すると支援済みの文言に切り替わり、支援バナーはナビゲーションの下の通常フロー内に表示されます。',
     "After a verified Academy payment, the code is sent to the email address supplied by the provider. If no valid address is present, the payment stays in a recovery queue until the owner receives a manual-delivery notice. The code is entered within 30 days, and access stays with the Google account that redeems it. Patreon free trials and future pledge amounts do not grant access.": "Academyの対象となる決済が確認されると、決済サービスから提供されたメールアドレスへコードが送信されるようになりました。有効なアドレスがない場合、所有者が手動送信の通知を受け取るまで決済は復旧キューに残ります。コードは30日以内に入力し、アクセス権はコードを使用したGoogleアカウントに残ります。Patreonの無料トライアルと将来の支援予定額ではアクセス権は付与されません。",
     'Card in the Membership chooser now opens the live checkout and lists its accepted currencies.': 'メンバーシップ選択画面のカード決済から本番の決済画面が開き、利用できる通貨も表示されるようになりました。',
     "Donations are optional and cover hosting, test devices, and the time it takes to keep Yomu improving. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Every verified donation creates one Yomu Academy code. Enter it within 30 days. Once redeemed, Academy access stays with that Google account.": "寄付は任意です。寄付金はホスティング、テスト端末、よむの改善を続けるための作業に充てられます。カード決済ではGBP、USD、EUR、CAD、AUD、JPYを利用できます。確認済みの寄付ごとによむ Academyコードが1つ発行されます。30日以内に入力してください。使用後のAcademyアクセス権は、そのGoogleアカウントに残ります。",
@@ -4824,7 +4825,9 @@ function installHostedSupportBanner(): void {
         .then(status => {
             if (!shouldShowHostedSupportBanner(status)) return;
             const banner = renderHostedSupportBanner(status);
-            document.body.prepend(banner);
+            const content = document.querySelector<HTMLElement>('.VPContent');
+            if (content) content.prepend(banner);
+            else document.body.prepend(banner);
         })
         .catch(() => undefined);
 }
@@ -5008,15 +5011,16 @@ function hostedSupportReceivedText(status: HostedSupportStatus): string {
 // the caller wants the visitor's own locale formatting, use Intl.NumberFormat
 // with navigator.language and the currency the Worker reported.
 function formatHostedLocalCurrency(value: number, currency: string): string {
+    const rounded = Math.round(value);
     try {
         const locale = (typeof navigator !== 'undefined' && navigator.language) || 'en-GB';
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency,
-            maximumFractionDigits: value % 1 === 0 ? 0 : 2,
-        }).format(value);
+            maximumFractionDigits: 0,
+        }).format(rounded);
     } catch {
-        return `${value.toFixed(value % 1 === 0 ? 0 : 2)} ${currency}`;
+        return `${rounded} ${currency}`;
     }
 }
 
@@ -5049,7 +5053,7 @@ function rememberHostedSupportDismissal(version: string): void {
 }
 
 function formatHostedSupportGbp(value: number): string {
-    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
+    return `£${Math.round(value)}`;
 }
 
 // Settings whose values are baked into rendered reader-word DOM (ruby rt

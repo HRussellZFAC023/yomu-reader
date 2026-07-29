@@ -104,9 +104,12 @@ Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
    page, then `npx wrangler deploy --config workers/yomu-support/wrangler.jsonc`.
 
 Notes: Ko-fi posts `application/x-www-form-urlencoded` with a single `data`
-field (JSON). Every verified positive **GBP** donation with stable message and
-transaction IDs grants permanent Academy access. The code is sent to the
-top-level `email`. Other currencies are ignored and still return `200`.
+field (JSON). The stable event key is `message_id`; the payment transaction key
+is `kofi_transaction_id`. Every verified positive donation is recorded in its
+native currency before Academy delivery is attempted. Supported Academy
+transaction currencies grant permanent access, and the code is sent to the
+top-level `email`. A missing FX rate leaves the native payment visible through
+`needsRate` instead of discarding it.
 
 ## 3. Buy Me a Coffee (link only)
 
@@ -189,6 +192,7 @@ Patreon's member message channel.
 | `KOFI_WEBHOOK_SECRET` | secret | `wrangler secret put` (Ko-fi verification token) |
 | `PATREON_WEBHOOK_SECRET` | secret | `wrangler secret put` (Patreon webhook secret) |
 | `ACADEMY_DELIVERY_ALERT_EMAIL` | secret | `wrangler secret put` (owner alert destination) |
+| `SUPPORT_BASE_CURRENCY` | public var | `wrangler.jsonc` `vars` (reporting currency; GBP by default) |
 | `SUPPORT_PROVIDER_KOFI_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_BMAC_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_PAYPAL_URL` | public var | `wrangler.jsonc` `vars` |

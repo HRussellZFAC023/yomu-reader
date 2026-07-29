@@ -9,8 +9,10 @@ Routes:
   GBP) and returns `{ floorGBP: 10, forecastGBP, monthlyGoalGBP, breakdown }`
   where `monthlyGoalGBP = max(sum(lineItems), floorGBP)`. `cache-control` 5 min.
 - `/progress` returns month-to-date received across providers:
-  `{ month, totalThisMonthGbp, totalTodayGbp, providers[] }`. Stripe, Ko-fi, and
-  Patreon totals are derived from unique verified-event rows in D1.
+  `{ month, totalThisMonthGbp, totalTodayGbp, needsRate, providers[] }`. Stripe,
+  Ko-fi, and Patreon totals are derived from unique verified-event rows in D1.
+  `needsRate` counts current-month payments retained in their native currency
+  while a reporting-currency conversion is unavailable.
 - `/status` combines goal + progress + a **localized display**. It accepts
   `?currency=XXX` or derives the currency from `request.cf.country`, converts
   GBP using a daily-cached FX rate, and returns `display: { amount, goal,
@@ -35,9 +37,11 @@ Routes:
   feed; missing FX never blocks Academy entitlement delivery. The verified
   Checkout `customer_details.email` receives the code, while the existing
   same-browser `/claim` route remains a fallback.
-- `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
-  recording each stable provider event exactly once in D1. The verified
-  top-level `email` receives the code.
+- `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token), recording
+  each stable `message_id` exactly once before attempting Academy delivery. It
+  uses Ko-fi's documented `kofi_transaction_id` for the entitlement and keeps
+  the payer's native amount and currency in D1. The verified top-level `email`
+  receives the code.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
   body). The first verified active-membership event with positive lifetime
   support, a current paid entitlement, and a future membership boundary grants
@@ -50,8 +54,11 @@ Routes:
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
-24h. Unmapped or unsupported currencies fall back to GBP; the homepage also
-falls back to `Intl.NumberFormat` with the visitor's locale.
+24h. Provider events store both the native payment and a converted amount in
+`SUPPORT_BASE_CURRENCY` (GBP by default). If the required rate is missing, the
+event is stored with `base_amount_minor = 0` and `needs_rate = 1` instead of
+being dropped. The homepage also falls back to `Intl.NumberFormat` with the
+visitor's locale.
 
 The donation goal derives from `operating-forecast.json`. See that file and
 `PROVIDER-SETUP.md` for the supervised account-setup checklist (Ko-fi / Patreon
@@ -92,17 +99,17 @@ npx wrangler deploy --config workers/yomu-support/wrangler.jsonc
 The support Worker declares a private `ACADEMY_PAYMENT_INGRESS` Service binding
 to `yomu-academy`. Install the same independent `PAYMENT_INGRESS_TOKEN` secret
 on both Workers before enabling provider webhooks. Signed payments fail with a
-retryable server error if this bridge is unavailable; support accounting cannot
-silently succeed without the matching Academy grant. When active, the
-support Worker forwards a canonical event only after verifying the provider's
-webhook authentication. Academy ingestion runs before support accounting so a
-failure returns 5xx and asks the provider to retry without double-counting the
-support ledger on that attempt.
+retryable server error if this bridge is unavailable. After provider
+authentication, the support Worker commits the idempotent accounting event
+first, then forwards a canonical Academy envelope when one can be built. A
+retryable entitlement or delivery failure can still return 5xx, but the verified
+support accounting remains committed. Entitlement identity or delivery can
+never erase money that arrived.
 
 Only native provider identifiers cross the payment binding. Academy HMACs those
 identifiers before storing them. It does not compare a provider email with a
-Google email. Every verified positive Stripe donation or Ko-fi GBP payment
-grants a permanent entitlement. Academy-owned
+Google email. Every verified positive Stripe or Ko-fi payment in a supported
+Academy transaction currency grants a permanent entitlement. Academy-owned
 Stripe Checkout still has the stronger exact pending-purchase/session/amount
 match. Patreon remains membership state rather than fictional cash receipts.
 Its signed member state must show paid history, current entitlement, and a

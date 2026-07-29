@@ -273647,6 +273647,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
       supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
+      supportBannerFunded: "Yomu's Ultimate Audio is funded for this month. Thank you.",
       supportBannerCost: "Donation goal: {amount}/month",
       supportBannerGoal: "This month: {current} / {goal}",
       listen: "Listen",
@@ -273928,6 +273929,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
     supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
+    supportBannerFunded: "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。",
     supportBannerCost: "寄付目標：月{amount}",
     supportBannerGoal: "今月：{current} / {goal}",
     listen: "リスニング",
@@ -312555,7 +312557,7 @@ ${entry2.url}`),
     });
   }
   function formatNewTabSupportGbp(value) {
-    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
+    return `£${Math.round(value)}`;
   }
   class NewTabController {
     constructor(dependencies, options = {}) {
@@ -313767,7 +313769,7 @@ ${entry2.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
-          el("strong", {}, this.text("supportBannerMessage")),
+          el("strong", {}, this.text(status2.goalMet ? "supportBannerFunded" : "supportBannerMessage")),
           el("span", {}, newTabSupportMeta(status2, this.language()))
         ),
         el(

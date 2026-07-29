@@ -108,9 +108,7 @@
 }
 
 .yomu-support-banner {
-  position: sticky;
-  top: 64px;
-  z-index: 39;
+  position: static;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -234,7 +232,6 @@
 
 @media (max-width: 720px) {
   .yomu-support-banner {
-    position: static;
     align-items: stretch;
     justify-content: space-between;
     padding-block: 10px;

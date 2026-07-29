@@ -21,6 +21,7 @@ import {
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
+const DEFAULT_SUPPORT_BASE_CURRENCY = "GBP";
 const DEFAULT_SUPPORT_URL = "https://yomureader.com/support";
 const PRODUCTION_SUPPORT_HOSTS = new Set(["support.yomureader.com"]);
 const STRIPE_API_VERSION = "2026-02-25.clover";
@@ -44,12 +45,13 @@ const STATUS_CACHE_SECONDS = 300;
 const SUPPORT_CLAIM_COOKIE = "__Host-yomu_support_claim";
 const SUPPORT_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60;
 
-// Free, key-less, ECB-backed daily FX rates. GBP base; response shape is
+// Free, key-less, ECB-backed daily FX rates. The upstream feed uses GBP as
+// its transport base; the reporting currency is independently configured.
+// Response shape is
 // { amount, base, date, rates: { USD: number, ... } }. Cached in KV for 24h.
 const FX_RATES_URL = "https://api.frankfurter.dev/v1/latest?base=GBP";
 const FX_CACHE_KEY = "fx:GBP:latest";
 const FX_CACHE_TTL_SECONDS = 24 * 60 * 60;
-const BASE_CURRENCY = "GBP";
 
 
 const MANUAL_PROVIDERS = ["kofi", "patreon", "bmac", "paypal"] as const;
@@ -77,6 +79,7 @@ interface Env extends AcademyCodeDeliveryEnv {
   KOFI_WEBHOOK_SECRET?: string;
   PATREON_WEBHOOK_SECRET?: string;
   SUPPORT_BANNER_ENABLED?: string;
+  SUPPORT_BASE_CURRENCY?: string;
   SUPPORT_DAILY_BUDGET_GBP?: string;
   SUPPORT_DONATION_GOAL_GBP?: string;
   SUPPORT_DONATION_GOAL_MONTHLY_GBP?: string;
@@ -148,10 +151,11 @@ interface ProviderProgress {
 
 interface ProgressResponse {
   service: "yomu-support";
-  currency: "GBP";
+  currency: string;
   month: string;
   totalThisMonthGbp: number;
   totalTodayGbp: number;
+  needsRate: number;
   providers: ProviderProgress[];
   source: "d1" | "env";
 }
@@ -179,7 +183,7 @@ interface SupportProviderLink {
 interface SupportStatus {
   service: "yomu-support";
   status: "ok" | "stripe-test-mode" | "stripe-unconfigured";
-  currency: "GBP";
+  currency: string;
   dailyBudgetGbp: number;
   donationGoalGbp: number;
   floorGbp: number;
@@ -187,6 +191,7 @@ interface SupportStatus {
   donationsTodayGbp: number;
   donationsThisMonthGbp: number;
   donationsSource: "d1" | "env";
+  needsRate: number;
   estimatedDailyCostGbp: number;
   estimatedMonthlyCostGbp: number;
   goalMet: boolean;
@@ -210,7 +215,16 @@ interface SupportStatus {
 interface DonationSnapshot {
   donationsTodayGbp: number;
   donationsThisMonthGbp: number;
+  needsRate: number;
   source: "d1" | "env";
+}
+
+interface ProviderDonationReceipt {
+  currency: string;
+  amountMinor: number;
+  baseCurrency: string;
+  baseAmountMinor: number;
+  needsRate: boolean;
 }
 
 interface StripeSignatureVerification {
@@ -250,7 +264,7 @@ export default {
 async function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (isCorsPreflight(request)) return preflight(request);
   const url = new URL(request.url);
-  const writeResponse = handleWriteRoute(url.pathname, request, env);
+  const writeResponse = handleWriteRoute(url.pathname, request, env, ctx);
   if (writeResponse) return writeResponse;
 
   if (!READ_METHODS.has(request.method.trim().toUpperCase())) {
@@ -260,10 +274,15 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   return handleReadRoute(url.pathname, request, env, ctx);
 }
 
-function handleWriteRoute(pathname: string, request: Request, env: Env): Promise<Response> | null {
+function handleWriteRoute(
+  pathname: string,
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> | null {
   if (pathname === "/stripe/webhook" || pathname === "/webhook") return handleStripeWebhook(request, env);
-  if (pathname === "/webhooks/kofi") return handleKofiWebhook(request, env);
-  if (pathname === "/webhooks/patreon") return handlePatreonWebhook(request, env);
+  if (pathname === "/webhooks/kofi") return handleKofiWebhook(request, env, ctx);
+  if (pathname === "/webhooks/patreon") return handlePatreonWebhook(request, env, ctx);
   if (pathname === "/claim") return handleDonationClaim(request, env);
   return null;
 }
@@ -332,6 +351,7 @@ function forecastFloorGbp(): number {
 // --- Progress (aggregated month-to-date across providers) -----------------
 
 async function buildProgress(env: Env, ctx: ExecutionContext): Promise<ProgressResponse> {
+  const baseCurrency = supportBaseCurrency(env);
   const stripe = await donationSnapshot(env, ctx);
   const manual = await manualProviderProgress(env);
   const providers: ProviderProgress[] = [
@@ -341,53 +361,66 @@ async function buildProgress(env: Env, ctx: ExecutionContext): Promise<ProgressR
   const totalThisMonthGbp = round2(providers.reduce((sum, p) => sum + p.monthGbp, 0));
   return {
     service: "yomu-support",
-    currency: "GBP",
+    currency: supportBaseCurrency(env),
     month: utcMonthKey(),
     totalThisMonthGbp,
-    totalTodayGbp: round2(stripe.donationsTodayGbp + manual.todayMinor / 100),
+    totalTodayGbp: round2(stripe.donationsTodayGbp + minorToMajor(manual.todayMinor, baseCurrency)),
+    needsRate: stripe.needsRate + manual.needsRate,
     providers,
     source: stripe.source,
   };
 }
 
-async function manualProviderProgress(env: Env): Promise<{ providers: ProviderProgress[]; todayMinor: number }> {
+async function manualProviderProgress(
+  env: Env,
+): Promise<{ providers: ProviderProgress[]; todayMinor: number; needsRate: number }> {
   const month = utcMonthKey();
+  const baseCurrency = supportBaseCurrency(env);
   const providers: ProviderProgress[] = [];
   let todayMinor = 0;
+  let needsRate = 0;
   for (const provider of MANUAL_PROVIDERS) {
     const progress = await providerDonationProgress(env, provider, month);
     todayMinor += progress.todayMinor;
+    needsRate += progress.needsRate;
     providers.push({
       provider,
-      monthGbp: round2(progress.monthMinor / 100),
+      monthGbp: round2(minorToMajor(progress.monthMinor, baseCurrency)),
       source: progress.source,
     });
   }
-  return { providers, todayMinor };
+  return { providers, todayMinor, needsRate };
 }
 
 async function providerDonationProgress(
   env: Env,
   provider: ManualProvider,
   month: string,
-): Promise<{ monthMinor: number; todayMinor: number; source: "d1" | "none" }> {
+): Promise<{ monthMinor: number; todayMinor: number; needsRate: number; source: "d1" | "none" }> {
   if (!env.SUPPORT_DB || (provider !== "kofi" && provider !== "patreon")) {
-    return { monthMinor: 0, todayMinor: 0, source: "none" };
+    return { monthMinor: 0, todayMinor: 0, needsRate: 0, source: "none" };
   }
+  const baseCurrency = supportBaseCurrency(env).toLowerCase();
   try {
     const [monthRow, todayRow] = await Promise.all([
       env.SUPPORT_DB.prepare(`
-        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor FROM provider_donation_events
-        WHERE provider = ? AND day >= ? AND day < ? AND currency = 'gbp'
-      `).bind(provider, month, nextUtcMonthKey()).first<{ total_minor?: number | null }>(),
+        SELECT
+          COALESCE(SUM(base_amount_minor), 0) AS total_minor,
+          COALESCE(SUM(CASE WHEN needs_rate = 1 THEN 1 ELSE 0 END), 0) AS needs_rate
+        FROM provider_donation_events
+        WHERE provider = ? AND day >= ? AND day < ? AND base_currency = ?
+      `).bind(provider, month, nextUtcMonthKey(), baseCurrency)
+        .first<{ total_minor?: number | null; needs_rate?: number | null }>(),
       env.SUPPORT_DB.prepare(`
-        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor FROM provider_donation_events
-        WHERE provider = ? AND day = ? AND currency = 'gbp'
-      `).bind(provider, utcDayKey()).first<{ total_minor?: number | null }>(),
+        SELECT COALESCE(SUM(base_amount_minor), 0) AS total_minor
+        FROM provider_donation_events
+        WHERE provider = ? AND day = ? AND base_currency = ?
+      `).bind(provider, utcDayKey(), baseCurrency).first<{ total_minor?: number | null }>(),
     ]);
     return {
       monthMinor: nonNegativeNumber(monthRow?.total_minor, 0),
       todayMinor: nonNegativeNumber(todayRow?.total_minor, 0),
+      needsRate: nonNegativeNumber(monthRow?.needs_rate, 0),
       source: "d1",
     };
   } catch (error) {
@@ -396,7 +429,7 @@ async function providerDonationProgress(
       provider,
       message: error instanceof Error ? error.message : "unknown",
     }));
-    return { monthMinor: 0, todayMinor: 0, source: "none" };
+    return { monthMinor: 0, todayMinor: 0, needsRate: 0, source: "none" };
   }
 }
 
@@ -406,27 +439,31 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
   const dailyBudgetGbp = positiveNumberEnv(env.SUPPORT_DAILY_BUDGET_GBP, DEFAULT_DAILY_BUDGET_GBP);
   const estimatedDailyCostGbp = nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_DAILY_COST_GBP, 0);
   const goal = buildGoal(env);
-  const donationGoalGbp = goal.monthlyGoalGBP;
   const estimatedMonthlyCostGbp = monthlyCostEstimate(env, estimatedDailyCostGbp);
   const progress = await buildProgress(env, ctx);
   const donationsTodayGbp = progress.totalTodayGbp;
   const donationsThisMonthGbp = progress.totalThisMonthGbp;
-  const goalMet = donationsThisMonthGbp >= donationGoalGbp;
-  const progressRatio = donationGoalGbp > 0 ? Math.min(1, round2(donationsThisMonthGbp / donationGoalGbp)) : 0;
+  const exactDonationGoalGbp = goal.monthlyGoalGBP;
+  const displayDonationGoalGbp = Math.round(exactDonationGoalGbp);
+  const goalMet = donationsThisMonthGbp >= exactDonationGoalGbp;
+  const progressRatio = exactDonationGoalGbp > 0
+    ? Math.min(1, round2(donationsThisMonthGbp / exactDonationGoalGbp))
+    : 0;
   const donateUrl = donateUrlFor(request);
-  const display = await currencyDisplay(request, env, ctx, donationsThisMonthGbp, donationGoalGbp);
+  const display = await currencyDisplay(request, env, ctx, donationsThisMonthGbp, exactDonationGoalGbp);
   const bannerCopy = supportBannerCopy(request, goalMet, display);
   return {
     service: "yomu-support",
     status: stripeStatusFor(request, env),
-    currency: "GBP",
+    currency: supportBaseCurrency(env),
     dailyBudgetGbp,
-    donationGoalGbp,
+    donationGoalGbp: displayDonationGoalGbp,
     floorGbp: goal.floorGBP,
     forecastGbp: goal.forecastGBP,
     donationsTodayGbp,
     donationsThisMonthGbp,
     donationsSource: progress.source,
+    needsRate: progress.needsRate,
     estimatedDailyCostGbp,
     estimatedMonthlyCostGbp,
     goalMet,
@@ -516,13 +553,13 @@ async function currencyDisplay(
   goalGbp: number,
 ): Promise<CurrencyDisplay> {
   const currency = resolveCurrency(request);
-  if (currency === BASE_CURRENCY) {
+  if (currency === DEFAULT_SUPPORT_BASE_CURRENCY) {
     return gbpDisplay(amountGbp, goalGbp);
   }
   const fx = await fxRateFor(env, ctx, currency);
   if (!fx) return gbpDisplay(amountGbp, goalGbp);
-  const amount = round2(amountGbp * fx.rate);
-  const goal = round2(goalGbp * fx.rate);
+  const amount = Math.round(amountGbp * fx.rate);
+  const goal = Math.round(goalGbp * fx.rate);
   return {
     currency,
     symbol: currencySymbol(currency),
@@ -537,13 +574,15 @@ async function currencyDisplay(
 }
 
 function gbpDisplay(amountGbp: number, goalGbp: number): CurrencyDisplay {
+  const amount = Math.round(amountGbp);
+  const goal = Math.round(goalGbp);
   return {
-    currency: BASE_CURRENCY,
+    currency: DEFAULT_SUPPORT_BASE_CURRENCY,
     symbol: "£",
-    amount: round2(amountGbp),
-    goal: round2(goalGbp),
-    amountText: formatCurrency(amountGbp, BASE_CURRENCY),
-    goalText: formatCurrency(goalGbp, BASE_CURRENCY),
+    amount,
+    goal,
+    amountText: formatCurrency(amount, DEFAULT_SUPPORT_BASE_CURRENCY),
+    goalText: formatCurrency(goal, DEFAULT_SUPPORT_BASE_CURRENCY),
     rate: 1,
     rateDate: "",
     converted: false,
@@ -555,7 +594,9 @@ function resolveCurrency(request: Request): string {
   const requested = normaliseCurrencyCode(url.searchParams.get("currency"));
   if (requested) return requested;
   const country = requestCountry(request);
-  return country ? (COUNTRY_CURRENCY[country] ?? BASE_CURRENCY) : BASE_CURRENCY;
+  return country
+    ? (COUNTRY_CURRENCY[country] ?? DEFAULT_SUPPORT_BASE_CURRENCY)
+    : DEFAULT_SUPPORT_BASE_CURRENCY;
 }
 
 function requestCountry(request: Request): string | null {
@@ -578,7 +619,10 @@ async function fxRateFor(
 ): Promise<{ rate: number; date: string } | null> {
   const rates = await fxRates(env, ctx);
   if (!rates) return null;
-  const rate = rates.rates[currency];
+  if (currency.toUpperCase() === DEFAULT_SUPPORT_BASE_CURRENCY) {
+    return { rate: 1, date: rates.date };
+  }
+  const rate = rates.rates[currency.toUpperCase()];
   return typeof rate === "number" && Number.isFinite(rate) && rate > 0
     ? { rate, date: rates.date }
     : null;
@@ -652,19 +696,28 @@ function isFxPayload(value: unknown): value is FxRatesPayload {
   const base = stringField(record, "base");
   const date = stringField(record, "date");
   const rates = objectRecord(record.rates);
-  return base === BASE_CURRENCY && Boolean(date) && Boolean(rates);
+  return base === DEFAULT_SUPPORT_BASE_CURRENCY && Boolean(date) && Boolean(rates);
 }
 
-function donationMinorToGbp(
+function donationMinorToBase(
   amountMinor: number,
   currency: DonationCurrency,
   rates: FxRatesPayload | null,
-): number {
+  baseCurrency: string,
+): number | null {
   if (amountMinor <= 0) return 0;
-  const amount = amountMinor / (10 ** DONATION_CURRENCIES[currency].minorDigits);
-  if (currency === "gbp") return amount;
-  const rate = rates?.rates[currency.toUpperCase()];
-  return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? amount / rate : 0;
+  const amount = minorToMajor(amountMinor, currency);
+  const payerRate = rateFromGbp(rates, currency);
+  const baseRate = rateFromGbp(rates, baseCurrency);
+  if (payerRate === null || baseRate === null) return null;
+  return amount / payerRate * baseRate;
+}
+
+function rateFromGbp(rates: FxRatesPayload | null, currency: string): number | null {
+  const upper = currency.toUpperCase();
+  if (upper === DEFAULT_SUPPORT_BASE_CURRENCY) return 1;
+  const rate = rates?.rates[upper];
+  return typeof rate === "number" && Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
 // --- Existing status donation snapshot (Stripe, D1-backed) ----------------
@@ -676,38 +729,56 @@ async function donationSnapshot(env: Env, ctx: ExecutionContext): Promise<Donati
       env.SUPPORT_DONATIONS_THIS_MONTH_GBP,
       nonNegativeNumberEnv(env.SUPPORT_DONATIONS_TODAY_GBP, 0),
     ),
+    needsRate: 0,
     source: "env",
   };
   if (!env.SUPPORT_DB) return fallback;
+  const baseCurrency = supportBaseCurrency(env);
   try {
     const totals = await Promise.all(DONATION_CURRENCY_CODES.map(async currency => {
       const [today, month] = await Promise.all([
         env.SUPPORT_DB!.prepare(`
-        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor, COUNT(*) AS donation_count
         FROM donation_events
         WHERE day = ? AND currency = ? AND stripe_session_id LIKE 'cs_live_%'
-        `).bind(utcDayKey(), currency).first<{ total_minor?: number | null }>(),
+        `).bind(utcDayKey(), currency)
+          .first<{ total_minor?: number | null; donation_count?: number | null }>(),
         env.SUPPORT_DB!.prepare(`
-        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor
+        SELECT COALESCE(SUM(amount_minor), 0) AS total_minor, COUNT(*) AS donation_count
         FROM donation_events
         WHERE day >= ? AND day < ? AND currency = ? AND stripe_session_id LIKE 'cs_live_%'
-        `).bind(utcMonthKey(), nextUtcMonthKey(), currency).first<{ total_minor?: number | null }>(),
+        `).bind(utcMonthKey(), nextUtcMonthKey(), currency)
+          .first<{ total_minor?: number | null; donation_count?: number | null }>(),
       ]);
       return {
         currency,
         todayMinor: nonNegativeNumber(today?.total_minor, 0),
         monthMinor: nonNegativeNumber(month?.total_minor, 0),
+        monthCount: nonNegativeNumber(month?.donation_count, 0),
       };
     }));
-    const needsFx = totals.some(total => total.currency !== "gbp" && (total.todayMinor > 0 || total.monthMinor > 0));
+    const needsFx = baseCurrency !== DEFAULT_SUPPORT_BASE_CURRENCY
+      || totals.some(total => total.currency !== "gbp" && (total.todayMinor > 0 || total.monthMinor > 0));
     const rates = needsFx ? await fxRates(env, ctx) : null;
+    const todayValues = totals.map(total => donationMinorToBase(
+      total.todayMinor,
+      total.currency,
+      rates,
+      baseCurrency,
+    ));
+    const monthValues = totals.map(total => donationMinorToBase(
+      total.monthMinor,
+      total.currency,
+      rates,
+      baseCurrency,
+    ));
     return {
-      donationsTodayGbp: round2(totals.reduce(
-        (sum, total) => sum + donationMinorToGbp(total.todayMinor, total.currency, rates), 0,
-      )),
-      donationsThisMonthGbp: round2(totals.reduce(
-        (sum, total) => sum + donationMinorToGbp(total.monthMinor, total.currency, rates), 0,
-      )),
+      donationsTodayGbp: round2(todayValues.reduce<number>((sum, value) => sum + (value ?? 0), 0)),
+      donationsThisMonthGbp: round2(monthValues.reduce<number>((sum, value) => sum + (value ?? 0), 0)),
+      needsRate: totals.reduce(
+        (sum, total, index) => sum + (total.monthMinor > 0 && monthValues[index] === null ? total.monthCount : 0),
+        0,
+      ),
       source: "d1",
     };
   } catch (error) {
@@ -853,17 +924,17 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   const donation = stripeDonationFromEvent(event, verification.timestamp);
   if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
 
+  await recordDonationEvent(env.SUPPORT_DB, donation);
   const academyEnvelope = stripeAcademyEnvelope(event, donation);
   if (!academyEnvelope) return textResponse("Stripe donation identity is incomplete.", 422);
   const ingress = await forwardAcademyPayment(env, academyEnvelope);
   await deliverPaymentCode(env, academyEnvelope.provider, ingress, stripeDeliveryEmail(event));
-  await recordDonationEvent(env.SUPPORT_DB, donation);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
 // --- Ko-fi webhook (shared-secret verification token) ---------------------
 
-async function handleKofiWebhook(request: Request, env: Env): Promise<Response> {
+async function handleKofiWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (request.method.trim().toUpperCase() !== "POST") {
     return textResponse("Method not allowed.", 405, { allow: "POST" });
   }
@@ -878,13 +949,14 @@ async function handleKofiWebhook(request: Request, env: Env): Promise<Response> 
   // the Ko-fi webhooks page. We compare it in constant time.
   const verified = await verifiedKofiPayload(request, secret);
   if (verified instanceof Response) return verified;
-  return handleVerifiedKofiWebhook(request, env, db, verified);
+  return handleVerifiedKofiWebhook(request, env, db, ctx, verified);
 }
 
 async function handleVerifiedKofiWebhook(
   request: Request,
   env: Env,
   db: D1Database,
+  ctx: ExecutionContext,
   verified: Record<string, unknown>,
 ): Promise<Response> {
   const paymentType = (stringField(verified, "type") ?? "").toLowerCase();
@@ -892,20 +964,31 @@ async function handleVerifiedKofiWebhook(
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
 
-  const amountMinor = gbpMinorFromProviderAmount(verified, "amount", "currency");
-  if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  const academyEnvelope = kofiAcademyEnvelope(verified, amountMinor);
+  const eventId = providerReference(verified.message_id);
+  const occurredAt = providerTimestamp(verified.timestamp);
+  if (!eventId || occurredAt === null) return textResponse("Ko-fi donation identity is incomplete.", 422);
+  const receipt = await providerDonationReceiptFromPayload(
+    env,
+    ctx,
+    "kofi",
+    verified,
+    "amount",
+    "currency",
+  );
+  if (!receipt) return jsonResponse(request, { received: true, recorded: false }, 200);
+  await recordProviderDonationEvent(db, {
+    provider: "kofi",
+    eventId,
+    day: utcDayKey(new Date(occurredAt)),
+    receipt,
+    eventType: paymentType,
+    occurredAt,
+  });
+
+  const academyEnvelope = kofiAcademyEnvelope(verified, receipt);
   if (!academyEnvelope) return textResponse("Ko-fi donation identity is incomplete.", 422);
   const ingress = await forwardAcademyPayment(env, academyEnvelope);
   await deliverPaymentCode(env, academyEnvelope.provider, ingress, deliveryEmail(verified.email));
-  await recordProviderDonationEvent(db, {
-    provider: "kofi",
-    eventId: academyEnvelope.eventId,
-    day: utcDayKey(new Date(academyEnvelope.occurredAt)),
-    amountMinor,
-    eventType: paymentType,
-    occurredAt: academyEnvelope.occurredAt,
-  });
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
@@ -927,7 +1010,7 @@ async function readKofiPayload(request: Request): Promise<string> {
 
 // --- Patreon webhook (HMAC-MD5 of raw body per Patreon spec) ---------------
 
-async function handlePatreonWebhook(request: Request, env: Env): Promise<Response> {
+async function handlePatreonWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (request.method.trim().toUpperCase() !== "POST") {
     return textResponse("Method not allowed.", 405, { allow: "POST" });
   }
@@ -943,36 +1026,57 @@ async function handlePatreonWebhook(request: Request, env: Env): Promise<Respons
     return textResponse("Invalid Patreon signature.", 401);
   }
 
-  return handleVerifiedPatreonWebhook(request, env, db, raw);
+  return handleVerifiedPatreonWebhook(request, env, db, ctx, raw);
 }
 
-async function handleVerifiedPatreonWebhook(request: Request, env: Env, db: D1Database, raw: string): Promise<Response> {
+async function handleVerifiedPatreonWebhook(
+  request: Request,
+  env: Env,
+  db: D1Database,
+  ctx: ExecutionContext,
+  raw: string,
+): Promise<Response> {
   const trigger = request.headers.get("x-patreon-event") ?? "";
   if (!isPatreonMembershipTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
   const parsed = parseJson(raw);
-  const academyEnvelope = await patreonAcademyEnvelope(trigger, raw, parsed);
+  const eventId = await stablePatreonEventId(trigger, raw);
+  let recorded = false;
+  if (isPatreonIncomeTrigger(trigger)) {
+    const occurredAt = patreonIncomeTimestamp(parsed);
+    const amountMinor = patreonPledgeReceiptMinor(parsed);
+    if (occurredAt !== null && amountMinor > 0) {
+      const receipt = await providerDonationReceiptFromMinor(
+        env,
+        ctx,
+        "patreon",
+        amountMinor,
+        patreonCurrency(parsed, supportBaseCurrency(env)),
+      );
+      await recordProviderDonationEvent(db, {
+        provider: "patreon",
+        eventId,
+        day: utcDayKey(new Date(occurredAt)),
+        receipt,
+        eventType: trigger,
+        occurredAt,
+      });
+      recorded = true;
+    }
+  }
+
+  const academyEnvelope = await patreonAcademyEnvelope(trigger, raw, parsed, eventId);
   // Patreon's signed webhook tester intentionally sends a skeletal resource.
   // A real event without enough verified membership data cannot grant access,
   // but retrying the same immutable payload cannot make it complete either.
-  if (!academyEnvelope) return jsonResponse(request, { received: true, recorded: false }, 200);
+  if (!academyEnvelope) return jsonResponse(request, { received: true, recorded }, 200);
   const ingress = await forwardAcademyPayment(env, academyEnvelope);
   await deliverPaymentCode(env, academyEnvelope.provider, ingress, patreonDeliveryEmail(parsed));
   if (!isPatreonIncomeTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
-  const amountMinor = patreonPledgeMinor(parsed);
-  if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
-  await recordProviderDonationEvent(db, {
-    provider: "patreon",
-    eventId: academyEnvelope.eventId,
-    day: utcDayKey(new Date(academyEnvelope.occurredAt)),
-    amountMinor,
-    eventType: trigger,
-    occurredAt: academyEnvelope.occurredAt,
-  });
-  return jsonResponse(request, { received: true, recorded: true }, 200);
+  return jsonResponse(request, { received: true, recorded }, 200);
 }
 
 async function hasValidPatreonSignature(request: Request, secret: string, raw: string): Promise<boolean> {
@@ -982,15 +1086,29 @@ async function hasValidPatreonSignature(request: Request, secret: string, raw: s
   return timingSafeEqualHex(signature.toLowerCase(), expected);
 }
 
-function patreonPledgeMinor(payload: unknown): number {
+function patreonPledgeReceiptMinor(payload: unknown): number {
   const record = objectRecord(payload);
   const data = objectRecord(record?.data);
   const attributes = objectRecord(data?.attributes);
-  // Patreon amounts are integer cents in the pledge/member currency. We treat
-  // the value as GBP-equivalent; the owner keeps a single Patreon currency.
+  if (!attributes || attributes.is_free_trial === true) return 0;
+  const lifetimeSupport = numberField(attributes, "campaign_lifetime_support_cents");
+  if (typeof lifetimeSupport !== "number" || lifetimeSupport <= 0) return 0;
   const cents = numberField(attributes, "amount_cents")
     ?? numberField(attributes, "currently_entitled_amount_cents");
   return typeof cents === "number" && cents > 0 ? Math.round(cents) : 0;
+}
+
+function patreonIncomeTimestamp(payload: unknown): number | null {
+  const attributes = objectRecord(objectRecord(objectRecord(payload)?.data)?.attributes);
+  return firstProviderTimestamp([
+    fieldValue(attributes, "last_charge_date"),
+    fieldValue(attributes, "updated_at"),
+  ]);
+}
+
+function patreonCurrency(payload: unknown, fallback: string): string {
+  const attributes = objectRecord(objectRecord(objectRecord(payload)?.data)?.attributes);
+  return providerCurrency(fieldValue(attributes, "currency"), fallback);
 }
 
 function patreonPaidEntitlementMinor(payload: unknown): number {
@@ -1053,10 +1171,15 @@ function stripeDeliveryEmail(event: unknown): string | null {
   return deliveryEmail(customerDetails?.email);
 }
 
-function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: number): AcademyPaymentEnvelope | null {
-  if (!isAcademyAmount(amountMinor)) return null;
+function kofiAcademyEnvelope(
+  record: Record<string, unknown>,
+  receipt: ProviderDonationReceipt,
+): AcademyPaymentEnvelope | null {
+  const currency = receipt.currency.toLowerCase();
+  if (!isAcademyAmount(receipt.amountMinor) || !isDonationCurrency(currency)) return null;
   const eventId = providerReference(record.message_id);
-  const transactionId = providerReference(record.transaction_id);
+  const transactionId = providerReference(record.kofi_transaction_id)
+    ?? providerReference(record.transaction_id);
   const occurredAt = providerTimestamp(record.timestamp);
   if (!eventId || !transactionId || occurredAt === null) return null;
   return {
@@ -1066,7 +1189,7 @@ function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: numbe
     eventType: "charge.settled",
     occurredAt,
     subject: { kind: "transaction", reference: transactionId },
-    transaction: { reference: transactionId, currency: "gbp", amountMinor },
+    transaction: { reference: transactionId, currency, amountMinor: receipt.amountMinor },
   };
 }
 
@@ -1074,10 +1197,11 @@ async function patreonAcademyEnvelope(
   trigger: string,
   rawBody: string,
   payload: unknown,
+  knownEventId?: string,
 ): Promise<AcademyPaymentEnvelope | null> {
   const context = patreonContext(payload);
   if (!context) return null;
-  const eventId = await stablePatreonEventId(trigger, rawBody);
+  const eventId = knownEventId ?? await stablePatreonEventId(trigger, rawBody);
   if (isPatreonRevocation(trigger, context.status)) {
     return patreonRevocationEnvelope(eventId, context);
   }
@@ -1236,16 +1360,85 @@ function isPatreonIncomeTrigger(trigger: string): boolean {
   return trigger.trim().toLowerCase() === "members:pledge:create";
 }
 
-function gbpMinorFromProviderAmount(
+async function providerDonationReceiptFromPayload(
+  env: Env,
+  ctx: ExecutionContext,
+  provider: "kofi" | "patreon",
   record: Record<string, unknown>,
   amountKey: string,
   currencyKey: string,
-): number {
-  const currency = (stringField(record, currencyKey) ?? BASE_CURRENCY).toUpperCase();
-  if (currency !== BASE_CURRENCY) return 0; // Only count native-GBP entries.
-  const raw = record[amountKey];
-  const value = typeof raw === "number" ? raw : Number(raw);
-  return Number.isFinite(value) && value > 0 ? Math.round(value * 100) : 0;
+): Promise<ProviderDonationReceipt | null> {
+  const currency = providerCurrency(record[currencyKey], supportBaseCurrency(env));
+  const amountMinor = providerAmountMinor(record[amountKey], currency);
+  if (amountMinor <= 0) return null;
+  return providerDonationReceiptFromMinor(env, ctx, provider, amountMinor, currency);
+}
+
+async function providerDonationReceiptFromMinor(
+  env: Env,
+  ctx: ExecutionContext,
+  provider: "kofi" | "patreon",
+  amountMinor: number,
+  currency: string,
+): Promise<ProviderDonationReceipt> {
+  const baseCurrency = supportBaseCurrency(env);
+  if (currency === baseCurrency) {
+    return {
+      currency: currency.toLowerCase(),
+      amountMinor,
+      baseCurrency: baseCurrency.toLowerCase(),
+      baseAmountMinor: amountMinor,
+      needsRate: false,
+    };
+  }
+
+  const payerRate = await fxRateFor(env, ctx, currency);
+  const baseRate = baseCurrency === DEFAULT_SUPPORT_BASE_CURRENCY
+    ? { rate: 1, date: payerRate?.date ?? "" }
+    : await fxRateFor(env, ctx, baseCurrency);
+  if (!payerRate || !baseRate) {
+    console.warn(JSON.stringify({
+      event: "yomu_support_donation_rate_missing",
+      provider,
+      currency,
+      baseCurrency,
+    }));
+    return {
+      currency: currency.toLowerCase(),
+      amountMinor,
+      baseCurrency: baseCurrency.toLowerCase(),
+      baseAmountMinor: 0,
+      needsRate: true,
+    };
+  }
+
+  const payerAmount = minorToMajor(amountMinor, currency);
+  const baseAmount = payerAmount / payerRate.rate * baseRate.rate;
+  return {
+    currency: currency.toLowerCase(),
+    amountMinor,
+    baseCurrency: baseCurrency.toLowerCase(),
+    baseAmountMinor: Math.round(baseAmount * currencyMinorScale(baseCurrency)),
+    needsRate: false,
+  };
+}
+
+function providerCurrency(value: unknown, fallback: string): string {
+  const normalised = typeof value === "string" ? value.trim().toUpperCase() : "";
+  return /^[A-Z]{3}$/u.test(normalised) ? normalised : fallback;
+}
+
+function providerAmountMinor(value: unknown, currency: string): number {
+  const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+  const match = /^(\d+)(?:\.(\d+))?$/u.exec(raw);
+  if (!match) return 0;
+  const digits = currencyMinorDigits(currency);
+  const fraction = match[2] ?? "";
+  if (fraction.length > digits && /[1-9]/u.test(fraction.slice(digits))) return 0;
+  const whole = Number(match[1]);
+  const fractional = digits === 0 ? 0 : Number(fraction.slice(0, digits).padEnd(digits, "0"));
+  const amountMinor = whole * currencyMinorScale(currency) + fractional;
+  return Number.isSafeInteger(amountMinor) && amountMinor > 0 ? amountMinor : 0;
 }
 
 async function verifyStripeSignature(
@@ -1301,20 +1494,34 @@ async function recordProviderDonationEvent(
   provider: "kofi" | "patreon",
   eventId: string,
   day: string,
-  amountMinor: number,
+  receipt: ProviderDonationReceipt,
   eventType: string,
   occurredAt: number,
   },
 ): Promise<void> {
   await db.prepare(`
     INSERT OR IGNORE INTO provider_donation_events (
-      provider, event_id, day, amount_minor, currency, event_type, occurred_at, received_at
-    ) VALUES (?, ?, ?, ?, 'gbp', ?, ?, ?)
+      provider,
+      event_id,
+      day,
+      amount_minor,
+      currency,
+      base_currency,
+      base_amount_minor,
+      needs_rate,
+      event_type,
+      occurred_at,
+      received_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     event.provider,
     event.eventId,
     event.day,
-    Math.round(event.amountMinor),
+    Math.round(event.receipt.amountMinor),
+    event.receipt.currency,
+    event.receipt.baseCurrency,
+    Math.round(event.receipt.baseAmountMinor),
+    event.receipt.needsRate ? 1 : 0,
     event.eventType,
     event.occurredAt,
     new Date().toISOString(),
@@ -1725,6 +1932,25 @@ function nonNegativeNumber(value: unknown, fallback: number): number {
 function nonNegativeNumberEnv(raw: string | undefined, fallback: number): number {
   const value = Number(raw);
   return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function supportBaseCurrency(env: Env): string {
+  const configured = env.SUPPORT_BASE_CURRENCY?.trim().toUpperCase() ?? "";
+  return SUPPORTED_CURRENCIES.has(configured) ? configured : DEFAULT_SUPPORT_BASE_CURRENCY;
+}
+
+function currencyMinorDigits(currency: string): number {
+  const lower = currency.toLowerCase();
+  if (isDonationCurrency(lower)) return DONATION_CURRENCIES[lower].minorDigits;
+  return ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase()) ? 0 : 2;
+}
+
+function currencyMinorScale(currency: string): number {
+  return 10 ** currencyMinorDigits(currency);
+}
+
+function minorToMajor(amountMinor: number, currency: string): number {
+  return amountMinor / currencyMinorScale(currency);
 }
 
 function round2(value: number): number {

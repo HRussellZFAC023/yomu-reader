@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.26] - 2026-07-29
+
+### Fixed
+
+- Verified support payments are now recorded before Academy delivery can fail. Ko-fi uses its documented transaction field; provider rows keep the payer's native amount and currency plus a converted amount in the configured reporting currency, or an explicit needs-rate marker when FX is unavailable. Donation totals and goals display as whole units, funded copy appears when the exact goal is met, and the support banner stays in normal flow beneath the navigation.
+
 ## [1.8.25] - 2026-07-28
 
 ### Fixed

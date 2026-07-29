@@ -63,7 +63,7 @@ describe("Yomu support Worker", () => {
     expect(body.display.symbol).toBe("£");
     expect(body.display.converted).toBe(false);
     expect(body.banner.costLabel).toBe("Donation goal: £10/month");
-    expect(body.banner.goalLabel).toContain("This month: £3.50 / £10");
+    expect(body.banner.goalLabel).toContain("This month: £4 / £10");
     expect(body.banner.message).toContain("Ultimate Audio");
     // Stripe is always present; manual providers hidden until their URL is set.
     const stripe = body.providers.find(p => p.id === "stripe");
@@ -129,6 +129,27 @@ describe("Yomu support Worker", () => {
     // A pinned goal below the floor is still floored at £10.
     expect(body.monthlyGoalGBP).toBe(10);
     expect(body.floorGBP).toBe(10);
+  });
+
+  it("rounds status amounts to whole units for display without changing the exact forecast", async () => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "15" },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      donationGoalGbp: number;
+      forecastGbp: number;
+      donationsThisMonthGbp: number;
+      goalMet: boolean;
+      display: { amountText: string; goalText: string };
+    };
+
+    expect(body.forecastGbp).toBe(10.2);
+    expect(body.donationGoalGbp).toBe(10);
+    expect(body.donationsThisMonthGbp).toBe(15);
+    expect(body.goalMet).toBe(true);
+    expect(body.display).toMatchObject({ amountText: "£15", goalText: "£10" });
   });
 
   it("aggregates month-to-date progress across unique provider events", async () => {
@@ -258,11 +279,11 @@ describe("Yomu support Worker", () => {
     expect(body.display.symbol).toBe("$");
     expect(body.display.converted).toBe(true);
     expect(body.display.rate).toBe(1.3306);
-    expect(body.display.goal).toBe(13.31); // 10 * 1.3306
-    expect(body.display.amount).toBe(6.65); // 5 * 1.3306
-    expect(body.display.goalText).toBe("$13.31");
-    expect(body.banner.costLabel).toBe("Donation goal: $13.31/month");
-    expect(body.banner.goalLabel).toContain("$6.65 / $13.31");
+    expect(body.display.goal).toBe(13);
+    expect(body.display.amount).toBe(7);
+    expect(body.display.goalText).toBe("$13");
+    expect(body.banner.costLabel).toBe("Donation goal: $13/month");
+    expect(body.banner.goalLabel).toContain("$7 / $13");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // A second request within the cache window must not re-fetch the rate.
@@ -771,7 +792,7 @@ describe("Yomu support Worker", () => {
     expect(response.status).toBe(500);
     expect(email.send).toHaveBeenCalledTimes(1);
     expect(academy.state()).toBe("retry");
-    expect(db.rows).toHaveLength(0);
+    expect(db.rows).toHaveLength(1);
   });
 
   it("rejects Stripe webhooks with invalid signatures before recording", async () => {
@@ -952,7 +973,7 @@ describe("Yomu support Worker", () => {
     },
   );
 
-  it("returns 5xx and defers support accounting when Academy ingestion fails", async () => {
+  it("returns 5xx but keeps support accounting when Academy ingestion fails", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress(() => new Response("unavailable", { status: 503 }));
     const timestamp = Math.floor(Date.now() / 1000);
@@ -963,7 +984,7 @@ describe("Yomu support Worker", () => {
       purchaseId: "purchase-retry",
     }, db, academy);
 
-    expectWebhookOutcome(response, db, academy, 500, 0);
+    expectWebhookOutcome(response, db, academy, 500, 1);
   });
 
   it("accepts a valid stale Academy result once and emits a distinct structured warning", async () => {
@@ -1009,7 +1030,7 @@ describe("Yomu support Worker", () => {
         purchaseId: "purchase-bad-ack",
     }, db, academy);
 
-    expectWebhookOutcome(response, db, academy, 500, 0);
+    expectWebhookOutcome(response, db, academy, 500, 1);
   });
 
   it("refuses to count an authenticated Ko-fi donation without stable payment identity", async () => {
@@ -1041,17 +1062,27 @@ describe("Yomu support Worker", () => {
     );
   });
 
-  it("keeps Ko-fi event and transaction identities separate and retry-stable", async () => {
+  it("accepts Ko-fi's real webhook field shape and keeps its identities retry-stable", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
     const donationPayload = JSON.stringify({
       verification_token: "kofi_secret",
       message_id: "message-42",
-      transaction_id: "transaction-99",
       timestamp: "2026-07-20T01:02:03.000Z",
       type: "Donation",
+      is_public: true,
+      from_name: "Example Supporter",
+      message: "Thank you",
       amount: "1.00",
+      url: "https://ko-fi.com/yomureader",
+      email: "supporter@example.test",
       currency: "GBP",
+      is_subscription_payment: false,
+      is_first_subscription_payment: false,
+      kofi_transaction_id: "transaction-99",
+      shop_items: null,
+      tier_name: null,
+      shipping: null,
     });
     const env = withAcademyIngress({
       KOFI_WEBHOOK_SECRET: "kofi_secret",
@@ -1073,7 +1104,117 @@ describe("Yomu support Worker", () => {
     });
     expect(retry).toEqual(first);
     expect(db.rows).toHaveLength(1);
-    expect(db.rows[0]).toMatchObject({ provider: "kofi", id: "message-42", amountMinor: 100 });
+    expect(db.rows[0]).toMatchObject({
+      provider: "kofi",
+      id: "message-42",
+      amountMinor: 100,
+      currency: "gbp",
+      baseCurrency: "gbp",
+      baseAmountMinor: 100,
+      needsRate: false,
+    });
+  });
+
+  it("records a verified Ko-fi payment before rejecting incomplete Academy identity", async () => {
+    const db = mockSupportDb();
+    const donationPayload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: "message-accounting-first",
+      timestamp: "2026-07-20T01:02:03.000Z",
+      type: "Donation",
+      amount: "10.00",
+      currency: "GBP",
+    });
+
+    const response = await fetchSupportWebhook(
+      supportKofiWebhook(donationPayload),
+      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_DB: db },
+    );
+
+    expect(response.status).toBe(422);
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      provider: "kofi",
+      id: "message-accounting-first",
+      amountMinor: 1000,
+      baseAmountMinor: 1000,
+    });
+  });
+
+  it("converts payer currency into configured reporting currency in the correct direction", async () => {
+    const db = mockSupportDb();
+    const payload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: "message-eur",
+      timestamp: "2026-07-20T01:02:03.000Z",
+      type: "Donation",
+      amount: "12.00",
+      currency: "EUR",
+    });
+    const kv = mockKv({
+      "fx:GBP:latest": JSON.stringify({
+        base: "GBP",
+        date: "2026-07-20",
+        rates: { EUR: 2, USD: 1.5 },
+      }),
+    });
+
+    const response = await fetchSupportWebhook(supportKofiWebhook(payload), {
+      KOFI_WEBHOOK_SECRET: "kofi_secret",
+      SUPPORT_DB: db,
+      SUPPORT_KV: kv,
+      SUPPORT_BASE_CURRENCY: "USD",
+    });
+
+    expect(response.status).toBe(422);
+    expect(db.rows[0]).toMatchObject({
+      amountMinor: 1200,
+      currency: "eur",
+      baseCurrency: "usd",
+      baseAmountMinor: 900,
+      needsRate: false,
+    });
+  });
+
+  it("records an unconvertible donation with needsRate instead of hiding it", async () => {
+    const db = mockSupportDb();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const payload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: "message-no-rate",
+      timestamp: new Date().toISOString(),
+      type: "Donation",
+      amount: "8.00",
+      currency: "CAD",
+    });
+    const kv = mockKv({
+      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-20", rates: { USD: 1.5 } }),
+    });
+    const env = {
+      KOFI_WEBHOOK_SECRET: "kofi_secret",
+      SUPPORT_DB: db,
+      SUPPORT_KV: kv,
+    };
+
+    expect((await fetchSupportWebhook(supportKofiWebhook(payload), env)).status).toBe(422);
+    expect(db.rows[0]).toMatchObject({
+      amountMinor: 800,
+      currency: "cad",
+      baseCurrency: "gbp",
+      baseAmountMinor: 0,
+      needsRate: true,
+    });
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    await expect(status.json()).resolves.toMatchObject({
+      donationsThisMonthGbp: 0,
+      needsRate: 1,
+    });
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mockRestore();
   });
 
   it("uses only Ko-fi's verified top-level email for code delivery", async () => {
@@ -1083,7 +1224,7 @@ describe("Yomu support Worker", () => {
     const donationPayload = JSON.stringify({
       verification_token: "kofi_secret",
       message_id: "message-email",
-      transaction_id: "transaction-email",
+      kofi_transaction_id: "transaction-email",
       timestamp: "2026-07-20T01:02:03.000Z",
       type: "Donation",
       amount: "5.00",
@@ -1213,6 +1354,30 @@ describe("Yomu support Worker", () => {
     expect(db.rows).toHaveLength(1);
     expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500 });
     expect(academy.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("records Patreon income even when the entitlement envelope is incomplete", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-accounting-first",
+        attributes: {
+          patron_status: "active_patron",
+          amount_cents: 500,
+          campaign_lifetime_support_cents: 500,
+          last_charge_date: "2026-07-20T02:00:00.000Z",
+        },
+      },
+    });
+
+    const response = await postPatreonEvent(payload, "members:pledge:create", db, academy);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: true });
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500, baseAmountMinor: 500 });
+    expect(academy.fetch).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1667,7 +1832,11 @@ type DonationRow = {
   day: string;
   amountMinor: number;
   currency: string;
+  baseCurrency?: string;
+  baseAmountMinor?: number;
+  needsRate?: boolean;
   eventType: string;
+  occurredAt?: number;
   stripeSessionId?: string;
   stripeCreatedAt?: number;
   receivedAt: string;
@@ -1699,27 +1868,40 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
           return this;
         },
         async first<T>() {
-          if (/SELECT COALESCE\(SUM\(amount_minor\), 0\)/.test(query)) {
+          if (/SUM\((?:amount_minor|base_amount_minor)\)/.test(query)) {
             const providerEvents = /FROM provider_donation_events/.test(query);
             const provider = providerEvents ? String(values[0] ?? "") : "stripe";
             const dayOffset = providerEvents ? 1 : 0;
             if (/day >= \? AND day < \?/.test(query)) {
               const start = String(values[dayOffset] ?? "");
               const end = String(values[dayOffset + 1] ?? "");
-              const currency = providerEvents ? "gbp" : String(values[dayOffset + 2] ?? "gbp");
-              const total_minor = rows
-                .filter(row => row.provider === provider && row.day >= start && row.day < end && row.currency === currency)
+              const currency = String(values[dayOffset + 2] ?? "gbp");
+              const matching = rows
+                .filter(row => row.provider === provider && row.day >= start && row.day < end)
+                .filter(row => providerEvents
+                  ? (row.baseCurrency ?? row.currency) === currency
+                  : row.currency === currency)
                 .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
-                .reduce((sum, row) => sum + row.amountMinor, 0);
-              return { total_minor } as T;
+              const total_minor = matching.reduce(
+                (sum, row) => sum + (providerEvents ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
+                0,
+              );
+              const needs_rate = matching.filter(row => row.needsRate).length;
+              return { total_minor, needs_rate, donation_count: matching.length } as T;
             }
             const day = String(values[dayOffset] ?? "");
-            const currency = providerEvents ? "gbp" : String(values[dayOffset + 1] ?? "gbp");
-            const total_minor = rows
-              .filter(row => row.provider === provider && row.day === day && row.currency === currency)
+            const currency = String(values[dayOffset + 1] ?? "gbp");
+            const matching = rows
+              .filter(row => row.provider === provider && row.day === day)
+              .filter(row => providerEvents
+                ? (row.baseCurrency ?? row.currency) === currency
+                : row.currency === currency)
               .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
-              .reduce((sum, row) => sum + row.amountMinor, 0);
-            return { total_minor } as T;
+            const total_minor = matching.reduce(
+              (sum, row) => sum + (providerEvents ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
+              0,
+            );
+            return { total_minor, donation_count: matching.length } as T;
           }
           return null;
         },
@@ -1756,8 +1938,13 @@ function insertProviderDonationRow(query: string, values: unknown[], rows: Donat
   const id = stringValue(values, 1);
   if (rows.some(row => row.provider === provider && row.id === id)) return;
   rows.push(providerDonationRow(provider, id, stringValue(values, 2), numberValue(values, 3), {
-    eventType: stringValue(values, 4),
-    receivedAt: stringValue(values, 6),
+    currency: stringValue(values, 4),
+    baseCurrency: stringValue(values, 5),
+    baseAmountMinor: numberValue(values, 6),
+    needsRate: numberValue(values, 7) === 1,
+    eventType: stringValue(values, 8),
+    occurredAt: numberValue(values, 9),
+    receivedAt: stringValue(values, 10),
   }));
 }
 
@@ -1782,6 +1969,9 @@ function providerDonationRow(
     day,
     amountMinor,
     currency: "gbp",
+    baseCurrency: "gbp",
+    baseAmountMinor: amountMinor,
+    needsRate: false,
     eventType: "donation",
     receivedAt: new Date().toISOString(),
     ...overrides,

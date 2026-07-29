@@ -14,6 +14,9 @@
   ],
   "vars": {
     "SUPPORT_BANNER_ENABLED": "true",
+    // Reporting currency for persisted provider totals. Incoming payer amounts
+    // remain in their native currency; conversions are stored separately.
+    "SUPPORT_BASE_CURRENCY": "GBP",
     "SUPPORT_DAILY_BUDGET_GBP": "10",
     // Leave SUPPORT_DONATION_GOAL_MONTHLY_GBP unset to let the goal derive from
     // operating-forecast.json (max(forecast, £10 floor)). Set it only to pin the

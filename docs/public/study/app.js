@@ -53472,7 +53472,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.25".trim() ? "1.8.25".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.26".trim() ? "1.8.26".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -98225,6 +98225,7 @@ ${component.reading}`;
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
       supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
+      supportBannerFunded: "Yomu's Ultimate Audio is funded for this month. Thank you.",
       supportBannerCost: "Donation goal: {amount}/month",
       supportBannerGoal: "This month: {current} / {goal}",
       listen: "Listen",
@@ -98506,6 +98507,7 @@ ${component.reading}`;
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
     supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
+    supportBannerFunded: "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。",
     supportBannerCost: "寄付目標：月{amount}",
     supportBannerGoal: "今月：{current} / {goal}",
     listen: "リスニング",
@@ -106309,7 +106311,7 @@ ${entry.url}`),
     });
   }
   function formatNewTabSupportGbp(value) {
-    return `£${value.toFixed(value % 1 === 0 ? 0 : 2)}`;
+    return `£${Math.round(value)}`;
   }
   class NewTabController {
     constructor(dependencies, options = {}) {
@@ -107521,7 +107523,7 @@ ${entry.url}`),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
-          el("strong", {}, this.text("supportBannerMessage")),
+          el("strong", {}, this.text(status.goalMet ? "supportBannerFunded" : "supportBannerMessage")),
           el("span", {}, newTabSupportMeta(status, this.language()))
         ),
         el(
