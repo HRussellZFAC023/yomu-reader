@@ -701,7 +701,10 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       headers, so this has to be a Cloudflare Transform / Response Header rule. Do: one rule on the zone
       adding HSTS, nosniff, referrer-policy and frame-ancestors across the apex and the four subdomains,
       then re-run the dumps.
-- [ ] **A35.15 — HIGH: the two gates that catch a poisoned main run on the tag path only.**
+- [x] **A35.15 — CLOSED 2026-07-29: repository hygiene and committed-artifact checks now gate every
+      pull request and push to `main`, including the userscript bot's generated commit before it pushes.**
+      The checks need no dependency install or network access, so the new committed-state job stays a
+      short pure-commit gate. **Original finding: the two gates that catch a poisoned main ran on the tag path only.**
       `scripts/run-check.mjs:109-110` runs `check:repository` then `check:artifacts` first.
       `grep -n 'check:repository|check:artifacts|check:release' .github/workflows/*.yml` returns exactly
       one hit: `release.yml:95` (`npm run check:release`). ci.yml runs neither.

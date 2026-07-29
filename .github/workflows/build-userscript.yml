@@ -50,5 +50,7 @@ jobs:
             # tooling may push this commit together with the release commit; if
             # this is the push HEAD, [skip ci] suppresses Deploy Docs as well.
             git commit -m "build userscript and docs assets"
+            npm run check:repository
+            npm run check:artifacts
             git push
           fi

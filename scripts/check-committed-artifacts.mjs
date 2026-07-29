@@ -39,6 +39,7 @@ const {
 } = academyRevisionModule;
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const COMMIT = process.env.YOMU_COMMIT_TO_CHECK || 'HEAD';
 const failures = [];
 
 // One `git cat-file --batch` per batch instead of one `git show` per file: the
@@ -62,7 +63,7 @@ checkHostedUserscript();
 checkPinnedCompanionsAreCommitted();
 
 if (failures.length > 0) {
-    console.error(`\nHEAD ships build output that does not match its own sources (package.json ${packageVersion}):\n`);
+    console.error(`\n${COMMIT} ships build output that does not match its own sources (package.json ${packageVersion}):\n`);
     for (const failure of failures) console.error(`  - ${failure}`);
     console.error('\nRegenerate and commit the published artifacts:');
     console.error('  npm run build && node scripts/sync-docs-userscript.cjs && npm run build:academy && npm run docs:build');
@@ -194,7 +195,7 @@ function committedAcademyEntries(sourcePaths) {
             return;
         }
         const under = tree.filter(path => path.startsWith(`${committedPath}/`));
-        if (under.length === 0) throw new Error(`HEAD does not carry ${committedPath}`);
+        if (under.length === 0) throw new Error(`${COMMIT} does not carry ${committedPath}`);
         if (!source.startsWith('public/')) {
             // Only public/ directories are hashed file by file under their own
             // git paths; anything else would need a relabelling rule that does
@@ -208,7 +209,7 @@ function committedAcademyEntries(sourcePaths) {
 
 function readCommittedJson(path) {
     const raw = readCommitted(path);
-    if (raw === null) throw new Error(`HEAD does not carry ${path}`);
+    if (raw === null) throw new Error(`${COMMIT} does not carry ${path}`);
     return JSON.parse(raw);
 }
 
@@ -216,12 +217,12 @@ function* readCommittedFiles(paths) {
     for (let index = 0; index < paths.length; index += COMMITTED_BLOB_BATCH) {
         const batch = paths.slice(index, index + COMMITTED_BLOB_BATCH);
         // `<oid> <type> <size>\n<contents>\n` per request, in request order.
-        const blobs = git(['cat-file', '--batch'], { input: `${batch.map(path => `HEAD:${path}`).join('\n')}\n` });
+        const blobs = git(['cat-file', '--batch'], { input: `${batch.map(path => `${COMMIT}:${path}`).join('\n')}\n` });
         let offset = 0;
         for (const path of batch) {
             const headerEnd = blobs.indexOf(0x0a, offset);
             const [, type, size] = blobs.toString('utf8', offset, headerEnd).split(' ');
-            if (type !== 'blob') throw new Error(`HEAD:${path} is ${type ?? 'missing'}, not a file`);
+            if (type !== 'blob') throw new Error(`${COMMIT}:${path} is ${type ?? 'missing'}, not a file`);
             const start = headerEnd + 1;
             yield [path, blobs.subarray(start, start + Number(size))];
             offset = start + Number(size) + 1;
@@ -302,7 +303,7 @@ function checkPinnedCompanionsAreCommitted() {
 // failure rather than the tidy sentence underneath it.
 function hasCommit() {
     try {
-        git(['rev-parse', '--verify', 'HEAD'], { stdio: ['pipe', 'pipe', 'ignore'] });
+        git(['rev-parse', '--verify', COMMIT], { stdio: ['pipe', 'pipe', 'ignore'] });
         return true;
     } catch {
         return false;
@@ -311,7 +312,7 @@ function hasCommit() {
 
 function readCommitted(path, { binary = false } = {}) {
     try {
-        const contents = git(['show', `HEAD:${path}`], { stdio: ['pipe', 'pipe', 'ignore'] });
+        const contents = git(['show', `${COMMIT}:${path}`], { stdio: ['pipe', 'pipe', 'ignore'] });
         return binary ? contents : contents.toString('utf8');
     } catch {
         return null;
@@ -322,7 +323,7 @@ function readCommitted(path, { binary = false } = {}) {
 // quoted name would then be read as a literal path that does not exist.
 function listCommitted(paths) {
     const pathspecs = Array.isArray(paths) ? paths : [paths];
-    return git(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...pathspecs]).toString('utf8').split('\0').filter(Boolean);
+    return git(['ls-tree', '-r', '--name-only', '-z', COMMIT, '--', ...pathspecs]).toString('utf8').split('\0').filter(Boolean);
 }
 
 function git(args, options = {}) {
