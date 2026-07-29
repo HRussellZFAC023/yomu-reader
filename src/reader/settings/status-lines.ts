@@ -5,7 +5,7 @@ import { hasUserscriptAnkiBridge } from '../anki/index';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired, readApiCredentialsFromFormData, type BunproCredentialSettings, type WanikaniCredentialSettings } from './api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
-export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
+export const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
 
 export type SettingsStatusTone = 'pending' | 'success' | 'error';
 export type SettingsStatusAction = 'anki-unreachable';

@@ -167,7 +167,7 @@ Jiten/JPDB and browser text-to-speech rows are off by default. Turn them on only
 
 ## Using an iPad or Another Device
 
-On a phone or iPad, `localhost:9393` means *that device*, not the computer running the server (see [desktop helpers on mobile](/getting-started)). To reach your computer's audio server from another device, use [Tailscale](https://tailscale.com/downloads).
+On a phone or iPad, `localhost:9393` means *that device*, not the computer running the server (see [desktop helpers on mobile](/learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android)). To reach your computer's audio server from another device, use [Tailscale](https://tailscale.com/downloads).
 
 Basic setup:
 

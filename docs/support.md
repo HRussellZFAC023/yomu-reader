@@ -1,6 +1,6 @@
 ---
 title: Support
-description: Get help with Yomu — ask on Discord, report a bug, or open the tools. Yomu turns any page, video, manga or game screen into a Japanese lesson.
+description: Get help with Yomu, ask on Discord, report a bug, or open the apps used for reading and study.
 ---
 
 # Support
@@ -13,13 +13,13 @@ Something not working, or want to ask a question? Start here.
   <a class="yomu-cta-button primary" href="https://discord.gg/jD6NPURewD">Ask on Discord</a>
   <a class="yomu-cta-button" href="/faq">Read the FAQ</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
-  <a class="yomu-cta-button" href="/getting-started">Install よむ</a>
+  <a class="yomu-cta-button" href="/learn/week-one">Install よむ</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023">View source</a>
 </div>
 
-Discord is the fastest way to get an answer. File bugs on GitHub so they do not get lost. If you are stuck installing, the [install guide](/getting-started) has the fixes for the common cases.
+Discord is the fastest way to get an answer. File bugs on GitHub so they do not get lost. If you are stuck installing, [Week one](/learn/week-one) has the common fixes.
 
-## Open the tools
+## Open the apps
 
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/study/">

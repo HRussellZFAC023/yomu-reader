@@ -86,51 +86,37 @@ describe('interface language resolution', () => {
         expect(supportCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
-    it('keeps study setup callouts covered by Japanese docs copy', () => {
+    it('keeps Study source guidance covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const calloutCopy = [
-            'the hosted',
-            'reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.',
-        ];
+        const calloutCopy = ['Study reviews Anki when it is reachable, connected Japanese services when selected, and local dictionary words without an account. Library searches the words. Stats shows the work over time.'];
 
         expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
     it('keeps Study setup and offline guidance covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const studySource = readFileSync('docs/tools/study-page.md', 'utf8');
-        const studySection = between(studySource, '## Set it up', '## Questions');
+        const studySource = readFileSync('docs/learn/keeping-words.md', 'utf8');
+        const studySection = between(studySource, '## Open Study', '## Review by doing');
         const studyCopy = [
             ...markdownHeadings(studySection),
             ...markdownParagraphs(studySection),
             ...markdownListTextNodes(studySection),
         ];
-        const inlineTextNodeCopy = [
-            'When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an ',
-            'Offline cache',
-            ' status, and review grades that cannot reach Jiten, JPDB, or Anki are saved locally and retried when the provider reconnects.',
-            'Open ',
-            'Settings → Study',
-            ' to choose a review source and switch the rating scale between the normal five buttons and a thumb-friendly ',
-            'Fail / Pass',
-            ' mode. On phones, the two-button row uses the full available width so the actions stay centered and easy to hit.',
-        ];
 
         expect(studyCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-        expect(inlineTextNodeCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
-    it('keeps hosted tools overview covered by Japanese docs copy', () => {
+    it('keeps the hosted apps overview covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const toolsSource = readFileSync('docs/tools/index.md', 'utf8');
-        const toolsCopy = [
-            ...markdownHeadings(toolsSource),
-            ...markdownParagraphs(toolsSource),
-            ...htmlCardCopy(toolsSource),
-            ...htmlLinkCopy(toolsSource),
+        const referenceSource = readFileSync('docs/learn/reference.md', 'utf8');
+        const appsSection = between(referenceSource, '## Apps', '## Feature map');
+        const appsCopy = [
+            ...markdownHeadings(appsSection),
+            ...markdownParagraphs(appsSection),
+            ...markdownListTextNodes(appsSection),
         ];
 
-        expect(toolsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+        expect(appsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
     it('keeps dynamic hosted docs attributes covered by Japanese docs copy', () => {
@@ -180,13 +166,20 @@ describe('interface language resolution', () => {
     // rendered in Japanese belongs in this list.
     const JAPANESE_DOCS_PAGES = [
         'docs/index.md',
-        'docs/getting-started.md',
-        'docs/features.md',
+        'docs/learn/index.md',
+        'docs/learn/approach.md',
+        'docs/learn/week-one.md',
+        'docs/learn/building-a-core.md',
+        'docs/learn/reading.md',
+        'docs/learn/watching.md',
+        'docs/learn/manga-and-games.md',
+        'docs/learn/keeping-words.md',
+        'docs/learn/staying-with-it.md',
+        'docs/learn/your-own-setup.md',
+        'docs/learn/reference.md',
         'docs/support.md',
         'docs/faq.md',
         'docs/membership.md',
-        'docs/tools/index.md',
-        'docs/guides/index.md',
     ];
 
     it.each(JAPANESE_DOCS_PAGES)('keeps %s covered by Japanese docs copy', page => {

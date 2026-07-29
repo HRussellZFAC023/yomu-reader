@@ -93,7 +93,7 @@ describe('settings help panel', () => {
         expect(form.querySelector<HTMLElement>('.jpdb-reader-help-code')?.textContent).toContain('http://localhost');
         expect(form.querySelector<HTMLElement>('[data-help-anki-brave]')?.textContent).toContain('Brave');
         expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-connect-addon"]')?.href).toContain('ankiweb.net/shared/info/2055492159');
-        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-mobile-docs"]')?.href).toContain('getting-started#use-desktop-anki');
+        expect(form.querySelector<HTMLAnchorElement>('[data-help-link="anki-mobile-docs"]')?.href).toContain('learn/your-own-setup#use-desktop-anki');
 
         localizeSettingsForm(form, 'ja');
 

@@ -94,6 +94,11 @@
   color: var(--vp-c-brand-1);
 }
 
+.yomu-reference-page .vp-doc table a {
+  color: var(--vp-c-text-1);
+  text-decoration-color: var(--vp-c-brand-1);
+}
+
 .VPNavBarMenuLink[href$="/support"],
 .VPNavBarMenuLink[href$="/support.html"],
 .VPMenuLink .VPLink[href$="/support"],

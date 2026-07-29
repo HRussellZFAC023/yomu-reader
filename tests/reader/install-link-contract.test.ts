@@ -42,18 +42,18 @@ describe('hosted store install routes', () => {
     });
 
     it('leads the install page with both stores and keeps the userscript as the fallback', () => {
-        const gettingStarted = readFileSync('docs/getting-started.md', 'utf8');
-        const chromeAt = gettingStarted.indexOf(INSTALL_ROUTE_URLS.chrome);
-        const firefoxAt = gettingStarted.indexOf(INSTALL_ROUTE_URLS.firefox);
-        const userscriptAt = gettingStarted.indexOf(CANONICAL_USERSCRIPT_URL);
+        const weekOne = readFileSync('docs/learn/week-one.md', 'utf8');
+        const chromeAt = weekOne.indexOf(INSTALL_ROUTE_URLS.chrome);
+        const firefoxAt = weekOne.indexOf(INSTALL_ROUTE_URLS.firefox);
+        const userscriptAt = weekOne.indexOf(CANONICAL_USERSCRIPT_URL);
 
         expect(chromeAt).toBeGreaterThanOrEqual(0);
         expect(firefoxAt).toBeGreaterThan(chromeAt);
         expect(userscriptAt).toBeGreaterThan(firefoxAt);
         // The developer-mode zip walkthrough was the friction this replaced; it
         // must not creep back in beside a one-click store listing.
-        expect(gettingStarted).not.toContain('Load unpacked');
-        expect(gettingStarted).not.toContain('Load Temporary Add-on');
+        expect(weekOne).not.toContain('Load unpacked');
+        expect(weekOne).not.toContain('Load Temporary Add-on');
     });
 
     it.each([

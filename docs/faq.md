@@ -1,6 +1,6 @@
 ---
 title: FAQ
-description: What Yomu is, what it costs, how reviews work, which languages and tools it plays with, and where your data lives — in plain answers.
+description: What Yomu is, what it costs, how reviews work, which languages and apps it supports, and where your data lives, in plain answers.
 ---
 
 # Frequently asked questions
@@ -30,7 +30,7 @@ Yes — free and [open source](https://github.com/HRussellZFAC023/yomu-reader). 
 
 ### I'm not technical. What's the easiest way to install it?
 
-On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/) — one click. On Firefox, including Firefox on Android: one click from the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes once, with a free helper app — the [getting started page](/getting-started) walks through it step by step.
+On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/). On Firefox, including Firefox on Android, use the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes with a free helper app. [Week one](/learn/week-one) walks through it.
 
 ### Does it work on my phone?
 
@@ -38,11 +38,11 @@ Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad
 
 ### Do I need to know kana or grammar first?
 
-No. Every word Yomu annotates carries furigana, so you can start pressing words from day one. Reading real pages is the study.
+You can press words before you know kana because Yomu shows furigana. Learn hiragana first anyway. It takes a few days and makes every later lookup easier. [Week one](/learn/week-one) gives you the order.
 
 ### I'm a complete beginner. Can Yomu teach me Japanese from zero?
 
-That is where Yomu is heading. Today Yomu makes real pages readable from day one — furigana on everything, meanings on press — and **Academy**, a structured course that teaches Japanese from zero in order, is in development. Until it opens, the [guides](/guides/) walk you through learning with real content.
+That is where Yomu is heading. Today Yomu makes real pages readable from day one, with furigana on everything and meanings on press. **Academy**, a structured course that teaches Japanese from zero in order, is in development. Until it opens, the [learning path](/learn/) gives you an approach for real content.
 
 ### I installed it and nothing happens on a page.
 
@@ -60,7 +60,7 @@ Press a picture — or use the Scan images command — and Yomu recognises the J
 
 ### Can it read my PC games?
 
-Yes — [Yomu Gaming](/tools/yomu-gaming) is a small desktop app that reads the text on your screen, so the same press-a-word lookup works in any game.
+Yes. [Yomu Gaming](/learn/manga-and-games#read-a-game-frame) is a small desktop app that reads the text on your screen, so the same press-a-word lookup works in any game.
 
 ### What do the colours and lines under words mean?
 
@@ -105,13 +105,13 @@ Keep doing that. Connect the account in Settings and Yomu becomes their front en
 
 ### Can I review on two devices?
 
-Today your Yomu deck lives on each device, and reviews you send to Anki, jpdb, Bunpro or WaniKani follow you wherever those do. Account sync for the built-in deck is in development, so one deck can follow you from desktop to phone.
+Yes. A free Yomu account pairs devices so local cards can follow you. Cards are encrypted before they leave the device. Reviews sent to Anki, jpdb, Bunpro or WaniKani also follow the account rules of that service.
 
 ## Languages
 
 ### Is it only for Japanese?
 
-Japanese is the deepest today — pitch accent, kanji, furigana, the works. The dictionary catalogue already carries Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese, and the goal is every roster language as a full study target. The interface itself speaks English and 日本語, with more coming.
+Japanese is the deepest today, with pitch accent, kanji and furigana. The dictionary catalogue has growing supply for Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese. Full study targets for all 32 roster languages are in development. The interface itself speaks English and 日本語.
 
 ## Your data
 

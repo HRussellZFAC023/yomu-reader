@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
     ANKI_SOURCE_ID,
     DEFAULT_SETTINGS,
-    FEATURES_DOCS,
-    GETTING_STARTED_DOCS,
     IMPORTED_ANKI_FIELD_MAPPINGS,
     JITEN_DEFINITION_SOURCE_ID,
     JPDB_DEFINITION_SOURCE_ID,
@@ -27,6 +25,7 @@ import {
     settingsToken,
     sharedJapaneseSettingsTestForm,
     topLevelLegendForControl,
+    YOUR_OWN_SETUP_DOCS,
 } from './fixtures';
 import type {
     JPDBToken,
@@ -242,7 +241,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.textContent).toBe('Update note type');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
-        const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
+        const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
         expect(help.textContent).toContain('Install AnkiConnect and keep desktop Anki open');
         expect(help.textContent).toContain('webCorsOriginList');
@@ -275,16 +274,15 @@ describe('settings form localization', () => {
         expect(settingsCopy).not.toContain('Handoff alone cannot scan existing decks');
         expect(settingsCopy).not.toContain('AnkiMobile add-note links can carry');
         expect(settingsCopy).not.toContain('AnkiDroid handoff uses Android');
-        expect(GETTING_STARTED_DOCS).toContain('Mobile Anki handoff is one-way');
-        expect(GETTING_STARTED_DOCS).toContain('cannot scan existing decks');
-        expect(GETTING_STARTED_DOCS).toContain('review queues');
-        expect(GETTING_STARTED_DOCS).toContain('replace every `100.x.y.z`');
-        expect(GETTING_STARTED_DOCS).toContain('allowed-origins list');
-        expect(GETTING_STARTED_DOCS).not.toContain('"webCorsOriginList"');
-        // Pin the destination, not the link text: the anchor is load-bearing
-        // (shipped builds deep-link to it) while the wording around it is copy.
-        expect(FEATURES_DOCS).toContain('/getting-started#use-desktop-anki-from-a-phone-ipad-or-android');
-        expect(FEATURES_DOCS).not.toContain('webCorsOriginList');
+        expect(YOUR_OWN_SETUP_DOCS).toContain('Mobile Anki handoff is one-way');
+        expect(YOUR_OWN_SETUP_DOCS).toContain('cannot scan existing decks');
+        expect(YOUR_OWN_SETUP_DOCS).toContain('review queues');
+        expect(YOUR_OWN_SETUP_DOCS).toContain('replace every `100.x.y.z`');
+        expect(YOUR_OWN_SETUP_DOCS).toContain('allowed-origins list');
+        expect(YOUR_OWN_SETUP_DOCS).not.toContain('"webCorsOriginList"');
+        // The heading text is the current settings deep link. The old
+        // /getting-started anchor remains a redirect for installed builds.
+        expect(YOUR_OWN_SETUP_DOCS).toContain('## Use desktop Anki from a phone, iPad, or Android');
     });
 
     it('keeps top-level section legends attached to their panels', () => {

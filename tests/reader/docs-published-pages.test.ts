@@ -13,6 +13,10 @@ import {
     measuredDefinitionLanguageCount,
 } from '../../config/docs/product-claims';
 import {
+    LEGACY_DOC_HASH_REDIRECTS,
+    LEGACY_DOC_REDIRECTS,
+} from '../../config/docs/legacy-redirects';
+import {
     MEMBERSHIP_NAV,
     docsNav,
     hostedShellNavMarkup,
@@ -27,18 +31,22 @@ const DOCS = path.join(ROOT, 'docs');
 // Every page yomureader.com is meant to publish, as VitePress sitemap urls
 // (docs-relative, cleanUrls applied). Anything else under docs/ is a working
 // note that must stay in the repo and off the site.
-const PUBLIC_ROUTES = [
+const ACTIVE_PUBLIC_ROUTES = [
     '',
     'api/',
     'changelog',
     'faq',
-    'features',
-    'getting-started',
-    'guides/',
-    'guides/comprehensible-input-youtube',
-    'guides/mine-sentences-to-anki',
-    'guides/read-manga-in-japanese',
-    'guides/study-setup',
+    'learn/',
+    'learn/approach',
+    'learn/building-a-core',
+    'learn/keeping-words',
+    'learn/manga-and-games',
+    'learn/reading',
+    'learn/reference',
+    'learn/staying-with-it',
+    'learn/watching',
+    'learn/week-one',
+    'learn/your-own-setup',
     'local-audio',
     'membership',
     'privacy/',
@@ -46,15 +54,11 @@ const PUBLIC_ROUTES = [
     // tests/reader/settings-reference-page.test.ts.
     'reference/settings',
     'support',
-    'tools/',
-    'tools/furigana-reader',
-    'tools/japanese-ocr',
-    'tools/japanese-subtitle-reader',
-    'tools/kanji-stroke-order',
-    'tools/study-page',
-    'tools/yomu-gaming',
-    'tools/youtube-japanese',
 ];
+
+const LEGACY_REDIRECT_ROUTES = Object.keys(LEGACY_DOC_REDIRECTS)
+    .map(routeFor)
+    .sort();
 
 // Static app routes are copied from docs/public rather than routed by
 // VitePress. Keep both PDF URL shapes explicit: a reported bare-route 404 must
@@ -100,7 +104,7 @@ describe('published docs pages', () => {
             .map(routeFor)
             .sort();
 
-        expect(published).toEqual(PUBLIC_ROUTES);
+        expect(published).toEqual([...ACTIVE_PUBLIC_ROUTES, ...LEGACY_REDIRECT_ROUTES].sort());
     });
 
     it('keeps engineering notes, QA probes, and reviewer notes off the site', () => {
@@ -138,11 +142,31 @@ describe('published docs pages', () => {
             readProjectFile('src/reader/app/site-nav.ts'),
         ].join('\n');
 
-        for (const route of PUBLIC_ROUTES) {
+        for (const route of ACTIVE_PUBLIC_ROUTES) {
             const bare = sitemapRouteKey(route);
             const linked = sources.includes(`link: '/${bare}'`) || sources.includes(`link: '/${bare}/'`);
             expect(linked, `/${bare} is published but nothing links to it`).toBe(true);
         }
+    });
+
+    it('keeps every old feature and guide URL as a redirect into the learning path', () => {
+        const config = readProjectFile('docs/.vitepress/config.mts');
+        expect(config).toContain('legacyDocsRedirect(pageData.relativePath)');
+        expect(config).toContain('legacyDocsHashRedirects(pageData.relativePath)');
+        expect(config).toContain("'http-equiv': 'refresh'");
+        expect(config).toContain('location.replace(target)');
+
+        for (const [file, target] of Object.entries(LEGACY_DOC_REDIRECTS)) {
+            expect(existsSync(path.join(DOCS, file)), file).toBe(true);
+            expect(sitemapRouteKey(target)).toMatch(/^learn(?:\/|$)/);
+            expect(ACTIVE_PUBLIC_ROUTES.map(sitemapRouteKey)).toContain(sitemapRouteKey(target));
+        }
+
+        expect(LEGACY_DOC_HASH_REDIRECTS['getting-started.md'])
+            .toHaveProperty(
+                '#use-desktop-anki-from-a-phone-ipad-or-android',
+                '/learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android',
+            );
     });
 
     it('wires the exclusion list and the sitemap filter into the VitePress config', () => {

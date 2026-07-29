@@ -323,7 +323,7 @@ describe('settings form localization', () => {
         expect(adapter.textContent).toContain('Scans decks/types and suggests mappings.');
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const helpLink = help.querySelector<HTMLAnchorElement>('a[href="https://ankiweb.net/shared/info/2055492159"]');
-        const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
+        const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
         expect(help.textContent).toContain('Install AnkiConnect and keep desktop Anki open');

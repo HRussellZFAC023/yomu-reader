@@ -6,6 +6,10 @@ import {
     sitemapItemsForRoutes,
 } from '../../config/docs/published-pages';
 import { heroStudyLanguages } from '../../config/docs/product-claims';
+import {
+    legacyDocsHashRedirects,
+    legacyDocsRedirect,
+} from '../../config/docs/legacy-redirects';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 import { APPS_NAV_LABEL, docsNav } from './shared/nav';
 import pkg from '../../package.json' with { type: 'json' };
@@ -222,45 +226,42 @@ const siteNav = docsNav();
 
 const siteSidebar = [
     {
-        text: 'Use よむ',
+        text: 'Learn Japanese',
         items: [
-            { text: 'Overview', link: '/' },
-            { text: 'Install', link: '/getting-started' },
-            { text: 'What it does', link: '/features' },
+            { text: '0. Start here', link: '/learn/' },
+            { text: '1. The approach', link: '/learn/approach' },
+            { text: '2. Week one', link: '/learn/week-one' },
+            { text: '3. Building a core', link: '/learn/building-a-core' },
+            { text: '4. Reading', link: '/learn/reading' },
+            { text: '5. Watching', link: '/learn/watching' },
+            { text: '6. Manga and games', link: '/learn/manga-and-games' },
+            { text: '7. Keeping words', link: '/learn/keeping-words' },
+            { text: '8. Staying with it', link: '/learn/staying-with-it' },
+            { text: '9. Your own setup', link: '/learn/your-own-setup' },
+            { text: '10. Reference', link: '/learn/reference' },
         ],
     },
     {
         text: APPS_NAV_LABEL,
         items: [
-            { text: 'All apps', link: '/tools/' },
-            { text: 'OCR & manga', link: '/tools/japanese-ocr' },
-            { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
+            { text: 'Apps overview', link: '/learn/reference#apps' },
             { text: 'Video Player', link: videoPlayerLink, target: '_self' },
             { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-            { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
-            { text: 'Furigana reader', link: '/tools/furigana-reader' },
-            { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
-            { text: 'Study page', link: '/tools/study-page' },
-            { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
+            { text: 'Yomu Gaming', link: '/learn/manga-and-games#read-a-game-frame' },
+            { text: 'Academy', link: '/academy/', target: '_self' },
         ],
     },
     {
-        text: 'Learn',
+        text: 'Reference and help',
         items: [
-            { text: 'All guides', link: '/guides/' },
-            { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
-            { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
-            { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
-            { text: 'Study setup', link: '/guides/study-setup' },
-        ],
-    },
-    {
-        text: 'Project',
-        items: [
-            { text: 'Support', link: '/support' },
+            { text: 'Homepage', link: '/' },
             { text: 'Settings reference', link: '/reference/settings' },
-            { text: 'API', link: '/api/', target: '_self' },
+            { text: 'FAQ', link: '/faq' },
+            { text: 'Privacy', link: '/privacy/' },
             { text: 'Local Audio', link: '/local-audio' },
+            { text: 'Support', link: '/support' },
+            { text: 'Membership', link: '/membership' },
+            { text: 'API', link: '/api/', target: '_self' },
             { text: 'Changelog', link: '/changelog' },
         ],
     },
@@ -354,15 +355,24 @@ export default defineConfig({
         const pageUrl = canonicalUrl(pageData.relativePath);
         const ogTitle = ogTitleFor(pageData);
         const ogDescription = ogDescriptionFor(pageData);
+        const legacyRedirect = legacyDocsRedirect(pageData.relativePath);
+        const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
         const head: HeadConfig[] = [
-            ['link', { rel: 'canonical', href: pageUrl }],
-            ['meta', { property: 'og:url', content: pageUrl }],
+            ['link', { rel: 'canonical', href: canonicalPageUrl }],
+            ['meta', { property: 'og:url', content: canonicalPageUrl }],
             ['meta', { property: 'og:title', content: ogTitle }],
             ['meta', { property: 'og:description', content: ogDescription }],
             ['meta', { name: 'twitter:title', content: ogTitle }],
             ['meta', { name: 'twitter:description', content: ogDescription }],
         ];
-        head.push(...jsonLdFor(pageData, pageUrl));
+        if (legacyRedirect) {
+            const hashRedirects = legacyDocsHashRedirects(pageData.relativePath);
+            head.push(
+                ['meta', { 'http-equiv': 'refresh', content: `0; url=${legacyRedirect}` }],
+                ['script', {}, `(() => { const fallback = ${JSON.stringify(legacyRedirect)}; const byHash = ${JSON.stringify(hashRedirects)}; const target = byHash[location.hash] || fallback; location.replace(target); })();`],
+            );
+        }
+        head.push(...jsonLdFor(pageData, canonicalPageUrl));
         return head;
     },
     transformHtml(code, id) {

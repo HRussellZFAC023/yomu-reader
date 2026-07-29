@@ -13,24 +13,21 @@ const DOCS_DIST = path.join(ROOT, 'docs/.vitepress/dist');
 
 const pages = [
     { name: 'home', path: '/' },
-    { name: 'getting-started', path: '/getting-started' },
-    { name: 'features', path: '/features' },
+    { name: 'learn-start', path: '/learn/' },
+    { name: 'learn-approach', path: '/learn/approach' },
+    { name: 'learn-week-one', path: '/learn/week-one' },
+    { name: 'learn-building-a-core', path: '/learn/building-a-core' },
+    { name: 'learn-reading', path: '/learn/reading' },
+    { name: 'learn-watching', path: '/learn/watching' },
+    { name: 'learn-manga-and-games', path: '/learn/manga-and-games' },
+    { name: 'learn-keeping-words', path: '/learn/keeping-words' },
+    { name: 'learn-staying-with-it', path: '/learn/staying-with-it' },
+    { name: 'learn-your-own-setup', path: '/learn/your-own-setup' },
+    { name: 'learn-reference', path: '/learn/reference' },
+    { name: 'settings-reference', path: '/reference/settings' },
     { name: 'local-audio', path: '/local-audio' },
     { name: 'support', path: '/support' },
     { name: 'changelog', path: '/changelog' },
-    { name: 'tools', path: '/tools/' },
-    { name: 'tool-furigana-reader', path: '/tools/furigana-reader' },
-    { name: 'tool-japanese-ocr', path: '/tools/japanese-ocr' },
-    { name: 'tool-japanese-subtitle-reader', path: '/tools/japanese-subtitle-reader' },
-    { name: 'tool-kanji-stroke-order', path: '/tools/kanji-stroke-order' },
-    { name: 'tool-study-page', path: '/tools/study-page' },
-    { name: 'tool-yomu-gaming', path: '/tools/yomu-gaming' },
-    { name: 'tool-youtube-japanese', path: '/tools/youtube-japanese' },
-    { name: 'guides', path: '/guides/' },
-    { name: 'guide-comprehensible-input-youtube', path: '/guides/comprehensible-input-youtube' },
-    { name: 'guide-mine-sentences-to-anki', path: '/guides/mine-sentences-to-anki' },
-    { name: 'guide-read-manga-in-japanese', path: '/guides/read-manga-in-japanese' },
-    { name: 'guide-study-setup', path: '/guides/study-setup' },
     { name: 'newtab-fallback', path: '/newtab/' },
     { name: 'video-player', path: '/video-player/' },
     { name: 'pdf-reader', path: '/pdf-reader/' },
@@ -261,6 +258,7 @@ async function auditDocsViewport(browser, origin, viewport, results) {
         deviceScaleFactor: viewport.deviceScaleFactor ?? 1,
         isMobile: viewport.isMobile ?? false,
         hasTouch: viewport.hasTouch ?? false,
+        reducedMotion: 'reduce',
     });
     try {
         await installDocsAuditNetworkMocks(context);
@@ -290,7 +288,7 @@ async function auditDocsPage(context, origin, viewport, pageDef, results) {
         assertAudit(!errors.length, `${label} console/page errors: ${JSON.stringify(errors)}`);
         await assertDocsAccessibility(page, label);
         if (pageDef.name === 'home') await assertHomepageDemo(page, label);
-        if (pageDef.name === 'tool-japanese-ocr') await assertOcrToolPage(page, label);
+        if (pageDef.name === 'learn-manga-and-games') await assertOcrToolPage(page, label);
         await page.screenshot({ path: path.join(ARTIFACTS, `docs-${pageDef.name}-${viewport.name}.png`), fullPage: false });
         results.push({ label, status: 'PASS' });
         console.log(`PASS ${label}`);

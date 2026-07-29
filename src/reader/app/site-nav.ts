@@ -52,16 +52,16 @@ export interface NavRoute {
 }
 
 /**
- * Primary nav: learner VERBS and destinations, in the order a learner needs them
- * — get started, then the things you do, then help. Deliberately short: an
- * entry earns its place by being something a learner reaches for repeatedly.
+ * Primary nav: the ordered learning path first, then the apps and destinations
+ * a learner reaches for repeatedly. The path itself stays in the VitePress
+ * sidebar, where all eleven steps fit without turning every hosted shell into a
+ * catalogue.
  */
 export const APPS_NAV_LABEL = 'Apps';
 
 export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Get started', ja: 'はじめる', link: '/getting-started' },
-    { text: 'Guides', ja: 'ガイド', link: '/guides/' },
-    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/tools/' },
+    { text: 'Learning path', ja: '学習の道筋', link: '/learn/' },
+    { text: APPS_NAV_LABEL, ja: 'アプリ', link: '/learn/reference#apps' },
     { text: 'Study', ja: '学習', link: '/study/', target: '_self' },
     { text: 'Academy', ja: 'アカデミー', link: '/academy/', target: '_self' },
     // 'Help' rather than 'Support'. 'Support' answered two different questions at

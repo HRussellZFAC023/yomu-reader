@@ -306097,9 +306097,8 @@ ${newTabCardReading(card)}`;
   }
   const APPS_NAV_LABEL = "Apps";
   const PRIMARY_NAV = Object.freeze([
-    { text: "Get started", ja: "はじめる", link: "/getting-started" },
-    { text: "Guides", ja: "ガイド", link: "/guides/" },
-    { text: APPS_NAV_LABEL, ja: "アプリ", link: "/tools/" },
+    { text: "Learning path", ja: "学習の道筋", link: "/learn/" },
+    { text: APPS_NAV_LABEL, ja: "アプリ", link: "/learn/reference#apps" },
     { text: "Study", ja: "学習", link: "/study/", target: "_self" },
     { text: "Academy", ja: "アカデミー", link: "/academy/", target: "_self" },
     // 'Help' rather than 'Support'. 'Support' answered two different questions at
@@ -335686,7 +335685,7 @@ ${entry2.url}`),
         </div>
     `;
   }
-  const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}getting-started#use-desktop-anki-from-a-phone-ipad-or-android`;
+  const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
   function escapedUiText$1(language2, key2) {
     return escapeHtml$2(uiText(language2, key2));
   }

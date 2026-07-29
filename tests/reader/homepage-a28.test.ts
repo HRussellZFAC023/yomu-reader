@@ -43,7 +43,7 @@ describe('A28 homepage contract', () => {
 
     it('uses one shared Apps category label', () => {
         expect(APPS_NAV_LABEL).toBe('Apps');
-        expect(PRIMARY_NAV).toContainEqual(expect.objectContaining({ text: APPS_NAV_LABEL, link: '/tools/' }));
+        expect(PRIMARY_NAV).toContainEqual(expect.objectContaining({ text: APPS_NAV_LABEL, link: '/learn/reference#apps' }));
         expect(PRIMARY_NAV.some(route => route.text === 'Tools')).toBe(false);
     });
 

@@ -304,7 +304,7 @@ function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
     expect(ankiStatusMainText(form)).toContain('Needs setup: AnkiConnect not reached');
     expect(text).toContain('Open desktop Anki');
     expect(ankiStatusLinkText(form, 'a[href="https://ankiweb.net/shared/info/2055492159"]')).toContain('Install/enable AnkiConnect');
-    expect(ankiStatusLinkText(form, 'a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]')).toContain('Mobile setup docs');
+    expect(ankiStatusLinkText(form, 'a[href$="learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android"]')).toContain('Mobile setup docs');
     expect(text).toContain('Use the LAN/Tailscale URL on mobile');
     expect(text).not.toContain('enable handoff');
     expect(text).not.toContain('install or enable AnkiConnect, then check again');

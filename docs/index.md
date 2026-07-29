@@ -169,7 +169,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <p class="yomu-band-kicker">Yomu Gaming</p>
     <h2 id="yomu-band-gaming">Press one shortcut in a PC game.</h2>
     <p class="yomu-band-lead">The desktop app captures the whole screen or a region you choose, reads the Japanese with OCR, and opens the result as words you can press and save. It is a separate download for Windows, macOS, Linux and Steam Deck.</p>
-    <a class="yomu-band-action" href="/tools/yomu-gaming">See Yomu Gaming</a>
+    <a class="yomu-band-action" href="/learn/manga-and-games#read-a-game-frame">See Yomu Gaming</a>
   </div>
   <div class="yomu-concept-note" aria-hidden="true"><span>capture</span><span>read</span><span>keep</span></div>
 </section>
@@ -210,8 +210,8 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
     <p class="yomu-band-lead">Install Yomu, open something you wanted to read anyway, and press a word.</p>
     <div class="yomu-install-steps" role="list" aria-label="Install steps">
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-add-yomu-to-your-browser" aria-label="Add よむ to your browser"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Install</span></a></div>
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-2-look-up-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Read</span></a></div>
+      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#install-yomu" aria-label="Add よむ to your browser"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Install</span></a></div>
+      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#press-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Read</span></a></div>
     </div>
     <div class="yomu-install-routes">
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
@@ -236,5 +236,5 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <a class="yomu-link-card" href="/video-player/index.html" target="_self"><strong>Watch</strong><span>Open a video with Japanese subtitles.</span></a>
     <a class="yomu-link-card" href="/pdf-reader/index.html"><strong>Read</strong><span>Read PDFs with the same popup reader.</span></a>
   </div>
-  <p class="yomu-next-row"><a href="/faq">FAQ</a><a href="/academy/" target="_self">Academy</a><a href="/tools/japanese-ocr">Manga OCR</a><a href="/tools/yomu-gaming">Games</a><a href="/getting-started">Docs</a><a href="/support">Support</a></p>
+  <p class="yomu-next-row"><a href="/learn/">Learning path</a><a href="/faq">FAQ</a><a href="/academy/" target="_self">Academy</a><a href="/learn/manga-and-games#read-manga">Manga OCR</a><a href="/learn/manga-and-games#read-a-game-frame">Games</a><a href="/support">Support</a></p>
 </section>
