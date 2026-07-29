@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.35] - 2026-07-29
+
+### Added
+
+- Added installable Wiktionary dictionaries for all 32 study languages, with every archive mirrored and verified by its content hash.
+
 ## [1.8.34] - 2026-07-29
 
 ### Fixed
@@ -11,7 +17,6 @@
 ### Fixed
 
 - Reduced duplicate target-language registry and settings code so the Firefox extension package remains within AMO's content-script parse limit.
-
 ## [1.8.32] - 2026-07-29
 
 ### Fixed
@@ -23,7 +28,6 @@
 ### Fixed
 
 - New browser-extension installs now open setup on the first Japanese page and remember completion in shared extension storage. When the offline dictionary is still empty, lookup cards offer Finish setup, which opens Dictionary settings.
-
 ## [1.8.30] - 2026-07-29
 
 ### Fixed

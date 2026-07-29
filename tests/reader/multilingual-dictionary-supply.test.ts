@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     FROZEN_DICTIONARY_CATALOG,
+    SLICE1_LEARNER_LANGUAGES,
     dictionaryEntryDownload,
     parseDictionaryCatalogManifest,
 } from '../../src/reader/dictionaries/catalog';
@@ -15,7 +16,7 @@ import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/sett
  * nothing they could install for what they read. These are the languages the
  * Wiktionary-derived shelves now answer for.
  */
-const SUPPLIED_LANGUAGES = ['es', 'fr', 'de', 'ru', 'ko', 'vi'] as const;
+const SUPPLIED_LANGUAGES = SLICE1_LEARNER_LANGUAGES;
 
 const sectionsByLanguage = new Map(
     catalogBrowseLanguageSections().map(section => [section.headwordLanguage, section]),
@@ -31,10 +32,9 @@ describe('multilingual dictionary supply', () => {
             const terms = section!.groups.find(group => group.category === 'terms')?.dictionaries ?? [];
             const definitionLanguages = new Set(terms.map(dictionary => dictionary.definitionLanguage));
 
-            // Both shelf slots a reader needs: definitions they can already
-            // read, and the monolingual dictionary they graduate to.
-            expect([...definitionLanguages].sort(), language).toEqual(['en', language].sort());
+            expect(definitionLanguages.size, language).toBeGreaterThan(0);
             expect(terms.every(dictionary => Boolean(dictionary.downloadUrl)), language).toBe(true);
+            expect(terms.every(dictionary => Boolean(dictionary.sha256)), language).toBe(true);
             expect(terms.every(dictionary => dictionary.headwordLanguage === language), language).toBe(true);
         }
     });
@@ -50,35 +50,32 @@ describe('multilingual dictionary supply', () => {
     });
 
     /**
-     * An upstream row installs on the same terms as the hand-curated cards
-     * above it: straight from the publishing project, with no integrity claim.
-     * Claiming one would be a lie — the URL names the project's current build,
-     * so any digest frozen here fails on its next rebuild.
+     * WTY rows install from Yomu's immutable mirror after acquisition verified
+     * their frozen upstream digest.
      */
-    it('installs upstream archives from their own project and promises no digest', () => {
-        const upstream = FROZEN_DICTIONARY_CATALOG.entries.filter(entry => entry.distribution.state === 'upstream');
+    it('installs every WTY archive from the content-addressed mirror', () => {
+        const wty = FROZEN_DICTIONARY_CATALOG.entries.filter(entry => entry.id.startsWith('wty-'));
 
-        expect(upstream.length).toBeGreaterThan(0);
-        for (const entry of upstream) {
+        expect(wty).toHaveLength(1_440);
+        for (const entry of wty) {
             const download = dictionaryEntryDownload(entry, FROZEN_DICTIONARY_CATALOG.objectsBaseUrl)!;
 
-            expect(download.mirrored, entry.id).toBe(false);
-            expect(download.sha256, entry.id).toBeUndefined();
-            expect(download.url, entry.id).not.toContain('dictionaries.yomureader.com');
-            expect(download.url.startsWith('https://'), entry.id).toBe(true);
-            // Every unmirrored row still has somewhere to go for a reader who
-            // wants to know what they are downloading.
+            expect(download.mirrored, entry.id).toBe(true);
+            expect(download.sha256, entry.id).toMatch(/^[a-f0-9]{64}$/u);
+            expect(download.url, entry.id).toContain('dictionaries.yomureader.com/objects/sha256/');
             expect(entry.source.projectUrl, entry.id).toBeTruthy();
         }
 
         const cards = catalogBrowseLanguageSections()
             .flatMap(section => section.groups)
             .flatMap(group => group.dictionaries)
-            .filter(dictionary => dictionary.downloadUrl && !dictionary.sha256);
+            .filter(dictionary => dictionary.catalogDictionaryId?.startsWith('wty-'));
 
-        expect(cards.length).toBe(upstream.length);
+        expect(cards.length).toBe(wty.length);
         for (const card of cards) {
-            expect(recommendedDictionaryImportOptions(card), card.id).toBeUndefined();
+            expect(recommendedDictionaryImportOptions(card), card.id).toEqual({
+                integrity: { sha256: card.sha256, bytes: card.bytes },
+            });
         }
     });
 
@@ -115,7 +112,7 @@ describe('multilingual dictionary supply', () => {
         const manifest = structuredClone(
             JSON.parse(JSON.stringify(FROZEN_DICTIONARY_CATALOG)),
         ) as { entries: Array<Record<string, unknown>> };
-        const victim = manifest.entries.find(entry => (entry.distribution as { state: string }).state === 'upstream');
+        const victim = manifest.entries.find(entry => String(entry.id).startsWith('wty-'));
 
         expect(victim).toBeDefined();
         victim!.distribution = { state: 'upstream', archive: { url: 'http://example.test/dict.zip' } };

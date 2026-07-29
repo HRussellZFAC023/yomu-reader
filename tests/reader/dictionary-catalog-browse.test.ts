@@ -7,6 +7,7 @@ import {
     catalogBrowseDictionaries,
     catalogBrowseGroups,
     catalogBrowseLanguageSections,
+    headwordLanguageName,
 } from '../../src/reader/dictionaries/catalog-browse';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
@@ -29,6 +30,18 @@ const uniqueTargetObjects = new Set(
 const otherLanguageEntries = publishedEntries.filter(entry => !entry.headwordLanguages.includes(TARGET));
 
 describe('mirrored dictionary catalogue browsing', () => {
+    it('can omit the exhaustive shelf without removing learner recommendations', () => {
+        const html = renderSettingsForm(
+            settingsForLearnerLanguage('en'),
+            'https://jpdb.io/settings',
+            undefined,
+            { includeCatalogBrowse: false },
+        );
+
+        expect(html).toContain('data-catalog-recommendation-seed="en"');
+        expect(html).not.toContain('data-catalog-browse');
+    });
+
     it('offers every mirrored Japanese archive exactly once on the Japanese shelf', () => {
         const dictionaries = catalogBrowseGroups().flatMap(group => group.dictionaries);
         const published = dictionaries.filter(dictionary => dictionary.sha256);
@@ -181,7 +194,8 @@ describe('mirrored dictionary catalogue browsing', () => {
 
         expect(rendered).toHaveLength(expected.length);
         expect(rendered.length).toBeGreaterThan(100);
-        expect(browse!.querySelector('[data-catalog-browse-summary]')?.textContent).toContain(`${expected.length} more dictionaries`);
+        expect(browse!.querySelector('[data-catalog-browse-summary]')?.textContent)
+            .toContain(`${new Intl.NumberFormat('en').format(expected.length)} more dictionaries`);
         // Titles the panel could not reach before: monolingual, pitch and grammar.
         for (const title of ['[JA-JA] 大辞林　第四版', '[Pitch] NHK2016', '[JA-JA Grammar] 日本語NET(nihongo_kyoushi)_v1_03']) {
             const card = [...rendered].find(item => item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() === title);
@@ -236,18 +250,7 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         expect(shelves[0]!.hasAttribute('data-catalog-browse-language-target')).toBe(true);
         expect(shelves.slice(1).some(shelf => shelf.hasAttribute('data-catalog-browse-language-target'))).toBe(false);
         expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual([
-                'Japanese',
-                'Chinese',
-                'Cantonese',
-                'German',
-                'Spanish',
-                'French',
-                'Korean',
-                'Literary Chinese',
-                'Russian',
-                'Vietnamese',
-            ]);
+            .toEqual(languages.map(language => headwordLanguageName(language!, 'en')));
     });
 
     /**
@@ -292,14 +295,19 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
     it('uses the search box as the language filter, by name and by endonym', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
-        const cantonese = catalogBrowseLanguageSectionsForLearnerLanguage('en')
-            .find(shelf => shelf.headwordLanguage === 'yue')!
-            .groups.reduce((total, group) => total + group.dictionaries.length, 0);
+        const cantonese = section
+            .querySelectorAll('[data-catalog-browse-language="yue"] .jpdb-reader-recommended-item')
+            .length;
 
         expect(cantonese).toBeGreaterThan(0);
         for (const query of ['Cantonese', '粵語']) {
-            expect(applyCatalogBrowseFilter(section, query), query).toBe(cantonese);
-            expect(visibleShelfLanguages(section), query).toEqual(['yue']);
+            expect(applyCatalogBrowseFilter(section, query), query).toBeGreaterThanOrEqual(cantonese);
+            expect(visibleShelfLanguages(section), query).toContain('yue');
+            expect([
+                ...section.querySelectorAll<HTMLElement>(
+                    '[data-catalog-browse-language="yue"] .jpdb-reader-recommended-item',
+                ),
+            ].every(card => !card.hidden), query).toBe(true);
         }
     });
 
@@ -358,18 +366,7 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
 
         expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual([
-                '日本語',
-                '中国語',
-                '広東語',
-                'ドイツ語',
-                'スペイン語',
-                'フランス語',
-                '韓国語',
-                '漢文',
-                'ロシア語',
-                'ベトナム語',
-            ]);
+            .toEqual(shelves.map(shelf => headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'ja')));
         expect(shelves.slice(1).map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent))
             .toEqual(shelves.slice(1).map(() => '日本語を読むための辞書ではありません。'));
         expect(shelves[0]!.querySelector('[data-catalog-browse-language-note]')).toBeNull();

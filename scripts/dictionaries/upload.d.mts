@@ -14,6 +14,22 @@ export function buildUploadPlan(options?: {
   manifestsOnly?: boolean;
 }): Promise<DictionaryUploadItem[]>;
 
+export function buildAcquiredObjectUploadPlan(options?: {
+  stagingRoot?: string;
+  bucket?: string;
+}): Promise<DictionaryUploadItem[]>;
+
+export function remoteObjectMatches(
+  baseUrl: string,
+  key: string,
+  size: number,
+  options?: {
+    fetchImplementation?: typeof fetch;
+    wait?: (milliseconds: number) => Promise<void>;
+    attempts?: number;
+  },
+): Promise<boolean>;
+
 export function uploadDictionaryRelease(
   items: DictionaryUploadItem[],
   options?: {

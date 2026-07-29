@@ -9,7 +9,7 @@ import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../../src/
 import { findRecommendedDictionary } from '../../../src/reader/dictionaries/recommended';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../../src/reader/settings/index';
 import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../../src/reader/theme/color-utils';
-import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../../src/reader/settings/form';
+import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm as renderFullSettingsForm, syncSubtitlePreview } from '../../../src/reader/settings/form';
 import { JAPANESE_ROUNDED_FONT_FAMILY } from '../../../src/reader/settings/font-presets';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../../src/reader/settings/dialog-controller';
@@ -49,6 +49,19 @@ export const IMPORTED_ANKI_FIELD_MAPPINGS: AnkiFieldMappings = {
         meaning: 'Glossary',
     },
 };
+
+// Catalogue browse has dedicated full-DOM suites. The settings-form suites focus
+// on the surrounding controls and compact recommendation shelf, so avoid
+// rebuilding more than 1,600 unrelated cards in every fixture.
+export function renderSettingsForm(
+    settings: ReaderSettings,
+    jpdbSettingsUrl: string,
+    jitenSettingsUrl?: string,
+): string {
+    return renderFullSettingsForm(settings, jpdbSettingsUrl, jitenSettingsUrl, {
+        includeCatalogBrowse: false,
+    });
+}
 
 export function topLevelLegendForControl(form: HTMLFormElement, controlName: string): string {
     const control = form.querySelector<HTMLElement>(`[name="${controlName}"]`);
@@ -250,7 +263,6 @@ export {
     localizeSettingsForm,
     readFormSettings,
     renderHelpLinksPanel,
-    renderSettingsForm,
     syncSubtitlePreview,
     CUSTOM_FONT_FAMILY_VALUE,
     reconcileApiCredentialInputs,

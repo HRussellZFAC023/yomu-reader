@@ -24,6 +24,16 @@ vi.mock('../../src/reader/anki/transport', async importOriginal => {
         diagnoseAnkiConnectFailure: vi.fn(async () => 'unreachable' as const),
     };
 });
+vi.mock('../../src/reader/dictionaries/recommended', async importOriginal => {
+    const actual = await importOriginal<typeof import('../../src/reader/dictionaries/recommended')>();
+    return {
+        ...actual,
+        // The catalogue browse suites cover the full 1,600-card shelf. Rebuilding
+        // that shelf in every controller case retains gigabytes of jsdom nodes,
+        // while these tests only exercise the compact recommendation shelf.
+        catalogBrowseLanguageSectionsForLearnerLanguage: vi.fn(() => []),
+    };
+});
 vi.mock('../../src/reader/settings/form', async importOriginal => {
     const actual = await importOriginal<typeof import('../../src/reader/settings/form')>();
     return {

@@ -358,7 +358,12 @@ export function renderHelpLinksPanel(language: InterfaceLanguage = 'en'): string
     `;
 }
 
-export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: string, jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL): string {
+export function renderSettingsForm(
+    settings: ReaderSettings,
+    jpdbSettingsUrl: string,
+    jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL,
+    options: Readonly<{ includeCatalogBrowse?: boolean }> = {},
+): string {
     return `
             ${renderAutofillTrap()}
             <div class="jpdb-reader-settings-head">
@@ -374,7 +379,7 @@ export function renderSettingsForm(settings: ReaderSettings, jpdbSettingsUrl: st
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings)}
+            ${renderDictionariesSettingsPanel(settings, options.includeCatalogBrowse !== false)}
             ${renderBackupSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
@@ -1232,7 +1237,7 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
     });
 }
 
-function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
+function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalogBrowse: boolean): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
     // Preferences are shared across origins, while imported rows live in this
@@ -1259,7 +1264,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings))}
+                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse)}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>
@@ -2932,7 +2937,11 @@ function installedFrequencyDictionaryPreferences(settings: ReaderSettings, insta
     return settings.dictionaryPreferences.filter(preference => preference.type === 'frequency' && installedFrequencyNames.has(preference.name));
 }
 
-export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[], learnerLanguage: LearnerLanguageId = 'en'): string {
+export function renderRecommendedDictionaries(
+    installed: YomitanDictionaryInfo[],
+    learnerLanguage: LearnerLanguageId = 'en',
+    includeCatalogBrowse = true,
+): string {
     const groups: Array<[RecommendedDictionary['category'], string]> = [
         ['terms', 'Term dictionaries'],
         ['kanji', 'Kanji dictionaries'],
@@ -2957,7 +2966,9 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
             `;
             })
             .join('')}
-        ${renderCatalogBrowseSection(catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)}
+        ${includeCatalogBrowse
+            ? renderCatalogBrowseSection(catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)
+            : ''}
     `;
 }
 

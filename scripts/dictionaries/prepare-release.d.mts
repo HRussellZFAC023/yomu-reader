@@ -42,10 +42,25 @@ export function assertRecommendationShelfIntact(
   slots: readonly RecommendationShelfSlot[],
 ): RecommendationShelfIntegrity;
 
+export function mergePublishedBase(
+  published: { entries?: Array<Record<string, any>> },
+  staged: { entries?: Array<Record<string, any>>; [key: string]: any },
+): { entries: Array<{ id: string; [key: string]: any }>; [key: string]: any };
+
+export function applyLanguageReadiness(
+  languages: { languages?: Array<Record<string, any>>; [key: string]: any },
+  catalog: { entries?: Array<Record<string, any>>; [key: string]: any },
+  wtySnapshot?: {
+    artifacts?: Array<Record<string, any>>;
+    missingExpectedPaths?: string[];
+  } | null,
+): { languages: Array<Record<string, any>>; [key: string]: any };
+
 export function prepareDictionaryRelease(options?: {
   manifestRoot?: string;
   stagingRoot?: string;
   releaseRoot?: string;
+  publishedBaseRoot?: string | null;
   shelfPath?: string;
   connectorInventory?: unknown;
   write?: boolean;
