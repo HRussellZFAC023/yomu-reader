@@ -92,6 +92,32 @@ describe('extension runtime hardening', () => {
         expect(hardened).not.toContain('raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css');
     });
 
+    it('loads the packaged dictionary catalog before the generated userscript starts', () => {
+        const source = `
+          function GM_getResourceURL(name) {
+            return name;
+          }
+          const READER_CSS_RESOURCE_URL = \`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=\${"1.2.3"}\`;
+          function readerCssFallbackUrls(href = safeLocationHref()) {
+            const hostedUrl = hostedReaderCssUrl(href);
+            return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
+          }
+          globalThis.__USC_READY = gmMessage('GM_getAllValues', {}).then(response => {
+            Object.assign(values, response?.values || {});
+            valuesHydrated = true;
+          }, () => {
+            valuesHydrated = true;
+          });
+        `;
+
+        const hardened = hardenExtensionContentSource(source);
+
+        expect(hardened).toContain('yomu-extension-runtime-catalog');
+        expect(hardened).toContain("api.runtime.getURL('runtime-catalog.json')");
+        expect(hardened).toContain('globalThis.__YOMU_RUNTIME_DICTIONARY_CATALOG__ = catalog');
+        expect(hardened).toContain('Promise.all([yomuValuesReady, yomuCatalogReady])');
+    });
+
     // addons.mozilla.org rejects any file over 5MB with FILE_TOO_LARGE before a
     // human ever sees it, and the compiler's blanket four-space body indent alone
     // accounts for ~429KB of the packaged script.
@@ -255,7 +281,7 @@ describe('extension runtime hardening', () => {
         const manifest = hardenExtensionManifest({ manifest_version: 3, permissions: [], host_permissions: [] }, { target: 'chrome', packagedReaderCss: true });
 
         expect(manifest.web_accessible_resources).toContainEqual({
-            resources: ['yomu.css'],
+            resources: ['yomu.css', 'runtime-catalog.json'],
             matches: ['<all_urls>'],
         });
         expect(JSON.stringify(manifest)).not.toMatch(/https?:\/\/.*yomu\.css/);

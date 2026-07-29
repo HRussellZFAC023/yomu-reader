@@ -8,6 +8,7 @@ const CONTENT_RUNTIME_FILE = 'gm-runtime.js';
 const POPUP_FILE = 'popup.js';
 const MANIFEST_FILE = 'manifest.json';
 const READER_CSS_FILE = 'yomu.css';
+const RUNTIME_CATALOG_FILE = 'runtime-catalog.json';
 const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
 const SCREENSHOT_BRIDGE_MARKER = 'yomu-extension-screenshot-bridge';
 const GOOGLE_DRIVE_SYNC_BRIDGE_MARKER = 'yomu-google-drive-settings-sync-bridge';
@@ -127,7 +128,29 @@ export function hardenExtensionContentSource(source) {
         fallbackFunctionDeclaration,
         `function readerCssFallbackUrls(href = safeLocationHref()) {\n      void href;\n      return [${packagedFallbackConstant}];\n    }`,
     );
-    return hardened;
+    return installRuntimeCatalogPreload(hardened);
+}
+
+function installRuntimeCatalogPreload(source) {
+    if (source.includes('yomu-extension-runtime-catalog')) return source;
+    const ready = /globalThis\.__USC_READY = gmMessage\('GM_getAllValues', \{\}\)\.then\(response => \{\s*Object\.assign\(values, response\?\.values \|\| \{\}\);\s*valuesHydrated = true;\s*\}, \(\) => \{\s*valuesHydrated = true;\s*\}\);/;
+    if (!ready.test(source)) return source;
+    return source.replace(ready, `const yomuValuesReady = gmMessage('GM_getAllValues', {}).then(response => {
+    Object.assign(values, response?.values || {});
+    valuesHydrated = true;
+  }, () => {
+    valuesHydrated = true;
+  });
+  // yomu-extension-runtime-catalog
+  const yomuCatalogReady = fetch(api.runtime.getURL('${RUNTIME_CATALOG_FILE}'))
+    .then(response => {
+      if (!response.ok) throw new Error('Packaged dictionary catalog request failed: ' + response.status);
+      return response.json();
+    })
+    .then(catalog => {
+      globalThis.__YOMU_RUNTIME_DICTIONARY_CATALOG__ = catalog;
+    });
+  globalThis.__USC_READY = Promise.all([yomuValuesReady, yomuCatalogReady]);`);
 }
 
 export function hardenExtensionPopupSource(source, options = {}) {
@@ -196,7 +219,7 @@ export function hardenExtensionManifest(manifest, options = {}) {
         ...(oauth2 ? { oauth2 } : {}),
         ...(browserSpecificSettings ? { browser_specific_settings: browserSpecificSettings } : {}),
         ...(options.packagedReaderCss ? {
-            web_accessible_resources: withPackagedReaderCssResource(manifest.web_accessible_resources, version),
+            web_accessible_resources: withPackagedRuntimeResources(manifest.web_accessible_resources, version),
         } : {}),
     };
     if (version >= 3) {
@@ -551,16 +574,21 @@ function uniqueArray(values) {
     return [...new Set(values.filter(Boolean))];
 }
 
-function withPackagedReaderCssResource(resources, manifestVersion) {
+function withPackagedRuntimeResources(resources, manifestVersion) {
     const current = Array.isArray(resources) ? resources : [];
-    if (manifestVersion < 3) return uniqueArray([...current, READER_CSS_FILE]);
-    if (current.some(resource => typeof resource === 'object' && resource?.resources?.includes(READER_CSS_FILE))) {
+    const packaged = [READER_CSS_FILE, RUNTIME_CATALOG_FILE];
+    if (manifestVersion < 3) return uniqueArray([...current, ...packaged]);
+    const existing = new Set(current.flatMap(resource => (
+        typeof resource === 'object' ? resource?.resources ?? [] : []
+    )));
+    const missing = packaged.filter(resource => !existing.has(resource));
+    if (!missing.length) {
         return current;
     }
     return [
         ...current,
         {
-            resources: [READER_CSS_FILE],
+            resources: missing,
             matches: ['<all_urls>'],
         },
     ];
@@ -570,8 +598,9 @@ function packagedAssets(options) {
     const assets = new Map();
     if (options.readerCss) assets.set(READER_CSS_FILE, asBytes(options.readerCss));
     if (options.thirdPartyNotices) assets.set(THIRD_PARTY_NOTICES_FILE, asBytes(options.thirdPartyNotices));
-    if (assets.size !== 0 && assets.size !== 2) {
-        throw new Error('Extension packaging requires both yomu.css and THIRD_PARTY_NOTICES.txt.');
+    if (options.runtimeDictionaryCatalog) assets.set(RUNTIME_CATALOG_FILE, asBytes(options.runtimeDictionaryCatalog));
+    if (assets.size !== 0 && assets.size !== 3) {
+        throw new Error('Extension packaging requires yomu.css, THIRD_PARTY_NOTICES.txt, and runtime-catalog.json.');
     }
     return assets;
 }

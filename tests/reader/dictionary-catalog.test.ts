@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -14,6 +14,7 @@ import {
 } from '../../src/reader/dictionaries/catalog';
 
 const MANIFEST_ROOT = resolve(process.cwd(), 'config/dictionaries/manifests/v1');
+const PUBLISHED_ROOT = resolve(process.cwd(), 'config/dictionaries/published/v1');
 
 async function json(path: string): Promise<unknown> {
     return JSON.parse(await readFile(path, 'utf8'));
@@ -28,6 +29,23 @@ describe('dictionary catalogue manifests', () => {
         expect(manifest.languages.map(language => language.tag)).toEqual([...SLICE1_LEARNER_LANGUAGES]);
         expect(manifest.languages.find(language => language.tag === 'zh')?.defaultScript).toBe('Hans');
         expect(manifest.languages.filter(language => language.direction === 'rtl').map(language => language.tag)).toEqual(['ar', 'fa']);
+    });
+
+    it('keeps the packaged runtime projection complete and materially smaller', async () => {
+        const published = await json(resolve(PUBLISHED_ROOT, 'catalog.json')) as {
+            revision: string;
+            entries: Array<{ id: string }>;
+        };
+        const runtime = await json(resolve(PUBLISHED_ROOT, 'runtime-catalog.json')) as {
+            revision: string;
+            entries: Array<[string, ...unknown[]]>;
+        };
+        const publishedBytes = (await stat(resolve(PUBLISHED_ROOT, 'catalog.json'))).size;
+        const runtimeBytes = (await stat(resolve(PUBLISHED_ROOT, 'runtime-catalog.json'))).size;
+
+        expect(runtime.revision).toBe(published.revision);
+        expect(runtime.entries.map(entry => entry[0])).toEqual(published.entries.map(entry => entry.id));
+        expect(runtimeBytes).toBeLessThan(publishedBytes / 2);
     });
 
     it('ships one valid, catalogue-linked recommendation manifest per learner language', async () => {

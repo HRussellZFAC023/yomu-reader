@@ -46,6 +46,8 @@ export default defineConfig({
             // Extension Study uses the browser-storage implementation and must
             // not inherit the hosted page's localStorage cloud-sync adapter.
             './cloud-sync': path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync.ts'),
+            '../../../../config/dictionaries/published/v1/runtime-catalog.json':
+                path.join(configRoot, 'src', 'reader', 'dictionaries', 'catalog', 'runtime-catalog-extension-page.ts'),
         },
     },
 });

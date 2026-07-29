@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Firefox extension packages now split the packaged Study app into readable local modules, keeping every JavaScript file within Mozilla Add-ons validation limits. This completes store delivery of the first-page onboarding and empty-dictionary setup path from 1.8.31 without minifying the source.
+- Firefox extension packages now split the packaged Study app into readable local modules and load the dictionary catalogue from a packaged runtime projection, keeping every JavaScript file within Mozilla Add-ons validation limits. This completes store delivery of the first-page onboarding and empty-dictionary setup path from 1.8.31 without minifying the source.
 
 ## [1.8.35] - 2026-07-29
 

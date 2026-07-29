@@ -52,10 +52,11 @@ const publicIcon = path.join(root, 'public', 'yomu-icon.svg');
 const publicFaviconFiles = ['favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'];
 const publicExtensionIcons = path.join(root, 'public', 'extension-icons');
 const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
+const runtimeDictionaryCatalog = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'runtime-catalog.json');
 const out = path.join(root, 'dist', 'extension');
 const generatedAt = await extensionGeneratedAt();
 
-for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices]) {
+for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices, runtimeDictionaryCatalog]) {
     if (!existsSync(required)) {
         console.error(`Missing build artifact: ${required}`);
         console.error('Run npm run build before building extension packages.');
@@ -81,6 +82,7 @@ await run(process.execPath, [
 await hardenGeneratedExtensionBackgrounds(out, {
     readerCss: await readFile(readerCss),
     thirdPartyNotices: await readFile(thirdPartyNotices),
+    runtimeDictionaryCatalog: await readFile(runtimeDictionaryCatalog),
     archiveTimestamp: generatedAt,
 });
 await hardenGeneratedSubmissionGuide();
@@ -358,6 +360,9 @@ function verifyStorePackage(entries, target) {
     if (!entries['THIRD_PARTY_NOTICES.txt'] || !decode('THIRD_PARTY_NOTICES.txt').includes('fflate')) {
         throw new Error(`${target} store package is missing the bundled fflate license notice.`);
     }
+    if (!entries['runtime-catalog.json']) {
+        throw new Error(`${target} store package is missing its local dictionary catalog.`);
+    }
     const studyIndex = decode('newtab/index.html');
     if (!/<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex)) {
         throw new Error(`${target} packaged Study page must load its readable split bundle as a local module.`);
@@ -377,6 +382,9 @@ function verifyStorePackage(entries, target) {
     ));
     if (!exposedResources.includes('yomu.css')) {
         throw new Error(`${target} store package does not expose its local reader stylesheet to the content script.`);
+    }
+    if (!exposedResources.includes('runtime-catalog.json')) {
+        throw new Error(`${target} store package does not expose its local dictionary catalog to the content script.`);
     }
     if (target === 'firefox') {
         assertAmoJavaScriptFiles(entries);

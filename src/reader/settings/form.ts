@@ -33,7 +33,7 @@ import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLear
 import { catalogBrowseDescription, catalogBrowseSectionGroups, catalogBrowseTotalBytes, formatDictionaryBytes, headwordLanguageEndonym, headwordLanguageName, type CatalogBrowseLanguageSection } from '../dictionaries/catalog-browse';
 import { catalogBrowseCopy, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
 import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse-filter';
-import type { DictionaryCategory } from '../dictionaries/catalog';
+import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import {
@@ -46,7 +46,6 @@ import {
 import { LEARNER_LANGUAGES, LOCALE_CATALOGS, learnerLanguageById, type LearnerLanguageId } from '../locales';
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
-import dictionaryCatalog from '../../../config/dictionaries/published/v1/catalog.json';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
@@ -93,7 +92,7 @@ type MultilingualSettingsCopy = {
 
 const DEFINITION_TRANSLATION_API_SOURCE_IDS = new Set<string>([JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID]);
 
-const CATALOG_DEFINITION_LANGUAGES = new Map<string, readonly string[]>(dictionaryCatalog.entries.flatMap((entry) => [[normalizeDictionaryIdentity(entry.id), entry.definitionLanguages] as const, [normalizeDictionaryIdentity(entry.title), entry.definitionLanguages] as const]));
+const CATALOG_DEFINITION_LANGUAGES = new Map<string, readonly string[]>(FROZEN_DICTIONARY_CATALOG.entries.flatMap((entry) => [[normalizeDictionaryIdentity(entry.id), entry.definitionLanguages] as const, [normalizeDictionaryIdentity(entry.title), entry.definitionLanguages] as const]));
 
 function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSettingsCopy {
     return language === 'ja'

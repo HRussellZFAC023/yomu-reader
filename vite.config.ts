@@ -148,6 +148,10 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
 
 function readerResolveConfig(command: string) {
     const alias: Record<string, string> = {};
+    if (process.env.YOMU_USERSCRIPT_BUNDLE_MODE === 'self-contained') {
+        alias['../../../../config/dictionaries/published/v1/runtime-catalog.json'] =
+            path.join(configRoot, 'src', 'reader', 'dictionaries', 'catalog', 'runtime-catalog-extension-content.ts');
+    }
     if (shouldUseGreasyForkCompanions(command)) {
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
         // Companion-backed facades: core imports the ordinary module path and
