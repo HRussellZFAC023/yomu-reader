@@ -109,6 +109,7 @@
 
 .yomu-support-banner {
   position: static;
+  margin-top: var(--vp-nav-height);
   display: flex;
   align-items: center;
   justify-content: center;

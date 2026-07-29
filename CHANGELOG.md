@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.27] - 2026-07-29
+
+### Fixed
+
+- The support banner now occupies normal document flow below the live navigation height on every hosted viewport, so the navigation remains fully visible without a sticky or hardcoded top offset.
+
 ## [1.8.26] - 2026-07-29
 
 ### Fixed
