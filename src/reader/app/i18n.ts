@@ -236,6 +236,7 @@ const COPY = {
         colorSourceStatus: 'JPDB + Anki status',
         colorSourceJpdb: 'JPDB status',
         colorSourceAnki: 'Anki status',
+        colorSourceDeck: 'Deck status',
         colorSourcePitch: 'Pitch accent',
         colorSourceNone: 'None',
         popupLookup: 'Popup lookup',
@@ -1922,6 +1923,7 @@ subtitleTextColorSource	字幕テキストの色
 colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
+colorSourceDeck	デッキの学習状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
 popupLookup	ポップアップ検索

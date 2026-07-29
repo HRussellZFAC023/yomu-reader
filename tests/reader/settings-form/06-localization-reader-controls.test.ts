@@ -379,6 +379,34 @@ describe('settings form localization', () => {
 
         expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Academy status');
         expect(optionText(academyForm, 'wordTextColorSource', 'status')).toBe('Academy + Anki status');
+        localizeSettingsForm(academyForm, 'en');
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Academy status');
+
+        const ankiForm = document.createElement('form');
+        ankiForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: true,
+            yomuLocalSrsEnabled: false,
+        }, 'https://jpdb.io/settings');
+        localizeSettingsForm(ankiForm, 'en');
+        expect(optionText(ankiForm, 'wordHighlightColorSource', 'jpdb')).toBe('Anki status');
+        expect(optionText(ankiForm, 'wordTextColorSource', 'status')).toBe('Anki status');
+        expect(ankiForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(true);
+
+        const decklessForm = document.createElement('form');
+        decklessForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: false,
+            yomuLocalSrsEnabled: false,
+        }, 'https://jpdb.io/settings');
+        localizeSettingsForm(decklessForm, 'en');
+        expect(optionText(decklessForm, 'wordHighlightColorSource', 'jpdb')).toBe('Deck status');
+        expect(optionText(decklessForm, 'wordTextColorSource', 'status')).toBe('Deck status');
+        expect(decklessForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(false);
     });
 
     it('keeps subtitle preview color classes and status regions accessible', () => {

@@ -29,9 +29,15 @@ describe('A11 furigana default is explainable', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
     });
 
-    it('shows every reading for a learner with no deck at all', () => {
-        const settings = keyless({ yomuLocalSrsEnabled: false, furiganaMode: 'auto' });
-        expect(effectiveFuriganaMode(settings)).toBe('all');
+    it('migrates legacy automatic mode to every reading regardless of available decks', () => {
+        for (const settings of [
+            keyless({ yomuLocalSrsEnabled: false, furiganaMode: 'auto' }),
+            keyless({ yomuLocalSrsEnabled: true, furiganaMode: 'auto' }),
+            keyless({ apiKey: 'jpdb-key', ankiEnabled: true, furiganaMode: 'auto' }),
+        ]) {
+            expect(effectiveFuriganaMode(settings)).toBe('all');
+            expect(normalizeReaderSettings(settings).furiganaMode).toBe('all');
+        }
     });
 
     it('keeps a stored difficulty choice through normalization', () => {
@@ -70,6 +76,7 @@ describe('A20 status colour has a source or an explanation', () => {
     it('reports no status source when every deck is off', () => {
         const settings = keyless({ yomuLocalSrsEnabled: false });
         expect(hasStatusColorSource(settings)).toBe(false);
+        expect(statusColorSourceLabel(settings)).toBe('');
         expect(effectiveReaderColorSource(settings, 'jpdb')).toBe('off');
     });
 
@@ -85,6 +92,8 @@ describe('A20 status colour has a source or an explanation', () => {
     it('keeps Anki as a status source on its own', () => {
         const settings = keyless({ ankiEnabled: true, yomuLocalSrsEnabled: false });
         expect(hasStatusColorSource(settings)).toBe(true);
+        expect(statusColorSourceLabel(settings)).toBe('Anki');
         expect(effectiveReaderColorSource(settings, 'status')).toBe('anki');
+        expect(effectiveReaderColorSource(settings, 'jpdb')).toBe('anki');
     });
 });

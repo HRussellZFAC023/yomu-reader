@@ -1549,19 +1549,17 @@ function hasLegacyMiningStatusSource(settings: LegacyReaderSettings): boolean {
 }
 
 function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
-    if (value === 'auto') return effectiveLegacyAutoFuriganaMode(settings);
+    if (value === 'auto') return effectiveLegacyAutoFuriganaMode();
     if (isFuriganaMode(value)) return value;
     if (legacyBooleanSettingIs(settings, 'showFurigana', false)) return 'off';
     if (legacyBooleanSettingIs(settings, 'hideKnownFurigana', false)) return 'all';
     return DEFAULT_SETTINGS.furiganaMode;
 }
 
-// Legacy stored 'auto'. With a deck behind it, hiding readings on words the
-// learner has already answered is something the hidden-states fieldset spells
-// out. With no deck there is nothing to explain a missing reading, so show
-// every one.
-function effectiveLegacyAutoFuriganaMode(settings: Partial<ReaderSettings> | null | undefined): Exclude<FuriganaMode, 'auto'> {
-    return settings && hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'all';
+// Legacy stored 'auto' also lands on the transparent default. Status- and
+// difficulty-based hiding require an explicit current choice.
+function effectiveLegacyAutoFuriganaMode(): Exclude<FuriganaMode, 'auto'> {
+    return 'all';
 }
 
 function isFuriganaMode(value: unknown): value is FuriganaMode {
@@ -1592,18 +1590,6 @@ function legacyBooleanSettingIs(settings: Partial<ReaderSettings> | null | undef
 
 function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
-}
-
-// Any deck that can answer "have I answered this word before?" makes
-// knowledge-based furigana hiding legible: the hidden-states fieldset next to
-// the picker names the states it drops. Yomu's own deck counts, same as it
-// does for the status colour channel.
-function hasPersonalizedFuriganaSource(settings: Partial<ReaderSettings>): boolean {
-    const credentials = {
-        apiKey: settings.apiKey ?? '',
-        jitenApiKey: settings.jitenApiKey ?? '',
-    };
-    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled || settings.yomuLocalSrsEnabled);
 }
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
@@ -1664,6 +1650,7 @@ function effectiveAvailableColorSource(
     fallback: ConcreteReaderColorSource = 'off',
 ): ConcreteReaderColorSource {
     if (source === 'jpdb' && !hasSrsStateColorSource(settings)) {
+        if (hasAnkiStatusSource(settings)) return 'anki';
         return fallback === 'jpdb' ? 'off' : effectiveAvailableColorSource(settings, fallback, 'off');
     }
     if (source === 'anki' && !hasAnkiStatusSource(settings)) {
@@ -1708,8 +1695,10 @@ export function hasStatusColorSource(settings: LegacyReaderSettings): boolean {
 
 /** Names whichever deck feeds the state colour channel, for the picker labels. */
 export function statusColorSourceLabel(settings: LegacyReaderSettings): string {
-    const localOnly = !hasJpdbStatusSource(settings) && hasLocalSrsStatusSource(settings);
-    return localOnly ? ACADEMY_SRS_LABEL : combinedApiCredentialLabel(apiCredentials(settings));
+    if (hasJpdbStatusSource(settings)) return combinedApiCredentialLabel(apiCredentials(settings));
+    if (hasLocalSrsStatusSource(settings)) return ACADEMY_SRS_LABEL;
+    if (hasAnkiStatusSource(settings)) return 'Anki';
+    return '';
 }
 
 function apiCredentials(settings: LegacyReaderSettings): { apiKey: string; jitenApiKey: string } {
@@ -1747,7 +1736,7 @@ const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-    return hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'all';
+    return effectiveLegacyAutoFuriganaMode();
 }
 
 /**

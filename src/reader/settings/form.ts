@@ -184,10 +184,18 @@ function ocrEngineOptions(text: SettingsText): [ReaderSettings['ocrEngine'], str
     ];
 }
 
-function colorSourceSelectOptions(text: SettingsText, apiLabel: string): [string, string][] {
+function colorSourceSelectOptions(text: SettingsText, statusSourceLabel: string): [string, string][] {
+    const sourceStatus = statusSourceLabel
+        ? text('colorSourceJpdb').replace('JPDB', statusSourceLabel)
+        : text('colorSourceDeck');
+    const combinedStatus = statusSourceLabel === 'Anki'
+        ? text('colorSourceAnki')
+        : statusSourceLabel
+            ? text('colorSourceStatus').replace('JPDB', statusSourceLabel)
+            : text('colorSourceDeck');
     return [
-        ['status', text('colorSourceStatus').replace('JPDB', apiLabel)],
-        ['jpdb', text('colorSourceJpdb').replace('JPDB', apiLabel)],
+        ['status', combinedStatus],
+        ['jpdb', sourceStatus],
         ['anki', text('colorSourceAnki')],
         ['pitch', text('colorSourcePitch')],
         ['off', text('colorSourceNone')],
@@ -1687,8 +1695,12 @@ function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettin
     };
 }
 
-function apiCredentialLabelFromForm(form: HTMLFormElement): string {
-    return combinedApiCredentialLabel(apiCredentialSettingsFromForm(form));
+function statusColorSourceLabelFromForm(form: HTMLFormElement): string {
+    return statusColorSourceLabel({
+        ...apiCredentialSettingsFromForm(form),
+        ankiEnabled: getNamedControl<HTMLInputElement>(form, 'ankiEnabled')?.checked ?? false,
+        yomuLocalSrsEnabled: getNamedControl<HTMLInputElement>(form, 'yomuLocalSrsEnabled')?.checked ?? false,
+    });
 }
 
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
@@ -1764,7 +1776,7 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
 }
 
 function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): void {
-    const options = colorSourceSelectOptions(text, apiCredentialLabelFromForm(form));
+    const options = colorSourceSelectOptions(text, statusColorSourceLabelFromForm(form));
     COLOR_CHANNEL_FIELDS.forEach(([name]) => setSelectOptionLabels(form, name, options));
 }
 

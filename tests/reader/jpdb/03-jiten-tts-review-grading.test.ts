@@ -1078,10 +1078,10 @@ describe('reader helpers', () => {
         expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
-        expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
-        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('all');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'off' })).toBe('off');
     });
 

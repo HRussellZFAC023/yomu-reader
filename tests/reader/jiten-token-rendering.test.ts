@@ -41,9 +41,10 @@ describe('Jiten token rendering', () => {
         expect(renderJitenToken('読む', 'young', { furiganaMode: 'known-status', furiganaHiddenStateGroups: ['learning'] })).not.toContain('<rt');
     });
 
-    it('uses Jiten credentials to hide user-known furigana in auto mode', () => {
-        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'auto' })).not.toContain('<rt');
-        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'auto' })).not.toContain('<rt');
+    it('keeps legacy auto transparent even when Jiten status is available', () => {
+        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'auto' })).toContain('<rt');
+        expect(renderJitenToken('読む', 'mastered', { furiganaMode: 'auto' })).toContain('<rt');
+        expect(renderJitenToken('読む', 'mature', { furiganaMode: 'known-status' })).not.toContain('<rt');
     });
 
     it('renders ruby for every word in hover mode (visibility is CSS-driven)', () => {

@@ -2865,6 +2865,7 @@
       colorSourceStatus: "JPDB + Anki status",
       colorSourceJpdb: "JPDB status",
       colorSourceAnki: "Anki status",
+      colorSourceDeck: "Deck status",
       colorSourcePitch: "Pitch accent",
       colorSourceNone: "None",
       popupLookup: "Popup lookup",
@@ -2901,6 +2902,7 @@
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
+      appearancePreset: "Quick setup",
       appearancePresetCustom: "Keep current custom settings",
       appearancePresetBalanced: "Balanced reading",
       appearancePresetNoColors: "Plain text",
@@ -2911,6 +2913,8 @@
       hideFuriganaFor: "Hide furigana for",
       hideColorFor: "Hide color for",
       furiganaDifficultKanji: "Hard kanji only",
+      furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
+      statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
       furiganaHideKnown: "Hide familiar words",
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
@@ -4542,6 +4546,7 @@ subtitleTextColorSource	字幕テキストの色
 colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
+colorSourceDeck	デッキの学習状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
 popupLookup	ポップアップ検索
@@ -4579,6 +4584,7 @@ autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
+appearancePreset	かんたん設定
 appearancePresetCustom	現在のカスタム設定を保持
 appearancePresetBalanced	読みやすいバランス
 appearancePresetNoColors	プレーンテキスト
@@ -4589,6 +4595,8 @@ wordColorStatesNewOnly	新規・未追加のみ
 hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
+furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
@@ -12418,7 +12426,11 @@ ${spelling}`);
     manualScanEnabled: false,
     annotationsPaused: false,
     showFurigana: true,
-    furiganaMode: "difficult-kanji",
+    // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
+    // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
+    // their own knowledge and the page read as half-annotated. Every parsed
+    // word gets its reading until someone chooses otherwise.
+    furiganaMode: "all",
     clampedRowReadings: "show",
     puckFuriganaModeBeforeHide: "",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
@@ -12605,7 +12617,7 @@ ${spelling}`);
     );
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
-    const apiCredentials = normalizeApiCredentialSettings(settingsValue);
+    const apiCredentials2 = normalizeApiCredentialSettings(settingsValue);
     const parserProvider = normalizeParserProvider(settingsValue);
     const dictionaryPreferences = normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences);
     const languageProfileSettings = normalizeLanguageProfileSettings(
@@ -12616,7 +12628,7 @@ ${spelling}`);
     return {
       ...DEFAULT_SETTINGS,
       ...supportedSettings ?? {},
-      ...apiCredentials,
+      ...apiCredentials2,
       ...normalizeLookupSettings(settingsValue),
       ...normalizeNewTabSettings(settingsValue),
       ...normalizeReaderDisplaySettings(settingsValue),
@@ -13292,14 +13304,14 @@ ${spelling}`);
     return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
   }
   function normalizeFuriganaMode(value, settings) {
-    if (value === "auto") return effectiveLegacyAutoFuriganaMode(settings);
+    if (value === "auto") return effectiveLegacyAutoFuriganaMode();
     if (isFuriganaMode(value)) return value;
     if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
     if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
     return DEFAULT_SETTINGS.furiganaMode;
   }
-  function effectiveLegacyAutoFuriganaMode(settings) {
-    return settings && hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
+  function effectiveLegacyAutoFuriganaMode() {
+    return "all";
   }
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
@@ -13320,13 +13332,6 @@ ${spelling}`);
   }
   function normalizeDeckIdSetting(value, fallback) {
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
-  }
-  function hasPersonalizedFuriganaSource(settings) {
-    const credentials = {
-      apiKey: settings.apiKey ?? "",
-      jitenApiKey: settings.jitenApiKey ?? ""
-    };
-    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
   }
   function shouldLookupAnkiStatus(settings) {
     return settings.ankiEnabled === true;
@@ -13350,7 +13355,8 @@ ${spelling}`);
     return effectiveAvailableColorSource(settings, source);
   }
   function effectiveAvailableColorSource(settings, source, fallback = "off") {
-    if (source === "jpdb" && !hasJpdbStatusSource(settings)) {
+    if (source === "jpdb" && !hasSrsStateColorSource(settings)) {
+      if (hasAnkiStatusSource(settings)) return "anki";
       return fallback === "jpdb" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
     }
     if (source === "anki" && !hasAnkiStatusSource(settings)) {
@@ -13361,12 +13367,30 @@ ${spelling}`);
     return source;
   }
   function effectiveAvailableStatusSource(settings, includeRequestedAnki = false) {
-    const hasJpdb = hasJpdbStatusSource(settings);
+    const hasStates = hasSrsStateColorSource(settings);
     const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
-    if (hasJpdb && hasAnki) return "status";
-    if (hasJpdb) return "jpdb";
+    if (hasStates && hasAnki) return "status";
+    if (hasStates) return "jpdb";
     if (hasAnki) return "anki";
     return "off";
+  }
+  function hasLocalSrsStatusSource(settings) {
+    return settings.yomuLocalSrsEnabled === true;
+  }
+  function hasSrsStateColorSource(settings) {
+    return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
+  }
+  function hasStatusColorSource(settings) {
+    return effectiveAvailableStatusSource(settings, true) !== "off";
+  }
+  function statusColorSourceLabel(settings) {
+    if (hasJpdbStatusSource(settings)) return combinedApiCredentialLabel(apiCredentials(settings));
+    if (hasLocalSrsStatusSource(settings)) return ACADEMY_SRS_LABEL;
+    if (hasAnkiStatusSource(settings)) return "Anki";
+    return "";
+  }
+  function apiCredentials(settings) {
+    return { apiKey: settings.apiKey ?? "", jitenApiKey: settings.jitenApiKey ?? "" };
   }
   function hasJpdbStatusSource(settings) {
     const credentials = {
@@ -13395,7 +13419,10 @@ ${spelling}`);
   function effectiveFuriganaMode(settings) {
     if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-    return hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
+    return effectiveLegacyAutoFuriganaMode();
+  }
+  function furiganaModeNeedsDifficultyExplanation(settings) {
+    return effectiveFuriganaMode(settings) === "difficult-kanji";
   }
   function isExplicitFuriganaMode(value) {
     return EXPLICIT_FURIGANA_MODES.has(value);
@@ -65646,7 +65673,7 @@ ${spelling}`);
     };
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
-    const apiCredentials = readApiCredentialsFromFormData(data);
+    const apiCredentials2 = readApiCredentialsFromFormData(data);
     const interfaceLanguage = readOption(
       get("interfaceLanguage"),
       ["auto", "en", "ja"],
@@ -65654,11 +65681,11 @@ ${spelling}`);
     );
     const settings = {
       ...current,
-      ...apiCredentials,
+      ...apiCredentials2,
       // The deprecated key is no longer shown because Bunpro's full Yomu
       // integration uses only the frontend token. Preserve an older saved
       // value so opening Settings does not silently destroy user data.
-      bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
+      bunproApiKey: apiCredentials2.bunproApiKey || current.bunproApiKey,
       interfaceLanguage,
       ...readLanguageProfileFormSettings(
         data,
@@ -68517,10 +68544,12 @@ ${spelling}`);
       ["AppleVision", text2("ocrEngineAppleVision")]
     ];
   }
-  function colorSourceSelectOptions(text2, apiLabel) {
+  function colorSourceSelectOptions(text2, statusSourceLabel) {
+    const sourceStatus = statusSourceLabel ? text2("colorSourceJpdb").replace("JPDB", statusSourceLabel) : text2("colorSourceDeck");
+    const combinedStatus2 = statusSourceLabel === "Anki" ? text2("colorSourceAnki") : statusSourceLabel ? text2("colorSourceStatus").replace("JPDB", statusSourceLabel) : text2("colorSourceDeck");
     return [
-      ["status", text2("colorSourceStatus").replace("JPDB", apiLabel)],
-      ["jpdb", text2("colorSourceJpdb").replace("JPDB", apiLabel)],
+      ["status", combinedStatus2],
+      ["jpdb", sourceStatus],
       ["anki", text2("colorSourceAnki")],
       ["pitch", text2("colorSourcePitch")],
       ["off", text2("colorSourceNone")]
@@ -69055,6 +69084,10 @@ ${spelling}`);
     const boxes = FURIGANA_HIDE_GROUPS.map((group) => checkbox(`furiganaHide-${group}`, uiText(language2, CARD_STATE_LABEL_KEYS[group]), selected.has(group))).join("");
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden"}><legend>${escapedUiText(language2, "hideFuriganaFor")}</legend>${boxes}</fieldset>`;
   }
+  function renderFuriganaDifficultyNote(settings) {
+    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
+    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, "furiganaDifficultKanjiHelp")}</div>`;
+  }
   function renderWordColorHiddenStateGroupControls(settings) {
     const language2 = settings.interfaceLanguage;
     const selected = new Set(settings.wordColorHiddenStateGroups);
@@ -69080,13 +69113,15 @@ ${spelling}`);
   }
   function renderColorChannelSettingsSubsection(settings) {
     const text2 = settingsText(settings.interfaceLanguage);
-    const options = colorSourceSelectOptions(text2, combinedApiCredentialLabel(settings));
+    const options = colorSourceSelectOptions(text2, statusColorSourceLabel(settings));
+    const noSourceHidden = hasStatusColorSource(settings) ? " hidden" : "";
     return `
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapeHtml$2(text2("colorChannels"))}</div>
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, key]) => select(name, text2(key), settingsColorSourceValue(settings, name), options)).join("")}
                     </div>
+                    <div class="jpdb-reader-help" data-status-color-no-source data-help-key="statusColorNoSourceHelp"${noSourceHidden}>${escapeHtml$2(text2("statusColorNoSourceHelp"))}</div>
                 </div>
     `;
   }
@@ -69243,8 +69278,9 @@ ${spelling}`);
                     <div class="jpdb-reader-shortcut-group" data-page-scan-manual-shortcut ${pageScanMode === "manual" ? "" : "hidden"}>
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
-                    ${select("appearancePreset", "Quick setup", "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
+                    ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
                     ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
+                    ${renderFuriganaDifficultyNote(settings)}
                     ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", text2("wordColorStates"), settings.wordColorStates, localizedOptions(text2, WORD_COLOR_STATE_OPTIONS))}
@@ -69865,8 +69901,12 @@ ${spelling}`);
       jitenApiKey: getNamedControl(form, "jitenApiKey")?.value ?? ""
     };
   }
-  function apiCredentialLabelFromForm(form) {
-    return combinedApiCredentialLabel(apiCredentialSettingsFromForm(form));
+  function statusColorSourceLabelFromForm(form) {
+    return statusColorSourceLabel({
+      ...apiCredentialSettingsFromForm(form),
+      ankiEnabled: getNamedControl(form, "ankiEnabled")?.checked ?? false,
+      yomuLocalSrsEnabled: getNamedControl(form, "yomuLocalSrsEnabled")?.checked ?? false
+    });
   }
   function localizeSettingsLabels(form, text2) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text2(key)));
@@ -69932,7 +69972,7 @@ ${spelling}`);
     setSelectOptionLabels(form, "furiganaMode", localizedOptions(text2, FURIGANA_MODE_OPTIONS));
   }
   function localizeColorSourceSelects(form, text2) {
-    const options = colorSourceSelectOptions(text2, apiCredentialLabelFromForm(form));
+    const options = colorSourceSelectOptions(text2, statusColorSourceLabelFromForm(form));
     COLOR_CHANNEL_FIELDS.forEach(([name]) => setSelectOptionLabels(form, name, options));
   }
   function localizeMediaSettingsSelects(form, text2) {
@@ -70410,6 +70450,7 @@ ${spelling}`);
     "lookupOnMiddleMouse",
     "showFloatingButton",
     "pageScanMode",
+    "appearancePreset",
     "furiganaMode",
     "clampedRowReadings",
     "wordColorStates",
@@ -73701,8 +73742,9 @@ ${spelling}`);
         const fieldset = form.querySelector("[data-furigana-hide-groups]");
         const mode = form.querySelector('select[name="furiganaMode"]')?.value;
         if (fieldset) fieldset.hidden = mode !== "known-status";
+        const difficultyNote = form.querySelector("[data-furigana-difficulty-note]");
+        if (difficultyNote) difficultyNote.hidden = mode !== "difficult-kanji";
       };
-      const smartFuriganaMode = () => this.settings.apiKey.trim() || this.settings.jitenApiKey.trim() || this.settings.ankiEnabled ? "known-status" : "difficult-kanji";
       form.querySelector('select[name="furiganaMode"]')?.addEventListener("change", syncGroupVisibility);
       const preset = form.querySelector('select[name="appearancePreset"]');
       preset?.addEventListener("change", () => {
@@ -73710,7 +73752,7 @@ ${spelling}`);
         if (!value) return;
         if (value === "balanced" || value === "default") {
           setSelect("wordColorStates", "all");
-          setSelect("furiganaMode", smartFuriganaMode());
+          setSelect("furiganaMode", "all");
           setGroups(["known", "due", "failed"]);
           setColorSources("jpdb", "pitch", "anki");
         } else if (value === "no-colors") {
@@ -73719,7 +73761,7 @@ ${spelling}`);
           setColorSources("off", "off", "off");
         } else if (value === "new-only") {
           setSelect("wordColorStates", "new-only");
-          setSelect("furiganaMode", smartFuriganaMode());
+          setSelect("furiganaMode", "all");
           setGroups(["known", "due", "failed"]);
           setColorSources("jpdb", "pitch", "anki");
         } else if (value === "underline-new") {
@@ -97754,6 +97796,7 @@ ${component.reading}`;
       clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
       return;
     }
+    if (rendersWholeCardReading(word, card)) return;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
       card,
@@ -97768,6 +97811,14 @@ ${component.reading}`;
     if (!replaceRenderedWordFurigana(word, surface, token)) return;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
+  }
+  function rendersWholeCardReading(word, card) {
+    const rendered = Array.from(word.querySelectorAll("rt")).map((rt) => rt.textContent ?? "").join("");
+    if (!rendered.trim()) return false;
+    return comparableReading(rendered) === comparableReading(card.reading);
+  }
+  function comparableReading(value) {
+    return value.replace(/\s+/g, "").replace(/[ァ-ヶ]/g, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
   }
   function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
     if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;

@@ -332,7 +332,7 @@ describe('settings form localization', () => {
         expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
-        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(true);

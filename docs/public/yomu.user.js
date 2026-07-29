@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.c194ec27c3f0.user.js#sha256=wZTsJ8Pw9c7rwrpXsbR048je/e2WrGm+rZGkMZI2KcE=
-// @require https://yomureader.com/greasyfork/yomu-audio.a3b3c970c5b7.user.js#sha256=o7PJcMW3QLbFA7U9Z/eyixpbm29UD/U9lZtgE6dg65Q=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.d03a60e69142.user.js#sha256=0Dpg5pFCRFVQRIeBiAYpcQ9N4lPkqA9VuoowWbQOZPQ=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.9731506c19ec.user.js#sha256=lzFQbBnsTbesQg9TAPeQ5FX5Z16KObc+t5uiRjUlEqk=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.d774de52a187.user.js#sha256=13TeUqGHc/D1XkBF+Rx0ezhDKGB+XnYnPS0LxnDKljQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fb545924e1a6.user.js#sha256=+1RZJOGmyg0YzRSL+viQhzjzBtQROIYZ+7b3L+N1yXk=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.e8f1515e8de3.user.js#sha256=6PFRXo3jT+ZLpIH+2QBxlHjSgv+ak13IeyEfCG2N8C8=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.d25f9fef7f0f.user.js#sha256=0l+f738PJCMO+EOQU/CWVUAECz6GmPiaC8jsLF9f3nE=
-// @require https://yomureader.com/greasyfork/yomu-jiten.4887f46719c9.user.js#sha256=SIf0ZxnJrHdYH+1Ihd2wmqlBRnnCmKSF/ERH1Kbpndg=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.ff357ebbfc85.user.js#sha256=/zV+u/yFs1f2ePBVR1IaDmhXlyKLYs57dubvCXvKoek=
-// @require https://yomureader.com/greasyfork/yomu-video.14055a797262.user.js#sha256=FAVaeXJiTyAXtfe3QoBeLliF++YEOSwCdrzyzI/44Ec=
+// @require https://yomureader.com/greasyfork/yomu-anki.c2f5f76ef9b6.user.js#sha256=wvX3bvm2hFlhmjjf8xMj4rRvAfNOsk9p+RAvsMTqkyM=
+// @require https://yomureader.com/greasyfork/yomu-audio.b41b7c4b71ab.user.js#sha256=tBt8S3GrzOUL87lrRVLbmyCWGCQyWE29nDlrgNQE7lc=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.18be9c1e425e.user.js#sha256=GL6cHkJe3Iq9dKA37u1RnIBWSYt7L9SjP6xMjFjTEXs=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.7076a0f1f716.user.js#sha256=cHag8fcWVpZQxHhtyhs2Zz7ZXF03nChC1Kx5Y/2ilWw=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.f05784075a8e.user.js#sha256=8FeEB1qOy74pFUGzNoKxwOA55W49XKT7zFyP6lRkplk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.399405f114f3.user.js#sha256=OZQF8RTzHyjmAQzb0LHwacqGEYrkZ2DUkAKQzVDO/bo=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.21c7286951b3.user.js#sha256=IccoaVGzOH174bss0QmnDepDwW7U612z7pV/v5/NNJE=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.d908dda96219.user.js#sha256=2QjdqWIZKFXOwP7bzpiouJ1ejbsGjKoumo9W4Hi/DKU=
+// @require https://yomureader.com/greasyfork/yomu-jiten.e8d7a3f2a1e3.user.js#sha256=6Nej8qHj1e1uQaRLR2nNGEEmmGEFtPNzkBGRjsxyEfk=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.e367882473c9.user.js#sha256=42eIJHPJXeDFEfXbY8SXN7lCGSzS6BDeioqgl4xq0Ao=
+// @require https://yomureader.com/greasyfork/yomu-video.4c2818b4818c.user.js#sha256=TCgYtIGMnmPUdTtjC4LlkewBmyCY9rwVg9TZpNNK+AU=
 // @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -6944,7 +6944,7 @@ const DEFAULT_SETTINGS = {
   manualScanEnabled: false,
   annotationsPaused: false,
   showFurigana: true,
-  furiganaMode: "difficult-kanji",
+  furiganaMode: "all",
   clampedRowReadings: "show",
   puckFuriganaModeBeforeHide: "",
   furiganaHiddenStateGroups: ["known", "due", "failed"],
@@ -7120,7 +7120,7 @@ function mergeSettings(value) {
   );
   const audio = normalizeAudioSettings(settingsValue);
   const supportedSettings = stripUnsupportedSettings(settingsValue);
-  const apiCredentials = normalizeApiCredentialSettings(settingsValue);
+  const apiCredentials2 = normalizeApiCredentialSettings(settingsValue);
   const parserProvider = normalizeParserProvider(settingsValue);
   const dictionaryPreferences = normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences);
   const languageProfileSettings = normalizeLanguageProfileSettings(
@@ -7131,7 +7131,7 @@ function mergeSettings(value) {
   return {
   ...DEFAULT_SETTINGS,
   ...supportedSettings ?? {},
-  ...apiCredentials,
+  ...apiCredentials2,
   ...normalizeLookupSettings(settingsValue),
   ...normalizeNewTabSettings(settingsValue),
   ...normalizeReaderDisplaySettings(settingsValue),
@@ -7801,14 +7801,14 @@ function hasLegacyMiningStatusSource(settings) {
   return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
 }
 function normalizeFuriganaMode(value, settings) {
-  if (value === "auto") return effectiveLegacyAutoFuriganaMode(settings);
+  if (value === "auto") return effectiveLegacyAutoFuriganaMode();
   if (isFuriganaMode(value)) return value;
   if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
   if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
   return DEFAULT_SETTINGS.furiganaMode;
 }
-function effectiveLegacyAutoFuriganaMode(settings) {
-  return settings && hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
+function effectiveLegacyAutoFuriganaMode() {
+  return "all";
 }
 function isFuriganaMode(value) {
   return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
@@ -7829,13 +7829,6 @@ function legacyBooleanSettingIs(settings, key, expected) {
 }
 function normalizeDeckIdSetting(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
-}
-function hasPersonalizedFuriganaSource(settings) {
-  const credentials = {
-  apiKey: settings.apiKey ?? "",
-  jitenApiKey: settings.jitenApiKey ?? ""
-  };
-  return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
 }
 function shouldLookupAnkiStatus(settings) {
   return settings.ankiEnabled === true;
@@ -7862,7 +7855,8 @@ function effectiveTextColorSource(settings, source) {
   return effectiveAvailableColorSource(settings, source);
 }
 function effectiveAvailableColorSource(settings, source, fallback = "off") {
-  if (source === "jpdb" && !hasJpdbStatusSource(settings)) {
+  if (source === "jpdb" && !hasSrsStateColorSource(settings)) {
+  if (hasAnkiStatusSource(settings)) return "anki";
   return fallback === "jpdb" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
   }
   if (source === "anki" && !hasAnkiStatusSource(settings)) {
@@ -7873,12 +7867,18 @@ function effectiveAvailableColorSource(settings, source, fallback = "off") {
   return source;
 }
 function effectiveAvailableStatusSource(settings, includeRequestedAnki = false) {
-  const hasJpdb = hasJpdbStatusSource(settings);
+  const hasStates = hasSrsStateColorSource(settings);
   const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
-  if (hasJpdb && hasAnki) return "status";
-  if (hasJpdb) return "jpdb";
+  if (hasStates && hasAnki) return "status";
+  if (hasStates) return "jpdb";
   if (hasAnki) return "anki";
   return "off";
+}
+function hasLocalSrsStatusSource(settings) {
+  return settings.yomuLocalSrsEnabled === true;
+}
+function hasSrsStateColorSource(settings) {
+  return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
 }
 function hasJpdbStatusSource(settings) {
   const credentials = {
@@ -7907,7 +7907,7 @@ const COLOR_STATUS_CHANNEL_KEYS = [
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-  return hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
+  return effectiveLegacyAutoFuriganaMode();
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
@@ -26705,6 +26705,7 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
   return;
   }
+  if (rendersWholeCardReading(word, card)) return;
   const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
   const token = {
   card,
@@ -26719,6 +26720,14 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   if (!replaceRenderedWordFurigana(word, surface, token)) return;
   if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
   if (ocrLine) ocrLine.dataset.hasFuri = "true";
+}
+function rendersWholeCardReading(word, card) {
+  const rendered = Array.from(word.querySelectorAll("rt")).map((rt) => rt.textContent ?? "").join("");
+  if (!rendered.trim()) return false;
+  return comparableReading(rendered) === comparableReading(card.reading);
+}
+function comparableReading(value) {
+  return value.replace(/\s+/g, "").replace(/[ァ-ヶ]/g, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
 }
 function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
   if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;

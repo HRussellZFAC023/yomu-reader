@@ -1268,16 +1268,8 @@ export class SettingsDialogController {
             const difficultyNote = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]');
             if (difficultyNote) difficultyNote.hidden = mode !== 'difficult-kanji';
         };
-        // A11: quick setup used to land a keyless learner on 'difficult-kanji',
-        // which drops readings by a fixed easy-kanji list. A bare kanji then
-        // meant neither "you know this" nor "Yomu missed it", so the page read
-        // as broken. With a deck behind it, 'known-status' is explained by the
-        // hidden-states fieldset that appears next to it; with no deck, every
-        // parsed word keeps its reading.
-        const smartFuriganaMode = (): ReaderSettings['furiganaMode'] =>
-            this.settings.apiKey.trim() || this.settings.jitenApiKey.trim() || this.settings.ankiEnabled || this.settings.yomuLocalSrsEnabled
-                ? 'known-status'
-                : 'all';
+        // A11: quick setup always starts with every parsed reading visible.
+        // Difficulty- and status-based hiding remain explicit choices.
         form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.addEventListener('change', syncGroupVisibility);
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]');
         preset?.addEventListener('change', () => {
@@ -1285,7 +1277,7 @@ export class SettingsDialogController {
             if (!value) return;
             if (value === 'balanced' || value === 'default') {
                 setSelect('wordColorStates', 'all');
-                setSelect('furiganaMode', smartFuriganaMode());
+                setSelect('furiganaMode', 'all');
                 setGroups(['known', 'due', 'failed']);
                 setColorSources('jpdb', 'pitch', 'anki');
             } else if (value === 'no-colors') {
@@ -1294,7 +1286,7 @@ export class SettingsDialogController {
                 setColorSources('off', 'off', 'off');
             } else if (value === 'new-only') {
                 setSelect('wordColorStates', 'new-only');
-                setSelect('furiganaMode', smartFuriganaMode());
+                setSelect('furiganaMode', 'all');
                 setGroups(['known', 'due', 'failed']);
                 setColorSources('jpdb', 'pitch', 'anki');
             } else if (value === 'underline-new') {

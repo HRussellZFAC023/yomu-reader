@@ -153,7 +153,6 @@ export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEn
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {
     if (word.closest('ruby')) return;
-    if (rendersWholeCardReading(word, card)) return;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
@@ -161,6 +160,7 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
         clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
         return;
     }
+    if (rendersWholeCardReading(word, card)) return;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
         card,

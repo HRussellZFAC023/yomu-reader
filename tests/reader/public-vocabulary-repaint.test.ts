@@ -238,6 +238,58 @@ describe('public vocabulary repaint', () => {
         expect(readerWordSurfaceText(word)).toBe('読む');
     });
 
+    it('clears the ruby when a whole-word reading enters a hidden state group', () => {
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '本',
+            reading: 'ほん',
+            cardState: ['known'],
+        }), {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'known-status',
+            furiganaHiddenStateGroups: ['known'],
+        });
+
+        expect(word.querySelector('rt')).toBeNull();
+        expect(readerWordSurfaceText(word)).toBe('本');
+    });
+
+    it('clears the ruby when furigana is switched off entirely', () => {
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="本"><ruby><span class="jpdb-reader-ruby-base">本</span><rt class="jpdb-reader-furi">ほん</rt></ruby></span>';
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '本',
+            reading: 'ほん',
+        }), {
+            ...DEFAULT_SETTINGS,
+            showFurigana: false,
+        });
+
+        expect(word.querySelector('rt')).toBeNull();
+        expect(readerWordSurfaceText(word)).toBe('本');
+    });
+
+    it('preserves split provider rubies when they already spell the whole card reading', () => {
+        document.body.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="年下"><ruby><span class="jpdb-reader-ruby-base">年</span><rt class="jpdb-reader-furi">とし</rt></ruby><ruby><span class="jpdb-reader-ruby-base">下</span><rt class="jpdb-reader-furi">した</rt></ruby></span>';
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '年下',
+            reading: 'としした',
+            cardState: ['not-in-deck'],
+        }), {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'all',
+        });
+
+        expect([...word.querySelectorAll('rt')].map(rt => rt.textContent)).toEqual(['とし', 'した']);
+        expect([...word.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.textContent)).toEqual(['年', '下']);
+        expect(readerWordSurfaceText(word)).toBe('年下');
+    });
+
     it('keeps existing furigana when the policy still allows it and fresh lookup data cannot add new ruby', () => {
         document.body.innerHTML = `
             <span class="jpdb-reader-word jpdb-learning jpdb-reader-has-furi" data-vid="11" data-sid="22" data-card-state="learning" data-expression="読む">

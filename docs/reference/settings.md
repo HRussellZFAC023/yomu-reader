@@ -53,10 +53,10 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Due | — | `#5fb3b3` | `wordColorDue` |
 | Failed | — | `#ff6b6b` | `wordColorFailed` |
 | Ignored, suspended, and blacklisted | — | `#b8a7ff` | `wordColorIgnored` |
-| Word highlight color | — | JPDB status (`jpdb`) | `wordHighlightColorSource` |
+| Word highlight color | — | Academy status (`jpdb`) | `wordHighlightColorSource` |
 | Word underline color | — | Pitch accent (`pitch`) | `wordUnderlineColorSource` |
 | Word text color | — | Anki status (`anki`) | `wordTextColorSource` |
-| Subtitle highlight color | — | JPDB status (`jpdb`) | `subtitleHighlightColorSource` |
+| Subtitle highlight color | — | Academy status (`jpdb`) | `subtitleHighlightColorSource` |
 | Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
 | Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
 | Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
@@ -159,7 +159,7 @@ Set a hover key. Blank means plain hover.
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
 | Japanese text on webpages | — | off | `annotationsPaused` |
-| Furigana | — | Hard kanji only (`difficult-kanji`) | `furiganaMode` |
+| Furigana | — | Show on every parsed word (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
 | Color words | — | Use all learning states (`all`) | `wordColorStates` |

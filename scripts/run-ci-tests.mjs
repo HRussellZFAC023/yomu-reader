@@ -26,6 +26,10 @@ const ISOLATED_PASS_FILES = [
     // Builds a live overlay and asserts a reading reaches it. Passes alone; inherits
     // overlay/document state from earlier files in the fork-reuse pass.
     join(ROOT, 'tests/reader/late-enrichment-projection.test.ts'),
+    // These overlay lifecycle suites pass alone but inherit enough document and
+    // observer state in the reusable pass to exhaust their fake-timer callbacks.
+    join(ROOT, 'tests/reader/detached-reading-overlay.test.ts'),
+    join(ROOT, 'tests/reader/page-activity-parking.test.ts'),
     join(ROOT, 'tests/reader/reader-boot.test.ts'),
     join(ROOT, 'tests/reader/academy-account-settings.test.ts'),
     // The late bridge test owns storage-bridge globals and is deterministic
