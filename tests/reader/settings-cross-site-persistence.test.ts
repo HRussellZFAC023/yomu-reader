@@ -301,6 +301,53 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         expect(shared.onboardingSeen).toBe(true);
     });
 
+    // Owner report 2026-07-29: "if I toggle annotations on and refresh the page
+    // it goes back to off state". Turning annotations back ON writes
+    // `annotationsPaused: false`, which IS the default, so recovery that infers
+    // intent from "differs from the default" read the choice as unset and let
+    // the shared store's `true` win on the next load. The write records the
+    // field it changed, so intent is available and does not need inferring.
+    it('recovers an explicit hosted choice that happens to equal the default', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        // Annotations are OFF in the shared store, i.e. a non-default value.
+        store.set('jpdb-popup-reader-settings', { annotationsPaused: true });
+
+        // The hosted page reads, giving the next write a baseline to diff.
+        const beforeToggle = await loadSettings();
+        expect(beforeToggle.annotationsPaused).toBe(true);
+
+        // The learner toggles annotations ON inside the hosted app, which has
+        // no GM store of its own, so the write strands in this origin's
+        // localStorage. A present-but-dead GM_setValue is that same path.
+        vi.stubGlobal('GM_setValue', vi.fn(async () => {
+            throw new Error('hosted app has no GM bridge');
+        }));
+        await saveSettings({ ...beforeToggle, annotationsPaused: false });
+        expect(store.get('jpdb-popup-reader-settings')).toEqual({ annotationsPaused: true });
+
+        // Reload with the shared store readable again: the choice must survive
+        // even though `false` is this setting's default value.
+        installSharedMessageBasedGm(store);
+        const afterRefresh = await loadSettings();
+        expect(afterRefresh.annotationsPaused).toBe(false);
+    });
+
+    it('still ignores a stale hosted default nobody chose', async () => {
+        // The guard the fix must not remove: an untouched hosted copy sitting
+        // at a default cannot overwrite a real choice made on another site.
+        vi.stubGlobal('location', hostedLocation);
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { annotationsPaused: true });
+        // No preceding read, so no recorded intent: just a blob at the default.
+        localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({ annotationsPaused: false }));
+
+        const settings = await loadSettings();
+        expect(settings.annotationsPaused).toBe(true);
+    });
+
     it('keeps the shared store authoritative for values the user set elsewhere', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
