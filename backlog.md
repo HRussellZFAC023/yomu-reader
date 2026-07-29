@@ -30,6 +30,8 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
+0. **P0 URGENT — money:** A34 donation banner (Ko-fi donations have NEVER been recorded; also breaks Ko-fi
+   Academy delivery, so it reopens part of A22.2).
 1. **P0 — in flight now:** A28 homepage reimagining (workflow) · A27.1 verify-only pass on the five
    shipped fixes (codex, next in queue) · T0 historical recovery cases (delivery itself fixed by codex
    in 1.8.24, see U52) · A5 shipped 1.8.25 · R2 dictionary edge cache (shipped 2026-07-28).
@@ -410,6 +412,41 @@ audit so a regression is caught, and re-check after the next deploy.
       surface). Deliberately NOT adopting, with reasons: Stream (demo videos are fine as static R2/docs
       assets), Pages migration (GitHub Pages + Deploy Docs is entrenched and works), Durable Objects
       (D1 sessions suffice at current scale), Zaraz/Argo (no third-party tags; no measured routing pain).
+
+### A34 — DONATION BANNER: real money dropped, and it covers the nav (owner report + screenshot 2026-07-29)
+
+Owner: *"we recieved £10 from kofi and £5 from patreon only the £5 is showing"*, *"the stickness broke
+(should not be sticky) and its overlapping the nav"*, *"always round to nearest dont say £10.20"*,
+*"we also dont want to harcode gbp"*. Live `/status` confirmed: `donationsThisMonthGbp: 5` of £15 received,
+`donationGoalGbp: 10.2`, `goalMet: false` when it is actually met. Full diagnosis with file:line in
+`scratchpad/donation-banner-ticket.md`. ASSIGNED to codex 2026-07-29.
+
+- [ ] **A34.1 — Ko-fi's transaction field is read under the wrong name, so EVERY Ko-fi donation 422s.**
+      `kofiAcademyEnvelope` (`workers/yomu-support/src/index.ts:1055`) reads `record.transaction_id`; Ko-fi
+      sends **`kofi_transaction_id`**. The envelope is therefore always null and the handler returns 422
+      *before* `recordProviderDonationEvent`. Consequence beyond the goal: **Ko-fi Academy codes have never
+      been deliverable**, so A22.2's "delivery fixed" claim needs re-checking on this path.
+- [ ] **A34.2 — BUG CLASS: donation accounting is gated on Academy entitlement.** Ko-fi (`:897`) and Patreon
+      (`:955`) both refuse to record money unless an entitlement envelope builds. Money that arrived is a
+      fact; whether it earns Academy access is a separate question. Record first from an id that needs no
+      identity fields, then attempt entitlement; a failed entitlement must never unrecord money.
+- [ ] **A34.3 — non-GBP donations silently become zero, and GBP is hardcoded.** `gbpMinorFromProviderAmount`
+      (`:1239`) returns 0 for any currency that is not GBP; `BASE_CURRENCY` is a constant (`:52`), the INSERT
+      hardcodes `'gbp'` (`:1310`) and both read queries filter `currency = 'gbp'` (`:380`). Store the payer's
+      real currency and amount plus a converted base amount in new columns, reporting currency from config,
+      converted through the existing cached `fxRateFor` (`:574`) — inverse of the display direction. No rate
+      available means record it with a flag, never drop it.
+- [ ] **A34.4 — round to the nearest whole unit for display.** `buildGoal` (`:301`) yields `10.2`. Presentation
+      rounds, stored minor units stay exact; round the goal up so it can never read as met while the forecast
+      is uncovered. Touches `supportBannerCopy` (`:451`, both languages),
+      `src/reader/newtab/i18n.ts:37`, `docs/.vitepress/theme/index.ts:4984`.
+- [ ] **A34.5 — the banner must not be sticky.** `docs/.vitepress/theme/custom.css:110` has
+      `position: sticky; top: 64px; z-index: 39`, hardcoding the desktop nav height so it covers the nav at
+      any other height. Static, in normal flow, verified at 1280/768/375. Check the newtab copy at
+      `src/reader/styles/new-tab.css:195` and the hosted shells too.
+- [ ] **A34.6 — backfill the rejected £10.** Ko-fi does not resend a 422'd webhook, so the money stays
+      invisible until a row is inserted. Audit for other rejected donations at the same time. `wrangler d1`
+      defaults to LOCAL — `--remote` or it is a no-op.
 
 ### A21 — USER FEEDBACK, Discord, 25–28 July 2026 (verbatim reports → tickets)
 
