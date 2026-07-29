@@ -14,7 +14,7 @@ It is one loop, repeated everywhere you read: **meet Japanese, understand it on 
 Press or select any Japanese word and a small panel opens over the page. It shows you:
 
 - **The reading** — how the word is actually pronounced.
-- **The meaning**, in your language. Yomu ships definitions in 32 languages.
+- **The meaning**, in your language. Yomu ships definitions in 9 languages.
 - **How it sounds** — press the speaker to hear a real recording.
 - **Real sentences** using the word, so you see how people use it.
 - **The kanji**, broken down one character at a time.

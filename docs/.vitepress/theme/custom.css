@@ -2836,27 +2836,13 @@ body:has(.yomu-home) .jpdb-reader-fab {
 
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span {
   opacity: 0;
-  animation: yomu-language-welcome 18s ease-in-out infinite;
+  transform: translateY(-0.12em);
+  transition: opacity 420ms ease, transform 420ms ease;
 }
 
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(2) { animation-delay: 2s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(3) { animation-delay: 4s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(4) { animation-delay: 6s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(5) { animation-delay: 8s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(6) { animation-delay: 10s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(7) { animation-delay: 12s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(8) { animation-delay: 14s; }
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(9) { animation-delay: 16s; }
-
-@keyframes yomu-language-welcome {
-  0%, 9% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  12%, 100% {
-    opacity: 0;
-    transform: translateY(-0.12em);
-  }
+.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active] {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .yomu-story {

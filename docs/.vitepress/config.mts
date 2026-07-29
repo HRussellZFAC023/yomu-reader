@@ -5,6 +5,7 @@ import {
     navigationRoutes,
     sitemapItemsForRoutes,
 } from '../../config/docs/published-pages';
+import { heroStudyLanguages } from '../../config/docs/product-claims';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 import { APPS_NAV_LABEL, docsNav } from './shared/nav';
 import pkg from '../../package.json' with { type: 'json' };
@@ -269,6 +270,7 @@ const siteSidebar = [
 // so a new public page reaches search engines as soon as it is linked, and a
 // file that lands in docs/ without a navigation entry never does.
 const linkedRoutes = navigationRoutes([...siteNav, ...siteSidebar]);
+const hostedHeroStudyLanguages = heroStudyLanguages();
 
 export default defineConfig({
     title: 'よむ',
@@ -296,6 +298,9 @@ export default defineConfig({
     },
     vite: {
         plugins: [jpdbAudioDevProxyPlugin()],
+        define: {
+            __YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages),
+        },
         resolve: {
             // Import the renderer package directly instead of Vue's one-line
             // re-export facade. In linked worktrees that facade can resolve

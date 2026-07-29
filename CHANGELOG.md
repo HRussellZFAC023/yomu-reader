@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.30] - 2026-07-29
+
+### Fixed
+
+- Public language claims now follow the shipped study-target roster and published dictionary catalogue. The homepage language fade displays supported study targets from those sources, while the feature guide reports the measured definition-language count.
+
 ## [1.8.29] - 2026-07-29
 
 ### Fixed

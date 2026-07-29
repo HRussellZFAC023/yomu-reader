@@ -23,6 +23,14 @@ import './custom.css';
 type InterfaceLanguage = 'en' | 'ja';
 type HostedThemePreference = 'auto' | 'dark' | 'light';
 type HostedInterfaceLanguagePreference = InterfaceLanguage | 'auto';
+interface HostedHeroStudyLanguage {
+    id: string;
+    locale: string;
+    englishName: string;
+    nativeName: string;
+    direction: 'ltr' | 'rtl';
+}
+declare const __YOMU_HERO_LANGUAGES__: readonly HostedHeroStudyLanguage[];
 type HostedSettingsChangeDetail = { preview?: unknown; settings?: Record<string, unknown> };
 type HostedYomuRuntimeWindow = typeof window & {
     __yomuDevRuntime?: boolean;
@@ -185,6 +193,7 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Public language claims now follow the shipped study-target roster and published dictionary catalogue. The homepage language fade displays supported study targets from those sources, while the feature guide reports the measured definition-language count.': '公開ページの言語対応表記を、出荷済みの学習言語一覧と公開辞書カタログに合わせました。ホームページの言語フェードには、これらの情報源で対応が確認できる学習言語が表示され、機能ガイドには実測した定義言語数が表示されます。',
     "Existing provider furigana on OCR results now retains scanner isolation, so Gaming's instant and area captures remain clickable without exposing duplicate text to external popup scanners.": 'OCR結果に既存のプロバイダー由来のふりがながある場合も、スキャナー分離が維持されるようになりました。これにより、Gamingの全画面キャプチャと範囲キャプチャは、外部ポップアップスキャナーへ重複テキストを公開せずにクリックできます。',
     "The support banner now reuses the hosted layout's existing navigation offset on tablet and mobile, while phones stack the funding copy above the actions instead of squeezing it into a narrow column.": '支援バナーは、タブレットとモバイルでホスト版レイアウトが既に持つナビゲーション用の余白を再利用するようになりました。スマートフォンでは、支援状況の文言を細い縦列へ押し込まず、操作ボタンの上に重ねず積みます。',
     "The support banner now occupies normal document flow below the live navigation height on every hosted viewport, so the navigation remains fully visible without a sticky or hardcoded top offset.": '支援バナーは、すべてのホスト版画面幅で現在のナビゲーションの高さより下にある通常の文書フロー内へ収まるようになりました。固定表示やハードコードした上端位置を使わず、ナビゲーション全体が常に見える状態を保ちます。',
@@ -3815,7 +3824,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'The reading': '読み',
     '— how the word is actually pronounced.': '——その語が実際にどう発音されるか。',
     'The meaning': '意味',
-    ', in your language. Yomu ships definitions in 32 languages.': '——あなたの言語で表示されます。よむは32言語の語義を用意しています。',
+    ', in your language. Yomu ships definitions in 9 languages.': '——あなたの言語で表示されます。よむは9言語の語義を用意しています。',
     'How it sounds': '音声',
     '— press the speaker to hear a real recording.': '——スピーカーを押すと、実際の録音が聞けます。',
     'Real sentences': '実際の例文',
@@ -5177,7 +5186,20 @@ function installHostedHomepageInteractions(): void {
 function startHostedLanguageRotator(): void {
     const rotator = document.querySelector<HTMLElement>('[data-yomu-language-rotator]:not([data-yomu-language-rotator-ready])');
     if (!rotator) return;
+    const languages = Array.from(rotator.querySelectorAll<HTMLElement>('.yomu-language-cycle > span'));
+    if (languages.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let activeIndex = 0;
+    languages[activeIndex]?.setAttribute('data-yomu-language-active', '');
     rotator.dataset.yomuLanguageRotatorReady = 'true';
+    const timer = window.setInterval(() => {
+        if (!rotator.isConnected) {
+            window.clearInterval(timer);
+            return;
+        }
+        languages[activeIndex]?.removeAttribute('data-yomu-language-active');
+        activeIndex = (activeIndex + 1) % languages.length;
+        languages[activeIndex]?.setAttribute('data-yomu-language-active', '');
+    }, 2_000);
 }
 
 // The fold's live line is pre-annotated static markup, so it still looks
@@ -5748,6 +5770,36 @@ function clearLocalHostedRuntimeCaches(): void {
     }
 }
 
+const YomuLanguageRotator = defineComponent({
+    name: 'YomuLanguageRotator',
+    setup() {
+        const languages = __YOMU_HERO_LANGUAGES__;
+        const first = languages[0];
+        if (!first) throw new Error('The homepage language rotator has no supported study target.');
+        return () => h('span', {
+            class: 'yomu-language-rotator',
+            'data-yomu-language-rotator': '',
+            'aria-label': languages.map(language => language.englishName).join(', '),
+        }, [
+            h('span', {
+                class: 'yomu-language-static',
+                lang: first.locale,
+                dir: first.direction,
+                'data-yomu-localize': 'off',
+            }, `${first.nativeName}.`),
+            h('span', {
+                class: 'yomu-language-cycle',
+                'aria-hidden': 'true',
+            }, languages.map(language => h('span', {
+                lang: language.locale,
+                dir: language.direction,
+                'data-yomu-language-id': language.id,
+                'data-yomu-localize': 'off',
+            }, `${language.nativeName}.`))),
+        ]);
+    },
+});
+
 const YomuLayout = defineComponent({
     name: 'YomuLayout',
     setup(_, { slots }) {
@@ -5766,6 +5818,7 @@ export default {
     Layout: YomuLayout,
     enhanceApp(ctx) {
         DefaultTheme.enhanceApp?.(ctx);
+        ctx.app.component('YomuLanguageRotator', YomuLanguageRotator);
         // Delegated from document, so it survives VitePress's client-side route
         // changes without re-binding per page. Guarded because enhanceApp also
         // runs during SSR, where there is no document to listen on.

@@ -9,12 +9,17 @@ import {
     sitemapRouteKey,
 } from '../../config/docs/published-pages';
 import {
+    heroStudyLanguages,
+    measuredDefinitionLanguageCount,
+} from '../../config/docs/product-claims';
+import {
     MEMBERSHIP_NAV,
     docsNav,
     hostedShellNavMarkup,
     hostedShellNavRoutes,
     siteNavRoutes,
 } from '../../src/reader/app/site-nav';
+import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
 
 const ROOT = process.cwd();
 const DOCS = path.join(ROOT, 'docs');
@@ -146,6 +151,50 @@ describe('published docs pages', () => {
         expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
         expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
         expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
+    });
+});
+
+describe('published product claims', () => {
+    it('keeps every homepage hero language inside the shipped target roster', () => {
+        const homepage = readProjectFile('docs/index.md');
+        const config = readProjectFile('docs/.vitepress/config.mts');
+        const theme = readProjectFile('docs/.vitepress/theme/index.ts');
+        const shippedTargetIds = new Set<string>(LEARNING_TARGET_ROSTER.map(language => language.id));
+        const heroLanguages = heroStudyLanguages();
+        const unsupported = heroLanguages
+            .map(language => language.id)
+            .filter(language => !shippedTargetIds.has(language));
+
+        expect(homepage).toContain('<YomuLanguageRotator />');
+        expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
+        expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
+        expect(theme).toContain('const languages = __YOMU_HERO_LANGUAGES__;');
+        expect(
+            unsupported,
+            `homepage claims unsupported study target(s): ${unsupported.join(', ')}`,
+        ).toEqual([]);
+    });
+
+    it('keeps every published "N languages" claim at the measured definition-language count', () => {
+        const measuredCount = measuredDefinitionLanguageCount();
+        const claims = docsMarkdownFiles()
+            .filter(file => !isInternalDocPath(file))
+            .flatMap(file => {
+                const source = readProjectFile(`docs/${file}`);
+                return [...source.matchAll(/\b(\d+)\s+languages?\b/gi)].map(match => ({
+                    file,
+                    count: Number(match[1]),
+                    text: match[0],
+                }));
+            });
+
+        expect(claims.length).toBeGreaterThan(0);
+        for (const claim of claims) {
+            expect(
+                claim.count,
+                `${claim.file} claims "${claim.text}", but ${measuredCount} published learner-language shelves contain a matching definition language`,
+            ).toBe(measuredCount);
+        }
     });
 });
 
