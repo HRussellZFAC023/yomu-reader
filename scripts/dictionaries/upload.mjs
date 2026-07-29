@@ -85,6 +85,31 @@ export async function buildUploadPlan({
   return deduplicateUploadItems(items);
 }
 
+export async function buildAcquiredObjectUploadPlan({
+  stagingRoot = defaultStagingRoot,
+  bucket = 'yomu-dictionaries',
+} = {}) {
+  const ledger = await readJson(resolve(stagingRoot, 'acquisition-ledger.v1.json'));
+  const items = [];
+  for (const artifact of ledger.artifacts ?? []) {
+    const object = artifact.object;
+    const path = resolve(stagingRoot, object.key);
+    if (!await fileExists(path)) continue;
+    const info = await stat(path);
+    if (info.size !== object.bytes) throw new Error(`Acquired object size mismatch: ${object.key}`);
+    if (await sha256File(path) !== object.sha256) throw new Error(`Acquired object SHA-256 mismatch: ${object.key}`);
+    items.push({
+      bucket,
+      key: object.key,
+      path,
+      contentType: 'application/zip',
+      cacheControl: 'public, max-age=31536000, immutable',
+    });
+  }
+  if (!items.length) throw new Error('No locally acquired dictionary objects are available to upload.');
+  return deduplicateUploadItems(items);
+}
+
 // A catalogue row that is not published carries no object and therefore no
 // Install button; Settings renders it as a guide link to the upstream project.
 // That is how the catalogue describes a dictionary the mirror has not taken yet,
@@ -170,11 +195,14 @@ export async function uploadDictionaryRelease(items, {
   const manifests = ordered.filter(item => !item.key.startsWith('objects/sha256/'));
   let completed = 0;
   let skipped = 0;
+  let uploadedBytes = 0;
+  let skippedBytes = 0;
   await runPool(objects, concurrency, async item => {
     const size = (await stat(item.path)).size;
     if (resumeUrl && await remoteObjectMatches(resumeUrl, item.key, size)) {
       completed += 1;
       skipped += 1;
+      skippedBytes += size;
       console.log(`[verified ${completed}/${ordered.length}] ${item.key}`);
       return;
     }
@@ -186,6 +214,7 @@ export async function uploadDictionaryRelease(items, {
     }
     await uploadItem(item);
     completed += 1;
+    uploadedBytes += size;
     console.log(`[uploaded ${completed}/${ordered.length}] ${item.key}`);
   });
   for (const item of manifests) {
@@ -193,41 +222,69 @@ export async function uploadDictionaryRelease(items, {
     completed += 1;
     console.log(`[uploaded ${completed}/${ordered.length}] ${item.key}`);
   }
-  return { mode: 'execute', uploads: plan, skipped };
+  return {
+    mode: 'execute',
+    uploads: plan,
+    uploadedObjects: objects.length - skipped,
+    uploadedBytes,
+    skipped,
+    skippedBytes,
+  };
 }
 
-async function remoteObjectMatches(baseUrl, key, size) {
+export async function remoteObjectMatches(baseUrl, key, size, {
+  fetchImplementation = fetch,
+  wait = milliseconds => new Promise(resolveWait => setTimeout(resolveWait, milliseconds)),
+} = {}) {
   const url = new URL(key, `${baseUrl.replace(/\/+$/, '')}/`);
   let response;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    response = await fetch(url, { method: 'HEAD' }).catch(() => null);
+  let lastError = null;
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    response = await fetchImplementation(url, { method: 'HEAD' }).catch(() => null);
     if (response?.status === 404) return false;
     if (response?.ok) break;
-    if (attempt < 3) await new Promise(resolveWait => setTimeout(resolveWait, attempt * 500));
+    lastError = response
+      ? `HTTP ${response.status}`
+      : 'network request failed';
+    if (attempt < 6) {
+      await wait(Math.min(4_000, 500 * 2 ** (attempt - 1)));
+    }
   }
-  if (!response?.ok) throw new Error(`Dictionary resume HEAD failed for ${key}.`);
+  if (!response?.ok) throw new Error(`Dictionary resume HEAD failed for ${key}: ${lastError}.`);
   const digest = /^objects\/sha256\/([a-f0-9]{64})\.zip$/.exec(key)?.[1];
   return response.headers.get('content-length') === String(size)
     && response.headers.get('x-content-sha256') === digest;
 }
 
 async function uploadItem(item) {
-    await execFile('npx', [
-      'wrangler',
-      'r2',
-      'object',
-      'put',
-      `${item.bucket}/${item.key}`,
-      '--file',
-      item.path,
-      '--content-type',
-      item.contentType,
-      '--cache-control',
-      item.cacheControl,
-      '--remote',
-      '--config',
-      WORKER_CONFIG,
-    ], { cwd: resolve(import.meta.dirname, '../..'), maxBuffer: 8 * 1024 * 1024 });
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      await execFile('npx', [
+        'wrangler',
+        'r2',
+        'object',
+        'put',
+        `${item.bucket}/${item.key}`,
+        '--file',
+        item.path,
+        '--content-type',
+        item.contentType,
+        '--cache-control',
+        item.cacheControl,
+        '--remote',
+        '--config',
+        WORKER_CONFIG,
+      ], { cwd: resolve(import.meta.dirname, '../..'), maxBuffer: 8 * 1024 * 1024 });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 4) {
+        await new Promise(resolveWait => setTimeout(resolveWait, 1_000 * 2 ** (attempt - 1)));
+      }
+    }
+  }
+  throw lastError;
 }
 
 function manifestUpload(bucket, key, path) {
@@ -276,26 +333,34 @@ async function runPool(items, concurrency, worker) {
 async function main() {
   const argv = process.argv.slice(2);
   const manifestsOnly = argv.includes('--manifests-only');
-  const args = parseCommonArguments(argv, new Set(['--manifests-only']));
+  const acquiredObjectsOnly = argv.includes('--acquired-objects-only');
+  const args = parseCommonArguments(argv, new Set(['--manifests-only', '--acquired-objects-only']));
   if (args.help) {
-    console.log('Usage: node scripts/dictionaries/upload.mjs [--release-dir DIR] [--staging-dir DIR] [--bucket NAME] [--manifests-only] [--execute --confirm-bucket NAME]');
+    console.log('Usage: node scripts/dictionaries/upload.mjs [--release-dir DIR] [--staging-dir DIR] [--bucket NAME] [--manifests-only|--acquired-objects-only] [--execute --confirm-bucket NAME]');
     console.log('The default is a non-mutating upload plan. This command never creates or deletes an R2 bucket.');
     console.log('--manifests-only publishes the catalogue, language and recommendation manifests without touching objects, for a catalogue edit that adds no new content hash. It needs no staging tree.');
     return;
   }
-  const plan = await buildUploadPlan({
-    releaseRoot: args.release,
-    stagingRoot: args.staging,
-    bucket: args.bucket,
-    manifestsOnly,
-  });
+  if (manifestsOnly && acquiredObjectsOnly) throw new Error('Choose only one upload mode.');
+  const plan = acquiredObjectsOnly
+    ? await buildAcquiredObjectUploadPlan({ stagingRoot: args.staging, bucket: args.bucket })
+    : await buildUploadPlan({
+      releaseRoot: args.release,
+      stagingRoot: args.staging,
+      bucket: args.bucket,
+      manifestsOnly,
+    });
   const result = await uploadDictionaryRelease(plan, {
     execute: args.execute,
     bucket: args.bucket,
     confirmBucket: args.confirmBucket,
     resumeUrl: process.env.YOMU_DICTIONARY_RESUME_URL ?? '',
   });
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(
+    result.mode === 'execute' ? { ...result, uploads: result.uploads.length } : result,
+    null,
+    2,
+  ));
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : '';

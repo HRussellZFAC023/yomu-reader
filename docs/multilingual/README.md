@@ -7,6 +7,7 @@ This workspace is the handover point for **32 learner languages → Japanese**. 
 ## Current state
 
 - Frozen learner-language roster: **32/32 represented**
+- Mirrored target-language dictionary supply: **32/32 represented**
 - English source catalogue: **1/32 source-approved**
 - Per-language seed catalogues: **31/32 machine-draft**, **0/32 scaffold**
 - Full Yomu UI extraction: not yet complete

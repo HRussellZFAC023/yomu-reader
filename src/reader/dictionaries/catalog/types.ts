@@ -148,6 +148,16 @@ export interface CatalogLanguage {
     targetLanguage: typeof DICTIONARY_CATALOG_TARGET_LANGUAGE;
     status: 'slice1';
     catalogueEvidence: string[];
+    readiness?: 'ready' | 'blocked';
+    blockers?: string[];
+    dictionaryCoverage?: {
+        publishedEntries: number;
+        terms: number;
+        pronunciation: number;
+        definitionLanguages: string[];
+        wtyPairDirectories: number;
+        upstreamMissingArchives: number;
+    };
 }
 
 export interface DictionaryLanguageManifest {
@@ -200,4 +210,3 @@ export interface DictionaryRecommendationManifest {
 export function isSlice1LearnerLanguage(value: string): value is Slice1LearnerLanguage {
     return (SLICE1_LEARNER_LANGUAGES as readonly string[]).includes(value);
 }
-

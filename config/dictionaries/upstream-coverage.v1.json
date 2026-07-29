@@ -430,6 +430,16 @@
       "surveyMethod": "Aggregate only. The frozen inventory decision fixes this folder at 173 unique dictionary archives; the catalogue is checked for exactly that many drive-sourced entries rather than per-file, because the connector inventory that names the individual Drive file ids is operator-supplied and not tracked here.",
       "expectedCatalogEntries": 173,
       "catalogEntryIdPrefix": "drive-"
+    },
+    {
+      "id": "wty-release-roster",
+      "label": "WTY roster-to-roster release snapshot",
+      "kind": "huggingface-dataset",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/tree/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict",
+      "surveyedAt": "2026-07-29T18:06:07.009Z",
+      "surveyMethod": "Frozen Hugging Face tree API snapshot: 742 pair directories, 1440 ZIP archives, 1543153889 bytes.",
+      "expectedCatalogEntries": 1440,
+      "catalogEntryIdPrefix": "wty-"
     }
   ],
   "unsurveyedCollections": [

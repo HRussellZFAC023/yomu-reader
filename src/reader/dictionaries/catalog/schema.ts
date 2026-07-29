@@ -230,6 +230,15 @@ function parseCatalogLanguage(input: unknown, path: string): CatalogLanguage {
     if (defaultScript && !SCRIPT_PATTERN.test(defaultScript)) fail(`${path}.defaultScript`, 'must be an ISO 15924 script code');
     const catalogueEvidence = stringArray(value.catalogueEvidence, `${path}.catalogueEvidence`);
     if (!catalogueEvidence.length) fail(`${path}.catalogueEvidence`, 'must contain at least one source note');
+    const readiness = value.readiness === undefined
+        ? undefined
+        : oneOf(value.readiness, ['ready', 'blocked'] as const, `${path}.readiness`);
+    const blockers = value.blockers === undefined ? undefined : stringArray(value.blockers, `${path}.blockers`);
+    if (readiness === 'ready' && blockers?.length) fail(`${path}.blockers`, 'must be empty when readiness is ready');
+    if (readiness === 'blocked' && !blockers?.length) fail(`${path}.blockers`, 'must explain why readiness is blocked');
+    const coverage = value.dictionaryCoverage === undefined
+        ? undefined
+        : parseLanguageCoverage(value.dictionaryCoverage, `${path}.dictionaryCoverage`);
     return {
         tag,
         englishName: text(value.englishName, `${path}.englishName`),
@@ -239,6 +248,20 @@ function parseCatalogLanguage(input: unknown, path: string): CatalogLanguage {
         targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
         status: 'slice1',
         catalogueEvidence,
+        ...(readiness ? { readiness, blockers: blockers ?? [] } : {}),
+        ...(coverage ? { dictionaryCoverage: coverage } : {}),
+    };
+}
+
+function parseLanguageCoverage(input: unknown, path: string): NonNullable<CatalogLanguage['dictionaryCoverage']> {
+    const value = record(input, path);
+    return {
+        publishedEntries: nonNegativeInteger(value.publishedEntries, `${path}.publishedEntries`),
+        terms: nonNegativeInteger(value.terms, `${path}.terms`),
+        pronunciation: nonNegativeInteger(value.pronunciation, `${path}.pronunciation`),
+        definitionLanguages: languageTagArrayAllowEmpty(value.definitionLanguages, `${path}.definitionLanguages`),
+        wtyPairDirectories: nonNegativeInteger(value.wtyPairDirectories, `${path}.wtyPairDirectories`),
+        upstreamMissingArchives: nonNegativeInteger(value.upstreamMissingArchives, `${path}.upstreamMissingArchives`),
     };
 }
 
@@ -269,6 +292,12 @@ function language(value: unknown, path: string): Slice1LearnerLanguage {
 function languageTagArray(value: unknown, path: string): string[] {
     const result = array(value, path).map((entry, index) => languageTag(entry, `${path}[${index}]`));
     if (!result.length) fail(path, 'must contain at least one language');
+    assertUnique(result, path, 'language tag');
+    return result;
+}
+
+function languageTagArrayAllowEmpty(value: unknown, path: string): string[] {
+    const result = array(value, path).map((entry, index) => languageTag(entry, `${path}[${index}]`));
     assertUnique(result, path, 'language tag');
     return result;
 }

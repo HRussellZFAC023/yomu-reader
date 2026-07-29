@@ -26,6 +26,8 @@ export async function buildAcquisitionQueue(config, inventory = null) {
       filename: source.filename,
       relativePath: source.filename,
       downloadUrl: source.url,
+      expectedSha256: source.sha256,
+      expectedBytes: source.bytes,
       acquisitionKind: 'direct',
       redistributionReview: source.redistributionReview,
     });
@@ -82,6 +84,13 @@ export async function acquireQueue(queue, options) {
       const download = await downloadToPartialFile(item.downloadUrl, partialPath);
       const dictionary = await validateYomitanZip(partialPath);
       const sha256 = await sha256File(partialPath);
+      const downloadedBytes = (await stat(partialPath)).size;
+      if (item.expectedSha256 && sha256 !== item.expectedSha256) {
+        throw new Error(`SHA-256 mismatch: expected ${item.expectedSha256}, downloaded ${sha256}`);
+      }
+      if (item.expectedBytes && downloadedBytes !== item.expectedBytes) {
+        throw new Error(`Byte-size mismatch: expected ${item.expectedBytes}, downloaded ${downloadedBytes}`);
+      }
       const placed = await placeContentAddressedObject(partialPath, stagingRoot, sha256);
       const bytes = (await stat(placed.path)).size;
       const artifact = {
@@ -152,6 +161,12 @@ function validateAcquisitionSource(source, path) {
   if (url.protocol !== 'https:') throw new Error(`${path}.url must use HTTPS.`);
   if (typeof source.filename !== 'string' || !source.filename.toLowerCase().endsWith('.zip')) {
     throw new Error(`${path}.filename must name a ZIP archive.`);
+  }
+  if (source.sha256 !== undefined && !/^[a-f0-9]{64}$/.test(source.sha256)) {
+    throw new Error(`${path}.sha256 must be a lowercase SHA-256 digest.`);
+  }
+  if (source.bytes !== undefined && (!Number.isSafeInteger(source.bytes) || source.bytes <= 0)) {
+    throw new Error(`${path}.bytes must be a positive integer.`);
   }
 }
 

@@ -58,8 +58,8 @@ repeat reads no longer touch R2) · `A16` Study PWA · `A3b` settings reference 
 overlap) · **`U44`/`U97` language-aware card identity (`eb1271571`)** — the 1.9.0 blocker, landed with a
 4-slot key that elides `ja` so existing Japanese keys stay byte-identical and no E2EE migration is needed.
 
-**STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply for the 32 targets (catalogue is still at 221 entries
-across 10 headword languages; the mirror job is running), then `U61`/`U79` the target picker and CSS gating,
+**STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply for all 32 targets is complete (1,637 catalogue
+entries; 1,607 distinct objects verified through the public mirror), then `U61`/`U79` the target picker and CSS gating,
 then `U105`/`D43`/`U46` per the plan in `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced
 slices). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
 
@@ -87,11 +87,12 @@ slices). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — 
 - [ ] **A6 — SEO next step is D42 query research, not technical fixes.** The 2026-07-28 Search Console
       email was verified benign: all 21 sitemap URLs 200; noindex only on utility stubs; the 404s are
       the deliberately unpublished internal notes deindexing.
-- [ ] **A7 — T4 CORRECTION (measured 2026-07-28):** WTY publishes ALL 32 roster languages —
-      742 roster pairs / 1,484 zips (`wty-{X}-{Y}.zip` + `-ipa`). The claims "24 targets have zero
-      supply" and "WTY lacks Lao" below are BOTH WRONG. The gap is catalogue+mirror generation, not
-      sourcing: generate per-target acquisition config → mirror to R2 → per-target catalogues/shelves.
-      Matrix + regeneration recipe: memory `yomu-wty-many-to-many-matrix`.
+- [x] **A7 — T4 dictionary DATA leg shipped 2026-07-29:** WTY publishes ALL 32 roster languages —
+      742 roster pairs / 1,440 live zips. The nominal `wty-{X}-{Y}.zip` + `-ipa` matrix has 512
+      missing paths and 468 `-gloss.zip` alternatives. All 1,440 live objects (1,543,153,889 bytes)
+      are now content-addressed in R2; 1,607 distinct published objects pass public status, length, and
+      SHA-header checks. The published catalogue, honest language readiness, and 32 recommendation
+      shelves are live. Matrix + regeneration recipe: memory `yomu-wty-many-to-many-matrix`.
 - [ ] **A9 — LESS IS MORE + natural sitewide copy (owner 2026-07-28).** One pass over every surface —
       docs, settings, store listings, in-product strings — cutting anything that is structure-labelling,
       hedging, or enumeration, and rewriting what remains to sound like a person. Rules that already
@@ -1326,7 +1327,7 @@ The measured picture, all re-verified this pass:
 
 ## T4 — Multilingual: what actually remains for 1.9.0
 
-**Measured this pass**, not estimated:
+**Baseline before this pass**, not estimated:
 
 - The published catalogue (`config/dictionaries/published/v1/catalog.json`) holds **221 entries**
   across **10 headword languages**: `ja:145 zh:38 yue:10 lzh:4 es:4 fr:4 de:4 ru:4 ko:4 vi:4`.
@@ -1335,14 +1336,14 @@ The measured picture, all re-verified this pass:
   **24 roster languages have zero dictionaries.** Six of the thirty landed in 1.8.18 (`108584f25`);
   the earlier "~27 non-CJK targets with no supply" figure is now **24**.
 
-- [ ] **Dictionary supply for the remaining 24 targets. NO CONSTRAINT REMAINS — BUILD IT.** The owner
+- [x] **Dictionary supply for all 32 targets shipped 2026-07-29.** The owner
       granted full permission on 2026-07-28: licences and approvals are in hand for all 24 dictionaries,
       the Persona OST, every downloaded study resource, and anything downloaded from here. *"What matters
       most is building out the product."* The old "data and licensing, not code" framing is void.
       The other half of that line was also wrong: **WTY publishes all 32 roster languages including `lo`**
-      (measured 2026-07-28 — 742 roster pairs / 1,484 zips; see A7 and memory
+      (remeasured 2026-07-29 — 742 roster pairs / 1,440 live zips; see A7 and memory
       `yomu-wty-many-to-many-matrix`). So this is generation and upload work, with nothing to wait for.
-      Owner expectation, stated plainly: *"I do expect all the dictionaries to be updated."*
+      All 1,440 live archives are now mirrored, and every roster target has published terms supply.
 - [ ] **U61 — language-seam residuals.** Re-counted this pass:
       - **31** direct `HAS_JAPANESE` sites remain outside `languages/` (was 33). Heaviest now:
         `reader/dom/index.ts` (5), `academy/ui/vn-stage.ts` (5, own regex),
@@ -1388,8 +1389,9 @@ The measured picture, all re-verified this pass:
       has audio? → has image? → API shape, plus an explicit list of targets with **no** usable source
       so the affordance can degrade visibly.
 - [ ] **U62 — dictionary mirror residuals.** 13 published entries have dead Drive source URLs (served
-      fine, but `acquire.mjs` can no longer re-fetch them); `languages.json` claims all 32 are
-      `readiness:"ready", blockers:[]` — **that is false, do not trust it**; Kanjium pitch and WTY
+      fine, but `acquire.mjs` can no longer re-fetch them); `languages.json` now records measured
+      published-entry, term, pronunciation, definition-language and missing-upstream coverage for every
+      learner language; Kanjium pitch and WTY
       JA-JA are offered as curated cards pointing off-mirror; 135 zips across 6 Drive folders
       unmirrored; 7 Proton folders unenumerable; 7 GitHub collection repos not cloned.
 - [ ] **A1 — one parser, best of both, locally.** JPDB deconjugates to dictionary form and blacklists
@@ -2707,13 +2709,14 @@ the first tap can leave it stuck un-blurred after the blur toggle (1.8.13) does 
 ## U62. DICTIONARY MIRROR RESIDUALS
 - **13 published entries have DEAD Drive source URLs** (upstream re-uploaded words.hk, CC-Canto,
   jitendex, JMnedict, KANJIDIC…). Served objects fine; `acquire.mjs` can no longer re-fetch them.
-- **`languages.json` claims all 32 `readiness:"ready", blockers:[]` — that is FALSE**; its own
-  evidence cites collections we hold nothing for. Do not trust it as a readiness signal.
+- **`languages.json` now has measured readiness.** All 32 targets have published terms supply; each row
+  records published-entry, term, pronunciation, definition-language and missing-upstream coverage.
 - **Kanjium pitch + WTY JA-JA are offered as curated cards pointing OFF-MIRROR** — users see install
   cards for dictionaries we do not host.
 - **135 zips across 6 linked Drive folders** unmirrored; 7 Proton folders unenumerable (key in URL
   fragment); 7 GitHub collection repos not cloned.
-- **lo (Lao) is the one roster target WTY does not cover** — needs its own source.
+- **The Lao gap was stale.** The frozen WTY release contains 29 Lao archives across 16 definition
+  languages, including 16 term dictionaries and 13 pronunciation dictionaries.
 
 ## U63. RELEASE/TOOLING RESIDUALS
 - `npm run fallow:dead-code` still exits non-zero (4 pre-existing rows).

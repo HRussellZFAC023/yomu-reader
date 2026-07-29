@@ -32,7 +32,10 @@
           "direction",
           "targetLanguage",
           "status",
-          "catalogueEvidence"
+          "catalogueEvidence",
+          "readiness",
+          "blockers",
+          "dictionaryCoverage"
         ],
         "properties": {
           "tag": {
@@ -77,6 +80,36 @@
           "defaultScript": { "type": "string", "pattern": "^[A-Z][a-z]{3}$" },
           "targetLanguage": { "const": "ja" },
           "status": { "const": "slice1" },
+          "readiness": { "enum": ["ready", "blocked"] },
+          "blockers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "dictionaryCoverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "publishedEntries",
+              "terms",
+              "pronunciation",
+              "definitionLanguages",
+              "wtyPairDirectories",
+              "upstreamMissingArchives"
+            ],
+            "properties": {
+              "publishedEntries": { "type": "integer", "minimum": 0 },
+              "terms": { "type": "integer", "minimum": 0 },
+              "pronunciation": { "type": "integer", "minimum": 0 },
+              "definitionLanguages": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "$ref": "#/$defs/languageTag" }
+              },
+              "wtyPairDirectories": { "type": "integer", "minimum": 0 },
+              "upstreamMissingArchives": { "type": "integer", "minimum": 0 }
+            }
+          },
           "catalogueEvidence": {
             "type": "array",
             "minItems": 1,
@@ -85,6 +118,11 @@
         }
       }
     }
+  },
+  "$defs": {
+    "languageTag": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    }
   }
 }
-

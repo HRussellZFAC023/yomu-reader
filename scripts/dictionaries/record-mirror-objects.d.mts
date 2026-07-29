@@ -9,6 +9,7 @@ export function recordMirrorObjects(options?: {
   concurrency?: number;
   write?: boolean;
   fetchImplementation?: typeof fetch;
+  wait?: (milliseconds: number) => Promise<void>;
 }): Promise<{
   mode: 'write' | 'dry-run';
   baseUrl: string;
@@ -18,3 +19,12 @@ export function recordMirrorObjects(options?: {
   ledgerObjects: number;
   ledgerPath: string;
 }>;
+
+export function fetchMirrorHead(
+  url: string,
+  options?: {
+    fetchImplementation?: typeof fetch;
+    wait?: (milliseconds: number) => Promise<void>;
+    attempts?: number;
+  },
+): Promise<Response>;

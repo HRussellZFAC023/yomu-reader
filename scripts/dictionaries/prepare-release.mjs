@@ -12,6 +12,7 @@ import {
   writeJsonAtomic,
 } from './lib.mjs';
 import { ingestVerifiedConnectorManifest } from './ingest-verified-connector-manifest.mjs';
+import { defaultWtySnapshotPath } from './wty-release.mjs';
 
 export const defaultRecommendationShelfPath = resolve(repositoryRoot, 'config/dictionaries/recommendation-shelf.v1.json');
 
@@ -181,11 +182,15 @@ export async function prepareDictionaryRelease({
   releaseRoot = defaultReleaseRoot,
   shelfPath = defaultRecommendationShelfPath,
   connectorInventory = null,
+  publishedBaseRoot = null,
   write = false,
 } = {}) {
   const safeReleaseRoot = assertSafeWorkingDirectory(releaseRoot, 'dictionary release directory');
-  const baseCatalog = structuredClone(await readJson(resolve(manifestRoot, 'catalog.json')));
-  const languages = await readJson(resolve(manifestRoot, 'languages.json'));
+  const stagedCatalog = structuredClone(await readJson(resolve(manifestRoot, 'catalog.json')));
+  const baseCatalog = publishedBaseRoot
+    ? mergePublishedBase(await readJson(resolve(publishedBaseRoot, 'catalog.json')), stagedCatalog)
+    : stagedCatalog;
+  let languages = await readJson(resolve(manifestRoot, 'languages.json'));
   const ledger = await readJson(resolve(stagingRoot, 'acquisition-ledger.v1.json'));
   const catalog = connectorInventory
     ? ingestVerifiedConnectorManifest(baseCatalog, connectorInventory, ledger)
@@ -198,6 +203,10 @@ export async function prepareDictionaryRelease({
     entry.distribution = { state: 'published', object: artifact.object };
     promoted += 1;
   }
+  catalog.revision = stagedCatalog.revision;
+  catalog.generatedAt = stagedCatalog.generatedAt;
+  const wtySnapshot = await readJson(defaultWtySnapshotPath).catch(() => null);
+  languages = applyLanguageReadiness(languages, catalog, wtySnapshot);
   const recommendations = [];
   const recommendationFiles = (await readdir(resolve(manifestRoot, 'recommendations')))
     .filter(name => name.endsWith('-ja.json'))
@@ -210,6 +219,7 @@ export async function prepareDictionaryRelease({
   for (const filename of recommendationFiles) {
     const source = structuredClone(await readJson(resolve(manifestRoot, 'recommendations', filename)));
     const recommendation = applyRecommendationShelf(source, catalog, shelfSlots);
+    recommendation.catalogRevision = catalog.revision;
     shelfRows += recommendation.dictionaries.filter(item => SHELF_ROLES.has(item.role)).length;
     const dictionariesPublished = recommendation.dictionaries.every(item => publishedIds.has(item.dictionaryId));
     if (dictionariesPublished) {
@@ -243,10 +253,78 @@ export async function prepareDictionaryRelease({
   return summary;
 }
 
+export function mergePublishedBase(published, staged) {
+  const entries = new Map((published.entries ?? []).map(entry => [entry.id, structuredClone(entry)]));
+  for (const stagedEntry of staged.entries ?? []) {
+    const previous = entries.get(stagedEntry.id);
+    const preservePublishedObject = previous?.distribution?.state === 'published'
+      && stagedEntry.distribution?.state === 'source-only';
+    entries.set(stagedEntry.id, {
+      ...structuredClone(previous ?? {}),
+      ...structuredClone(stagedEntry),
+      distribution: preservePublishedObject
+        ? structuredClone(previous.distribution)
+        : structuredClone(stagedEntry.distribution),
+    });
+  }
+  return {
+    ...structuredClone(published),
+    ...structuredClone(staged),
+    entries: [...entries.values()],
+  };
+}
+
+export function applyLanguageReadiness(languages, catalog, wtySnapshot = null) {
+  const pairCounts = new Map();
+  const missingCounts = new Map();
+  for (const artifact of wtySnapshot?.artifacts ?? []) {
+    if (!pairCounts.has(artifact.headwordLanguage)) pairCounts.set(artifact.headwordLanguage, new Set());
+    pairCounts.get(artifact.headwordLanguage).add(artifact.definitionLanguage);
+  }
+  for (const path of wtySnapshot?.missingExpectedPaths ?? []) {
+    const headword = path.split('/')[2];
+    missingCounts.set(headword, (missingCounts.get(headword) ?? 0) + 1);
+  }
+  return {
+    ...languages,
+    revision: catalog.revision,
+    generatedAt: catalog.generatedAt,
+    languages: languages.languages.map(language => {
+      const published = catalog.entries.filter(entry =>
+        entry.distribution?.state === 'published'
+        && entry.headwordLanguages?.includes(language.tag));
+      const terms = published.filter(entry => entry.categories?.includes('terms'));
+      const pronunciation = published.filter(entry => entry.categories?.includes('pronunciation'));
+      const definitionLanguages = [...new Set(published.flatMap(entry => entry.definitionLanguages ?? []))].sort();
+      const ready = terms.length > 0;
+      return {
+        ...language,
+        readiness: ready ? 'ready' : 'blocked',
+        blockers: ready ? [] : ['no-published-terms-dictionary'],
+        dictionaryCoverage: {
+          publishedEntries: published.length,
+          terms: terms.length,
+          pronunciation: pronunciation.length,
+          definitionLanguages,
+          wtyPairDirectories: pairCounts.get(language.tag)?.size ?? 0,
+          upstreamMissingArchives: missingCounts.get(language.tag) ?? 0,
+        },
+      };
+    }),
+  };
+}
+
 async function main() {
-  const args = parseCommonArguments(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const publishedBaseIndex = argv.indexOf('--published-base');
+  const publishedBaseRoot = publishedBaseIndex >= 0
+    ? resolve(argv[publishedBaseIndex + 1])
+    : null;
+  const filteredArgv = argv.filter((argument, index) =>
+    index !== publishedBaseIndex && index !== publishedBaseIndex + 1);
+  const args = parseCommonArguments(filteredArgv);
   if (args.help) {
-    console.log('Usage: node scripts/dictionaries/prepare-release.mjs [--inventory VERIFIED_CONNECTOR_FILE] [--staging-dir DIR] [--release-dir DIR] [--write]');
+    console.log('Usage: node scripts/dictionaries/prepare-release.mjs [--inventory VERIFIED_CONNECTOR_FILE|--published-base DIR] [--staging-dir DIR] [--release-dir DIR] [--write]');
     console.log('Without --write the command reports which licence-approved, hash-verified objects would be promoted.');
     return;
   }
@@ -254,6 +332,7 @@ async function main() {
     stagingRoot: args.staging,
     releaseRoot: args.release,
     connectorInventory: args.inventory ? await readJson(args.inventory) : null,
+    publishedBaseRoot,
     write: args.write,
   });
   console.log(JSON.stringify(summary, null, 2));

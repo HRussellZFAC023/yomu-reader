@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": "2026-07-23.574961e8",
-  "generatedAt": "2026-07-23T00:00:00.000Z",
+  "revision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "generatedAt": "2026-07-29T18:06:07.009Z",
   "targetLanguage": "ja",
   "count": 32,
   "languages": [
@@ -13,8 +13,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki-to-yomitan"
-      ]
+        "kaikki-to-yomitan",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "grc",
@@ -24,8 +37,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki-to-yomitan"
-      ]
+        "kaikki-to-yomitan",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 15,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "ar",
@@ -36,8 +62,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Lingoes and Apple bilingual collections"
-      ]
+        "Lingoes and Apple bilingual collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "yue",
@@ -48,8 +87,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Cantonese dictionary collection"
-      ]
+        "Cantonese dictionary collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 14,
+        "upstreamMissingArchives": 2
+      }
     },
     {
       "tag": "zh",
@@ -60,8 +112,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Mandarin dictionary collection"
-      ]
+        "Mandarin dictionary collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 34
+      }
     },
     {
       "tag": "da",
@@ -71,8 +136,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Leipzig language collection"
-      ]
+        "Leipzig language collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "nl",
@@ -82,8 +160,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Apple bilingual collection and JMdict"
-      ]
+        "Apple bilingual collection and JMdict",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 32
+      }
     },
     {
       "tag": "en",
@@ -93,8 +184,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Japanese-English dictionary collection"
-      ]
+        "Japanese-English dictionary collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 32
+      }
     },
     {
       "tag": "fi",
@@ -104,8 +208,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Leipzig language collection"
-      ]
+        "Leipzig language collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 15,
+        "upstreamMissingArchives": 0
+      }
     },
     {
       "tag": "fr",
@@ -115,8 +232,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "French-Japanese, Apple, and JMdict collections"
-      ]
+        "French-Japanese, Apple, and JMdict collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 32
+      }
     },
     {
       "tag": "de",
@@ -126,8 +256,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Japanese-German, Apple, and JMdict collections"
-      ]
+        "Japanese-German, Apple, and JMdict collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 32
+      }
     },
     {
       "tag": "el",
@@ -137,8 +280,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki and Lingoes collections"
-      ]
+        "kaikki and Lingoes collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 31,
+        "upstreamMissingArchives": 31
+      }
     },
     {
       "tag": "hu",
@@ -148,8 +304,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "JMdict multilingual collection"
-      ]
+        "JMdict multilingual collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "id",
@@ -159,8 +328,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Indonesian and Apple collections"
-      ]
+        "Indonesian and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 0
+      }
     },
     {
       "tag": "it",
@@ -170,8 +352,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki, Lingoes, and Apple collections"
-      ]
+        "kaikki, Lingoes, and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     },
     {
       "tag": "km",
@@ -182,8 +377,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Leipzig language collection"
-      ]
+        "Leipzig language collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 3
+      }
     },
     {
       "tag": "ko",
@@ -193,8 +401,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Korean dictionary collection"
-      ]
+        "Korean dictionary collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 32
+      }
     },
     {
       "tag": "lo",
@@ -205,8 +426,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Lao dictionary collection"
-      ]
+        "Lao dictionary collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 3
+      }
     },
     {
       "tag": "la",
@@ -216,8 +450,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki and Lingoes collections"
-      ]
+        "kaikki and Lingoes collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "mn",
@@ -228,8 +475,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Japanese-Mongolian and Korean collections"
-      ]
+        "Japanese-Mongolian and Korean collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 3
+      }
     },
     {
       "tag": "fa",
@@ -240,8 +500,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki-to-yomitan"
-      ]
+        "kaikki-to-yomitan",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "pl",
@@ -251,8 +524,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki and Apple collections"
-      ]
+        "kaikki and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 31,
+        "upstreamMissingArchives": 31
+      }
     },
     {
       "tag": "pt",
@@ -262,8 +548,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Japanese-Portuguese, Lingoes, and Apple collections"
-      ]
+        "Japanese-Portuguese, Lingoes, and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     },
     {
       "tag": "ro",
@@ -273,8 +572,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Converted Migaku collection"
-      ]
+        "Converted Migaku collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "ru",
@@ -284,8 +596,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Russian, Lingoes, Apple, and JMdict collections"
-      ]
+        "Russian, Lingoes, Apple, and JMdict collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     },
     {
       "tag": "sh",
@@ -296,8 +621,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "kaikki-to-yomitan"
-      ]
+        "kaikki-to-yomitan",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 12,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "es",
@@ -307,8 +645,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Migaku, Apple, and JMdict collections"
-      ]
+        "Migaku, Apple, and JMdict collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     },
     {
       "tag": "sv",
@@ -318,8 +669,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "JMdict multilingual collection"
-      ]
+        "JMdict multilingual collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 1
+      }
     },
     {
       "tag": "tl",
@@ -329,8 +693,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Leipzig language collection"
-      ]
+        "Leipzig language collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 16,
+        "upstreamMissingArchives": 2
+      }
     },
     {
       "tag": "th",
@@ -341,8 +718,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Thai, Korean, and Apple collections"
-      ]
+        "Thai, Korean, and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 35
+      }
     },
     {
       "tag": "tr",
@@ -352,8 +742,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Leipzig language collection"
-      ]
+        "Leipzig language collection",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     },
     {
       "tag": "vi",
@@ -363,8 +766,21 @@
       "targetLanguage": "ja",
       "status": "slice1",
       "catalogueEvidence": [
-        "Vietnamese, Korean, and Apple collections"
-      ]
+        "Vietnamese, Korean, and Apple collections",
+        "WTY roster snapshot 95a9151c1beb"
+      ],
+      "readiness": "blocked",
+      "blockers": [
+        "dictionary-objects-not-yet-mirrored"
+      ],
+      "dictionaryCoverage": {
+        "publishedEntries": 0,
+        "terms": 0,
+        "pronunciation": 0,
+        "definitionLanguages": [],
+        "wtyPairDirectories": 32,
+        "upstreamMissingArchives": 33
+      }
     }
   ]
 }

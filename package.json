@@ -109,6 +109,8 @@
     "academy:art:learning:usage": "node scripts/academy-learning-art-usage.mjs",
     "academy:vocabulary:pictographs": "node scripts/academy-vocabulary-pictographs.mjs",
     "dictionaries:mirror:record": "node scripts/dictionaries/record-mirror-objects.mjs --write",
+    "dictionaries:wty:snapshot": "node scripts/dictionaries/wty-release.mjs --write",
+    "dictionaries:wty:sync": "node scripts/dictionaries/sync-wty-release.mjs --write",
     "dev": "node scripts/dev-userscript.mjs",
     "dev:gaming": "node scripts/dev-gaming-app.mjs",
     "dev:academy": "vite --config config/vite/academy.config.ts",

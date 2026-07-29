@@ -866,7 +866,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Keep doing that. Connect the account in Settings and Yomu becomes their front end: your existing word statuses colour every page you read, and grading a word in Yomu records the review on your system, not beside it.': 'そのまま続けてください。設定でアカウントを連携すると、よむがそのフロントエンドになります。既存の単語ステータスが読むページすべてに色付けされ、よむでの採点はあなたのシステム側に記録されます。',
     'Languages': '対応言語',
     'Is it only for Japanese?': '日本語専用ですか？',
-    'Japanese is the deepest today — pitch accent, kanji, furigana, the works. The dictionary catalogue already carries Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese, and the goal is every roster language as a full study target. The interface itself speaks English and 日本語, with more coming.': '今いちばん深いのは日本語です — ピッチアクセント、漢字、ふりがな、すべて揃っています。辞書カタログには中国語、広東語、韓国語、スペイン語、フランス語、ドイツ語、ロシア語、ベトナム語もすでにあり、最終的にはすべての対象言語を本格的な学習対象にする計画です。インターフェース自体は英語と日本語に対応し、さらに増えていきます。',
+    'Japanese still has the deepest support for pitch accent, kanji and furigana. The dictionary catalogue now includes installable dictionaries for all 32 study languages. The interface itself speaks English and 日本語, with more coming.': 'ピッチアクセント、漢字、ふりがなは、引き続き日本語が最も充実しています。辞書カタログでは、32の学習言語すべてに対応する辞書をインストールできるようになりました。インターフェース自体は英語と日本語に対応し、今後さらに増えていきます。',
     'Your data': 'あなたのデータ',
     'Where do my words and progress live?': '単語や進捗はどこに保存されますか？',
     'In your browser, on your device. Connecting Anki, jpdb, Bunpro or WaniKani sends your grades to that service and nowhere else.': 'あなたのブラウザーの中、あなたの端末の上です。AnkiやjpdbやBunpro、WaniKaniを連携した場合、採点はそのサービスだけに送られます。',

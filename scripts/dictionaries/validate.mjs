@@ -29,6 +29,16 @@ export async function validateDictionaryManifests({
   const actualTags = languages.languages.map(language => language.tag);
   assert(JSON.stringify(actualTags) === JSON.stringify(expectedTags), `language roster/order must be ${expectedTags.join(', ')}`);
   assertUnique(actualTags, 'language tag');
+  for (const language of languages.languages) {
+    assert(['ready', 'blocked'].includes(language.readiness), `${language.tag} readiness must be explicit`);
+    assert(Array.isArray(language.blockers), `${language.tag} blockers must be explicit`);
+    if (language.readiness === 'ready') {
+      assert(language.blockers.length === 0, `${language.tag} is ready but still has blockers`);
+    } else {
+      assert(language.blockers.length > 0, `${language.tag} is blocked without an explanation`);
+    }
+    assert(Number.isSafeInteger(language.dictionaryCoverage?.terms), `${language.tag} dictionary coverage must be measured`);
+  }
   const acquisitionIds = new Set((acquisition.sources ?? []).map(source => source.id));
   const catalogIds = catalog.entries.map(entry => entry.id);
   assertUnique(catalogIds, 'catalog dictionary id');

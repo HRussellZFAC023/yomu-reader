@@ -47,6 +47,7 @@ export async function recordMirrorObjects({
   concurrency = 12,
   write = false,
   fetchImplementation = fetch,
+  wait = milliseconds => new Promise(resolveWait => setTimeout(resolveWait, milliseconds)),
 } = {}) {
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
   const catalog = await readJson(resolve(manifestRoot, 'catalog.json'));
@@ -55,17 +56,22 @@ export async function recordMirrorObjects({
   const observations = new Array(wanted.length);
   const failures = [];
   await runPool(wanted, concurrency, async (object, index) => {
-    const response = await fetchImplementation(`${normalizedBaseUrl}/${object.key}`, {
-      method: 'HEAD',
-      headers: { 'cache-control': 'no-cache' },
+    const response = await fetchMirrorHead(`${normalizedBaseUrl}/${object.key}`, {
+      fetchImplementation,
+      wait,
     });
     const contentLength = response.headers.get('content-length');
+    const contentSha256 = response.headers.get('x-content-sha256');
     if (!response.ok) {
       failures.push(`${object.key} returned HTTP ${response.status}`);
       return;
     }
     if (contentLength !== String(object.bytes)) {
       failures.push(`${object.key} served ${contentLength} bytes, catalogue records ${object.bytes}`);
+      return;
+    }
+    if (contentSha256 !== object.sha256) {
+      failures.push(`${object.key} served x-content-sha256 ${contentSha256 ?? '(missing)'}, expected ${object.sha256}`);
       return;
     }
     observations[index] = {
@@ -101,6 +107,28 @@ export async function recordMirrorObjects({
     ledgerObjects: ledger.objects.length,
     ledgerPath,
   };
+}
+
+export async function fetchMirrorHead(url, {
+  fetchImplementation = fetch,
+  wait = milliseconds => new Promise(resolveWait => setTimeout(resolveWait, milliseconds)),
+  attempts = 6,
+} = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetchImplementation(url, {
+        method: 'HEAD',
+        headers: { 'cache-control': 'no-cache' },
+      });
+      if (response.status !== 429 && response.status < 500) return response;
+      lastError = new Error(`mirror returned retryable HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < attempts) await wait(500 * attempt);
+  }
+  throw lastError;
 }
 
 async function runPool(items, concurrency, worker) {
