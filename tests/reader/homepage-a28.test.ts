@@ -22,7 +22,7 @@ describe('A28 homepage contract', () => {
 
     it('keeps the no-JS Japanese headline and enables only a progressive fade', () => {
         expect(homepage).toContain('A complete system for learning <span class="yomu-language-rotator"');
-        expect(homepage).toContain('<span class="yomu-language-static">Japanese.</span>');
+        expect(homepage).toContain('<span class="yomu-language-static" lang="ja" data-yomu-localize="off">日本語.</span>');
         expect(homepage).toContain('data-yomu-language-rotator');
         expect(homepageStyles).toContain("[data-yomu-language-rotator-ready] .yomu-language-cycle > span:nth-child(2) { animation-delay: 2s; }");
     });

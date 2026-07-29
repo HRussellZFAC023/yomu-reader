@@ -3,7 +3,7 @@ layout: page
 pageClass: yomu-home
 sidebar: false
 aside: false
-title: よむ — A complete system for learning Japanese
+title: よむ — A complete system for learning 日本語
 titleTemplate: false
 description: Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.
 ---
@@ -11,7 +11,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 <section class="yomu-fold" aria-labelledby="yomu-home-title">
   <div class="yomu-fold-main">
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
-    <h1 class="yomu-fold-h1" id="yomu-home-title">A complete system for learning <span class="yomu-language-rotator" data-yomu-language-rotator aria-label="Japanese"><span class="yomu-language-static">Japanese.</span><span class="yomu-language-cycle" aria-hidden="true"><span>Japanese.</span><span>Chinese.</span><span>Cantonese.</span><span>Korean.</span><span>Spanish.</span><span>French.</span><span>German.</span><span>Russian.</span><span>Vietnamese.</span></span></span></h1>
+    <h1 class="yomu-fold-h1" id="yomu-home-title">A complete system for learning <span class="yomu-language-rotator" data-yomu-language-rotator aria-label="Japanese"><span class="yomu-language-static" lang="ja" data-yomu-localize="off">日本語.</span><span class="yomu-language-cycle" aria-hidden="true"><span lang="ja" data-yomu-localize="off">日本語.</span><span lang="zh-Hans" data-yomu-localize="off">中文.</span><span lang="yue" data-yomu-localize="off">廣東話.</span><span lang="ko" data-yomu-localize="off">한국어.</span><span lang="es" data-yomu-localize="off">Español.</span><span lang="fr" data-yomu-localize="off">Français.</span><span lang="de" data-yomu-localize="off">Deutsch.</span><span lang="ru" data-yomu-localize="off">Русский.</span><span lang="vi" data-yomu-localize="off">Tiếng Việt.</span></span></span></h1>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a><svg class="yomu-fold-arrow" viewBox="0 0 72 48" aria-hidden="true" focusable="false"><path d="M4 6 C 28 7, 47 19, 58 37" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M48 31 L 59 40 L 62 26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>

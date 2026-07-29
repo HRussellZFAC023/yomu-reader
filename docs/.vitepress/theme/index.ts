@@ -205,6 +205,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',
+    'よむ — A complete system for learning 日本語': 'よむ — 日本語学習のための一式',
     'Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.': '日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。パソコン、スマートフォン、タブレットで無料で使えます。',
     'A complete system for learning': '学ぶためのすべてがそろう',
     'Japanese': '日本語',
