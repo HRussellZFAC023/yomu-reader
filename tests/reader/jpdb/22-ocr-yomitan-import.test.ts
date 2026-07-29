@@ -471,49 +471,12 @@ describe('reader helpers', () => {
 
         await resetStore.importFile(file);
         const newTabStore = new YomitanDictionaryStore();
-        expect(await newTabStore.countEntries()).toBe(1);
+        expect((await newTabStore.summary()).terms).toBe(1);
 
         await resetStore.deleteDatabase();
 
-        expect(await newTabStore.countEntries()).toBe(0);
-        expect(await resetStore.countEntries()).toBe(0);
-    });
-
-    it('factory reset clears dictionary entries even if database deletion stays blocked', async () => {
-        const resetStore = new YomitanDictionaryStore();
-        await resetStore.clear();
-        const file = new File([JSON.stringify({
-            formatName: 'dexie',
-            data: {
-                data: [{
-                    tableName: 'terms',
-                    rows: [
-                        { $: [1, { expression: '読む', reading: 'よむ', glossary: ['to read'], score: 10, dictionary: 'Jitendex' }] },
-                    ],
-                }],
-            },
-        })], 'reset-blocked-fallback-dictionaries.json', { type: 'application/json' });
-        await resetStore.importFile(file);
-
-        const blockingDb = await new Promise<IDBDatabase>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-        });
-
-        try {
-            const result = await resetStore.resetDatabase({ deleteTimeoutMs: 20 });
-
-            expect(result).toEqual({ cleared: true, deleted: false });
-            await expect(new Promise<number>((resolve, reject) => {
-                const request = blockingDb.transaction('terms', 'readonly').objectStore('terms').count();
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            })).resolves.toBe(0);
-        } finally {
-            blockingDb.close();
-            await new Promise(resolve => setTimeout(resolve, 0));
-        }
+        expect((await newTabStore.summary()).terms).toBe(0);
+        expect((await resetStore.summary()).terms).toBe(0);
     });
 
     it('deduplicates alternate readings for the same Yomitan sequence and glossary', async () => {

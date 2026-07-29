@@ -607,8 +607,8 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **Defects a learner hits**
 
-- [ ] **A35.9 — CRITICAL: browser-extension installs never reach onboarding, so they never get a
-      dictionary.** `src/reader/app/startup.ts:74` is
+- [x] **A35.9 — FIXED in v1.8.31: browser-extension installs reach onboarding on the first Japanese
+      page, and an empty dictionary store has an in-page setup path.** Previously, `src/reader/app/startup.ts:74` was
       `if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);`, gating onboarding to the
       extension's own new-tab/Study page, and `scripts/lib/extension-runtime-hardening.mjs:155-163`
       deliberately strips `chrome_url_overrides` and `chrome_settings_overrides` so nothing ever navigates

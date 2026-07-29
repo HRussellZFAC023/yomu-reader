@@ -11130,6 +11130,37 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 .jpdb-reader-definition-stack .jpdb-reader-local {
   margin-top: 0;
 }
+.jpdb-reader-dictionary-setup-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 45%, var(--jpdb-reader-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 10%, var(--jpdb-reader-surface));
+}
+.jpdb-reader-dictionary-setup-nudge span {
+  color: var(--jpdb-reader-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.jpdb-reader-dictionary-setup-nudge > .jpdb-reader-btn {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+}
+@media (max-width: 520px) {
+  .jpdb-reader-dictionary-setup-nudge {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .jpdb-reader-dictionary-setup-nudge > .jpdb-reader-btn {
+    justify-content: center;
+    width: 100%;
+  }
+}
 .yomu-jpdb-page-addon {
   display: block;
   color: var(--jpdb-reader-text);

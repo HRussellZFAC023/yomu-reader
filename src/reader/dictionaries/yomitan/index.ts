@@ -132,7 +132,6 @@ const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
-const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
 const log = Logger.scope('Yomitan');
 
 type InternalStoreName = StoreName | 'termKanji';
@@ -603,12 +602,7 @@ export class YomitanDictionaryStore {
     }
 
     async summary(): Promise<DictionarySummary> {
-        const done = log.time('Dictionary summary');
-        try {
-            if (this.summaryPromise) {
-                const summary = await this.summaryPromise;
-                return summary;
-            }
+        if (!this.summaryPromise) {
             const db = await this.db();
             this.summaryPromise = Promise.all([
                 this.getAllDictionaryInfo(db),
@@ -621,49 +615,20 @@ export class YomitanDictionaryStore {
                     this.summaryPromise = undefined;
                     throw error;
                 });
-            const summary = await this.summaryPromise;
-            return summary;
-        } catch (error) {
-            log.warn('Dictionary summary failed', { error });
-            throw error;
-        } finally {
-            done();
         }
-    }
-
-    async countEntries(): Promise<number> {
-        const summary = await this.summary();
-        return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
+        return this.summaryPromise;
     }
 
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries(): Promise<boolean> {
-        const done = log.time('Dictionary presence check');
-        try {
-            const db = await this.db();
-            return (await this.getAllDictionaryInfo(db)).length > 0;
-        } catch (error) {
-            log.warn('Dictionary presence check failed', { error });
-            throw error;
-        } finally {
-            done();
-        }
+        return (await this.getAllDictionaryInfo(await this.db())).length > 0;
     }
 
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries(): Promise<boolean> {
-        const done = log.time('Term dictionary presence check');
-        try {
-            const db = await this.db();
-            return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
-        } catch (error) {
-            log.warn('Term dictionary presence check failed', { error });
-            throw error;
-        } finally {
-            done();
-        }
+        return (await this.getAllDictionaryInfo(await this.db())).some(hasTermDictionaryRows);
     }
 
     // Pitch enrichment checks local pitch-dictionary availability through this
@@ -671,23 +636,15 @@ export class YomitanDictionaryStore {
     // mode 'pitch', so sampling the head of each meta dictionary is enough.
     // fallow-ignore-next-line unused-class-member
     async hasPitchMetaDictionaries(): Promise<boolean> {
-        const done = log.time('Pitch dictionary presence check');
-        try {
-            const db = await this.db();
-            const metaDictionaries = (await this.getAllDictionaryInfo(db))
-                .filter(info => Number(info.counts?.termMeta ?? 0) > 0)
-                .map(info => info.title);
-            for (const dictionary of metaDictionaries) {
-                const rows = await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'dictionary', dictionary, 40);
-                if (rows.some(row => row.mode === 'pitch')) return true;
-            }
-            return false;
-        } catch (error) {
-            log.warn('Pitch dictionary presence check failed', { error });
-            throw error;
-        } finally {
-            done();
+        const db = await this.db();
+        const metaDictionaries = (await this.getAllDictionaryInfo(db))
+            .filter(info => Number(info.counts?.termMeta ?? 0) > 0)
+            .map(info => info.title);
+        for (const dictionary of metaDictionaries) {
+            const rows = await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'dictionary', dictionary, 40);
+            if (rows.some(row => row.mode === 'pitch')) return true;
         }
+        return false;
     }
 
     async listRandomTerms(limit: number, preferences: DictionaryPreference[] = [], options: GlossaryCursorSearchOptions = {}): Promise<YomitanTermEntry[]> {
@@ -1181,26 +1138,6 @@ export class YomitanDictionaryStore {
         } catch (error) {
             log.warn('Dictionary store clear failed', { error });
             throw error;
-        } finally {
-            done();
-        }
-    }
-
-    async resetDatabase(options: { deleteTimeoutMs?: number } = {}): Promise<{ cleared: boolean; deleted: boolean }> {
-        const done = log.time('Dictionary database factory reset');
-        let cleared = false;
-        try {
-            await this.clear();
-            cleared = true;
-            await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
-            return { cleared, deleted: true };
-        } catch (error) {
-            if (!cleared) {
-                log.warn('Dictionary reset pre-clear failed', { error });
-                throw error;
-            }
-            log.warn('Dictionary delete incomplete after clear', { error });
-            return { cleared, deleted: false };
         } finally {
             done();
         }

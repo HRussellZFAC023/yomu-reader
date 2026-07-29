@@ -67,7 +67,7 @@ describe('NativeTitleGuard', () => {
         expect(button.title).toBe('Play audio');
     });
 
-    it('restores the latest title assigned while an element is suppressed', () => {
+    it('restores the latest title assigned while an element is suppressed', async () => {
         document.body.innerHTML = '<span id="word" class="jpdb-reader-word" title="OCR sentence">実際</span><div id="popover"></div>';
         const guard = new NativeTitleGuard();
         const popover = document.querySelector<HTMLElement>('#popover')!;
@@ -75,7 +75,7 @@ describe('NativeTitleGuard', () => {
 
         guard.suppressForPopover(popover, anchor);
         anchor.title = 'Anki: due';
-        guard.refresh(popover, anchor);
+        await vi.waitFor(() => expect(anchor.hasAttribute('title')).toBe(false));
         guard.restore();
 
         expect(anchor.title).toBe('Anki: due');

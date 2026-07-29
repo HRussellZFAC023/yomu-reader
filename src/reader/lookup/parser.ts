@@ -527,7 +527,7 @@ export class ReaderParser {
     // A store that cannot report availability still gets a chance in the
     // fallback path (it tolerates empty lookups), but local-first replaces
     // remote parsing outright, so `confirmed` demands a positive report.
-    private async hasLocalTermDictionaries(confirmed = false): Promise<boolean> {
+    async hasLocalTermDictionaries(confirmed = false): Promise<boolean> {
         if (!this.canUseLocalDictionaryFallback()) return false;
         return await this.reportedTermDictionaryAvailability() ?? !confirmed;
     }

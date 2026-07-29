@@ -3747,6 +3747,8 @@
       jpdbKanjiActionBlacklist: "Blacklist",
       jpdbKanjiActionReview: "Review",
       noDefinitions: "No enabled definition source returned results.",
+      finishSetup: "Finish setup",
+      finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
       enabledHeader: "On",
       labelHeader: "Label",
       detailsHeader: "Details",
@@ -3953,6 +3955,8 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
+finishSetup	セットアップを完了
+finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
@@ -20632,7 +20636,6 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const log$G = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
@@ -20967,12 +20970,7 @@ ${entry.reading}`;
       });
     }
     async summary() {
-      const done = log$G.time("Dictionary summary");
-      try {
-        if (this.summaryPromise) {
-          const summary2 = await this.summaryPromise;
-          return summary2;
-        }
+      if (!this.summaryPromise) {
         const db = await this.db();
         this.summaryPromise = Promise.all([
           this.getAllDictionaryInfo(db),
@@ -20984,67 +20982,31 @@ ${entry.reading}`;
           this.summaryPromise = void 0;
           throw error;
         });
-        const summary = await this.summaryPromise;
-        return summary;
-      } catch (error) {
-        log$G.warn("Dictionary summary failed", { error });
-        throw error;
-      } finally {
-        done();
       }
-    }
-    async countEntries() {
-      const summary = await this.summary();
-      return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
+      return this.summaryPromise;
     }
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$G.time("Dictionary presence check");
-      try {
-        const db = await this.db();
-        return (await this.getAllDictionaryInfo(db)).length > 0;
-      } catch (error) {
-        log$G.warn("Dictionary presence check failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
+      return (await this.getAllDictionaryInfo(await this.db())).length > 0;
     }
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
-      const done = log$G.time("Term dictionary presence check");
-      try {
-        const db = await this.db();
-        return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
-      } catch (error) {
-        log$G.warn("Term dictionary presence check failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
+      return (await this.getAllDictionaryInfo(await this.db())).some(hasTermDictionaryRows);
     }
     // Pitch enrichment checks local pitch-dictionary availability through this
     // injected store; pitch banks (e.g. Kanjium) are termMeta rows with
     // mode 'pitch', so sampling the head of each meta dictionary is enough.
     // fallow-ignore-next-line unused-class-member
     async hasPitchMetaDictionaries() {
-      const done = log$G.time("Pitch dictionary presence check");
-      try {
-        const db = await this.db();
-        const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
-        for (const dictionary of metaDictionaries) {
-          const rows = await this.getByIndex(db, "termMeta", "dictionary", dictionary, 40);
-          if (rows.some((row) => row.mode === "pitch")) return true;
-        }
-        return false;
-      } catch (error) {
-        log$G.warn("Pitch dictionary presence check failed", { error });
-        throw error;
-      } finally {
-        done();
+      const db = await this.db();
+      const metaDictionaries = (await this.getAllDictionaryInfo(db)).filter((info) => Number(info.counts?.termMeta ?? 0) > 0).map((info) => info.title);
+      for (const dictionary of metaDictionaries) {
+        const rows = await this.getByIndex(db, "termMeta", "dictionary", dictionary, 40);
+        if (rows.some((row) => row.mode === "pitch")) return true;
       }
+      return false;
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
       const done = log$G.time("Random term listing", { limit, dictionaries: preferences.length });
@@ -21468,25 +21430,6 @@ ${entry.reading}`;
       } catch (error) {
         log$G.warn("Dictionary store clear failed", { error });
         throw error;
-      } finally {
-        done();
-      }
-    }
-    async resetDatabase(options = {}) {
-      const done = log$G.time("Dictionary database factory reset");
-      let cleared = false;
-      try {
-        await this.clear();
-        cleared = true;
-        await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
-        return { cleared, deleted: true };
-      } catch (error) {
-        if (!cleared) {
-          log$G.warn("Dictionary reset pre-clear failed", { error });
-          throw error;
-        }
-        log$G.warn("Dictionary delete incomplete after clear", { error });
-        return { cleared, deleted: false };
       } finally {
         done();
       }
@@ -28792,7 +28735,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return typeof status === "number" && Number.isFinite(status) ? status : void 0;
   }
   const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
-  const BUNPRO_LEGACY_API_BASE_URL = "https://bunpro.jp/api/user";
   const REQUEST_TIMEOUT_MS$5 = 3e4;
   const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
   const TRANSPORT_FAILURE_BACKOFF_MS = 5 * 60 * 1e3;
@@ -28808,7 +28750,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     getFrontendToken;
     getLegacyApiKey;
     frontendBaseUrl;
-    legacyBaseUrl;
     requestImpl;
     timeoutMs;
     getProxyUrl;
@@ -28819,7 +28760,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.getLegacyApiKey = options.getLegacyApiKey ?? (() => "");
       this.getProxyUrl = options.getProxyUrl ?? (() => "");
       this.frontendBaseUrl = trimBaseUrl$1(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
-      this.legacyBaseUrl = trimBaseUrl$1(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
       this.requestImpl = options.requestImpl ?? requestHttp;
       this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
       this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$5;
@@ -28949,13 +28889,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         body
       });
     }
-    getLegacyStudyQueue() {
-      return this.legacy("/study_queue");
-    }
-    // fallow-ignore-next-line unused-class-member
-    getLegacyRecentItems(limit = 10) {
-      return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
-    }
     async frontend(path, options = {}) {
       const token = this.getFrontendToken().trim();
       const optionalAuth = options.auth === "optional";
@@ -28981,14 +28914,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         },
         data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
         statusFailureMessage: (status) => status === 401 ? "Bunpro token expired or was denied (401)." : `Bunpro API request failed (${status}).`
-      });
-    }
-    legacy(path) {
-      const apiKey = this.getLegacyApiKey().trim();
-      if (!apiKey) throw new BunproApiError("Bunpro legacy API key is not set.");
-      return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
-        method: "GET",
-        headers: { Accept: "application/json" }
       });
     }
     async requestJson(url, options) {
@@ -54007,7 +53932,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.30".trim() ? "1.8.30".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.31".trim() ? "1.8.31".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

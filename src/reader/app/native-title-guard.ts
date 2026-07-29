@@ -10,10 +10,6 @@ export class NativeTitleGuard {
         this.observePopover(popover, anchor);
     }
 
-    refresh(popover: HTMLElement, anchor?: HTMLElement): void {
-        this.suppressRelatedTitles(popover, anchor);
-    }
-
     restore(): void {
         this.observer?.disconnect();
         this.observer = undefined;

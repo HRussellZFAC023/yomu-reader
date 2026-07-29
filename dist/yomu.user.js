@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.30
+// @version 1.8.31
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,18 +12,18 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.5b02f51c58ec.user.js#sha256=WwL1HFjsg8bq/njHcT9d/1uq3QAxBM7pRfoVZB9v11k=
-// @require https://yomureader.com/greasyfork/yomu-audio.489e35b073cc.user.js#sha256=SJ41sHPMOV8GKrG3DAIDzNbBzsSsjO6CdRwp6aABxTY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.46ef0a6a2290.user.js#sha256=Ru8KaiKQmzHDrhNJrPxxJs1T2Z3dTcv/iCBz2B1MD7E=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.fd634ba0b94d.user.js#sha256=/WNLoLlN28ZF07mKQmFgEZlUfpnDj/gDnq7fyVewtBE=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.771a348c0474.user.js#sha256=dxo0jAR0SNkkCOWX/inC9LR1TP8PbdYK/w9JsNC8b8o=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.40d5781d7cea.user.js#sha256=QNV4HXzqRmYBDjLTek0vUKRqQLozYOnVuO4z/YyDVTA=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.f89175670966.user.js#sha256=+JF1ZwlmgkMP3WCyNSAWY6dsUxlsMvOLoRrCHJ+DU2Q=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.04e1193d8955.user.js#sha256=BOEZPYlVu2HXfM6gOsgwVElqnYCGnCswenXxmwMOoRE=
-// @require https://yomureader.com/greasyfork/yomu-jiten.e410c8a058cd.user.js#sha256=5BDIoFjNkDF/I52624HTTNeT7jEc2Rt2xqxnM0/y2d8=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.de0aceff281f.user.js#sha256=3grO/ygfEuh5n8Ro1h/NtVT3NFa64P4ClLrdEFBwjsg=
-// @require https://yomureader.com/greasyfork/yomu-video.3349dd954156.user.js#sha256=M0ndlUFW8RSERDBKU+DhIFThxQwq7RG90SSxYaQVV6w=
-// @resource yomuCss  https://yomureader.com/yomu.bbc40fc8026a.css#sha256=u8QPyAJqxPcAa18wa6+eqfvc4BaIxQt1Wsw8+rJas1g=
+// @require https://yomureader.com/greasyfork/yomu-anki.608f5c5ef76e.user.js#sha256=YI9cXvduIRbxQaVn9f9XTqDEm4tPBVs7c0obdiFL38I=
+// @require https://yomureader.com/greasyfork/yomu-audio.cf77f7c24fa7.user.js#sha256=z3f3wk+nbp5SQ+4CL3ZKTBRIhCavFd+bMtfgRbVHUow=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.dbcd8102a18c.user.js#sha256=282BAqGMj34qtDyxWiaTKfXKCrsS3OLVxrFwPKRtJIs=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.bcca72996e75.user.js#sha256=vMpymW51wWPZpR2U/4G2S+/PP0bO6IBcO3ar1Rtu1CU=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.9431f08c4b19.user.js#sha256=lDHwjEsZzzqiR6SabdcG5GdsLJW0TBUvAxVehNk4JTQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.ac0b4ccff026.user.js#sha256=rAtMz/AmNh2CFZgcw84wIjHv8qj5EIXLBBER9uUCi9I=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.eb34feed61a3.user.js#sha256=6zT+7WGjVk9yU0a5zlXXt9V1mvpB7ObJRwFsKw1Gh84=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.4eff4cb44975.user.js#sha256=Tv9MtEl17DhHGHnYYzi/KuIasR84hpzuGVRT51v2H3o=
+// @require https://yomureader.com/greasyfork/yomu-jiten.fd6b23818e86.user.js#sha256=/WsjgY6G95hI6pCQPaCqje5HVz36fPWDYHDlx1DGdYQ=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.eab21ecf972a.user.js#sha256=6rIez5cqh3HXYG/OalnV577g3wPWs5iTMBpRbkaIdes=
+// @require https://yomureader.com/greasyfork/yomu-video.914cbac80520.user.js#sha256=kUy6yAUgnx/rSdzruEaZdlJyuDKnneEmCBf+1nz6+Nc=
+// @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -25424,6 +25424,12 @@ function renderDefinitionSourcesStack(params) {
   const sections = renderDefinitionSourceSections(context, params);
   return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : params.noDefinitionsHtml();
 }
+function renderDictionarySetupNudge(language) {
+  return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
+        <span><strong>${escapeHtml$1(uiText(language, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language, "finishSetupDictionaryHelp"))}</span>
+        <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language, "finishSetup"))}</button>
+    </aside>`;
+}
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled) return "";
   const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
@@ -29435,9 +29441,6 @@ class NativeTitleGuard {
   this.suppressRelatedTitles(popover, anchor);
   this.observePopover(popover, anchor);
   }
-  refresh(popover, anchor) {
-  this.suppressRelatedTitles(popover, anchor);
-  }
   restore() {
   this.observer?.disconnect();
   this.observer = void 0;
@@ -29927,7 +29930,7 @@ function hostedPageInterfaceLanguage() {
 }
 function shouldShowReaderOnboarding(shouldShowWelcome, href = location.href) {
   if (!shouldShowWelcome) return false;
-  if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);
+  if (runningAsBrowserExtension() && isYomuNewTabUrl(href)) return true;
   return !isYomuHostedAppUrl(href);
 }
 function installReaderStartupBridge() {
@@ -31296,8 +31299,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.30"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.30"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.31"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.31"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -31440,7 +31443,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.30"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.31"}`;
   } catch {
   return null;
   }
@@ -32710,6 +32713,7 @@ class ReaderApp {
   this.rtkInstance = value;
   }
   dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
+  localDictionarySetupNeeded = false;
   cardRenderData = new CardRenderDataLoader({
   getSettings: () => this.settings,
   dictionaries: this.dictionaries,
@@ -37197,7 +37201,11 @@ class ReaderApp {
   const renderData = context.loadRenderData();
   const renderState = { fullRenderCompleted: false };
   this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
-  const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
+  const [fullData, hasLocalTermDictionaries] = await Promise.all([
+    this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup),
+    this.parser.hasLocalTermDictionaries(true)
+  ]);
+  this.localDictionarySetupNeeded = this.settings.localDictionariesEnabled && !hasLocalTermDictionaries;
   renderState.fullRenderCompleted = true;
   if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
   this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
@@ -37708,6 +37716,10 @@ class ReaderApp {
   void this.showKanjiCard(card, button.dataset.kanji ?? "", sentence, anchor, { preservePosition: true });
   }
   dispatchCardPopoverAction(button, card, sentence, anchor, trigger) {
+  if (button.dataset.action === "finish-dictionary-setup") {
+    this.showSettings("dictionaries");
+    return;
+  }
   if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
   if (this.handleCardPopoverMiningAction(button)) return;
   if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
@@ -38248,6 +38260,7 @@ class ReaderApp {
     bunproDefinitionInfo,
     extraSectionsOrOptions,
     jpdbLanguage: this.settings.interfaceLanguage,
+    setupSource: () => this.localDictionarySetupNeeded ? renderDictionarySetupNudge(this.settings.interfaceLanguage) : "",
     renderTranslationSource: (renderSentence) => this.studySources.renderTranslationSource(renderSentence),
     renderGrammarSource: (renderSentence) => this.studySources.renderGrammarSource(renderSentence),
     renderImmersionSource: () => renderDefinitionSourceImmersionMount(

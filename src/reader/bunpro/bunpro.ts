@@ -3,7 +3,6 @@ import type { ReaderHttpOptions } from '../network/http-options';
 import { httpStatusFromError } from '../network/error-status';
 
 const BUNPRO_FRONTEND_API_BASE_URL = 'https://api.bunpro.jp/api/frontend';
-const BUNPRO_LEGACY_API_BASE_URL = 'https://bunpro.jp/api/user';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const TOKEN_EXPIRED_CODE_RE = /AUTH_USER_DENIED|token expired|expired|\b401\b/i;
@@ -20,7 +19,6 @@ export interface BunproClientOptions {
     getLegacyApiKey?: () => string;
     getProxyUrl?: () => string;
     frontendBaseUrl?: string;
-    legacyBaseUrl?: string;
     requestImpl?: BunproRequest;
     /** Hosted app pages need either Yomu's userscript bridge or the learner's
      * configured proxy for Bunpro, whose API does not permit browser CORS. */
@@ -59,7 +57,6 @@ export class BunproClient {
     private readonly getFrontendToken: () => string;
     private readonly getLegacyApiKey: () => string;
     private readonly frontendBaseUrl: string;
-    private readonly legacyBaseUrl: string;
     private readonly requestImpl: BunproRequest;
     private readonly timeoutMs: number;
     private readonly getProxyUrl: () => string;
@@ -71,7 +68,6 @@ export class BunproClient {
         this.getLegacyApiKey = options.getLegacyApiKey ?? (() => '');
         this.getProxyUrl = options.getProxyUrl ?? (() => '');
         this.frontendBaseUrl = trimBaseUrl(options.frontendBaseUrl ?? BUNPRO_FRONTEND_API_BASE_URL);
-        this.legacyBaseUrl = trimBaseUrl(options.legacyBaseUrl ?? BUNPRO_LEGACY_API_BASE_URL);
         this.requestImpl = options.requestImpl ?? requestHttp;
         this.isTransportAvailable = options.isTransportAvailable ?? (() => true);
         this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
@@ -226,15 +222,6 @@ export class BunproClient {
         });
     }
 
-    getLegacyStudyQueue(): Promise<unknown> {
-        return this.legacy('/study_queue');
-    }
-
-    // fallow-ignore-next-line unused-class-member
-    getLegacyRecentItems(limit = 10): Promise<unknown> {
-        return this.legacy(`/recent_items/${Math.min(Math.max(Math.floor(limit), 1), 50)}`);
-    }
-
     private async frontend(path: string, options: BunproFrontendRequestOptions = {}): Promise<unknown> {
         const token = this.getFrontendToken().trim();
         const optionalAuth = options.auth === 'optional';
@@ -266,15 +253,6 @@ export class BunproClient {
             statusFailureMessage: status => status === 401
                 ? 'Bunpro token expired or was denied (401).'
                 : `Bunpro API request failed (${status}).`,
-        });
-    }
-
-    private legacy(path: string): Promise<unknown> {
-        const apiKey = this.getLegacyApiKey().trim();
-        if (!apiKey) throw new BunproApiError('Bunpro legacy API key is not set.');
-        return this.requestJson(`${this.legacyBaseUrl}/${encodeURIComponent(apiKey)}${path}`, {
-            method: 'GET',
-            headers: { Accept: 'application/json' },
         });
     }
 

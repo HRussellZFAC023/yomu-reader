@@ -91,6 +91,13 @@ export function renderDefinitionSourcesStack(params: RenderDefinitionSourcesStac
         : params.noDefinitionsHtml();
 }
 
+export function renderDictionarySetupNudge(language: InterfaceLanguage): string {
+    return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
+        <span><strong>${escapeHtml(uiText(language, 'finishSetup'))}</strong> ${escapeHtml(uiText(language, 'finishSetupDictionaryHelp'))}</span>
+        <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml(uiText(language, 'finishSetup'))}</button>
+    </aside>`;
+}
+
 export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     if (!settings.immersionKitEnabled) return '';
     const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, 'immersionKit'));

@@ -1,16 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, loadSettings, saveSettings } from '../../src/reader/settings';
 
-// SIGHUP (iOS Safari extension): the welcome/onboarding overlay was appearing on
-// every content page. In a browser extension there is no GM_* storage and this
-// codebase persists settings to per-origin localStorage, so the onboardingSeen
-// flag saved on the new-tab page never reads true on an arbitrary content origin
-// (example.com etc.). The overlay therefore reappeared on every website. The gate
-// must never show onboarding on content pages in an extension; it belongs on the
-// Yomu new-tab page only. Userscript builds (no chrome.runtime.id) keep their
-// first-run overlay everywhere, guarded by onboardingSeen.
+// Packaged extensions persist normal settings through chrome.storage.local, so
+// onboardingSeen follows the reader across content origins. A fresh extension
+// install must therefore use the first Japanese content page as its welcome
+// surface; the stored flag keeps the welcome from returning afterwards.
 describe('shouldShowReaderOnboarding — browser-extension gating', () => {
     afterEach(() => {
+        localStorage.clear();
         vi.unstubAllGlobals();
     });
 
@@ -18,9 +16,9 @@ describe('shouldShowReaderOnboarding — browser-extension gating', () => {
         vi.stubGlobal('chrome', { runtime: { id: 'yomu-extension-id' } });
     }
 
-    it('never shows onboarding on an arbitrary content page in a browser extension', () => {
+    it('shows first-run onboarding on an arbitrary content page in a browser extension', () => {
         asExtension();
-        expect(shouldShowReaderOnboarding(true, 'https://example.com/some-article')).toBe(false);
+        expect(shouldShowReaderOnboarding(true, 'https://example.com/some-article')).toBe(true);
     });
 
     it('still shows onboarding on the Yomu new-tab page in a browser extension', () => {
@@ -28,9 +26,9 @@ describe('shouldShowReaderOnboarding — browser-extension gating', () => {
         expect(shouldShowReaderOnboarding(true, 'https://yomureader.com/newtab/')).toBe(true);
     });
 
-    it('does not trust a query-flagged page on an arbitrary origin', () => {
+    it('treats a query-flagged arbitrary page like any other first-run content page', () => {
         asExtension();
-        expect(shouldShowReaderOnboarding(true, 'https://example.com/newtab.html?yomu-newtab')).toBe(false);
+        expect(shouldShowReaderOnboarding(true, 'https://example.com/newtab.html?yomu-newtab')).toBe(true);
     });
 
     it('keeps first-run onboarding on content pages for userscript builds (no extension runtime)', () => {
@@ -44,5 +42,31 @@ describe('shouldShowReaderOnboarding — browser-extension gating', () => {
     it('respects showWelcome=false regardless of runtime', () => {
         asExtension();
         expect(shouldShowReaderOnboarding(false, 'https://yomureader.com/newtab/')).toBe(false);
+    });
+
+    it('persists onboardingSeen in packaged-extension storage across content origins', async () => {
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('chrome', {
+            runtime: { id: 'yomu-extension-id' },
+            storage: {
+                local: {
+                    get: vi.fn(async (key: string | null) => key === null
+                        ? Object.fromEntries(values)
+                        : values.has(key) ? { [key]: values.get(key) } : {}),
+                    set: vi.fn(async (items: Record<string, unknown>) => {
+                        Object.entries(items).forEach(([key, value]) => values.set(key, value));
+                    }),
+                    remove: vi.fn(async (key: string) => {
+                        values.delete(key);
+                    }),
+                },
+            },
+        });
+
+        await saveSettings({ ...DEFAULT_SETTINGS, onboardingSeen: true });
+
+        expect(values.get(SETTINGS_STORAGE_KEY)).toMatchObject({ onboardingSeen: true });
+        expect((await loadSettings()).onboardingSeen).toBe(true);
+        expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
     });
 });

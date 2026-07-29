@@ -65,15 +65,11 @@ function hostedPageInterfaceLanguage(): ReaderSettings['interfaceLanguage'] | nu
 
 export function shouldShowReaderOnboarding(shouldShowWelcome: boolean, href = location.href): boolean {
     if (!shouldShowWelcome) return false;
-    // A browser extension injects the reader into every website, but its settings
-    // persist to per-origin localStorage (there is no GM_* store), so the
-    // onboardingSeen flag saved on the study/new-tab page never reads true on an
-    // arbitrary content origin. Left ungated, the welcome overlay reappears on
-    // every website (SIGHUP, iOS Safari). The onboarding belongs on the Yomu
-    // new-tab/study page only, so restrict extension builds to that page.
-    if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);
-    // Userscript builds keep their first-run overlay on any host (guarded by
-    // onboardingSeen); only the hosted Yomu app suppresses it.
+    // Userscripts use their manager's shared GM store and packaged extensions
+    // use chrome.storage.local/browser.storage.local. Both carry onboardingSeen
+    // across content origins, so the first Japanese page is a safe first-run
+    // surface and the stored flag keeps the welcome from returning.
+    if (runningAsBrowserExtension() && isYomuNewTabUrl(href)) return true;
     return !isYomuHostedAppUrl(href);
 }
 

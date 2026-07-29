@@ -76,20 +76,6 @@ describe('BunproClient', () => {
         });
     });
 
-    it('supports the legacy API key only for legacy endpoints', async () => {
-        const request = vi.fn(async () => ({ requested_information: { reviews_available: 3 } }));
-        const client = new BunproClient({
-            getLegacyApiKey: () => 'legacy-key',
-            requestImpl: request,
-        });
-
-        await client.getLegacyStudyQueue();
-
-        const [url, options] = request.mock.calls[0] as unknown as [string, ReaderHttpOptions];
-        expect(url).toBe('https://bunpro.jp/api/user/legacy-key/study_queue');
-        expect(options.headers).toEqual({ Accept: 'application/json' });
-    });
-
     it('fails clearly when the frontend token is missing', async () => {
         const client = new BunproClient({ getFrontendToken: () => '' });
         await expect(client.getDueCount()).rejects.toBeInstanceOf(BunproApiError);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.31] - 2026-07-29
+
+### Fixed
+
+- New browser-extension installs now open setup on the first Japanese page and remember completion in shared extension storage. When the offline dictionary is still empty, lookup cards offer Finish setup, which opens Dictionary settings.
+
 ## [1.8.30] - 2026-07-29
 
 ### Fixed

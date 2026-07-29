@@ -3,7 +3,7 @@ import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
-import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
+import { renderDefinitionSourcesStack, renderDictionarySetupNudge } from '../../src/reader/sources/definition-stack';
 import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
@@ -80,6 +80,18 @@ function jitenInfo(meanings: string[]): JitenVocabularyInfo {
 }
 
 describe('definition source stack', () => {
+    it('renders a bilingual finish-setup action for an empty local dictionary store', () => {
+        const english = renderDictionarySetupNudge('en');
+        const japanese = renderDictionarySetupNudge('ja');
+
+        expect(english).toContain('data-yomu-finish-setup');
+        expect(english).toContain('data-action="finish-dictionary-setup"');
+        expect(english).toContain('Finish setup');
+        expect(english).toContain('Add an offline dictionary for definitions on every page.');
+        expect(japanese).toContain('セットアップを完了');
+        expect(japanese).toContain('どのページでも定義を表示できるように、オフライン辞書を追加しましょう。');
+    });
+
     it('keeps Jiten and JPDB as separate enabled default source IDs with Jiten first', () => {
         expect(orderedDefinitionSourceIds(DEFAULT_SETTINGS, []).slice(0, 2)).toEqual([
             JITEN_DEFINITION_SOURCE_ID,
