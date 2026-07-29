@@ -30,7 +30,12 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
-0. **P0 URGENT — money:** A34 donation banner (Ko-fi donations have NEVER been recorded; also breaks Ko-fi
+0. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
+   ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
+   definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
+   A35.2 mined-deck writes fail silently at roughly 4,700 cards · A35.3 the undelivered-code alert can
+   email nobody and report success. Full evidence in the A35 section.
+0b. **P0 — money (fixed, verify only):** A34 donation banner (Ko-fi donations have NEVER been recorded; also breaks Ko-fi
    Academy delivery, so it reopens part of A22.2).
 1. **P0 — in flight now:** A28 homepage reimagining (workflow) · A27.1 verify-only pass on the five
    shipped fixes (codex, next in queue) · T0 historical recovery cases (delivery itself fixed by codex
@@ -469,6 +474,498 @@ Owner: *"we recieved £10 from kofi and £5 from patreon only the £5 is showing
 - [ ] **A34.6 — backfill the rejected £10.** Ko-fi does not resend a 422'd webhook, so the money stays
       invisible until a row is inserted. Audit for other rejected donations at the same time. `wrangler d1`
       defaults to LOCAL — `--remote` or it is a no-op.
+
+### A35 — UNDOCUMENTED WORK FOUND BY SWEEP 2026-07-29
+
+Six independent sweeps produced 40 raw findings; this is what survived dedupe against the backlog and
+re-verification against the tree at `6d681dfa8` and against production on 2026-07-29. Every number below
+was re-measured in this triage pass unless the line says otherwise. Ranked: money and data loss, then a
+false claim on a live page, then a defect a learner hits, then engineering risk, then polish.
+
+**Money and data loss**
+
+- [ ] **A35.1 — CRITICAL: no backup and no restore path for either D1 database or any R2 bucket.** The
+      donation ledger is a single unbacked copy. `workers/yomu-support/wrangler.jsonc` binds D1
+      `yomu-support` (`c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c`), which holds `donation_events` — the only
+      record of money received (`workers/yomu-support/src/index.ts:1505-1526`; live
+      `support.yomureader.com/status` reports `donationsThisMonthGbp` from `donationsSource: "d1"`).
+      `wrangler.academy.jsonc` binds D1 `yomu-academy` (`34866a17-0594-4544-a527-9c79c30b4fb7`) holding
+      accounts, entitlements and issued Academy codes across 15+ migrations. R2 `yomu-dictionaries` is
+      167 objects / 6,127,919,560 bytes per `workers/yomu-dictionaries/README.md:7-10`. A repo-wide search
+      for `d1 export`, `d1 backup`, `d1 time-travel`, `--from-remote` or `r2 object get` across `*.md`,
+      `*.mjs`, `*.ts`, `*.yml` and `*.jsonc` matches only the yomu-audio *upload* helper: no backup script
+      in `scripts/`, no cron export in `.github/workflows/`, no recovery section in any of the six worker
+      READMEs. `config/dictionaries/mirror-objects.v1.json` is not a mirror — its `baseUrl` is
+      `https://dictionaries.yomureader.com`, so it inventories the bucket's own contents, and
+      re-acquisition depends on catalogue source URLs that include `drive.google.com` links. Losing the
+      support D1 destroys who donated and how much; losing the academy D1 destroys who paid and which code
+      was issued, which is the failure U47/U52/U55 already exist for. Do: a scheduled `wrangler d1 export`
+      of both databases to R2 with `--remote` (memory `wrangler-remote-flag-silent-noop`), a written and
+      once-rehearsed restore procedure per store, and a second copy of the dictionary bucket that does not
+      depend on Google Drive. Write down that Time Travel exists and what it does not cover (a deleted
+      database, a deleted account).
+- [ ] **A35.2 — HIGH: the mined deck is one storage key and its writes fail silently.**
+      `src/reader/srs/local-yomu.ts:265-267` writes the whole deck as one value under
+      `yomu:srs-local:v1`. `gmStorageSet` (`src/reader/app/storage.ts:351-365`) falls back to
+      `localStorageSet` on any GM failure, and `localStorageSet`
+      (`src/reader/app/storage.ts:825-831`) is `try { localStorage.setItem(...) } catch { }` — a
+      `QuotaExceededError` is discarded. On the hosted Study PWA there is no GM store, so localStorage is
+      the only sink. The mutation path then notifies listeners with the comment
+      `/* local persistence already succeeded */` (`src/reader/srs/local-yomu.ts:283`), which the swallow
+      makes untrue. `grep -ni quota src/reader/**/*.ts` finds handling only for the OCR cache
+      (`ocr-cache-store.ts:150`) and the subtitle HTML cache (`parsed-html-cache.ts:180`). A representative
+      mined card (expression, reading, four meanings, mined sentence, source URL, tags, scheduler fields)
+      serialises to 552 chars, so a Chrome-sized ~5 MB budget is spent at roughly 4,700 cards, after which
+      every mine and every grade is dropped while the UI reports success. Do: surface the write failure to
+      the caller and to the user, split the deck out of one key (per-card or chunked records), and add a
+      quota-exhaustion test on the hosted-Study path. Related but not the same as U44/U97, which is about
+      the card model, not the write.
+- [ ] **A35.3 — HIGH: the undelivered-code alert returns false when its recipient secret is unset, and
+      nothing checks.** T0 records that "a PII-free ledger alerts on missing delivery". The alert only
+      sends when two secrets are present: `sendOwnerAggregateAlert`
+      (`workers/yomu-support/src/academy-code-delivery.ts:518-525`) opens
+      `const owner = normalizeRecipientEmail(env.ACADEMY_DELIVERY_ALERT_EMAIL); const email =
+      env.ACADEMY_CODE_EMAIL; if (!owner || !email) return false;` with no log, no throw and no counter.
+      The caller stores that boolean as `ownerAlertAccepted` (:314-316) and the scheduled entrypoint
+      discards it: `workers/yomu-support/src/index.ts:259-261` is
+      `async scheduled(...) { ctx.waitUntil(reconcileAcademyCodeDeliveries(env)); }`. The cron is
+      `"crons": ["*/15 * * * *"]` in `workers/yomu-support/wrangler.jsonc:54`, and
+      `ACADEMY_DELIVERY_ALERT_EMAIL` appears in that file's `secrets.required` array (:48) — which is
+      documentation, not a wrangler field, so nothing verifies it was ever set. Every 15 minutes the job
+      can find stale deliveries, email nobody and return success. Do: fail loudly when the recipient is
+      missing (log at error level and expose it in `/status`), have `scheduled` read the returned
+      reconciliation and log the counts, and confirm both secrets are actually set on the deployed Worker.
+- [ ] **A35.4 — 533 MB of Academy art and derived corpora exists only on an unpushed local branch.**
+      `codex/academy-art-upgrade-20260717` resolves locally to `ae34778f0` and has no remote counterpart
+      (`git branch -r --list 'origin/codex/academy-art-upgrade-20260717'` is empty); `git cherry
+      origin/main` reports 18 patches not on main, last commit 2026-07-18. Measured against `origin/main`:
+      4,091 files on the branch and not on main, 532,997,196 bytes, of which 480,517,678 bytes are images
+      (276 `.png`, 64 `.webp`, 26 `.jpg`) plus 1,812 `.jsonl` and 1,805 `.tsv`. These are generated sprites
+      and derived corpora that cost real generation spend and cannot be reproduced byte-for-byte, held on
+      one machine in a repo whose cleanup routine deletes local branches and release worktrees (memory
+      `yomu-worktree-sweeper-hazard`). Do: push the ref, or decide to drop it and say so. This refines the
+      line-1426 unmerged-worktree entry, which was taken from an older snapshot with different branch names
+      and does not name a branch with no remote at all.
+
+**A claim on a live page that is not true**
+
+- [ ] **A35.5 — CRITICAL: the homepage hero names nine study targets; the reader permits one, and A24.5
+      already ruled this claim out.** `docs/index.md:14` ships
+      `<h1>A complete system for learning <span class="yomu-language-rotator" aria-label="Japanese">` whose
+      cycle is Japanese, Chinese, Cantonese, Korean, Spanish, French, German, Russian, Vietnamese. The
+      shipped reader permits one target: `src/reader/languages/roster.ts:21`
+      `export const SLICE1_TARGET_LANGUAGE = 'ja' as const;`; `src/reader/settings/form.ts:146-147` renders
+      fixed text plus `<input type="hidden" name="targetLanguage">`, not a picker; every pointer lookup is
+      gated on `JAPANESE_RUN_RE` (`src/reader/lookup/pointer-text-lookup.ts:4,258`), built from kana, Han
+      and the prolonged sound mark, so pressing a word in Korean, Spanish, French, German, Russian or
+      Vietnamese returns null and nothing opens. Chinese and Cantonese match only because they share Han
+      and are then handed to the Japanese parsers. A24.5 (backlog:329) says any multilingual claim must
+      describe definition-language coverage, not study-target parity, until T4/A7 opens the seam; A28
+      (backlog:369) then lists the cycling hero as a verified pass. Nothing reconciles the two. Do: decide
+      which claim the page makes. Either cycle definition languages (and fix A35.6 first, because that
+      claim is also overstated), or hold the hero to Japanese until the target seam opens. Add the hero
+      claim to the published-pages audit so the gate can catch a marketing claim the product cannot meet.
+      This is not U61/T4, which record the engineering gap; the public claim is what is unwritten.
+- [ ] **A35.6 — HIGH: "Yomu ships definitions in 32 languages" is wrong for 23 of the 32.**
+      `docs/features.md:17` reads "**The meaning**, in your language. Yomu ships definitions in 32
+      languages." Measured over `config/dictionaries/published/v1/recommendations/*.json` (32 shelves, all
+      `XX-ja`, so Japanese is the only target with a shelf), counting entries whose `definitionLanguage`
+      equals the shelf's own `learnerLanguage`: 23 shelves have zero — ar, da, el, fa, fi, grc, id, it, km,
+      ko, la, lo, mn, pl, ro, sh, sq, th, tl, tr, vi, yue, zh. The nine with any are en 4, es 2, fr 2, de
+      1, hu 1, nl 1, pt 1, ru 1, sv 1 (of 8 entries each). `zh-ja.json` declares
+      `"strategy": "native-first"`, `"readiness": "ready"`, `"blockers": []` and every one of its eight
+      dictionaries has `definitionLanguage` of `en` or `ja`. All 32 shelves declare `readiness: "ready"`.
+      A24.5 named definition-language coverage as the honest claim, so this is the one multilingual promise
+      the docs were meant to be able to keep. Do: change the copy to the measured count until supply lands
+      (T4 covers the supply work), and treat the shelf's readiness field as unfit for a UI to read — U62
+      already records that `languages.json` lies; this is the same lie in the per-shelf files, on the
+      definition axis rather than the headword axis T4 measures.
+- [ ] **A35.7 — HIGH: `@cijapanese` is dead in the docs, in that page's JSON-LD, and in the shipped
+      channel roster, and nothing in the repo ever checks a link.** Verified with a Chrome UA following
+      redirects on 2026-07-29: `youtube.com/@cijapanese` → 404 and `youtube.com/@chinese-muimui` → 404,
+      while controls `@nihongoconteppei` and `@kurzgesagt_jp` → 200. Both dead handles ship in
+      `src/reader/subtitles/youtube-channel-recommendations.ts:109` (`'Comprehensible Japanese', level:
+      'N5'`) and `:82` (`'とある中国人のむいむい'`). The same dead handle appears three times in
+      `docs/guides/comprehensible-input-youtube.md`: `:40` as the first N5 recommendation, `:102` in body
+      prose, and `:11` inside the `FAQPage` JSON-LD answer Google parses ("For N5, start with
+      Comprehensible Japanese (@cijapanese)…"). `@ComprehensibleJapanese` and two other guesses also 404,
+      so the replacement needs looking up. Do: find the live handle or drop the entry, in all four places,
+      and add a link check over `youtube-channel-recommendations.ts` (101 handles) plus the outbound links
+      in `docs/**/*.md` so the next dead channel does not ship silently. The generic fix is the check; both
+      lists are hand-maintained today with nothing that curls them.
+- [ ] **A35.8 — the homepage tells phone users it runs in the browser they already have, and the iOS
+      caveat it used to carry is gone.** `docs/index.md:69` reads "On a phone it runs in the browser you
+      already have." For iOS that is wrong: `docs/getting-started.md:29-39` says Safari has no store
+      version, Yomu arrives as a userscript, and lists six steps starting with installing the Userscripts
+      app, with the callout "**Don't skip step 3.** … This is the most common reason an install seems to do
+      nothing." `docs/getting-started.md:162` says "On Safari, iPhone and iPad the userscript is the only
+      option." The mobile band that used to disclose this is gone: `grep -i 'android|iphone|ipad|safari'
+      docs/index.md` now returns one line, `:69`, and it is the claim itself. Setup friction is the
+      most-reported complaint in the research (T3, B1), and iOS is where it is highest. Do: restore one
+      sentence on the homepage naming the Android store click and the iOS userscript manager, and link it
+      to `getting-started`.
+
+**Defects a learner hits**
+
+- [ ] **A35.9 — CRITICAL: browser-extension installs never reach onboarding, so they never get a
+      dictionary.** `src/reader/app/startup.ts:74` is
+      `if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);`, gating onboarding to the
+      extension's own new-tab/Study page, and `scripts/lib/extension-runtime-hardening.mjs:155-163`
+      deliberately strips `chrome_url_overrides` and `chrome_settings_overrides` so nothing ever navigates
+      there ("Study remains packaged and opens as a normal page from the popup"). The offline dictionary
+      install has exactly one automatic trigger, onboarding
+      (`src/reader/app/onboarding.ts:441` → `src/reader/app/main.ts:1201`). So an extension learner reading
+      a Japanese page has an empty dictionary store with `localDictionariesEnabled: true`
+      (`src/reader/settings/index.ts:475`) and every lookup falls through to `noDefinitions`, "No enabled
+      definition source returned results." (`src/reader/app/i18n.ts:1118`, rendered at
+      `src/reader/sources/definition-stack.ts:91`). There is no finish-setup nudge: grep for
+      `setupHint|finishSetup|noSourcesYet|setupNeeded|firstRunHint` across `src/reader` returns zero. The
+      comment justifying the gate is also now false — it claims extensions have no GM store, but
+      `scripts/lib/extension-runtime-hardening.mjs:171-174` force-adds the `storage` permission, so
+      `extensionStorageArea()` (`src/reader/app/storage.ts:1032-1041`) returns `chrome.storage.local`,
+      which is cross-origin and would carry `onboardingSeen`. Do: persist `onboardingSeen` through
+      extension storage and let the first run happen on the first Japanese page, or ship an in-page
+      finish-setup prompt when the dictionary store is empty. The stores are the main distribution channel;
+      today an install's first lookup returns the empty-source message. Feeds T3's try-first work, which
+      describes the redesign but not this bug.
+- [ ] **A35.10 — HIGH: first run downloads 34.1 MiB with no progress, and the label names a dictionary it
+      does not install.** The checkbox defaults to checked (`src/reader/app/onboarding.ts:240`) with the
+      label "Download offline dictionaries (Jitendex + pitch accents)"
+      (`src/reader/app/i18n.ts:20`). Measured from the actual default set (`selectedByDefault !== false` in
+      `config/dictionaries/published/v1/recommendations/en-ja.json`, sizes resolved through
+      `catalog.json`): JMdict-en 15,509,389 + JMnedict 11,423,324 + KANJIDIC-en 721,025 + JPDB frequency
+      5,996,363 + NHK pitch 2,082,380 = **35,732,481 bytes (34.1 MiB)**, plus the unsized `kanjium-pitch`
+      zip appended at `src/reader/dictionaries/offline-setup.ts:110`. Jitendex is not in the shelf at all
+      (`grep jitendex en-ja.json` → no match). `installOfflineParsingDictionaries` accepts an `onProgress`
+      callback (`src/reader/dictionaries/offline-setup.ts:37-50`, threaded to `importFromUrl` at :79-80);
+      the Settings path passes one (`src/reader/settings/dialog-controller.ts:2636-2645`) and both
+      first-run call sites omit it (`src/reader/app/main.ts:1944-1950`,
+      `src/reader/newtab/runtime.ts:566-573`). `src/reader/app/onboarding.ts:435-441` closes the panel and
+      fires the install without awaiting it. So the learner presses Continue, the panel disappears, and for
+      minutes every lookup shows the empty-source message with nothing on screen. Do: pass the existing
+      progress callback on both first-run paths, state the download size before it starts, and fix the
+      label to name what installs.
+- [ ] **A35.11 — HIGH: the lookup popover declares `aria-modal` with no focus trap, no background hiding
+      and no focus restore.** `src/reader/popup/shell.ts:83-86` sets `role="dialog"` and
+      `aria-modal="true"` on every lookup popover, hover-triggered ones included (the `trigger` parameter
+      only picks the sheet class). `src/reader/app/main.ts:10340` moves focus into it on mount, and
+      `dismiss()` (`main.ts:10497-10521`) removes the nodes without restoring focus, so Escape leaves the
+      keyboard user on `document.body` and Tab restarts at the top of the page. There is one `Tab` handler
+      in all of `src/reader` — `src/reader/settings/dialog-controller.ts:780-782` → `trapFocus` (:845) —
+      so Tab from inside the lookup walks into the page the dialog says is inert. Background `aria-hidden`
+      is applied only by the settings dialog (`dialog-controller.ts:812-824`), which also records and
+      restores `activeElement` (:621-623, :794-798). For hover popovers there is no backdrop either, yet
+      `aria-modal="true"` tells a screen reader the rest of the page is gone. Do: either trap focus, hide
+      the background and restore focus on dismiss, or drop `aria-modal` for non-modal triggers. Nothing in
+      the backlog covers focus, ARIA or keyboard reachability for the popover — grep for "focus trap",
+      "aria-modal", "accessibility" and "screen reader" returns zero hits.
+- [ ] **A35.12 — runtime error toasts are English whatever the interface language is set to.** There are
+      124 `new Error('<English literal>')` sites under `src/reader`. The user-facing ones include
+      `src/reader/jpdb/jpdb-api.ts:52-81`: 'JPDB API key is not set.', 'JPDB rejected the API key.', 'JPDB
+      is rate limited. Try again in a moment.', `JPDB request failed (${status}).` Every consuming toast
+      uses `this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage,
+      '<key>'))` — `src/reader/app/main.ts:5675` (lookup failure), `:4116` (review grading), `:10042`,
+      `src/reader/app/visible-page-scanner.ts:753`, `src/reader/app/factory-reset-coordinator.ts:109` — so
+      the localised string is unreachable whenever a real `Error` is thrown, which is every actual failure.
+      `i18n.ts` already carries ja copy for the fallbacks (`jpdbLookupFailed`, `reviewFailed`,
+      `jpdbScanFailed`) that the pattern bypasses, and the localisation suites cover only the settings form
+      (`tests/reader/settings-form/05-localization-layout-scan`, `06-`, `07-`). Wrong key and rate limit
+      are the two failures a new learner meets first. Do: map thrown errors to copy keys at the toast
+      boundary and add one test that asserts a ja-interface toast contains no ASCII sentence. Feeds D43.
+- [ ] **A35.13 — the Academy Worker 404s HEAD on every one of its GET routes.** Measured: `GET
+      https://yomureader.com/academy/api/health` → 200; `HEAD` on the same URL → **404** with
+      `content-type: application/json`. The other Workers answer HEAD correctly — `support.yomureader.com/status`,
+      `dictionaries.yomureader.com/healthz` both HEAD 200. The cause is
+      `workers/yomu-academy/src/index.ts:76`: `const route = \`${request.method} ${pathname}\`` feeding a
+      `switch (route)` of literals like `case 'GET /academy/api/health':` with `default:` throwing 404, so
+      it applies to every GET route in that Worker. HEAD is what uptime monitors, link checkers and
+      prefetch use, so the academy API reports itself down to any HEAD check while healthy. Do: normalise
+      HEAD to GET before building `route`, the way the other Workers already do with their read-method
+      sets.
+
+**Engineering risk**
+
+- [ ] **A35.14 — HIGH: no security headers on the origin or on four of five Workers, so the http→https
+      redirect is strippable.** Header dumps on 2026-07-29: `https://yomureader.com/` returns
+      `access-control-allow-origin: *` and cache/CDN plumbing and nothing else. Absent on every host
+      tested: `strict-transport-security`, `content-security-policy`, `referrer-policy`,
+      `x-frame-options`, `permissions-policy`. `x-content-type-options: nosniff` exists on exactly one
+      host, `dictionaries.yomureader.com`; it is missing on the apex, `support.`, `audio.`, `edge.` and
+      `/academy/api/*`. `http://yomureader.com/` 301s to https, but with no HSTS the first hop is
+      downgradeable and the zone can never be preloaded. Backlog greps: HSTS, Strict-Transport,
+      Content-Security, Referrer-Policy, X-Content-Type and "security header" are all zero hits, and A33's
+      Cloudflare list (backlog:429-441) has no response-header rule. Consequences with the measurements
+      attached: no `frame-ancestors` or `x-frame-options` means `/study/` can be framed;
+      `access-control-allow-origin: *` on `/yomu.user.js` lets any origin fetch and re-host the userscript,
+      which is the clone risk U109 raises while U109 asks only for checksums. GitHub Pages cannot set
+      headers, so this has to be a Cloudflare Transform / Response Header rule. Do: one rule on the zone
+      adding HSTS, nosniff, referrer-policy and frame-ancestors across the apex and the four subdomains,
+      then re-run the dumps.
+- [ ] **A35.15 — HIGH: the two gates that catch a poisoned main run on the tag path only.**
+      `scripts/run-check.mjs:109-110` runs `check:repository` then `check:artifacts` first.
+      `grep -n 'check:repository|check:artifacts|check:release' .github/workflows/*.yml` returns exactly
+      one hit: `release.yml:95` (`npm run check:release`). ci.yml runs neither.
+      `scripts/check-repository-hygiene.mjs:8-25` hard-fails when any tracked file sits under
+      `artifacts/`, `qa-artifacts/`, `.claude/`, `references/`, `tmp/`, `verify/` or
+      `release-worktrees/` — one such file fails the gate for every session, which is what happened to the
+      v1.8.22 publish (memory `yomu-hygiene-gate-blocks-everyone`).
+      `scripts/check-committed-artifacts.mjs:1-25` documents its own reason: `verify` compares freshly
+      rebuilt bytes against freshly rebuilt bytes, and "that masking is how yomureader.com/study/ kept
+      serving a 1.8.14 build under a 1.8.15 release". `build-userscript.yml` pushes regenerated artifacts
+      to main after typecheck, build, sync, docs:build and verify, never `check:artifacts`, and ci.yml's
+      push trigger carries `paths-ignore: dist/yomu.user.js`, so that bot commit runs no suite either.
+      Both checks pass on this tree today. Do: add a 20-second job to ci.yml running `check:repository` and
+      `check:artifacts` on pull_request and push, and to `build-userscript.yml` after its commit. Both are
+      pure functions of committed bytes and cannot flake.
+- [ ] **A35.16 — HIGH: 354 test files run in no workflow, Worker typechecking is accidental, and `video/`
+      is ungated.** Three holes in what CI covers, all measured at HEAD.
+      - `find tests/academy -name '*.test.ts'` = **352**, `tests/workers` = **2**, `tests/reader` = 453.
+        ci.yml only runs `node scripts/run-ci-tests.mjs --kind regular|jpdb` (`ci.yml:61,77`) and that
+        script selects from `READER_TESTS_DIR = tests/reader` (`scripts/run-ci-tests.mjs:10`) and
+        `tests/reader/jpdb` (:14). `grep -n 'test:academy|test:workers' .github/workflows/*.yml` returns
+        nothing. On the release path `scripts/run-check.mjs:153` gates the academy suite behind
+        `if (!releaseCheck)`, and `check:release` is exactly what `release.yml:95` runs. So the academy
+        suite — including `academy-worker-payment-ingress`, `academy-worker-stripe`,
+        `academy-worker-oidc`, `academy-worker-session`, `academy-worker-entitlement`,
+        `donation-access-e2e` — runs only on a developer laptop, and so does `test:workers` (2 files, 17
+        tests, 1.5s). The full academy suite is CI-impossible for a stated reason (local moodle corpora);
+        the Worker and D1 subset is not, and a CI-runnable slice already exists in package.json as
+        `academy:backend-lifecycle:proof:local`.
+      - `tsconfig.json:23` includes `src/**`, `tests/**`, `config/**` and `vite.config.ts`; `workers/**` is
+        absent, so `npm run typecheck` covers Worker code only where a test under `tests/**` imports it
+        statically. `npx tsc --noEmit --listFiles | grep /workers/` lists 34 of the 35 non-declaration
+        Worker sources; the miss is `workers/yomu-dictionaries/src/index.ts` (344 lines, serves the 6.1 GB
+        catalogue), because its test loads it dynamically —
+        `tests/workers/yomu-dictionaries-worker.test.ts:46` is
+        `await import(workerModulePath) as DictionaryWorkerModule` against a hand-written interface. It
+        compiles clean today, so this is a coverage hole rather than a live break.
+      - `video/` is 17 files / 2,944 lines (`video/src/GamingLoop.tsx`, `scenes/ActOne.tsx`, …), listed in
+        `.fallowrc.jsonc` `ignorePatterns`, referenced by no root npm script and no workflow, with no
+        `video/node_modules` so its own `typecheck` cannot run. Backlog S0 asks for a full Remotion video
+        for Yomu Gaming, so the first signal of a break is a failed render.
+      Do: add the CI-runnable academy Worker/D1 slice plus `test:workers` to ci.yml; add `workers/**/*.ts`
+      to the typecheck include (or a second tsconfig); decide whether `video/` gets a nightly
+      `npm ci && npm run typecheck` or stays deliberately unverified, and write the decision down.
+- [ ] **A35.17 — HIGH: WebKit can drop out of the release-gating layout smoke and the smoke still
+      reports pass.** `scripts/lib/smoke-harness.mjs:953-955`: `isMissingBrowserExecutable` returns true
+      when the message includes `"Executable doesn't exist"` **or** matches `/playwright install/i`.
+      Playwright's host-dependency failure is a different fault but its message matches that regex —
+      `node_modules/playwright-core/lib/server/registry/dependencies.js:227` builds "Host system is
+      missing dependencies to run browsers." and appends `npx playwright install-deps`.
+      `launchOptionalBrowser` (:944-951) turns anything so classified into `{ skipped: true }` instead of
+      rethrowing; `scripts/reddit-chrome-furigana-smoke.mjs:255-259` records the skip and continues, and
+      the final assertion (:304) is `assert(summaries.some(summary => !summary.skipped), …)` — one
+      surviving engine satisfies it. The all-skip case does fail (`YOMU_REDDIT_SMOKE_ENGINES=firefox node
+      scripts/reddit-chrome-furigana-smoke.mjs` → `{"summaries": []}`, exit 1); the partial-skip case has
+      no guard. `smoke:reddit-chrome` sits inside `smoke:layout-regressions`, which runs in ci.yml
+      (`:107`) and in `smoke:release` on the tag path (`release.yml:96`). WebKit is the engine that catches
+      the Safari and iPad furigana and mirror-geometry regressions this repo keeps rediscovering. Do:
+      require every *requested* engine to have run, stop classifying `install-deps` messages as a missing
+      executable, and print the engine list in the pass line.
+- [ ] **A35.18 — HIGH: no production monitoring, and no health payload names a revision.** Deployment is
+      manual by design: `grep -rn 'wrangler' .github/` returns nothing, no package.json script deploys,
+      and `workers/yomu-dictionaries/README.md:12-13` states "Provisioning and publication remain explicit
+      operator actions." All wrangler configs set `observability.enabled: true`, which is log retention;
+      there is no `tail_consumers`, no notification config and no alert sink in the repo. No workflow
+      touches production, and the only cron (`nightly.yml`, `17 3 * * *`) runs fixture-served smokes. Live
+      probes exist but are manual (`scripts/dictionaries/verify-live.mjs:91`). Measured 2026-07-29:
+      `dictionaries.yomureader.com/healthz` 200, `audio.yomureader.com/status` 200,
+      `support.yomureader.com/status` 200, `yomureader.com/academy/api/health` 200,
+      `edge.yomureader.com/health` **400** — nobody knows how long that has been 400. The academy payload
+      identifies its build only as `workerVersionId`, an opaque Cloudflare id; no other Worker reports a
+      revision, so "is production running main?" cannot be answered. Do: a scheduled workflow that curls
+      the five health endpoints and fails on non-200 (and fix or retire the `edge` route), plus
+      `CF_VERSION_METADATA` and the package version stamped into every health response.
+- [ ] **A35.19 — HIGH: yomu-audio serves R2 with no edge cache, and its cache is wired to the slow path
+      only.** `workers/yomu-audio/src/index.ts:138` routes `/audio/*` to `serveR2AudioObject` (:186), which
+      does `await env.AUDIO_BUCKET.get(rawKey)` (:189) and returns
+      `cache-control: public, max-age=31536000, immutable` (:192) with no `caches.default` lookup or put.
+      The Worker is on `audio.yomureader.com` as `custom_domain: true`, so a Worker response never
+      populates the zone cache on its own and that header is inert at the edge. The Cache API helpers in
+      the same file (`cacheMatch` :394, `cachePut` :400) are called only on the upstream fetch fallback
+      (:156, :165). The R2-index JSON path returns at :148 with `max-age=3600` and no `cachePut`, so it
+      re-reads the shard on every cold isolate. This is the defect A33 records as fixed for
+      yomu-dictionaries (`workers/yomu-dictionaries/src/index.ts:115-126` wraps its R2 reads in
+      `edge.match`/`edge.put`) left in place on the highest-volume, most repeat-requested, immutable path.
+      Same class at lower volume in yomu-support: `src/index.ts:296` builds
+      `cache-control: public, max-age=300` for `/goal`, `/progress` and `/status`, and `/progress` runs two
+      D1 aggregates per call (:406, :414) with no memo. jpdb-public-proxy is clean (:242-246). Do: copy the
+      dictionary Worker's edge-cache wrapper onto `/audio/*` and the R2-index path, and put the support
+      banner reads behind the Cache API so a banner impression is not two D1 reads.
+- [ ] **A35.20 — HIGH: Academy ships 378.7 MB of lossless audio and 469 MB of PNG per user, in one
+      16.7 MB script.** Four measurements on the same payload.
+      - `docs/public/academy/sw.js:5` declares `const AUDIO_PRECACHE_BYTES = 378672515;` and
+        `AUDIO_PRECACHE` (:7) holds 27 entries (13 `.flac`, 14 `.wav`), confirmed by
+        `workers/yomu-academy/media-manifest.json` (largest `persona/ideal-and-the-real-end.flac`
+        43,816,006 B). `precacheAudio()` (:775-806) fetches them serially whenever a media request
+        succeeds (:903). Each fetch goes through `handleMedia`
+        (`workers/yomu-academy/src/media.ts:63`), which does a D1 session lookup (:65) and an R2 get
+        (:103) and returns `private, max-age=3600` + `vary: Cookie` (:81-82), correctly un-cacheable at
+        the edge. One user on one profile costs 27 Worker invocations, 27 D1 reads, 27 R2 Class B gets and
+        378.7 MB egress, repeated per profile and per eviction. The repo already ships
+        `story-lines/*.opus` (sw.js:4); re-encoding 13 BGM tracks to ~128 kbps Opus takes ~378 MB to
+        roughly 30-40 MB.
+      - `docs/public/academy/art` holds 222 `.png` = **468,899,599 B** (average 2,112,160) and 172 `.webp`
+        = **26,077,882 B** (average 151,615), with zero overlap between the two sets of extension-stripped
+        stems: some characters went through the WebP export and some did not. These are runtime assets
+        (`app.js` references PNG paths like
+        `/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png`, 4,494,893 B), so
+        an expression change pulls a 2-4 MB PNG mid-dialogue. The same pipeline already produces the same
+        art at ~152 KB.
+      - `docs/public/academy/app.js` = **16,699,522 B** unminified, `style.css` = 1,908,716 B.
+        `config/vite/academy.config.ts:119-131` sets `minify: false`, `cssMinify: false` and
+        `lib: { formats: ["iife"], fileName: () => "app.js" }`, which forbids splitting by construction.
+        `minify: false` is correct for the userscript (`scripts/verify-userscript.cjs:107-109` hard-fails
+        minified output because Greasy Fork requires readable source) and has been copied into the hosted
+        configs (`academy.config.ts:123`, `newtab.config.ts:29`, `gaming.config.ts:30`) where Greasy Fork
+        has no say. esbuild --minify takes app.js to 13,186,589 (21%) and style.css to 1,518,072 (20.5%),
+        which shows the mass is inlined curriculum data, not code.
+      - With Chrome's own `Accept-Encoding: gzip, deflate, br, zstd`, `/academy/app.js` is served
+        **gzip, 3,378,919 bytes**; asking for `br` alone returns br and `zstd` alone returns zstd, so real
+        browsers never get the smaller encodings on the precompressed static assets (the homepage HTML does
+        get zstd under the same header). A33 commits to Tiered Cache and Cache Reserve and says nothing
+        about compression.
+      Memory records 9.7 MB/page and 1 GB installed as the Migaku density the reject list exists to
+      refuse; Academy is now 3.4 MB compressed and 16.7 MB parsed in one file. Do, in order: re-encode the
+      13 BGM tracks to Opus and make the precache demand-driven; run the 222 PNGs through the existing
+      WebP export; turn on minify for the hosted configs; force br/zstd on `*.js`/`*.css` at the zone.
+- [ ] **A35.21 — HIGH: 8.55 MB of JS is injected into every page, half of the companion bytes are
+      duplicated core, and the 2 MB gate reads one file.** `dist/yomu.user.js` = 1,736,020 B and the 12
+      companions in `dist/greasyfork/` = 6,816,913 B, so 8,552,933 B across 13 scripts, all unconditional
+      `@require`s (`dist/yomu.user.js:14-25`) under `@match *://*/*` and `@match file:///*` (:12-13).
+      Largest companion `yomu-settings-surface.user.js` = 1,708,134 B. Cross-companion redundancy measured
+      with large-window brotli: sum of individually compressed companions 1,427,919 B against brotli of
+      the concatenation 734,156 B, so **48.6%** of companion bytes are duplicated shared core (~3.1 MB
+      raw). V8 parse and compile of all 13 measured at 98.7 ms. `dist/yomu.css` = 472,788 B and
+      `installStyles()` (`src/reader/app/main.ts:1749-1758`) installs it into the document and the shared
+      shadow sheet from `installCoreSurfaces()` (:1338) unconditionally — `pageHasJapaneseText` is computed
+      at :1333 and never gates it. The size gate is called once, on the main file only:
+      `scripts/verify-userscript.cjs:110` `failIfGreasyForkSizeExceeded(size)` where `size` is
+      `dist/yomu.user.js` (`scripts/lib/userscript-build-utils.cjs:115-118`), so
+      `yomu-settings-surface.user.js` sits ~292 KB under the same cap completely unchecked. Minification is
+      not a lever (verify-userscript.cjs:107-109). Do: hoist the duplicated core into one shared companion
+      so the other 11 stop carrying it; run the size check over every emitted companion; skip the 473 KB
+      sheet install on pages the reader has no work on. Cycle 10 asks for an early budget against the 2 MB
+      core cap and does not describe the aggregate payload or the duplication the split introduced.
+- [ ] **A35.22 — OCR repositioning forces layout on every scroll frame.** `schedulePosition()`
+      (`src/reader/ocr/controller.ts:1792-1803`) arms one rAF that runs `positionVideoFrames`,
+      `positionCanvasFrames`, `positionBackgroundFrames`, then `positionState(image)` for every state, then
+      `positionImageStatusCards`. It is armed from scroll (`:477-479` bind document scroll with
+      `capture: true`, window scroll and resize to `handleOcrViewportShift`, which calls
+      `schedulePosition()` at :699; `visualViewport` scroll at :525). Inside `positionState`
+      (`:3280-3300`) the order is read, write, read, write: `getBoundingClientRect()` at :3283, then four
+      style writes at :3292-3295, and the placement it writes comes from `composedOcrSurfaceTransform`
+      (`src/reader/ocr/ocr-overlay-geometry.ts:629-643`), which calls
+      `getComputedStyle(element).transform` at :636 and then walks every ancestor to the mount parent or
+      body calling `getComputedStyle(node).transform` per node at :640. Then `layoutOcrOverlayLines`
+      writes per-line styles. Per image per frame that is 1 + ancestorDepth forced style recalcs, each
+      flushing what the previous image's writes dirtied: 20 images at depth 15 is roughly 320 flushing
+      reads per scroll frame. DV-4 and DV-5 both record BookWalker scroll lag as a live symptom with no
+      root cause attached; this is a mechanism for it. Do: gather every rect and computed transform first,
+      then apply all writes, and memoize the ancestor transform chain per image per epoch — the same shape
+      as the existing memos at `ocr-overlay-geometry.ts:302` and `subtitle-video-inset.ts:1109`.
+- [ ] **A35.23 — three reader classes of 8k-11k lines, and no file or class size gate anywhere.** Measured
+      line counts: `src/reader/newtab/controller.ts` 10,782, `src/reader/app/main.ts` 10,702,
+      `src/reader/subtitles/controller.ts` 8,359, `src/reader/dom/index.ts` 7,940 (no class at all),
+      `src/reader/ocr/controller.ts` 5,007. Within them, `export class ReaderApp` (`main.ts:747`) is 9,956
+      lines and 756 methods; `export class NewTabController` (`controller.ts:714`) is 9,822 lines, 796
+      methods and 99 fields behind 126 imports. Grouping NewTabController's method names by verb prefix
+      names the jobs it holds at once: render 84, handle 51, load 48, study 25, apply 24, sync 18, kanji
+      11, play 10, anki 10, submit 9, grade 8, prefetch 8, offline 7, jiten 6. Grep for `MAX_LINES`,
+      `maxLines` or `line-limit` across `scripts/check-repository-hygiene.mjs`, `scripts/qa-audit.mjs` and
+      `scripts/complexity-audit.mjs` returns nothing: the complexity audit measures per-function
+      cyclomatic complexity only, so none of these files register. These are the files every reader bug
+      lands in, which matches the recorded pattern of a fix in one surface regressing another. Do: pick one
+      of the two 10k files, carve out two or three coherent modules by the verb groups above, and add a
+      file-length ceiling to the hygiene check with the current worst files recorded as a shrinking
+      baseline.
+- [ ] **A35.24 — the documented quality command cannot pass, and the dead-code suppression list has
+      rotted.** Two halves of the same problem: gates that read as if they hold.
+      - `package.json:129` `qa` = `npm run check && npm run smoke:p0 && node scripts/qa-audit.mjs && node
+        scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs`. Running the last stage alone at
+        HEAD: **exit 1, 51 functions over the threshold of 30** (`scripts/complexity-audit.mjs:8`
+        `THRESHOLD = Number(process.env.YOMU_COMPLEXITY_MAX || 30)`, :76 `process.exitCode = 1`). Worst:
+        112 `scripts/lib/academy-workflow-trust.mjs:31 validateGovernanceTrustStore`, 98
+        `scripts/validate-story-package.mjs:11 validate`, 91 `scripts/lib/academy-workflow-model.mjs:926
+        validateProof`. No workflow runs the audit, so nothing has held the line. README.md:128 advertises
+        `npm run qa`; AGENTS.md:25 names it. The two audits ahead of it — `qa-audit.mjs`, whose DOM
+        evidence AGENTS.md:55 requires for browser-impacting changes, and `docs-a11y-audit.mjs` — are
+        unreachable in that chain. AGENTS.md:28 also tells every agent to run `npm run qa:live`, which does
+        not exist (`'qa:live' in scripts` → false; the same dead command is cited in
+        `docs/qa/GENERIC-BOUNDARY-PITCH-TAXONOMY-AUDIT-20260716.md`).
+      - `.fallowrc.jsonc:83` declares `scripts/bookwalker-canvas-probe.mjs` as an entry point and the file
+        does not exist (deleted in `0dcbf4022`), which fallow ignores without a warning. 46 of the 60
+        declared `scripts/` entry points are invoked by no npm script and no workflow, so declaring an
+        orphan as an entry point is how they stay invisible to the only dead-code detector the repo has.
+        `.fallowrc.jsonc:128` still parks `src/academy/audio/voice-lines.ts` as a deliberate seam, but five
+        modules now import it normally (`src/academy/ui/story-screen.ts`, `ui/character-scenes.ts`,
+        `ui/vn-stage.ts`, `routing/enrollment-flow.ts`, `routing/world-flow.ts`). The other parked seam is
+        real dead code: `src/academy/routing/overflow-destinations.ts` exports
+        `ACADEMY_OVERFLOW_DESTINATIONS` (six destinations including Class Board and Achievements) and grep
+        for the symbol or the module path across all of `src` and `tests` returns zero hits outside the
+        file.
+      Do: either record a complexity baseline the offender list must shrink from, or stop advertising `qa`
+      as a gate; fix the AGENTS.md line; prune the entry-point list to what actually runs and re-file the
+      genuinely dead module. U63 records that `fallow:dead-code` exits non-zero; it does not cover the
+      config rot or the unpassable `qa`.
+- [ ] **A35.25 — docs/public keeps every content-addressed build forever.** `docs/public/greasyfork` is
+      **385 MB across 536 tracked files**, of which **198 are copies of `yomu-settings-surface`**; there
+      are also **48** tracked `docs/public/yomu.<hash>.css` copies. `git count-objects -vH` reports
+      size-pack **4.68 GiB**. There is no pruning in the sync path: `scripts/sync-docs-userscript.cjs`
+      mentions retention exactly once, in the comment at :49 ("managers with an older header must keep
+      validating their pinned URLs"). Retain-forever is right in principle, because an installed userscript
+      pins its `@require` by hash and SRI and deleting an old companion 404s that install (memory
+      `yomu-release-staging-add-u-trap`). Unbounded is a different thing: 198 copies of a 1.7 MB companion
+      serve nobody, and the weight is paid on every clone, every VitePress build and every Pages deploy.
+      Do: keep the last N releases plus anything referenced by a still-supported header, prune the rest in
+      one commit, and put the retention window in the sync script next to that comment.
+
+**Polish**
+
+- [ ] **A35.26 — technical SEO gaps on the four surfaces A6 never checked.** A6 (backlog:82-84) closed
+      technical SEO on the evidence that all sitemap URLs return 200, which only examined what is in the
+      sitemap. Measured 2026-07-29 on the live site:
+      - `sitemap.xml` has **24 `<loc>` entries and none of `/study/`, `/video-player/`, `/pdf-reader/`,
+        `/academy/`**, all of which return 200, carry no `noindex`, and are built as indexable landing
+        pages.
+      - `/pdf-reader/index.html` and `/video-player/index.html` return 200 and declare
+        `rel="canonical"` to `/pdf-reader/` and `/video-player/`, while the homepage links the
+        `index.html` forms and `manifest.webmanifest`'s "Video Player" shortcut uses
+        `/video-player/index.html`. So every internal link and the PWA shortcut point at a URL that
+        declares itself a duplicate. The docs pages get this right (`/changelog.html` canonicals to
+        `/changelog`).
+      - `/academy/` head contains only charset, viewport, theme-color, description, title, icon, manifest
+        and stylesheet: no canonical, no `og:*`, no `twitter:card`. Every other surface carries the full
+        set with `og-image.png` (200, 1200x630). Academy is the surface paying supporters are sent a link
+        to, and that link renders as a bare URL.
+      - `/pdf-reader/index.html` has `<title>Yomu PDF</title>` against `og:title` "Yomu PDF Reader", and
+        carries `twitter:card` and `twitter:image` with no `twitter:title` or `twitter:description` —
+        the only app shell missing them.
+      - `/favicon.ico` returns **404** and serves the 11,481-byte HTML error page. The declared icons all
+        exist (`/yomu-icon.svg`, `/favicon-32x32.png`, `/favicon-16x16.png`, `/apple-touch-icon.png` all
+        200); the root `.ico` path browsers and unfurlers request unconditionally is simply absent.
+      Do: add the four app routes to the sitemap; link and canonicalise one form of each app URL; copy the
+      six social-metadata lines from a sibling shell into the Academy shell; fix the PDF reader title and
+      add its two twitter fields; drop one PNG at `docs/public/favicon.ico`. Feeds D42, which is query
+      research and does not cover any of this.
+
+---
+
+#### Dropped in triage
+
+| Raw finding | Why it is not in A35 |
+|---|---|
+| `fallow` CI job red on main, `fallow:dead-code` exits 1 with 14 issues | **U63** already records `npm run fallow:dead-code` exiting non-zero. Only the `.fallowrc` config rot survives, in A35.24. |
+| Live dictionary manifest reports `readiness: "ready"` with no blockers for 24 learner languages | **U62** already says `languages.json` claims all 32 are `readiness:"ready", blockers:[]` and "that is false, do not trust it". The docs claim on the definition axis survives as A35.6. |
+| 90 `eslint-disable` comments in a repo with no ESLint | Recount gives 35 across `src`, `scripts`, `workers`, `tests`, not 90, and with no linter to install the ask is a preference, not work. |
+| Academy `tests/academy` not run in CI (reported twice, two sweeps) | Merged into **A35.16**. |
+| `workers/**` typechecked only by accident; `video/` in no gate | Merged into **A35.16**. |
+| `npm run qa:live` does not exist (AGENTS.md:28) | Merged into **A35.24**. |
+| `.fallowrc.jsonc` suppression rot | Merged into **A35.24**. |
+| Browsers get gzip not br/zstd; Academy `app.js` is 16.7 MB unminified | Merged into **A35.20**. |
+| 469 MB of PNG art; 378.7 MB FLAC precache | Merged into **A35.20**. |
+| `/favicon.ico` 404; sitemap omissions; canonical mismatch; `/academy/` has no OG; `/pdf-reader/` title | Merged into **A35.26**. |
+| yomu-support `/progress` runs two D1 aggregates per banner impression | Merged into **A35.19**. |
 
 ### A21 — USER FEEDBACK, Discord, 25–28 July 2026 (verbatim reports → tickets)
 
