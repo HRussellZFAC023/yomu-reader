@@ -18,7 +18,10 @@ describe("support banner layout", () => {
     const bannerRule = rule(hostedCss, ".yomu-support-banner");
 
     expect(bannerRule).toContain("position: static");
-    expect(bannerRule).toContain("margin-top: var(--vp-nav-height)");
+    expect(bannerRule).toContain("margin-top: 0");
+    expect(hostedCss).toContain("@media (min-width: 960px)");
+    expect(hostedCss).toContain("margin-top: var(--vp-nav-height)");
+    expect(hostedCss).toContain("flex-direction: column");
     expect(bannerRule).not.toMatch(/(?:^|\n)\s*(?:top|z-index)\s*:/u);
     expect(hostedTheme).toContain("document.querySelector<HTMLElement>('.VPContent')");
     expect(hostedTheme).toContain("content.prepend(banner)");

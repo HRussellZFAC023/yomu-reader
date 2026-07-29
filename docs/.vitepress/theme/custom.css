@@ -109,7 +109,7 @@
 
 .yomu-support-banner {
   position: static;
-  margin-top: var(--vp-nav-height);
+  margin-top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,6 +120,12 @@
   background: color-mix(in srgb, var(--vp-c-bg) 90%, var(--vp-c-brand-soft));
   color: var(--vp-c-text-1);
   box-shadow: 0 8px 24px var(--yomu-doc-panel-shadow);
+}
+
+@media (min-width: 960px) {
+  .yomu-support-banner {
+    margin-top: var(--vp-nav-height);
+  }
 }
 
 .yomu-support-banner-copy {
@@ -233,8 +239,9 @@
 
 @media (max-width: 720px) {
   .yomu-support-banner {
+    flex-direction: column;
     align-items: stretch;
-    justify-content: space-between;
+    justify-content: flex-start;
     padding-block: 10px;
   }
 
@@ -249,6 +256,7 @@
 
   .yomu-support-banner-actions {
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 

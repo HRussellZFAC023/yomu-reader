@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.28] - 2026-07-29
+
+### Fixed
+
+- The support banner now reuses the hosted layout's existing navigation offset on tablet and mobile, while phones stack the funding copy above the actions instead of squeezing it into a narrow column.
+
 ## [1.8.27] - 2026-07-29
 
 ### Fixed
