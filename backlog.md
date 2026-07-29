@@ -757,8 +757,11 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Do: add the CI-runnable academy Worker/D1 slice plus `test:workers` to ci.yml; add `workers/**/*.ts`
       to the typecheck include (or a second tsconfig); decide whether `video/` gets a nightly
       `npm ci && npm run typecheck` or stays deliberately unverified, and write the decision down.
-- [ ] **A35.17 — HIGH: WebKit can drop out of the release-gating layout smoke and the smoke still
-      reports pass.** `scripts/lib/smoke-harness.mjs:953-955`: `isMissingBrowserExecutable` returns true
+- [x] **A35.17 — CLOSED 2026-07-29: every requested release-smoke engine must run, and the pass line
+      names the engines that completed.** A skipped or missing requested engine now fails coverage, and
+      `playwright install-deps` host-dependency errors are no longer misclassified as an optional missing
+      executable. **Original finding: WebKit could drop out of the release-gating layout smoke while the smoke still
+      reported pass.** `scripts/lib/smoke-harness.mjs:953-955`: `isMissingBrowserExecutable` returns true
       when the message includes `"Executable doesn't exist"` **or** matches `/playwright install/i`.
       Playwright's host-dependency failure is a different fault but its message matches that regex —
       `node_modules/playwright-core/lib/server/registry/dependencies.js:227` builds "Host system is

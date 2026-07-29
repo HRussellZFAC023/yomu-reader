@@ -950,9 +950,19 @@ export async function launchOptionalBrowser(browserType, browserName, options) {
     }
 }
 
-function isMissingBrowserExecutable(error) {
+export function isMissingBrowserExecutable(error) {
     const message = String(error?.message ?? '');
-    return message.includes("Executable doesn't exist") || /playwright install/i.test(message);
+    return message.includes("Executable doesn't exist");
+}
+
+export function requestedBrowserCoverageFailures(requestedEngines, summaries) {
+    const summaryByEngine = new Map(summaries.map(summary => [summary.engine, summary]));
+    return [...requestedEngines].flatMap(engine => {
+        const summary = summaryByEngine.get(engine);
+        if (!summary) return [`${engine}: requested engine produced no summary`];
+        if (!summary.skipped) return [];
+        return [`${engine}: requested engine was skipped (${summary.reason ?? 'no reason reported'})`];
+    });
 }
 
 export function firstErrorLine(error) {

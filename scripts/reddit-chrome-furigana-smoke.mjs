@@ -23,6 +23,7 @@ import {
     installUserscriptFixtureBridge,
     launchOptionalBrowser,
     mockJpdbApiRequest,
+    requestedBrowserCoverageFailures,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 
@@ -297,12 +298,14 @@ for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', ty
 }
 
 console.log(JSON.stringify({ summaries }, null, 2));
+if (requestedEngines.size === 0) failures.push('No browser engines were requested');
+failures.push(...requestedBrowserCoverageFailures(requestedEngines, summaries));
 if (failures.length) {
     console.error(`FAILURES:\n${failures.join('\n')}`);
     process.exit(1);
 }
-assert(summaries.some(summary => !summary.skipped), 'No browser engine was available to run the Reddit smoke');
-console.log('reddit-chrome-furigana smoke passed');
+const ranEngines = summaries.filter(summary => !summary.skipped).map(summary => summary.engine);
+console.log(`reddit-chrome-furigana smoke passed (engines: ${ranEngines.join(', ')})`);
 
 function isRetryablePerformanceFailure(message) {
     return message.includes('boot responsiveness probe did not sample frames')
