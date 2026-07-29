@@ -46857,13 +46857,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       box.height,
       vertical,
       input2.fontScale,
-      measureOcrLineExtent(element2, textElement, vertical, input2.typeface ?? ocrLayerTypeface(element2))
+      measureOcrLineExtent(element2, textElement, vertical, input2.typeface ?? ocrLayerTypeface(element2), input2.layerTransform)
     );
     element2.style.fontSize = `${fontSize}px`;
     element2.dataset.hasFuri = String(hasFurigana);
     const padding = ocrLinePadding(fontSize, vertical, hasFurigana);
     applyOcrLinePadding(element2, padding);
-    const contentRect = textElement.getBoundingClientRect();
+    const content = paintedElementBox(textElement, input2.layerTransform);
     const placed = ocrLineFrame({
       text: input2.text,
       box,
@@ -46871,8 +46871,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       vertical,
       hasFurigana,
       fontSize,
-      contentWidth: contentRect.width,
-      contentHeight: contentRect.height
+      contentWidth: content.width,
+      contentHeight: content.height
     });
     element2.style.left = `${placed.left}px`;
     element2.style.top = `${placed.top}px`;
@@ -46880,7 +46880,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     element2.style.height = `${placed.height}px`;
     return placed;
   }
-  function layoutOcrOverlayLines(layer, frame, fontScale) {
+  function layoutOcrOverlayLines(layer, frame, fontScale, layerTransform = null) {
     const lines = layer.querySelectorAll(".jpdb-ocr-line");
     const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : "";
     lines.forEach((element2) => {
@@ -46895,7 +46895,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         frame,
         vertical: element2.dataset.vertical === "true",
         fontScale,
-        typeface
+        typeface,
+        layerTransform
       });
     });
   }
@@ -46905,19 +46906,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const OCR_FIT_MEASURE_PX = 32;
   const rememberedLineExtents = /* @__PURE__ */ new WeakMap();
-  function measureOcrLineExtent(line, textElement, vertical, typeface) {
+  function measureOcrLineExtent(line, textElement, vertical, typeface, layerTransform) {
     const signature = `${vertical ? "vertical" : "horizontal"}|${typeface}|${textElement.innerHTML}`;
     const remembered = rememberedLineExtents.get(line);
     if (remembered?.signature === signature) return remembered.measurement;
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
-    const length = axisLength(textElement.getBoundingClientRect(), vertical);
+    const length = axisLength(paintedElementBox(textElement, layerTransform), vertical);
     if (!(length > 0)) return void 0;
     const measurement = { fontSize: OCR_FIT_MEASURE_PX, length };
     rememberedLineExtents.set(line, { signature, measurement });
     return measurement;
   }
-  function axisLength(rect, vertical) {
-    return vertical ? rect.height : rect.width;
+  function axisLength(box, vertical) {
+    return vertical ? box.height : box.width;
+  }
+  function paintedElementBox(element2, layerTransform) {
+    const rect = element2.getBoundingClientRect();
+    if (!layerTransform) return { width: rect.width, height: rect.height };
+    return untransformedBoxSize(rect, layerTransform, { width: element2.offsetWidth, height: element2.offsetHeight }) ?? { width: rect.width, height: rect.height };
   }
   function applyOcrLinePadding(element2, padding) {
     element2.style.setProperty("--jpdb-ocr-pad-x", `${padding.padX}px`);
@@ -47055,6 +47061,157 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isVerticalPositionKeyword(token) {
     return token === "top" || token === "bottom";
+  }
+  const IDENTITY_TRANSFORM = { a: 1, b: 0, c: 0, d: 1 };
+  const TRANSFORM_EPSILON = 1e-6;
+  const MIN_INVERTIBLE_DETERMINANT = 0.05;
+  function composedOcrSurfaceTransform(element2, mountParent, _rect) {
+    const view = element2.ownerDocument.defaultView;
+    if (!view) return null;
+    const own = parseCssTransformLinear(view.getComputedStyle(element2).transform);
+    const stop = mountParent?.contains(element2) ? mountParent : element2.ownerDocument.body;
+    let composed = own;
+    for (let node = element2.parentElement; node && node !== stop && composed; node = node.parentElement) {
+      composed = multiplyTransforms(parseCssTransformLinear(view.getComputedStyle(node).transform), composed);
+    }
+    return composed && !isIdentityTransform(composed) ? composed : null;
+  }
+  function ocrOverlayLayerPlacement(rect, linear, layout) {
+    const axisAligned = {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      transform: "",
+      linear: null
+    };
+    if (!linear || keepsReadableAxisAlignedPath(linear)) return axisAligned;
+    const size = untransformedBoxSize(rect, linear, layout);
+    if (!size) return axisAligned;
+    const { a, b, c, d } = linear;
+    const spanX = a * size.width;
+    const spanY = c * size.height;
+    return {
+      // The rect's origin is the least corner of the transformed box, so the box's own
+      // origin sits back along whichever corners the transform pushed out first.
+      left: rect.left - Math.min(0, spanX, spanY, spanX + spanY),
+      top: rect.top - Math.min(0, b * size.width, d * size.height, b * size.width + d * size.height),
+      width: size.width,
+      height: size.height,
+      transform: `matrix(${a}, ${b}, ${c}, ${d}, 0, 0)`,
+      linear
+    };
+  }
+  function untransformedBoxSize(rect, linear, layout) {
+    const a = Math.abs(linear.a);
+    const b = Math.abs(linear.b);
+    const c = Math.abs(linear.c);
+    const d = Math.abs(linear.d);
+    const determinant = a * d - c * b;
+    if (Math.abs(determinant) >= MIN_INVERTIBLE_DETERMINANT) {
+      const width = (d * rect.width - c * rect.height) / determinant;
+      const height = (a * rect.height - b * rect.width) / determinant;
+      if (width > 0 && height > 0) return { width, height };
+    }
+    return layout.width > 0 && layout.height > 0 ? layout : null;
+  }
+  function isIdentityTransform(linear) {
+    return Math.abs(linear.a - 1) < TRANSFORM_EPSILON && Math.abs(linear.d - 1) < TRANSFORM_EPSILON && Math.abs(linear.b) < TRANSFORM_EPSILON && Math.abs(linear.c) < TRANSFORM_EPSILON;
+  }
+  function keepsReadableAxisAlignedPath(linear) {
+    const axisAligned = Math.abs(linear.b) < TRANSFORM_EPSILON && Math.abs(linear.c) < TRANSFORM_EPSILON;
+    if (axisAligned && linear.a > 0 && linear.d > 0) return true;
+    const determinant = linear.a * linear.d - linear.b * linear.c;
+    if (determinant < -TRANSFORM_EPSILON) return true;
+    return axisAligned && linear.a < 0 && linear.d < 0;
+  }
+  function multiplyTransforms(outer, inner) {
+    if (!outer) return null;
+    return {
+      a: outer.a * inner.a + outer.c * inner.b,
+      b: outer.b * inner.a + outer.d * inner.b,
+      c: outer.a * inner.c + outer.c * inner.d,
+      d: outer.b * inner.c + outer.d * inner.d
+    };
+  }
+  function parseCssTransformLinear(value) {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "none") return IDENTITY_TRANSFORM;
+    let composed = IDENTITY_TRANSFORM;
+    for (const [name, args] of transformFunctions(trimmed)) {
+      const step = transformFunctionLinear(name, args);
+      if (!step) return null;
+      composed = multiplyTransforms(composed, step) ?? IDENTITY_TRANSFORM;
+    }
+    return composed;
+  }
+  function transformFunctions(value) {
+    const functions = [];
+    const pattern = /([a-zA-Z0-9]+)\(([^)]*)\)/g;
+    for (let match = pattern.exec(value); match; match = pattern.exec(value)) {
+      functions.push([match[1].toLowerCase(), match[2].split(",").map((part) => part.trim())]);
+    }
+    return functions;
+  }
+  function transformFunctionLinear(name, args) {
+    const numbers = args.map((arg) => Number.parseFloat(String(arg)));
+    switch (name) {
+      case "matrix":
+        return numbers.length >= 4 && numbers.slice(0, 4).every(Number.isFinite) ? { a: numbers[0], b: numbers[1], c: numbers[2], d: numbers[3] } : null;
+      case "matrix3d":
+        return flatMatrix3dLinear(numbers);
+      case "translate":
+      case "translatex":
+      case "translatey":
+      case "translatez":
+      case "translate3d":
+      case "none":
+        return IDENTITY_TRANSFORM;
+      case "scale":
+      case "scale3d": {
+        const scaleX = Number.isFinite(numbers[0]) ? numbers[0] : 1;
+        const scaleY = Number.isFinite(numbers[1]) ? numbers[1] : scaleX;
+        return { a: scaleX, b: 0, c: 0, d: scaleY };
+      }
+      case "scalex":
+        return Number.isFinite(numbers[0]) ? { a: numbers[0], b: 0, c: 0, d: 1 } : null;
+      case "scaley":
+        return Number.isFinite(numbers[0]) ? { a: 1, b: 0, c: 0, d: numbers[0] } : null;
+      case "rotate":
+      case "rotatez": {
+        const radians = cssAngleRadians(String(args[0] ?? ""));
+        return radians === null ? null : {
+          a: Math.cos(radians),
+          b: Math.sin(radians),
+          c: -Math.sin(radians),
+          d: Math.cos(radians)
+        };
+      }
+      case "skew":
+      case "skewx":
+      case "skewy": {
+        const first2 = cssAngleRadians(String(args[0] ?? "0deg"));
+        const second = args.length > 1 ? cssAngleRadians(String(args[1])) : 0;
+        if (first2 === null || second === null) return null;
+        if (name === "skewy") return { a: 1, b: Math.tan(first2), c: 0, d: 1 };
+        return { a: 1, b: Math.tan(second ?? 0), c: Math.tan(first2), d: 1 };
+      }
+      default:
+        return null;
+    }
+  }
+  function flatMatrix3dLinear(numbers) {
+    if (numbers.length < 16 || !numbers.every(Number.isFinite)) return null;
+    const flat = [2, 3, 6, 7, 8, 9, 11, 14].every((index) => Math.abs(numbers[index]) < TRANSFORM_EPSILON) && Math.abs(numbers[10] - 1) < TRANSFORM_EPSILON && Math.abs(numbers[15] - 1) < TRANSFORM_EPSILON;
+    return flat ? { a: numbers[0], b: numbers[1], c: numbers[4], d: numbers[5] } : null;
+  }
+  function cssAngleRadians(value) {
+    const amount = Number.parseFloat(value);
+    if (!Number.isFinite(amount)) return null;
+    if (value.endsWith("rad")) return amount;
+    if (value.endsWith("turn")) return amount * 2 * Math.PI;
+    if (value.endsWith("grad")) return amount * Math.PI / 200;
+    return amount * Math.PI / 180;
   }
   function pushTargetLanguageOcrLine(lines, text2, box) {
     if (!text2 || !box || !isTargetLanguageText(text2)) return;
@@ -51888,14 +52045,44 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       state2.overlay.hidden = !visible;
       setOcrOverlayAccessibility(state2.overlay, visible);
       if (!visible) return;
-      setOcrArtifactPosition(state2.overlay, rect.left, rect.top);
-      state2.overlay.style.width = `${rect.width}px`;
-      state2.overlay.style.height = `${rect.height}px`;
+      const placement = this.ocrLayerPlacement(image, rect, state2.overlay);
+      setOcrArtifactPosition(state2.overlay, placement.left, placement.top);
+      state2.overlay.style.width = `${placement.width}px`;
+      state2.overlay.style.height = `${placement.height}px`;
+      setOcrLayerTransform(state2.overlay, placement.transform);
       layoutOcrOverlayLines(
         state2.overlay,
-        this.renderedOcrImageFrameForState(image, rect, state2.result),
-        this.options.getSettings().ocrFontScale
+        this.renderedOcrImageFrameForState(
+          image,
+          ocrPlacedSurfaceRect(rect, placement),
+          state2.result,
+          rect.bottom
+        ),
+        this.options.getSettings().ocrFontScale,
+        placement.linear
       );
+    }
+    ocrLayerPlacement(image, rect, overlay) {
+      const surface = this.ocrLayerTransformSurface(image);
+      const linear = surface ? composedOcrSurfaceTransform(surface, overlay.parentElement) : null;
+      return ocrOverlayLayerPlacement(rect, linear, { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 });
+    }
+    // Whose transform the layer has to carry: whatever is PAINTING the pixels the lines sit
+    // on. For a canvas or background surface that is the host element, not the frame image
+    // the capture went through — those are opacity:0 and exist only to carry pixels, and the
+    // OCR boxes come back in the surface's own unrotated space, which is exactly the space a
+    // rotated layer maps from. A paused video's frame image IS visible, and it is
+    // axis-aligned wherever it was put, so the layer follows it and stays in step.
+    //
+    // The exception is a canvas frame measured against a REGION of its canvas: that rect is
+    // a sub-box picked out by fractions rather than an element's own box, and taking a box
+    // back out of a bounding box only says anything about a whole element box.
+    ocrLayerTransformSurface(image) {
+      const canvas = this.canvasFrameSources.get(image);
+      if (canvas) {
+        return this.canvasFrameRegionFractions.has(image) || this.canvasFrameStaticRects.has(image) ? null : canvas;
+      }
+      return this.backgroundFrameSources.get(image) ?? image;
     }
     readerRasterSourceRect(image) {
       const canvas = this.canvasFrameSources.get(image);
@@ -51911,11 +52098,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // furniture at the true viewport bottom under a reader raster surface. Player
     // chrome inside the page never qualifies — the OCR layer paints above it, and
     // a video's own subtitles live in exactly that bottom strip.
-    renderedOcrImageFrameForState(image, rect, result) {
+    renderedOcrImageFrameForState(image, rect, result, viewportBottom = rect.bottom) {
       const frame = this.canvasFrameSources.has(image) ? renderedCanvasReaderFrame(rect) : renderedOcrImageFrame(image, rect, result);
       if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
       const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (!viewportHeight2 || rect.bottom < viewportHeight2 - 2) return frame;
+      if (!viewportHeight2 || viewportBottom < viewportHeight2 - 2) return frame;
       const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
       return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
@@ -52897,6 +53084,21 @@ ${spelling}`);
     const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
     setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
+  }
+  function setOcrLayerTransform(overlay, transform) {
+    if (overlay.style.transform === transform) return;
+    overlay.style.transform = transform;
+    overlay.style.transformOrigin = transform ? "0 0" : "";
+  }
+  function ocrPlacedSurfaceRect(rect, placement) {
+    if (placement.width === rect.width && placement.height === rect.height) return rect;
+    return {
+      left: placement.left,
+      top: placement.top,
+      bottom: placement.top + placement.height,
+      width: placement.width,
+      height: placement.height
+    };
   }
   function setOcrArtifactPosition(element2, viewportLeft, viewportTop) {
     const offset = ocrArtifactRootOffset(element2);
