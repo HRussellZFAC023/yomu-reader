@@ -355,6 +355,18 @@
   padding: revert;
 }
 
+/* Language-family visibility follows Yomitan's data-language vocabulary. */
+
+[data-jpdb-reader-root]:not([data-language="ja"]):not([data-language="zh"]):not([data-language="yue"]) .jpzhyue-only,
+[data-jpdb-reader-root]:not([data-language="ja"]):not([data-language="zh"]):not([data-language="yue"]):not([data-language="ko"]) .jpzhyueko-only,
+[data-jpdb-reader-root]:not([data-language="ja"]) .jp-only {
+  display: none !important;
+}
+
+[data-jpdb-reader-root]:is([data-language="ja"], [data-language="zh"], [data-language="yue"], [data-language="ko"]) .not-jpzhyueko {
+  display: none !important;
+}
+
 [data-jpdb-reader-root]:where(table),
 [data-jpdb-reader-root] :where(table) {
   border-collapse: revert;
@@ -16649,6 +16661,10 @@ html.jpdb-reader-doodle-active * {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   align-items: stretch;
   gap: 14px 16px;
+}
+
+.jpdb-reader-settings .grid > [data-language-family] {
+  display: contents;
 }
 
 .jpdb-reader-settings .grid > * {
