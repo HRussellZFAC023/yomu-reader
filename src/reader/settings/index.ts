@@ -25,6 +25,7 @@ export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupL
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
+export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
     'yomu-reader-settings',
@@ -35,6 +36,24 @@ export const SETTINGS_STORAGE_KEYS = [
     ...LEGACY_SETTINGS_STORAGE_KEYS,
 ] as const;
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = 'prefer-japanese-site-language-setting';
+const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
+
+export const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+    'annotationsPaused',
+    'manualScanEnabled',
+    'showFurigana',
+    'furiganaMode',
+    'puckFuriganaModeBeforeHide',
+    'ocrEnabled',
+    'ocrAutoScanImages',
+    'youtubeImmersionEnabled',
+    'subtitleOverlayVisible',
+    'subtitleSecondaryVisible',
+    'subtitleOverlayVisibleChosen',
+    'subtitleSecondaryVisibleChosen',
+] as const satisfies readonly (keyof ReaderSettings)[];
+
+export type AutomationProtectedSettingsKey = typeof AUTOMATION_PROTECTED_SETTINGS_KEYS[number];
 
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
@@ -1882,6 +1901,10 @@ export async function loadSettings(): Promise<ReaderSettings> {
             PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
             undefined,
         );
+        const explicitUserSettings = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(
+            EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+            null,
+        ));
         const cacheStandaloneBaseline = isHostedYomuOrigin()
             && !hasAsyncGmStorageBackend()
             && localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
@@ -1912,6 +1935,7 @@ export async function loadSettings(): Promise<ReaderSettings> {
                 settings.preferJapaneseSiteLanguage,
             ),
         };
+        settings = applyExplicitUserSettings(settings, explicitUserSettings);
 
         if (recoveredLegacySettings) await persistSettings(settings);
         else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
@@ -2047,6 +2071,7 @@ export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderS
     const unsubscribers = [
         subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
         subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
+        subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
     ];
     return () => {
         active = false;
@@ -2061,6 +2086,12 @@ export interface SaveSettingsOptions {
      * Background and stale whole-settings saves must leave the scalar alone.
      */
     readonly persistPreferredJapaneseSiteLanguage?: boolean;
+    /**
+     * Fields changed by a direct user action. Their values are stored outside
+     * the whole-settings blob so stale listeners, onboarding defaults, and
+     * auto-discovery passes cannot silently overwrite the user's intent.
+     */
+    readonly explicitUserChoiceKeys?: readonly AutomationProtectedSettingsKey[];
 }
 
 export async function saveSettings(
@@ -2076,18 +2107,64 @@ export async function saveSettings(
         if (options.persistPreferredJapaneseSiteLanguage) {
             await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
         }
-        await persistSettings(normalizedSettings);
+        await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
     }
 }
 
-async function persistSettings(settings: ReaderSettings): Promise<void> {
+async function persistSettings(
+    settings: ReaderSettings,
+    explicitUserChoiceKeys: readonly AutomationProtectedSettingsKey[] = [],
+): Promise<void> {
     const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-    const storedSettings = stripUnsupportedSettings(normalizedSettings) ?? normalizedSettings;
-    await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
+    let storedSettings = normalizedSettings;
+    await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+        const existingExplicitSettings = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(
+            EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+            null,
+        ));
+        const nextExplicitSettings: Partial<ReaderSettings> = { ...existingExplicitSettings };
+        for (const key of explicitUserChoiceKeys) {
+            assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
+        }
+        if (explicitUserChoiceKeys.length > 0) {
+            await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
+        }
+        storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+        const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
+        await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+        storedSettings = supportedSettings;
+    });
     dispatchSettingsChange(storedSettings);
+}
+
+function assignSetting<K extends keyof ReaderSettings>(
+    settings: Partial<ReaderSettings>,
+    key: K,
+    value: ReaderSettings[K],
+): void {
+    settings[key] = value;
+}
+
+function applyExplicitUserSettings(
+    settings: ReaderSettings,
+    explicitSettings: Partial<ReaderSettings> | null,
+): ReaderSettings {
+    if (!explicitSettings) return settings;
+    const candidate: Partial<ReaderSettings> = { ...settings };
+    for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
+        if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key] as ReaderSettings[typeof key]);
+    }
+    return mergeSettings(candidate as LegacyReaderSettings);
+}
+
+export function changedAutomationProtectedSettingsKeys(
+    previous: ReaderSettings,
+    next: ReaderSettings,
+): AutomationProtectedSettingsKey[] {
+    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter(key => !settingsValueEquals(previous[key], next[key]));
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
@@ -2114,11 +2191,16 @@ export function endSettingsResetGuard(): void {
 export async function deleteSettingsStorage(): Promise<void> {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+    await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
 }
 
 export async function settingsStorageKeysStillPresent(): Promise<string[]> {
     const keys: string[] = [];
-    for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
+    for (const key of [
+        ...SETTINGS_STORAGE_KEYS,
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    ]) {
         if (await storedValueExists(key)) keys.push(key);
     }
     return keys;

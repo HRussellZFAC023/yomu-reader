@@ -28,6 +28,25 @@ function installSharedMessageBasedGm(store: Map<string, unknown>): void {
     }));
 }
 
+function installPackagedExtensionStorage(store: Map<string, unknown>): void {
+    const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+    vi.stubGlobal('chrome', {
+        runtime: { id: 'reader-extension-id' },
+        storage: { local: {
+            get: vi.fn(async (key: string | null) => {
+                if (key === null) return Object.fromEntries([...store].map(([name, value]) => [name, clone(value)]));
+                return store.has(key) ? { [key]: clone(store.get(key)) } : {};
+            }),
+            set: vi.fn(async (items: Record<string, unknown>) => {
+                for (const [key, value] of Object.entries(items)) store.set(key, clone(value));
+            }),
+            remove: vi.fn(async (key: string) => {
+                store.delete(key);
+            }),
+        } },
+    });
+}
+
 describe('settings persist across sites (message-based GM store)', () => {
     afterEach(() => {
         localStorage.clear();
@@ -82,6 +101,25 @@ describe('settings persist across sites (message-based GM store)', () => {
             theme: 'dark',
         });
         expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
+    });
+
+    it('does not let a stale whole-settings save overwrite an explicit annotations choice', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings(
+            { ...staleSettings, annotationsPaused: false },
+            {
+                // Cast keeps this regression executable against the pre-fix
+                // implementation, where the option does not exist yet.
+                explicitUserChoiceKeys: ['annotationsPaused'],
+            } as Parameters<typeof saveSettings>[1],
+        );
+
+        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' });
+
+        expect((await loadSettings()).annotationsPaused).toBe(false);
     });
 
     it('normalizes malformed Japanese-sites preferences without truthy coercion', async () => {
@@ -156,7 +194,28 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(onSettings.mock.calls[1]?.[0].preferJapaneseSiteLanguage).toBe(true);
 
         unsubscribe();
-        expect(removeListener).toHaveBeenCalledTimes(2);
+        expect(removeListener).toHaveBeenCalledTimes(3);
+    });
+});
+
+describe('settings persist in packaged-extension storage', () => {
+    afterEach(() => {
+        localStorage.clear();
+        vi.unstubAllGlobals();
+    });
+
+    it('keeps explicit annotations intent authoritative over a stale extension save', async () => {
+        const store = new Map<string, unknown>();
+        installPackagedExtensionStorage(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings(
+            { ...staleSettings, annotationsPaused: false },
+            { explicitUserChoiceKeys: ['annotationsPaused'] },
+        );
+        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' });
+
+        expect((await loadSettings()).annotationsPaused).toBe(false);
     });
 });
 

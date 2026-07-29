@@ -25,6 +25,21 @@ function stubGmStorage(values: Map<string, unknown>, options: { listValues?: boo
     vi.stubGlobal('GM_listValues', options.listValues ? vi.fn(() => [...values.keys()]) : undefined);
 }
 
+function exhaustRealLocalStorage(): void {
+    let index = 0;
+    for (const size of [100_000, 10_000, 1_000, 100, 10, 1]) {
+        const chunk = 'x'.repeat(size);
+        while (true) {
+            try {
+                localStorage.setItem(`quota-${index++}`, chunk);
+            } catch {
+                break;
+            }
+        }
+    }
+    expect(() => localStorage.setItem('quota-proof', 'x')).toThrow();
+}
+
 describe('storage reset', () => {
     afterEach(() => {
         localStorage.clear();
@@ -332,23 +347,38 @@ describe('storage resilience', () => {
             throw new Error('dead bridge');
         }));
 
-        await gmStorageSet('jpdb-popup-reader-settings', { onboardingSeen: true });
+        await expect(gmStorageSet('jpdb-popup-reader-settings', { onboardingSeen: true }))
+            .rejects.toThrow('GM storage write failed');
 
         expect(JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? 'null'))
             .toEqual({ onboardingSeen: true });
     });
 
-    it('reads back a localStorage fallback write when GM storage stays broken', async () => {
+    it('surfaces a userscript write failure even when the real localStorage fallback is also full', async () => {
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('dead bridge');
         }));
-        vi.stubGlobal('GM_getValue', vi.fn(async () => {
-            throw new Error('dead bridge');
-        }));
+        exhaustRealLocalStorage();
 
-        await gmStorageSet('jpdb-popup-reader-settings', { showFurigana: false });
+        await expect(gmStorageSet('jpdb-popup-reader-settings', { showFurigana: false }))
+            .rejects.toThrow(/storage write failed/i);
+    });
 
-        await expect(gmStorageGet('jpdb-popup-reader-settings', null)).resolves.toEqual({ showFurigana: false });
+    it('surfaces a packaged-extension write failure when the real localStorage fallback is also full', async () => {
+        vi.stubGlobal('chrome', {
+            runtime: { id: 'reader-extension-id' },
+            storage: { local: {
+                get: vi.fn(async () => ({})),
+                set: vi.fn(async () => {
+                    throw new Error('extension storage unavailable');
+                }),
+                remove: vi.fn(async () => undefined),
+            } },
+        });
+        exhaustRealLocalStorage();
+
+        await expect(gmStorageSet('jpdb-popup-reader-settings', { showFurigana: false }))
+            .rejects.toThrow(/storage write failed/i);
     });
 });
 

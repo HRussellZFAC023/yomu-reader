@@ -359,9 +359,17 @@ export async function gmStorageSet(key: string, value: unknown): Promise<void> {
             mirrorManagedValueToHostedStorage(key, value);
             return;
         } catch (error) {
-            // A present-but-dead GM_setValue must not swallow the write: fall
-            // back to localStorage so at least this origin keeps the change.
             debugStorageError('GM storage write failed', key, error);
+            // Keep the origin-local recovery copy, but never report a shared
+            // userscript/extension write as successful when its authoritative
+            // backend rejected it. Otherwise the UI confirms a setting that
+            // disappears on refresh or on the next site.
+            try {
+                localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
+            } catch (fallbackError) {
+                throw storageWriteError(key, 'GM storage and localStorage fallback writes failed', error, fallbackError);
+            }
+            throw storageWriteError(key, 'GM storage write failed; saved only to localStorage fallback', error);
         }
     }
     localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
@@ -881,12 +889,27 @@ function localStorageSet(key: string, value: unknown): void {
     try {
         localStorage.setItem(key, JSON.stringify(value));
     } catch {
-        // Best effort only.
+        // Best effort only. Callers that promise durability use
+        // localStorageSetOrThrow instead.
     }
 }
 
 function localStorageSetOrThrow(key: string, value: unknown): void {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+        const serialized = JSON.stringify(value);
+        localStorage.setItem(key, serialized);
+        if (localStorage.getItem(key) !== serialized) throw new Error('read-back did not match');
+    } catch (error) {
+        throw storageWriteError(key, 'localStorage write failed', error);
+    }
+}
+
+function storageWriteError(key: string, message: string, ...causes: unknown[]): Error {
+    const details = causes
+        .map(cause => cause instanceof Error ? cause.message : String(cause))
+        .filter(Boolean)
+        .join('; ');
+    return new Error(`${message} for "${key}"${details ? `: ${details}` : ''}`);
 }
 
 function removeLocalStorageKey(key: string): void {

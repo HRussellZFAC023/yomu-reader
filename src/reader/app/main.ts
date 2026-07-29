@@ -1640,6 +1640,7 @@ export class ReaderApp {
     }
 
     private async setYoutubeImmersionEnabled(enabled: boolean): Promise<void> {
+        const previous = this.settings.youtubeImmersionEnabled;
         this.settings.youtubeImmersionEnabled = enabled;
         // Respond on screen before persisting: settings writes can stall for
         // hundreds of ms on iPad userscript managers, and the puck toggle
@@ -1647,7 +1648,14 @@ export class ReaderApp {
         this.youtube.refresh();
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
         log.info('YouTube immersion filter toggled', { enabled });
-        await saveSettings(this.settings);
+        try {
+            await saveSettings(this.settings, { explicitUserChoiceKeys: ['youtubeImmersionEnabled'] });
+        } catch (error) {
+            this.settings.youtubeImmersionEnabled = previous;
+            this.youtube.refresh();
+            this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
+            throw error;
+        }
     }
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
@@ -2616,9 +2624,17 @@ export class ReaderApp {
 
     private async setAnnotationsPaused(paused: boolean): Promise<void> {
         if (this.settings.annotationsPaused === paused) return;
+        const previous = this.settings.annotationsPaused;
         this.settings.annotationsPaused = paused;
         this.applyAnnotationsPausedState();
-        await saveSettings(this.settings);
+        try {
+            await saveSettings(this.settings, { explicitUserChoiceKeys: ['annotationsPaused'] });
+        } catch (error) {
+            this.settings.annotationsPaused = previous;
+            this.applyAnnotationsPausedState();
+            this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
+            throw error;
+        }
         log.info('Annotations paused toggled', { paused });
         this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
     }
@@ -2719,7 +2735,9 @@ export class ReaderApp {
     private async applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void> {
         this.settings.showFurigana = this.settings.showFurigana || mode !== 'off';
         this.settings.furiganaMode = mode;
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, {
+            explicitUserChoiceKeys: ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'],
+        });
         this.clearAllAnnotations();
         if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
@@ -2730,7 +2748,7 @@ export class ReaderApp {
     private async cycleOcrMode(): Promise<void> {
         const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
         applyOcrInteractionMode(this.settings, nextMode);
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['ocrEnabled', 'ocrAutoScanImages'] });
         this.ocr.refreshForModeChange();
         log.info('OCR mode changed', { mode: nextMode });
         this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
@@ -3999,7 +4017,9 @@ export class ReaderApp {
         event.preventDefault();
         this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
         this.settings.subtitleOverlayVisibleChosen = true;
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, {
+            explicitUserChoiceKeys: ['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen'],
+        });
         this.subtitles.refresh();
         log.info('Shortcut toggled subtitle overlay', { visible: this.settings.subtitleOverlayVisible });
         this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? 'subtitleOverlayEnabled' : 'subtitleOverlayHidden'));

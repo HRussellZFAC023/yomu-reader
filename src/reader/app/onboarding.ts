@@ -2,7 +2,7 @@ import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
-import { defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
+import { changedAutomationProtectedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
@@ -435,6 +435,7 @@ export class OnboardingController {
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+                explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings),
             });
             this.close();
             await this.options.onComplete?.(settings);
