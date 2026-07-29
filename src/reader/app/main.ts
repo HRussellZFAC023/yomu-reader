@@ -2622,19 +2622,25 @@ export class ReaderApp {
         await this.setAnnotationsPaused(!this.settings.annotationsPaused);
     }
 
+    // Always persists, even when `paused` already matches. Callers stage other
+    // fields on `this.settings` first and rely on this call to commit them --
+    // the puck's resume branch stages three (the furigana restore marker,
+    // showFurigana and furiganaMode) -- so an early return here would drop them
+    // and the next page load would read the pre-cycle values back.
     private async setAnnotationsPaused(paused: boolean): Promise<void> {
-        if (this.settings.annotationsPaused === paused) return;
+        const changed = this.settings.annotationsPaused !== paused;
         const previous = this.settings.annotationsPaused;
         this.settings.annotationsPaused = paused;
-        this.applyAnnotationsPausedState();
+        if (changed) this.applyAnnotationsPausedState();
         try {
             await saveSettings(this.settings, { explicitUserChoiceKeys: ['annotationsPaused'] });
         } catch (error) {
             this.settings.annotationsPaused = previous;
-            this.applyAnnotationsPausedState();
+            if (changed) this.applyAnnotationsPausedState();
             this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
             throw error;
         }
+        if (!changed) return;
         log.info('Annotations paused toggled', { paused });
         this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
     }

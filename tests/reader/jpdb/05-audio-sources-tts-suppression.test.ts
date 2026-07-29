@@ -996,6 +996,17 @@ describe('reader helpers', () => {
         expect(second.settings.showFurigana).toBe(true);
         expect(second.settings.puckFuriganaModeBeforeHide).toBe('');
         expect(second.puckPowerState()).toBe('on');
+
+        // The assertions above read the instance's own object, which says
+        // nothing about what a reload would see. Resuming stages three fields
+        // and then commits them through setAnnotationsPaused, so check the
+        // STORE: a commit that skipped the write would leave furigana off here
+        // while the in-memory state looked correct.
+        const persisted = await loadSettings();
+        expect(persisted.annotationsPaused).toBe(false);
+        expect(persisted.furiganaMode).toBe('all');
+        expect(persisted.showFurigana).toBe(true);
+        expect(persisted.puckFuriganaModeBeforeHide).toBe('');
     });
 
     it('reaches a genuine furigana-on state from a furigana-off preference (no two-state collapse)', async () => {
