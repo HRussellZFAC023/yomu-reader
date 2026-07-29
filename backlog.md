@@ -717,8 +717,16 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Both checks pass on this tree today. Do: add a 20-second job to ci.yml running `check:repository` and
       `check:artifacts` on pull_request and push, and to `build-userscript.yml` after its commit. Both are
       pure functions of committed bytes and cannot flake.
-- [ ] **A35.16 — HIGH: 354 test files run in no workflow, Worker typechecking is accidental, and `video/`
-      is ungated.** Three holes in what CI covers, all measured at HEAD.
+- [x] **A35.16 — CLOSED 2026-07-29: every test file now runs in a push/PR workflow, Worker
+      typechecking is explicit, and `video/` has its own CI typecheck.** The coverage audit reports
+      812/812 files assigned (457 reader, 352 Academy, 3 Worker; orphaned 0); the original sweep
+      baseline was 807 files with 354 orphaned. The Academy job executes all 352 files and fails on
+      any result outside the named 26-assertion `origin/main` baseline; it prints every remaining
+      baseline failure so the pre-existing Academy debt is not hidden. Worker sources are included
+      directly by `tsconfig.json`, the Worker suites have a dedicated CI job, and
+      the isolated Remotion package installs from `video/package-lock.json` before typechecking.
+      **Original finding: 354 test files ran in no workflow, Worker typechecking was accidental, and `video/`
+      was ungated.** Three holes in what CI covers, all measured at HEAD.
       - `find tests/academy -name '*.test.ts'` = **352**, `tests/workers` = **2**, `tests/reader` = 453.
         ci.yml only runs `node scripts/run-ci-tests.mjs --kind regular|jpdb` (`ci.yml:61,77`) and that
         script selects from `READER_TESTS_DIR = tests/reader` (`scripts/run-ci-tests.mjs:10`) and

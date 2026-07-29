@@ -129,7 +129,7 @@ describe('release workflow safety', () => {
     it('runs the cross-browser layout release boundary before PRs can merge', () => {
         expect(ciWorkflow).toContain('npx playwright install --with-deps chromium webkit');
         expect(ciWorkflow).toContain('npm run smoke:layout-regressions');
-        expect(ciWorkflow).toMatch(/needs: \[typecheck, test, test-jpdb, gaming-smoke, layout-smoke\]/);
+        expect(ciWorkflow).toMatch(/needs: \[[^\]\n]*layout-smoke[^\]\n]*\]/);
     });
 
     it('uses bounded isolated test shards on the release runner', () => {

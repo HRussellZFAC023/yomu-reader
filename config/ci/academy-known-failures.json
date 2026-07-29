@@ -1,0 +1,109 @@
+{
+  "reason": "These 26 assertions were already failing on origin/main on 2026-07-29. CI runs every Academy file and rejects any failure outside this exact baseline; the baseline stays loud until the owning Academy work fixes it.",
+  "failures": [
+    {
+      "file": "tests/academy/academy-worker-session.test.ts",
+      "name": "Academy Worker sessions reports anonymous, active, linked, and resumable status without a failing or mutating probe"
+    },
+    {
+      "file": "tests/academy/asset-inventory.test.ts",
+      "name": "Academy active, orphaned, deprecated, and missing asset inventory is the canonical source-derived inventory and passes the read-only CLI audit"
+    },
+    {
+      "file": "tests/academy/asset-inventory.test.ts",
+      "name": "Academy active, orphaned, deprecated, and missing asset inventory accounts for every current raster exactly once without conflating authorization and presence"
+    },
+    {
+      "file": "tests/academy/asset-recovery-ledger.test.ts",
+      "name": "Academy recovery asset ledger never promotes rejected or review-only ledger deliveries to current runtime"
+    },
+    {
+      "file": "tests/academy/authored-cast.test.ts",
+      "name": "authored Academy cast guard rejects an unknown id and a misspelled visible first name"
+    },
+    {
+      "file": "tests/academy/cast-registry.test.ts",
+      "name": "Academy canonical cast registry keeps approved and pending likenesses explicit"
+    },
+    {
+      "file": "tests/academy/cast-standardization-manifest.test.ts",
+      "name": "Academy cast standardization manifest keeps rejected and superseded sprite candidates outside production"
+    },
+    {
+      "file": "tests/academy/class-path-screen.test.ts",
+      "name": "Class path defines desktop and narrow-phone layout without clipping portrait overhangs"
+    },
+    {
+      "file": "tests/academy/class-week-cast-plan.test.ts",
+      "name": "74-week classmate appearance plan covers the reviewed chronology without claiming the weeks are authored or playable"
+    },
+    {
+      "file": "tests/academy/current-place-world-conformance.test.ts",
+      "name": "current-place world conformance gate gives every place a first-visit dialogue, direct ordinary actions, and consent-safe people"
+    },
+    {
+      "file": "tests/academy/current-place-world.test.ts",
+      "name": "Academy current-place world renders approved portraits and keeps pending likenesses as silhouettes"
+    },
+    {
+      "file": "tests/academy/honen-day-one-integration.test.ts",
+      "name": "Honen Day One curriculum augmentation renders the Honen-derived revision through Yomu without exposing a competing course UI"
+    },
+    {
+      "file": "tests/academy/learning-voice-provenance.test.ts",
+      "name": "learning voice reproducible provenance verifies committed evidence read-only after the deterministic build"
+    },
+    {
+      "file": "tests/academy/learning-voice-provenance.test.ts",
+      "name": "learning voice reproducible provenance separates immutable local expectations from observed output and keeps production pending"
+    },
+    {
+      "file": "tests/academy/lesson-zero-content.test.ts",
+      "name": "complete Lesson 0 content package uses only the canonical Lesson 0 cast and the exact route hosts"
+    },
+    {
+      "file": "tests/academy/lesson-zero-content.test.ts",
+      "name": "complete Lesson 0 content package does not infer occupations or nationalities for Lesson 0 hosts"
+    },
+    {
+      "file": "tests/academy/lesson-zero-content.test.ts",
+      "name": "complete Lesson 0 content package still requires every dialogue speaker to be named canonically once"
+    },
+    {
+      "file": "tests/academy/opening-forks.test.ts",
+      "name": "Lesson 0 opening forks keeps each consequential mission in its own location and interaction order"
+    },
+    {
+      "file": "tests/academy/opening-story-arc.test.ts",
+      "name": "opening story arc packages pins the chapter to the exact current Lesson 0 and provenance revisions"
+    },
+    {
+      "file": "tests/academy/opening-story-arc.test.ts",
+      "name": "opening story arc packages keeps the Text hosts recognisably evidence-first and image-first"
+    },
+    {
+      "file": "tests/academy/opening-story-arc.test.ts",
+      "name": "opening story arc packages keeps optional recording non-coercive and safely resumable without a disclosure form"
+    },
+    {
+      "file": "tests/academy/production-workflow.test.ts",
+      "name": "Academy production workflow reports literal canonical completion without converting it to an effort claim"
+    },
+    {
+      "file": "tests/academy/ramen-world.test.ts",
+      "name": "ramen world uses Shin only as consent-safe named presence and never borrows Peter or blocked portraits"
+    },
+    {
+      "file": "tests/academy/season-one-fiction.test.ts",
+      "name": "Season One fiction spine gives Felix an unlock, recurring relationship, cat comedy, curriculum, and safe art"
+    },
+    {
+      "file": "tests/academy/sprite-performance-contract.test.ts",
+      "name": "Academy VN sprite performance contract keeps textbook-legend previews separate from approved runtime art"
+    },
+    {
+      "file": "tests/academy/world-bookshop.test.ts",
+      "name": "Bookshop world uses Sophie’s current painterly cutout and translucent living paper without duplicate chrome"
+    }
+  ]
+}
