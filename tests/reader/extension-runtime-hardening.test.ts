@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
-import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, splitFirefoxContentScript, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
+import { assertAmoJavaScriptFiles, deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, splitFirefoxContentScript, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
 describe('extension runtime hardening', () => {
     it('uses SOURCE_DATE_EPOCH with a deterministic Git commit fallback', () => {
@@ -139,6 +139,18 @@ describe('extension runtime hardening', () => {
     it('refuses to rewrite a content script whose wrapper the compiler changed', () => {
         expect(() => unindentContentScriptBody('(() => {})();\nconsole.log("no wrapper");\n'))
             .toThrow(/expected userscript body wrapper/);
+    });
+
+    it('rejects every oversized JavaScript file in a Firefox package', () => {
+        expect(() => assertAmoJavaScriptFiles({
+            'content.js': new Uint8Array(5 * 1024 * 1024),
+            'newtab/app.js': new Uint8Array(5 * 1024 * 1024 + 1),
+            'large-dictionary.bin': new Uint8Array(6 * 1024 * 1024),
+        })).toThrow(/newtab\/app\.js.*5242881 bytes.*5242880-byte/s);
+        expect(() => assertAmoJavaScriptFiles({
+            'content.js': 'const ready = true;',
+            'newtab/chunks/study-settings.js': new Uint8Array(1024),
+        })).not.toThrow();
     });
 
     it('adds the Google Drive settings sync bridge only to configured Chrome backgrounds', () => {

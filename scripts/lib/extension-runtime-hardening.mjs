@@ -473,13 +473,22 @@ export function splitFirefoxContentScript(source) {
 }
 
 function assertFirefoxContentScriptFitsAmo(source, file) {
-    const bytes = Buffer.byteLength(source, 'utf8');
-    if (bytes <= AMO_FILE_SIZE_LIMIT) return;
-    throw new Error([
-        `${path.basename(file)} is ${bytes} bytes, over the ${AMO_FILE_SIZE_LIMIT}-byte addons.mozilla.org parse limit.`,
-        'web-ext lint fails this as FILE_TOO_LARGE, so the Firefox submission would be rejected before review.',
-        'Move code out of the content script (ADR-0003 companions) or split the packaged script.',
-    ].join('\n'));
+    assertAmoJavaScriptFiles({ [path.basename(file)]: source });
+}
+
+export function assertAmoJavaScriptFiles(files) {
+    for (const [file, source] of Object.entries(files)) {
+        if (!/\.m?js$/i.test(file)) continue;
+        const bytes = typeof source === 'string'
+            ? Buffer.byteLength(source, 'utf8')
+            : source.byteLength;
+        if (bytes <= AMO_FILE_SIZE_LIMIT) continue;
+        throw new Error([
+            `${file} is ${bytes} bytes, over the ${AMO_FILE_SIZE_LIMIT}-byte addons.mozilla.org parse limit.`,
+            'web-ext lint fails this as FILE_TOO_LARGE, so the Firefox submission would be rejected before review.',
+            'Move code into a packaged companion or split the local module.',
+        ].join('\n'));
+    }
 }
 
 function firefoxSplitContentScripts(contentScripts = []) {

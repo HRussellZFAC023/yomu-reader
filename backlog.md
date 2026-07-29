@@ -608,7 +608,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **Defects a learner hits**
 
-- [x] **A35.9 — FIXED in v1.8.31: browser-extension installs reach onboarding on the first Japanese
+- [x] **A35.9 — FIXED in v1.8.36: browser-extension installs reach onboarding on the first Japanese
       page, and an empty dictionary store has an in-page setup path.** Previously, `src/reader/app/startup.ts:74` was
       `if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);`, gating onboarding to the
       extension's own new-tab/Study page, and `scripts/lib/extension-runtime-hardening.mjs:155-163`

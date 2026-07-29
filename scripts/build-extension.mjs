@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { run } from './lib/ci-utils.mjs';
 import {
+    assertAmoJavaScriptFiles,
     deterministicExtensionTimestamp,
     hardenGeneratedExtensionBackgrounds,
     hardenExtensionSubmissionGuide,
@@ -36,9 +37,13 @@ const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('./lib/ho
 
 const userscript = path.join(root, 'dist', 'yomu.user.js');
 const readerCss = path.join(root, 'dist', 'yomu.css');
-const newtab = path.join(root, 'dist', 'newtab');
+// The hosted Study app stays as one classic script for its existing cache and
+// fixture contract. Store packages use a separate readable ES-module build so
+// no single local file exceeds AMO's parser limit.
+const newtab = path.join(root, 'dist', 'newtab-extension');
 const newtabApp = path.join(newtab, 'app.js');
 const newtabIndex = path.join(newtab, 'index.html');
+const hostedNewtabStyles = path.join(root, 'dist', 'newtab', 'styles.css');
 const publicNewtab = path.join(root, 'public', 'newtab');
 const publicNewtabIndex = path.join(publicNewtab, 'index.html');
 const publicNewtabManifest = path.join(publicNewtab, 'manifest.webmanifest');
@@ -50,7 +55,7 @@ const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
 const out = path.join(root, 'dist', 'extension');
 const generatedAt = await extensionGeneratedAt();
 
-for (const required of [userscript, readerCss, newtabApp, publicNewtabIndex, thirdPartyNotices]) {
+for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices]) {
     if (!existsSync(required)) {
         console.error(`Missing build artifact: ${required}`);
         console.error('Run npm run build before building extension packages.');
@@ -103,6 +108,7 @@ async function stageNewTabShell() {
     // compares the two), so this carries the same build-derived fields only.
     // generatedAt stays out of it and is used for the ZIP archive timestamp.
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId }, null, 2)}\n`);
+    await copyFile(hostedNewtabStyles, path.join(newtab, 'styles.css'));
     await stageNewTabWebManifest();
     await stageNewTabServiceWorker(appHash);
     await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
@@ -194,7 +200,7 @@ function extensionNewTabIndex(index, appHash, buildId) {
         // inline script, so it ships as a local file loaded from the same head
         // position — still before any body content paints.
         .replace(/<script>\/\* yomu:appearance-boot:start \*\/[\s\S]*?\/\* yomu:appearance-boot:end \*\/<\/script>/, `<script src="./appearance-boot.js?v=${appHash}"></script>`)
-        .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
+        .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script type="module" src="./app.js?v=${appHash}"></script>`);
     assertNoInlineScripts(externalized);
     return externalized;
 }
@@ -352,6 +358,16 @@ function verifyStorePackage(entries, target) {
     if (!entries['THIRD_PARTY_NOTICES.txt'] || !decode('THIRD_PARTY_NOTICES.txt').includes('fflate')) {
         throw new Error(`${target} store package is missing the bundled fflate license notice.`);
     }
+    const studyIndex = decode('newtab/index.html');
+    if (!/<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex)) {
+        throw new Error(`${target} packaged Study page must load its readable split bundle as a local module.`);
+    }
+    const studyApp = decode('newtab/app.js');
+    const studyChunkReferences = [...studyApp.matchAll(/["']\.\/chunks\/([^"']+\.m?js)["']/g)]
+        .map(match => `newtab/chunks/${match[1]}`);
+    if (!studyChunkReferences.length || studyChunkReferences.some(file => !entries[file])) {
+        throw new Error(`${target} packaged Study page is missing one or more local module chunks.`);
+    }
     const readerCssSource = decode('yomu.css');
     if (!readerCssSource.includes('.jpdb-reader-popover') || !readerCssSource.includes('.jpdb-subtitle-player')) {
         throw new Error(`${target} store package does not contain the full built reader stylesheet.`);
@@ -363,6 +379,7 @@ function verifyStorePackage(entries, target) {
         throw new Error(`${target} store package does not expose its local reader stylesheet to the content script.`);
     }
     if (target === 'firefox') {
+        assertAmoJavaScriptFiles(entries);
         const gecko = manifest.browser_specific_settings?.gecko;
         const geckoId = gecko?.id ?? manifest.applications?.gecko?.id;
         if (geckoId !== 'yomu@yomureader.com') {
