@@ -290,6 +290,37 @@ describe('public vocabulary repaint', () => {
         expect(readerWordSurfaceText(word)).toBe('年下');
     });
 
+    it('keeps matching provider rubies scanner-isolated on OCR lines', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-ocr-line">
+                <span class="jpdb-ocr-line-text">
+                    <span class="jpdb-reader-word jpdb-reader-has-furi" data-expression="冒険" data-surface="冒険">
+                        <ruby><span class="jpdb-reader-ruby-base">冒険</span><rt class="jpdb-reader-furi">ぼうけん</rt></ruby>
+                    </span>
+                </span>
+            </div>
+        `;
+        const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '冒険',
+            reading: 'ぼうけん',
+            cardState: ['not-in-deck'],
+        }), {
+            ...DEFAULT_SETTINGS,
+            popupActivationMode: 'click',
+            furiganaMode: 'all',
+        });
+
+        expect(line.dataset.hasFuri).toBe('true');
+        expect(word.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(true);
+        expect(renderedTextNodes(word)).toEqual([]);
+        expect([...word.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+            .map(element => element.dataset.yomuOcrVisualText)
+            .join('')).toContain('冒険');
+    });
+
     it('keeps existing furigana when the policy still allows it and fresh lookup data cannot add new ruby', () => {
         document.body.innerHTML = `
             <span class="jpdb-reader-word jpdb-learning jpdb-reader-has-furi" data-vid="11" data-sid="22" data-card-state="learning" data-expression="読む">

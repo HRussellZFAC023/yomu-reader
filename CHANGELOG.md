@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.29] - 2026-07-29
+
+### Fixed
+
+- Existing provider furigana on OCR results now retains scanner isolation, so Gaming's instant and area captures remain clickable without exposing duplicate text to external popup scanners.
+
 ## [1.8.28] - 2026-07-29
 
 ### Fixed

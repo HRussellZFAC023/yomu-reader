@@ -53499,7 +53499,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.28".trim() ? "1.8.28".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.29".trim() ? "1.8.29".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -97796,7 +97796,11 @@ ${component.reading}`;
       clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
       return;
     }
-    if (rendersWholeCardReading(word, card)) return;
+    if (rendersWholeCardReading(word, card)) {
+      if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
+      if (ocrLine) ocrLine.dataset.hasFuri = "true";
+      return;
+    }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
       card,

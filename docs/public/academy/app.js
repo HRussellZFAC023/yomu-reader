@@ -297607,7 +297607,11 @@ ${component.reading}`;
       clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
       return;
     }
-    if (rendersWholeCardReading(word, card)) return;
+    if (rendersWholeCardReading(word, card)) {
+      if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
+      if (ocrLine) ocrLine.dataset.hasFuri = "true";
+      return;
+    }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
       card,
