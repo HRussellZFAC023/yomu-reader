@@ -520,7 +520,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       the caller and to the user, split the deck out of one key (per-card or chunked records), and add a
       quota-exhaustion test on the hosted-Study path. Related but not the same as U44/U97, which is about
       the card model, not the write.
-- [ ] **A35.3 — HIGH: the undelivered-code alert returns false when its recipient secret is unset, and
+- [x] **A35.3 — HIGH: the undelivered-code alert returns false when its recipient secret is unset, and
       nothing checks.** T0 records that "a PII-free ledger alerts on missing delivery". The alert only
       sends when two secrets are present: `sendOwnerAggregateAlert`
       (`workers/yomu-support/src/academy-code-delivery.ts:518-525`) opens

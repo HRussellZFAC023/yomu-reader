@@ -117,6 +117,10 @@ export class AcademyCodeDeliveryError extends Error {
   }
 }
 
+export function academyDeliveryAlertConfigured(env: AcademyCodeDeliveryEnv): boolean {
+  return missingOwnerAlertBindings(env).length === 0;
+}
+
 interface ClaimedDelivery {
   readonly status: "claimed";
   readonly deliveryId: string;
@@ -314,6 +318,9 @@ export async function reconcileAcademyCodeDeliveries(
   const ownerAlertAccepted = unresolvedActionable > 0
     ? await sendOwnerAggregateAlert(env, pending.count, counts, logger)
     : false;
+  if (unresolvedActionable <= 0 && !academyDeliveryAlertConfigured(env)) {
+    logOwnerAlertUnconfigured(env, logger);
+  }
   return {
     stale: pending.count,
     ...counts,
@@ -522,7 +529,10 @@ async function sendOwnerAggregateAlert(
 ): Promise<boolean> {
   const owner = normalizeRecipientEmail(env.ACADEMY_DELIVERY_ALERT_EMAIL);
   const email = env.ACADEMY_CODE_EMAIL;
-  if (!owner || !email) return false;
+  if (!owner || !email) {
+    logOwnerAlertUnconfigured(env, logger);
+    return false;
+  }
   try {
     await email.send(buildOwnerAggregateEmail(owner, total, counts));
     return true;
@@ -533,6 +543,25 @@ async function sendOwnerAggregateAlert(
     }));
     return false;
   }
+}
+
+function missingOwnerAlertBindings(env: AcademyCodeDeliveryEnv): string[] {
+  const missing: string[] = [];
+  if (!normalizeRecipientEmail(env.ACADEMY_DELIVERY_ALERT_EMAIL)) {
+    missing.push("ACADEMY_DELIVERY_ALERT_EMAIL");
+  }
+  if (!env.ACADEMY_CODE_EMAIL) missing.push("ACADEMY_CODE_EMAIL");
+  return missing;
+}
+
+function logOwnerAlertUnconfigured(
+  env: AcademyCodeDeliveryEnv,
+  logger: AcademyCodeDeliveryLogger,
+): void {
+  logger.error(JSON.stringify({
+    event: "yomu_support_academy_delivery_alert_unconfigured",
+    missingBindings: missingOwnerAlertBindings(env),
+  }));
 }
 
 function buildCodeEmail(recipient: string, code: string): AcademyCodeEmailMessage {

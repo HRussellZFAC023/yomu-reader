@@ -1526,13 +1526,16 @@ describe("Yomu support Worker", () => {
   it("runs the stale-delivery detector from the scheduled handler", async () => {
     const academy = mockDeliverableAcademy({ includePendingDelivery: true });
     const email = mockEmailBinding();
+    const db = mockSupportDb();
     const pending: Promise<unknown>[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     await SupportWorker.scheduled(
       { scheduledTime: Date.now(), cron: "*/15 * * * *" },
       withAcademyIngress({
         ACADEMY_CODE_EMAIL: email,
         ACADEMY_DELIVERY_ALERT_EMAIL: "owner@example.test",
+        SUPPORT_DB: db,
       }, academy),
       { waitUntil: promise => pending.push(promise) },
     );
@@ -1543,6 +1546,53 @@ describe("Yomu support Worker", () => {
     ]);
     expect(email.messages.every(message => message.to === "owner@example.test")).toBe(true);
     expect(academy.state()).toBe("manual_required");
+    expect(log).toHaveBeenCalledWith(expect.stringContaining(
+      '"event":"yomu_support_academy_delivery_reconciliation"',
+    ));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"stale":1'));
+    expect(db.counters.size).toBe(0);
+    log.mockRestore();
+  });
+
+  it("reports and counts stale-delivery alert configuration failures", async () => {
+    const academy = mockDeliverableAcademy({ includePendingDelivery: true });
+    const db = mockSupportDb();
+    const pending: Promise<unknown>[] = [];
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const scheduledTime = Date.parse("2026-07-29T10:15:00.000Z");
+
+    await SupportWorker.scheduled(
+      { scheduledTime, cron: "*/15 * * * *" },
+      withAcademyIngress({ SUPPORT_DB: db }, academy),
+      { waitUntil: promise => pending.push(promise) },
+    );
+    await Promise.all(pending);
+
+    expect(error).toHaveBeenCalledWith(expect.stringContaining(
+      '"event":"yomu_support_academy_delivery_alert_unconfigured"',
+    ));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining(
+      '"ACADEMY_DELIVERY_ALERT_EMAIL"',
+    ));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('"ACADEMY_CODE_EMAIL"'));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('"alertConfigured":false'));
+
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { SUPPORT_DB: db },
+      { waitUntil: vi.fn() },
+    );
+    await expect(status.json()).resolves.toMatchObject({
+      academyDeliveryAlert: {
+        configured: false,
+        configurationFailures: 1,
+        lastConfigurationFailureAt: "2026-07-29T10:15:00.000Z",
+      },
+    });
+
+    error.mockRestore();
+    log.mockRestore();
   });
 
   it("forwards Patreon revocation state even when there is no cash amount to count", async () => {
@@ -1905,8 +1955,10 @@ function stripeDonationRow(id: string, day: string, amountMinor: number, currenc
 
 function mockSupportDb(initialRows: DonationRow[] = []) {
   const rows = [...initialRows];
+  const counters = new Map<string, { value: number; updatedAt: string }>();
   return {
     rows,
+    counters,
     prepare(query: string) {
       let values: unknown[] = [];
       return {
@@ -1915,6 +1967,12 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
           return this;
         },
         async first<T>() {
+          if (/FROM support_observability_counters/.test(query)) {
+            const counter = counters.get(String(values[0] ?? ""));
+            return (counter
+              ? { value: counter.value, updated_at: counter.updatedAt }
+              : null) as T | null;
+          }
           if (/SUM\((?:amount_minor|base_amount_minor)\)/.test(query)) {
             const providerEvents = /FROM provider_donation_events/.test(query);
             const provider = providerEvents ? String(values[0] ?? "") : "stripe";
@@ -1953,6 +2011,14 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
           return null;
         },
         async run() {
+          if (/INSERT INTO support_observability_counters/.test(query)) {
+            const name = String(values[0] ?? "");
+            const updatedAt = String(values[1] ?? "");
+            counters.set(name, {
+              value: (counters.get(name)?.value ?? 0) + 1,
+              updatedAt,
+            });
+          }
           insertStripeDonationRow(query, values, rows);
           insertProviderDonationRow(query, values, rows);
           return { success: true };

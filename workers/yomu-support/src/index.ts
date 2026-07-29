@@ -14,6 +14,7 @@ import {
   type AcademyPaymentIngressResult,
 } from "./academy-bridge";
 import {
+  academyDeliveryAlertConfigured,
   deliverAcademyCode,
   reconcileAcademyCodeDeliveries,
   type AcademyCodeDeliveryEnv,
@@ -46,6 +47,7 @@ const STATUS_CACHE_SECONDS = 300;
 const EDGE_CACHE_HEADER = "x-yomu-edge-cache";
 const SUPPORT_CLAIM_COOKIE = "__Host-yomu_support_claim";
 const SUPPORT_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60;
+const ACADEMY_ALERT_CONFIGURATION_COUNTER = "academy_delivery_alert_unconfigured";
 
 // Free, key-less, ECB-backed daily FX rates. The upstream feed uses GBP as
 // its transport base; the reporting currency is independently configured.
@@ -212,6 +214,11 @@ interface SupportStatus {
   featuresAtRisk: string[];
   providers: SupportProviderLink[];
   breakdown: GoalBreakdownItem[];
+  academyDeliveryAlert: {
+    configured: boolean;
+    configurationFailures: number;
+    lastConfigurationFailureAt: string | null;
+  };
   display: CurrencyDisplay;
   banner: {
     enabled: boolean;
@@ -270,10 +277,31 @@ export default {
       );
     }
   },
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(reconcileAcademyCodeDeliveries(env));
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runAcademyDeliveryReconciliation(controller, env));
   },
 };
+
+async function runAcademyDeliveryReconciliation(
+  controller: ScheduledController,
+  env: Env,
+): Promise<void> {
+  const result = await reconcileAcademyCodeDeliveries(env);
+  const alertConfigured = academyDeliveryAlertConfigured(env);
+  if (result.stale > 0 && !alertConfigured) {
+    await incrementSupportCounter(
+      env.SUPPORT_DB,
+      ACADEMY_ALERT_CONFIGURATION_COUNTER,
+      controller.scheduledTime,
+    );
+  }
+  console.log(JSON.stringify({
+    event: "yomu_support_academy_delivery_reconciliation",
+    cron: controller.cron,
+    alertConfigured,
+    ...result,
+  }));
+}
 
 async function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (isCorsPreflight(request)) return preflight(request);
@@ -514,6 +542,10 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
   const donateUrl = donateUrlFor(request);
   const display = await currencyDisplay(request, env, ctx, donationsThisMonthGbp, exactDonationGoalGbp);
   const bannerCopy = supportBannerCopy(request, goalMet, display);
+  const academyAlertCounter = await readSupportCounter(
+    env.SUPPORT_DB,
+    ACADEMY_ALERT_CONFIGURATION_COUNTER,
+  );
   return {
     service: "yomu-support",
     status: stripeStatusFor(request, env),
@@ -534,6 +566,11 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
     featuresAtRisk: ["Ultimate Audio"],
     providers: providerLinks(request, env),
     breakdown: goal.breakdown,
+    academyDeliveryAlert: {
+      configured: academyDeliveryAlertConfigured(env),
+      configurationFailures: academyAlertCounter.value,
+      lastConfigurationFailureAt: academyAlertCounter.updatedAt,
+    },
     display,
     banner: {
       enabled: !falseyEnv(env.SUPPORT_BANNER_ENABLED),
@@ -545,6 +582,61 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
       donateUrl,
     },
   };
+}
+
+async function incrementSupportCounter(
+  db: D1Database | undefined,
+  name: string,
+  now: number,
+): Promise<void> {
+  if (!db) {
+    console.error(JSON.stringify({
+      event: "yomu_support_observability_counter_write_failed",
+      counter: name,
+      reason: "support_db_unconfigured",
+    }));
+    return;
+  }
+  try {
+    await db.prepare(`
+      INSERT INTO support_observability_counters (name, value, updated_at)
+      VALUES (?, 1, ?)
+      ON CONFLICT(name) DO UPDATE SET
+        value = value + 1,
+        updated_at = excluded.updated_at
+    `).bind(name, new Date(now).toISOString()).run();
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "yomu_support_observability_counter_write_failed",
+      counter: name,
+      message: error instanceof Error ? error.message : "unknown",
+    }));
+  }
+}
+
+async function readSupportCounter(
+  db: D1Database | undefined,
+  name: string,
+): Promise<{ value: number; updatedAt: string | null }> {
+  if (!db) return { value: 0, updatedAt: null };
+  try {
+    const row = await db.prepare(`
+      SELECT value, updated_at
+      FROM support_observability_counters
+      WHERE name = ?
+    `).bind(name).first<{ value?: number; updated_at?: string }>();
+    return {
+      value: nonNegativeNumber(row?.value, 0),
+      updatedAt: typeof row?.updated_at === "string" ? row.updated_at : null,
+    };
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "yomu_support_observability_counter_read_failed",
+      counter: name,
+      message: error instanceof Error ? error.message : "unknown",
+    }));
+    return { value: 0, updatedAt: null };
+  }
 }
 
 function supportBannerCopy(

@@ -71,7 +71,8 @@
     {
       "binding": "SUPPORT_DB",
       "database_name": "yomu-support",
-      "database_id": "c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c"
+      "database_id": "c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c",
+      "migrations_dir": "migrations"
     }
   ],
   // SUPPORT_KV holds only the daily FX-rate cache (24h). Verified provider
