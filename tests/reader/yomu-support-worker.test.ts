@@ -176,6 +176,41 @@ describe("Yomu support Worker", () => {
     expect(body.providers.find(p => p.provider === "bmac")?.monthGbp).toBe(0);
   });
 
+  it("edge-caches public progress so repeat banner reads do not repeat D1 aggregates", async () => {
+    const day = `${monthKey()}-01`;
+    const db = mockSupportDb([
+      providerDonationRow("kofi", "kofi-cache", day, 1200),
+      providerDonationRow("patreon", "patreon-cache", day, 500),
+    ]);
+    const prepare = vi.spyOn(db, "prepare");
+    const backend = mockEdgeCache({ storedCacheControl: "public, max-age=14400" });
+    vi.stubGlobal("caches", { default: backend });
+    const pending: Promise<unknown>[] = [];
+    const request = new Request("https://support.yomureader.com/progress", {
+      headers: { origin: "https://yomureader.com" },
+    });
+
+    const first = await SupportWorker.fetch(
+      request,
+      { SUPPORT_DB: db },
+      { waitUntil: promise => pending.push(promise) },
+    );
+    await Promise.all(pending);
+    const readsAfterMiss = prepare.mock.calls.length;
+    const second = await SupportWorker.fetch(
+      new Request(request.url, { headers: { origin: "https://reader.example" } }),
+      { SUPPORT_DB: db },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(first.headers.get("x-yomu-edge-cache")).toBe("miss");
+    expect(second.headers.get("x-yomu-edge-cache")).toBe("hit");
+    expect(second.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(second.headers.get("access-control-allow-origin")).toBe("https://reader.example");
+    expect(prepare).toHaveBeenCalledTimes(readsAfterMiss);
+    await expect(second.json()).resolves.toMatchObject({ totalThisMonthGbp: 17 });
+  });
+
   it("converts native Stripe totals to estimated GBP without rewriting the native ledger", async () => {
     const day = `${monthKey()}-01`;
     const db = mockSupportDb([
@@ -1555,6 +1590,18 @@ function mockKv(initial: Record<string, string> = {}) {
     async put(key: string, value: string) {
       store[key] = value;
     },
+  };
+}
+
+function mockEdgeCache({ storedCacheControl }: { storedCacheControl?: string } = {}) {
+  const store = new Map<string, Response>();
+  return {
+    match: vi.fn(async (request: Request) => store.get(request.url)?.clone()),
+    put: vi.fn(async (request: Request, response: Response) => {
+      const stored = response.clone();
+      if (storedCacheControl) stored.headers.set("cache-control", storedCacheControl);
+      store.set(request.url, stored);
+    }),
   };
 }
 

@@ -215,6 +215,85 @@ describe("Yomu audio Worker", () => {
     await expect(response.text()).resolves.toBe("mp3 bytes");
   });
 
+  it("edge-caches R2 audio objects under a URL-only key and restores canonical headers on hits", async () => {
+    const bucket = mockAudioBucket({
+      "nhk16/media/20170726141547.mp3": {
+        contentType: "audio/mpeg",
+        body: "mp3 bytes",
+      },
+    });
+    const get = vi.spyOn(bucket, "get");
+    const backend = mockEdgeCache({ storedCacheControl: "public, max-age=14400" });
+    vi.stubGlobal("caches", { default: backend });
+    const pending: Promise<unknown>[] = [];
+    const url = "https://audio.yomureader.com/audio/nhk16/media/20170726141547.mp3";
+
+    const first = await AudioWorker.fetch(
+      new Request(url, { headers: { origin: "https://yomureader.com" } }),
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: promise => pending.push(promise) },
+    );
+    await Promise.all(pending);
+    const second = await AudioWorker.fetch(
+      new Request(url, {
+        headers: {
+          origin: "https://reader.example",
+          range: "bytes=0-3",
+        },
+      }),
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(first.headers.get("x-yomu-edge-cache")).toBe("miss");
+    expect(second.headers.get("x-yomu-edge-cache")).toBe("hit");
+    expect(second.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(second.headers.get("access-control-allow-origin")).toBe("https://reader.example");
+    expect(await second.text()).toBe("mp3 bytes");
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(backend.match.mock.calls[1]?.[0].headers.has("range")).toBe(false);
+  });
+
+  it("edge-caches R2 index JSON across fresh isolates", async () => {
+    const key = audioShardKeyForTests("保有");
+    const bucket = mockAudioBucket({
+      [key]: {
+        contentType: "application/json",
+        body: JSON.stringify({
+          entries: {
+            "保有": [{ r: "ほゆう", s: [["nhk16", "nhk16/media/clip.mp3"]] }],
+          },
+        }),
+      },
+    });
+    const get = vi.spyOn(bucket, "get");
+    const backend = mockEdgeCache({ storedCacheControl: "public, max-age=14400" });
+    vi.stubGlobal("caches", { default: backend });
+    const pending: Promise<unknown>[] = [];
+    const request = new Request("https://audio.yomureader.com/?term=%E4%BF%9D%E6%9C%89&reading=%E3%81%BB%E3%82%86%E3%81%86");
+
+    const first = await AudioWorker.fetch(
+      request,
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: promise => pending.push(promise) },
+    );
+    await Promise.all(pending);
+    resetAudioWorkerCacheForTests();
+    const second = await AudioWorker.fetch(
+      request,
+      { AUDIO_BUCKET: bucket },
+      { waitUntil: vi.fn() },
+    );
+
+    expect(first.headers.get("x-yomu-edge-cache")).toBe("miss");
+    expect(second.headers.get("x-yomu-edge-cache")).toBe("hit");
+    expect(second.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(get).toHaveBeenCalledTimes(1);
+    await expect(second.json()).resolves.toMatchObject({
+      audioSources: [{ url: "https://audio.yomureader.com/audio/nhk16/media/clip.mp3" }],
+    });
+  });
+
   it("does not serve R2 audio objects when audio is disabled", async () => {
     const bucket = mockAudioBucket({
       "nhk16/media/20170726141547.mp3": {
@@ -273,5 +352,17 @@ function mockAudioBucket(objects: Record<string, { body: string; contentType: st
         },
       };
     },
+  };
+}
+
+function mockEdgeCache({ storedCacheControl }: { storedCacheControl?: string } = {}) {
+  const store = new Map<string, Response>();
+  return {
+    match: vi.fn(async (request: Request) => store.get(request.url)?.clone()),
+    put: vi.fn(async (request: Request, response: Response) => {
+      const stored = response.clone();
+      if (storedCacheControl) stored.headers.set("cache-control", storedCacheControl);
+      store.set(request.url, stored);
+    }),
   };
 }

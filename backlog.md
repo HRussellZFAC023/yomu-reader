@@ -790,7 +790,13 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       revision, so "is production running main?" cannot be answered. Do: a scheduled workflow that curls
       the five health endpoints and fails on non-200 (and fix or retire the `edge` route), plus
       `CF_VERSION_METADATA` and the package version stamped into every health response.
-- [ ] **A35.19 — HIGH: yomu-audio serves R2 with no edge cache, and its cache is wired to the slow path
+- [x] **A35.19 — CLOSED 2026-07-29: yomu-audio now puts R2 index responses and immutable audio
+      objects behind the Workers Cache API, and yomu-support caches its public banner reads.** Both
+      Workers expose `x-yomu-edge-cache: miss|hit`, use GET URL keys without `Range`, and restore their
+      canonical browser `Cache-Control` on hits. The sibling audit found `jpdb-public-proxy` already
+      caches only public user-agnostic GETs and excludes authorization. Academy media is deliberately
+      not edge-cached: it requires an access session, is `private`, varies on `Cookie`, supports byte
+      ranges, and must not become a shared response. **Original finding: yomu-audio served R2 with no edge cache, and its cache was wired to the slow path
       only.** `workers/yomu-audio/src/index.ts:138` routes `/audio/*` to `serveR2AudioObject` (:186), which
       does `await env.AUDIO_BUCKET.get(rawKey)` (:189) and returns
       `cache-control: public, max-age=31536000, immutable` (:192) with no `caches.default` lookup or put.

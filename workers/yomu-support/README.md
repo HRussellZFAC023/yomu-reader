@@ -4,6 +4,12 @@ Donation and public service-budget status endpoint for `support.yomureader.com`.
 
 Routes:
 
+The public `/goal`, `/progress`, `/status`, and `/healthz` GET responses use the
+Workers Cache API for five minutes and expose `x-yomu-edge-cache: miss|hit`.
+Status cache keys include language and country so localized text and converted
+currency do not cross visitors. Cache hits reapply CORS and the canonical
+five-minute browser policy.
+
 - `/goal` returns the dynamic monthly donation goal. It reads
   `operating-forecast.json` (checked-in Cloudflare/R2/domain/API line items in
   GBP) and returns `{ floorGBP: 10, forecastGBP, monthlyGoalGBP, breakdown }`

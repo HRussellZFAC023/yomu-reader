@@ -10,7 +10,7 @@ https://audio.yomureader.com/?term=猫&reading=ねこ
 
 The worker has three serving modes:
 
-1. R2 sharded-index mode: hash the requested term, read one small object from `index/v2/shards/<hash>.json`, return matching Yomitan-compatible audio JSON, and serve stored files from `/audio/<key>`.
+1. R2 sharded-index mode: hash the requested term, read one small object from `index/v2/shards/<hash>.json`, return matching Yomitan-compatible audio JSON, and serve stored files from `/audio/<key>`. Successful GETs use the Workers Cache API before R2. Responses expose `x-yomu-edge-cache: miss|hit`; hits restore the route's canonical one-hour index or immutable-audio `Cache-Control` even when the zone rewrites its stored copy.
 2. Legacy R2 manifest mode: read `index/audio-index.json` from the `AUDIO_BUCKET` binding. This keeps the original small seed manifest working while the full index is uploaded.
 3. Upstream mode: if `AUDIO_UPSTREAM_URL` is configured and no R2 index has a match, forward `term` and `reading` to that upstream, strip cookies, add CORS, and cache successful responses at the edge.
 

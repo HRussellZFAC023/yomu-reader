@@ -42,6 +42,7 @@ const PATREON_MEMBERSHIP_EVENT_TYPES = new Set([
   "members:pledge:delete",
 ]);
 const STATUS_CACHE_SECONDS = 300;
+const EDGE_CACHE_HEADER = "x-yomu-edge-cache";
 const SUPPORT_CLAIM_COOKIE = "__Host-yomu_support_claim";
 const SUPPORT_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60;
 
@@ -59,6 +60,16 @@ type ManualProvider = (typeof MANUAL_PROVIDERS)[number];
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
+}
+
+interface EdgeCacheBackend {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+interface EdgeCacheSlot {
+  backend: EdgeCacheBackend;
+  key: Request;
 }
 
 interface ScheduledController {
@@ -294,16 +305,64 @@ async function handleReadRoute(
   ctx: ExecutionContext,
 ): Promise<Response> {
   const cacheHeaders = { "cache-control": `public, max-age=${STATUS_CACHE_SECONDS}` };
-  if (pathname === "/goal") return jsonResponse(request, buildGoal(env), 200, cacheHeaders);
-  if (pathname === "/progress") return jsonResponse(request, await buildProgress(env, ctx), 200, cacheHeaders);
-  if (pathname === "/status" || pathname === "/healthz") {
-    return jsonResponse(request, await supportStatus(request, env, ctx), 200, {
+  const edge = supportEdgeCacheSlot(request, pathname);
+  const hit = await supportEdgeCacheMatch(edge);
+  if (hit) return supportEdgeCacheHit(request, hit);
+
+  let response: Response;
+  if (pathname === "/goal") {
+    response = jsonResponse(request, buildGoal(env), 200, cacheHeaders);
+  } else if (pathname === "/progress") {
+    response = jsonResponse(request, await buildProgress(env, ctx), 200, cacheHeaders);
+  } else if (pathname === "/status" || pathname === "/healthz") {
+    response = jsonResponse(request, await supportStatus(request, env, ctx), 200, {
       ...cacheHeaders,
       "vary": "Origin, Accept-Language",
     });
+  } else if (pathname === "/donate" || pathname === "/checkout") {
+    return createDonationCheckout(request, env);
+  } else {
+    return Response.redirect(DEFAULT_SUPPORT_URL, 302);
   }
-  if (pathname === "/donate" || pathname === "/checkout") return createDonationCheckout(request, env);
-  return Response.redirect(DEFAULT_SUPPORT_URL, 302);
+
+  supportEdgeCachePut(ctx, edge, response);
+  if (edge) response.headers.set(EDGE_CACHE_HEADER, "miss");
+  return response;
+}
+
+function supportEdgeCacheSlot(request: Request, pathname: string): EdgeCacheSlot | null {
+  if (typeof caches === "undefined" || request.method !== "GET") return null;
+  if (!["/goal", "/progress", "/status", "/healthz"].includes(pathname)) return null;
+  const backend = (caches as unknown as { default?: EdgeCacheBackend }).default;
+  if (!backend) return null;
+  const url = new URL(request.url);
+  if (pathname === "/status" || pathname === "/healthz") {
+    url.searchParams.set("__yomu_cache_language", prefersJapanese(request) ? "ja" : "en");
+    url.searchParams.set("__yomu_cache_country", requestCountry(request) ?? "");
+  }
+  return { backend, key: new Request(url.toString(), { method: "GET" }) };
+}
+
+async function supportEdgeCacheMatch(edge: EdgeCacheSlot | null): Promise<Response | undefined> {
+  if (!edge) return undefined;
+  return edge.backend.match(edge.key).catch(() => undefined);
+}
+
+function supportEdgeCachePut(ctx: ExecutionContext, edge: EdgeCacheSlot | null, response: Response): void {
+  if (!edge || response.status !== 200) return;
+  ctx.waitUntil(edge.backend.put(edge.key, response.clone()).catch(() => undefined));
+}
+
+function supportEdgeCacheHit(request: Request, hit: Response): Response {
+  const headers = new Headers(hit.headers);
+  headers.set("cache-control", `public, max-age=${STATUS_CACHE_SECONDS}`);
+  headers.set(EDGE_CACHE_HEADER, "hit");
+  corsHeaders(request).forEach((value, key) => headers.set(key, value));
+  return new Response(hit.body, {
+    status: hit.status,
+    statusText: hit.statusText,
+    headers,
+  });
 }
 
 // --- Goal (dynamic, forecast-driven) -------------------------------------

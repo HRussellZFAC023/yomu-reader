@@ -3,6 +3,9 @@ const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
 const DEFAULT_AUDIO_INDEX_PREFIX = "index/v2/shards";
+const EDGE_CACHE_HEADER = "x-yomu-edge-cache";
+const IMMUTABLE_AUDIO_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const INDEX_RESPONSE_CACHE_CONTROL = "public, max-age=3600";
 const MANIFEST_CACHE_TTL_MS = 60_000;
 const SHARD_CACHE_TTL_MS = 60_000;
 const MAX_SHARD_CACHE_ENTRIES = 32;
@@ -10,6 +13,16 @@ const JAPANESE_POD_101_AUDIO_URL = "https://assets.languagepod101.com/dictionary
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
+}
+
+interface EdgeCacheBackend {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+interface EdgeCacheSlot {
+  backend: EdgeCacheBackend;
+  key: Request;
 }
 
 interface Env {
@@ -136,16 +149,25 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   }
 
   if (url.pathname.startsWith("/audio/")) {
-    return serveR2AudioObject(request, env, decodeURIComponent(url.pathname.slice("/audio/".length)));
+    return serveR2AudioObject(request, env, ctx, decodeURIComponent(url.pathname.slice("/audio/".length)));
   }
 
   const term = url.searchParams.get("term")?.trim() ?? "";
   const reading = url.searchParams.get("reading")?.trim() ?? "";
   if (!term && !reading) return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200);
 
+  const r2IndexCache = env.AUDIO_BUCKET ? edgeCacheSlot(request) : null;
+  const r2IndexHit = await edgeCacheMatch(r2IndexCache);
+  if (r2IndexHit) {
+    recordAudioAnalytics(ctx, env, request, 200, "r2-index");
+    return edgeCacheHit(request, r2IndexHit, INDEX_RESPONSE_CACHE_CONTROL);
+  }
+
   const r2Audio = await audioSourcesFromR2Index(request, env, term, reading);
   if (r2Audio) {
-    const response = jsonResponse(request, r2Audio, 200, { "cache-control": "public, max-age=3600" });
+    const response = jsonResponse(request, r2Audio, 200, { "cache-control": INDEX_RESPONSE_CACHE_CONTROL });
+    edgeCachePut(ctx, r2IndexCache, response);
+    response.headers.set(EDGE_CACHE_HEADER, "miss");
     recordAudioAnalytics(ctx, env, request, 200, "r2-index");
     return response;
   }
@@ -183,20 +205,31 @@ function audioStatus(env: Env): AudioStatus {
   };
 }
 
-async function serveR2AudioObject(request: Request, env: Env, rawKey: string): Promise<Response> {
+async function serveR2AudioObject(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  rawKey: string,
+): Promise<Response> {
   if (isUnsafeAudioKey(rawKey)) return textResponse(request, "Audio object not found.", 404);
   if (!env.AUDIO_BUCKET) return textResponse(request, "Audio storage is not configured.", 404);
+  const edge = edgeCacheSlot(request);
+  const hit = await edgeCacheMatch(edge);
+  if (hit) return edgeCacheHit(request, hit, IMMUTABLE_AUDIO_CACHE_CONTROL);
   const object = await env.AUDIO_BUCKET.get(rawKey);
   if (!object?.body) return textResponse(request, "Audio object not found.", 404);
   const headers = new Headers({
-    "cache-control": "public, max-age=31536000, immutable",
+    "cache-control": IMMUTABLE_AUDIO_CACHE_CONTROL,
     "accept-ranges": "bytes",
   });
   object.writeHttpMetadata?.(headers);
   if (!headers.has("content-type")) headers.set("content-type", object.httpMetadata?.contentType || contentTypeForAudioKey(rawKey));
   if (object.etag) headers.set("etag", object.etag);
   if (typeof object.size === "number") headers.set("content-length", String(object.size));
-  return withCors(request, new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers }));
+  const response = withCors(request, new Response(request.method === "HEAD" ? null : object.body, { status: 200, headers }));
+  edgeCachePut(ctx, edge, response);
+  if (edge) response.headers.set(EDGE_CACHE_HEADER, "miss");
+  return response;
 }
 
 async function audioSourcesFromR2Index(
@@ -405,6 +438,42 @@ async function cachePut(request: Request, upstream: string, response: Response):
 
 function cacheKey(upstream: string): Request {
   return new Request(upstream, { method: "GET" });
+}
+
+function edgeCacheSlot(request: Request): EdgeCacheSlot | null {
+  if (typeof caches === "undefined" || request.method !== "GET") return null;
+  const backend = (caches as unknown as { default?: EdgeCacheBackend }).default;
+  if (!backend) return null;
+  // One full-response entry per URL. Range and conditional request headers are
+  // deliberately absent from the cache key.
+  return {
+    backend,
+    key: new Request(new URL(request.url).toString(), { method: "GET" }),
+  };
+}
+
+async function edgeCacheMatch(edge: EdgeCacheSlot | null): Promise<Response | undefined> {
+  if (!edge) return undefined;
+  return edge.backend.match(edge.key).catch(() => undefined);
+}
+
+function edgeCachePut(ctx: ExecutionContext, edge: EdgeCacheSlot | null, response: Response): void {
+  if (!edge || response.status !== 200) return;
+  // Store before the miss marker is attached, so hits never inherit "miss".
+  ctx.waitUntil(edge.backend.put(edge.key, response.clone()).catch(() => undefined));
+}
+
+function edgeCacheHit(request: Request, hit: Response, cacheControl: string): Response {
+  const headers = new Headers(hit.headers);
+  // The zone may rewrite Browser Cache TTL on the stored copy. The route owns
+  // the browser-facing policy and must restore it on every hit.
+  headers.set("cache-control", cacheControl);
+  headers.set(EDGE_CACHE_HEADER, "hit");
+  return withCors(request, new Response(hit.body, {
+    status: hit.status,
+    statusText: hit.statusText,
+    headers,
+  }));
 }
 
 function recordAudioAnalytics(ctx: ExecutionContext, env: Env, request: Request, status: number, source: "r2-index" | "upstream" | "jpod101-fallback"): void {
