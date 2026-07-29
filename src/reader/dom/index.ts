@@ -1561,15 +1561,18 @@ function elementHasOwnJapaneseText(element: HTMLElement): boolean {
     return false;
 }
 
-// Keep painted hidden copies out when an aria-label already supplies their
-// name, or when the nearest control paints another Japanese label outside the
-// hidden root. The latter catches transient feedback generically while keeping
-// a sole aria-hidden visual label annotatable.
+// Keep painted hidden copies out when an aria-label supplies a DIFFERENT,
+// broader name, or when the nearest control paints another Japanese label
+// outside the hidden root. An exact aria-label match is the common component
+// pattern where the aria-hidden node is still the control's sole PAINTED label
+// (the accessible name has no visual annotation surface of its own).
 function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
     const hiddenRoot = element.closest<HTMLElement>('[aria-hidden="true"]');
     if (!hiddenRoot) return false;
     const labelled = element.closest<HTMLElement>('[aria-label]');
-    if (labelled?.getAttribute('aria-label')?.trim()) return true;
+    const accessibleName = normalizedControlText(labelled?.getAttribute('aria-label') ?? '');
+    const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? '');
+    if (accessibleName && accessibleName !== paintedLabel) return true;
     const control = hiddenRoot.closest<HTMLElement>(
         `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`,
     );

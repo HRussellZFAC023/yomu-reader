@@ -14799,7 +14799,9 @@ ${spelling}`);
     const hiddenRoot = element2.closest('[aria-hidden="true"]');
     if (!hiddenRoot) return false;
     const labelled = element2.closest("[aria-label]");
-    if (labelled?.getAttribute("aria-label")?.trim()) return true;
+    const accessibleName = normalizedControlText(labelled?.getAttribute("aria-label") ?? "");
+    const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? "");
+    if (accessibleName && accessibleName !== paintedLabel) return true;
     const control = hiddenRoot.closest(
       `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`
     );
@@ -53972,7 +53974,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.33".trim() ? "1.8.33".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.34".trim() ? "1.8.34".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

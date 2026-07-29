@@ -41185,7 +41185,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const hiddenRoot = element2.closest('[aria-hidden="true"]');
     if (!hiddenRoot) return false;
     const labelled = element2.closest("[aria-label]");
-    if (labelled?.getAttribute("aria-label")?.trim()) return true;
+    const accessibleName = normalizedControlText(labelled?.getAttribute("aria-label") ?? "");
+    const paintedLabel = normalizedControlText(hiddenRoot.textContent ?? "");
+    if (accessibleName && accessibleName !== paintedLabel) return true;
     const control2 = hiddenRoot.closest(
       `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`
     );

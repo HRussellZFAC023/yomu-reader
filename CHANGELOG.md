@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.34] - 2026-07-29
+
+### Fixed
+
+- Reddit and other web components now annotate a painted Japanese control label when the component repeats the same text as its accessible name. This restores furigana and pitch on アワードを贈る without changing the button's size or click behavior.
+
 ## [1.8.33] - 2026-07-29
 
 ### Fixed

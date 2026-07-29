@@ -5,6 +5,8 @@
 // It reproduces the structural facts observed on the live site:
 //   - WebKit's 760px browser surface over a 475px layout viewport (1.6×);
 //   - a Join button two open-shadow boundaries below a Latin-only shell;
+//   - an Award button whose sole painted label is aria-hidden inside its open
+//     shadow root while the button repeats that label as its accessible name;
 //   - fixed-height header/sort/share controls;
 //   - a fixed card with 14-16px Japanese flair and vote/comment metadata;
 //   - Latin-only and punctuation-only source ranges returned as bogus tokens.
@@ -71,6 +73,8 @@ const VOCABULARY = [
     ['時間', '時間', 'じかん', 'hour', ['noun'], 100, ['not-in-deck'], ['LHH']],
     ['前', '前', 'まえ', 'ago', ['noun'], 100, ['not-in-deck'], ['LH']],
     ['共有', '共有', 'きょうゆう', 'share', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['アワード', 'アワード', 'アワード', 'award', ['noun'], 100, ['not-in-deck'], ['LHHH']],
+    ['贈る', '贈る', 'おくる', 'give', ['verb'], 100, ['not-in-deck'], ['LHH']],
     ['国際', '国際', 'こくさい', 'international', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['カップル', 'カップル', 'カップル', 'couple', ['noun'], 100, ['not-in-deck'], ['LHHH']],
     ['恋愛', '恋愛', 'れんあい', 'romance', ['noun'], 100, ['not-in-deck'], ['LHH']],
@@ -153,7 +157,7 @@ body { display: grid; place-items: start center; }
     <article id="post" class="post">
       <div class="post-meta"><span>u/ResultBackground2470・</span><time id="post-meta" datetime="2026-07-10T19:01:00Z">2 時間前</time></div>
       <h2>GPT Solves Yet Another Problem</h2>
-      <div class="post-actions"><button id="share" class="safe-control" type="button">共有</button></div>
+      <div class="post-actions"><reddit-award-button></reddit-award-button><button id="share" class="safe-control" type="button">共有</button></div>
     </article>
     <span id="popup-anchor">投稿</span>
     <iframe id="late-localizing-signin" name="late-localizing-signin"
@@ -161,7 +165,7 @@ body { display: grid; place-items: start center; }
   </main>
 </shreddit-app>
 <script>
-window.__redditSmokeClicks = { create: 0, join: 0, sort: 0, share: 0 };
+window.__redditSmokeClicks = { create: 0, join: 0, sort: 0, award: 0, share: 0 };
 document.getElementById('create-post').addEventListener('click', () => { window.__redditSmokeClicks.create += 1; });
 document.getElementById('share').addEventListener('click', () => { window.__redditSmokeClicks.share += 1; });
 class RedditJoinControl extends HTMLElement {
@@ -182,6 +186,15 @@ class RedditHeaderShell extends HTMLElement {
   }
 }
 customElements.define('reddit-header-shell', RedditHeaderShell);
+class RedditAwardButton extends HTMLElement {
+  constructor() {
+    super();
+    const root = this.attachShadow({ mode: 'open' });
+    root.innerHTML = '<style>button{box-sizing:border-box;display:inline-flex;align-items:center;height:40px;max-height:40px;overflow:visible;padding:0 10px;border:1px solid #748087;border-radius:999px;background:#0b1416;color:#f2f4f5;font:600 13px/18px system-ui;white-space:nowrap}</style><button id="award-control" type="button" aria-label="アワードを贈る"><span aria-hidden="true"></span><span><span data-award-initial-text aria-hidden="true">アワードを贈る</span></span></button>';
+    root.getElementById('award-control').addEventListener('click', () => { window.__redditSmokeClicks.award += 1; });
+  }
+}
+customElements.define('reddit-award-button', RedditAwardButton);
 class RedditFeedControl extends HTMLElement {
   constructor() {
     super();
@@ -379,6 +392,7 @@ async function runEngine(engineName, browser) {
         await Promise.all([
             page.locator('#create-post .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
             page.locator('#card-metadata .jpdb-reader-word').nth(1).waitFor({ timeout: 20_000 }),
+            page.locator('#award-control .jpdb-reader-word[data-expression="贈る"]').waitFor({ timeout: 20_000 }),
             page.locator('#share .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
@@ -520,6 +534,7 @@ async function runEngine(engineName, browser) {
         }
 
         await page.locator('#create-post').click();
+        await page.locator('#award-control').click();
         await page.locator('#share').click();
         await page.evaluate(() => {
             const join = document.querySelector('reddit-header-shell').shadowRoot
@@ -1540,10 +1555,12 @@ function snapshotRedditLayout() {
     const join = document.querySelector('reddit-header-shell').shadowRoot
         .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
     const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
+    const award = document.querySelector('reddit-award-button').shadowRoot.querySelector('#award-control');
     const create = document.querySelector('#create-post');
     const share = document.querySelector('#share');
     return {
         createHeight: create.getBoundingClientRect().height,
+        awardHeight: award.getBoundingClientRect().height,
         shareHeight: share.getBoundingClientRect().height,
         cardHeight: card.height,
         cardToPostGap: post.top - card.bottom,
@@ -1551,6 +1568,7 @@ function snapshotRedditLayout() {
         sortTextCenterOffset: nativeTextCenterOffset(sort),
         controlBoxes: {
             create: boxGeometry(create),
+            award: boxGeometry(award),
             share: boxGeometry(share),
             join: boxGeometry(join),
             sort: boxGeometry(sort),
@@ -1586,6 +1604,7 @@ async function snapshotRedditRegression(page) {
         flair: ['#flair', '告知'],
         metadata: ['#card-metadata', '賛成票・コメント'],
         time: ['#post-meta', '時間前'],
+        award: ['#award-control', 'アワードを贈る'],
         share: ['#share', '共有'],
         foreign: ['#foreign-jp', '共有'],
         lateJoin: ['#late-join', '参加'],
@@ -1917,6 +1936,7 @@ function snapshotRedditPageSummary() {
     const join = document.querySelector('reddit-header-shell').shadowRoot
         .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
     const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
+    const award = document.querySelector('reddit-award-button').shadowRoot.querySelector('#award-control');
     const pageScale = outerWidth / innerWidth;
     const rawPuckRect = puck.getBoundingClientRect();
     const measuredPuckScale = puck.offsetWidth ? rawPuckRect.width / puck.offsetWidth : 1;
@@ -1934,6 +1954,7 @@ function snapshotRedditPageSummary() {
         layout: {
             fixture: document.documentElement.dataset.yomuFixture,
             createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
+            awardHeight: award.getBoundingClientRect().height,
             shareHeight: document.querySelector('#share').getBoundingClientRect().height,
             cardHeight: card.height,
             cardToPostGap: post.top - card.bottom,
@@ -1963,6 +1984,7 @@ function snapshotRedditPageSummary() {
             ).length,
             controlBoxes: {
                 create: boxGeometry(document.querySelector('#create-post')),
+                award: boxGeometry(award),
                 share: boxGeometry(document.querySelector('#share')),
                 join: boxGeometry(join),
                 sort: boxGeometry(sort),
@@ -2148,7 +2170,7 @@ function assertAnnotatedLabels(engineName, labels) {
     }
     // Chrome buttons and metadata rows alike keep every parsed reading painted
     // at rest — the point of the whole tier is layout safety, not hiding.
-    for (const name of ['create', 'join', 'sort', 'share', 'time']) {
+    for (const name of ['create', 'join', 'sort', 'award', 'share', 'time']) {
         const label = labels[name];
         assert(label.readingCount > 0
             && label.projectedReadingCount === label.readingCount
@@ -2165,6 +2187,7 @@ function assertRejectedSourceRanges(engineName, rejected) {
 
 function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
     assert(Math.abs(layout.createHeight - baseline.createHeight) <= 1, `${engineName}: create button height changed`, { baseline, layout });
+    assert(Math.abs(layout.awardHeight - baseline.awardHeight) <= 1, `${engineName}: award button height changed`, { baseline, layout });
     assert(Math.abs(layout.shareHeight - baseline.shareHeight) <= 1, `${engineName}: share button height changed`, { baseline, layout });
     assert(Math.abs(layout.cardHeight - baseline.cardHeight) <= 1, `${engineName}: highlight card grew`, { baseline, layout });
     assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
@@ -2190,7 +2213,7 @@ function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
         layout,
         menuSafety,
     });
-    for (const name of ['create', 'share', 'join', 'sort']) {
+    for (const name of ['create', 'award', 'share', 'join', 'sort']) {
         assert(boxGeometryMatches(baseline.controlBoxes[name], layout.controlBoxes[name]),
             `${engineName}: ${name} changed authored overflow or scroll geometry`, {
                 before: baseline.controlBoxes[name],

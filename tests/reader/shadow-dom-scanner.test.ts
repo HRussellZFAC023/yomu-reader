@@ -372,6 +372,41 @@ describe('shadow DOM scanner (Phase 1)', () => {
         }
     });
 
+    it('collects a painted aria-hidden shadow label that exactly matches its control name', () => {
+        // Current Reddit award-button shape: the custom-element host has no
+        // light-DOM text, while its open root paints the label in an aria-hidden
+        // span and repeats the same text as the button's accessible name.
+        defineShadowHost('yomu-award-button-host', 'open', `
+            <button aria-label="アワードを贈る">
+                <span aria-hidden="true"><svg aria-hidden="true"></svg></span>
+                <span><span data-award-initial-text aria-hidden="true">アワードを贈る</span></span>
+            </button>
+        `);
+        document.body.innerHTML = '<yomu-award-button-host></yomu-award-button-host>';
+        const host = document.querySelector('yomu-award-button-host') as HTMLElement;
+        expect(host.textContent, 'the real host exposes no light-DOM label').toBe('');
+
+        const originalRect = HTMLElement.prototype.getBoundingClientRect;
+        HTMLElement.prototype.getBoundingClientRect = () => ({
+            x: 0, y: 0, width: 132, height: 24, top: 0, right: 132, bottom: 24, left: 0, toJSON: () => ({}),
+        } as DOMRect);
+        try {
+            const target = collectFragmentTextTargetsIn(document.body, 40, true, '[aria-hidden="true"],svg', {
+                allowUiText: true,
+                includeUiChrome: true,
+                includePassiveInteractions: true,
+                minLength: 1,
+            }).find(candidate => candidate.text === 'アワードを贈る');
+
+            expect(target, 'the painted control label must remain a scan target').toBeTruthy();
+            expect(target?.insideShadowDOM).toBe(true);
+            expect(target?.nonDestructive).toBe(true);
+            expect(target?.passiveInteraction).toBe(true);
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalRect;
+        }
+    });
+
     it('stops walking an unvisited component-heavy tail once the target budget is full', () => {
         const saturated = document.createElement('p');
         saturated.textContent = '先頭';
