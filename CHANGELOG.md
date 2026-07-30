@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.53] - 2026-07-30
+
+### Fixed
+
+- Browser text-to-speech now selects a voice that matches the study language. Russian uses a Russian voice when installed, same-language regional voices are next, and a non-Japanese utterance no longer falls back to a Japanese voice.
+
 ## [1.8.52] - 2026-07-30
 
 ### Fixed

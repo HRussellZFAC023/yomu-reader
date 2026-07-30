@@ -9169,7 +9169,7 @@ class AudioPlayer {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = targetSpeechSynthesisLocale();
     const voices = speechSynthesis.getVoices();
-    const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+    const choice = this.textToSpeechVoiceChoice(voices, voiceName, utterance.lang, deckKey);
     const identity = textToSpeechPlaybackIdentity(text, choice.voice);
     if (identity === options.avoidIdentity) {
       this.markTextToSpeechVoiceSkipped(choice);
@@ -9194,18 +9194,18 @@ class AudioPlayer {
     speechSynthesis.speak(utterance);
   });
   }
-  textToSpeechVoiceChoice(voices, voiceName, deckKey) {
-  const selectedVoiceName = voiceName.trim();
-  if (selectedVoiceName) {
+  textToSpeechVoiceChoice(voices, voiceName, locale, deckKey) {
+  const candidates = voicesForLocale(voices, locale);
+  const selectedName = voiceName.trim();
+  if (selectedName) {
     return {
-      voice: voices.find((voice) => voice.name === selectedVoiceName) ?? this.firstJapaneseTextToSpeechVoice(voices)
+      voice: candidates.find((voice) => voice.name === selectedName) ?? candidates[0] ?? null
     };
   }
-  const japaneseVoices = textToSpeechJapaneseVoices(voices);
-  if (!deckKey || japaneseVoices.length < 2) {
-    return { voice: japaneseVoices[0]?.voice ?? null };
+  if (!deckKey || candidates.length < 2) {
+    return { voice: candidates[0] ?? null };
   }
-  const entries = japaneseVoices.map(({ voice }, index) => ({
+  const entries = candidates.map((voice, index) => ({
     deckId: textToSpeechVoiceDeckId(voice, index),
     voice
   }));
@@ -9214,11 +9214,8 @@ class AudioPlayer {
   return {
     deckId,
     deckKey,
-    voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null
+    voice: deckId ? byId.get(deckId) ?? null : candidates[0] ?? null
   };
-  }
-  firstJapaneseTextToSpeechVoice(voices) {
-  return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
   }
   markTextToSpeechVoicePlayed(choice) {
   if (choice.deckKey && choice.deckId) this.shuffledAudio.markPlayed(choice.deckKey, choice.deckId);
@@ -9276,8 +9273,16 @@ class AudioPlayer {
   return true;
   }
 }
-function textToSpeechJapaneseVoices(voices) {
-  return voices.filter((voice) => voice.lang.toLowerCase().startsWith("ja")).map((voice) => ({ voice }));
+function voicesForLocale(voices, locale) {
+  const canonical = canonicalLanguageTag(locale);
+  if (canonical) {
+  const exact = voices.filter((voice) => canonicalLanguageTag(voice.lang) === canonical);
+  if (exact.length) return exact;
+  }
+  const language = languageSubtag(locale);
+  const matching = language ? voices.filter((voice) => languageSubtag(voice.lang) === language) : [];
+  if (matching.length) return matching;
+  return language === "ja" ? voices : voices.filter((voice) => languageSubtag(voice.lang) !== "ja");
 }
 function textToSpeechVoiceDeckId(voice, index) {
   return [

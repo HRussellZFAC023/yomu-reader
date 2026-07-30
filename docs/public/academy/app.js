@@ -285419,7 +285419,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const utterance = new SpeechSynthesisUtterance(text2);
         utterance.lang = targetSpeechSynthesisLocale();
         const voices = speechSynthesis.getVoices();
-        const choice2 = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        const choice2 = this.textToSpeechVoiceChoice(voices, voiceName, utterance.lang, deckKey);
         const identity2 = textToSpeechPlaybackIdentity(text2, choice2.voice);
         if (identity2 === options.avoidIdentity) {
           this.markTextToSpeechVoiceSkipped(choice2);
@@ -285444,18 +285444,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         speechSynthesis.speak(utterance);
       });
     }
-    textToSpeechVoiceChoice(voices, voiceName, deckKey) {
-      const selectedVoiceName = voiceName.trim();
-      if (selectedVoiceName) {
+    textToSpeechVoiceChoice(voices, voiceName, locale, deckKey) {
+      const candidates = voicesForLocale(voices, locale);
+      const selectedName = voiceName.trim();
+      if (selectedName) {
         return {
-          voice: voices.find((voice) => voice.name === selectedVoiceName) ?? this.firstJapaneseTextToSpeechVoice(voices)
+          voice: candidates.find((voice) => voice.name === selectedName) ?? candidates[0] ?? null
         };
       }
-      const japaneseVoices = textToSpeechJapaneseVoices(voices);
-      if (!deckKey || japaneseVoices.length < 2) {
-        return { voice: japaneseVoices[0]?.voice ?? null };
+      if (!deckKey || candidates.length < 2) {
+        return { voice: candidates[0] ?? null };
       }
-      const entries2 = japaneseVoices.map(({ voice }, index) => ({
+      const entries2 = candidates.map((voice, index) => ({
         deckId: textToSpeechVoiceDeckId(voice, index),
         voice
       }));
@@ -285464,11 +285464,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return {
         deckId,
         deckKey,
-        voice: deckId ? byId2.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null
+        voice: deckId ? byId2.get(deckId) ?? null : candidates[0] ?? null
       };
-    }
-    firstJapaneseTextToSpeechVoice(voices) {
-      return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
     }
     markTextToSpeechVoicePlayed(choice2) {
       if (choice2.deckKey && choice2.deckId) this.shuffledAudio.markPlayed(choice2.deckKey, choice2.deckId);
@@ -285526,8 +285523,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return true;
     }
   }
-  function textToSpeechJapaneseVoices(voices) {
-    return voices.filter((voice) => voice.lang.toLowerCase().startsWith("ja")).map((voice) => ({ voice }));
+  function voicesForLocale(voices, locale) {
+    const canonical = canonicalLanguageTag(locale);
+    if (canonical) {
+      const exact2 = voices.filter((voice) => canonicalLanguageTag(voice.lang) === canonical);
+      if (exact2.length) return exact2;
+    }
+    const language2 = languageSubtag(locale);
+    const matching = language2 ? voices.filter((voice) => languageSubtag(voice.lang) === language2) : [];
+    if (matching.length) return matching;
+    return language2 === "ja" ? voices : voices.filter((voice) => languageSubtag(voice.lang) !== "ja");
   }
   function textToSpeechVoiceDeckId(voice, index) {
     return [

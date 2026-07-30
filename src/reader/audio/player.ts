@@ -45,6 +45,7 @@ import { ObjectUrlCache } from '../core/object-url-cache';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
 import { createPageMediaUrl, getPageMediaBlob, revokePageMediaUrl } from '../app/page-media-url';
 import { targetSpeechSynthesisLocale } from '../languages/resolve';
+import { canonicalLanguageTag, languageSubtag } from '../languages/locale';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 interface AudioPlaybackOptions {
@@ -1136,7 +1137,7 @@ export class AudioPlayer {
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = targetSpeechSynthesisLocale();
             const voices = speechSynthesis.getVoices();
-            const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+            const choice = this.textToSpeechVoiceChoice(voices, voiceName, utterance.lang, deckKey);
             const identity = textToSpeechPlaybackIdentity(text, choice.voice);
             if (identity === options.avoidIdentity) {
                 this.markTextToSpeechVoiceSkipped(choice);
@@ -1162,21 +1163,27 @@ export class AudioPlayer {
         });
     }
 
-    private textToSpeechVoiceChoice(voices: SpeechSynthesisVoice[], voiceName: string, deckKey?: string): TextToSpeechVoiceChoice {
-        const selectedVoiceName = voiceName.trim();
-        if (selectedVoiceName) {
+    private textToSpeechVoiceChoice(
+        voices: SpeechSynthesisVoice[],
+        voiceName: string,
+        locale: string,
+        deckKey?: string,
+    ): TextToSpeechVoiceChoice {
+        const candidates = voicesForLocale(voices, locale);
+        const selectedName = voiceName.trim();
+        if (selectedName) {
             return {
-                voice: voices.find(voice => voice.name === selectedVoiceName)
-                    ?? this.firstJapaneseTextToSpeechVoice(voices),
+                voice: candidates.find(voice => voice.name === selectedName)
+                    ?? candidates[0]
+                    ?? null,
             };
         }
 
-        const japaneseVoices = textToSpeechJapaneseVoices(voices);
-        if (!deckKey || japaneseVoices.length < 2) {
-            return { voice: japaneseVoices[0]?.voice ?? null };
+        if (!deckKey || candidates.length < 2) {
+            return { voice: candidates[0] ?? null };
         }
 
-        const entries = japaneseVoices.map(({ voice }, index) => ({
+        const entries = candidates.map((voice, index) => ({
             deckId: textToSpeechVoiceDeckId(voice, index),
             voice,
         }));
@@ -1186,12 +1193,8 @@ export class AudioPlayer {
         return {
             deckId,
             deckKey,
-            voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null,
+            voice: deckId ? byId.get(deckId) ?? null : candidates[0] ?? null,
         };
-    }
-
-    private firstJapaneseTextToSpeechVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-        return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
     }
 
     private markTextToSpeechVoicePlayed(choice: TextToSpeechVoiceChoice): void {
@@ -1278,10 +1281,23 @@ export class AudioPlayer {
     }
 }
 
-function textToSpeechJapaneseVoices(voices: SpeechSynthesisVoice[]): Array<{ voice: SpeechSynthesisVoice }> {
-    return voices
-        .filter(voice => voice.lang.toLowerCase().startsWith('ja'))
-        .map(voice => ({ voice }));
+function voicesForLocale(
+    voices: SpeechSynthesisVoice[],
+    locale: string,
+): SpeechSynthesisVoice[] {
+    const canonical = canonicalLanguageTag(locale);
+    if (canonical) {
+        const exact = voices.filter(voice => canonicalLanguageTag(voice.lang) === canonical);
+        if (exact.length) return exact;
+    }
+    const language = languageSubtag(locale);
+    const matching = language
+        ? voices.filter(voice => languageSubtag(voice.lang) === language)
+        : [];
+    if (matching.length) return matching;
+    return language === 'ja'
+        ? voices
+        : voices.filter(voice => languageSubtag(voice.lang) !== 'ja');
 }
 
 function textToSpeechVoiceDeckId(voice: SpeechSynthesisVoice, index: number): string {

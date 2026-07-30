@@ -29401,7 +29401,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const utterance = new SpeechSynthesisUtterance(text2);
         utterance.lang = targetSpeechSynthesisLocale();
         const voices = speechSynthesis.getVoices();
-        const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
+        const choice = this.textToSpeechVoiceChoice(voices, voiceName, utterance.lang, deckKey);
         const identity = textToSpeechPlaybackIdentity(text2, choice.voice);
         if (identity === options.avoidIdentity) {
           this.markTextToSpeechVoiceSkipped(choice);
@@ -29426,18 +29426,18 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         speechSynthesis.speak(utterance);
       });
     }
-    textToSpeechVoiceChoice(voices, voiceName, deckKey) {
-      const selectedVoiceName = voiceName.trim();
-      if (selectedVoiceName) {
+    textToSpeechVoiceChoice(voices, voiceName, locale, deckKey) {
+      const candidates = voicesForLocale(voices, locale);
+      const selectedName = voiceName.trim();
+      if (selectedName) {
         return {
-          voice: voices.find((voice) => voice.name === selectedVoiceName) ?? this.firstJapaneseTextToSpeechVoice(voices)
+          voice: candidates.find((voice) => voice.name === selectedName) ?? candidates[0] ?? null
         };
       }
-      const japaneseVoices = textToSpeechJapaneseVoices(voices);
-      if (!deckKey || japaneseVoices.length < 2) {
-        return { voice: japaneseVoices[0]?.voice ?? null };
+      if (!deckKey || candidates.length < 2) {
+        return { voice: candidates[0] ?? null };
       }
-      const entries2 = japaneseVoices.map(({ voice }, index) => ({
+      const entries2 = candidates.map((voice, index) => ({
         deckId: textToSpeechVoiceDeckId(voice, index),
         voice
       }));
@@ -29446,11 +29446,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return {
         deckId,
         deckKey,
-        voice: deckId ? byId.get(deckId) ?? null : japaneseVoices[0]?.voice ?? null
+        voice: deckId ? byId.get(deckId) ?? null : candidates[0] ?? null
       };
-    }
-    firstJapaneseTextToSpeechVoice(voices) {
-      return textToSpeechJapaneseVoices(voices)[0]?.voice ?? null;
     }
     markTextToSpeechVoicePlayed(choice) {
       if (choice.deckKey && choice.deckId) this.shuffledAudio.markPlayed(choice.deckKey, choice.deckId);
@@ -29508,8 +29505,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return true;
     }
   }
-  function textToSpeechJapaneseVoices(voices) {
-    return voices.filter((voice) => voice.lang.toLowerCase().startsWith("ja")).map((voice) => ({ voice }));
+  function voicesForLocale(voices, locale) {
+    const canonical = canonicalLanguageTag(locale);
+    if (canonical) {
+      const exact = voices.filter((voice) => canonicalLanguageTag(voice.lang) === canonical);
+      if (exact.length) return exact;
+    }
+    const language2 = languageSubtag(locale);
+    const matching = language2 ? voices.filter((voice) => languageSubtag(voice.lang) === language2) : [];
+    if (matching.length) return matching;
+    return language2 === "ja" ? voices : voices.filter((voice) => languageSubtag(voice.lang) !== "ja");
   }
   function textToSpeechVoiceDeckId(voice, index) {
     return [
@@ -56208,7 +56213,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.52".trim() ? "1.8.52".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.53".trim() ? "1.8.53".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
