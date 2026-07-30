@@ -7,6 +7,10 @@ import { buildAcquisitionQueue } from '../../scripts/dictionaries/acquire.mjs';
 import { parsePublicDriveFolderHtml } from '../../scripts/dictionaries/drive-inventory.mjs';
 import { ingestVerifiedConnectorManifest } from '../../scripts/dictionaries/ingest-verified-connector-manifest.mjs';
 import { buildUploadPlan, uploadDictionaryRelease } from '../../scripts/dictionaries/upload.mjs';
+import {
+    SLICE1_LEARNER_LANGUAGES,
+    SLICE1_TARGET_LANGUAGES,
+} from '../../src/reader/dictionaries/catalog/types';
 
 describe('dictionary acquisition safety', () => {
     it('parses public Drive rows into recursive folders and direct download files', () => {
@@ -80,6 +84,46 @@ describe('dictionary acquisition safety', () => {
         })).rejects.toThrow(/--confirm-bucket yomu-dictionaries/);
     });
 
+    it('uploads recommendation manifests concurrently, then languages, then the catalogue', async () => {
+        const item = (key: string) => ({
+            bucket: 'yomu-dictionaries',
+            key,
+            path: `/tmp/${key.replaceAll('/', '-')}`,
+            contentType: 'application/json; charset=utf-8',
+            cacheControl: 'public, max-age=300, must-revalidate',
+        });
+        const events: string[] = [];
+        let activeRecommendations = 0;
+        let maximumActiveRecommendations = 0;
+        await uploadDictionaryRelease([
+            item('v1/catalog.json'),
+            item('v1/recommendations/en-es.json'),
+            item('v1/languages.json'),
+            item('v1/recommendations/es-en.json'),
+        ], {
+            execute: true,
+            bucket: 'yomu-dictionaries',
+            confirmBucket: 'yomu-dictionaries',
+            concurrency: 2,
+            uploadImplementation: async upload => {
+                events.push(`start:${upload.key}`);
+                if (upload.key.startsWith('v1/recommendations/')) {
+                    activeRecommendations += 1;
+                    maximumActiveRecommendations = Math.max(maximumActiveRecommendations, activeRecommendations);
+                    await new Promise(resolveWait => setTimeout(resolveWait, 5));
+                    activeRecommendations -= 1;
+                }
+                events.push(`end:${upload.key}`);
+            },
+        });
+
+        expect(maximumActiveRecommendations).toBe(2);
+        expect(events.indexOf('start:v1/languages.json'))
+            .toBeGreaterThan(events.indexOf('end:v1/recommendations/es-en.json'));
+        expect(events.indexOf('start:v1/catalog.json'))
+            .toBeGreaterThan(events.indexOf('end:v1/languages.json'));
+    });
+
     it('falls back to the tracked published snapshot, never the pre-publication acquisition manifests', async () => {
         const root = await mkdtemp(join(tmpdir(), 'yomu-dictionary-upload-'));
         const publishedRoot = join(root, 'published', 'v1');
@@ -95,27 +139,27 @@ describe('dictionary acquisition safety', () => {
                 schemaVersion: 1,
                 entries: [{
                     id: 'fixture',
+                    headwordLanguages: [...SLICE1_TARGET_LANGUAGES],
                     distribution: {
                         state: 'published',
                         object: { key: objectKey, sha256, bytes: archive.byteLength },
                     },
                 }],
             }));
-            const languages = Array.from({ length: 32 }, (_, index) => ({ tag: `fixture-${index + 1}` }));
+            const languages = SLICE1_LEARNER_LANGUAGES.map(tag => ({ tag }));
             await writeFile(join(publishedRoot, 'languages.json'), JSON.stringify({ schemaVersion: 1, count: 32, languages }));
-            for (const [index, language] of languages.entries()) {
-                await writeFile(
-                    join(publishedRoot, 'recommendations', `${String(index + 1).padStart(2, '0')}-ja.json`),
+            await Promise.all(SLICE1_TARGET_LANGUAGES.flatMap(targetLanguage =>
+                languages.map(language => writeFile(
+                    join(publishedRoot, 'recommendations', `${language.tag}-${targetLanguage}.json`),
                     JSON.stringify({
                         schemaVersion: 1,
                         learnerLanguage: language.tag,
-                        targetLanguage: 'ja',
+                        targetLanguage,
                         readiness: 'ready',
                         blockers: [],
                         dictionaries: [{ dictionaryId: 'fixture' }],
                     }),
-                );
-            }
+                ))));
             await writeFile(join(stagingRoot, objectKey), archive);
 
             const plan = await buildUploadPlan({
@@ -124,15 +168,15 @@ describe('dictionary acquisition safety', () => {
                 stagingRoot,
             });
 
-            expect(plan).toHaveLength(35);
-            expect(plan.map(item => item.key)).toContain('v1/recommendations/01-ja.json');
-            expect(plan.map(item => item.key)).toContain('v1/recommendations/32-ja.json');
+            expect(plan).toHaveLength(1_059);
+            expect(plan.map(item => item.key)).toContain('v1/recommendations/sq-ja.json');
+            expect(plan.map(item => item.key)).toContain('v1/recommendations/vi-vi.json');
             expect(plan.map(item => item.key)).toContain(objectKey);
             expect(plan[0]?.path).toBe(join(publishedRoot, 'catalog.json'));
         } finally {
             await rm(root, { recursive: true, force: true });
         }
-    });
+    }, 30_000);
 
     it('ingests the full connector inventory under the confirmed rights decision', () => {
         const sha256 = 'c'.repeat(64);

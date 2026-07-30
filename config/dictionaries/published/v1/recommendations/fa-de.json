@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "fa",
+  "targetLanguage": "de",
+  "strategy": "native-first",
+  "readiness": "ready",
+  "blockers": [],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-de-fa-gloss",
+      "role": "primary-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "fa",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "wty-de-de-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "de",
+      "translationMode": "off"
+    }
+  ]
+}

@@ -829,7 +829,12 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
 }
 
 function readDictionaryType(value: string): DictionaryPreference['type'] {
-    return value === 'kanji' || value === 'frequency' || value === 'metadata' ? value : 'terms';
+    return value === 'kanji'
+        || value === 'frequency'
+        || value === 'pronunciation'
+        || value === 'metadata'
+        ? value
+        : 'terms';
 }
 
 export function readAudioSources(data: FormData): AudioSourceSetting[] {

@@ -122,7 +122,7 @@ export interface DictionaryPreference {
     enabled: boolean;
     priority: number;
     allowSecondarySearches?: boolean;
-    type?: 'terms' | 'kanji' | 'frequency' | 'metadata';
+    type?: 'terms' | 'kanji' | 'frequency' | 'pronunciation' | 'metadata';
 }
 
 export interface DictionaryLookupLink {

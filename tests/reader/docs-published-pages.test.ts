@@ -274,7 +274,7 @@ describe('published product claims', () => {
         for (const claim of claims) {
             expect(
                 claim.count,
-                `${claim.file} claims "${claim.text}", but ${measuredCount} published learner-language shelves contain a matching definition language`,
+                `${claim.file} claims "${claim.text}", but ${measuredCount} distinct learner languages have published matching definitions`,
             ).toBe(measuredCount);
         }
     });

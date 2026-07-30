@@ -17,6 +17,7 @@ export interface DictionaryRecommendationRow {
 
 export interface DictionaryRecommendationManifestJson {
   learnerLanguage: string;
+  targetLanguage: string;
   dictionaries: DictionaryRecommendationRow[];
   [key: string]: unknown;
 }
@@ -69,9 +70,13 @@ export function prepareDictionaryRelease(options?: {
   releaseRoot: string;
   catalogEntries: number;
   promotedObjects: number;
+  recommendationCount: number;
+  targetLanguageCount: number;
   shelfRecommendationRows: number;
   shelfStage: 'pre-release' | 'released';
   shelfSlotsPerLanguage: number;
   readyLanguages: number;
   blockedLanguages: number;
+  readyRecommendations: number;
+  blockedRecommendations: number;
 }>;

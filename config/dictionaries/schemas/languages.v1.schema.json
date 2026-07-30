@@ -16,7 +16,7 @@
     "schemaVersion": { "const": 1 },
     "revision": { "type": "string", "minLength": 1 },
     "generatedAt": { "type": "string", "format": "date-time" },
-    "targetLanguage": { "const": "ja" },
+    "targetLanguage": { "$ref": "#/$defs/targetLanguage" },
     "count": { "const": 32 },
     "languages": {
       "type": "array",
@@ -78,7 +78,7 @@
           "nativeName": { "type": "string", "minLength": 1 },
           "direction": { "enum": ["ltr", "rtl"] },
           "defaultScript": { "type": "string", "pattern": "^[A-Z][a-z]{3}$" },
-          "targetLanguage": { "const": "ja" },
+          "targetLanguage": { "$ref": "#/$defs/targetLanguage" },
           "status": { "const": "slice1" },
           "readiness": { "enum": ["ready", "blocked"] },
           "blockers": {
@@ -120,6 +120,13 @@
     }
   },
   "$defs": {
+    "targetLanguage": {
+      "enum": [
+        "ja", "sq", "grc", "ar", "yue", "zh", "da", "nl", "en", "fi", "fr",
+        "de", "el", "hu", "id", "it", "km", "ko", "lo", "la", "mn", "fa",
+        "pl", "pt", "ro", "ru", "sh", "es", "sv", "tl", "th", "tr", "vi"
+      ]
+    },
     "languageTag": {
       "type": "string",
       "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"

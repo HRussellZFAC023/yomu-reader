@@ -38,6 +38,7 @@ export function uploadDictionaryRelease(
     confirmBucket?: string;
     concurrency?: number;
     resumeUrl?: string;
+    uploadImplementation?: (item: DictionaryUploadItem) => Promise<void>;
   },
 ): Promise<{
   mode: 'dry-run' | 'execute';

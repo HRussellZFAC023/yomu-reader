@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "sq",
+  "targetLanguage": "lo",
+  "strategy": "native-first",
+  "readiness": "blocked",
+  "blockers": [
+    "dictionary-objects-not-yet-mirrored"
+  ],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-lo-en",
+      "role": "fallback-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "en",
+      "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "wty-lo-en-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "en",
+      "translationMode": "off"
+    }
+  ]
+}

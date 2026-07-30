@@ -1,4 +1,8 @@
-import { SLICE1_LEARNER_LANGUAGES } from '../../../src/reader/dictionaries/catalog/types';
+import {
+  DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
+  SLICE1_LEARNER_LANGUAGES,
+  SLICE1_TARGET_LANGUAGES,
+} from '../../../src/reader/dictionaries/catalog/types';
 import { withWorkerSecurityHeaders } from '../../shared/security-headers';
 import { serviceRevision, type ServiceRevision } from '../../shared/service-revision';
 
@@ -7,8 +11,9 @@ const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const MANIFEST_CACHE_CONTROL = 'public, max-age=300, must-revalidate';
 const EDGE_CACHE_HEADER = 'x-yomu-edge-cache';
 const ALLOWED_RECOMMENDATION_LANGUAGES = new Set<string>(SLICE1_LEARNER_LANGUAGES);
+const ALLOWED_RECOMMENDATION_TARGETS = new Set<string>(SLICE1_TARGET_LANGUAGES);
 const CONTENT_OBJECT_PATTERN = /^objects\/sha256\/([a-f0-9]{64})\.zip$/;
-const RECOMMENDATION_PATTERN = /^v1\/recommendations\/([a-z]{2,3})-ja\.json$/;
+const RECOMMENDATION_PATTERN = /^v1\/recommendations\/([a-z]{2,3})-([a-z]{2,3})\.json$/;
 
 export interface DictionaryStoredObject {
   readonly key: string;
@@ -176,7 +181,11 @@ export function objectKeyForRequestPath(path: string): string | null {
   if (path === '/v1/catalog.json') return 'v1/catalog.json';
   if (path === '/v1/languages.json') return 'v1/languages.json';
   const recommendation = RECOMMENDATION_PATTERN.exec(path.slice(1));
-  if (recommendation && ALLOWED_RECOMMENDATION_LANGUAGES.has(recommendation[1])) return path.slice(1);
+  if (
+    recommendation
+    && ALLOWED_RECOMMENDATION_LANGUAGES.has(recommendation[1])
+    && ALLOWED_RECOMMENDATION_TARGETS.has(recommendation[2])
+  ) return path.slice(1);
   if (CONTENT_OBJECT_PATTERN.test(path.slice(1))) return path.slice(1);
   return null;
 }
@@ -300,12 +309,14 @@ function serviceDescription(request: Request, revision: ServiceRevision): Respon
     status: 'ok',
     revision,
     schemaVersion: 1,
-    targetLanguage: 'ja',
+    defaultTargetLanguage: DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
     learnerLanguageCount: SLICE1_LEARNER_LANGUAGES.length,
+    targetLanguageCount: SLICE1_TARGET_LANGUAGES.length,
+    recommendationManifestCount: SLICE1_LEARNER_LANGUAGES.length * SLICE1_TARGET_LANGUAGES.length,
     endpoints: {
       catalog: '/v1/catalog.json',
       languages: '/v1/languages.json',
-      recommendations: '/v1/recommendations/{learnerLanguage}-ja.json',
+      recommendations: '/v1/recommendations/{learnerLanguage}-{targetLanguage}.json',
     },
   });
   return responseWithCors(request, request.method === 'HEAD' ? null : payload, {

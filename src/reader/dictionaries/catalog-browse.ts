@@ -34,7 +34,7 @@ export interface CatalogBrowseGroup {
  */
 export interface CatalogBrowseLanguageSection {
     headwordLanguage: string;
-    /** True for the one shelf that matches what this catalogue is built to read. */
+    /** True for the one shelf that matches what the reader selected to study. */
     isTargetLanguage: boolean;
     groups: readonly CatalogBrowseGroup[];
 }
@@ -42,6 +42,15 @@ export interface CatalogBrowseLanguageSection {
 export interface CatalogBrowseOptions {
     /** Definition languages matching the learner sort first inside each group. */
     learnerLanguage?: string;
+    /**
+     * Language the reader selected to study.
+     *
+     * The published catalogue still carries its Japanese-era `targetLanguage`
+     * field for schema compatibility. Browse routing must use this explicit
+     * profile choice instead, while callers without a profile keep the legacy
+     * catalogue default.
+     */
+    targetLanguage?: string;
     /** Catalogue IDs already rendered elsewhere (the recommendation seed). */
     excludeCatalogIds?: ReadonlySet<string>;
 }
@@ -65,7 +74,7 @@ const UI_CATEGORY_BY_CATALOG_CATEGORY: Readonly<Record<DictionaryCategory, Recom
     grammar: 'terms',
     kanji: 'kanji',
     frequency: 'frequency',
-    pronunciation: 'pitch',
+    pronunciation: 'pronunciation',
     examples: 'terms',
     thesaurus: 'terms',
     encyclopedia: 'terms',
@@ -82,23 +91,25 @@ export function catalogBrowseCardId(headwordLanguage: string, catalogDictionaryI
  */
 export function catalogBrowseDictionaries(
     catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
+    targetLanguage: string = catalog.targetLanguage,
 ): readonly RecommendedDictionary[] {
-    return catalog === FROZEN_DICTIONARY_CATALOG
+    return catalog === FROZEN_DICTIONARY_CATALOG && targetLanguage === catalog.targetLanguage
         ? FROZEN_CATALOG_BROWSE_DICTIONARIES
-        : catalogBrowseShelves(catalog).flatMap(shelf => shelf.dictionaries);
+        : catalogBrowseShelves(catalog, targetLanguage).flatMap(shelf => shelf.dictionaries);
 }
 
 /**
- * Category groups for one headword language. Defaults to the catalogue's target
- * language so callers that only care about the studied language keep reading
- * exactly the shelf they used to get.
+ * Category groups for one headword language. Defaults to the selected target,
+ * falling back to the catalogue's legacy target for callers without a profile.
  */
 export function catalogBrowseGroups(
     options: CatalogBrowseOptions = {},
     catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
-    headwordLanguage: string = catalog.targetLanguage,
+    headwordLanguage: string = options.targetLanguage ?? catalog.targetLanguage,
 ): readonly CatalogBrowseGroup[] {
-    const shelf = catalogBrowseShelves(catalog).find(candidate => candidate.language === headwordLanguage);
+    const shelf = catalogBrowseShelves(catalog, options.targetLanguage).find(
+        candidate => candidate.language === headwordLanguage,
+    );
     return shelf ? groupShelfByCategory(shelf, options) : [];
 }
 
@@ -111,12 +122,13 @@ export function catalogBrowseLanguageSections(
     options: CatalogBrowseOptions = {},
     catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
 ): readonly CatalogBrowseLanguageSection[] {
-    return catalogBrowseShelves(catalog).flatMap(shelf => {
+    const targetLanguage = options.targetLanguage ?? catalog.targetLanguage;
+    return catalogBrowseShelves(catalog, targetLanguage).flatMap(shelf => {
         const groups = groupShelfByCategory(shelf, options);
         if (!groups.length) return [];
         return [{
             headwordLanguage: shelf.language,
-            isTargetLanguage: shelf.language === catalog.targetLanguage,
+            isTargetLanguage: shelf.language === targetLanguage,
             groups,
         }];
     });
@@ -179,10 +191,15 @@ interface CatalogBrowseShelf {
     dictionaries: readonly RecommendedDictionary[];
 }
 
-function catalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly CatalogBrowseShelf[] {
-    return catalog === FROZEN_DICTIONARY_CATALOG
+function catalogBrowseShelves(
+    catalog: DictionaryCatalogManifest,
+    targetLanguage: string = catalog.targetLanguage,
+): readonly CatalogBrowseShelf[] {
+    const shelves = catalog === FROZEN_DICTIONARY_CATALOG
         ? FROZEN_CATALOG_BROWSE_SHELVES
         : buildCatalogBrowseShelves(catalog);
+    if (targetLanguage === catalog.targetLanguage) return shelves;
+    return Object.freeze([...shelves].sort(compareCatalogBrowseShelves(targetLanguage)));
 }
 
 function groupShelfByCategory(
@@ -231,12 +248,17 @@ function buildCatalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly
                 .sort(compareForLearnerLanguage(undefined, language)),
         ),
     }));
-    const target = catalog.targetLanguage;
-    return Object.freeze(shelves.sort((left, right) => {
-        if ((left.language === target) !== (right.language === target)) return left.language === target ? -1 : 1;
+    return Object.freeze(shelves.sort(compareCatalogBrowseShelves(catalog.targetLanguage)));
+}
+
+function compareCatalogBrowseShelves(targetLanguage: string) {
+    return (left: CatalogBrowseShelf, right: CatalogBrowseShelf): number => {
+        if ((left.language === targetLanguage) !== (right.language === targetLanguage)) {
+            return left.language === targetLanguage ? -1 : 1;
+        }
         return right.dictionaries.length - left.dictionaries.length
             || left.language.localeCompare(right.language, 'en');
-    }));
+    };
 }
 
 /**

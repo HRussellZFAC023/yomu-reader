@@ -1,5 +1,6 @@
 export const DICTIONARY_CATALOG_SCHEMA_VERSION = 1 as const;
-export const DICTIONARY_CATALOG_TARGET_LANGUAGE = 'ja' as const;
+/** The global catalogue and the curated legacy shelf still default to Japanese. */
+export const DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE = 'ja';
 
 /**
  * Slice 1's frozen learner-language roster.
@@ -43,6 +44,20 @@ export const SLICE1_LEARNER_LANGUAGES = [
 ] as const;
 
 export type Slice1LearnerLanguage = typeof SLICE1_LEARNER_LANGUAGES[number];
+
+/**
+ * Every study target with a released recommendation contract.
+ *
+ * Japanese keeps the curated eight-role shelf. The other 32 targets use the
+ * deterministic Wiktionary terms/pronunciation pair generated from the same
+ * catalogue, so this tuple is also the manifest filename contract.
+ */
+export const SLICE1_TARGET_LANGUAGES = [
+    DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
+    ...SLICE1_LEARNER_LANGUAGES,
+] as const;
+
+export type Slice1TargetLanguage = typeof SLICE1_TARGET_LANGUAGES[number];
 export type TextDirection = 'ltr' | 'rtl';
 export type DictionaryCategory =
     | 'terms'
@@ -133,7 +148,7 @@ export interface DictionaryCatalogManifest {
     schemaVersion: typeof DICTIONARY_CATALOG_SCHEMA_VERSION;
     revision: string;
     generatedAt: string;
-    targetLanguage: typeof DICTIONARY_CATALOG_TARGET_LANGUAGE;
+    targetLanguage: Slice1TargetLanguage;
     objectsBaseUrl: string;
     sourceSnapshot: DictionarySourceSnapshot;
     entries: DictionaryCatalogEntry[];
@@ -145,7 +160,7 @@ export interface CatalogLanguage {
     nativeName: string;
     direction: TextDirection;
     defaultScript?: string;
-    targetLanguage: typeof DICTIONARY_CATALOG_TARGET_LANGUAGE;
+    targetLanguage: Slice1TargetLanguage;
     status: 'slice1';
     catalogueEvidence: string[];
     readiness?: 'ready' | 'blocked';
@@ -164,7 +179,7 @@ export interface DictionaryLanguageManifest {
     schemaVersion: typeof DICTIONARY_CATALOG_SCHEMA_VERSION;
     revision: string;
     generatedAt: string;
-    targetLanguage: typeof DICTIONARY_CATALOG_TARGET_LANGUAGE;
+    targetLanguage: Slice1TargetLanguage;
     count: 32;
     languages: CatalogLanguage[];
 }
@@ -200,7 +215,7 @@ export interface DictionaryRecommendationManifest {
     schemaVersion: typeof DICTIONARY_CATALOG_SCHEMA_VERSION;
     catalogRevision: string;
     learnerLanguage: Slice1LearnerLanguage;
-    targetLanguage: typeof DICTIONARY_CATALOG_TARGET_LANGUAGE;
+    targetLanguage: Slice1TargetLanguage;
     strategy: 'native-first';
     readiness: 'ready' | 'blocked';
     blockers: string[];
@@ -209,4 +224,23 @@ export interface DictionaryRecommendationManifest {
 
 export function isSlice1LearnerLanguage(value: string): value is Slice1LearnerLanguage {
     return (SLICE1_LEARNER_LANGUAGES as readonly string[]).includes(value);
+}
+
+export function isSlice1TargetLanguage(value: string): value is Slice1TargetLanguage {
+    return (SLICE1_TARGET_LANGUAGES as readonly string[]).includes(value);
+}
+
+export function dictionaryRecommendationFilename(
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: Slice1TargetLanguage,
+): string {
+    return `${learnerLanguage}-${targetLanguage}.json`;
+}
+
+export function parseDictionaryRecommendationFilename(
+    filename: string,
+): { learnerLanguage: Slice1LearnerLanguage; targetLanguage: Slice1TargetLanguage } | null {
+    const match = /^([a-z]{2,3})-([a-z]{2,3})\.json$/.exec(filename);
+    if (!match || !isSlice1LearnerLanguage(match[1]) || !isSlice1TargetLanguage(match[2])) return null;
+    return { learnerLanguage: match[1], targetLanguage: match[2] };
 }

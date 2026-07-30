@@ -557,11 +557,17 @@ function renderDictionaryStatusElements(
     summary: DictionarySummary,
     settings: ReaderSettings,
     learnerLanguage: LearnerLanguageId,
+    targetLanguage: LearningTargetRosterId,
 ): void {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
-    if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries, learnerLanguage));
+    if (elements.recommended) {
+        setInnerHtml(
+            elements.recommended,
+            renderRecommendedDictionaries(summary.dictionaries, learnerLanguage, true, targetLanguage),
+        );
+    }
 }
 
 function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
@@ -988,7 +994,7 @@ export class SettingsDialogController {
             this.renderLookupPillsForTarget(form, value);
             localizeSettingsForm(form, this.settings.interfaceLanguage);
             void this.refreshTargetDictionaryAvailability(form, value);
-            if (value === 'ja') void this.refreshDictionaryStatus(form);
+            void this.refreshDictionaryStatus(form);
         });
         this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
@@ -1699,6 +1705,7 @@ export class SettingsDialogController {
             summary,
             this.settings,
             selectedLearnerLanguage(form, this.settings),
+            selectedTargetLanguage(form, this.settings),
         );
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         // The Sources panel re-renders its whole dictionary block here, so the

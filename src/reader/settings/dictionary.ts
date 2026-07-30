@@ -649,12 +649,13 @@ function defaultDictionaryPreference(name: string, type: DictionaryPreference['t
 }
 
 function normalizeDictionaryType(value: unknown, name = ''): DictionaryPreference['type'] {
-    if (value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'metadata') return value;
+    if (value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'pronunciation' || value === 'metadata') return value;
     return inferDictionaryTypeFromName(name);
 }
 
 function inferDictionaryTypeFromName(name: string): DictionaryPreference['type'] {
     const normalized = name.toLowerCase();
+    if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return 'pronunciation';
     if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return 'frequency';
     if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return 'kanji';
     return 'terms';

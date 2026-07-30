@@ -619,7 +619,7 @@ const COPY = {
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
         exportDictionaries: 'Export dictionaries',
-        dictionaryImportHelp: 'Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.',
+        dictionaryImportHelp: 'Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.',
         lookupPills: 'Lookup pills',
         lookupPillsHelp: 'External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.',
         parserProvider: 'Parsing source',
@@ -641,6 +641,7 @@ const COPY = {
         termDictionaries: 'Term dictionaries',
         kanjiDictionaries: 'Kanji dictionaries',
         pitchDictionaries: 'Pitch dictionaries',
+        pronunciationDictionaries: 'Pronunciation dictionaries',
         frequencyDictionaries: 'Frequency dictionaries',
         nameDictionaries: 'Name dictionaries',
         grammarDictionaries: 'Grammar dictionaries',
@@ -652,7 +653,7 @@ const COPY = {
         mirroredDictionariesSummary: '{count} more dictionaries · {size} total',
         mirroredDictionarySearch: 'Search dictionaries',
         mirroredDictionarySearchNoResults: 'No dictionaries match your search.',
-        mirroredDictionaryOtherLanguage: 'These dictionaries are not for reading Japanese.',
+        mirroredDictionaryLanguageNote: 'Dictionaries for reading {language}.',
         install: 'Install',
         installing: 'Installing',
         queued: 'Queued',
@@ -688,7 +689,7 @@ const COPY = {
         dictionaryDownloadNeedsBridge: 'Download needs bridge; else import ZIP.',
         dictionaryDownloadBlocked: 'Download blocked. Import the ZIP.',
         dictionaryManualDownloadHint: 'Enable userscript or import the ZIP.',
-        dictionaryInstallQueueHelp: 'Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.',
+        dictionaryInstallQueueHelp: 'Install a term dictionary first for definitions. Pronunciation (IPA), Japanese pitch, and frequency dictionaries add pronunciations, pitch accents, and badges, not normal definition text.',
         dictionaryInstallQueued: '{dictionary} queued.',
         dictionaryInstallSaveBlocked: 'Import running. Save unlocks when done.',
         dictionaryImportQueueStatus: '{count} install{plural} running.',
@@ -1421,7 +1422,7 @@ dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。発音（IPA）/日本語ピッチ/頻度辞書は発音、ピッチアクセント、バッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -2367,7 +2368,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -2387,6 +2388,7 @@ recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
+pronunciationDictionaries	発音辞書
 frequencyDictionaries	頻度辞書
 nameDictionaries	固有名詞辞書
 grammarDictionaries	文法辞書
@@ -2398,7 +2400,7 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryOtherLanguage	日本語を読むための辞書ではありません。
+mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 queued	待機中

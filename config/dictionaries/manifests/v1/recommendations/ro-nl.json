@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "ro",
+  "targetLanguage": "nl",
+  "strategy": "native-first",
+  "readiness": "blocked",
+  "blockers": [
+    "dictionary-objects-not-yet-mirrored"
+  ],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-nl-ro-gloss",
+      "role": "primary-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "ro",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "wty-nl-nl-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "nl",
+      "translationMode": "off"
+    }
+  ]
+}

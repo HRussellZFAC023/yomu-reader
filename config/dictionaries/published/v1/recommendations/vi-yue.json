@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "vi",
+  "targetLanguage": "yue",
+  "strategy": "native-first",
+  "readiness": "ready",
+  "blockers": [],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-yue-vi",
+      "role": "primary-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "vi",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "wty-yue-vi-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "vi",
+      "translationMode": "off"
+    }
+  ]
+}

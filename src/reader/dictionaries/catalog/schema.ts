@@ -1,8 +1,8 @@
 import {
     DICTIONARY_CATALOG_SCHEMA_VERSION,
-    DICTIONARY_CATALOG_TARGET_LANGUAGE,
     SLICE1_LEARNER_LANGUAGES,
     isSlice1LearnerLanguage,
+    isSlice1TargetLanguage,
     type CatalogLanguage,
     type DictionaryCatalogEntry,
     type DictionaryCatalogManifest,
@@ -11,6 +11,7 @@ import {
     type DictionaryRecommendation,
     type DictionaryRecommendationManifest,
     type Slice1LearnerLanguage,
+    type Slice1TargetLanguage,
 } from './types';
 import { dictionaryObjectKeyMatchesHash, isSha256Hex } from './integrity';
 
@@ -52,7 +53,7 @@ class DictionaryManifestError extends Error {
 export function parseDictionaryCatalogManifest(input: unknown): DictionaryCatalogManifest {
     const root = record(input, '$');
     schemaVersion(root.schemaVersion, '$.schemaVersion');
-    literal(root.targetLanguage, DICTIONARY_CATALOG_TARGET_LANGUAGE, '$.targetLanguage');
+    const catalogTargetLanguage = targetLanguage(root.targetLanguage, '$.targetLanguage');
     const entries = array(root.entries, '$.entries').map((entry, index) => parseCatalogEntry(entry, `$.entries[${index}]`));
     assertUnique(entries.map(entry => entry.id), '$.entries', 'dictionary id');
     const sourceSnapshot = record(root.sourceSnapshot, '$.sourceSnapshot');
@@ -64,7 +65,7 @@ export function parseDictionaryCatalogManifest(input: unknown): DictionaryCatalo
         schemaVersion: DICTIONARY_CATALOG_SCHEMA_VERSION,
         revision: text(root.revision, '$.revision'),
         generatedAt: isoDate(root.generatedAt, '$.generatedAt'),
-        targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
+        targetLanguage: catalogTargetLanguage,
         objectsBaseUrl: httpsUrl(root.objectsBaseUrl, '$.objectsBaseUrl'),
         sourceSnapshot: {
             catalogueRepository: httpsUrl(sourceSnapshot.catalogueRepository, '$.sourceSnapshot.catalogueRepository'),
@@ -80,7 +81,7 @@ export function parseDictionaryCatalogManifest(input: unknown): DictionaryCatalo
 export function parseDictionaryLanguageManifest(input: unknown): DictionaryLanguageManifest {
     const root = record(input, '$');
     schemaVersion(root.schemaVersion, '$.schemaVersion');
-    literal(root.targetLanguage, DICTIONARY_CATALOG_TARGET_LANGUAGE, '$.targetLanguage');
+    const manifestTargetLanguage = targetLanguage(root.targetLanguage, '$.targetLanguage');
     if (root.count !== SLICE1_LEARNER_LANGUAGES.length) fail('$.count', 'must equal 32');
     const languages = array(root.languages, '$.languages').map((language, index) => parseCatalogLanguage(language, `$.languages[${index}]`));
     if (languages.length !== SLICE1_LEARNER_LANGUAGES.length) fail('$.languages', 'must contain exactly 32 records');
@@ -93,7 +94,7 @@ export function parseDictionaryLanguageManifest(input: unknown): DictionaryLangu
         schemaVersion: DICTIONARY_CATALOG_SCHEMA_VERSION,
         revision: text(root.revision, '$.revision'),
         generatedAt: isoDate(root.generatedAt, '$.generatedAt'),
-        targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
+        targetLanguage: manifestTargetLanguage,
         count: 32,
         languages,
     };
@@ -103,7 +104,7 @@ export function parseDictionaryRecommendationManifest(input: unknown): Dictionar
     const root = record(input, '$');
     schemaVersion(root.schemaVersion, '$.schemaVersion');
     const learnerLanguage = language(root.learnerLanguage, '$.learnerLanguage');
-    literal(root.targetLanguage, DICTIONARY_CATALOG_TARGET_LANGUAGE, '$.targetLanguage');
+    const recommendationTargetLanguage = targetLanguage(root.targetLanguage, '$.targetLanguage');
     literal(root.strategy, 'native-first', '$.strategy');
     const readiness = oneOf(root.readiness, ['ready', 'blocked'] as const, '$.readiness');
     const blockers = stringArray(root.blockers, '$.blockers');
@@ -121,7 +122,7 @@ export function parseDictionaryRecommendationManifest(input: unknown): Dictionar
         schemaVersion: DICTIONARY_CATALOG_SCHEMA_VERSION,
         catalogRevision: text(root.catalogRevision, '$.catalogRevision'),
         learnerLanguage,
-        targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
+        targetLanguage: recommendationTargetLanguage,
         strategy: 'native-first',
         readiness,
         blockers,
@@ -133,10 +134,17 @@ export function assertRecommendationReferencesCatalog(
     recommendation: DictionaryRecommendationManifest,
     catalog: DictionaryCatalogManifest,
 ): void {
-    const ids = new Set(catalog.entries.map(entry => entry.id));
+    const entries = new Map(catalog.entries.map(entry => [entry.id, entry]));
     for (const entry of recommendation.dictionaries) {
-        if (!ids.has(entry.dictionaryId)) {
+        const catalogEntry = entries.get(entry.dictionaryId);
+        if (!catalogEntry) {
             fail('$.dictionaries', `references unknown dictionary "${entry.dictionaryId}"`);
+        }
+        if (!catalogEntry.headwordLanguages.includes(recommendation.targetLanguage)) {
+            fail(
+                '$.dictionaries',
+                `dictionary "${entry.dictionaryId}" does not cover target language "${recommendation.targetLanguage}"`,
+            );
         }
     }
     if (recommendation.catalogRevision !== catalog.revision) {
@@ -224,7 +232,7 @@ function parseDistribution(input: unknown, path: string, redistribution: 'allowe
 function parseCatalogLanguage(input: unknown, path: string): CatalogLanguage {
     const value = record(input, path);
     const tag = language(value.tag, `${path}.tag`);
-    literal(value.targetLanguage, DICTIONARY_CATALOG_TARGET_LANGUAGE, `${path}.targetLanguage`);
+    const catalogTargetLanguage = targetLanguage(value.targetLanguage, `${path}.targetLanguage`);
     literal(value.status, 'slice1', `${path}.status`);
     const defaultScript = optionalText(value.defaultScript, `${path}.defaultScript`);
     if (defaultScript && !SCRIPT_PATTERN.test(defaultScript)) fail(`${path}.defaultScript`, 'must be an ISO 15924 script code');
@@ -245,7 +253,7 @@ function parseCatalogLanguage(input: unknown, path: string): CatalogLanguage {
         nativeName: text(value.nativeName, `${path}.nativeName`),
         direction: oneOf(value.direction, ['ltr', 'rtl'] as const, `${path}.direction`),
         ...(defaultScript ? { defaultScript } : {}),
-        targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
+        targetLanguage: catalogTargetLanguage,
         status: 'slice1',
         catalogueEvidence,
         ...(readiness ? { readiness, blockers: blockers ?? [] } : {}),
@@ -286,6 +294,12 @@ function schemaVersion(value: unknown, path: string): void {
 function language(value: unknown, path: string): Slice1LearnerLanguage {
     const tag = text(value, path);
     if (!isSlice1LearnerLanguage(tag)) fail(path, 'is not in the frozen 32-language roster');
+    return tag;
+}
+
+function targetLanguage(value: unknown, path: string): Slice1TargetLanguage {
+    const tag = text(value, path);
+    if (!isSlice1TargetLanguage(tag)) fail(path, 'is not in the frozen 33-target roster');
     return tag;
 }
 

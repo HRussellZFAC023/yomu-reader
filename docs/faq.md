@@ -117,7 +117,7 @@ Yes. A free Yomu account pairs devices so local cards can follow you. Cards are 
 
 ### Is it only for Japanese?
 
-Japanese is the deepest today, with pitch accent, kanji and furigana. First-run setup and Settings label it **Full Yomu support**. The other 32 study targets are labelled **Reading and lookup**, and the dictionary catalogue carries headwords across all of them. The interface itself speaks English and 日本語.
+Japanese is the deepest today, with pitch accent, kanji and furigana. First-run setup and Settings label it **Full Yomu support**. The other 32 study targets are labelled **Reading and lookup**, and the dictionary catalogue carries headwords across all of them. Your recommended starter follows the selected target and definition language; for English plus Spanish, that means Spanish terms with English definitions and Spanish IPA. The interface itself speaks English and 日本語.
 
 ## Your data
 

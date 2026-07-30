@@ -99,22 +99,27 @@ export function heroStudyLanguages(
 }
 
 /**
- * Count learner-language shelves that contain at least one definition written
- * in that shelf's learner language. Readiness flags are intentionally ignored.
+ * Count distinct learner languages with at least one published pair whose
+ * definitions are written in that learner language. A learner now has one
+ * manifest per target, so counting matching files would multiply the claim by
+ * the number of readable targets.
  */
 export function measuredDefinitionLanguageCount(
     recommendationsDirectory = path.join(PROJECT_ROOT, PUBLISHED_RECOMMENDATIONS_DIRECTORY),
 ): number {
-    return readdirSync(recommendationsDirectory)
+    const definitionLanguages = new Set<string>();
+    readdirSync(recommendationsDirectory)
         .filter(file => file.endsWith('.json'))
         .map(file => JSON.parse(readFileSync(path.join(recommendationsDirectory, file), 'utf8')) as PublishedRecommendation)
-        .filter(recommendation => {
-            if (typeof recommendation.learnerLanguage !== 'string') return false;
-            if (!Array.isArray(recommendation.dictionaries)) return false;
-            return recommendation.dictionaries.some(dictionary =>
+        .forEach(recommendation => {
+            if (typeof recommendation.learnerLanguage !== 'string') return;
+            if (!Array.isArray(recommendation.dictionaries)) return;
+            if (recommendation.dictionaries.some(dictionary =>
                 isRecord(dictionary)
                 && dictionary.definitionLanguage === recommendation.learnerLanguage,
-            );
-        })
-        .length;
+            )) {
+                definitionLanguages.add(recommendation.learnerLanguage);
+            }
+        });
+    return definitionLanguages.size;
 }

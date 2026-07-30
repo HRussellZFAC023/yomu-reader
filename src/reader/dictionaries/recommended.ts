@@ -25,8 +25,9 @@ import { LOCALE_CATALOGS, learnerLanguageById } from '../locales';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportOptions } from './yomitan';
 import type { LearningTargetRosterId } from '../languages';
+import { googleTranslationLanguageCapability } from '../translation/google';
 
-export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'pitch' | 'frequency';
+export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'pitch' | 'pronunciation' | 'frequency';
 export type RecommendedDictionaryOrigin = 'catalog';
 
 export interface RecommendedDictionary {
@@ -39,6 +40,7 @@ export interface RecommendedDictionary {
     helpUrl?: string;
     origin?: RecommendedDictionaryOrigin;
     learnerLanguage?: Slice1LearnerLanguage;
+    targetLanguage?: LearningTargetRosterId;
     /** Language of the dictionary's headwords — the text it can actually match. */
     headwordLanguage?: string;
     catalogDictionaryId?: string;
@@ -183,9 +185,10 @@ if (CATALOG_RECOMMENDATIONS_BY_ID.size !== expectedCatalogRecommendationCount) {
 
 export function catalogRecommendedDictionaryId(
     learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
     dictionaryId: string,
 ): string {
-    return `catalog-${learnerLanguage}-ja-${dictionaryId}`;
+    return `catalog-${learnerLanguage}-${targetLanguage}-${dictionaryId}`;
 }
 
 export function recommendedDictionariesForLearnerLanguage(
@@ -195,17 +198,30 @@ export function recommendedDictionariesForLearnerLanguage(
 }
 
 /**
- * Profile-aware recommendation seam. Until a target has its own recommendation
- * manifest, an empty starter is safer than silently installing Japanese
- * dictionaries for a different language.
+ * Profile-aware recommendation seam.
+ *
+ * Japanese keeps its curated shelf. The other 32 targets derive the same
+ * deterministic terms-and-IPA pair as their published learner-target manifest
+ * from the compact runtime catalogue, avoiding 1,056 static JSON imports in
+ * the size-limited userscript.
  */
 export function recommendedDictionariesForLanguageProfile(
     learnerLanguage: Slice1LearnerLanguage,
     targetLanguage: LearningTargetRosterId,
 ): readonly RecommendedDictionary[] {
-    return targetLanguage === 'ja'
-        ? recommendedDictionariesForLearnerLanguage(learnerLanguage)
-        : [];
+    if (targetLanguage === 'ja') return recommendedDictionariesForLearnerLanguage(learnerLanguage);
+    const key = languageProfileRecommendationKey(learnerLanguage, targetLanguage);
+    const cached = TARGET_RECOMMENDATIONS_BY_PAIR.get(key);
+    if (cached) return cached;
+    const recommendations = Object.freeze(
+        recommendedDictionariesFromCatalog(
+            FROZEN_DICTIONARY_CATALOG,
+            recommendationManifestForLanguageProfile(learnerLanguage, targetLanguage),
+        ),
+    );
+    TARGET_RECOMMENDATIONS_BY_PAIR.set(key, recommendations);
+    recommendations.forEach(dictionary => CATALOG_RECOMMENDATIONS_BY_ID.set(dictionary.id, dictionary));
+    return recommendations;
 }
 
 export function recommendedDictionaryInstalledIdentity(
@@ -255,7 +271,7 @@ function recommendedDictionariesFromCatalog(
         if (!entry) throw new Error(`Recommended dictionary "${recommendation.dictionaryId}" is missing from the catalogue.`);
         const download = dictionaryEntryDownload(entry, catalog.objectsBaseUrl);
         return {
-            id: catalogRecommendedDictionaryId(manifest.learnerLanguage, entry.id),
+            id: catalogRecommendedDictionaryId(manifest.learnerLanguage, manifest.targetLanguage, entry.id),
             category: recommendedDictionaryCategory(recommendation),
             name: entry.title,
             description: catalogRecommendationDescription(manifest.learnerLanguage, recommendation),
@@ -269,7 +285,8 @@ function recommendedDictionariesFromCatalog(
             ...(entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {}),
             origin: 'catalog',
             learnerLanguage: manifest.learnerLanguage,
-            headwordLanguage: entry.headwordLanguages[0],
+            targetLanguage: manifest.targetLanguage,
+            headwordLanguage: manifest.targetLanguage,
             catalogDictionaryId: entry.id,
             role: recommendation.role,
             selectedByDefault: recommendation.selectedByDefault,
@@ -281,6 +298,126 @@ function recommendedDictionariesFromCatalog(
     });
 }
 
+const TARGET_RECOMMENDATIONS_BY_PAIR = new Map<string, readonly RecommendedDictionary[]>();
+
+function languageProfileRecommendationKey(
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
+): string {
+    return `${learnerLanguage}-${targetLanguage}`;
+}
+
+function recommendationManifestForLanguageProfile(
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: Exclude<LearningTargetRosterId, 'ja'>,
+): DictionaryRecommendationManifest {
+    const candidates = FROZEN_DICTIONARY_CATALOG.entries
+        .filter(entry =>
+            entry.distribution.state === 'published'
+            && entry.headwordLanguages.includes(targetLanguage),
+        );
+    const terms = bestTargetDictionary(candidates, targetLanguage, learnerLanguage, 'terms');
+    const pronunciation = bestTargetDictionary(candidates, targetLanguage, learnerLanguage, 'pronunciation');
+    if (!terms) {
+        throw new Error(`Published dictionary catalog has no term dictionary for target ${targetLanguage}.`);
+    }
+    const dictionaries: DictionaryRecommendation[] = [
+        recommendationForEntry(terms, learnerLanguage, targetLanguage, 'terms', 10),
+        ...(pronunciation
+            ? [recommendationForEntry(pronunciation, learnerLanguage, targetLanguage, 'pronunciation', 20)]
+            : []),
+    ];
+    return {
+        schemaVersion: 1,
+        catalogRevision: FROZEN_DICTIONARY_CATALOG.revision,
+        learnerLanguage,
+        targetLanguage,
+        strategy: 'native-first',
+        readiness: 'ready',
+        blockers: [],
+        dictionaries,
+    };
+}
+
+function bestTargetDictionary(
+    entries: readonly DictionaryCatalogManifest['entries'][number][],
+    targetLanguage: string,
+    learnerLanguage: Slice1LearnerLanguage,
+    category: 'terms' | 'pronunciation',
+): DictionaryCatalogManifest['entries'][number] | undefined {
+    return entries
+        .filter(entry => entry.categories.includes(category))
+        .sort((left, right) =>
+            targetDictionaryRank(left, targetLanguage, learnerLanguage, category)
+            - targetDictionaryRank(right, targetLanguage, learnerLanguage, category)
+            || left.id.localeCompare(right.id, 'en'),
+        )[0];
+}
+
+function targetDictionaryRank(
+    entry: DictionaryCatalogManifest['entries'][number],
+    targetLanguage: string,
+    learnerLanguage: Slice1LearnerLanguage,
+    category: 'terms' | 'pronunciation',
+): number {
+    const definitionRank = entry.definitionLanguages.includes(learnerLanguage)
+        ? 0
+        : entry.definitionLanguages.includes(targetLanguage)
+            ? 10
+            : entry.definitionLanguages.includes('en')
+                ? 20
+                : 30;
+    const selectedDefinition = preferredDefinitionLanguage(entry.definitionLanguages, learnerLanguage, targetLanguage);
+    const canonicalWtyId = `wty-${targetLanguage}-${selectedDefinition}${category === 'pronunciation' ? '-ipa' : ''}`;
+    const shapeRank = entry.id === canonicalWtyId
+        ? 0
+        : entry.id.includes('-gloss')
+            ? 2
+            : 1;
+    return definitionRank + shapeRank;
+}
+
+function recommendationForEntry(
+    entry: DictionaryCatalogManifest['entries'][number],
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
+    category: 'terms' | 'pronunciation',
+    priority: number,
+): DictionaryRecommendation {
+    const definitionLanguage = preferredDefinitionLanguage(
+        entry.definitionLanguages,
+        learnerLanguage,
+        targetLanguage,
+    );
+    return {
+        dictionaryId: entry.id,
+        role: category === 'pronunciation'
+            ? 'pronunciation'
+            : definitionLanguage === learnerLanguage
+                ? 'primary-terms'
+                : 'fallback-terms',
+        priority,
+        selectedByDefault: true,
+        definitionLanguage,
+        translationMode: category === 'pronunciation'
+            || definitionLanguage === learnerLanguage
+            || !googleTranslationLanguageCapability(learnerLanguage).supported
+            ? 'off'
+            : 'offer',
+    };
+}
+
+function preferredDefinitionLanguage(
+    languages: readonly string[],
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: string,
+): string {
+    return [learnerLanguage, targetLanguage, 'en']
+        .find(language => languages.includes(language))
+        ?? languages[0]
+        ?? 'en';
+}
+
 /**
  * Settings offers the whole mirror, not just the seed: the recommendation cards
  * stay preselected at the top and every other mirrored archive is listed below
@@ -288,10 +425,12 @@ function recommendedDictionariesFromCatalog(
  */
 export function catalogBrowseGroupsForLearnerLanguage(
     learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId = 'ja',
 ): readonly CatalogBrowseGroup[] {
     return catalogBrowseGroups({
         learnerLanguage,
-        excludeCatalogIds: recommendedCatalogIds(learnerLanguage),
+        targetLanguage,
+        excludeCatalogIds: recommendedCatalogIds(learnerLanguage, targetLanguage),
     });
 }
 
@@ -301,26 +440,32 @@ export function catalogBrowseGroupsForLearnerLanguage(
  */
 export function catalogBrowseLanguageSectionsForLearnerLanguage(
     learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId = 'ja',
 ): readonly CatalogBrowseLanguageSection[] {
     return catalogBrowseLanguageSections({
         learnerLanguage,
-        excludeCatalogIds: recommendedCatalogIds(learnerLanguage),
+        targetLanguage,
+        excludeCatalogIds: recommendedCatalogIds(learnerLanguage, targetLanguage),
     });
 }
 
-function recommendedCatalogIds(learnerLanguage: Slice1LearnerLanguage): ReadonlySet<string> {
-    const cached = RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.get(learnerLanguage);
+function recommendedCatalogIds(
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
+): ReadonlySet<string> {
+    const key = languageProfileRecommendationKey(learnerLanguage, targetLanguage);
+    const cached = RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.get(key);
     if (cached) return cached;
     const ids = new Set(
-        recommendedDictionariesForLearnerLanguage(learnerLanguage)
+        recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
             .map(dictionary => dictionary.catalogDictionaryId)
             .filter((id): id is string => Boolean(id)),
     );
-    RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.set(learnerLanguage, ids);
+    RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.set(key, ids);
     return ids;
 }
 
-const RECOMMENDED_CATALOG_IDS_BY_LANGUAGE = new Map<Slice1LearnerLanguage, ReadonlySet<string>>();
+const RECOMMENDED_CATALOG_IDS_BY_LANGUAGE = new Map<string, ReadonlySet<string>>();
 
 const CATALOG_BROWSE_BY_ID = new Map<string, RecommendedDictionary>(
     catalogBrowseDictionaries().map(dictionary => [dictionary.id, dictionary]),
@@ -339,7 +484,7 @@ function recommendedDictionaryCategory(
 ): RecommendedDictionaryCategory {
     if (recommendation.role === 'kanji') return 'kanji';
     if (recommendation.role === 'frequency') return 'frequency';
-    if (recommendation.role === 'pronunciation') return 'pitch';
+    if (recommendation.role === 'pronunciation') return 'pronunciation';
     return 'terms';
 }
 

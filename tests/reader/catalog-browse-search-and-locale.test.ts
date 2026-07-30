@@ -4,6 +4,7 @@ import {
     CATALOG_BROWSE_CATEGORY_ORDER,
     CATALOG_BROWSE_COPY,
     catalogBrowseCopy,
+    catalogBrowseLanguageNote,
 } from '../../src/reader/dictionaries/catalog-browse-copy';
 import {
     applyCatalogBrowseFilter,
@@ -54,20 +55,20 @@ describe('searching the mirrored dictionary catalogue', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
 
-        const pitch = applyCatalogBrowseFilter(section, 'pitch dictionaries');
+        const pronunciation = applyCatalogBrowseFilter(section, 'pronunciation dictionaries');
 
         // One pronunciation group per language shelf now, so the claim is that
         // nothing OTHER than pronunciation survives the filter — not that a
         // single group does.
         const visible = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]')].filter(group => !group.hidden);
 
-        expect(pitch).toBeGreaterThan(0);
+        expect(pronunciation).toBeGreaterThan(0);
         expect(visible.length).toBeGreaterThan(0);
         expect([...new Set(visible.map(group => group.dataset.catalogBrowseGroup))]).toEqual(['pronunciation']);
 
         localizeSettingsForm(form, 'ja');
 
-        expect(applyCatalogBrowseFilter(section, 'ピッチ')).toBe(pitch);
+        expect(applyCatalogBrowseFilter(section, '発音')).toBe(pronunciation);
     });
 
     it('announces an empty result instead of showing a blank panel', () => {
@@ -176,7 +177,8 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
             expect(copy.title.trim(), language).not.toBe('');
             expect(copy.searchLabel.trim(), language).not.toBe('');
             expect(copy.noResults.trim(), language).not.toBe('');
-            expect(copy.otherLanguageNote.trim(), language).not.toBe('');
+            expect(copy.languageNote.trim(), language).not.toBe('');
+            expect(copy.languageNote.match(/\{language\}/gu), language).toHaveLength(1);
             expect(copy.summary, language).toContain('{count}');
             expect(copy.summary, language).toContain('{size}');
             for (const category of CATALOG_BROWSE_CATEGORY_ORDER) {
@@ -187,9 +189,25 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
             // locale wearing a translated locale's tag.
             expect(copy.title, language).not.toBe(CATALOG_BROWSE_COPY.en.title);
             expect(copy.searchLabel, language).not.toBe(CATALOG_BROWSE_COPY.en.searchLabel);
-            expect(copy.otherLanguageNote, language).not.toBe(CATALOG_BROWSE_COPY.en.otherLanguageNote);
+            expect(copy.languageNote, language).not.toBe(CATALOG_BROWSE_COPY.en.languageNote);
         }
         expect(titles.size).toBe(LEARNER_LANGUAGE_IDS.length);
+    });
+
+    it('describes the selected Spanish shelf positively in Spanish', () => {
+        const note = catalogBrowseLanguageNote(catalogBrowseCopy('es'), 'español');
+
+        expect(note).toBe('Diccionarios para leer en español.');
+        expect(note).not.toContain('Estos diccionarios no sirven para leer japonés');
+        expect(JSON.stringify(CATALOG_BROWSE_COPY)).not.toContain('Estos diccionarios no sirven para leer japonés');
+    });
+
+    it('isolates an interpolated language name in right-to-left shelf copy', () => {
+        const arabic = catalogBrowseLanguageNote(catalogBrowseCopy('ar'), 'الإسبانية');
+        const persian = catalogBrowseLanguageNote(catalogBrowseCopy('fa'), 'اسپانیایی');
+
+        expect(arabic).toContain('⁨الإسبانية⁩');
+        expect(persian).toContain('⁨اسپانیایی⁩');
     });
 });
 

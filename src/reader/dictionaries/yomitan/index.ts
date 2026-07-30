@@ -860,6 +860,7 @@ export class YomitanDictionaryStore {
         const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
         const summary: ImportSummary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        const termMetaModes = new Set<string>();
         let clearedTermIndexesForImport = false;
         let importedTerms = false;
         const importBank = async <T>(pattern: RegExp, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>, store: StoreName, normalize: (row: unknown) => T | null) => {
@@ -909,13 +910,17 @@ export class YomitanDictionaryStore {
 
         await importBank(/^term_bank_\d+\.json$/i, 'terms', 'terms', row => normalizeZipTermRow(row, dictionary));
         await importBank(/^kanji_bank_\d+\.json$/i, 'kanji', 'kanji', row => normalizeZipKanjiRow(row, dictionary, version));
-        await importBank(/^term_meta_bank_\d+\.json$/i, 'termMeta', 'termMeta', row => normalizeZipTermMetaRow(row, dictionary));
+        await importBank(/^term_meta_bank_\d+\.json$/i, 'termMeta', 'termMeta', row => {
+            const entry = normalizeZipTermMetaRow(row, dictionary);
+            if (entry) termMetaModes.add(entry.mode);
+            return entry;
+        });
         await importBank(/^kanji_meta_bank_\d+\.json$/i, 'kanjiMeta', 'kanjiMeta', row => normalizeZipKanjiMetaRow(row, dictionary));
 
         if (summary.entries === 0) throw new Error(this.text('dictionaryNoSupportedBanks'));
         if (importedTerms) await this.clearDerivedTermIndexes(db);
         info.counts = dictionaryCountsFromSummary(summary);
-        info.type = dictionaryTypeFromCounts(info.counts);
+        info.type = dictionaryTypeFromCounts(info.counts, termMetaModes);
         summary.dictionaryTypes = { [dictionary]: info.type };
         await this.putDictionaryInfo(info);
         // Keep the archive in cross-origin GM storage so other origins (whose
@@ -976,6 +981,7 @@ export class YomitanDictionaryStore {
         const dictionaries = new Set<string>();
         const dictionaryInfo = new Map<string, YomitanDictionaryInfo>();
         const dictionaryCounts = new Map<string, Partial<Record<EntryStoreName, number>>>();
+        const dictionaryTermMetaModes = new Map<string, Set<string>>();
         const summary: ImportSummary = { dictionaries: [], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
         const batches: Record<EntryStoreName, unknown[]> = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
         const progressAt: Record<EntryStoreName, number> = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
@@ -1013,6 +1019,14 @@ export class YomitanDictionaryStore {
                 const counts = dictionaryCounts.get(dictionary) ?? {};
                 counts[store] = (counts[store] ?? 0) + 1;
                 dictionaryCounts.set(dictionary, counts);
+                if (store === 'termMeta') {
+                    const mode = (entry as { mode?: unknown }).mode;
+                    if (typeof mode === 'string') {
+                        const modes = dictionaryTermMetaModes.get(dictionary) ?? new Set<string>();
+                        modes.add(mode);
+                        dictionaryTermMetaModes.set(dictionary, modes);
+                    }
+                }
             }
             if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {
                 await flush(store);
@@ -1064,7 +1078,7 @@ export class YomitanDictionaryStore {
                 importDate: Date.now(),
             };
             info.counts = { ...(info.counts ?? {}), ...counts };
-            info.type = dictionaryTypeFromCounts(info.counts);
+            info.type = dictionaryTypeFromCounts(info.counts, dictionaryTermMetaModes.get(dictionary));
             summary.dictionaryTypes![dictionary] = info.type;
             return this.putDictionaryInfo(info);
         }));

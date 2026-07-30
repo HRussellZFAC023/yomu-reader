@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "km",
+  "targetLanguage": "yue",
+  "strategy": "native-first",
+  "readiness": "ready",
+  "blockers": [],
+  "dictionaries": [
+    {
+      "dictionaryId": "drive-cantonese-yue-en-yue-words-hk-2026-07-22-hietpkiipw",
+      "role": "fallback-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "yue",
+      "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "wty-yue-en-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "en",
+      "translationMode": "off"
+    }
+  ]
+}

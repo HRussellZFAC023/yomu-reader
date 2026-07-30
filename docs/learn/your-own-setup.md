@@ -11,9 +11,9 @@ Yomu works with a starter dictionary and a local deck. Everything after that is 
 
 ## Bring your dictionaries
 
-Install a dictionary from the catalogue or import any compatible Yomitan ZIP. Dictionary files, search indexes and local lookup results stay in the browser. Reorder sources so the answer you trust appears first.
+Install a dictionary from the catalogue or import any compatible Yomitan ZIP. The starter uses both choices in your language profile: an English-speaking learner reading Spanish gets Spanish-headword terms with English definitions and Spanish IPA. Japanese terms, kanji and pitch remain the starter only when Japanese is the selected target. Dictionary files, search indexes and local lookup results stay in the browser. Reorder sources so the answer you trust appears first.
 
-Yomu ships definitions in 9 languages.
+Yomu ships definitions in 32 languages.
 
 Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 targets are labelled **Reading and lookup**, matching the features ready for them today. Japanese remains the deepest path for study and mining.
 
