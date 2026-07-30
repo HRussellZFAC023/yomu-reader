@@ -29,6 +29,16 @@ describe('Academy runtime asset registry', () => {
         .map(delivery => delivery.path)
         .filter(assetPath => !assetPath.endsWith('.json')));
 
+    it('ships the runtime art payload as WebP without retaining PNG twins', () => {
+        const rasters = readRasterFiles(path.resolve('public/academy/art'));
+        const pngs = rasters.filter(file => file.endsWith('.png'));
+        const webps = rasters.filter(file => file.endsWith('.webp'));
+
+        expect(pngs).toEqual([]);
+        expect(webps).toHaveLength(394);
+        expect(webps.reduce((bytes, file) => bytes + fs.statSync(file).size, 0)).toBe(65_662_430);
+    });
+
     it('keeps every rendered typed asset registered and every authorized visual file explicit', () => {
         const registryPaths = registryAssetPaths();
         expect(new Set(registryPaths).size).toBe(registryPaths.length);
@@ -79,26 +89,26 @@ describe('Academy runtime asset registry', () => {
 
     it('wires only likeness-cleared cast performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
-            aakash: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
-            xingyuNeutral: '/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png',
-            xingyuListening: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
-            mikaSound: '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png',
-            rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
-            rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
-            rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
-            rieEncouraging: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
-            rieSadVulnerable: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
-            rieComedic: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png',
-            sophie: '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png',
-            sophieEncouraging: '/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png',
-            sophieDetermined: '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png',
-            ruparnaNeutral: '/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png',
-            ruparnaNoteRoute: '/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
-            samNeutral: '/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png',
-            samListening: '/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
-            steve: '/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png',
-            steveHappy: '/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png',
-            steveDetermined: '/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png',
+            aakash: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp',
+            xingyuNeutral: '/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp',
+            xingyuListening: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.webp',
+            mikaSound: '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp',
+            rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp',
+            rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp',
+            rieDetermined: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp',
+            rieEncouraging: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.webp',
+            rieSadVulnerable: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.webp',
+            rieComedic: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.webp',
+            sophie: '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.webp',
+            sophieEncouraging: '/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.webp',
+            sophieDetermined: '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.webp',
+            ruparnaNeutral: '/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp',
+            ruparnaNoteRoute: '/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp',
+            samNeutral: '/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.webp',
+            samListening: '/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.webp',
+            steve: '/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp',
+            steveHappy: '/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp',
+            steveDetermined: '/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp',
         });
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
             aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
@@ -434,6 +444,14 @@ function readTypeScriptFiles(directory: string): string[] {
         const target = path.join(directory, entry.name);
         if (entry.isDirectory()) return readTypeScriptFiles(target);
         return entry.isFile() && target.endsWith('.ts') ? [target] : [];
+    });
+}
+
+function readRasterFiles(directory: string): string[] {
+    return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const target = path.join(directory, entry.name);
+        if (entry.isDirectory()) return readRasterFiles(target);
+        return entry.isFile() && /\.(?:png|webp)$/u.test(target) ? [target] : [];
     });
 }
 

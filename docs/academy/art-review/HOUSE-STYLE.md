@@ -31,9 +31,9 @@ master of each (measured below):
 
 | Character | Anchor file (pass as final `-i`) | Canvas (`sips`) | Figure fills W | Top headroom | Bottom margin |
 |---|---|---|---|---|---|
-| **Rie** (teacher) | `public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png` | **1536 × 2048** | 69.6 % | 4.3 % | 0 % (bleeds off) |
+| **Rie** (teacher) | `public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp` | **1536 × 2048** | 69.6 % | 4.3 % | 0 % (bleeds off) |
 | **Sophie** (classmate) | `public/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png` | 941 × 1672 | 96.4 % | 5.6 % | 0 % (bleeds off) |
-| **Steve** (classmate) | `public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png` | **1536 × 2048** | 76.1 % | 4.2 % | 0 % (bleeds off) |
+| **Steve** (classmate) | `public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp` | **1536 × 2048** | 76.1 % | 4.2 % | 0 % (bleeds off) |
 
 Rie and Steve are the **canonical `1536 × 2048` (3:4)** masters — new generation targets
 this canvas. Sophie's approved set is a narrower trimmed variant (`941 × 1672`, ≈9:16);
@@ -266,9 +266,9 @@ Negative — do NOT include: any background, studio backdrop, cream wash, gradie
 
 **Invocation shape (which anchor as final `-i`):**
 
-- Restyling **Rie** → `… -i <rie current best sprite> -i public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png`
+- Restyling **Rie** → `… -i <rie current best sprite> -i public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp`
 - Restyling **Sophie** → `… -i <sophie current best sprite> -i public/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png`
-- Restyling **Steve** → `… -i <steve current best sprite> -i public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png`
+- Restyling **Steve** → `… -i <steve current best sprite> -i public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp`
 - Restyling **any other cast member** → their own likeness sprite as identity `-i`, then the
   nearest approved master above as the **final** `-i` style lock.
 

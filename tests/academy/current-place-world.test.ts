@@ -167,8 +167,8 @@ describe('Academy current-place world', () => {
             mobile: '/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp',
         });
         expect(ACADEMY_ASSETS.locations.japanCentre).toEqual({
-            wide: '/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.png',
-            mobile: '/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.png',
+            wide: '/academy/art/locations/wide/japan-centre__rain-evening-gifts--wide.webp',
+            mobile: '/academy/art/locations/mobile/japan-centre__rain-evening-gifts--mobile.webp',
         });
         expect(ACADEMY_ASSETS.locations.japanCentre).not.toEqual(ACADEMY_ASSETS.locations.konbini);
     });

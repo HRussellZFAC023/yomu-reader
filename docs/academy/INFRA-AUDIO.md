@@ -48,6 +48,13 @@ IPs, or Stripe payloads are stored or logged.
   mode). The current catalog maps 13 theme slots and 16 semantic SFX cues to
   allowlisted Persona/Shinday objects whose sizes and SHA-256 values are pinned
   in the Worker manifest.
+- Persona BGM delivery uses Ogg Opus exported at a 128 kbps VBR target. The
+  13 encoded tracks total 55,844,890 bytes; the 14 short Shinday WAV effects
+  remain unchanged at 795,670 bytes. The service worker records the measured
+  56,640,560-byte allowlist total and demand-caches only a requested track.
+  Full responses are reused directly; byte-range playback queues one full
+  authenticated fetch for that same track. One promise chain caps these
+  background fills at one, so a first play never fans out across the catalog.
 - `browser-sfx.ts` — `BrowserSfxPlayback`, real `HTMLAudioElement` SFX with a
   small overlap pool and credentialed requests. Unknown or unauthorized cues
   are silent; there is deliberately no oscillator/synth/drone fallback
@@ -63,7 +70,8 @@ silent; `opening.invitation` begins on the first authenticated Rie screen.
 ## Audio verification and upload (`scripts/academy-audio-media.mjs`)
 
 Deterministic local verify (default) plus opt-in `--upload`. Local roots come
-only from `ACADEMY_PERSONA_AUDIO_ROOT` (keys under `persona/`) and
+only from `ACADEMY_PERSONA_AUDIO_ROOT` (including the `encoded-opus/` delivery
+exports for Persona keys) and
 `ACADEMY_SHINDAY_SFX_ROOT` (keys under `shinday/`); the owner-attested source
 files never enter Git. Every file must match the manifest's size and SHA-256
 before any upload; uploads go per-file through
@@ -81,7 +89,7 @@ doubles in `tests/academy/helpers/fake-academy-env.ts`. Run with
 
 - `POST /academy/api/session` with `<PRIVATE_CLASS_INVITE>`: `200`; one HttpOnly session cookie.
 - One owner-authorized minimum donation Checkout was created without payment: `POST /academy/api/checkout` with `{"amountGbp":2}` completed as `200`; the linked D1 purchase is `pending`, the returned Checkout id is live (`cs_live_…`), and the Worker accepted only the validated `checkout.stripe.com` URL before linking it. The claim cookie contract is `__Host-academy_claim; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=86400` with no `Domain`. Wrangler lists `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` by name, and the deployed Worker route includes `POST /academy/api/stripe/webhook`. No payment or claim was attempted.
-- Persona `royal-days.flac`: authenticated `HEAD 200`, `Content-Length: 29615879`,
+- Persona `royal-days.flac` (superseded production smoke): authenticated `HEAD 200`, `Content-Length: 29615879`,
   `Accept-Ranges: bytes`; `bytes=0-1023` returns `206` and exactly 1,024 bytes.
 - Shinday `menu-option-select.wav`: authenticated `HEAD 200`,
   `Content-Length: 41240`; `bytes=0-1023` returns `206` and exactly 1,024 bytes.

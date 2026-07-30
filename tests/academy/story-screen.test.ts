@@ -291,7 +291,7 @@ describe('Academy Story screen', () => {
         expect(mika.dataset.performancePresence).toBe('active');
         expect(mika.dataset.performanceColor).toBe('full');
         expect(mika.querySelector('img')?.getAttribute('src')).toContain(
-            'mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png',
+            'mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp',
         );
         expect(learner.dataset.position).toBe('right');
         expect(learner.dataset.performancePresence).toBe('inactive');
@@ -307,7 +307,7 @@ describe('Academy Story screen', () => {
         const picture = xingyu.querySelector<HTMLPictureElement>('picture')!;
         expect(picture.dataset.expression).toBe('encouraging');
         expect(picture.querySelector('img')?.getAttribute('src')).toContain(
-            'xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
+            'xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.webp',
         );
     });
 
@@ -323,7 +323,7 @@ describe('Academy Story screen', () => {
         expect(picture.dataset.expression).toBe('encouraging');
         expect(picture.dataset.portraitFocus).toBe('cropped');
         expect(picture.querySelector('img')?.getAttribute('src')).toContain(
-            'ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
+            'ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp',
         );
     });
 
@@ -339,7 +339,7 @@ describe('Academy Story screen', () => {
         expect(picture.dataset.expression).toBe('encouraging');
         expect(picture.dataset.portraitFocus).toBe('cropped');
         expect(picture.querySelector('img')?.getAttribute('src')).toContain(
-            'sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
+            'sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.webp',
         );
     });
 
@@ -789,9 +789,9 @@ describe('Academy Story screen', () => {
 
     it('renders the verified Season 3-4 event art instead of leaving generated files orphaned', () => {
         const cases = [
-            ['s3e10-empty-microphone', 'event__empty-microphone-rehearsal__v001.png'],
-            ['s4e08-last-revision', 'event__withheld-panel-handoff__v001.png'],
-            ['s4e11-atlas-closes', 'event__atlas-finale-next-page__v001.png'],
+            ['s3e10-empty-microphone', 'event__empty-microphone-rehearsal__v001.webp'],
+            ['s4e08-last-revision', 'event__withheld-panel-handoff__v001.webp'],
+            ['s4e11-atlas-closes', 'event__atlas-finale-next-page__v001.webp'],
         ] as const;
 
         for (const [episodeId, filename] of cases) {

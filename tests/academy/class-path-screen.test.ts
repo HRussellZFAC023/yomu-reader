@@ -244,7 +244,7 @@ describe('Class path', () => {
         const xingyuAppearance = screen.querySelector('[data-week-id="l1-l03"] [data-week-cast-id="xingyu"]');
         expect(xingyuAppearance?.classList.contains('is-name-only')).toBe(false);
         expect(xingyuAppearance?.querySelector('picture.academy-sprite img')?.getAttribute('src'))
-            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
+            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
         expect(xingyuAppearance?.textContent).toBe('Xingyu');
     });
 

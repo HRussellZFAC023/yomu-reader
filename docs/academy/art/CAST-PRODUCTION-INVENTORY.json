@@ -64,7 +64,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.rie.neutral-glasses",
-          "assetPath": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "onboarding:profile",
             "unlock:rie",
@@ -82,7 +82,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.rie.encouraging-glasses-right",
-          "assetPath": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.webp",
           "runtimeHomes": [
             "lesson-feedback:attempt",
             "dialogue:rie-listening",
@@ -94,7 +94,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.rie.happy-glasses-front",
-          "assetPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "lesson-feedback:correct-retry",
             "dialogue:rie-positive",
@@ -106,7 +106,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rie.thoughtful-glasses-left",
-          "assetPath": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "dialogue:rie-reflection",
             "journal:rie-expression-gallery",
@@ -119,7 +119,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rie.determined-glasses-left",
-          "assetPath": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp",
           "runtimeHomes": [
             "dialogue:rie-decisive-guidance",
             "journal:rie-expression-gallery"
@@ -130,7 +130,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.rie.surprised-shocked-glasses-right",
-          "assetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "dialogue:rie-surprised",
             "journal:rie-expression-gallery",
@@ -143,7 +143,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rie.sad-vulnerable-glasses-left",
-          "assetPath": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.webp",
           "runtimeHomes": [
             "lesson-feedback:repair",
             "dialogue:rie-precise-hint",
@@ -181,7 +181,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.henry.neutral-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry",
             "class:people",
@@ -197,7 +197,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.henry.encouraging-listening-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:encouraging-listening",
@@ -209,7 +209,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.henry.happy-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:happy",
@@ -221,7 +221,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.henry.thoughtful-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:thoughtful",
@@ -233,7 +233,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.henry.determined-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:determined",
@@ -245,7 +245,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.henry.surprised-shocked-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:surprised-shocked",
@@ -257,7 +257,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.henry.sad-vulnerable-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:henry-expression-gallery",
             "story:cast:henry:sad-vulnerable",
@@ -294,7 +294,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash",
             "class:people",
@@ -311,7 +311,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.aakash.encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:encouraging-listening",
@@ -323,7 +323,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.aakash.happy-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:happy",
@@ -335,7 +335,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.aakash.thoughtful-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:thoughtful",
@@ -347,7 +347,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.aakash.determined-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:determined",
@@ -359,7 +359,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.aakash.surprised-shocked-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:surprised-shocked",
@@ -371,7 +371,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.aakash.sad-vulnerable-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
-          "assetPath": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "assetPath": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp",
           "runtimeHomes": [
             "journal:aakash-expression-gallery",
             "story:cast:aakash:sad-vulnerable",
@@ -407,7 +407,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.alex.neutral-short-brown-understated-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex",
             "class:people",
@@ -423,7 +423,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.alex.encouraging-listening-short-brown-understated-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:encouraging-listening",
@@ -435,7 +435,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.alex.happy-short-brown-understated-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:happy",
@@ -447,7 +447,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.alex.thoughtful-short-brown-understated-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:thoughtful",
@@ -459,7 +459,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.alex.determined-short-brown-understated-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:determined",
@@ -471,7 +471,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.alex.surprised-shocked-short-brown-understated-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:surprised-shocked",
@@ -483,7 +483,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.alex.sad-vulnerable-short-brown-understated-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:alex-expression-gallery",
             "story:cast:alex:sad-vulnerable",
@@ -520,7 +520,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tom.neutral-blond-clean-shaven-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom",
             "class:people",
@@ -536,7 +536,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tom.encouraging-listening-blond-clean-shaven-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:encouraging-listening",
@@ -548,7 +548,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tom.happy-blond-clean-shaven-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:happy",
@@ -560,7 +560,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom.thoughtful-blond-clean-shaven-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:thoughtful",
@@ -572,7 +572,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom.determined-blond-clean-shaven-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:determined",
@@ -584,7 +584,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tom.surprised-shocked-blond-clean-shaven-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:surprised-shocked",
@@ -596,7 +596,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom.sad-vulnerable-blond-clean-shaven-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:tom-expression-gallery",
             "story:cast:tom:sad-vulnerable",
@@ -633,7 +633,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.sam.neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam",
             "class:people",
@@ -649,7 +649,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.sam.encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:encouraging-listening",
@@ -661,7 +661,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.sam.happy-close-cropped-chestnut-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:happy",
@@ -673,7 +673,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sam.thoughtful-close-cropped-chestnut-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:thoughtful",
@@ -685,7 +685,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sam.determined-close-cropped-chestnut-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:determined",
@@ -697,7 +697,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.sam.surprised-shocked-close-cropped-chestnut-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:surprised-shocked",
@@ -709,7 +709,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sam.sad-vulnerable-close-cropped-chestnut-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
             "story:cast:sam:sad-vulnerable",
@@ -746,7 +746,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.francis.neutral-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis",
             "class:people",
@@ -762,7 +762,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.francis.encouraging-listening-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:encouraging-listening",
@@ -774,7 +774,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.francis.happy-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:happy",
@@ -786,7 +786,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.francis.thoughtful-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:thoughtful",
@@ -798,7 +798,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.francis.determined-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:determined",
@@ -810,7 +810,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.francis.surprised-shocked-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:surprised-shocked",
@@ -822,7 +822,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.francis.sad-vulnerable-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:francis-expression-gallery",
             "story:cast:francis:sad-vulnerable",
@@ -858,7 +858,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.shin.neutral-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin",
             "class:people",
@@ -874,7 +874,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.shin.encouraging-listening-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:encouraging-listening",
@@ -886,7 +886,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.shin.happy-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:happy",
@@ -898,7 +898,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shin.thoughtful-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:thoughtful",
@@ -910,7 +910,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shin.determined-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:determined",
@@ -922,7 +922,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.shin.surprised-shocked-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:surprised-shocked",
@@ -934,7 +934,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shin.sad-vulnerable-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shin-expression-gallery",
             "story:cast:shin:sad-vulnerable",
@@ -970,7 +970,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi",
             "class:people",
@@ -986,7 +986,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.jodi.encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:encouraging-listening",
@@ -998,7 +998,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.jodi.happy-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:happy",
@@ -1010,7 +1010,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jodi.thoughtful-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:thoughtful",
@@ -1022,7 +1022,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jodi.determined-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:determined",
@@ -1034,7 +1034,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.jodi.surprised-shocked-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:surprised-shocked",
@@ -1046,7 +1046,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jodi.sad-vulnerable-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:jodi-expression-gallery",
             "story:cast:jodi:sad-vulnerable",
@@ -1083,7 +1083,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.christian.neutral-athletic-topknot-teal-track-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian",
             "class:people",
@@ -1099,7 +1099,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.christian.encouraging-listening-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:encouraging-listening",
@@ -1111,7 +1111,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.christian.happy-athletic-topknot-teal-track-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:happy",
@@ -1123,7 +1123,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.christian.thoughtful-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:thoughtful",
@@ -1135,7 +1135,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.christian.determined-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:determined",
@@ -1147,7 +1147,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.christian.surprised-shocked-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:surprised-shocked",
@@ -1159,7 +1159,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.christian.sad-vulnerable-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:christian-expression-gallery",
             "story:cast:christian:sad-vulnerable",
@@ -1197,7 +1197,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny",
             "class:people",
@@ -1213,7 +1213,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:encouraging-listening",
@@ -1225,7 +1225,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:happy",
@@ -1237,7 +1237,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:thoughtful",
@@ -1249,7 +1249,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:determined",
@@ -1261,7 +1261,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:surprised-shocked",
@@ -1273,7 +1273,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:sad-vulnerable",
@@ -1310,7 +1310,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.robert.neutral-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert",
             "class:people",
@@ -1326,7 +1326,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.robert.encouraging-listening-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:encouraging-listening",
@@ -1338,7 +1338,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.robert.happy-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:happy",
@@ -1350,7 +1350,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.robert.thoughtful-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:thoughtful",
@@ -1362,7 +1362,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.robert.determined-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:determined",
@@ -1374,7 +1374,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.robert.surprised-shocked-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:surprised-shocked",
@@ -1386,7 +1386,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.robert.sad-vulnerable-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:robert-expression-gallery",
             "story:cast:robert:sad-vulnerable",
@@ -1423,7 +1423,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mika.neutral-headphones-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika",
             "class:people",
@@ -1438,7 +1438,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mika.encouraging-listening-headphones-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:mika-listening",
@@ -1450,7 +1450,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mika.happy-headphones-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:cast:mika:happy",
@@ -1462,7 +1462,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mika.thoughtful-headphones-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:cast:mika:thoughtful",
@@ -1474,7 +1474,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mika.determined-headphones-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:cast:mika:determined",
@@ -1486,7 +1486,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mika.surprised-shocked-headphones-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:cast:mika:surprised-shocked",
@@ -1498,7 +1498,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mika.sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mika-expression-gallery",
             "story:cast:mika:sad-vulnerable",
@@ -1534,7 +1534,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.sophie.neutral-front-near-front-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie",
             "class:people",
@@ -1550,7 +1550,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.sophie.encouraging-listening-right-three-quarter-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:encouraging-listening",
@@ -1562,7 +1562,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.sophie.happy-front-near-front-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:happy",
@@ -1574,7 +1574,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sophie.thoughtful-left-three-quarter-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:thoughtful",
@@ -1586,7 +1586,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sophie.determined-left-three-quarter-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:determined",
@@ -1598,7 +1598,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.sophie.surprised-shocked-right-three-quarter-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:surprised-shocked",
@@ -1610,7 +1610,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.sophie.sad-vulnerable-left-three-quarter-halfbody-v004",
-          "assetPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
+          "assetPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.webp",
           "runtimeHomes": [
             "journal:sophie-expression-gallery",
             "story:cast:sophie:sad-vulnerable",
@@ -1647,7 +1647,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.xingyu.neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu",
             "class:people",
@@ -1663,7 +1663,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.xingyu.listening",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "lesson-zero:vowel-listening",
             "game:lesson-zero-vowel-listening-bingo",
@@ -1677,7 +1677,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.xingyu.happy-short-hair-round-glasses-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu-expression-gallery",
             "story:cast:xingyu:happy",
@@ -1689,7 +1689,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.xingyu.thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu-expression-gallery",
             "story:cast:xingyu:thoughtful",
@@ -1701,7 +1701,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.xingyu.determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu-expression-gallery",
             "story:cast:xingyu:determined",
@@ -1713,7 +1713,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.xingyu.surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu-expression-gallery",
             "story:cast:xingyu:surprised-shocked",
@@ -1725,7 +1725,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.xingyu.sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:xingyu-expression-gallery",
             "story:cast:xingyu:sad-vulnerable",
@@ -1761,7 +1761,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.angel.neutral-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel",
             "class:people",
@@ -1777,7 +1777,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.angel.encouraging-listening-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:encouraging-listening",
@@ -1789,7 +1789,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.angel.happy-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:happy",
@@ -1801,7 +1801,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.angel.thoughtful-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:thoughtful",
@@ -1813,7 +1813,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.angel.determined-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:determined",
@@ -1825,7 +1825,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.angel.surprised-shocked-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:surprised-shocked",
@@ -1837,7 +1837,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.angel.sad-vulnerable-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:angel-expression-gallery",
             "story:cast:angel:sad-vulnerable",
@@ -1874,7 +1874,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.stasi.neutral-auburn-waves-round-glasses-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi",
             "class:people",
@@ -1890,7 +1890,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.stasi.encouraging-listening-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:encouraging-listening",
@@ -1902,7 +1902,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.stasi.happy-auburn-waves-round-glasses-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:happy",
@@ -1914,7 +1914,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.stasi.thoughtful-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:thoughtful",
@@ -1926,7 +1926,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.stasi.determined-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:determined",
@@ -1938,7 +1938,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.stasi.surprised-shocked-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:surprised-shocked",
@@ -1950,7 +1950,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.stasi.sad-vulnerable-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:stasi-expression-gallery",
             "story:cast:stasi:sad-vulnerable",
@@ -1986,7 +1986,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.ruparna.neutral-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna",
             "class:people",
@@ -2002,7 +2002,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.ruparna.encouraging-listening-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:encouraging-listening",
@@ -2014,7 +2014,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.ruparna.happy-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:happy",
@@ -2026,7 +2026,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.ruparna.thoughtful-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:thoughtful",
@@ -2038,7 +2038,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.ruparna.determined-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:determined",
@@ -2050,7 +2050,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.ruparna.surprised-shocked-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:surprised-shocked",
@@ -2062,7 +2062,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.ruparna.sad-vulnerable-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
             "story:cast:ruparna:sad-vulnerable",
@@ -2099,7 +2099,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose",
             "class:people",
@@ -2115,7 +2115,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.rose.encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:encouraging-listening",
@@ -2127,7 +2127,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.rose.happy-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:happy",
@@ -2139,7 +2139,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rose.thoughtful-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:thoughtful",
@@ -2151,7 +2151,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rose.determined-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:determined",
@@ -2163,7 +2163,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.rose.surprised-shocked-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:surprised-shocked",
@@ -2175,7 +2175,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.rose.sad-vulnerable-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:rose-expression-gallery",
             "story:cast:rose:sad-vulnerable",
@@ -2211,7 +2211,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.peter.neutral-quiet-observer-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter",
             "class:people",
@@ -2227,7 +2227,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:encouraging-listening",
@@ -2239,7 +2239,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.peter.happy-quiet-observer-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:happy",
@@ -2251,7 +2251,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.peter.thoughtful-quiet-observer-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:thoughtful",
@@ -2263,7 +2263,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.peter.determined-quiet-observer-front-near-front-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:determined",
@@ -2275,7 +2275,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.peter.surprised-shocked-quiet-observer-right-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:surprised-shocked",
@@ -2287,7 +2287,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.peter.sad-vulnerable-quiet-observer-left-three-quarter-fullbody-v003",
-          "assetPath": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "assetPath": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.webp",
           "runtimeHomes": [
             "journal:peter-expression-gallery",
             "story:cast:peter:sad-vulnerable",
@@ -2323,7 +2323,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.felix.neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix",
             "class:people",
@@ -2339,7 +2339,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.felix.encouraging-listening-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:encouraging-listening",
@@ -2351,7 +2351,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.felix.happy-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:happy",
@@ -2363,7 +2363,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.felix.thoughtful-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:thoughtful",
@@ -2375,7 +2375,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.felix.determined-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:determined",
@@ -2387,7 +2387,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.felix.surprised-shocked-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:surprised-shocked",
@@ -2399,7 +2399,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.felix.sad-vulnerable-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:felix-expression-gallery",
             "story:cast:felix:sad-vulnerable",
@@ -2435,7 +2435,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.shaun.neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun",
             "class:people",
@@ -2451,7 +2451,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.shaun.encouraging-listening-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:encouraging-listening",
@@ -2463,7 +2463,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.shaun.happy-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:happy",
@@ -2475,7 +2475,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shaun.thoughtful-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:thoughtful",
@@ -2487,7 +2487,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shaun.determined-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:determined",
@@ -2499,7 +2499,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.shaun.surprised-shocked-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:surprised-shocked",
@@ -2511,7 +2511,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.shaun.sad-vulnerable-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:shaun-expression-gallery",
             "story:cast:shaun:sad-vulnerable",
@@ -2548,7 +2548,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tom2.neutral-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2",
             "class:people",
@@ -2564,7 +2564,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tom2.encouraging-listening-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:encouraging-listening",
@@ -2576,7 +2576,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tom2.happy-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:happy",
@@ -2588,7 +2588,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom2.thoughtful-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:thoughtful",
@@ -2600,7 +2600,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom2.determined-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:determined",
@@ -2612,7 +2612,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tom2.surprised-shocked-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:surprised-shocked",
@@ -2624,7 +2624,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tom2.sad-vulnerable-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tom2-expression-gallery",
             "story:cast:tom2:sad-vulnerable",
@@ -2660,7 +2660,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.steve.neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve",
             "class:people",
@@ -2676,7 +2676,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.steve.encouraging-listening-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:encouraging-listening",
@@ -2688,7 +2688,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.steve.happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:happy",
@@ -2700,7 +2700,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.steve.thoughtful-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:thoughtful",
@@ -2712,7 +2712,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.steve.determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:determined",
@@ -2724,7 +2724,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.steve.surprised-shocked-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:surprised-shocked",
@@ -2736,7 +2736,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.steve.sad-vulnerable-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:steve-expression-gallery",
             "story:cast:steve:sad-vulnerable",
@@ -2773,7 +2773,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.nanako.neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako",
             "class:people",
@@ -2789,7 +2789,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.nanako.encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:encouraging-listening",
@@ -2801,7 +2801,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.nanako.happy-teal-coat-coral-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:happy",
@@ -2813,7 +2813,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.nanako.thoughtful-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:thoughtful",
@@ -2825,7 +2825,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.nanako.determined-teal-coat-coral-scarf-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:determined",
@@ -2837,7 +2837,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.nanako.surprised-shocked-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:surprised-shocked",
@@ -2849,7 +2849,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.nanako.sad-vulnerable-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:nanako-expression-gallery",
             "story:cast:nanako:sad-vulnerable",
@@ -2886,7 +2886,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mira.neutral-umbrella-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira",
             "class:people",
@@ -2901,7 +2901,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mira.encouraging-listening-umbrella-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:mira-listening",
@@ -2913,7 +2913,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mira.happy-umbrella-front-near-front-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:cast:mira:happy",
@@ -2925,7 +2925,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mira.thoughtful-umbrella-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:cast:mira:thoughtful",
@@ -2937,7 +2937,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mira.determined-umbrella-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:cast:mira:determined",
@@ -2949,7 +2949,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mira.surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:cast:mira:surprised-shocked",
@@ -2961,7 +2961,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mira.sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
-          "assetPath": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.webp",
           "runtimeHomes": [
             "journal:mira-expression-gallery",
             "story:cast:mira:sad-vulnerable",
@@ -2997,7 +2997,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.miller.standardized-neutral-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:miller",
             "class:people",
@@ -3013,7 +3013,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.miller.standardized-encouraging-listening-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:encouraging-listening",
@@ -3025,7 +3025,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.miller.happy-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:happy",
@@ -3037,7 +3037,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.miller.thoughtful-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:thoughtful",
@@ -3049,7 +3049,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.miller.determined-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:determined",
@@ -3061,7 +3061,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.miller.surprised-shocked-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:surprised-shocked",
@@ -3073,7 +3073,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.miller.sad-vulnerable-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:miller-expression-gallery",
             "story:cast:miller:sad-vulnerable",
@@ -3109,7 +3109,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tawapon.standardized-neutral-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:tawapon",
             "class:people",
@@ -3125,7 +3125,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tawapon.standardized-encouraging-listening-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:encouraging-listening",
@@ -3137,7 +3137,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.tawapon.happy-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:happy",
@@ -3149,7 +3149,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tawapon.thoughtful-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:thoughtful",
@@ -3161,7 +3161,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tawapon.determined-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:determined",
@@ -3173,7 +3173,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.tawapon.surprised-shocked-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:surprised-shocked",
@@ -3185,7 +3185,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.tawapon.sad-vulnerable-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:tawapon-expression-gallery",
             "story:cast:tawapon:sad-vulnerable",
@@ -3221,7 +3221,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mary.standardized-neutral-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:mary",
             "class:people",
@@ -3237,7 +3237,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mary.standardized-encouraging-listening-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:encouraging-listening",
@@ -3249,7 +3249,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.mary.happy-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:happy",
@@ -3261,7 +3261,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mary.thoughtful-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:thoughtful",
@@ -3273,7 +3273,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mary.determined-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:determined",
@@ -3285,7 +3285,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.mary.surprised-shocked-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:surprised-shocked",
@@ -3297,7 +3297,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.mary.sad-vulnerable-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:mary-expression-gallery",
             "story:cast:mary:sad-vulnerable",
@@ -3333,7 +3333,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.takeshi.standardized-neutral-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:takeshi",
             "class:people",
@@ -3349,7 +3349,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.takeshi.standardized-encouraging-listening-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:encouraging-listening",
@@ -3361,7 +3361,7 @@
           "preferredAngle": "front-near-front",
           "status": "integrated",
           "assetId": "character.takeshi.happy-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:happy",
@@ -3373,7 +3373,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.takeshi.thoughtful-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:thoughtful",
@@ -3385,7 +3385,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.takeshi.determined-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:determined",
@@ -3397,7 +3397,7 @@
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
           "assetId": "character.takeshi.surprised-shocked-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:surprised-shocked",
@@ -3409,7 +3409,7 @@
           "preferredAngle": "left-three-quarter",
           "status": "integrated",
           "assetId": "character.takeshi.sad-vulnerable-left-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.webp",
           "runtimeHomes": [
             "journal:takeshi-expression-gallery",
             "story:cast:takeshi:sad-vulnerable",

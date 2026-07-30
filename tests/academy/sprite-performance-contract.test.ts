@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { inflateSync } from 'node:zlib';
+import sharp from 'sharp';
 import { ACADEMY_APPROVED_CHARACTER_SPRITES } from '../../src/academy/assets';
 import {
     ACADEMY_SPRITE_COVERAGE_SUMMARY,
@@ -164,7 +164,7 @@ describe('Academy VN sprite performance contract', () => {
         const physicalPaths = fs.readdirSync(path.resolve('public/academy/art/characters'), { withFileTypes: true })
             .filter(entry => entry.isDirectory())
             .flatMap(entry => fs.readdirSync(path.resolve('public/academy/art/characters', entry.name))
-                .filter(file => file.endsWith('.png'))
+                .filter(file => file.endsWith('.webp'))
                 .map(file => `/academy/art/characters/${entry.name}/${file}`))
             .sort();
         const approvedPaths = [
@@ -180,20 +180,20 @@ describe('Academy VN sprite performance contract', () => {
             .every(assetPath => approvedPathSet.has(assetPath))).toBe(true);
     });
 
-    it('keeps every delivered character raster as a non-empty transparent cutout', () => {
+    it('keeps every delivered character raster as a non-empty transparent cutout', async () => {
         const files = fs.readdirSync(path.resolve('public/academy/art/characters'), { withFileTypes: true })
             .filter(entry => entry.isDirectory())
             .flatMap(entry => fs.readdirSync(path.resolve('public/academy/art/characters', entry.name))
-                .filter(file => file.endsWith('.png'))
+                .filter(file => file.endsWith('.webp'))
                 .map(file => path.resolve('public/academy/art/characters', entry.name, file)));
 
         for (const file of files) {
-            const alpha = readRgbaPngAlpha(file);
+            const alpha = await readRasterAlpha(file);
             expect(alpha.minimum, `${file} needs transparent pixels`).toBe(0);
             expect(alpha.maximum, `${file} needs visible pixels`).toBe(255);
             expect(alpha.corners, `${file} needs a clear no-background perimeter`).toEqual([0, 0, 0, 0]);
         }
-    });
+    }, 30_000);
 
     it('preserves corrected briefs and separates Xingyu\'s rejected reference from approved listening art', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.likenessBrief).toBe('About 26, with lighter remaining hair.');
@@ -205,7 +205,7 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[2].expressions['encouraging-listening'])
             .toMatchObject({
                 status: 'approved',
-                assetPath: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
+                assetPath: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.webp',
                 approvedAssetId: 'character.xingyu.listening',
             });
         const approvedPerformances = ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses
@@ -228,67 +228,28 @@ describe('Academy VN sprite performance contract', () => {
     });
 });
 
-function readRgbaPngAlpha(file: string): Readonly<{ minimum: number; maximum: number; corners: readonly number[] }> {
-    const png = fs.readFileSync(file);
-    expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-    let offset = 8;
-    let width = 0;
-    let height = 0;
-    const data: Buffer[] = [];
-    while (offset < png.length) {
-        const length = png.readUInt32BE(offset);
-        const type = png.subarray(offset + 4, offset + 8).toString('ascii');
-        const chunk = png.subarray(offset + 8, offset + 8 + length);
-        if (type === 'IHDR') {
-            width = chunk.readUInt32BE(0);
-            height = chunk.readUInt32BE(4);
-            expect(chunk[8], `${file} must use 8-bit channels`).toBe(8);
-            expect(chunk[9], `${file} must use RGBA pixels`).toBe(6);
-        } else if (type === 'IDAT') data.push(chunk);
-        offset += length + 12;
-    }
-    const bytesPerPixel = 4;
-    const stride = width * bytesPerPixel;
-    const inflated = inflateSync(Buffer.concat(data));
-    const alpha = new Uint8Array(width * height);
-    let input = 0;
-    let previous = Buffer.alloc(stride);
-    for (let y = 0; y < height; y += 1) {
-        const filter = inflated[input++];
-        const row = Buffer.from(inflated.subarray(input, input + stride));
-        input += stride;
-        for (let x = 0; x < stride; x += 1) {
-            const left = x >= bytesPerPixel ? row[x - bytesPerPixel] : 0;
-            const up = previous[x] ?? 0;
-            const upperLeft = x >= bytesPerPixel ? previous[x - bytesPerPixel] ?? 0 : 0;
-            if (filter === 1) row[x] = (row[x] + left) & 0xff;
-            else if (filter === 2) row[x] = (row[x] + up) & 0xff;
-            else if (filter === 3) row[x] = (row[x] + Math.floor((left + up) / 2)) & 0xff;
-            else if (filter === 4) row[x] = (row[x] + paeth(left, up, upperLeft)) & 0xff;
-            else if (filter !== 0) throw new TypeError(`Unsupported PNG filter ${filter} in ${file}.`);
-        }
-        for (let x = 0; x < width; x += 1) alpha[y * width + x] = row[x * bytesPerPixel + 3];
-        previous = row;
-    }
+async function readRasterAlpha(file: string): Promise<Readonly<{
+    minimum: number;
+    maximum: number;
+    corners: readonly number[];
+}>> {
+    const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    expect(info.channels, `${file} must decode to RGBA`).toBe(4);
     let minimum = 255;
     let maximum = 0;
-    for (const value of alpha) {
+    for (let index = info.channels - 1; index < data.length; index += info.channels) {
+        const value = data[index];
         minimum = Math.min(minimum, value);
         maximum = Math.max(maximum, value);
     }
     return {
         minimum,
         maximum,
-        corners: [alpha[0], alpha[width - 1], alpha[(height - 1) * width], alpha[alpha.length - 1]],
+        corners: [
+            data[info.channels - 1],
+            data[(info.width - 1) * info.channels + info.channels - 1],
+            data[(info.height - 1) * info.width * info.channels + info.channels - 1],
+            data[data.length - 1],
+        ],
     };
-}
-
-function paeth(left: number, up: number, upperLeft: number): number {
-    const estimate = left + up - upperLeft;
-    const leftDistance = Math.abs(estimate - left);
-    const upDistance = Math.abs(estimate - up);
-    const upperLeftDistance = Math.abs(estimate - upperLeft);
-    return leftDistance <= upDistance && leftDistance <= upperLeftDistance
-        ? left
-        : upDistance <= upperLeftDistance ? up : upperLeft;
 }

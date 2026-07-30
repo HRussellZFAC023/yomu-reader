@@ -37,11 +37,18 @@ describe('grounded Academy audio registry', () => {
             objects: Array<{
                 key: string;
                 sourceRelativePath: string;
+                contentType: string;
                 bytes: number;
                 durationSeconds: number;
                 sha256: string;
                 rightsId: string;
                 runtimeHomes: string[];
+                transcodedFrom?: {
+                    key: string;
+                    sourceRelativePath: string;
+                    bytes: number;
+                    sha256: string;
+                };
             }>;
         };
         const byKey = new Map(delivery.objects.map(object => [object.key, object]));
@@ -57,22 +64,29 @@ describe('grounded Academy audio registry', () => {
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             });
         }
-        expect(byKey.get('media/audio/v1/persona/no-more-what-ifs.flac')).toMatchObject({
-            sourceRelativePath: 'CD1/08 No More What Ifs.flac',
-            bytes: 25_608_053,
-            durationSeconds: 240.666667,
-            sha256: 'ed8d0a9fbb33077b54a7d269400e18421c1980fb3a29a19773d30881c947fb2f',
+        expect(byKey.get('media/audio/v1/persona/no-more-what-ifs.opus')).toMatchObject({
+            sourceRelativePath: 'encoded-opus/no-more-what-ifs.opus',
+            contentType: 'audio/ogg',
+            bytes: 4_281_552,
+            durationSeconds: 240.673167,
+            sha256: '8cb3ab819605d0fbceb7978347473f677de1a73d682c7f0bf85282249053c928',
             rightsId: 'persona-educational',
+            transcodedFrom: {
+                key: 'media/audio/v1/persona/no-more-what-ifs.flac',
+                sourceRelativePath: 'CD1/08 No More What Ifs.flac',
+                bytes: 25_608_053,
+                sha256: 'ed8d0a9fbb33077b54a7d269400e18421c1980fb3a29a19773d30881c947fb2f',
+            },
         });
-        expect(byKey.get('media/audio/v1/persona/mementos-upper.flac')).toMatchObject({
-            bytes: 19_840_843,
-            sha256: 'b760d0864faebf4683b8a546051826829cf044e0b08bdad959dad0d0a17f8408',
+        expect(byKey.get('media/audio/v1/persona/mementos-upper.opus')).toMatchObject({
+            bytes: 2_997_445,
+            sha256: '3bb7db913fac313903b88f1f39f4346493ba84422b5b1e4e58a6fed63d894dd9',
         });
-        expect(byKey.get('media/audio/v1/persona/mementos-middle.flac')).toMatchObject({
-            bytes: 28_557_084,
-            sha256: 'fa4f821def6729da25531be7f20611246c3a8048b05c92fd904d29533faf754c',
+        expect(byKey.get('media/audio/v1/persona/mementos-middle.opus')).toMatchObject({
+            bytes: 4_040_090,
+            sha256: 'dfe32b5c566aca013cfb0daf49ec13d512fff796d3726efc69fe783ac225b814',
         });
-        expect(byKey.get('media/audio/v1/persona/ideal-and-the-real.flac')?.runtimeHomes)
+        expect(byKey.get('media/audio/v1/persona/ideal-and-the-real.opus')?.runtimeHomes)
             .toContain('world.japan-centre');
     });
 
@@ -85,22 +99,25 @@ describe('grounded Academy audio registry', () => {
             `media/audio/${url.replace('/academy/media/audio/', '')}`
         )));
         expect(delivery.objects.filter(object => precacheKeys.has(object.key)).reduce((sum, object) => sum + object.bytes, 0))
-            .toBe(378_672_515);
+            .toBe(56_640_560);
         for (const file of serviceWorkers) {
             const source = readFileSync(path.resolve(file), 'utf8');
             const block = source.slice(source.indexOf('const AUDIO_PRECACHE'), source.indexOf('const CORE'));
             const urls = [...block.matchAll(/'(\/academy\/media\/audio\/[^']+)'/g)].map(match => match[1]);
             expect(new Set(urls), file).toEqual(new Set(AUTHORIZED_AUDIO_PRECACHE_URLS));
             expect(source).toContain("credentials: 'include'");
-            expect(source).toContain('AUDIO_PRECACHE_BYTES = 378672515');
-            expect(source).toContain('self.navigator.storage?.estimate?.()');
-            expect(source).toContain('connection?.saveData');
-            expect(source).toContain('response.status === 401 || response.status === 403');
+            expect(source).toContain('AUDIO_PRECACHE_BYTES = 56640560');
             expect(source).toContain('response.status !== 200');
-            expect(source).toContain('if (response.ok) event.waitUntil(precacheAudio())');
+            expect(source).toContain('if (response.ok) event.waitUntil(cacheRequestedAudio(url.pathname, response))');
+            expect(source).toContain('audioCacheQueue.catch(() => {}).then(async () =>');
+            expect(source).toContain('const completeDeliveredResponse = deliveredResponse.status === 200');
+            expect(source).toContain('const response = completeDeliveredResponse ?? await fetch(request)');
+            expect(source).not.toContain('function precacheAudio()');
+            expect(source).not.toContain('for (const path of AUDIO_PRECACHE)');
+            expect(source).not.toContain('self.navigator.storage?.estimate?.()');
             expect(source).toContain("url.pathname === '/academy/api/logout'");
             expect(source).toContain("url.pathname === '/academy/api/session'");
-            expect(source).toContain('audioPrecacheGeneration += 1');
+            expect(source).toContain('audioCacheGeneration += 1');
             expect(source).toContain('purgeAudioCache()');
             expect(source).toContain('ignoreVary: true');
             expect(source).toContain("cachedAudioResponse(cached, request.headers.get('range'))");

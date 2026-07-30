@@ -62,8 +62,8 @@ describe('Academy audio manifest', () => {
         const manifest = parseAudioManifest(manifestJson);
         expect(manifest.themes).toHaveLength(2);
         expect(mediaUrlFor(manifest.themes[0].mediaKey)).toBe('/academy/media/audio/persona/theme/evening.m4a');
-        expect(mediaUrlFor('media/audio/v1/persona/royal-days.flac'))
-            .toBe('/academy/media/audio/v1/persona/royal-days.flac');
+        expect(mediaUrlFor('media/audio/v1/persona/royal-days.opus'))
+            .toBe('/academy/media/audio/v1/persona/royal-days.opus');
     });
 
     it('rejects malformed entries: bad keys, gains, and unreviewed rights', () => {

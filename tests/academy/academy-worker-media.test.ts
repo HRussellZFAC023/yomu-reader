@@ -139,7 +139,7 @@ describe('Academy media manifest integrity', () => {
             expect(object.key).toMatch(/^[a-z0-9][a-z0-9/_.-]*$/);
             expect(object.sha256).toMatch(/^[a-f0-9]{64}$/);
             expect(object.bytes).toBeGreaterThan(0);
-            expect(object.contentType).toMatch(/^audio\/(?:flac|wav)$/);
+            expect(object.contentType).toMatch(/^audio\/(?:ogg|wav)$/);
         }
     });
 

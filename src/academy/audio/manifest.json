@@ -6,7 +6,7 @@
       "bus": "music",
       "trackId": "persona.royal-days",
       "title": "Royal Days",
-      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "mediaKey": "media/audio/v1/persona/royal-days.opus",
       "loop": true,
       "gain": 0.38,
       "rights": {
@@ -22,7 +22,7 @@
       "bus": "music",
       "trackId": "persona.royal-days",
       "title": "Royal Days",
-      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "mediaKey": "media/audio/v1/persona/royal-days.opus",
       "loop": true,
       "gain": 0.38,
       "rights": {
@@ -38,7 +38,7 @@
       "bus": "music",
       "trackId": "persona.royal-days",
       "title": "Royal Days",
-      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "mediaKey": "media/audio/v1/persona/royal-days.opus",
       "loop": true,
       "gain": 0.25,
       "rights": {
@@ -54,7 +54,7 @@
       "bus": "music",
       "trackId": "persona.no-more-what-ifs-instrumental",
       "title": "No More What Ifs — instrumental",
-      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.opus",
       "loop": true,
       "gain": 0.2,
       "rights": {
@@ -70,7 +70,7 @@
       "bus": "music",
       "trackId": "persona.kichijoji-199x",
       "title": "Kichijoji 199X",
-      "mediaKey": "media/audio/v1/persona/kichijoji-199x.flac",
+      "mediaKey": "media/audio/v1/persona/kichijoji-199x.opus",
       "loop": true,
       "gain": 0.34,
       "rights": {
@@ -86,7 +86,7 @@
       "bus": "music",
       "trackId": "persona.no-more-what-ifs-instrumental",
       "title": "No More What Ifs — instrumental",
-      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.opus",
       "loop": true,
       "gain": 0.28,
       "rights": {
@@ -102,7 +102,7 @@
       "bus": "music",
       "trackId": "persona.ideal-and-the-real",
       "title": "Ideal and the Real",
-      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.opus",
       "loop": false,
       "gain": 0.22,
       "rights": {
@@ -118,7 +118,7 @@
       "bus": "music",
       "trackId": "persona.prison-labor",
       "title": "Prison Labor",
-      "mediaKey": "media/audio/v1/persona/prison-labor.flac",
+      "mediaKey": "media/audio/v1/persona/prison-labor.opus",
       "loop": false,
       "gain": 0.35,
       "rights": {
@@ -134,7 +134,7 @@
       "bus": "music",
       "trackId": "persona.take-over",
       "title": "Take Over",
-      "mediaKey": "media/audio/v1/persona/take-over.flac",
+      "mediaKey": "media/audio/v1/persona/take-over.opus",
       "loop": false,
       "gain": 0.35,
       "rights": {
@@ -150,7 +150,7 @@
       "bus": "music",
       "trackId": "persona.so-happy-world",
       "title": "So Happy World",
-      "mediaKey": "media/audio/v1/persona/so-happy-world.flac",
+      "mediaKey": "media/audio/v1/persona/so-happy-world.opus",
       "loop": false,
       "gain": 0.32,
       "rights": {
@@ -166,7 +166,7 @@
       "bus": "music",
       "trackId": "persona.out-of-kindness",
       "title": "Out of Kindness",
-      "mediaKey": "media/audio/v1/persona/out-of-kindness.flac",
+      "mediaKey": "media/audio/v1/persona/out-of-kindness.opus",
       "loop": false,
       "gain": 0.26,
       "rights": {
@@ -182,7 +182,7 @@
       "bus": "music",
       "trackId": "persona.i-believe",
       "title": "I believe",
-      "mediaKey": "media/audio/v1/persona/i-believe.flac",
+      "mediaKey": "media/audio/v1/persona/i-believe.opus",
       "loop": false,
       "gain": 0.32,
       "rights": {
@@ -198,7 +198,7 @@
       "bus": "music",
       "trackId": "persona.ideal-and-the-real-end",
       "title": "Ideal and the Real — end version",
-      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.opus",
       "loop": false,
       "gain": 0.25,
       "rights": {
@@ -214,7 +214,7 @@
       "bus": "music",
       "trackId": "persona.royal-days",
       "title": "Royal Days",
-      "mediaKey": "media/audio/v1/persona/royal-days.flac",
+      "mediaKey": "media/audio/v1/persona/royal-days.opus",
       "loop": true,
       "gain": 0.38,
       "rights": {
@@ -230,7 +230,7 @@
       "bus": "music",
       "trackId": "persona.prison-labor",
       "title": "Prison Labor",
-      "mediaKey": "media/audio/v1/persona/prison-labor.flac",
+      "mediaKey": "media/audio/v1/persona/prison-labor.opus",
       "loop": true,
       "gain": 0.25,
       "rights": {
@@ -246,7 +246,7 @@
       "bus": "music",
       "trackId": "persona.no-more-what-ifs",
       "title": "No More What Ifs",
-      "mediaKey": "media/audio/v1/persona/no-more-what-ifs.flac",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs.opus",
       "loop": true,
       "gain": 0.2,
       "rights": {
@@ -262,7 +262,7 @@
       "bus": "music",
       "trackId": "persona.kichijoji-199x",
       "title": "Kichijoji 199X",
-      "mediaKey": "media/audio/v1/persona/kichijoji-199x.flac",
+      "mediaKey": "media/audio/v1/persona/kichijoji-199x.opus",
       "loop": true,
       "gain": 0.34,
       "rights": {
@@ -278,7 +278,7 @@
       "bus": "music",
       "trackId": "persona.so-happy-world",
       "title": "So Happy World",
-      "mediaKey": "media/audio/v1/persona/so-happy-world.flac",
+      "mediaKey": "media/audio/v1/persona/so-happy-world.opus",
       "loop": true,
       "gain": 0.28,
       "rights": {
@@ -294,7 +294,7 @@
       "bus": "music",
       "trackId": "persona.mementos-upper",
       "title": "Mementos: Upper Area",
-      "mediaKey": "media/audio/v1/persona/mementos-upper.flac",
+      "mediaKey": "media/audio/v1/persona/mementos-upper.opus",
       "loop": true,
       "gain": 0.22,
       "rights": {
@@ -310,7 +310,7 @@
       "bus": "music",
       "trackId": "persona.mementos-middle",
       "title": "Mementos: Middle Area",
-      "mediaKey": "media/audio/v1/persona/mementos-middle.flac",
+      "mediaKey": "media/audio/v1/persona/mementos-middle.opus",
       "loop": true,
       "gain": 0.24,
       "rights": {
@@ -326,7 +326,7 @@
       "bus": "music",
       "trackId": "persona.out-of-kindness",
       "title": "Out of Kindness",
-      "mediaKey": "media/audio/v1/persona/out-of-kindness.flac",
+      "mediaKey": "media/audio/v1/persona/out-of-kindness.opus",
       "loop": true,
       "gain": 0.26,
       "rights": {
@@ -342,7 +342,7 @@
       "bus": "music",
       "trackId": "persona.i-believe",
       "title": "I believe",
-      "mediaKey": "media/audio/v1/persona/i-believe.flac",
+      "mediaKey": "media/audio/v1/persona/i-believe.opus",
       "loop": true,
       "gain": 0.28,
       "rights": {
@@ -358,7 +358,7 @@
       "bus": "music",
       "trackId": "persona.ideal-and-the-real-end",
       "title": "Ideal and the Real - end version",
-      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real-end.opus",
       "loop": true,
       "gain": 0.23,
       "rights": {
@@ -374,7 +374,7 @@
       "bus": "music",
       "trackId": "persona.ideal-and-the-real",
       "title": "Ideal and the Real",
-      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "mediaKey": "media/audio/v1/persona/ideal-and-the-real.opus",
       "loop": true,
       "gain": 0.25,
       "rights": {
@@ -390,7 +390,7 @@
       "bus": "music",
       "trackId": "persona.no-more-what-ifs-instrumental",
       "title": "No More What Ifs - instrumental",
-      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "mediaKey": "media/audio/v1/persona/no-more-what-ifs-instrumental.opus",
       "loop": true,
       "gain": 0.2,
       "rights": {

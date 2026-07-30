@@ -56,18 +56,18 @@ describe('lesson overview screen', () => {
         });
 
         expect(screen.querySelector('[data-cast-id="rie"] img')?.getAttribute('src'))
-            .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png');
+            .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(0);
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
-            .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
+            .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
-            .toContain('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png');
+            .toContain('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.webp');
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)
-            .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png');
+            .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp');
     });
 
     it('does not expose activity actions while academic grounding remains blocked', () => {

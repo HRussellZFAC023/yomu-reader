@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
 import {
     ACADEMY_ASSETS,
     ACADEMY_CAST_SPRITE_COVERAGE,
@@ -96,10 +97,10 @@ describe('Academy cast standardization manifest', () => {
         }
     });
 
-    it('keeps every QA-passed production file local, mirrored, hashed, and transparent', () => {
+    it('keeps every QA-passed production file local, mirrored, hashed, and transparent', async () => {
         for (const slot of ACADEMY_CAST_STANDARDIZATION_MANIFEST) {
             expect(slot.qa).toMatchObject({ verdict: 'pass', inspected: true });
-            expect(slot.assetPath).toMatch(/^\/academy\/art\/characters\/.+\.png$/u);
+            expect(slot.assetPath).toMatch(/^\/academy\/art\/characters\/.+\.webp$/u);
             expect(slot.assetPath).not.toMatch(/^https?:/u);
             const publicFile = path.resolve('public', slot.assetPath.slice(1));
             const docsFile = path.resolve('docs/public', slot.assetPath.slice(1));
@@ -107,10 +108,11 @@ describe('Academy cast standardization manifest', () => {
             expect(fs.existsSync(docsFile), slot.assetPath).toBe(true);
             expect(fs.readFileSync(docsFile).equals(fs.readFileSync(publicFile)), slot.assetPath).toBe(true);
             expect(sha256File(publicFile), slot.assetPath).toBe(slot.sha256);
-            expect(pngInfo(publicFile), slot.assetPath).toMatchObject({
+            expect(await rasterInfo(publicFile), slot.assetPath).toMatchObject({
                 width: slot.qa.dimensions.width,
                 height: slot.qa.dimensions.height,
-                colorType: 6,
+                format: 'webp',
+                hasAlpha: true,
             });
         }
     });
@@ -132,7 +134,7 @@ function productionCastPaths(): string[] {
     return fs.readdirSync(path.resolve('public/academy/art/characters'), { withFileTypes: true })
         .filter(entry => entry.isDirectory())
         .flatMap(entry => fs.readdirSync(path.resolve('public/academy/art/characters', entry.name))
-            .filter(file => file.endsWith('.png'))
+            .filter(file => file.endsWith('.webp'))
             .map(file => `/academy/art/characters/${entry.name}/${file}`))
         .sort();
 }
@@ -153,12 +155,17 @@ function sha256File(file: string): string {
     return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-function pngInfo(file: string): Readonly<{ width: number; height: number; colorType: number }> {
-    const source = fs.readFileSync(file);
-    expect(source.subarray(0, 8).toString('hex'), file).toBe('89504e470d0a1a0a');
+async function rasterInfo(file: string): Promise<Readonly<{
+    width: number | undefined;
+    height: number | undefined;
+    format: string | undefined;
+    hasAlpha: boolean | undefined;
+}>> {
+    const metadata = await sharp(file).metadata();
     return {
-        width: source.readUInt32BE(16),
-        height: source.readUInt32BE(20),
-        colorType: source[25],
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format,
+        hasAlpha: metadata.hasAlpha,
     };
 }

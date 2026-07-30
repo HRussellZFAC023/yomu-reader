@@ -282,8 +282,8 @@ describe('Academy VN stage', () => {
     it('tracks source framing and applies the generated conversational focus across pose changes', () => {
         const stage = createAcademyVnStage();
         const fullbodyExpressions = {
-            neutral: { still: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png' },
-            happy: { still: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png' },
+            neutral: { still: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp' },
+            happy: { still: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp' },
         } as const;
         stage.setCast([{
             characterId: 'test',

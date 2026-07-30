@@ -6,7 +6,8 @@
 //   node scripts/academy-audio-media.mjs --upload   # verify, then upload to R2
 //
 // Local roots come only from the environment; audio files never live in Git:
-//   ACADEMY_PERSONA_AUDIO_ROOT  → sourceCollection "persona"
+//   ACADEMY_PERSONA_AUDIO_ROOT  → sourceCollection "persona" delivery exports
+//                                  (currently encoded-opus/*.opus)
 //   ACADEMY_SHINDAY_SFX_ROOT    → sourceCollection "shinday"
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';

@@ -97,7 +97,7 @@ describe('Aakash rainy-directions bond beat', () => {
         expect(screen.dataset.academyScreen).toBe('aakash-directions-vn');
         expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src).toContain(ACADEMY_ASSETS.locations.cafe.wide);
         expect(screen.querySelector<HTMLImageElement>('[data-character="aakash"] img')?.src)
-            .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png');
+            .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp');
         expect(screen.textContent).toContain(AAKASH_DIRECTIONS_CONTENT.context.japanese);
         expect(screen.textContent).toContain('Aakash is looking for the cafe');
         expect(screen.textContent).not.toContain('カフェはどこですか。');

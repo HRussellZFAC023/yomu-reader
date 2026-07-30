@@ -311,7 +311,7 @@ describe('Academy human interface', () => {
         const planner = screen.querySelector<HTMLInputElement>('input[value="quality-3"]')!;
         planner.checked = true;
         planner.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(player.src).toContain('quality-3__picker__v001.png');
+        expect(player.src).toContain('quality-3__picker__v001.webp');
     });
 
     it('keeps the complete setup history available from portrait selection and restores Log focus', () => {
@@ -433,7 +433,7 @@ describe('Academy human interface', () => {
 
             expect(gallery.dataset.character).toBe('aakash');
             expect(sprites).toHaveLength(7);
-            expect(neutral.src).toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png');
+            expect(neutral.src).toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp');
             expect(neutral.dataset.angle).toBe('front-near-front');
             expect(page.querySelector('h2')?.textContent).toBe('Aakash-san');
             expect(directory.hidden).toBe(true);

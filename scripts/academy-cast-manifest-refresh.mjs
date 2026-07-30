@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
 import { refreshAcademyRuntimeArtPrecache } from './lib/academy-cast-offline-precache.mjs';
 import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bindings.mjs';
 
@@ -44,14 +45,22 @@ for (const slot of manifest) {
     fs.mkdirSync(path.dirname(docsFile), { recursive: true });
     fs.writeFileSync(docsFile, publicBytes);
 
-    const dimensions = pngDimensions(publicBytes, slot.assetPath);
+    const metadata = await sharp(publicBytes).metadata();
+    if (
+        metadata.format !== 'webp'
+        || !metadata.width
+        || !metadata.height
+        || metadata.channels !== 4
+    ) {
+        throw new Error(`Cast sprite is not transparent WebP: ${slot.assetPath}`);
+    }
     const digest = sha256(publicBytes);
     slot.sha256 = digest;
     slot.qa.dimensions = {
-        ...slot.qa.dimensions,
-        ...dimensions,
-        format: 'png',
-        channels: 4,
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format,
+        channels: metadata.channels,
     };
 
     const usageAsset = usage.assets.find(asset =>
@@ -69,20 +78,22 @@ for (const slot of manifest) {
 }
 
 const existingRejectedByPath = new Map(existingRejected.map(entry => [entry.path, entry]));
-const rejected = walkFiles(rejectedRoot)
-    .filter(file => file.endsWith('.png'))
-    .map(file => path.relative(process.cwd(), file).split(path.sep).join('/'))
-    .sort()
-    .map(rejectedPath => {
-        const bytes = fs.readFileSync(path.resolve(rejectedPath));
-        const existing = existingRejectedByPath.get(rejectedPath);
-        return {
-            path: rejectedPath,
-            sha256: sha256(bytes),
-            reason: existing?.reason ?? rejectionReason(rejectedPath),
-            retainedOutsideProduction: true,
-        };
-    });
+const rejected = fs.existsSync(rejectedRoot)
+    ? walkFiles(rejectedRoot)
+        .filter(file => file.endsWith('.png'))
+        .map(file => path.relative(process.cwd(), file).split(path.sep).join('/'))
+        .sort()
+        .map(rejectedPath => {
+            const bytes = fs.readFileSync(path.resolve(rejectedPath));
+            const existing = existingRejectedByPath.get(rejectedPath);
+            return {
+                path: rejectedPath,
+                sha256: sha256(bytes),
+                reason: existing?.reason ?? rejectionReason(rejectedPath),
+                retainedOutsideProduction: true,
+            };
+        })
+    : existingRejected;
 
 const refreshedSummary = {
     ...summary,
@@ -151,19 +162,6 @@ function assertFile(file) {
 
 function sha256(bytes) {
     return crypto.createHash('sha256').update(bytes).digest('hex');
-}
-
-function pngDimensions(bytes, label) {
-    if (bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
-        throw new Error(`Not a PNG: ${label}`);
-    }
-    if (bytes[25] !== 6) {
-        throw new Error(`Cast sprite is not RGBA: ${label}`);
-    }
-    return {
-        width: bytes.readUInt32BE(16),
-        height: bytes.readUInt32BE(20),
-    };
 }
 
 function rejectionReason(rejectedPath) {

@@ -63,13 +63,13 @@ describe('Academy sprite batch manifest', () => {
             .every(assetPath => assetPath.endsWith('__v003.png'))).toBe(true);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'aakash')?.currentAsset.paths)
             .toEqual([
-                '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png',
-                '/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp',
+                '/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp',
             ]);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.approvalPolicy).toMatchObject({
             generationDoesNotApprove: true,
@@ -84,8 +84,8 @@ describe('Academy sprite batch manifest', () => {
         expect(rie?.currentAsset).toMatchObject({
             status: 'approved-performance-family',
             paths: expect.arrayContaining([
-                '/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png',
-                '/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png',
+                '/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.webp',
+                '/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.webp',
             ]),
         });
         expect(rie?.currentAsset.paths).toHaveLength(8);

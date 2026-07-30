@@ -46,7 +46,7 @@
         ],
         "constraintReferenceIds": [],
         "generationBrief": "Identity-preserving edit from the approved Rie neutral and dedicated approved Rie references. Preserve the same adult Japanese woman, face structure, age, skin tone, soft dark bun and loose strands, cream cardigan, navy blouse, small earrings, body proportions, outline weight, pixel texture, and warm classroom lighting. Turn her to a clear left three-quarter angle. Use a distinct forward-set stance with the open lesson book held low, shoulders level, and chin slightly lifted. Expression: calm determination, focused eyes, gently set brows, closed relaxed mouth; firm but never angry. Frame head through upper thigh at the approved cast scale. Produce a flat removable chroma background for transparent RGBA delivery. No text, logos, watermark, scenery, cast shadow, extra people, photorealism, 3D gloss, chibi proportions, costume change, or identity drift.",
-        "plannedAssetPath": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
+        "plannedAssetPath": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp",
         "intendedRuntimeHomes": [
           "scene:s1e21-questions-in-the-dark",
           "dialogue:rie-decisive-guidance",
@@ -66,7 +66,7 @@
         ],
         "constraintReferenceIds": [],
         "generationBrief": "Identity-preserving edit from the approved Rie neutral and dedicated approved Rie references. Preserve the same adult Japanese woman, face structure, age, skin tone, soft dark bun and loose strands, cream cardigan, navy blouse, small earrings, body proportions, outline weight, pixel texture, and warm classroom lighting. Keep a near-front angle. Use a distinct open posture with the lesson book held lightly at her chest and shoulders relaxed toward the class. Expression: warm, bright happiness, eyes softly crinkled, brows lifted with ease, an open genuine smile that reaches the eyes; encouraging and human, never exaggerated or forced. Frame head through upper thigh at the approved cast scale. Produce a flat removable chroma background for transparent RGBA delivery. No text, logos, watermark, scenery, cast shadow, extra people, photorealism, 3D gloss, chibi proportions, costume change, or identity drift.",
-        "plannedAssetPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
+        "plannedAssetPath": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp",
         "intendedRuntimeHomes": [
           "lesson-feedback:correct-retry",
           "dialogue:rie-positive",
@@ -86,7 +86,7 @@
         ],
         "constraintReferenceIds": [],
         "generationBrief": "Identity-preserving edit from the approved Rie neutral and dedicated approved Rie references. Preserve the same adult Japanese woman, face structure, age, skin tone, soft dark bun and loose strands, cream cardigan, navy blouse, small earrings, body proportions, outline weight, pixel texture, and warm classroom lighting. Turn her to a clear right three-quarter angle. Use a clear, open silhouette with the lesson book held low and one hand lifted slightly after an unexpected learner answer. Expression: gently surprised, eyes a little wider, brows lifted, and mouth just parted; warm and human, never exaggerated. Frame head through upper thigh at the approved cast scale. Produce a flat removable chroma background for transparent RGBA delivery. No text, logos, watermark, scenery, cast shadow, extra people, photorealism, 3D gloss, chibi proportions, costume change, or identity drift.",
-        "plannedAssetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+        "plannedAssetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.webp",
         "intendedRuntimeHomes": [
           "dialogue:rie-surprised",
           "journal:rie-expression-gallery"
@@ -315,7 +315,7 @@
         {
           "id": "rie-approved-neutral",
           "kind": "approved-sprite",
-          "locator": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
+          "locator": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp",
           "use": "likeness",
           "gate": "approved"
         },
@@ -337,14 +337,14 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
-          "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
-          "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
-          "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png"
+          "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.webp",
+          "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp",
+          "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.webp",
+          "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.webp"
         ],
         "note": "The complete seven-expression glasses-on family and one extra comedic reaction are approved, identity-locked runtime art."
       },
@@ -467,13 +467,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
-          "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png"
+          "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.webp",
+          "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -701,13 +701,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -766,13 +766,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -888,13 +888,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1010,13 +1010,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1249,13 +1249,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1314,13 +1314,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1379,13 +1379,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
-          "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png"
+          "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.webp",
+          "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1555,13 +1555,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1620,13 +1620,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
-          "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png"
+          "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.webp",
+          "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1678,13 +1678,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1736,13 +1736,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1906,13 +1906,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -1964,13 +1964,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -2022,13 +2022,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
@@ -2080,13 +2080,13 @@
       "currentAsset": {
         "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
-          "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
-          "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+          "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.webp",
+          "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.webp",
+          "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.webp",
+          "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.webp"
         ],
         "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },

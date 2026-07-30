@@ -1155,26 +1155,17 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       D1 aggregates per call (:406, :414) with no memo. jpdb-public-proxy is clean (:242-246). Do: copy the
       dictionary Worker's edge-cache wrapper onto `/audio/*` and the R2-index path, and put the support
       banner reads behind the Cache API so a banner impression is not two D1 reads.
-- [ ] **A35.20 — HIGH: Academy ships 378.7 MB of lossless audio and 469 MB of PNG per user, in one
-      16.7 MB script.** Four measurements on the same payload.
-      - `docs/public/academy/sw.js:5` declares `const AUDIO_PRECACHE_BYTES = 378672515;` and
-        `AUDIO_PRECACHE` (:7) holds 27 entries (13 `.flac`, 14 `.wav`), confirmed by
-        `workers/yomu-academy/media-manifest.json` (largest `persona/ideal-and-the-real-end.flac`
-        43,816,006 B). `precacheAudio()` (:775-806) fetches them serially whenever a media request
-        succeeds (:903). Each fetch goes through `handleMedia`
-        (`workers/yomu-academy/src/media.ts:63`), which does a D1 session lookup (:65) and an R2 get
-        (:103) and returns `private, max-age=3600` + `vary: Cookie` (:81-82), correctly un-cacheable at
-        the edge. One user on one profile costs 27 Worker invocations, 27 D1 reads, 27 R2 Class B gets and
-        378.7 MB egress, repeated per profile and per eviction. The repo already ships
-        `story-lines/*.opus` (sw.js:4); re-encoding 13 BGM tracks to ~128 kbps Opus takes ~378 MB to
-        roughly 30-40 MB.
-      - `docs/public/academy/art` holds 222 `.png` = **468,899,599 B** (average 2,112,160) and 172 `.webp`
-        = **26,077,882 B** (average 151,615), with zero overlap between the two sets of extension-stripped
-        stems: some characters went through the WebP export and some did not. These are runtime assets
-        (`app.js` references PNG paths like
-        `/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png`, 4,494,893 B), so
-        an expression change pulls a 2-4 MB PNG mid-dialogue. The same pipeline already produces the same
-        art at ~152 KB.
+- [ ] **A35.20 — HIGH: Academy payload still needs hosted JS minification and better zone compression.**
+      The audio and runtime-art legs closed on 2026-07-30; the script/compression legs below remain open.
+      - **Closed:** the 13 Persona BGM files were re-encoded from 377,876,845 B of FLAC to 55,844,890 B
+        of ~128 kbps VBR Opus. The 14 short Shinday WAV effects remain unchanged at 795,670 B, so the
+        measured protected-audio allowlist is now **56,640,560 B**. `AUDIO_PRECACHE_BYTES` carries that
+        exact manifest sum. The service worker no longer fans out across all 27 objects after one media
+        request: it demand-caches only the requested allowlisted object, through one serial queue.
+      - **Closed:** the 222 runtime PNGs (468,899,599 B) were codec-only exports to 39,584,548 B of WebP,
+        with dimensions preserved before their PNG twins were removed. Together with the 172 existing
+        WebPs, `public/academy/art` and its deployed docs mirror now contain 394 WebPs totalling
+        **65,662,430 B**, down from 494,977,481 B across the former mixed PNG/WebP tree.
       - `docs/public/academy/app.js` = **16,699,522 B** unminified, `style.css` = 1,908,716 B.
         `config/vite/academy.config.ts:119-131` sets `minify: false`, `cssMinify: false` and
         `lib: { formats: ["iife"], fileName: () => "app.js" }`, which forbids splitting by construction.
@@ -1189,9 +1180,8 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
         get zstd under the same header). A33 commits to Tiered Cache and Cache Reserve and says nothing
         about compression.
       Memory records 9.7 MB/page and 1 GB installed as the Migaku density the reject list exists to
-      refuse; Academy is now 3.4 MB compressed and 16.7 MB parsed in one file. Do, in order: re-encode the
-      13 BGM tracks to Opus and make the precache demand-driven; run the 222 PNGs through the existing
-      WebP export; turn on minify for the hosted configs; force br/zstd on `*.js`/`*.css` at the zone.
+      refuse; Academy is now 3.4 MB compressed and 16.7 MB parsed in one file. Remaining order: turn on
+      minify for the hosted configs, then force br/zstd on `*.js`/`*.css` at the zone.
 - [x] **A35.21 — HIGH: 8.55 MB of JS is injected into every page, half of the companion bytes are
       duplicated core, and the 2 MB gate reads one file.** `dist/yomu.user.js` = 1,736,020 B and the 12
       companions in `dist/greasyfork/` = 6,816,913 B, so 8,552,933 B across 13 scripts, all unconditional

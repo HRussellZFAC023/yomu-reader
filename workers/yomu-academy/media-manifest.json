@@ -19,147 +19,380 @@
   },
   "objects": [
     {
-      "key": "media/audio/v1/persona/royal-days.flac",
+      "key": "media/audio/v1/persona/royal-days.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/02 Royal Days.flac",
-      "contentType": "audio/flac",
-      "bytes": 29615879,
-      "durationSeconds": 257.546667,
-      "sha256": "4ff293cefc657c8203fc9f7bbc64f587f804a18bd18b2a4deddb5d9ee1c39f7c",
+      "sourceRelativePath": "encoded-opus/royal-days.opus",
+      "contentType": "audio/ogg",
+      "bytes": 4122283,
+      "durationSeconds": 257.553167,
+      "sha256": "fa36ef2dcd695427a869ba3da12e6c3123efadd54ef169a6676df83839fff8fb",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["opening.invitation", "campus.evening", "classroom.focus", "world.courtyard"]
+      "runtimeHomes": [
+        "opening.invitation",
+        "campus.evening",
+        "classroom.focus",
+        "world.courtyard"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 128044
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/royal-days.flac",
+        "sourceRelativePath": "CD1/02 Royal Days.flac",
+        "contentType": "audio/flac",
+        "bytes": 29615879,
+        "durationSeconds": 257.546667,
+        "sha256": "4ff293cefc657c8203fc9f7bbc64f587f804a18bd18b2a4deddb5d9ee1c39f7c"
+      }
     },
     {
-      "key": "media/audio/v1/persona/take-over.flac",
+      "key": "media/audio/v1/persona/take-over.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/03 Take Over.flac",
-      "contentType": "audio/flac",
-      "bytes": 23696619,
-      "durationSeconds": 189.613333,
-      "sha256": "5200a81127a4844103400896e883a92134cf3d897689da13a1fdcb55da0b86c5",
+      "sourceRelativePath": "encoded-opus/take-over.opus",
+      "contentType": "audio/ogg",
+      "bytes": 3109725,
+      "durationSeconds": 189.619833,
+      "sha256": "df185752ee945c3ab700d4f84aa18692e5636096a28a6a47b5d3aa9939358efc",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["challenge.major"]
+      "runtimeHomes": [
+        "challenge.major"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 131198
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/take-over.flac",
+        "sourceRelativePath": "CD1/03 Take Over.flac",
+        "contentType": "audio/flac",
+        "bytes": 23696619,
+        "durationSeconds": 189.613333,
+        "sha256": "5200a81127a4844103400896e883a92134cf3d897689da13a1fdcb55da0b86c5"
+      }
     },
     {
-      "key": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+      "key": "media/audio/v1/persona/no-more-what-ifs-instrumental.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/04 No More What Ifs -instrumental version-.flac",
-      "contentType": "audio/flac",
-      "bytes": 32271798,
-      "durationSeconds": 274.64,
-      "sha256": "2384353e14242c783a1e6f99464f79eac726fedc40a4982946f8eef0598467f1",
+      "sourceRelativePath": "encoded-opus/no-more-what-ifs-instrumental.opus",
+      "contentType": "audio/ogg",
+      "bytes": 4898483,
+      "durationSeconds": 274.6465,
+      "sha256": "db859ffdf713ec6f8da83e348eb5d8ab3b3edbfd41b00da57e1c61df9da94b65",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["library.quiet", "bond.quiet", "world.park"]
+      "runtimeHomes": [
+        "library.quiet",
+        "bond.quiet",
+        "world.park"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 142684
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/no-more-what-ifs-instrumental.flac",
+        "sourceRelativePath": "CD1/04 No More What Ifs -instrumental version-.flac",
+        "contentType": "audio/flac",
+        "bytes": 32271798,
+        "durationSeconds": 274.64,
+        "sha256": "2384353e14242c783a1e6f99464f79eac726fedc40a4982946f8eef0598467f1"
+      }
     },
     {
-      "key": "media/audio/v1/persona/no-more-what-ifs.flac",
+      "key": "media/audio/v1/persona/no-more-what-ifs.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/08 No More What Ifs.flac",
-      "contentType": "audio/flac",
-      "bytes": 25608053,
-      "durationSeconds": 240.666667,
-      "sha256": "ed8d0a9fbb33077b54a7d269400e18421c1980fb3a29a19773d30881c947fb2f",
+      "sourceRelativePath": "encoded-opus/no-more-what-ifs.opus",
+      "contentType": "audio/ogg",
+      "bytes": 4281552,
+      "durationSeconds": 240.673167,
+      "sha256": "8cb3ab819605d0fbceb7978347473f677de1a73d682c7f0bf85282249053c928",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["world.library"]
+      "runtimeHomes": [
+        "world.library"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 142319
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/no-more-what-ifs.flac",
+        "sourceRelativePath": "CD1/08 No More What Ifs.flac",
+        "contentType": "audio/flac",
+        "bytes": 25608053,
+        "durationSeconds": 240.666667,
+        "sha256": "ed8d0a9fbb33077b54a7d269400e18421c1980fb3a29a19773d30881c947fb2f"
+      }
     },
     {
-      "key": "media/audio/v1/persona/ideal-and-the-real.flac",
+      "key": "media/audio/v1/persona/ideal-and-the-real.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/05 Ideal and the Real.flac",
-      "contentType": "audio/flac",
-      "bytes": 39245419,
-      "durationSeconds": 362.346667,
-      "sha256": "13c607dc05ecf36c1eea7dce7f04d81d444e1afbb236ef746617dc1a5c3e8ca2",
+      "sourceRelativePath": "encoded-opus/ideal-and-the-real.opus",
+      "contentType": "audio/ogg",
+      "bytes": 6126361,
+      "durationSeconds": 362.353167,
+      "sha256": "d88e6ed4650e6aa6fcbb24b5035ed8746901460c2062b2e48ece0bbce963ab97",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["mystery.page", "world.japan-centre"]
+      "runtimeHomes": [
+        "mystery.page",
+        "world.japan-centre"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 135257
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/ideal-and-the-real.flac",
+        "sourceRelativePath": "CD1/05 Ideal and the Real.flac",
+        "contentType": "audio/flac",
+        "bytes": 39245419,
+        "durationSeconds": 362.346667,
+        "sha256": "13c607dc05ecf36c1eea7dce7f04d81d444e1afbb236ef746617dc1a5c3e8ca2"
+      }
     },
     {
-      "key": "media/audio/v1/persona/kichijoji-199x.flac",
+      "key": "media/audio/v1/persona/kichijoji-199x.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/06 Kichijoji 199X.flac",
-      "contentType": "audio/flac",
-      "bytes": 15617078,
-      "durationSeconds": 136.32,
-      "sha256": "f983ea54d9b22932903c75b6d227050b37d0fe03bf3463aa093de2f2b7b277e7",
+      "sourceRelativePath": "encoded-opus/kichijoji-199x.opus",
+      "contentType": "audio/ogg",
+      "bytes": 2341156,
+      "durationSeconds": 136.3265,
+      "sha256": "090e0bbcd94550fc848f9a260dfaee8275daa6802c74714ab4d225f06170f435",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["cafe.social", "world.cafe"]
+      "runtimeHomes": [
+        "cafe.social",
+        "world.cafe"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 137385
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/kichijoji-199x.flac",
+        "sourceRelativePath": "CD1/06 Kichijoji 199X.flac",
+        "contentType": "audio/flac",
+        "bytes": 15617078,
+        "durationSeconds": 136.32,
+        "sha256": "f983ea54d9b22932903c75b6d227050b37d0fe03bf3463aa093de2f2b7b277e7"
+      }
     },
     {
-      "key": "media/audio/v1/persona/prison-labor.flac",
+      "key": "media/audio/v1/persona/prison-labor.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/13 Prison Labor.flac",
-      "contentType": "audio/flac",
-      "bytes": 41685774,
-      "durationSeconds": 334.84,
-      "sha256": "879ce1c4eaf358b80f567feb7d5f50e0540880eabf6e0566d52582a0eee5249d",
+      "sourceRelativePath": "encoded-opus/prison-labor.opus",
+      "contentType": "audio/ogg",
+      "bytes": 5199432,
+      "durationSeconds": 334.8465,
+      "sha256": "94d161571086e52990ed1f441778441d40f076fff92bfdd60aa8056bd4d33bde",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["challenge.kanji", "world.classroom"]
+      "runtimeHomes": [
+        "challenge.kanji",
+        "world.classroom"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 124222
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/prison-labor.flac",
+        "sourceRelativePath": "CD1/13 Prison Labor.flac",
+        "contentType": "audio/flac",
+        "bytes": 41685774,
+        "durationSeconds": 334.84,
+        "sha256": "879ce1c4eaf358b80f567feb7d5f50e0540880eabf6e0566d52582a0eee5249d"
+      }
     },
     {
-      "key": "media/audio/v1/persona/mementos-upper.flac",
+      "key": "media/audio/v1/persona/mementos-upper.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/07 メメントス・上層.flac",
-      "contentType": "audio/flac",
-      "bytes": 19840843,
-      "durationSeconds": 179.68,
-      "sha256": "b760d0864faebf4683b8a546051826829cf044e0b08bdad959dad0d0a17f8408",
+      "sourceRelativePath": "encoded-opus/mementos-upper.opus",
+      "contentType": "audio/ogg",
+      "bytes": 2997445,
+      "durationSeconds": 179.6865,
+      "sha256": "3bb7db913fac313903b88f1f39f4346493ba84422b5b1e4e58a6fed63d894dd9",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["world.street"]
+      "runtimeHomes": [
+        "world.street"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 133452
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/mementos-upper.flac",
+        "sourceRelativePath": "CD1/07 メメントス・上層.flac",
+        "contentType": "audio/flac",
+        "bytes": 19840843,
+        "durationSeconds": 179.68,
+        "sha256": "b760d0864faebf4683b8a546051826829cf044e0b08bdad959dad0d0a17f8408"
+      }
     },
     {
-      "key": "media/audio/v1/persona/mementos-middle.flac",
+      "key": "media/audio/v1/persona/mementos-middle.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD1/09 メメントス・中層.flac",
-      "contentType": "audio/flac",
-      "bytes": 28557084,
-      "durationSeconds": 247.88,
-      "sha256": "fa4f821def6729da25531be7f20611246c3a8048b05c92fd904d29533faf754c",
+      "sourceRelativePath": "encoded-opus/mementos-middle.opus",
+      "contentType": "audio/ogg",
+      "bytes": 4040090,
+      "durationSeconds": 247.8865,
+      "sha256": "dfe32b5c566aca013cfb0daf49ec13d512fff796d3726efc69fe783ac225b814",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["world.station"]
+      "runtimeHomes": [
+        "world.station"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 130385
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/mementos-middle.flac",
+        "sourceRelativePath": "CD1/09 メメントス・中層.flac",
+        "contentType": "audio/flac",
+        "bytes": 28557084,
+        "durationSeconds": 247.88,
+        "sha256": "fa4f821def6729da25531be7f20611246c3a8048b05c92fd904d29533faf754c"
+      }
     },
     {
-      "key": "media/audio/v1/persona/so-happy-world.flac",
+      "key": "media/audio/v1/persona/so-happy-world.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD2/05 So Happy World.flac",
-      "contentType": "audio/flac",
-      "bytes": 25103865,
-      "durationSeconds": 233.893333,
-      "sha256": "cd401e2a191b94852026355d78bafadf46cb87c95ad218b48235241a0a9a9f06",
+      "sourceRelativePath": "encoded-opus/so-happy-world.opus",
+      "contentType": "audio/ogg",
+      "bytes": 3893532,
+      "durationSeconds": 233.899833,
+      "sha256": "8c60d0e1db729b07bb32427776aa3dafa7d566bbfd4aeb324341f0364cafd609",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["unlock.world", "world.lab"]
+      "runtimeHomes": [
+        "unlock.world",
+        "world.lab"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 133169
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/so-happy-world.flac",
+        "sourceRelativePath": "CD2/05 So Happy World.flac",
+        "contentType": "audio/flac",
+        "bytes": 25103865,
+        "durationSeconds": 233.893333,
+        "sha256": "cd401e2a191b94852026355d78bafadf46cb87c95ad218b48235241a0a9a9f06"
+      }
     },
     {
-      "key": "media/audio/v1/persona/out-of-kindness.flac",
+      "key": "media/audio/v1/persona/out-of-kindness.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD2/07 Out of Kindness.flac",
-      "contentType": "audio/flac",
-      "bytes": 17213492,
-      "durationSeconds": 170.76,
-      "sha256": "ade6922c87ec1cad5f54b02269cc870b3a561c69fdf6a85cceee5e82bb396dba",
+      "sourceRelativePath": "encoded-opus/out-of-kindness.opus",
+      "contentType": "audio/ogg",
+      "bytes": 3139980,
+      "durationSeconds": 170.7665,
+      "sha256": "122ccdb2f2eba9954e11a9e8b55dbb36eaae906eabfe24cfa89c597319caa494",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["support.kindness", "world.konbini"]
+      "runtimeHomes": [
+        "support.kindness",
+        "world.konbini"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 147100
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/out-of-kindness.flac",
+        "sourceRelativePath": "CD2/07 Out of Kindness.flac",
+        "contentType": "audio/flac",
+        "bytes": 17213492,
+        "durationSeconds": 170.76,
+        "sha256": "ade6922c87ec1cad5f54b02269cc870b3a561c69fdf6a85cceee5e82bb396dba"
+      }
     },
     {
-      "key": "media/audio/v1/persona/i-believe.flac",
+      "key": "media/audio/v1/persona/i-believe.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD2/08 I believe.flac",
-      "contentType": "audio/flac",
-      "bytes": 35604935,
-      "durationSeconds": 270.973333,
-      "sha256": "c382faab780d491965c0bca77f360de195951e70d80584f50b353591ca245b5d",
+      "sourceRelativePath": "encoded-opus/i-believe.opus",
+      "contentType": "audio/ogg",
+      "bytes": 4236959,
+      "durationSeconds": 270.979833,
+      "sha256": "2512e3b0d1b7f5feba01c135eb00a9b78a5e9363b855572cd066bc1cf8eb21ef",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["resolve.late", "world.ramen"]
+      "runtimeHomes": [
+        "resolve.late",
+        "world.ramen"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 125085
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/i-believe.flac",
+        "sourceRelativePath": "CD2/08 I believe.flac",
+        "contentType": "audio/flac",
+        "bytes": 35604935,
+        "durationSeconds": 270.973333,
+        "sha256": "c382faab780d491965c0bca77f360de195951e70d80584f50b353591ca245b5d"
+      }
     },
     {
-      "key": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+      "key": "media/audio/v1/persona/ideal-and-the-real-end.opus",
       "sourceCollection": "persona",
-      "sourceRelativePath": "CD2/12 Ideal and the Real -end version-.flac",
-      "contentType": "audio/flac",
-      "bytes": 43816006,
-      "durationSeconds": 436.52,
-      "sha256": "e7ad6762fc1ebf1e471e876041d47da6efcb1559c2f158ef79a7eac2dc33eda4",
+      "sourceRelativePath": "encoded-opus/ideal-and-the-real-end.opus",
+      "contentType": "audio/ogg",
+      "bytes": 7457892,
+      "durationSeconds": 436.5265,
+      "sha256": "f7f5f88298374f663dc602cba948f96fdb756351f149d61012b852c37ab03170",
       "rightsId": "persona-educational",
-      "runtimeHomes": ["ending.reflective", "world.home"]
+      "runtimeHomes": [
+        "ending.reflective",
+        "world.home"
+      ],
+      "encoding": {
+        "container": "Ogg",
+        "codec": "Opus",
+        "sampleRateHz": 48000,
+        "channels": 2,
+        "measuredBitrateBps": 136677
+      },
+      "transcodedFrom": {
+        "key": "media/audio/v1/persona/ideal-and-the-real-end.flac",
+        "sourceRelativePath": "CD2/12 Ideal and the Real -end version-.flac",
+        "contentType": "audio/flac",
+        "bytes": 43816006,
+        "durationSeconds": 436.52,
+        "sha256": "e7ad6762fc1ebf1e471e876041d47da6efcb1559c2f158ef79a7eac2dc33eda4"
+      }
     },
     {
       "key": "media/audio/v1/shinday/menu-cursor-move.wav",
@@ -170,7 +403,9 @@
       "durationSeconds": 0.591655,
       "sha256": "4dd834120f6843422091e7ec29141420b6ed34513b83df486b0008524941754b",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["menu.move"]
+      "runtimeHomes": [
+        "menu.move"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/menu-option-select.wav",
@@ -181,7 +416,9 @@
       "durationSeconds": 0.93415,
       "sha256": "89a09620d3144f1dc52937cbe823f2172e61fb896f54ea0c6b0228f65ae0e63f",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["menu.confirm"]
+      "runtimeHomes": [
+        "menu.confirm"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/popup-close.wav",
@@ -192,7 +429,9 @@
       "durationSeconds": 0.320454,
       "sha256": "8e49f9226da87c3f3544963589603ee7e5df07366ad0c443f9d2bdcc5d2e88d9",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["menu.cancel"]
+      "runtimeHomes": [
+        "menu.cancel"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/unavailable.wav",
@@ -203,7 +442,9 @@
       "durationSeconds": 0.329433,
       "sha256": "254614cef31bb968acabe3f66e2f99feef13092fcb46e9d1335d0fd1bc8a935e",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["action.unavailable"]
+      "runtimeHomes": [
+        "action.unavailable"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/menu-change.wav",
@@ -214,7 +455,9 @@
       "durationSeconds": 1.010068,
       "sha256": "6ef55475c7cdd3b24a9d5974cddd21052d1d069d2208d47ca86c47ffd3f4e18f",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["scene.advance"]
+      "runtimeHomes": [
+        "scene.advance"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/module-change-1.wav",
@@ -225,7 +468,9 @@
       "durationSeconds": 2.960091,
       "sha256": "cf7bd1bcee2dcb0c634b38dddf2eb1ecdb203105e2cf193383dedb7ac6ce2f03",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["page.turn"]
+      "runtimeHomes": [
+        "page.turn"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/module-change-2.wav",
@@ -236,7 +481,10 @@
       "durationSeconds": 3.006984,
       "sha256": "52fa877fbc0324e1cae47594bed9ff70500a8a35ef6d09a4b003e589347bfcf0",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["bond.unlock", "bond.rank"]
+      "runtimeHomes": [
+        "bond.unlock",
+        "bond.rank"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/result-clear.wav",
@@ -247,7 +495,10 @@
       "durationSeconds": 2.589025,
       "sha256": "49d1916a186f2ce97e3c8a981f5996c89cc6b0b16a79cde9afebd06547347345",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["feedback.correct", "doodle.check"]
+      "runtimeHomes": [
+        "feedback.correct",
+        "doodle.check"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/result-not-clear.wav",
@@ -258,7 +509,9 @@
       "durationSeconds": 1.777959,
       "sha256": "b38172ad3e43fc177cb2bb230ccb4e696b27f8efca2ee1fd65229d67bc802ca7",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["feedback.repair"]
+      "runtimeHomes": [
+        "feedback.repair"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/score-tally.wav",
@@ -269,7 +522,9 @@
       "durationSeconds": 0.099546,
       "sha256": "cc14e4839d1bc8d9b73e69e3dd49061c41a0df64f64eb08a1c9ff1f007aa608d",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["feedback.hanamaru"]
+      "runtimeHomes": [
+        "feedback.hanamaru"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/camera.wav",
@@ -280,7 +535,9 @@
       "durationSeconds": 0.128707,
       "sha256": "c4048ea941835c2012feaa346dfb378d5f9050e84a8ebc54f88cdd8620bb41ef",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["camera.capture"]
+      "runtimeHomes": [
+        "camera.capture"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/clap.wav",
@@ -291,7 +548,9 @@
       "durationSeconds": 0.127211,
       "sha256": "ca9b0dcc490bed545516ca5832795680f6c565ee4273831dea71e107a421e10b",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["chapter.complete"]
+      "runtimeHomes": [
+        "chapter.complete"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/click.wav",
@@ -302,7 +561,9 @@
       "durationSeconds": 0.108753,
       "sha256": "e1a77aa27df3cbf35ff560da73cfbedbd35936c0871cf1a99ea6c7f145624ccf",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["doodle.stroke"]
+      "runtimeHomes": [
+        "doodle.stroke"
+      ]
     },
     {
       "key": "media/audio/v1/shinday/sonar-beeps-1.wav",
@@ -313,7 +574,23 @@
       "durationSeconds": 2,
       "sha256": "3f92905d0912fad7d52f9b4e073a350f8593dd5b7c6f6e28a243224252d51021",
       "rightsId": "shinday-educational",
-      "runtimeHomes": ["radio.tune"]
+      "runtimeHomes": [
+        "radio.tune"
+      ]
     }
-  ]
+  ],
+  "audioEncoding": {
+    "persona": {
+      "container": "Ogg",
+      "codec": "Opus",
+      "targetBitrateBps": 128000,
+      "vbr": true,
+      "ffmpegArguments": "-map_metadata -1 -vn -c:a libopus -b:a 128k -vbr on -compression_level 10 -application audio",
+      "encodedAt": "2026-07-30"
+    },
+    "shinday": {
+      "codec": "PCM WAV",
+      "unchanged": true
+    }
+  }
 }

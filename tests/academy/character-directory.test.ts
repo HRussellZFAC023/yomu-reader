@@ -160,23 +160,23 @@ describe('Academy character directory presentation', () => {
                 { kind: 'story-episode', targetId: 's1e04-welcome-frequency' },
             ],
         });
-        expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
-        expect(peter.portrait).toContain('/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png');
+        expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
+        expect(peter.portrait).toContain('/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.webp');
         expect(felix.portrait).toContain(
-            '/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png',
+            '/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp',
         );
 
         const entry = screen.querySelector<HTMLElement>('[data-character="xingyu"]')!;
         expect(entry.dataset.unlocked).toBe('true');
         expect(entry.querySelector<HTMLImageElement>('img')?.src)
-            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
+            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
         expect(entry.querySelector('.academy-character-name')?.textContent).toBe('Xingyu-san');
         entry.querySelector<HTMLButtonElement>('button')?.click();
 
         const page = screen.querySelector<HTMLElement>('.academy-character-dossier[data-character="xingyu"]')!;
         expect(page.querySelector('h2')?.textContent).toBe('Xingyu-san');
         expect(page.querySelector<HTMLImageElement>('img')?.src)
-            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
+            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.webp');
         const revisits = [...page.querySelectorAll<HTMLButtonElement>('.academy-character-revisit')];
         expect(revisits.map(button => [button.dataset.revisitKind, button.dataset.encounterId])).toEqual([
             ['class-week', 'class-week:l1-l03'],

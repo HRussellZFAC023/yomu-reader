@@ -94,7 +94,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
         const physical = fs.readdirSync(path.resolve('public/academy/art/characters'), { withFileTypes: true })
             .filter(entry => entry.isDirectory())
             .flatMap(entry => fs.readdirSync(path.resolve('public/academy/art/characters', entry.name))
-                .filter(file => file.endsWith('.png'))
+                .filter(file => file.endsWith('.webp'))
                 .map(file => `/academy/art/characters/${entry.name}/${file}`))
             .sort();
         const registered = inventory.characters.flatMap(character => character.currentAssets.map(asset => asset.path)).sort();
@@ -167,7 +167,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
             });
             expect(character.currentAssets.map(asset => asset.expression).sort())
                 .toEqual([...SPRITE_EXPRESSIONS].sort());
-            expect(character.currentAssets.every(asset => asset.path.endsWith(`__${version}.png`))).toBe(true);
+            expect(character.currentAssets.every(asset => asset.path.endsWith(`__${version}.webp`))).toBe(true);
             expect(character.currentAssets.every(asset => asset.coverageStatus === 'approved')).toBe(true);
         }
     });

@@ -258,8 +258,11 @@ function validateNextCoverageBatch(
         const expectedBase = `/academy/art/characters/${slot.castId}/${slot.castId}__${slot.expression}`;
         const expectedPathPrefixes = [`${expectedBase}__${slot.angle}__halfbody__`, `${expectedBase}-glasses__${slot.angle}__halfbody__`];
         const outputIsCurrent = currentPaths.has(slot.plannedAssetPath);
+        const hasExpectedFormat = outputIsCurrent
+            ? slot.plannedAssetPath.endsWith('.webp')
+            : slot.plannedAssetPath.endsWith('.png');
         if (!expectedPathPrefixes.some(prefix => slot.plannedAssetPath.startsWith(prefix))
-            || !slot.plannedAssetPath.endsWith('.png')
+            || !hasExpectedFormat
             || (slot.readiness === 'approved-and-bound' ? !outputIsCurrent : outputIsCurrent)
             || slot.generationBrief.trim().length < 500
             || !/transparent RGBA/i.test(slot.generationBrief)) {

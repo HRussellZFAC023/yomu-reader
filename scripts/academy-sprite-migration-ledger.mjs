@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
 
 const ROOT = process.cwd();
 const PUBLIC_ART = path.resolve(ROOT, 'public/academy/art');
@@ -31,9 +32,9 @@ const CURRENT_SLOT_OVERRIDES = new Map([
     ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'thoughtful']],
     ['/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png', ['right-three-quarter', 'neutral']],
     ['/academy/art/characters/rie/rie__thinking__halfbody__v001.png', ['front-near-front', 'thoughtful']],
-    ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png', ['front-near-front', 'neutral']],
-    ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'determined']],
-    ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png', ['right-three-quarter', 'encouraging-listening']],
+    ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp', ['front-near-front', 'neutral']],
+    ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp', ['left-three-quarter', 'determined']],
+    ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.webp', ['right-three-quarter', 'encouraging-listening']],
 ]);
 
 const SUPERSEDED_PATHS = new Set([
@@ -50,22 +51,24 @@ function sha256(file) {
     return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
 
-function readPngHeader(file) {
-    const png = fs.readFileSync(file);
-    if (png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new TypeError(`${file} is not a PNG.`);
+async function readRasterMetadata(file) {
+    const metadata = await sharp(file).metadata();
+    if (!metadata.width || !metadata.height || !metadata.format) {
+        throw new TypeError(`${file} has no readable raster metadata.`);
+    }
     return {
-        width: png.readUInt32BE(16),
-        height: png.readUInt32BE(20),
-        bitDepth: png[24],
-        colorType: png[25],
-        transparency: png[25] === 6 || png[25] === 4 ? 'alpha-channel' : 'no-alpha-channel',
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format,
+        channels: metadata.channels,
+        transparency: metadata.hasAlpha ? 'alpha-channel' : 'no-alpha-channel',
     };
 }
 
 function normalizeCurrentSlot(publicPath) {
     const override = CURRENT_SLOT_OVERRIDES.get(publicPath);
     if (override) return { angle: override[0], expression: override[1] };
-    const name = path.basename(publicPath, '.png');
+    const name = path.parse(publicPath).name;
     const angle = ANGLES.find(value => name.includes(`__${value}__`)) ?? 'front-near-front';
     const segments = name.split('__');
     let expression = segments[1] === 'sprite' ? segments[2] ?? '' : segments[1] ?? '';
@@ -79,16 +82,16 @@ function normalizeCurrentSlot(publicPath) {
 }
 
 function versionFor(publicPath) {
-    return path.basename(publicPath).match(/__(v\d+)\.png$/)?.[1] ?? 'unversioned';
+    return path.basename(publicPath).match(/__(v\d+)\.(?:png|webp)$/)?.[1] ?? 'unversioned';
 }
 
-function currentAssetsFor(character) {
+async function currentAssetsFor(character) {
     const directory = path.join(PUBLIC_ART, 'characters', character.id);
     if (!fs.existsSync(directory)) return [];
-    return fs.readdirSync(directory)
-        .filter(file => file.endsWith('.png'))
+    return await Promise.all(fs.readdirSync(directory)
+        .filter(file => file.endsWith('.webp'))
         .sort()
-        .map(file => {
+        .map(async file => {
             const absolute = path.join(directory, file);
             const publicPath = `/academy/art/characters/${character.id}/${file}`;
             const ledger = ledgerByDelivery.get(publicPath);
@@ -111,10 +114,10 @@ function currentAssetsFor(character) {
                     ? 'current-hand-painted-standard'
                     : character.id === 'rie' ? 'hand-painted-production-family' : 'current-review-family',
                 fileVersion: versionFor(publicPath),
-                pose: slot ? `${character.basePose}; ${slot.angle}` : `off-contract ${path.basename(file, '.png').split('__')[1] ?? 'unknown'} pose`,
+                pose: slot ? `${character.basePose}; ${slot.angle}` : `off-contract ${path.parse(file).name.split('__')[1] ?? 'unknown'} pose`,
                 angle: slot?.angle ?? null,
                 expression: slot?.expression ?? null,
-                dimensions: readPngHeader(absolute),
+                dimensions: await readRasterMetadata(absolute),
                 runtimeUses: ledger?.runtimeHome ?? [],
                 reviewUses: ledger?.reviewHome ?? [],
                 decision: SUPERSEDED_PATHS.has(publicPath) ? 'replace' : 'keep',
@@ -125,7 +128,7 @@ function currentAssetsFor(character) {
                     : slot ? 'retained-review-candidate-not-approved' : 'retained-off-matrix-review-evidence',
                 coverageStatus: slot ? status : 'off-matrix',
             };
-        });
+        }));
 }
 
 function historicalDecision(asset) {
@@ -169,8 +172,8 @@ for (const asset of historicalAssets) {
     for (const character of asset.characters) historicalIdsByCharacter.get(character)?.push(asset.id);
 }
 
-const characters = BATCH_MANIFEST.characters.map(character => {
-    const currentAssets = currentAssetsFor(character);
+const characters = await Promise.all(BATCH_MANIFEST.characters.map(async character => {
+    const currentAssets = await currentAssetsFor(character);
     const currentBySlot = new Map();
     for (const asset of currentAssets.filter(asset => asset.angle && asset.expression)) {
         const key = `${asset.angle}:${asset.expression}`;
@@ -214,7 +217,7 @@ const characters = BATCH_MANIFEST.characters.map(character => {
         missingVariants,
         historicalAssetIds: historicalIdsByCharacter.get(character.id),
     };
-});
+}));
 
 const coverage = characters.reduce((total, character) => ({
     approved: total.approved + character.progress.approved,
@@ -266,7 +269,7 @@ const output = {
         id: 'aakash-neutral-v009-to-illustrated-v010-family',
         character: 'aakash',
         from: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
-        to: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
+        to: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.webp',
         decision: 'delete',
         status: 'Illustrated v010 family bound to runtime; superseded realistic and off-contract variants archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -274,7 +277,7 @@ const output = {
         id: 'onke-generic-v001-to-illustrated-v002-family',
         character: 'angel',
         from: '/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Onke identity-locked v002 family bound to runtime; generic glossy v001 stand-ins archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -282,7 +285,7 @@ const output = {
         id: 'francis-glasses-v001-to-illustrated-v002-family',
         character: 'francis',
         from: '/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Francis identity-locked v002 family bound to runtime; glasses-on v001 stand-ins archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -290,7 +293,7 @@ const output = {
         id: 'robert-elderly-v001-to-illustrated-v002-family',
         character: 'robert',
         from: '/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Robert identity-locked v002 family bound to runtime; elderly round-glasses v001 stand-ins archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -298,7 +301,7 @@ const output = {
         id: 'shin-glasses-free-v001-to-round-glasses-v002-family',
         character: 'shin',
         from: '/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Shin identity-locked v002 family bound to runtime; glasses-free partial v001 stand-ins archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -306,7 +309,7 @@ const output = {
         id: 'ruparna-cropped-v002-to-fullbody-v003-family',
         character: 'ruparna',
         from: '/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png',
-        to: '/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png',
+        to: '/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.webp',
         decision: 'delete',
         status: 'Ruparna identity-locked full-body v003 family bound to runtime; partial v002 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -314,7 +317,7 @@ const output = {
         id: 'stasi-partial-v001-to-illustrated-v002-family',
         character: 'stasi',
         from: '/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Stasi identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -322,7 +325,7 @@ const output = {
         id: 'felix-partial-v001-to-illustrated-v002-family',
         character: 'felix',
         from: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
-        to: '/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Felix identity-locked full-body v002 family bound to runtime; mixed-angle partial v001 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -330,7 +333,7 @@ const output = {
         id: 'shaun-partial-v001-to-illustrated-v002-family',
         character: 'shaun',
         from: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
-        to: '/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png',
+        to: '/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.webp',
         decision: 'delete',
         status: 'Shaun identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
@@ -338,7 +341,7 @@ const output = {
         id: 'rie-neutral-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp',
         decision: 'delete',
         status: 'glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan',
         runtimeReferencesAfterMigration: [],
@@ -346,7 +349,7 @@ const output = {
         id: 'rie-determined-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__determined__left-three-quarter__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.webp',
         decision: 'delete',
         status: 'glasses-primary-bound; deprecated raster removed after zero-runtime-reference scan',
         runtimeReferencesAfterMigration: [],
@@ -354,7 +357,7 @@ const output = {
         id: 'rie-happy-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__happy__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp',
         decision: 'delete',
         status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
         runtimeReferencesAfterMigration: [],
@@ -362,7 +365,7 @@ const output = {
         id: 'rie-encouraging-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__encouraging__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.webp',
         decision: 'delete',
         status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
         runtimeReferencesAfterMigration: [],
@@ -370,7 +373,7 @@ const output = {
         id: 'rie-repair-to-vulnerable-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__repair__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.webp',
         decision: 'delete',
         status: 'deprecated off-matrix repair raster removed; approved compassionate repair performance bound',
         runtimeReferencesAfterMigration: [],
@@ -378,7 +381,7 @@ const output = {
         id: 'rie-sad-vulnerable-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__sad-vulnerable__front-near-front__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.webp',
         decision: 'delete',
         status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
         runtimeReferencesAfterMigration: [],
@@ -386,7 +389,7 @@ const output = {
         id: 'rie-comedic-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__comedic__right-three-quarter__halfbody__v001.png',
-        to: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png',
+        to: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.webp',
         decision: 'delete',
         status: 'deprecated glasses-off raster removed; approved glasses-on performance bound',
         runtimeReferencesAfterMigration: [],
