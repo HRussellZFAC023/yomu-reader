@@ -37,6 +37,7 @@ import type {
     YomitanTermEntry,
 } from './fixtures';
 import { ReaderParser } from '../../../src/reader/lookup/parser';
+import { hasPaintablePitchComponents } from '../../../src/reader/lookup/pitch-components';
 import { noteScannedShadowRoot } from '../../../src/reader/dom/shadow-scan-registry';
 
 registerReaderHelpersCleanup();
@@ -609,6 +610,109 @@ describe('reader helpers', () => {
             expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toContain('--jpdb-reader-pitch-heiban');
         } finally {
             host.remove();
+            app.destroy();
+        }
+    });
+
+    it('recovers exact 申し訳 component pitch while keeping the expression suffix neutral', async () => {
+        const app = new ReaderApp();
+        const expression = testPublicCard({
+            vid: 1612030,
+            sid: 0,
+            spelling: '申し訳ありません',
+            reading: 'もうしわけありません',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: '申[もう]し訳[わけ]ありません',
+            pitchComponents: undefined,
+        });
+        const token = testTokenForCard(expression, '申し訳ありません。');
+        const publicPitch = vi.fn(async (spelling: string, reading: string) => {
+            if (spelling === '申し訳' && reading === 'もうしわけ') return ['LHHHHH'];
+            return [];
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichSubtitleTokensBeforeRender([token]);
+
+            expect(publicPitch).toHaveBeenCalledWith('申し訳ありません', 'もうしわけありません');
+            expect(publicPitch).toHaveBeenCalledWith('申し訳', 'もうしわけ');
+            expect(publicPitch).not.toHaveBeenCalledWith('ありません', 'ありません');
+            expect(expression.pitchAccent).toEqual([]);
+            expect(expression.pitchComponents).toEqual([
+                {
+                    spelling: '申し訳',
+                    reading: 'もうしわけ',
+                    pitchAccent: ['LHHHHH'],
+                    wordWithReading: null,
+                    inferredFromAnnotatedReading: true,
+                },
+                {
+                    spelling: 'ありません',
+                    reading: 'ありません',
+                    pitchAccent: [],
+                    wordWithReading: null,
+                    inferredFromAnnotatedReading: true,
+                },
+            ]);
+            expect(hasPaintablePitchComponents(expression)).toBe(true);
+            expect(token.pitchClass).toBe('');
+
+            publicPitch.mockClear();
+            await internals.enrichSubtitleTokensBeforeRender([token]);
+
+            expect(publicPitch).toHaveBeenCalledWith('申し訳ありません', 'もうしわけありません');
+            expect(publicPitch).not.toHaveBeenCalledWith('申し訳', 'もうしわけ');
+            expect(publicPitch).not.toHaveBeenCalledWith('ありません', 'ありません');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('waits for tokens queued during a completed pitch-drain handoff', async () => {
+        const app = new ReaderApp();
+        const queued = testTokenForCard(testPublicCard({
+            vid: 1268350,
+            sid: 0,
+            spelling: '仕事',
+            reading: 'しごと',
+            pitchAccent: [],
+        }), '仕事');
+        const runPitchEnrichmentQueue = vi.fn(async () => {
+            queued.card.pitchAccent = ['LHH'];
+            queued.pitchClass = 'heiban';
+        });
+        const internals = app as unknown as {
+            pitchEnrichmentDrain?: Promise<void>;
+            drainPitchEnrichmentQueue(): Promise<void>;
+            runPitchEnrichmentQueue(): Promise<void>;
+        };
+        // Model the precise hand-off window: the prior drain has resolved but
+        // its cleanup has not yet cleared the shared promise.
+        internals.pitchEnrichmentDrain = Promise.resolve();
+        internals.runPitchEnrichmentQueue = runPitchEnrichmentQueue;
+
+        try {
+            await internals.drainPitchEnrichmentQueue();
+
+            expect(runPitchEnrichmentQueue).toHaveBeenCalledTimes(1);
+            expect(queued.card.pitchAccent).toEqual(['LHH']);
+            expect(queued.pitchClass).toBe('heiban');
+        } finally {
             app.destroy();
         }
     });

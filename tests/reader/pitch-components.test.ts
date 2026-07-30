@@ -5,6 +5,7 @@ import { renderTokensToHtml } from '../../src/reader/dom';
 import {
     hasPaintablePitchComponents,
     hasResolvedPitchComponents,
+    inferredAnnotatedPitchComponents,
     pitchComponentUnderlineGradient,
     resolvedPitchComponents,
 } from '../../src/reader/lookup/pitch-components';
@@ -32,6 +33,51 @@ function compound(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('inline compound pitch components', () => {
+    it('recovers aligned component geometry from an annotated expression without inventing pitch', () => {
+        const card = compound({
+            spelling: '申し訳ありません',
+            reading: 'もうしわけありません',
+            wordWithReading: '申[もう]し訳[わけ]ありません',
+            pitchComponents: undefined,
+        });
+
+        expect(inferredAnnotatedPitchComponents(card)).toEqual([
+            {
+                spelling: '申し訳',
+                reading: 'もうしわけ',
+                pitchAccent: [],
+                wordWithReading: null,
+                inferredFromAnnotatedReading: true,
+            },
+            {
+                spelling: 'ありません',
+                reading: 'ありません',
+                pitchAccent: [],
+                wordWithReading: null,
+                inferredFromAnnotatedReading: true,
+            },
+        ]);
+        expect(card.pitchAccent).toEqual([]);
+    });
+
+    it('rejects inferred boundaries when the provider reading cannot tile them exactly', () => {
+        expect(inferredAnnotatedPitchComponents(compound({
+            spelling: '申し訳ありません',
+            reading: 'もうしわけございません',
+            wordWithReading: '申[もう]し訳[わけ]ありません',
+            pitchComponents: undefined,
+        }))).toEqual([]);
+    });
+
+    it('refuses broad inferred decompositions that would fan out public lookups', () => {
+        expect(inferredAnnotatedPitchComponents(compound({
+            spelling: '東京大学日本語学校',
+            reading: 'とうきょうだいがくにほんごがっこう',
+            wordWithReading: '東京[とうきょう]大学[だいがく]日本語[にほんご]学校[がっこう]',
+            pitchComponents: undefined,
+        }))).toEqual([]);
+    });
+
     it('keeps aligned component accents separate in a proportional underline gradient', () => {
         const card = compound();
 

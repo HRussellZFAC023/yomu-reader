@@ -130,7 +130,7 @@ import {
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
 import { isTargetLanguageText } from '../lookup/target-text';
-import { hasPaintablePitchComponents, hasResolvedPitchComponents } from '../lookup/pitch-components';
+import { hasPaintablePitchComponents, hasResolvedPitchComponents, inferredAnnotatedPitchComponents } from '../lookup/pitch-components';
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
 import {
@@ -9211,12 +9211,18 @@ export class ReaderApp {
     }
 
     private async drainPitchEnrichmentQueue(): Promise<void> {
-        if (this.pitchEnrichmentDrain) return this.pitchEnrichmentDrain;
-        this.pitchEnrichmentDrain = this.runPitchEnrichmentQueue().finally(() => {
-            this.pitchEnrichmentDrain = undefined;
-            if (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) void this.drainPitchEnrichmentQueue();
-        });
-        return this.pitchEnrichmentDrain;
+        // Chain every caller behind the drain it observed. Returning an
+        // already-resolved drain during its `finally` hand-off let a caller
+        // enqueue new tokens, await the old promise, and bake HTML before the
+        // follow-up drain (started fire-and-forget) enriched those tokens.
+        const previous = this.pitchEnrichmentDrain;
+        const drain = (previous ? previous.catch(() => undefined) : Promise.resolve())
+            .then(() => this.runPitchEnrichmentQueue());
+        this.pitchEnrichmentDrain = drain;
+        void drain.finally(() => {
+            if (this.pitchEnrichmentDrain === drain) this.pitchEnrichmentDrain = undefined;
+        }).catch(() => undefined);
+        return drain;
     }
 
     private async runPitchEnrichmentQueue(): Promise<void> {
@@ -9322,14 +9328,58 @@ export class ReaderApp {
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup'>): Promise<void> {
         if (!this.settings.showPitchAccent) return;
-        if (cardHasContextPitch(card) || hasResolvedPitchComponents(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
-        const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-        if (pitchAccent.length) {
-            card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+        if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
+        const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
+        // Whole-expression evidence always wins. A component accent is never
+        // allowed to stand in for a direct exact spelling+reading contour.
+        if (allowPublicLookup) {
+            const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            if (pitchAccent.length) {
+                card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+                return;
+            }
+        }
+
+        if (card.pitchComponents?.length) {
+            await this.enrichCardPitchComponents(card, card.pitchComponents, allowPublicLookup);
             return;
         }
-        await Promise.all((card.pitchComponents ?? []).map(async component => {
+
+        // Some exact expression records provide excellent bracket-aligned
+        // reading geometry but omit `composedOf` (申し訳ありません is the standing
+        // subtitle example). ICU boundaries may recover the exact substrings;
+        // only components with their own exact pitch evidence are coloured and
+        // every unresolved suffix remains a neutral segment.
+        const inferred = inferredAnnotatedPitchComponents(card);
+        if (!inferred.length) return;
+        await this.enrichCardPitchComponents(card, inferred, allowPublicLookup);
+        if (hasPaintablePitchComponents({ ...card, pitchComponents: inferred })) card.pitchComponents = inferred;
+    }
+
+    private async enrichCardPitchComponents(
+        card: JPDBCard,
+        components: JPDBCard['pitchComponents'],
+        allowPublicLookup: boolean,
+    ): Promise<void> {
+        await Promise.all((components ?? []).map(async component => {
             if (getPitchClass(component.pitchAccent, component.reading || component.spelling)) return;
+            // Inferred kana fragments are neutral geometry, not lexical
+            // candidates: querying せん/を could paint an unrelated homophone.
+            if (component.inferredFromAnnotatedReading
+                && !Array.from(component.spelling).some(isKanjiCharacter)) return;
+            const localPitch = await this.localPitchAccentForCard({
+                ...card,
+                spelling: component.spelling,
+                reading: component.reading,
+                pitchAccent: [],
+                pitchComponents: undefined,
+                wordWithReading: component.wordWithReading,
+            });
+            if (localPitch.length) {
+                component.pitchAccent = mergePitchPatterns(localPitch, component.pitchAccent);
+                return;
+            }
+            if (!allowPublicLookup) return;
             component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
         }));
     }

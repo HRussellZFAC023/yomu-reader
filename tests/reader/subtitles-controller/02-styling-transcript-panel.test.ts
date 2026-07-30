@@ -252,6 +252,24 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
     });
 
+    it('gates compound pitch gradients on the subtitle underline setting independently of page words', () => {
+        const reset = SUBTITLES_YOUTUBE_CSS.match(
+            /:is\(\.jpdb-subtitle-primary,[^}]+data-pitch-components="true"]::after\s*\{[^}]*\}/,
+        )?.[0] ?? '';
+        const enabled = SUBTITLES_YOUTUBE_CSS.match(
+            /\.jpdb-reader-subtitle-underline-pitch\s+:is\(\.jpdb-subtitle-primary,[^}]+data-pitch-components="true"]::after\s*\{[^}]*\}/,
+        )?.[0] ?? '';
+
+        // A page-level pitch setting must not leak the component background
+        // through a status/JPDB subtitle underline.
+        expect(reset).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness)');
+        expect(reset).toContain('background-image: none');
+        // Conversely, subtitle pitch must paint even when ordinary page words
+        // use a different underline source.
+        expect(enabled).toContain('border-block-end: 0');
+        expect(enabled).toContain('var(--jpdb-reader-inline-pitch-gradient)');
+    });
+
     it('renders the primary cue in its own row so the native secondary keeps a reserved bottom slot', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleSecondaryVisible: true });
         try {

@@ -103,6 +103,161 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         expect(parseJapaneseBatch.mock.calls[0]?.[1]).toEqual(AUTHORITATIVE_SUBTITLE_PARSE_OPTIONS);
     });
 
+    it('reserves the initial and immediately upcoming YouTube cues outside the enrichment batch tail', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=priority-next') as unknown as Location,
+        });
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            };
+            const parseJapanese = vi.fn(async (text: string) => [makeSubtitleToken(text)]);
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [makeSubtitleToken(text)]));
+            let releasePriorityEnrichment!: () => void;
+            const priorityEnrichment = new Promise<void>(resolve => {
+                releasePriorityEnrichment = resolve;
+            });
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese,
+                parseJapaneseBatch,
+                beforeRenderTokens: vi.fn(async tokens => {
+                    await priorityEnrichment;
+                    for (const token of tokens) token.card.reading = 'かな';
+                }),
+                onSettingsChange: () => undefined,
+            });
+            const cues = [
+                { start: 0, end: 1, text: '一番', transcriptEligible: true },
+                { start: 1, end: 2, text: '申し訳ありません', transcriptEligible: true },
+                { start: 2, end: 3, text: '三番', transcriptEligible: true },
+            ];
+            const internals = controller as unknown as {
+                cues: typeof cues;
+                currentCue?: typeof cues[number];
+                selectedTrackId: string;
+                warmParseAroundActiveCue: () => void;
+                scheduleTranscriptCacheWarmup: () => void;
+            };
+            internals.cues = cues;
+            internals.currentCue = undefined;
+            internals.selectedTrackId = 'remote-priority-next';
+
+            internals.warmParseAroundActiveCue();
+            internals.scheduleTranscriptCacheWarmup();
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            expect(parseJapanese).toHaveBeenCalledWith('一番', {
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+                skipJpdb: true,
+            });
+            // Neither the overlay batch tail nor the hidden transcript cache
+            // nor the successor may multiply public-detail concurrency while
+            // the active first-paint cue is still enriching.
+            expect(parseJapaneseBatch).not.toHaveBeenCalled();
+
+            releasePriorityEnrichment();
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            expect(parseJapanese).toHaveBeenCalledWith('申し訳ありません', {
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+                skipJpdb: true,
+            });
+            await vi.waitFor(() => expect(parseJapaneseBatch).toHaveBeenCalled());
+            expect(parseJapaneseBatch.mock.calls.map(call => call[0])).toEqual([
+                ['三番'],
+                ['一番申し訳ありません', '一番申し訳ありません三番', '申し訳ありません三番'],
+            ]);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('prewarms the active selected cue before committing its first visible YouTube row', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=first-paint-prewarm') as unknown as Location,
+        });
+        try {
+            let releaseActive!: () => void;
+            const activeGate = new Promise<void>(resolve => {
+                releaseActive = resolve;
+            });
+            const settings = makeSubtitleSettings({
+                apiKey: '',
+                jitenApiKey: '',
+                furiganaMode: 'all' as const,
+                localDictionariesEnabled: false,
+            });
+            const parseJapanese = vi.fn(async (text: string) => {
+                if (text === '先生') await activeGate;
+                return [makeSubtitleToken(text, text === '先生'
+                    ? {
+                        reading: 'せんせい',
+                        pitchClass: 'heiban',
+                        rubies: [{ start: 0, end: 2, length: 2, text: 'せんせい' }],
+                    }
+                    : { pitchClass: 'heiban' })];
+            });
+            const { controller } = createInstalledSubtitleController(settings, { parseJapanese });
+            attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
+            const cues = [
+                { start: 0, end: 4, text: '先生', transcriptEligible: true },
+                { start: 4, end: 8, text: '仕事', transcriptEligible: true },
+            ];
+            const internals = controllerInternals<{
+                cues: typeof cues;
+                currentCue?: typeof cues[number];
+                selectedTrackId: string;
+                selectTrack: (id: string) => Promise<void>;
+                subtitleEl: HTMLElement;
+                tracks: Array<{
+                    id: string;
+                    label: string;
+                    kind: 'file';
+                    cues: typeof cues;
+                    loadingState?: string;
+                }>;
+            }>(controller);
+            internals.tracks = [{ id: 'file-ja', label: 'Japanese', kind: 'file', cues }];
+
+            const selection = internals.selectTrack('file-ja');
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledWith('先生', {
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+                skipJpdb: true,
+            }));
+
+            expect(internals.cues).toEqual([]);
+            expect(internals.currentCue).toBeUndefined();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
+
+            releaseActive();
+            await selection;
+
+            const primary = internals.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+            expect(primary?.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
+            expect(primary?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
+            expect(primary?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せんせい');
+            expect(internals.currentCue?.text).toBe('先生');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('enriches priority YouTube subtitle batches before rendering cached html', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -441,7 +596,11 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 await new Promise(resolve => setTimeout(resolve, 30));
                 return texts.map(text => [makeSubtitleToken(text)]);
             });
-            const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+            const parseJapanese = vi.fn(async (text: string, _options?: { skipJpdb?: boolean }) => {
+                await new Promise(resolve => setTimeout(resolve, 30));
+                return [makeSubtitleToken(text)];
+            });
+            const { controller } = createSubtitleController(settings, { parseJapanese, parseJapaneseBatch });
             installController(controller);
             const video = attachVideo(controller, { currentTime: 0.5 });
             const cues = Array.from({ length: 40 }, (_, index) => ({
@@ -461,7 +620,9 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             internals.cues = cues;
 
             internals.updateFromLoadedCues();
-            await vi.advanceTimersByTimeAsync(50);
+            // Active and successor are deliberately enriched in playback
+            // order so their independent public-detail fan-outs cannot stack.
+            await vi.advanceTimersByTimeAsync(80);
 
             const misses: number[] = [];
             for (let index = 1; index < cues.length; index++) {
@@ -480,7 +641,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             // ...and no cue text is tokenized twice: the provisional result is
             // final, so the transcript-tail warmup must reuse it instead of
             // re-parsing every cue through its non-provisional path.
-            const parsedTexts = parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[]);
+            const parsedTexts = [
+                ...parseJapanese.mock.calls.map(call => call[0] as string),
+                ...parseJapaneseBatch.mock.calls.flatMap(call => call[0] as string[]),
+            ];
             expect(new Set(parsedTexts).size).toBe(parsedTexts.length);
         } finally {
             vi.useRealTimers();

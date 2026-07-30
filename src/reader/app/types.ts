@@ -148,6 +148,10 @@ export interface JPDBPitchComponent {
     reading: string;
     pitchAccent: string[];
     wordWithReading: string | null;
+    // Geometry recovered from an exact bracket reading, not provider-supplied
+    // lexical decomposition. This provenance must survive repeated enrichment
+    // so neutral kana tails never become homophone lookup candidates.
+    inferredFromAnnotatedReading?: true;
 }
 
 export type AnkiCardKind = 'word' | 'kanji' | 'kana' | 'sentence' | 'other';

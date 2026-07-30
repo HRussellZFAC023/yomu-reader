@@ -82,7 +82,7 @@ function headwordFuriganaReading(spelling: string, token: JPDBToken): string {
         : activeLearningTarget().normalizeReading(spelling, token.card.reading).trim();
 }
 
-function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['rubies'] {
+export function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['rubies'] {
     if (!annotated || !annotated.includes('[')) return [];
     const rubies: JPDBToken['rubies'] = [];
     let cursor = 0;
@@ -112,7 +112,7 @@ function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['ru
     return baseText === spelling ? rubies : [];
 }
 
-function readingFromSurfaceRubies(surface: string, rubies: JPDBToken['rubies']): string {
+export function readingFromSurfaceRubies(surface: string, rubies: JPDBToken['rubies']): string {
     let reading = '';
     let offset = 0;
     for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {

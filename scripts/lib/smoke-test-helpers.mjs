@@ -19,6 +19,17 @@ export async function addScriptTagWithCspFallback(page, scriptPath) {
     await addSingleScriptTagWithCspFallback(page, scriptPath);
 }
 
+export async function addUserscriptGraphInitScripts(page, scriptPath) {
+    // Playwright does not guarantee ordering between separately registered
+    // init scripts. A userscript's @require graph does: companions execute in
+    // declaration order before main. Register one concatenated program so
+    // WebKit proves the exact same dependency contract deterministically.
+    const graph = [...localUserscriptCompanionPaths(scriptPath), scriptPath]
+        .map(graphPath => readFileSync(graphPath, 'utf8'))
+        .join('\n;\n');
+    await page.addInitScript({ content: graph });
+}
+
 function localUserscriptCompanionPaths(userscriptPath) {
     const root = path.resolve(path.dirname(userscriptPath), '..');
     return readFileSync(userscriptPath, 'utf8')

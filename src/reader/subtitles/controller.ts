@@ -1,4 +1,5 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
+import { promiseWithTimeout } from '../core/async-utils';
 import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -451,6 +452,11 @@ function frameHasPlayerControls(frame: HTMLElement): boolean {
 // that stepping back always hits the cache.
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
 const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
+// Track selection knows the cue list before it commits the first visible row.
+// Spend a short, bounded budget preparing that active cue so normal startup
+// does not advertise a partially annotated loading mutation. Slow/offline
+// providers still yield to correct subtitle timing after the budget.
+const SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
 const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
 // Delay before a request to fully hide the rail is committed. A genuine idle
 // or chrome-fade persists well past this; a strobing hover-autoplay signal
@@ -497,6 +503,10 @@ const SUBTITLE_TICK_IDLE_MS = 1500;
 // flag instead of paying the full per-tick re-read.
 const SUBTITLE_TICK_FORCED_CUE_REFRESH_MS = 5000;
 const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
+// WebKit/native-fullscreen players can remove one <video> a frame or two
+// before inserting its replacement. Keep the painted cue through that
+// hand-off instead of treating the empty discovery sample as media removal.
+const SUBTITLE_VIDEO_CANDIDATE_LOSS_GRACE_MS = 1800;
 const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
 const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1000;
 const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
@@ -862,6 +872,7 @@ export class SubtitlePlayerController {
     private subtitleControlRail?: SubtitleControlRailBinding;
     private lastPlayerChromeHidden = false;
     private discoverTimer?: number;
+    private videoCandidateLossTimer?: number;
     private tickTimer?: number;
     // Fullscreen top-layer host resolution + reader-root reparenting. Owns the
     // event-driven host-query cache; the controller keeps the fullscreen-state
@@ -1029,6 +1040,7 @@ export class SubtitlePlayerController {
     private lastAppliedPrimaryRowHtml = '';
     private parseWarmupSerial = 0;
     private lastParseWarmupAnchor = -1;
+    private priorityYouTubeCueWarmup: Promise<void> = Promise.resolve();
     private transcriptHydrationCursor = 0;
     private effectiveTranscriptPlacement: ReaderSettings['subtitleTranscriptPlacement'] = 'right';
     private lastAutoCopiedCueSignature = '';
@@ -1295,6 +1307,7 @@ export class SubtitlePlayerController {
         this.subtitleControlRail?.destroy();
         this.subtitleControlRail = undefined;
         this.discoverTimer = clearWindowTimeout(this.discoverTimer);
+        this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
         this.tickTimer = clearWindowTimeout(this.tickTimer);
         this.stopFrameSync();
         this.clearControlsIdleTimer();
@@ -1514,16 +1527,56 @@ export class SubtitlePlayerController {
     private discoverEnabledVideo(): void {
         const candidate = this.discoverVideoCandidate();
         if (!candidate) {
-            if (this.video && !this.isSubtitleVideoCandidate(this.video)) this.clearDiscoveredVideoCandidate();
+            if (this.video) {
+                // A source change is authoritative even if the element is
+                // simultaneously hidden/detached. Never hold an old cue over a
+                // navigation or a same-element src swap for the sake of the
+                // replacement grace.
+                if (this.syncSubtitleSourceContext(this.video)) {
+                    this.clearDiscoveredVideoCandidate();
+                    return;
+                }
+                this.scheduleDiscoveredVideoCandidateClear(this.video);
+                // A fullscreen/native-player hand-off can expose one or more
+                // discovery samples with no document candidate. Keep the last
+                // painted frame and source context during that grace window:
+                // refresh() would align against the detached old element,
+                // mark the root out-of-view, and hide the otherwise intact
+                // annotated row.
+                return;
+            }
             this.syncSubtitleSourceContext(undefined);
             this.refresh();
             return;
         }
-        if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
-        this.syncSubtitleSourceContext(candidate ?? this.video);
+        this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
+        // Resolve identity BEFORE rebinding the element. YouTube and native
+        // fullscreen implementations routinely replace <video> while keeping
+        // the same media source; clearing the current cue in that case made
+        // refresh() remove a fully annotated row for one playback sample.
+        const sourceChanged = this.syncSubtitleSourceContext(candidate ?? this.video);
+        if (candidate && candidate !== this.video) {
+            this.useDiscoveredVideoCandidate(candidate, { preserveTransientSubtitleState: !sourceChanged });
+        }
         this.discoverPageSubtitleTracks();
         void this.discoverYouTubeTracksThrottled(true);
         this.refresh();
+    }
+
+    private scheduleDiscoveredVideoCandidateClear(expected: HTMLVideoElement): void {
+        if (this.videoCandidateLossTimer !== undefined) return;
+        this.videoCandidateLossTimer = window.setTimeout(() => {
+            this.videoCandidateLossTimer = undefined;
+            if (this.destroyed || this.video !== expected) return;
+            const replacement = this.discoverVideoCandidate();
+            if (replacement) {
+                this.discoverEnabledVideo();
+                return;
+            }
+            // The document-level re-query is authoritative. A detached media
+            // element can regain readyState while no longer being a player.
+            this.clearDiscoveredVideoCandidate();
+        }, SUBTITLE_VIDEO_CANDIDATE_LOSS_GRACE_MS);
     }
 
     private discoverVideoCandidate(): HTMLVideoElement | undefined {
@@ -1554,6 +1607,7 @@ export class SubtitlePlayerController {
     }
 
     private clearDiscoveredVideoCandidate(): void {
+        this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
         this.bufferingPlayback = undefined;
         this.video = undefined;
         this.fullscreenHost.invalidateHostCache();
@@ -1570,12 +1624,16 @@ export class SubtitlePlayerController {
         if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
     }
 
-    private useDiscoveredVideoCandidate(candidate: HTMLVideoElement): void {
+    private useDiscoveredVideoCandidate(
+        candidate: HTMLVideoElement,
+        options: { preserveTransientSubtitleState?: boolean } = {},
+    ): void {
         this.bufferingPlayback = undefined;
         this.video = candidate;
         this.fullscreenHost.invalidateHostCache();
         this.markNativeCueListsDirty();
-        this.clearTransientSubtitleState();
+        if (!options.preserveTransientSubtitleState) this.clearTransientSubtitleState();
+        if (options.preserveTransientSubtitleState) this.reconcileReplacementNativeTracks(candidate);
         this.removeStaleNativeTracks(candidate);
         this.attachTextTracks(candidate);
         this.observeVideoLayout(candidate);
@@ -1594,6 +1652,43 @@ export class SubtitlePlayerController {
             const track = (event as TrackEvent).track as TextTrack | null;
             if (track) this.addNativeTrack(track);
         }, this.eventOptions());
+    }
+
+    private reconcileReplacementNativeTracks(video: HTMLVideoElement): void {
+        if (isYouTubePage()) return;
+        const candidates = Array.from(video.textTracks)
+            .filter(track => track !== this.nativeFullscreenCueTrack && track.label !== NATIVE_FULLSCREEN_CUE_TRACK_LABEL);
+        const candidateSet = new Set(candidates);
+        const claimed = new Set<TextTrack>();
+        for (const option of this.tracks) {
+            if (option.kind === 'native' && !option.translatedFromTrackId && option.track && candidateSet.has(option.track)) {
+                claimed.add(option.track);
+            }
+        }
+
+        let reconciled = false;
+        for (const option of this.tracks) {
+            const previous = option.track;
+            if (option.kind !== 'native'
+                || option.translatedFromTrackId
+                || !previous
+                || candidateSet.has(previous)) continue;
+            const replacement = candidates.find(track => !claimed.has(track)
+                && this.nativeTrackMetadataMatches(previous, track));
+            if (!replacement) continue;
+            claimed.add(replacement);
+            option.track = replacement;
+            this.observeNativeTrack(replacement);
+            reconciled = true;
+        }
+        if (reconciled) this.setNativeTrackModes();
+    }
+
+    private nativeTrackMetadataMatches(left: TextTrack, right: TextTrack): boolean {
+        return left.id === right.id
+            && left.kind === right.kind
+            && left.label === right.label
+            && left.language === right.language;
     }
 
     private syncSubtitleSourceContext(video = this.video): boolean {
@@ -1773,7 +1868,7 @@ export class SubtitlePlayerController {
         // assigns the full cue list for the selected/secondary track (the only
         // tracks refreshNativeCueLists maintains), so marking the global flag
         // just made the next tick normalize the same list a second time.
-        track.addEventListener('cuechange', () => this.updateFromNativeTrack(track), this.eventOptions());
+        this.observeNativeTrack(track);
         this.maybeAutoSelectNativeTrack(option);
         if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
         window.setTimeout(() => {
@@ -1782,6 +1877,10 @@ export class SubtitlePlayerController {
             this.syncControls();
         }, 0);
         this.syncControls();
+    }
+
+    private observeNativeTrack(track: TextTrack): void {
+        track.addEventListener('cuechange', () => this.updateFromNativeTrack(track), this.eventOptions());
     }
 
     private discoverPageSubtitleTracks(): void {
@@ -2029,14 +2128,14 @@ export class SubtitlePlayerController {
         this.tick();
     }
 
-    // Frame-synced cue + karaoke sampler. The housekeeping tick (500ms) is too
-    // coarse for cue boundaries — a line could flip up to a tick late, worse at
-    // 1.5-2x playback — so sample once per presented frame while the bound video
-    // plays. Cancelled on pause/seek-away/destroy/hidden so a paused or
-    // backgrounded tab never spins. updateFromLoadedCues no-ops when the active
-    // cue is unchanged, so the steady-state per-frame cost is two bounded cue
-    // searches.
     private startFrameSync(video: HTMLVideoElement): void {
+        // Frame-synced cue + karaoke sampler. The housekeeping tick (500ms) is too
+        // coarse for cue boundaries — a line could flip up to a tick late, worse at
+        // 1.5-2x playback — so sample once per presented frame while the bound video
+        // plays. Cancelled on pause/seek-away/destroy/hidden so a paused or
+        // backgrounded tab never spins. updateFromLoadedCues no-ops when the active
+        // cue is unchanged, so the steady-state per-frame cost is two bounded cue
+        // searches.
         if (this.destroyed || document.hidden || this.bufferingPlayback?.video === video) return;
         this.stopFrameSync();
         this.frameSyncVideo = video;
@@ -2234,6 +2333,12 @@ export class SubtitlePlayerController {
 
     private shouldUpdateFromDomCaptions(): boolean {
         if (!isYouTubePage()) return true;
+        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        // A concrete cue stream is already loading and preparing its first
+        // annotated paint. Letting the current-only DOM fallback render during
+        // this window creates the exact plain -> annotated flash that the
+        // prewarm is intended to avoid.
+        if (selected?.loadingState === 'loading') return false;
         return Boolean(getYouTubeVideoId())
             && isYouTubeOwnedVideoElement(this.video)
             && !this.cues.length
@@ -2283,6 +2388,14 @@ export class SubtitlePlayerController {
 
     private alignToVideo(): void {
         if (!this.root) return;
+        if (this.video && this.videoCandidateLossTimer !== undefined) {
+            // Discovery has already declared the bound element transiently
+            // unavailable. Resize/fullscreen callbacks and the active tick can
+            // still arrive during the grace window; measuring the detached
+            // element here would convert its zero rect into an out-of-view
+            // class and visually erase the held annotated cue.
+            return;
+        }
         if (!this.video) {
             this.pinnedPlayer.reset();
             setClassState(this.root, 'jpdb-subtitle-has-video-frame', false);
@@ -2308,6 +2421,7 @@ export class SubtitlePlayerController {
     // playing; cheaply re-align whenever the video's on-screen box has moved.
     private realignIfVideoMoved(): void {
         if (!this.video || !this.root) return;
+        if (this.videoCandidateLossTimer !== undefined) return;
         const rect = this.videoLayoutRect();
         // Re-align when the video moved (a Shorts swipe reuses the element at the
         // same box, but other layout shifts move it) OR when the overlay's shown
@@ -2319,13 +2433,13 @@ export class SubtitlePlayerController {
         if (shouldShow !== isShowing || videoRectKey(rect) !== this.lastAlignedVideoRectKey) this.scheduleAlignToVideo();
     }
 
-    // Swiping between Shorts reels reuses the same <video> element at the same
-    // position and emits no yt-navigate-finish, so the controller never treats
-    // it as navigation: tracks/overlay stay bound to the previous reel and the
-    // overlay can latch out-of-view until an unrelated DOM mutation (a manual
-    // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
-    // from the tick and run the normal navigation path when it changes.
     private syncShortsReelNavigation(): void {
+        // Swiping between Shorts reels reuses the same <video> element at the same
+        // position and emits no yt-navigate-finish, so the controller never treats
+        // it as navigation: tracks/overlay stay bound to the previous reel and the
+        // overlay can latch out-of-view until an unrelated DOM mutation (a manual
+        // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
+        // from the tick and run the normal navigation path when it changes.
         const pathname = typeof globalThis.location?.pathname === 'string' ? globalThis.location.pathname : '';
         if (!pathname.startsWith('/shorts/')) {
             this.lastShortsNavVideoId = '';
@@ -2400,15 +2514,15 @@ export class SubtitlePlayerController {
             : video.currentTime;
     }
 
-    // Auto-generated YouTube captions and their `&tlang=` translations are
-    // segmented independently, so the primary (JP) cue often begins a beat
-    // after — or falls into a gap relative to — the native (EN) line that's
-    // already active. That left no primary cue at the playhead while a native
-    // cue was active, showing the native line alone (user-reported). When the
-    // direct lookup misses but a native cue is active, surface the primary
-    // aligned to it so the pair appears together. Mirrors
-    // primaryHeldByActiveSecondary for the not-yet-shown direction.
     private findRenderablePrimaryCue(time: number, activeSecondary?: SubtitleCue): SubtitleCue | undefined {
+        // Auto-generated YouTube captions and their `&tlang=` translations are
+        // segmented independently, so the primary (JP) cue often begins a beat
+        // after — or falls into a gap relative to — the native (EN) line that's
+        // already active. That left no primary cue at the playhead while a native
+        // cue was active, showing the native line alone (user-reported). When the
+        // direct lookup misses but a native cue is active, surface the primary
+        // aligned to it so the pair appears together. Mirrors
+        // primaryHeldByActiveSecondary for the not-yet-shown direction.
         const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
         if (direct || !activeSecondary || !this.cues.length) return direct;
         return findAlignedCue(this.cues, activeSecondary);
@@ -2450,13 +2564,13 @@ export class SubtitlePlayerController {
         return false;
     }
 
-    // Auto-generated YouTube captions and their `&tlang=` translations are
-    // normalized independently (text-overlap rolling-cue merge), so the
-    // primary line's cue often ends a beat before its translation's does.
-    // Clearing the primary on its own boundary left the translation showing
-    // alone (user-reported). Hold the primary while the still-active secondary
-    // cue is the one aligned to it, so the pair appears and clears as a unit.
     private primaryHeldByActiveSecondary(time: number): boolean {
+        // Auto-generated YouTube captions and their `&tlang=` translations are
+        // normalized independently (text-overlap rolling-cue merge), so the
+        // primary line's cue often ends a beat before its translation's does.
+        // Clearing the primary on its own boundary left the translation showing
+        // alone (user-reported). Hold the primary while the still-active secondary
+        // cue is the one aligned to it, so the pair appears and clears as a unit.
         if (!this.secondaryTrackId || !this.currentCue || !this.secondaryCues.length) return false;
         const activeSecondary = findActiveSubtitleCue(this.secondaryCues, time);
         return Boolean(activeSecondary && findAlignedCue(this.secondaryCues, this.currentCue) === activeSecondary);
@@ -2669,21 +2783,21 @@ export class SubtitlePlayerController {
         if (changed) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
     }
 
-    // The subtitle body holds two independent rows: the annotated primary line
-    // and the native caption line, which is a real control (tap to hide or
-    // reveal the translation). Writing both as one innerHTML blob meant every
-    // primary change — a new cue, a karaoke tick, a parse landing — also tore
-    // down and rebuilt that button. A browser only delivers click when the
-    // pressed node is still in the document at release, so any tap spanning a
-    // caption change was dropped and had to be repeated (owner-reported on
-    // phones). Each row now reconciles on its own, so a primary render can
-    // never take the native line out from under a finger.
-    //
-    // render() also runs on every cue/time/settings tick; rebuilding identical
-    // DOM each tick wiped the async-applied word-state coloring and caused a
-    // visible rerender flicker plus constant layout work (user-reported), so
-    // both rows keep their applied-state guard.
     private applyPrimaryRow(html: string | null): boolean {
+        // The subtitle body holds two independent rows: the annotated primary line
+        // and the native caption line, which is a real control (tap to hide or
+        // reveal the translation). Writing both as one innerHTML blob meant every
+        // primary change — a new cue, a karaoke tick, a parse landing — also tore
+        // down and rebuilt that button. A browser only delivers click when the
+        // pressed node is still in the document at release, so any tap spanning a
+        // caption change was dropped and had to be repeated (owner-reported on
+        // phones). Each row now reconciles on its own, so a primary render can
+        // never take the native line out from under a finger.
+        //
+        // render() also runs on every cue/time/settings tick; rebuilding identical
+        // DOM each tick wiped the async-applied word-state coloring and caused a
+        // visible rerender flicker plus constant layout work (user-reported), so
+        // both rows keep their applied-state guard.
         const host = this.subtitleEl;
         if (!host) return false;
         const row = host.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
@@ -3334,18 +3448,56 @@ export class SubtitlePlayerController {
         const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
         const serial = ++this.parseWarmupSerial;
         const settings = this.options.getSettings();
-        const texts = this.subtitleWarmupTexts(start, end, settings);
-        if (!texts.length) return;
+        const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings).catch(() => undefined);
+        this.priorityYouTubeCueWarmup = priorityWarmup;
         void (async () => {
-            try {
-                // Warm ahead with enrichment so upcoming overlay cues do not
-                // appear until furigana/pitch-ready HTML is cached.
-                await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
-            } catch {
+            // The ordinary window stays batched for throughput, but its one
+            // flat before-render enrichment promise made an upcoming cue wait
+            // for every later cue's public lookups. Finish the first-paint
+            // lanes before starting that tail so they do not contend in the
+            // shared public vocabulary/pitch queues.
+            await priorityWarmup;
+            if (serial !== this.parseWarmupSerial) return;
+            const texts = this.subtitleWarmupTexts(start, end, settings);
+            if (texts.length) {
+                try {
+                    // Warm ahead with enrichment so upcoming overlay cues do
+                    // not appear until furigana/pitch-ready HTML is cached.
+                    await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
+                } catch {
+                }
             }
             if (serial !== this.parseWarmupSerial) return;
             if (this.currentCue?.text.trim()) this.render();
         })();
+    }
+
+    private async prewarmPriorityYouTubeCues(anchor: number, settings: ReaderSettings): Promise<void> {
+        if (!isYouTubePage() || !this.shouldUseProvisionalSubtitleParse(settings)) return;
+        // Reserve the cue at the playhead and its successor outside the flat
+        // lookahead batch. Enrich them in playback order: independent
+        // Promise.all lanes each carry their own Jiten detail fan-out, which
+        // could multiply endpoint concurrency precisely while first paint is
+        // most latency-sensitive.
+        for (const priorityIndex of [anchor, anchor + 1]) {
+            const text = this.cues[priorityIndex]?.text.trim();
+            if (!text) continue;
+            const key = this.parseCacheKey(text, settings);
+            if (this.isWarmParsedCueKey(key, settings)) continue;
+            const pending = this.pendingParsedCueHtml(key, 'provisional')
+                ?? this.pendingParsedCueHtml(key, 'authoritative');
+            if (pending) {
+                await pending.catch(() => undefined);
+                if (this.isWarmParsedCueKey(key, settings)) continue;
+            }
+            await this.parseCueHtml(text, settings, {
+                enrichBeforeRender: true,
+                requireEnrichedProvisional: true,
+                // A cheap transcript parse may have populated a provisional
+                // tier without running before-render enrichment.
+                refreshProvisional: true,
+            });
+        }
     }
 
     // A seek that lands between cues has no active cue; anchoring the warmup
@@ -3757,14 +3909,14 @@ export class SubtitlePlayerController {
             || this.asbPlayerSubtitleMoveRoots().some(root => root.contains(element)));
     }
 
-    // Every reader-owned surface — the settings dialog, the popover, the
-    // onboarding sheet — paints ABOVE the subtitle layer. A click that lands on
-    // one of them is therefore never page content the subtitle frame is
-    // covering, whatever the geometry says, so the shield must let it through
-    // untouched. Without this the shield's stopPropagation at document capture
-    // kills the dialog's own button listeners: pressing Cancel over a video did
-    // nothing except focus the player, which made the site reveal its controls.
     private isInReaderSurface(element: Element): boolean {
+        // Every reader-owned surface — the settings dialog, the popover, the
+        // onboarding sheet — paints ABOVE the subtitle layer. A click that lands on
+        // one of them is therefore never page content the subtitle frame is
+        // covering, whatever the geometry says, so the shield must let it through
+        // untouched. Without this the shield's stopPropagation at document capture
+        // kills the dialog's own button listeners: pressing Cancel over a video did
+        // nothing except focus the player, which made the site reveal its controls.
         return Boolean(element.closest(READER_ROOT_SELECTOR));
     }
 
@@ -4012,13 +4164,13 @@ export class SubtitlePlayerController {
         this.syncSubtitleDragOffsetStyle();
     }
 
-    // Reproject the remembered nudge (a viewport-height fraction) into pixels
-    // against the current viewport. Runs on first install, on video changes, and
-    // on every viewport/fullscreen change (via syncFullscreenState) so the line
-    // keeps its relative position when the player resizes, rotates, or enters
-    // fullscreen instead of staying frozen at the old pixel magnitude. Skipped
-    // mid-drag so it never fights the gesture the user is performing.
     private restoreSubtitleDragOffset(): void {
+        // Reproject the remembered nudge (a viewport-height fraction) into pixels
+        // against the current viewport. Runs on first install, on video changes, and
+        // on every viewport/fullscreen change (via syncFullscreenState) so the line
+        // keeps its relative position when the player resizes, rotates, or enters
+        // fullscreen instead of staying frozen at the old pixel magnitude. Skipped
+        // mid-drag so it never fights the gesture the user is performing.
         if (this.subtitleDragActive) return;
         this.subtitleDragOffsetYPx = Math.round(this.subtitleDragOffsetFraction * this.subtitleDragViewportHeight());
         this.syncSubtitleDragOffsetStyle();
@@ -4376,15 +4528,15 @@ export class SubtitlePlayerController {
             && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
     }
 
-    // Native player controls must win when a moved/long subtitle crosses them.
-    // The overlay frame is already click-through, but everything in it that a
-    // finger can act on opts back into pointer events: lookup words, and the
-    // native caption line, which is a toggle with a finger-sized box on touch.
-    // Sweep all of them — a control left out of this sweep is an invisible strip
-    // of the overlay stealing taps meant for the seek bar. Mark only boxes that
-    // overlap a small, visible native control; CSS then returns just those to
-    // the player while the rest of the subtitle stays interactive.
     private syncNativePlayerControlHitProtection(): void {
+        // Native player controls must win when a moved/long subtitle crosses them.
+        // The overlay frame is already click-through, but everything in it that a
+        // finger can act on opts back into pointer events: lookup words, and the
+        // native caption line, which is a toggle with a finger-sized box on touch.
+        // Sweep all of them — a control left out of this sweep is an invisible strip
+        // of the overlay stealing taps meant for the seek bar. Mark only boxes that
+        // overlap a small, visible native control; CSS then returns just those to
+        // the player while the rest of the subtitle stays interactive.
         const targets = Array.from(this.root?.querySelectorAll<HTMLElement>(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
         targets.forEach(target => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
         const safeZones = this.nativePlayerControlSafeZones();
@@ -4567,13 +4719,13 @@ export class SubtitlePlayerController {
         document.dispatchEvent(createWindowCustomEvent('yomu-ocr-video-frame-request', { video }));
     }
 
-    // YouTube's #movie_player exposes its player API on the element in the
-    // page world. Routing pause/play/seek through it keeps YT's own state
-    // machine in agreement — a raw currentTime write triggers a re-buffer YT
-    // can bounce, and a raw pause() gets reactively re-played. Feature-detected
-    // so embeds, mobile hosts, isolated-world extension builds, and every
-    // non-YouTube site keep the raw HTMLMediaElement path.
     private youTubePlayerApi(video: HTMLVideoElement): YouTubePlayerApi | null {
+        // YouTube's #movie_player exposes its player API on the element in the
+        // page world. Routing pause/play/seek through it keeps YT's own state
+        // machine in agreement — a raw currentTime write triggers a re-buffer YT
+        // can bounce, and a raw pause() gets reactively re-played. Feature-detected
+        // so embeds, mobile hosts, isolated-world extension builds, and every
+        // non-YouTube site keep the raw HTMLMediaElement path.
         if (!isYouTubePage()) return null;
         const player = document.getElementById('movie_player');
         if (!player?.contains(video)) return null;
@@ -4835,8 +4987,45 @@ export class SubtitlePlayerController {
         if (!loaded) return;
         if (options.auto && this.revertSingleCueAutoSelection('primary', loaded)) return;
         if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
+        if (!await this.prewarmPrimaryTrackFirstPaint(loaded, requestId)) return;
         this.applyPrimaryTrackSelection(loaded);
         this.finishTrackSelection();
+    }
+
+    private async prewarmPrimaryTrackFirstPaint(
+        selection: LoadedSubtitleTrackSelection,
+        requestId: number,
+    ): Promise<boolean> {
+        if (!this.shouldParseSubtitles() || !selection.cues.length) {
+            return this.isTrackSelectionCurrent('primary', requestId, selection.trackId);
+        }
+        const cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
+        const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
+        let activeIndex = cues.findIndex(cue => time >= cue.start && time <= cue.end);
+        if (activeIndex < 0) activeIndex = cues.findIndex(cue => cue.end >= time);
+        const activeText = cues[activeIndex]?.text.trim();
+        if (!activeText) return this.isTrackSelectionCurrent('primary', requestId, selection.trackId);
+
+        const settings = this.options.getSettings();
+        const parse = (text: string): Promise<string> => this.parseCueHtml(text, settings, {
+            enrichBeforeRender: true,
+            requireEnrichedProvisional: true,
+            refreshProvisional: true,
+        });
+        const active = parse(activeText);
+        // The successor starts only after active first paint is ready, keeping
+        // public detail fan-out bounded while still giving natural playback
+        // the full active-cue runway to prepare it.
+        void active.then(() => {
+            const nextText = cues[activeIndex + 1]?.text.trim();
+            if (nextText) return parse(nextText);
+        }).catch(() => undefined);
+        await promiseWithTimeout(
+            active,
+            SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS,
+            'Subtitle first-paint prewarm timed out.',
+        ).catch(() => undefined);
+        return this.isTrackSelectionCurrent('primary', requestId, selection.trackId);
     }
 
     // A track whose entire payload is a single usable line (a one-cue credit,
@@ -5982,21 +6171,21 @@ export class SubtitlePlayerController {
         this.syncControls();
     }
 
-    // Every drawer render re-emits the panel as markup, so a cue advance
-    // destroys and recreates each control in it — including whichever one a
-    // finger is currently on. Measured in Chromium: when the pressed node is
-    // removed before release, a mouse click is dropped outright, and a touch
-    // click is re-hit-tested at release, landing on whatever control the
-    // rebuild moved into that spot (tap "hide the translation", get a seek).
-    // Node identity is not enough to save it: re-attaching the very same
-    // element in the same task still loses the mouse click. So the render waits
-    // for the finger instead.
-    //
-    // The release is the click, not pointerup: a touch click is dispatched
-    // after pointerup — and after a task boundary — so flushing any earlier
-    // still eats the tap. pointercancel (a scroll taking the pointer) and a
-    // safety cap cover taps that never become a click.
     private holdPanelRenderDuringPress(render: () => void): boolean {
+        // Every drawer render re-emits the panel as markup, so a cue advance
+        // destroys and recreates each control in it — including whichever one a
+        // finger is currently on. Measured in Chromium: when the pressed node is
+        // removed before release, a mouse click is dropped outright, and a touch
+        // click is re-hit-tested at release, landing on whatever control the
+        // rebuild moved into that spot (tap "hide the translation", get a seek).
+        // Node identity is not enough to save it: re-attaching the very same
+        // element in the same task still loses the mouse click. So the render waits
+        // for the finger instead.
+        //
+        // The release is the click, not pointerup: a touch click is dispatched
+        // after pointerup — and after a task boundary — so flushing any earlier
+        // still eats the tap. pointercancel (a scroll taking the pointer) and a
+        // safety cap cover taps that never become a click.
         if (!this.panelPressHeld) return false;
         this.heldPanelRender = render;
         return true;
@@ -6576,13 +6765,13 @@ export class SubtitlePlayerController {
         };
     }
 
-    // While auto-following, keep the committed window as long as the active row
-    // stays comfortably inside it: consecutive line advances then reuse the same
-    // window so the panel signature is unchanged and only the cheap active-line
-    // class-swap runs — no full list re-render recreating (and flickering) the
-    // highlighted row. The window only shifts when the active row nears an edge,
-    // or on a user scroll (auto-follow paused), where it tracks scrollTop as before.
     private resolveVirtualWindowBounds(rowCount: number, currentRowIndex: number, scrollTop: number, visibleRows: number): { start: number; end: number } {
+        // While auto-following, keep the committed window as long as the active row
+        // stays comfortably inside it: consecutive line advances then reuse the same
+        // window so the panel signature is unchanged and only the cheap active-line
+        // class-swap runs — no full list re-render recreating (and flickering) the
+        // highlighted row. The window only shifts when the active row nears an edge,
+        // or on a user scroll (auto-follow paused), where it tracks scrollTop as before.
         const prev = this.renderedVirtualWindow;
         const autoFollowing = this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused();
         if (autoFollowing && prev && prev.rowCount === rowCount && prev.end - prev.start === visibleRows
@@ -6864,18 +7053,18 @@ export class SubtitlePlayerController {
         return scroller.dataset.virtualized === 'true';
     }
 
-    // A scroll-driven virtual-window shift, or an append-only cue-list growth,
-    // only needs the rows inside the scroller swapped; the scroller element
-    // itself (and everything else in the panel) is unchanged. Patching its
-    // children in place -- instead of routing through renderTranscriptPanel's
-    // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
-    // so a tablet's in-flight native touch scroll gesture (bound to that node)
-    // survives the update instead of stopping dead, and growth never paints a
-    // spacer-only, whitespace-band frame while the new rows mount.
-    // Only safe when the structure hasn't changed and the row count is equal
-    // or grew (append-only); a shrink or a structure change falls back to a
-    // full render.
     private patchTranscriptVirtualWindow(state: TranscriptPanelRenderState, scroller: HTMLElement): boolean {
+        // A scroll-driven virtual-window shift, or an append-only cue-list growth,
+        // only needs the rows inside the scroller swapped; the scroller element
+        // itself (and everything else in the panel) is unchanged. Patching its
+        // children in place -- instead of routing through renderTranscriptPanel's
+        // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
+        // so a tablet's in-flight native touch scroll gesture (bound to that node)
+        // survives the update instead of stopping dead, and growth never paints a
+        // spacer-only, whitespace-band frame while the new rows mount.
+        // Only safe when the structure hasn't changed and the row count is equal
+        // or grew (append-only); a shrink or a structure change falls back to a
+        // full render.
         if (!state.virtual) return false;
         if (!this.isTranscriptVirtualScroller(scroller)) return false;
         if (state.structureSignature !== this.lastTranscriptStructureSignature) return false;
@@ -7154,15 +7343,15 @@ export class SubtitlePlayerController {
         return 0;
     }
 
-    // A real inter-cue gap must still leave overlay/currentCue blank -- but for
-    // the transcript list only, snapping to "no active row" makes the highlight
-    // vanish and reappear a beat later, and forces a virtual-window recompute
-    // for no reason. Anchor instead on the latest row whose cue has already
-    // started: a seek into a gap lands near the seek destination immediately,
-    // and playback running through a gap keeps the previous row highlighted
-    // until the next cue advances it once. Only while auto-follow is enabled --
-    // with it off the previous "no active row" gap behavior is unchanged.
     private transcriptGapAnchorRowIndex(rows: TranscriptRow[]): number {
+        // A real inter-cue gap must still leave overlay/currentCue blank -- but for
+        // the transcript list only, snapping to "no active row" makes the highlight
+        // vanish and reappear a beat later, and forces a virtual-window recompute
+        // for no reason. Anchor instead on the latest row whose cue has already
+        // started: a seek into a gap lands near the seek destination immediately,
+        // and playback running through a gap keeps the previous row highlighted
+        // until the next cue advances it once. Only while auto-follow is enabled --
+        // with it off the previous "no active row" gap behavior is unchanged.
         if (this.currentCue || !this.video) return -1;
         if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
         const time = this.subtitlePlaybackTime(this.video);
@@ -7306,6 +7495,12 @@ export class SubtitlePlayerController {
     }
 
     private async warmTranscriptParseCache(rows: TranscriptRow[], preferredIndex: number, settings: ReaderSettings, serial: number): Promise<void> {
+        // afterLoadedCueStateChanged schedules overlay and transcript warmup
+        // back-to-back. Without this shared barrier, the hidden transcript
+        // workers can occupy the same public lookup queues while the visible
+        // current/next cue is still baking.
+        await this.awaitLatestPriorityYouTubeCueWarmup();
+        if (serial !== this.transcriptCacheWarmupSerial) return;
         const planned = this.transcriptWarmupPlan(rows, preferredIndex, settings);
         if (!planned.length) return;
 
@@ -7336,6 +7531,14 @@ export class SubtitlePlayerController {
             () => worker(),
         );
         await Promise.all(workers);
+    }
+
+    private async awaitLatestPriorityYouTubeCueWarmup(): Promise<void> {
+        let pending: Promise<void>;
+        do {
+            pending = this.priorityYouTubeCueWarmup;
+            await pending;
+        } while (pending !== this.priorityYouTubeCueWarmup);
     }
 
     private transcriptWarmupParseOptions(totalRows: number): ParseCueHtmlOptions {
@@ -8171,13 +8374,13 @@ export class SubtitlePlayerController {
         return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
     }
 
-    // The side panel normally hangs from the video's top. Once the video scrolls
-    // out of view, that top is off-screen (negative when scrolled up, huge when
-    // below the fold) and the clamp in the layout math then swings the panel's
-    // height from full-height to a bottom-pinned sliver. Return a stable on-screen
-    // anchor while the video is not overlay-visible so the panel keeps a steady
-    // height as you scroll past it (it stays position:fixed on screen regardless).
     private stableTranscriptAnchorTop(referenceVideoRect: DOMRect): number {
+        // The side panel normally hangs from the video's top. Once the video scrolls
+        // out of view, that top is off-screen (negative when scrolled up, huge when
+        // below the fold) and the clamp in the layout math then swings the panel's
+        // height from full-height to a bottom-pinned sliver. Return a stable on-screen
+        // anchor while the video is not overlay-visible so the panel keeps a steady
+        // height as you scroll past it (it stays position:fixed on screen regardless).
         const liveTop = this.transcriptAnchorRect().top;
         if (this.isTranscriptAnchorVideoVisible(referenceVideoRect)) return liveTop;
         return TRANSCRIPT_PANEL_MARGIN;
