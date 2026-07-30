@@ -69,12 +69,35 @@ for (const result of results.slice(0, 25)) {
     console.log(`${String(result.complexity).padStart(3)}  ${path.relative(ROOT, result.file)}:${result.line}  ${result.name}`);
 }
 
+// A ratchet, not a wish. At the threshold of 30 this exited 1 with 51 offenders
+// and a worst case of 112, so `npm run qa` — advertised in README.md and named in
+// AGENTS.md — could not pass, no workflow ran it, and nothing had held the line
+// for a long time. A gate that always fails is read as noise and stops being a
+// gate at all.
+//
+// So existing debt is baselined and only GROWTH fails: no new function over the
+// threshold, and no function worse than today's worst. Both numbers are measured,
+// and both may only be lowered. Lower them whenever a refactor earns it.
+const BASELINE_OFFENDERS = Number(process.env.YOMU_COMPLEXITY_BASELINE_COUNT || 51);
+const BASELINE_WORST = Number(process.env.YOMU_COMPLEXITY_BASELINE_WORST || 112);
+const worst = offenders.length ? Math.max(...offenders.map(result => result.complexity)) : 0;
+
 if (offenders.length) {
-    console.error('\nFunctions over threshold:');
+    console.error(`\nFunctions over threshold (${offenders.length}, baseline ${BASELINE_OFFENDERS}; worst ${worst}, baseline ${BASELINE_WORST}):`);
     for (const result of offenders) {
         console.error(`${result.complexity} > ${THRESHOLD}  ${path.relative(ROOT, result.file)}:${result.line}  ${result.name}`);
     }
+}
+
+if (offenders.length > BASELINE_OFFENDERS) {
+    console.error(`\nFAIL: ${offenders.length} functions over ${THRESHOLD}, up from the ${BASELINE_OFFENDERS} baselined. Simplify the new one rather than raising the baseline.`);
     process.exitCode = 1;
+} else if (worst > BASELINE_WORST) {
+    console.error(`\nFAIL: worst complexity ${worst} exceeds the ${BASELINE_WORST} baselined.`);
+    process.exitCode = 1;
+} else if (offenders.length < BASELINE_OFFENDERS || worst < BASELINE_WORST) {
+    // Say so loudly: an unlowered baseline is how a ratchet quietly stops ratcheting.
+    console.log(`\nBaseline can be tightened: ${offenders.length} offenders (baseline ${BASELINE_OFFENDERS}), worst ${worst} (baseline ${BASELINE_WORST}). Lower them in this file.`);
 }
 
 async function listTypeScriptFiles(dir) {

@@ -817,7 +817,12 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **A claim on a live page that is not true**
 
-- [ ] **A35.5 — CRITICAL: the homepage hero names nine study targets; the reader permits one, and A24.5
+- [x] **A35.5 — FIXED and structurally prevented (v1.8.38).** `heroStudyLanguages()` reads the shipped
+      `term-lookup` capability, and `tests/reader/docs-published-pages.test.ts:185` asserts the homepage
+      rotator is EXACTLY that set — so the claim is now derived from what the lookup can do rather than from
+      the dictionary roster, and a marketing claim cannot outrun the product again. The lookup itself was
+      opened in the same release (`JAPANESE_RUN_RE` deleted; ja/ko/es/ar/el each open a popover on raw
+      Wikipedia headings). Original finding: **the homepage hero names nine study targets; the reader permits one, and A24.5
       already ruled this claim out.** `docs/index.md:14` ships
       `<h1>A complete system for learning <span class="yomu-language-rotator" aria-label="Japanese">` whose
       cycle is Japanese, Chinese, Cantonese, Korean, Spanish, French, German, Russian, Vietnamese. The
@@ -834,7 +839,9 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       claim is also overstated), or hold the hero to Japanese until the target seam opens. Add the hero
       claim to the published-pages audit so the gate can catch a marketing claim the product cannot meet.
       This is not U61/T4, which record the engineering gap; the public claim is what is unwritten.
-- [ ] **A35.6 — HIGH: "Yomu ships definitions in 32 languages" is wrong for 23 of the 32.**
+- [x] **A35.6 — FIXED (`8dc53355c`).** `docs/features.md:10` now reads "Yomu ships definitions in 9
+      languages." — the measured count, matching the nine shelves that actually carry entries in their own
+      language. Original finding: **"Yomu ships definitions in 32 languages" is wrong for 23 of the 32.**
       `docs/features.md:17` reads "**The meaning**, in your language. Yomu ships definitions in 32
       languages." Measured over `config/dictionaries/published/v1/recommendations/*.json` (32 shelves, all
       `XX-ja`, so Japanese is the only target with a shelf), counting entries whose `definitionLanguage`
@@ -876,7 +883,15 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       and add a link check over `youtube-channel-recommendations.ts` (101 handles) plus the outbound links
       in `docs/**/*.md` so the next dead channel does not ship silently. The generic fix is the check; both
       lists are hand-maintained today with nothing that curls them.
-- [ ] **A35.8 — the homepage tells phone users it runs in the browser they already have, and the iOS
+- [x] **A35.8 — RESOLVED by the homepage rewrite. The false sentence ("On a phone it runs in the browser
+      you already have") no longer exists: the 56% copy cut removed it, and `grep -niE
+      'phone|browser you already|safari|android' docs/index.md` now returns only the honest
+      "Free, on your computer and your phone." The iOS route stays discoverable through the failure path a
+      manager-less tap actually produces — the install note links to the manager instructions
+      (`/learn/week-one#install-yomu`) — and the full six-step iOS walkthrough lives in the learning path.
+      Deliberately NOT re-adding a device sentence: the owner's standing direction is a promise over an SKU
+      list, and less copy on this page. Original finding: **the homepage tells phone users it runs in the
+      browser they already have, and the iOS
       caveat it used to carry is gone.** `docs/index.md:69` reads "On a phone it runs in the browser you
       already have." For iOS that is wrong: `docs/getting-started.md:29-39` says Safari has no store
       version, Yomu arrives as a userscript, and lists six steps starting with installing the Userscripts
@@ -1199,7 +1214,17 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       of the two 10k files, carve out two or three coherent modules by the verb groups above, and add a
       file-length ceiling to the hygiene check with the current worst files recorded as a shrinking
       baseline.
-- [ ] **A35.24 — the documented quality command cannot pass, and the dead-code suppression list has
+- [x] **A35.24 — PARTLY FIXED: the complexity gate is real now. Measured before: exit 1, 51 functions over
+      the threshold of 30, worst 112, and no workflow ran it while README.md advertised `npm run qa` and
+      AGENTS.md named it. A gate that always fails is read as noise and stops being a gate, so existing debt
+      is baselined and only GROWTH fails — no new function over 30, and nothing worse than today's worst.
+      Both numbers are measured, may only be lowered, and the script says so out loud when a refactor earns
+      a tighter baseline (an unlowered baseline is how a ratchet quietly stops ratcheting). Verified: exit 0
+      at the baseline, exit 1 when the baseline is nudged to 50. It now runs as its own `complexity-ratchet`
+      stage in `check:release`, because a gate nothing invokes is not a gate. **Still open in this ticket:**
+      the dead-code suppression list has rotted, and `qa-audit.mjs` / `docs-a11y-audit.mjs` remain
+      unexercised by CI. Original finding: **the documented quality command cannot pass, and the dead-code
+      suppression list has
       rotted.** Two halves of the same problem: gates that read as if they hold.
       - `package.json:129` `qa` = `npm run check && npm run smoke:p0 && node scripts/qa-audit.mjs && node
         scripts/docs-a11y-audit.mjs && node scripts/complexity-audit.mjs`. Running the last stage alone at
