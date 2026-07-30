@@ -4,9 +4,10 @@ This Worker streams immutable, SHA-256-addressed Yomitan archives and the
 versioned Slice 1 catalogue from the `yomu-dictionaries` R2 binding.
 
 Production is served from `https://dictionaries.yomureader.com`. The frozen
-2026-07-23 release contains 186 catalogue entries, 167 unique objects,
-6,127,919,560 unique bytes, and 32 ready learner-language recommendation
-manifests. `config/dictionaries/published/v1/` is the tracked runtime snapshot;
+2026-07-23 release contains 1,637 catalogue entries, 1,626 published entries,
+1,607 unique objects, 7,671,073,449 unique bytes, and 1,056 ready
+learner-target recommendation manifests (32 learner languages × 33 study
+targets). `config/dictionaries/published/v1/` is the tracked runtime snapshot;
 `config/dictionaries/manifests/v1/` remains the pre-promotion acquisition plan.
 
 The repository does not create, deploy, or mutate Cloudflare resources during
@@ -42,7 +43,7 @@ and always removes that temporary Worker after the upload.
 
 - `GET|HEAD /v1/catalog.json`
 - `GET|HEAD /v1/languages.json`
-- `GET|HEAD /v1/recommendations/<learner>-ja.json`
+- `GET|HEAD /v1/recommendations/<learner>-<target>.json`
 - `GET|HEAD /objects/sha256/<digest>.zip`
 - `GET|HEAD /healthz`
 

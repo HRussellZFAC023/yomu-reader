@@ -1,6 +1,10 @@
 import { open, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {
+  expectedRecommendationFilenames,
+  recommendationTargetLanguages,
+} from './recommendation-pairs.mjs';
 
 const DEFAULT_BASE_URL = 'https://dictionaries.yomureader.com';
 const SAMPLE_BYTES = 128;
@@ -13,13 +17,22 @@ export async function verifyLiveDictionaryRelease({
 } = {}) {
   const releaseV1 = resolve(releaseRoot, 'v1');
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  const languages = JSON.parse(await readFile(resolve(releaseV1, 'languages.json'), 'utf8'));
+  const learnerLanguages = languages.languages.map(language => language.tag);
   const manifestPaths = [
     ['v1/catalog.json', resolve(releaseV1, 'catalog.json')],
     ['v1/languages.json', resolve(releaseV1, 'languages.json')],
   ];
   const recommendationNames = (await readdir(resolve(releaseV1, 'recommendations')))
-    .filter(name => name.endsWith('-ja.json'))
+    .filter(name => name.endsWith('.json'))
     .sort();
+  const expectedNames = expectedRecommendationFilenames(learnerLanguages).sort();
+  if (
+    recommendationNames.length !== expectedNames.length
+    || recommendationNames.some((name, index) => name !== expectedNames[index])
+  ) {
+    throw new Error(`Local release does not contain the complete ${expectedNames.length}-manifest learner-target matrix.`);
+  }
   for (const name of recommendationNames) {
     manifestPaths.push([
       `v1/recommendations/${name}`,
@@ -93,7 +106,12 @@ export async function verifyLiveDictionaryRelease({
   });
   if (!health.ok) throw new Error(`Dictionary health endpoint returned HTTP ${health.status}.`);
   const healthPayload = await health.json();
-  if (healthPayload?.status !== 'ok' || healthPayload?.learnerLanguageCount !== 32) {
+  if (
+    healthPayload?.status !== 'ok'
+    || healthPayload?.learnerLanguageCount !== 32
+    || healthPayload?.targetLanguageCount !== recommendationTargetLanguages(learnerLanguages).length
+    || healthPayload?.recommendationManifestCount !== expectedNames.length
+  ) {
     throw new Error('Dictionary health payload does not describe the Slice 1 service.');
   }
 

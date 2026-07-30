@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { installOfflineParsingDictionaries } from '../../src/reader/dictionaries/offline-setup';
 import {
     findRecommendedDictionary,
+    recommendedDictionariesForLanguageProfile,
     recommendedDictionariesForLearnerLanguage,
 } from '../../src/reader/dictionaries/recommended';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -18,9 +19,12 @@ const ENGLISH_STARTER = [
     ...preselected('en'),
     findRecommendedDictionary('kanjium-pitch')!,
 ];
+const ENGLISH_SPANISH_STARTER = recommendedDictionariesForLanguageProfile('en', 'es')
+    .filter(dictionary => dictionary.selectedByDefault !== false);
 const STARTER_BY_URL = new Map(
     [
         ...ENGLISH_STARTER,
+        ...ENGLISH_SPANISH_STARTER,
         ...recommendedDictionariesForLearnerLanguage('de'),
     ].map(dictionary => [dictionary.downloadUrl!, dictionary]),
 );
@@ -194,6 +198,34 @@ describe('offline dictionary setup', () => {
         expect(koreanUrls.every(url => url?.startsWith('https://dictionaries.yomureader.com/objects/sha256/')))
             .toBe(true);
         expect(harness.importFromUrl.mock.calls.at(-1)?.[0]).toBe(KANJIUM_URL);
+    });
+
+    it('installs Spanish-headword starters and never substitutes Japanese dictionaries', async () => {
+        const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            languageProfiles: [{
+                ...profile,
+                outputLanguage: 'en',
+                learnerLanguage: 'en',
+                targetLanguage: 'es',
+            }],
+            localDictionariesEnabled: false,
+        };
+        const harness = setupHarness({}, settings);
+
+        const result = await harness.run();
+
+        expect(harness.importFromUrl.mock.calls.map(([url]) => url)).toEqual(
+            ENGLISH_SPANISH_STARTER.map(dictionary => dictionary.downloadUrl),
+        );
+        expect(ENGLISH_SPANISH_STARTER.map(dictionary => dictionary.catalogDictionaryId)).toEqual([
+            'wty-es-en',
+            'wty-es-en-ipa',
+        ]);
+        expect(ENGLISH_SPANISH_STARTER.every(dictionary => dictionary.headwordLanguage === 'es')).toBe(true);
+        expect(harness.importFromUrl.mock.calls.some(([url]) => url === KANJIUM_URL)).toBe(false);
+        expect(result.failed).toEqual([]);
     });
 
     it('captures imported names only into the active language profile', async () => {

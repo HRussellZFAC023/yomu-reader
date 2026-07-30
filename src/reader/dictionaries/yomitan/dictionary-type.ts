@@ -24,16 +24,23 @@ export function isEntryStoreName(value: string): value is EntryStoreName {
     return value === 'terms' || value === 'kanji' || value === 'termMeta' || value === 'kanjiMeta';
 }
 
-export function dictionaryCountsFromSummary(summary: Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>): Record<string, number> {
+export function dictionaryCountsFromSummary(
+    summary: Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>,
+    ipa: number,
+): Record<string, number> {
     return {
         terms: summary.terms,
         kanji: summary.kanji,
         termMeta: summary.termMeta,
         kanjiMeta: summary.kanjiMeta,
+        ipa,
     };
 }
 
 export function dictionaryTypeFromCounts(counts: Record<string, unknown> = {}): YomitanDictionaryInfo['type'] {
+    if (!counts.terms && counts.termMeta && counts.termMeta === counts.ipa) {
+        return 'pronunciation';
+    }
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? 'terms';
 }
 
@@ -70,7 +77,7 @@ export function readerExportDictionaryInfo(
     dictionaryTypes: Record<string, YomitanDictionaryInfo['type']>,
 ): YomitanDictionaryInfo[] {
     return json.dictionaries?.length
-        ? json.dictionaries.map(info => ({ ...info, type: info.type ?? dictionaryTypes[info.title] }))
+        ? json.dictionaries.map(info => ({ ...info, type: dictionaryTypes[info.title] ?? info.type }))
         : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
 }
 
@@ -106,10 +113,15 @@ export function dictionaryTypesFromReaderExport(json: ReaderDictionaryExport): R
     ]);
 }
 
-function addDictionaryTypeCounts(counts: Map<string, Record<string, number>>, entries: Array<{ dictionary: string }>, store: EntryStoreName): void {
+function addDictionaryTypeCounts(
+    counts: Map<string, Record<string, number>>,
+    entries: Array<{ dictionary: string; mode?: string }>,
+    store: EntryStoreName,
+): void {
     for (const entry of entries) {
-        const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0, ipa: 0 };
         item[store]++;
+        if (store === 'termMeta' && entry.mode === 'ipa') item.ipa++;
         counts.set(entry.dictionary, item);
     }
 }
@@ -118,7 +130,9 @@ function configuredReaderDictionaryTypes(json: ReaderDictionaryExport): Array<re
     return (json.dictionaries ?? []).map(info => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)] as const);
 }
 
-function observedReaderDictionaryTypes(counts: Map<string, Record<string, number>>): Array<readonly [string, YomitanDictionaryInfo['type']]> {
+function observedReaderDictionaryTypes(
+    counts: Map<string, Record<string, number>>,
+): Array<readonly [string, YomitanDictionaryInfo['type']]> {
     return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)] as const);
 }
 

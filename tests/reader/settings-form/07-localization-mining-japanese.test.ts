@@ -329,8 +329,10 @@ describe('settings form localization', () => {
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
         expect(saved.youtubeImmersionEnabled).toBe(false);
+        expect(saved.youtubeImmersionEnabledChosen).toBe(true);
         expect(saved.preferJapaneseSiteLanguage).toBe(false);
         expect(saved.youtubeShowChannelRecommendations).toBe(false);
+        expect(saved.youtubeShowChannelRecommendationsChosen).toBe(true);
         expect(saved.youtubeShowFilterNotice).toBe(false);
         expect(saved.shortcuts.toggleYoutubeImmersion).toBe('Ctrl+Y');
     });
@@ -353,7 +355,7 @@ describe('settings form localization', () => {
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
         expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効');
-        expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('サイトの言語と地域を日本優先にする');
+        expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版のサイトを開く');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
         expect(labelForControl(form, 'popupFontFamily')).toContain('ポップアップの日本語フォント');

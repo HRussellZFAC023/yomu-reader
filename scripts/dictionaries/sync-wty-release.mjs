@@ -8,6 +8,7 @@ import {
   readJson,
 } from './lib.mjs';
 import { defaultWtySnapshotPath } from './wty-release.mjs';
+import { generateRecommendationMatrix } from './recommendation-pairs.mjs';
 
 export function wtyAcquisitionSource(snapshot, artifact) {
   return {
@@ -182,6 +183,13 @@ async function main() {
     recommendation.catalogRevision = merged.catalog.revision;
     await writeJson(path, recommendation);
   }
+  await generateRecommendationMatrix({
+    catalog: merged.catalog,
+    learnerLanguages: merged.languages.languages.map(language => language.tag),
+    japaneseSourceDirectory: recommendationDirectory,
+    outputDirectory: recommendationDirectory,
+    write: true,
+  });
 }
 
 async function writeJson(path, value) {

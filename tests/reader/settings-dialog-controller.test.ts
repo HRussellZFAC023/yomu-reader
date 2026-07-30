@@ -1915,6 +1915,36 @@ describe('settings dialog dictionary imports', () => {
         expect(summary).toHaveBeenCalled();
     });
 
+    it('refreshes recommendations immediately for an unsaved target change', async () => {
+        const summary = vi.fn().mockResolvedValue({
+            dictionaries: [],
+            terms: 0,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+        const { form } = createSettingsDialog({
+            dictionaries: {
+                summary,
+                importFromUrl: vi.fn(),
+            },
+        });
+
+        const targetLanguage = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        targetLanguage.value = 'es';
+        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+
+        await waitForCondition(() =>
+            form.querySelector('[data-catalog-recommendation-target="es"]') !== null);
+
+        expect(form.querySelector('[data-catalog-recommendation="wty-es-en"]')?.getAttribute('data-headword-language'))
+            .toBe('es');
+        expect(form.querySelector('[data-catalog-recommendation="wty-es-en-ipa"]')?.getAttribute('data-headword-language'))
+            .toBe('es');
+        expect(form.querySelector('[data-dictionary-id="jitendex"]')).toBeNull();
+        expect(summary).toHaveBeenCalled();
+    });
+
     it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {
         const firstImport = deferred<ImportSummary>();
         const secondImport = deferred<ImportSummary>();

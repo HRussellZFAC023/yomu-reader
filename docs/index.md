@@ -11,7 +11,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 <section class="yomu-fold" aria-labelledby="yomu-home-title">
   <div class="yomu-fold-main">
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
-    <h1 class="yomu-fold-h1" id="yomu-home-title">A complete system for learning <YomuLanguageRotator /></h1>
+    <h1 class="yomu-fold-h1" id="yomu-home-title" data-yomu-study-target-claim="reading-only">Read in <YomuLanguageRotator /> Look up a word.</h1>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a><svg class="yomu-fold-arrow" viewBox="0 0 72 48" aria-hidden="true" focusable="false"><path d="M4 6 C 28 7, 47 19, 58 37" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M48 31 L 59 40 L 62 26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>

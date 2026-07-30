@@ -7,6 +7,19 @@
 - Subtitle tracks now prepare the active line while its successor starts concurrently, keep the last fully annotated row visible until the next is ready, and preserve that row through fullscreen video hand-offs. This removes the plain/loading flash and disappear/reappear frame around cue and fullscreen transitions.
 - Compounds without a defensible whole-expression pitch can now show exact pitch evidence for their aligned components while unresolved parts stay neutral. Subtitle component underlines also follow the subtitle pitch setting independently of page-word underline settings.
 
+## [1.8.53] - 2026-07-30
+
+### Added
+
+- First-run setup now lets you choose the language you are reading. Japanese is labelled Full Yomu support; the other 32 targets are labelled Reading and lookup, and the offline starter follows that choice.
+
+### Fixed
+
+- Browser text-to-speech now selects a voice that matches the study language. Russian uses a Russian voice when installed, same-language regional voices are next, and a non-Japanese utterance no longer falls back to a Japanese voice.
+- Japanese site preference now runs only for a Japanese study target and no longer changes timezone or geolocation. It still opens Japanese versions of supported sites and supplies Japanese locale hints without rewriting the browser's physical location.
+- Japanese YouTube filtering and channel suggestions now stay inactive for other study languages until you turn them on. Switching to Russian leaves Russian videos visible, and changing language no longer rewrites your saved choice.
+- Dictionary recommendations now follow both the reading language and the definition language. An English-speaking learner reading Spanish gets Spanish-headword terms with English definitions plus Spanish IPA, and IPA dictionaries appear as pronunciation sources in lookups.
+
 ## [1.8.52] - 2026-07-30
 
 ### Fixed

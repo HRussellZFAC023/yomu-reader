@@ -9,6 +9,12 @@ import {
 } from './lib.mjs';
 import { SLICE1_LANGUAGES } from './build-frozen-manifests.mjs';
 import { assertDictionaryCoverage } from './coverage.mjs';
+import {
+  DEFAULT_RECOMMENDATION_TARGET_LANGUAGE,
+  expectedRecommendationFilenames,
+  parseRecommendationFilename,
+  recommendationTargetLanguages,
+} from './recommendation-pairs.mjs';
 
 export async function validateDictionaryManifests({
   manifestRoot = defaultManifestRoot,
@@ -53,24 +59,51 @@ export async function validateDictionaryManifests({
     }
   }
   const recommendationDirectory = resolve(manifestRoot, 'recommendations');
-  const files = (await readdir(recommendationDirectory)).filter(name => name.endsWith('-ja.json')).sort();
-  assert(files.length === 32, `expected 32 recommendation manifests, found ${files.length}`);
+  const files = (await readdir(recommendationDirectory)).filter(name => name.endsWith('.json')).sort();
+  const expectedFiles = expectedRecommendationFilenames(expectedTags).sort();
+  assert(
+    JSON.stringify(files) === JSON.stringify(expectedFiles),
+    `expected the complete ${expectedFiles.length}-manifest learner-target matrix, found ${files.length}`,
+  );
   const catalogIdSet = new Set(catalogIds);
-  for (const tag of expectedTags) {
-    const filename = `${tag}-ja.json`;
-    assert(files.includes(filename), `missing recommendation manifest ${filename}`);
+  const catalogById = new Map(catalog.entries.map(entry => [entry.id, entry]));
+  for (const filename of files) {
+    const pair = parseRecommendationFilename(filename, expectedTags);
+    assert(pair, `invalid recommendation manifest filename ${filename}`);
     const recommendation = await readJson(resolve(recommendationDirectory, filename));
     assert(recommendation.schemaVersion === 1, `${filename} schemaVersion must equal 1`);
-    assert(recommendation.learnerLanguage === tag, `${filename} learnerLanguage must equal ${tag}`);
-    assert(recommendation.targetLanguage === 'ja', `${filename} targetLanguage must equal ja`);
+    assert(
+      recommendation.learnerLanguage === pair.learnerLanguage,
+      `${filename} learnerLanguage must equal ${pair.learnerLanguage}`,
+    );
+    assert(
+      recommendation.targetLanguage === pair.targetLanguage,
+      `${filename} targetLanguage must equal ${pair.targetLanguage}`,
+    );
     assert(recommendation.catalogRevision === catalog.revision, `${filename} catalogRevision must match the catalog`);
     assert(recommendation.strategy === 'native-first', `${filename} must use native-first strategy`);
     assertUnique(recommendation.dictionaries.map(item => item.dictionaryId), `${filename} dictionary id`);
     let lastPriority = -1;
     for (const item of recommendation.dictionaries) {
       assert(catalogIdSet.has(item.dictionaryId), `${filename} references unknown dictionary ${item.dictionaryId}`);
+      const entry = catalogById.get(item.dictionaryId);
+      assert(
+        entry.headwordLanguages?.includes(pair.targetLanguage),
+        `${filename} references ${item.dictionaryId}, which does not cover ${pair.targetLanguage} headwords`,
+      );
       assert(item.priority >= lastPriority, `${filename} recommendations must be ordered by priority`);
       lastPriority = item.priority;
+    }
+    if (pair.targetLanguage !== DEFAULT_RECOMMENDATION_TARGET_LANGUAGE) {
+      const terms = recommendation.dictionaries.filter(item =>
+        item.role === 'primary-terms' || item.role === 'fallback-terms');
+      const pronunciation = recommendation.dictionaries.filter(item => item.role === 'pronunciation');
+      assert(terms.length === 1, `${filename} must select exactly one target-language terms dictionary`);
+      assert(pronunciation.length <= 1, `${filename} must select at most one target-language pronunciation dictionary`);
+      assert(terms[0].priority === 10, `${filename} terms priority must equal 10`);
+      if (pronunciation.length) {
+        assert(pronunciation[0].priority === 20, `${filename} pronunciation priority must equal 20`);
+      }
     }
     if (recommendation.readiness === 'ready') {
       assert(recommendation.blockers.length === 0, `${filename} is ready but still has blockers`);
@@ -85,6 +118,7 @@ export async function validateDictionaryManifests({
   return {
     revision: catalog.revision,
     languages: actualTags.length,
+    targets: recommendationTargetLanguages(expectedTags).length,
     dictionaries: catalog.entries.length,
     recommendations: files.length,
     publishedObjects: catalog.entries.filter(entry => entry.distribution?.state === 'published').length,

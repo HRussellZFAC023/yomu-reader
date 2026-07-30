@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "tr",
+  "targetLanguage": "th",
+  "strategy": "native-first",
+  "readiness": "blocked",
+  "blockers": [
+    "dictionary-objects-not-yet-mirrored"
+  ],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-th-tr",
+      "role": "primary-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "tr",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "wty-th-tr-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "tr",
+      "translationMode": "off"
+    }
+  ]
+}

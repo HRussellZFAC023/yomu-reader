@@ -14,6 +14,10 @@ import {
   sha256File,
 } from './lib.mjs';
 import { assertPublishedObjectsResolvable } from './coverage.mjs';
+import {
+  expectedRecommendationFilenames,
+  parseRecommendationFilename,
+} from './recommendation-pairs.mjs';
 
 const execFile = promisify(execFileCallback);
 const WORKER_CONFIG = 'workers/yomu-dictionaries/wrangler.jsonc';
@@ -51,7 +55,7 @@ export async function buildUploadPlan({
     manifestUpload(bucket, 'v1/languages.json', resolve(releaseV1, 'languages.json')),
   ];
   const recommendationFiles = (await readdir(resolve(releaseV1, 'recommendations')))
-    .filter(name => name.endsWith('-ja.json'))
+    .filter(name => name.endsWith('.json'))
     .sort();
   await assertPublishableManifestSet(releaseV1, catalog, languages, recommendationFiles);
   if (releaseV1 !== publishedManifestRoot) {
@@ -127,8 +131,15 @@ async function assertPublishableManifestSet(root, catalog, languages, recommenda
   if (languages.count !== 32 || languages.languages?.length !== 32) {
     throw new Error('Dictionary upload requires the exact 32-language Slice 1 manifest.');
   }
-  if (recommendationFiles.length !== 32) {
-    throw new Error(`Dictionary upload requires 32 recommendation manifests, found ${recommendationFiles.length}.`);
+  const learnerLanguages = languages.languages.map(language => language.tag);
+  const expectedFiles = expectedRecommendationFilenames(learnerLanguages).sort();
+  if (
+    recommendationFiles.length !== expectedFiles.length
+    || recommendationFiles.some((filename, index) => filename !== expectedFiles[index])
+  ) {
+    throw new Error(
+      `Dictionary upload requires the complete ${expectedFiles.length}-manifest learner-target matrix, found ${recommendationFiles.length}.`,
+    );
   }
   const unknownState = catalog.entries.filter(entry => !DISTRIBUTION_STATES.has(entry.distribution?.state));
   if (unknownState.length) {
@@ -143,8 +154,17 @@ async function assertPublishableManifestSet(root, catalog, languages, recommenda
     throw new Error(`Dictionary upload refuses ${withoutObject.length} published entries with no object: ${withoutObject.map(entry => entry.id).sort().join(', ')}.`);
   }
   const publishedIds = new Set(publishedEntries.map(entry => entry.id));
-  for (const filename of recommendationFiles) {
+  const entryById = new Map(catalog.entries.map(entry => [entry.id, entry]));
+  await runPool(recommendationFiles, 32, async filename => {
+    const pair = parseRecommendationFilename(filename, learnerLanguages);
+    if (!pair) throw new Error(`Dictionary upload refuses invalid recommendation filename: ${filename}`);
     const recommendation = await readJson(resolve(root, 'recommendations', filename));
+    if (
+      recommendation.learnerLanguage !== pair.learnerLanguage
+      || recommendation.targetLanguage !== pair.targetLanguage
+    ) {
+      throw new Error(`${filename} fields do not match its learner-target filename.`);
+    }
     if (recommendation.readiness !== 'ready' || recommendation.blockers?.length) {
       throw new Error(`Dictionary upload refuses blocked recommendation manifest: ${filename}`);
     }
@@ -152,8 +172,11 @@ async function assertPublishableManifestSet(root, catalog, languages, recommenda
       if (!publishedIds.has(item.dictionaryId)) {
         throw new Error(`${filename} references unpublished dictionary ${item.dictionaryId}.`);
       }
+      if (!entryById.get(item.dictionaryId)?.headwordLanguages?.includes(pair.targetLanguage)) {
+        throw new Error(`${filename} references ${item.dictionaryId}, which does not cover ${pair.targetLanguage} headwords.`);
+      }
     }
-  }
+  });
 }
 
 async function assertManifestSetMatchesTrackedPublished(releaseRoot, publishedRoot, recommendationFiles) {
@@ -179,6 +202,7 @@ export async function uploadDictionaryRelease(items, {
   confirmBucket = '',
   concurrency = 4,
   resumeUrl = '',
+  uploadImplementation = uploadItem,
 } = {}) {
   if (execute && confirmBucket !== bucket) {
     throw new Error(`Remote upload requires --confirm-bucket ${bucket}. No resources were changed.`);
@@ -192,7 +216,10 @@ export async function uploadDictionaryRelease(items, {
   if (!execute) return { mode: 'dry-run', uploads: plan };
   const ordered = publicationOrder(items);
   const objects = ordered.filter(item => item.key.startsWith('objects/sha256/'));
-  const manifests = ordered.filter(item => !item.key.startsWith('objects/sha256/'));
+  const recommendations = ordered.filter(item => item.key.startsWith('v1/recommendations/'));
+  const finalManifests = ordered.filter(item =>
+    !item.key.startsWith('objects/sha256/')
+    && !item.key.startsWith('v1/recommendations/'));
   let completed = 0;
   let skipped = 0;
   let uploadedBytes = 0;
@@ -212,13 +239,20 @@ export async function uploadDictionaryRelease(items, {
         + 'Run scripts/dictionaries/upload-large-objects.mjs first and set YOMU_DICTIONARY_RESUME_URL.',
       );
     }
-    await uploadItem(item);
+    await uploadImplementation(item);
     completed += 1;
     uploadedBytes += size;
     console.log(`[uploaded ${completed}/${ordered.length}] ${item.key}`);
   });
-  for (const item of manifests) {
-    await uploadItem(item);
+  await runPool(recommendations, concurrency, async item => {
+    await uploadImplementation(item);
+    completed += 1;
+    console.log(`[uploaded ${completed}/${ordered.length}] ${item.key}`);
+  });
+  // Languages describe the matrix and the catalogue points at every object.
+  // Publish both only after all pair manifests, with the catalogue last.
+  for (const item of finalManifests) {
+    await uploadImplementation(item);
     completed += 1;
     console.log(`[uploaded ${completed}/${ordered.length}] ${item.key}`);
   }

@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.ec57486e5636.user.js#sha256=7FdIblY2ZxLp25IHDqZ/C7962zzOVDVmXU7UJIt2mbs=
-// @resource yomuCss  https://yomureader.com/yomu.328b7503fed4.css#sha256=Mot1A/7UinW2us3o4/FT0J7PVcoSCLvQxDEQzOueL0I=
+// @require https://yomureader.com/greasyfork/yomu-runtime.4bdb0f3cf911.user.js#sha256=S9sPPPkRke7YpanXyOzpkVv4YUtNenwqxwQnI4zrnVQ=
+// @resource yomuCss  https://yomureader.com/yomu.7476cc632b3a.css#sha256=dHbMYys6M7vAktSg7Hj0czUqdj4QJmlZMAANu3W7+LE=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -344,120 +344,7 @@ function getPitchClass(pitchAccent, reading) {
   const pattern = contextPitchPattern(pitchAccent, reading);
   return pattern ? pitchClassNameForPattern(pattern, reading) : "";
 }
-const SEGMENTER_BY_LOCALE = new Map();
-function wordSegmenter(locale) {
-  const cached = SEGMENTER_BY_LOCALE.get(locale);
-  if (cached !== void 0) return cached;
-  let segmenter = null;
-  try {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  }
-  } catch {
-  segmenter = null;
-  }
-  SEGMENTER_BY_LOCALE.set(locale, segmenter);
-  return segmenter;
-}
-function icuWordSegments(text2, locale) {
-  const segmenter = wordSegmenter(locale);
-  if (!segmenter) return null;
-  const segments = [];
-  for (const segment of segmenter.segment(text2)) {
-  if (!segment.isWordLike) continue;
-  segments.push({
-    text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length
-  });
-  }
-  return segments;
-}
-const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
-function annotatedWordRubies(spelling, annotated) {
-  if (!annotated || !annotated.includes("[")) return [];
-  const rubies = [];
-  let cursor = 0;
-  let baseText = "";
-  let baseOffset = 0;
-  for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
-  const matchIndex = match.index ?? 0;
-  const captured = match[1] ?? "";
-  const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
-  const base = runMatch ? runMatch[1] : captured;
-  const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
-  const reading = (match[2] ?? "").trim();
-  baseText += plain;
-  baseOffset += plain.length;
-  const start = baseOffset;
-  baseText += base;
-  baseOffset += base.length;
-  if (base && reading) {
-    rubies.push({ text: reading, start, end: start + base.length, length: base.length });
-  }
-  cursor = matchIndex + match[0].length;
-  }
-  baseText += annotated.slice(cursor);
-  return baseText === spelling ? rubies : [];
-}
-function readingFromSurfaceRubies(surface, rubies) {
-  let reading = "";
-  let offset = 0;
-  for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {
-  if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
-  reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
-  reading += ruby.text;
-  offset = ruby.end;
-  }
-  reading += unannotatedPronunciationText$1(surface.slice(offset));
-  return reading;
-}
-function unannotatedPronunciationText$1(value) {
-  return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
-}
 const PITCH_CLASSES$1 = new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
-const MAX_INFERRED_PITCH_LOOKUP_COMPONENTS = 3;
-function inferredAnnotatedPitchComponents(card) {
-  if (getPitchClass(card.pitchAccent, card.reading || card.spelling) || card.pitchComponents?.length) return [];
-  const spelling = compact(card.spelling);
-  const reading = compact(card.reading);
-  const annotated = compact(card.wordWithReading ?? "");
-  if (!spelling || !reading || !annotated.includes("[")) return [];
-  if (Array.from(spelling).filter((character) => KANJI_RE$2.test(character)).length < 2) return [];
-  const rubies = annotatedWordRubies(spelling, annotated);
-  if (!rubies.length || compact(readingFromSurfaceRubies(spelling, rubies)) !== reading) return [];
-  const rawSegments = icuWordSegments(spelling, "ja");
-  if (!rawSegments) return [];
-  const components = [];
-  for (const segment of rawSegments) {
-  const start = segment.start;
-  const end = segment.end;
-  const readingStart = readingOffsetAtSurfaceBoundary(start, rubies);
-  const readingEnd = readingOffsetAtSurfaceBoundary(end, rubies);
-  if (readingStart < 0 || readingEnd <= readingStart) return [];
-  const component = {
-    spelling: segment.text,
-    reading: reading.slice(readingStart, readingEnd),
-    pitchAccent: [],
-    wordWithReading: null,
-    inferredFromAnnotatedReading: true
-  };
-  const previous = components[components.length - 1];
-  if (previous && !containsKanji$1(previous.spelling) && !containsKanji$1(component.spelling)) {
-    previous.spelling += component.spelling;
-    previous.reading += component.reading;
-  } else {
-    components.push(component);
-  }
-  }
-  if (components.length < 2) return [];
-  if (components.map((component) => component.spelling).join("") !== spelling) return [];
-  if (components.map((component) => component.reading).join("") !== reading) return [];
-  if (components.filter((component) => containsKanji$1(component.spelling)).length > MAX_INFERRED_PITCH_LOOKUP_COMPONENTS) return [];
-  return components.some((component) => containsKanji$1(component.spelling)) ? components : [];
-}
 function tiledPitchComponents(card) {
   if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
   const components = card.pitchComponents ?? [];
@@ -501,17 +388,6 @@ function pitchComponentUnderlineGradient(card) {
 }
 function compact(value) {
   return value.replace(/\s+/g, "").trim();
-}
-function containsKanji$1(value) {
-  return KANJI_RE$2.test(value);
-}
-function readingOffsetAtSurfaceBoundary(offset, rubies) {
-  let readingOffset = offset;
-  for (const ruby of rubies) {
-  if (offset > ruby.start && offset < ruby.end) return -1;
-  if (ruby.end <= offset) readingOffset += ruby.text.length - ruby.length;
-  }
-  return readingOffset;
 }
 function formatPercent(value) {
   return `${Number(value.toFixed(3))}%`;
@@ -1644,6 +1520,35 @@ function hasAmbiguousContinuativeStemCandidate(source) {
 }
 function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+}
+const SEGMENTER_BY_LOCALE = new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text2, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text2)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
@@ -7221,18 +7126,18 @@ const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   nativeName: "日本語",
   defaultScript: "Jpan",
   scripts: Object.freeze(["Jpan"]),
-  direction: "ltr"
+  direction: "ltr",
+  studyTargetReadiness: "full"
 });
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES
+  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+  ...language,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  }))
 ]);
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [
-  languageSubtag(language.runtimeLocale) ?? language.id,
-  language.id
-  ])
-);
 Object.freeze(
   LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
 );
@@ -7255,7 +7160,8 @@ function slice1LanguageIdForTag(value) {
   const base = languageSubtag(canonical);
   if (!base) return null;
   if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
 }
 function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
   if (typeof value === "string") {
@@ -8944,11 +8850,12 @@ function isSafeLookupUrlTemplate(value) {
   }
 }
 function normalizeDictionaryType(value, name = "") {
-  if (value === "terms" || value === "kanji" || value === "frequency" || value === "metadata") return value;
+  if (value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata") return value;
   return inferDictionaryTypeFromName(name);
 }
 function inferDictionaryTypeFromName(name) {
   const normalized = name.toLowerCase();
+  if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return "pronunciation";
   if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return "frequency";
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
@@ -9075,6 +8982,9 @@ const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
   "ocrEnabled",
   "ocrAutoScanImages",
   "youtubeImmersionEnabled",
+  "youtubeImmersionEnabledChosen",
+  "youtubeShowChannelRecommendations",
+  "youtubeShowChannelRecommendationsChosen",
   "subtitleOverlayVisible",
   "subtitleSecondaryVisible",
   "subtitleOverlayVisibleChosen",
@@ -9505,10 +9415,12 @@ const DEFAULT_SETTINGS = {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
+  youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
   youtubeFilterNoticeRestored20260711: true,
   themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
+  youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: true,
   ankiEnabled: false,
   ankiSectionEnabled: false,
@@ -10052,6 +9964,11 @@ function normalizeMediaSettings(value) {
   return {
   audioViaBlob: booleanSetting(value, "audioViaBlob"),
   audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
+  youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
+  youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
+  youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
+  youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
+  youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
   immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
   nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
   immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
@@ -19526,6 +19443,9 @@ function addAnkiReviewTargetLabel(candidates, cardId, label, cardName = "") {
   const template = cardName.trim();
   candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
 }
+const KANJI_RE$1 = /[\u3400-\u9fff]/u;
+const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
 function headwordFuriganaSettings(settings) {
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
@@ -19548,6 +19468,47 @@ function cardSpellingFuriganaToken(card, spelling) {
   pitchClass: "",
   sentence: spelling
   };
+}
+function annotatedWordRubies(spelling, annotated) {
+  if (!annotated || !annotated.includes("[")) return [];
+  const rubies = [];
+  let cursor = 0;
+  let baseText = "";
+  let baseOffset = 0;
+  for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+  const matchIndex = match.index ?? 0;
+  const captured = match[1] ?? "";
+  const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+  const base = runMatch ? runMatch[1] : captured;
+  const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
+  const reading = (match[2] ?? "").trim();
+  baseText += plain;
+  baseOffset += plain.length;
+  const start = baseOffset;
+  baseText += base;
+  baseOffset += base.length;
+  if (base && reading) {
+    rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+  }
+  cursor = matchIndex + match[0].length;
+  }
+  baseText += annotated.slice(cursor);
+  return baseText === spelling ? rubies : [];
+}
+function readingFromSurfaceRubies(surface, rubies) {
+  let reading = "";
+  let offset = 0;
+  for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {
+  if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+  reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+  reading += ruby.text;
+  offset = ruby.end;
+  }
+  reading += unannotatedPronunciationText$1(surface.slice(offset));
+  return reading;
+}
+function unannotatedPronunciationText$1(value) {
+  return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
 }
 function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
   const classified = segments.map((segment) => ({
@@ -31201,6 +31162,28 @@ function renderModalNavigation(options) {
     </div>
   `;
 }
+function extractIpaPronunciations(entries2, match) {
+  const forms = [match.expression, match.reading ?? ""].map(normalizeLookupForm);
+  const result = [];
+  const seen = new Set();
+  for (const entry of entries2) {
+  const data = entry.data;
+  if (entry.mode !== "ipa" || !forms.includes(normalizeLookupForm(entry.expression ?? "")) || !data || typeof data !== "object" || !Array.isArray(data.transcriptions)) continue;
+  if (data.reading && (typeof data.reading !== "string" || !forms.includes(normalizeLookupForm(data.reading)))) continue;
+  for (const transcription of data.transcriptions) {
+    const value = transcription == null ? void 0 : transcription.ipa;
+    if (typeof value !== "string") continue;
+    const ipa = value.trim();
+    if (!ipa || seen.has(ipa)) continue;
+    seen.add(ipa);
+    result.push({ ipa, dictionary: entry.dictionary });
+  }
+  }
+  return result;
+}
+function normalizeLookupForm(value) {
+  return value.normalize("NFKC").trim().toLowerCase();
+}
 function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
   const query = context.query;
@@ -31209,6 +31192,15 @@ function renderWordPills(options) {
   const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
   const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
   const ankiPill = renderAnkiPill(options, language, query);
+  linkPills.unshift(...extractIpaPronunciations(options.metaEntries ?? [], {
+  expression: context.word,
+  reading: context.reading
+  }).map(({ ipa, dictionary: name }) => {
+  if (options.settings.dictionaryPreferences.some((preference) => preference.name === name && !preference.enabled)) return "";
+  const label = `IPA ${ipa}`;
+  const accessibleLabel = `${label}. ${options.dictionaryLabel(name) || name}`;
+  return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml$1(name)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${name}`)}" title="${escapeHtml$1(accessibleLabel)}" aria-label="${escapeHtml$1(accessibleLabel)}">${escapeHtml$1(label)}</span>`;
+  }));
   const configuredFrequencyIds = new Set(enabledLinks.filter((link) => isFrequencyLookupPill(link)).map((link) => link.id));
   const leftoverFrequencyPills = Array.from(frequencyPills).filter(([id]) => !configuredFrequencyIds.has(id)).map(([, html]) => html);
   const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
@@ -33150,6 +33142,9 @@ function languageFamilyIncludes(family, language) {
   const jpZhYueKo = jpZhYue || base === "ko";
   return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
 }
+function jpOnlyOn(settings, storedValue, chosen) {
+  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+}
 function languageFamilyNodes(root) {
   const states = familyNodesByRoot.get(root) ?? [];
   const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
@@ -33168,13 +33163,13 @@ function languageFamilyNodes(root) {
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
   if (deferCookieResponseReloadUntilPersisted) {
-  apply?.(enabled, revertOnDisable, true);
+  apply?.(enabled, revertOnDisable, true, targetLanguage);
   return;
   }
-  apply?.(enabled, revertOnDisable);
+  apply?.(enabled, revertOnDisable, false, targetLanguage);
 }
 function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
@@ -36185,21 +36180,33 @@ class ReaderApp {
   });
   }
   async toggleYoutubeImmersion() {
-  await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
+  await this.setYoutubeImmersionEnabled(!this.isYoutubeImmersionEnabled());
   }
   async setYoutubeImmersionEnabled(enabled) {
   const previous = this.settings.youtubeImmersionEnabled;
+  const previousChosen = this.settings.youtubeImmersionEnabledChosen;
   this.settings.youtubeImmersionEnabled = enabled;
+  this.settings.youtubeImmersionEnabledChosen = true;
   this.youtube.refresh();
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
   try {
-    await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeImmersionEnabled"] });
+    await saveSettings(this.settings, {
+      explicitUserChoiceKeys: ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"]
+    });
   } catch (error) {
     this.settings.youtubeImmersionEnabled = previous;
+    this.settings.youtubeImmersionEnabledChosen = previousChosen;
     this.youtube.refresh();
     this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
     throw error;
   }
+  }
+  isYoutubeImmersionEnabled() {
+  return jpOnlyOn(
+    this.settings,
+    this.settings.youtubeImmersionEnabled,
+    this.settings.youtubeImmersionEnabledChosen
+  );
   }
   async setYoutubeFilterNoticeVisible(visible) {
   this.settings.youtubeShowFilterNotice = visible;
@@ -36226,7 +36233,13 @@ class ReaderApp {
   }
   async setYoutubeChannelRecommendationsVisible(visible) {
   this.settings.youtubeShowChannelRecommendations = visible;
-  await saveSettings(this.settings);
+  this.settings.youtubeShowChannelRecommendationsChosen = true;
+  await saveSettings(this.settings, {
+    explicitUserChoiceKeys: [
+      "youtubeShowChannelRecommendations",
+      "youtubeShowChannelRecommendationsChosen"
+    ]
+  });
   this.youtube.refresh();
   }
   async setInterfaceLanguage(language) {
@@ -36390,7 +36403,8 @@ class ReaderApp {
   applyPreferredJapaneseSiteLanguage(
     settings.preferJapaneseSiteLanguage,
     options,
-    deferCookieResponseReloadUntilPersisted
+    deferCookieResponseReloadUntilPersisted,
+    targetLanguageOf(settings)
   );
   }
   stagePreferredJapaneseSiteLanguage(previous, next) {
@@ -36933,7 +36947,7 @@ class ReaderApp {
       toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
       isYouTube: () => isYouTubeHostname(),
       toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
-      isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+      isYoutubeFilterEnabled: () => this.isYoutubeImmersionEnabled(),
       toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
       isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
       hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && (isYouTubeHostname() || Boolean(document.querySelector("video")))
@@ -41894,13 +41908,12 @@ class ReaderApp {
   this.pitchEnrichmentQueuedOptions.delete(key);
   }
   async drainPitchEnrichmentQueue() {
-  const previous = this.pitchEnrichmentDrain;
-  const drain = (previous ? previous.catch(() => void 0) : Promise.resolve()).then(() => this.runPitchEnrichmentQueue());
-  this.pitchEnrichmentDrain = drain;
-  void drain.finally(() => {
-    if (this.pitchEnrichmentDrain === drain) this.pitchEnrichmentDrain = void 0;
-  }).catch(() => void 0);
-  return drain;
+  if (this.pitchEnrichmentDrain) return this.pitchEnrichmentDrain;
+  this.pitchEnrichmentDrain = this.runPitchEnrichmentQueue().finally(() => {
+    this.pitchEnrichmentDrain = void 0;
+    if (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) void this.drainPitchEnrichmentQueue();
+  });
+  return this.pitchEnrichmentDrain;
   }
   async runPitchEnrichmentQueue() {
   while (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) {
@@ -41977,41 +41990,14 @@ class ReaderApp {
   }
   async ensureCardPitchAccent(card, options) {
   if (!this.settings.showPitchAccent) return;
-  if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
-  const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
-  if (allowPublicLookup) {
-    const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-    if (pitchAccent.length) {
-      card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
-      return;
-    }
-  }
-  if (card.pitchComponents?.length) {
-    await this.enrichCardPitchComponents(card, card.pitchComponents, allowPublicLookup);
+  if (cardHasContextPitch(card) || hasResolvedPitchComponents(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
+  const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+  if (pitchAccent.length) {
+    card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     return;
   }
-  const inferred = inferredAnnotatedPitchComponents(card);
-  if (!inferred.length) return;
-  await this.enrichCardPitchComponents(card, inferred, allowPublicLookup);
-  if (hasPaintablePitchComponents({ ...card, pitchComponents: inferred })) card.pitchComponents = inferred;
-  }
-  async enrichCardPitchComponents(card, components, allowPublicLookup) {
-  await Promise.all((components ?? []).map(async (component) => {
+  await Promise.all((card.pitchComponents ?? []).map(async (component) => {
     if (getPitchClass(component.pitchAccent, component.reading || component.spelling)) return;
-    if (component.inferredFromAnnotatedReading && !Array.from(component.spelling).some(isKanjiCharacter)) return;
-    const localPitch = await this.localPitchAccentForCard({
-      ...card,
-      spelling: component.spelling,
-      reading: component.reading,
-      pitchAccent: [],
-      pitchComponents: void 0,
-      wordWithReading: component.wordWithReading
-    });
-    if (localPitch.length) {
-      component.pitchAccent = mergePitchPatterns(localPitch, component.pitchAccent);
-      return;
-    }
-    if (!allowPublicLookup) return;
     component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
   }));
   }

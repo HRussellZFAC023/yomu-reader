@@ -227,7 +227,7 @@ describe('Yomu dictionary distribution Worker', () => {
         expect(harness.get).toHaveBeenCalledTimes(1);
     });
 
-    it('reports the fixed Japanese target and 32 learner languages without touching R2', async () => {
+    it('reports the 32-by-33 learner-target matrix without touching R2', async () => {
         const harness = dictionaryStore({});
         const response = await handleDictionaryRequest(
             new Request('https://dictionaries.yomureader.com/healthz'),
@@ -239,8 +239,10 @@ describe('Yomu dictionary distribution Worker', () => {
         await expect(response.json()).resolves.toMatchObject({
             service: 'yomu-dictionaries',
             status: 'ok',
-            targetLanguage: 'ja',
+            defaultTargetLanguage: 'ja',
             learnerLanguageCount: 32,
+            targetLanguageCount: 33,
+            recommendationManifestCount: 1_056,
         });
         expect(harness.head).not.toHaveBeenCalled();
         expect(harness.get).not.toHaveBeenCalled();
@@ -249,8 +251,12 @@ describe('Yomu dictionary distribution Worker', () => {
     it('only maps versioned manifests, the frozen recommendation roster, and SHA-256 objects', () => {
         expect(objectKeyForRequestPath('/v1/catalog.json')).toBe('v1/catalog.json');
         expect(objectKeyForRequestPath('/v1/recommendations/ko-ja.json')).toBe('v1/recommendations/ko-ja.json');
+        expect(objectKeyForRequestPath('/v1/recommendations/en-es.json')).toBe('v1/recommendations/en-es.json');
+        expect(objectKeyForRequestPath('/v1/recommendations/es-en.json')).toBe('v1/recommendations/es-en.json');
         expect(objectKeyForRequestPath(`/objects/sha256/${'a'.repeat(64)}.zip`)).toBe(`objects/sha256/${'a'.repeat(64)}.zip`);
         expect(objectKeyForRequestPath('/v1/recommendations/ja-ja.json')).toBeNull();
+        expect(objectKeyForRequestPath('/v1/recommendations/en/lzh.json')).toBeNull();
+        expect(objectKeyForRequestPath('/v1/recommendations/en-lzh.json')).toBeNull();
         expect(objectKeyForRequestPath('/objects/sha256/not-a-hash.zip')).toBeNull();
         expect(objectKeyForRequestPath('/../catalog.json')).toBeNull();
     });

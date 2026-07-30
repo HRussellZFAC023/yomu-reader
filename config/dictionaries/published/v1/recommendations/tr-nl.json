@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "tr",
+  "targetLanguage": "nl",
+  "strategy": "native-first",
+  "readiness": "ready",
+  "blockers": [],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-nl-tr",
+      "role": "primary-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "tr",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "wty-nl-tr-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "tr",
+      "translationMode": "off"
+    }
+  ]
+}

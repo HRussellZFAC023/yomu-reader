@@ -129,7 +129,7 @@ function dictionaryAlias(record: Partial<YomitanDictionaryInfo>, fallback: strin
 }
 
 function dictionaryInfoType(value: unknown): YomitanDictionaryInfo['type'] | undefined {
-    return value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'metadata'
+    return value === 'terms' || value === 'kanji' || value === 'frequency' || value === 'pronunciation' || value === 'metadata'
         ? value
         : undefined;
 }

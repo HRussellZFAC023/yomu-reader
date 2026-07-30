@@ -1,9 +1,9 @@
 import { yomuVideoCompanionSlot } from '../companions/registry';
 
-// The Japanese-site-language machinery (locale spoofing, cookie preferences,
+// The Japanese-site-language machinery (locale hints, cookie preferences,
 // alternate-link redirects, per-site rules) ships in the Yomu Video companion
 // (ADR-0003 size budget); without the companion the preference simply does
-// nothing — no redirect, no spoofing — which is the correct degraded state.
+// nothing, which is the correct degraded state.
 export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
     yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
@@ -12,13 +12,14 @@ export function applyPreferredJapaneseSiteLanguage(
     enabled: boolean,
     revertOnDisable = false,
     deferCookieResponseReloadUntilPersisted = false,
+    targetLanguage = 'ja',
 ): void {
     const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
     if (deferCookieResponseReloadUntilPersisted) {
-        apply?.(enabled, revertOnDisable, true);
+        apply?.(enabled, revertOnDisable, true, targetLanguage);
         return;
     }
-    apply?.(enabled, revertOnDisable);
+    apply?.(enabled, revertOnDisable, false, targetLanguage);
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: Parameters<typeof import('./preferred-site-language-impl').preferredJapaneseSiteUrl>[1]): string | null {

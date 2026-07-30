@@ -13,6 +13,12 @@ import {
 } from './lib.mjs';
 import { ingestVerifiedConnectorManifest } from './ingest-verified-connector-manifest.mjs';
 import { defaultWtySnapshotPath } from './wty-release.mjs';
+import {
+  DEFAULT_RECOMMENDATION_TARGET_LANGUAGE,
+  buildNonJapaneseRecommendationManifest,
+  expectedRecommendationFilenames,
+  parseRecommendationFilename,
+} from './recommendation-pairs.mjs';
 
 export const defaultRecommendationShelfPath = resolve(repositoryRoot, 'config/dictionaries/recommendation-shelf.v1.json');
 
@@ -74,6 +80,9 @@ export function parseRecommendationShelf(policy) {
  * from the starter rows keeps a second run idempotent.
  */
 export function applyRecommendationShelf(recommendation, catalog, slots) {
+  if (recommendation.targetLanguage !== DEFAULT_RECOMMENDATION_TARGET_LANGUAGE) {
+    return recommendation;
+  }
   const entryById = new Map(catalog.entries.map(entry => [entry.id, entry]));
   const starter = recommendation.dictionaries.filter(item => STARTER_ROLES.has(item.role));
   const translatable = learnerLanguageAcceptsTranslation(recommendation.learnerLanguage, starter);
@@ -83,9 +92,9 @@ export function applyRecommendationShelf(recommendation, catalog, slots) {
     if (seeded.has(slot.dictionaryId)) continue;
     const entry = entryById.get(slot.dictionaryId);
     if (!entry || entry.distribution?.state !== 'published') continue;
-    if (!entry.headwordLanguages?.includes(catalog.targetLanguage)) continue;
+    if (!entry.headwordLanguages?.includes(DEFAULT_RECOMMENDATION_TARGET_LANGUAGE)) continue;
     seeded.add(slot.dictionaryId);
-    const definitionLanguage = entry.definitionLanguages?.[0] ?? catalog.targetLanguage;
+    const definitionLanguage = entry.definitionLanguages?.[0] ?? DEFAULT_RECOMMENDATION_TARGET_LANGUAGE;
     added.push({
       dictionaryId: slot.dictionaryId,
       role: slot.role,
@@ -134,14 +143,16 @@ export function assertRecommendationShelfIntact(recommendations, catalog, slots)
       ? 'no catalogue entry carries that id — the policy is stale, or a re-import renamed it'
       : entry.distribution?.state !== 'published'
         ? `its catalogue entry is ${entry.distribution?.state ?? 'missing a distribution'} rather than published, so no mirrored object backs it`
-        : !entry.headwordLanguages?.includes(catalog.targetLanguage)
-          ? `its catalogue entry no longer lists ${catalog.targetLanguage} in headwordLanguages`
+        : !entry.headwordLanguages?.includes(DEFAULT_RECOMMENDATION_TARGET_LANGUAGE)
+          ? `its catalogue entry no longer lists ${DEFAULT_RECOMMENDATION_TARGET_LANGUAGE} in headwordLanguages`
           : '';
     if (because) {
       throw new Error(`Recommendation shelf slot ${slot.role} (${slot.dictionaryId}) cannot be served by a catalogue that publishes ${published.length} entries: ${because}. Regenerating now would ship every learner language a narrower shelf than the one already published.`);
     }
   }
-  for (const { filename, manifest } of recommendations) {
+  for (const { filename, manifest } of recommendations.filter(
+    recommendation => recommendation.manifest.targetLanguage === DEFAULT_RECOMMENDATION_TARGET_LANGUAGE,
+  )) {
     for (const slot of slots) {
       const row = manifest.dictionaries.find(item => item.role === slot.role);
       if (!row) {
@@ -207,20 +218,44 @@ export async function prepareDictionaryRelease({
   catalog.generatedAt = stagedCatalog.generatedAt;
   const wtySnapshot = await readJson(defaultWtySnapshotPath).catch(() => null);
   languages = applyLanguageReadiness(languages, catalog, wtySnapshot);
+  const learnerLanguages = languages.languages.map(language => language.tag);
   const recommendations = [];
-  const recommendationFiles = (await readdir(resolve(manifestRoot, 'recommendations')))
-    .filter(name => name.endsWith('-ja.json'))
+  const recommendationDirectory = resolve(manifestRoot, 'recommendations');
+  const recommendationFiles = (await readdir(recommendationDirectory))
+    .filter(name => name.endsWith('.json'))
     .sort();
+  const expectedFiles = expectedRecommendationFilenames(learnerLanguages).sort();
+  if (
+    recommendationFiles.length !== expectedFiles.length
+    || recommendationFiles.some((filename, index) => filename !== expectedFiles[index])
+  ) {
+    throw new Error(
+      `Dictionary release requires the complete ${expectedFiles.length}-manifest learner-target matrix.`,
+    );
+  }
   const shelfSlots = parseRecommendationShelf(await readJson(shelfPath));
   const publishedIds = new Set(
     catalog.entries.filter(entry => entry.distribution.state === 'published').map(entry => entry.id),
   );
   let shelfRows = 0;
   for (const filename of recommendationFiles) {
-    const source = structuredClone(await readJson(resolve(manifestRoot, 'recommendations', filename)));
-    const recommendation = applyRecommendationShelf(source, catalog, shelfSlots);
+    const pair = parseRecommendationFilename(filename, learnerLanguages);
+    if (!pair) throw new Error(`Invalid recommendation manifest filename: ${filename}`);
+    const recommendation = pair.targetLanguage === DEFAULT_RECOMMENDATION_TARGET_LANGUAGE
+      ? applyRecommendationShelf(
+        await readJapaneseRecommendation(recommendationDirectory, filename, pair),
+        catalog,
+        shelfSlots,
+      )
+      : buildNonJapaneseRecommendationManifest(
+        catalog,
+        pair.learnerLanguage,
+        pair.targetLanguage,
+      );
     recommendation.catalogRevision = catalog.revision;
-    shelfRows += recommendation.dictionaries.filter(item => SHELF_ROLES.has(item.role)).length;
+    if (pair.targetLanguage === DEFAULT_RECOMMENDATION_TARGET_LANGUAGE) {
+      shelfRows += recommendation.dictionaries.filter(item => SHELF_ROLES.has(item.role)).length;
+    }
     const dictionariesPublished = recommendation.dictionaries.every(item => publishedIds.has(item.dictionaryId));
     if (dictionariesPublished) {
       recommendation.blockers = recommendation.blockers.filter(blocker => blocker !== 'dictionary-objects-not-yet-mirrored');
@@ -231,26 +266,65 @@ export async function prepareDictionaryRelease({
   // Before the summary, and before any write: a dry run is where an operator
   // should learn the shelf would narrow, not after the files are on disk.
   const shelf = assertRecommendationShelfIntact(recommendations, catalog, shelfSlots);
+  const japaneseRecommendations = recommendations.filter(
+    recommendation => recommendation.manifest.targetLanguage === DEFAULT_RECOMMENDATION_TARGET_LANGUAGE,
+  );
+  const readyRecommendations = recommendations.filter(
+    recommendation => recommendation.manifest.readiness === 'ready',
+  ).length;
   const summary = {
     mode: write ? 'write' : 'dry-run',
     releaseRoot: safeReleaseRoot,
     catalogEntries: catalog.entries.length,
     promotedObjects: promoted,
+    recommendationCount: recommendations.length,
+    targetLanguageCount: new Set(recommendations.map(
+      recommendation => recommendation.manifest.targetLanguage,
+    )).size,
     shelfRecommendationRows: shelfRows,
     ...shelf,
-    readyLanguages: recommendations.filter(item => item.manifest.readiness === 'ready').length,
-    blockedLanguages: recommendations.filter(item => item.manifest.readiness === 'blocked').length,
+    readyRecommendations,
+    blockedRecommendations: recommendations.length - readyRecommendations,
+    readyLanguages: japaneseRecommendations.filter(
+      recommendation => recommendation.manifest.readiness === 'ready',
+    ).length,
+    blockedLanguages: japaneseRecommendations.filter(
+      recommendation => recommendation.manifest.readiness === 'blocked',
+    ).length,
   };
   if (!write) return summary;
   await writeJsonAtomic(resolve(safeReleaseRoot, 'v1/catalog.json'), catalog);
   await writeJsonAtomic(resolve(safeReleaseRoot, 'v1/languages.json'), languages);
-  for (const recommendation of recommendations) {
+  await runPool(recommendations, 32, async recommendation => {
     await writeJsonAtomic(
       resolve(safeReleaseRoot, 'v1/recommendations', recommendation.filename),
       recommendation.manifest,
     );
-  }
+  });
   return summary;
+}
+
+async function readJapaneseRecommendation(directory, filename, pair) {
+  const source = structuredClone(await readJson(resolve(directory, filename)));
+  if (
+    source.learnerLanguage !== pair.learnerLanguage
+    || source.targetLanguage !== pair.targetLanguage
+  ) {
+    throw new Error(`${filename} fields do not match its learner-target filename.`);
+  }
+  return source;
+}
+
+async function runPool(items, concurrency, worker) {
+  const width = Math.max(1, Math.min(concurrency, items.length));
+  let next = 0;
+  await Promise.all(Array.from({ length: width }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      await worker(items[index]);
+    }
+  }));
 }
 
 export function mergePublishedBase(published, staged) {

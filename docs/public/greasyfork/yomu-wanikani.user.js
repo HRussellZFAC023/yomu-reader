@@ -5261,18 +5261,18 @@ const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   nativeName: "日本語",
   defaultScript: "Jpan",
   scripts: Object.freeze(["Jpan"]),
-  direction: "ltr"
+  direction: "ltr",
+  studyTargetReadiness: "full"
 });
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES
+  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+  ...language,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  }))
 ]);
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [
-  languageSubtag(language.runtimeLocale) ?? language.id,
-  language.id
-  ])
-);
 Object.freeze(
   LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
 );
@@ -5290,7 +5290,8 @@ function slice1LanguageIdForTag(value) {
   const base = languageSubtag(canonical);
   if (!base) return null;
   if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
 }
 function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
   if (typeof value === "string") {
@@ -5368,7 +5369,13 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）
+onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
+studyTargetReadinessFull	よむの全機能
+studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessPlanned	準備中
+studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
+studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
@@ -5468,7 +5475,7 @@ dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。発音（IPA）/日本語ピッチ/頻度辞書は発音、ピッチアクセント、バッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -6294,10 +6301,10 @@ subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	日本語UIと日本向け内容を優先します。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -6413,7 +6420,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -6433,6 +6440,7 @@ recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
+pronunciationDictionaries	発音辞書
 frequencyDictionaries	頻度辞書
 nameDictionaries	固有名詞辞書
 grammarDictionaries	文法辞書
@@ -6444,7 +6452,7 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryOtherLanguage	日本語を読むための辞書ではありません。
+mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 queued	待機中

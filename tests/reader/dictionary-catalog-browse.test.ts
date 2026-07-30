@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FROZEN_DICTIONARY_CATALOG, SLICE1_LEARNER_LANGUAGES } from '../../src/reader/dictionaries/catalog';
-import { catalogBrowseCopy } from '../../src/reader/dictionaries/catalog-browse-copy';
+import {
+    catalogBrowseCopy,
+    catalogBrowseLanguageNote,
+} from '../../src/reader/dictionaries/catalog-browse-copy';
 import { applyCatalogBrowseFilter } from '../../src/reader/settings/catalog-browse-filter';
 import {
     catalogBrowseCardId,
@@ -77,6 +80,27 @@ describe('mirrored dictionary catalogue browsing', () => {
             expect(card, entry.id).toBeDefined();
             expect(card!.headwordLanguage, entry.id).toBe(entry.headwordLanguages[0]);
         }
+    });
+
+    it('puts the explicitly selected target first without changing the legacy catalogue default', () => {
+        const sections = catalogBrowseLanguageSections({
+            learnerLanguage: 'es',
+            targetLanguage: 'es',
+        });
+        const targetSections = sections.filter(section => section.isTargetLanguage);
+        const targetGroups = catalogBrowseGroups({
+            learnerLanguage: 'es',
+            targetLanguage: 'es',
+        });
+
+        expect(FROZEN_DICTIONARY_CATALOG.targetLanguage).toBe('ja');
+        expect(sections[0]?.headwordLanguage).toBe('es');
+        expect(targetSections.map(section => section.headwordLanguage)).toEqual(['es']);
+        expect(targetGroups.flatMap(group => group.dictionaries)).not.toHaveLength(0);
+        expect(targetGroups.flatMap(group => group.dictionaries).every(
+            dictionary => dictionary.headwordLanguage === 'es',
+        )).toBe(true);
+        expect(catalogBrowseDictionaries(FROZEN_DICTIONARY_CATALOG, 'es')[0]?.headwordLanguage).toBe('es');
     });
 
     it('resolves every browse card by ID without colliding with the recommendation seeds', () => {
@@ -183,6 +207,17 @@ describe('mirrored dictionary catalogue browsing', () => {
         expect(categories.indexOf('terms')).toBeLessThan(categories.indexOf('kanji'));
     });
 
+    it('maps catalogue pronunciation archives to pronunciation instead of pitch', () => {
+        const pronunciation = catalogBrowseDictionaries().filter(
+            dictionary => dictionary.catalogCategory === 'pronunciation',
+        );
+        const nonJapanese = pronunciation.filter(dictionary => dictionary.headwordLanguage !== 'ja');
+
+        expect(nonJapanese.length).toBeGreaterThan(400);
+        expect(pronunciation.every(dictionary => dictionary.category === 'pronunciation')).toBe(true);
+        expect(pronunciation.some(dictionary => dictionary.category === 'pitch')).toBe(false);
+    });
+
     it('lists the whole mirror in the Sources panel, not just the recommended handful', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(settingsForLearnerLanguage('en'), 'https://jpdb.io/settings');
@@ -211,7 +246,7 @@ describe('mirrored dictionary catalogue browsing', () => {
         const section = form.querySelector<HTMLElement>('[data-catalog-browse]')!;
 
         expect(section.querySelector('[data-catalog-browse-title]')?.textContent).toBe('配信中のすべての辞書');
-        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')?.textContent).toBe('ピッチ辞書');
+        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')?.textContent).toBe('発音辞書');
         expect(section.querySelector('[data-catalog-browse-category="encyclopedia"]')?.textContent).toBe('百科事典');
         expect(section.querySelector('[data-catalog-browse-summary]')?.textContent).toMatch(/^他[\d,]+件の辞書 · 合計/u);
 
@@ -234,7 +269,19 @@ describe('mirrored dictionary catalogue browsing', () => {
     });
 });
 
-describe('shelving mirrored dictionaries the reader is not studying', () => {
+describe('shelving mirrored dictionaries by selected target', () => {
+    it('renders the Spanish target shelf first with positive Spanish copy', () => {
+        const section = browseSection(renderedForm('es', 'es'));
+        const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
+        const spanish = shelves[0]!;
+
+        expect(spanish.dataset.catalogBrowseLanguage).toBe('es');
+        expect(spanish.hasAttribute('data-catalog-browse-language-target')).toBe(true);
+        expect(spanish.querySelector('[data-catalog-browse-language-note]')?.textContent)
+            .toBe('Diccionarios para leer en español.');
+        expect(section.textContent).not.toContain('Estos diccionarios no sirven para leer japonés');
+    });
+
     it('gives every other headword language its own labelled shelf, Japanese first', () => {
         const section = browseSection(renderedForm('en'));
         const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
@@ -253,19 +300,18 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
             .toEqual(languages.map(language => headwordLanguageName(language!, 'en')));
     });
 
-    /**
-     * Reachable is not the same as recommended. A Cantonese dictionary a
-     * Japanese reader can install must say, in the reader's own language, that
-     * it is not part of the setup they are being sold above it.
-     */
-    it('marks the other shelves as not part of the Japanese setup', () => {
+    it('describes every shelf positively by the language it can read', () => {
         const section = browseSection(renderedForm('en'));
         const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
         const notes = shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent ?? null);
+        const copy = catalogBrowseCopy('en');
 
-        expect(notes[0]).toBeNull();
-        expect(notes.slice(1)).toEqual(notes.slice(1).map(() => 'These dictionaries are not for reading Japanese.'));
-        expect(notes.slice(1).length).toBeGreaterThan(0);
+        expect(notes).toEqual(shelves.map(shelf => catalogBrowseLanguageNote(
+            copy,
+            headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'en'),
+        )));
+        expect(notes[0]).toBe('Dictionaries for reading Japanese.');
+        expect(notes.join(' ')).not.toContain('not for reading');
     });
 
     it('never mixes another language into a Japanese category group', () => {
@@ -325,11 +371,7 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         expect(visibleShelfLanguages(section)).toContain('yue');
     });
 
-    /**
-     * The "not for reading Japanese" note is chrome, not card text. If it were
-     * searchable, one search for "japanese" would return every dictionary that
-     * is explicitly not Japanese.
-     */
+    /** Shelf captions are chrome, not card text, and stay out of search. */
     it('keeps the shelf note out of the search haystack', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
@@ -367,9 +409,10 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
 
         expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
             .toEqual(shelves.map(shelf => headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'ja')));
-        expect(shelves.slice(1).map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent))
-            .toEqual(shelves.slice(1).map(() => '日本語を読むための辞書ではありません。'));
-        expect(shelves[0]!.querySelector('[data-catalog-browse-language-note]')).toBeNull();
+        expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent))
+            .toEqual(shelves.map(shelf =>
+                `${headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'ja')}を読むための辞書です。`,
+            ));
     });
 
     it('localizes the shelf headings for a learner language ICU cannot fully name', () => {
@@ -384,7 +427,7 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         expect(titles).toContain('文言');
         expect(titles).not.toContain('lzh');
         expect(section.querySelector('[data-catalog-browse-language-note]')?.textContent)
-            .toBe(catalogBrowseCopy('vi').otherLanguageNote);
+            .toBe(catalogBrowseLanguageNote(catalogBrowseCopy('vi'), headwordLanguageName(TARGET, 'vi')));
     });
 
     it('renders and localizes the whole panel without touching the network', () => {
@@ -404,9 +447,12 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
     });
 });
 
-function renderedForm(learnerLanguage: string): HTMLFormElement {
+function renderedForm(learnerLanguage: string, targetLanguage = 'ja'): HTMLFormElement {
     const form = document.createElement('form');
-    form.innerHTML = renderSettingsForm(settingsForLearnerLanguage(learnerLanguage), 'https://jpdb.io/settings');
+    form.innerHTML = renderSettingsForm(
+        settingsForLearnerLanguage(learnerLanguage, targetLanguage),
+        'https://jpdb.io/settings',
+    );
     return form;
 }
 
@@ -428,12 +474,12 @@ function visibleCardNames(section: HTMLElement): string[] {
         .map(card => card.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() ?? '');
 }
 
-function settingsForLearnerLanguage(learnerLanguage: string) {
+function settingsForLearnerLanguage(learnerLanguage: string, targetLanguage = 'ja') {
     const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
     return normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
-        languageProfiles: [{ ...profile, outputLanguage: learnerLanguage }],
+        languageProfiles: [{ ...profile, targetLanguage, outputLanguage: learnerLanguage }],
         activeLanguageProfileId: profile.id,
     });
 }

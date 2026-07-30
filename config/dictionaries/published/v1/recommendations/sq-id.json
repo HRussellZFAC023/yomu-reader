@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+  "learnerLanguage": "sq",
+  "targetLanguage": "id",
+  "strategy": "native-first",
+  "readiness": "ready",
+  "blockers": [],
+  "dictionaries": [
+    {
+      "dictionaryId": "wty-id-id",
+      "role": "fallback-terms",
+      "priority": 10,
+      "selectedByDefault": true,
+      "definitionLanguage": "id",
+      "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "wty-id-id-ipa",
+      "role": "pronunciation",
+      "priority": 20,
+      "selectedByDefault": true,
+      "definitionLanguage": "id",
+      "translationMode": "off"
+    }
+  ]
+}

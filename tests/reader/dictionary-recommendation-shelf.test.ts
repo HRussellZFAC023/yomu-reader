@@ -90,7 +90,7 @@ describe('published recommendations cover a whole reading shelf', () => {
         expect(categoryOf('grammar')).toBe('terms');
         expect(categoryOf('examples')).toBe('terms');
         expect(categoryOf('frequency')).toBe('frequency');
-        expect(categoryOf('pronunciation')).toBe('pitch');
+        expect(categoryOf('pronunciation')).toBe('pronunciation');
         english.forEach(dictionary => {
             expect(dictionary.downloadUrl, dictionary.id).toMatch(/^https:\/\/dictionaries\.yomureader\.com\/objects\/sha256\/[a-f0-9]{64}\.zip$/);
         });

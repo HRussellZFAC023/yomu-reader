@@ -1465,6 +1465,10 @@ function fallbackRulePriority(candidate) {
   return 3;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+function isSupportedLanguageProfileSchemaVersion(value) {
+  return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+}
 const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
 const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
@@ -4523,18 +4527,18 @@ const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   nativeName: "日本語",
   defaultScript: "Jpan",
   scripts: Object.freeze(["Jpan"]),
-  direction: "ltr"
+  direction: "ltr",
+  studyTargetReadiness: "full"
 });
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES
+  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+  ...language,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  }))
 ]);
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [
-  languageSubtag(language.runtimeLocale) ?? language.id,
-  language.id
-  ])
-);
 Object.freeze(
   LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
 );
@@ -4552,7 +4556,8 @@ function slice1LanguageIdForTag(value) {
   const base = languageSubtag(canonical);
   if (!base) return null;
   if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
 }
 function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
   if (typeof value === "string") {
@@ -4569,6 +4574,7 @@ function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER
   return canonicalTagForSlice1Language(fallbackId);
 }
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
+const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
 function readOutputLanguageField(source) {
   return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
@@ -4588,8 +4594,81 @@ function createDefaultLanguageProfile(defaults = {}) {
   definitionTranslationProviderIds: []
   };
 }
+function normalizeLanguageProfiles(value, activeProfileId, defaults = {}) {
+  const rawProfiles = Array.isArray(value) ? value : [];
+  const profiles = [];
+  const usedIds = /* @__PURE__ */ new Set();
+  for (let index = 0; index < rawProfiles.length; index += 1) {
+  const profile = normalizeLanguageProfile(rawProfiles[index], index, defaults);
+  if (!profile) continue;
+  profile.id = uniqueProfileId(profile.id, usedIds);
+  usedIds.add(profile.id);
+  profiles.push(profile);
+  }
+  if (!profiles.length) profiles.push(createDefaultLanguageProfile(defaults));
+  const requestedActiveId = typeof activeProfileId === "string" ? activeProfileId.trim() : "";
+  const active = profiles.find((profile) => profile.id === requestedActiveId) ?? profiles[0];
+  return {
+  profiles,
+  activeProfileId: active.id
+  };
+}
 function outputLanguageFields(outputLanguage) {
   return { outputLanguage, learnerLanguage: outputLanguage };
+}
+function activeLanguageProfile(profiles, activeProfileId) {
+  return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
+}
+function resolveLanguageProfile(value) {
+  if (isRecord(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+  const normalized2 = normalizeLanguageProfiles([value], value.id, {
+    outputLanguage: readOutputLanguageField(value),
+    uiLocale: value.uiLocale,
+    parserProvider: value.parserProvider
+  });
+  return normalized2.profiles[0];
+  }
+  const source = isRecord(value) ? value : {};
+  const normalized = normalizeLanguageProfiles(
+  source.languageProfiles,
+  source.activeLanguageProfileId,
+  {
+    outputLanguage: readOutputLanguageField(source),
+    uiLocale: source.interfaceLanguage,
+    parserProvider: source.parserProvider
+  }
+  );
+  return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
+}
+function normalizeLanguageProfile(value, index, defaults) {
+  if (!isRecord(value)) return null;
+  if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
+  return {
+  schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+  id: normalizeProfileId(value.id, index),
+  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+    readOutputLanguageField(value),
+    normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
+  )),
+  // A stored target survives only while core still has a module for it;
+  // anything else degrades to the default rather than leaving the reader
+  // pointed at a target nothing implements.
+  targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
+  uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
+  parserProvider: normalizeParserProvider(value.parserProvider, normalizeParserProvider(defaults.parserProvider, "local")),
+  dictionaries: normalizeProfileDictionaries(value.dictionaries),
+  definitionTranslationProviderIds: normalizeStringIds(value.definitionTranslationProviderIds)
+  };
+}
+function normalizeProfileId(value, index) {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  return PROFILE_ID_RE.test(candidate) ? candidate : `profile-${index + 1}`;
+}
+function uniqueProfileId(candidate, used) {
+  if (!used.has(candidate)) return candidate;
+  let suffix = 2;
+  while (used.has(`${candidate}-${suffix}`)) suffix += 1;
+  return `${candidate}-${suffix}`;
 }
 function normalizeUiLocale(value, fallback) {
   if (value === "auto") return "auto";
@@ -4598,8 +4677,46 @@ function normalizeUiLocale(value, fallback) {
 function normalizeParserProvider(value, fallback) {
   return PARSER_PROVIDERS.has(value) ? value : fallback;
 }
+function normalizeProfileDictionaries(value) {
+  if (!isRecord(value)) return emptyProfileDictionaries();
+  const enabled = normalizeStringIds(value.enabled);
+  const order = normalizeStringIds(value.order);
+  const installed = normalizeStringIds([
+  ...normalizeStringIds(value.installed),
+  ...enabled,
+  ...order
+  ]);
+  const installedSet = new Set(installed);
+  return {
+  installed,
+  enabled: enabled.filter((id) => installedSet.has(id)),
+  order: [
+    ...order.filter((id) => installedSet.has(id)),
+    ...installed.filter((id) => !order.includes(id))
+  ]
+  };
+}
 function emptyProfileDictionaries() {
   return { installed: [], enabled: [], order: [] };
+}
+function normalizeStringIds(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const item of value) {
+  if (typeof item !== "string") continue;
+  const id = item.trim();
+  if (!id || id.length > 160 || seen.has(id)) continue;
+  seen.add(id);
+  result.push(id);
+  }
+  return result;
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function targetLanguageOf(value) {
+  return resolveLanguageProfile(value).targetLanguage;
 }
 function targetCollationLocale() {
   return activeLearningTarget().collationLocale;
@@ -5438,7 +5555,13 @@ const COPY = {
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
-  onboardingInstallOfflineDictionaries: "Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)",
+  onboardingInstallOfflineDictionaries: "Download starter dictionaries for this language",
+  studyTargetReadinessFull: "Full Yomu support",
+  studyTargetReadinessReadingOnly: "Reading and lookup",
+  studyTargetReadinessPlanned: "Planned",
+  studyTargetReadinessFullReason: "Reading, lookup, study, and mining are ready.",
+  studyTargetReadinessReadingOnlyReason: "Reading and lookup are ready.",
+  studyTargetReadinessPlannedReason: "Support is planned.",
   onboardingHoverShortcut: "Lookup hover modifier",
   manualPageScanShortcut: "Manual page scan shortcut",
   onboardingAddApiKey: "Add API key",
@@ -5911,10 +6034,10 @@ const COPY = {
   subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "Japanese YouTube only",
-  preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
+  preferJapaneseSiteLanguage: "Open Japanese versions of sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Prefer Japanese UI and Japan-local content.",
+  youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
@@ -6033,7 +6156,7 @@ const COPY = {
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
   exportDictionaries: "Export dictionaries",
-  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
+  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
@@ -6055,6 +6178,7 @@ const COPY = {
   termDictionaries: "Term dictionaries",
   kanjiDictionaries: "Kanji dictionaries",
   pitchDictionaries: "Pitch dictionaries",
+  pronunciationDictionaries: "Pronunciation dictionaries",
   frequencyDictionaries: "Frequency dictionaries",
   nameDictionaries: "Name dictionaries",
   grammarDictionaries: "Grammar dictionaries",
@@ -6066,7 +6190,7 @@ const COPY = {
   mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
   mirroredDictionarySearch: "Search dictionaries",
   mirroredDictionarySearchNoResults: "No dictionaries match your search.",
-  mirroredDictionaryOtherLanguage: "These dictionaries are not for reading Japanese.",
+  mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
   queued: "Queued",
@@ -6102,7 +6226,7 @@ const COPY = {
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
   dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
   dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-  dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
+  dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pronunciation (IPA), Japanese pitch, and frequency dictionaries add pronunciations, pitch accents, and badges, not normal definition text.",
   dictionaryInstallQueued: "{dictionary} queued.",
   dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
   dictionaryImportQueueStatus: "{count} install{plural} running.",
@@ -6724,7 +6848,13 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）
+onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
+studyTargetReadinessFull	よむの全機能
+studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessPlanned	準備中
+studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
+studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
@@ -6824,7 +6954,7 @@ dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。発音（IPA）/日本語ピッチ/頻度辞書は発音、ピッチアクセント、バッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -7650,10 +7780,10 @@ subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	日本語UIと日本向け内容を優先します。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -7769,7 +7899,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -7789,6 +7919,7 @@ recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
+pronunciationDictionaries	発音辞書
 frequencyDictionaries	頻度辞書
 nameDictionaries	固有名詞辞書
 grammarDictionaries	文法辞書
@@ -7800,7 +7931,7 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryOtherLanguage	日本語を読むための辞書ではありません。
+mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 queued	待機中
@@ -9578,6 +9709,7 @@ const DEFAULT_SETTINGS = {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
+  youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
   // Default TRUE: only stored records that PREDATE this key (the era when
   // the notice's hide button persisted the setting off) migrate below.
@@ -9586,6 +9718,7 @@ const DEFAULT_SETTINGS = {
   // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
   themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
+  youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: true,
   // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
   ankiEnabled: false,
@@ -23249,6 +23382,13 @@ const YOUTUBE_UI_METADATA_RE = new RegExp([
 function normalizeYouTubeTitleForLanguageCheck(text) {
   return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
 }
+function languageFamilyIncludes(family, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  return base === "ja";
+}
+function jpOnlyOn(settings, storedValue, chosen) {
+  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+}
 const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
 const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
@@ -23533,7 +23673,7 @@ class YoutubeImmersionFilter {
   init() {
   this.destroy();
   this.destroyed = false;
-  if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+  if (!this.isActivePage() || !document.body || !youtubeImmersionFilterEnabled(this.options.getSettings())) {
     this.destroyed = true;
     return;
   }
@@ -23575,7 +23715,7 @@ class YoutubeImmersionFilter {
     this.destroy();
     return;
   }
-  if (!this.options.getSettings().youtubeImmersionEnabled) {
+  if (!youtubeImmersionFilterEnabled(this.options.getSettings())) {
     this.destroyed = true;
     this.stopWatching();
     this.clear();
@@ -23611,7 +23751,7 @@ class YoutubeImmersionFilter {
   }
   scan() {
   const settings = this.options.getSettings();
-  if (!settings.youtubeImmersionEnabled) {
+  if (!youtubeImmersionFilterEnabled(settings)) {
     this.clear();
     return;
   }
@@ -24021,7 +24161,7 @@ class YoutubeImmersionFilter {
   this.placeChannelShelf(shelf);
   }
   shouldShowChannelShelf(filteredCount, settings) {
-  if (!settings.youtubeShowChannelRecommendations) return false;
+  if (!youtubeChannelRecommendationsEnabled(settings)) return false;
   if (this.revealed) return false;
   if (!shouldShowChannelRecommendationsForRoute()) return false;
   if (isYouTubeHomePage()) return false;
@@ -24544,7 +24684,7 @@ class YoutubeImmersionFilter {
     this.rememberOEmbedTitle(videoId, null);
   }).finally(() => {
     this.pendingOembedTitles.delete(videoId);
-    if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+    if (!this.destroyed && youtubeImmersionFilterEnabled(this.options.getSettings())) this.scheduleMetadataRescan();
   });
   }
   cachedOEmbedTitle(videoId) {
@@ -24609,6 +24749,20 @@ class YoutubeImmersionFilter {
   setFilterActiveClass(active) {
   document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
   }
+}
+function youtubeImmersionFilterEnabled(settings) {
+  return jpOnlyOn(
+  settings,
+  settings.youtubeImmersionEnabled,
+  settings.youtubeImmersionEnabledChosen
+  );
+}
+function youtubeChannelRecommendationsEnabled(settings) {
+  return jpOnlyOn(
+  settings,
+  settings.youtubeShowChannelRecommendations,
+  settings.youtubeShowChannelRecommendationsChosen
+  );
 }
 function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
@@ -25373,7 +25527,6 @@ function isYouTubeCardOrFeedElement(element) {
 }
 const JA_LANG = "ja";
 const JA_COUNTRY = "JP";
-const JA_TZ = "Asia/Tokyo";
 const JA_LOCALE = "ja-JP";
 const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const REDIRECT_CACHE_KEY = "yomu:jps";
@@ -25410,33 +25563,47 @@ function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   const cachedPreference = readCachedPreferenceEnabled();
   const revision = ++preferenceRevision;
   pendingStartupOptOutCleanup ||= cachedPreference === true;
-  const syncPreference = readStoredPreferenceEnabledSync();
-  if (typeof syncPreference === "boolean") {
-  applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision);
+  const syncPreference = readStoredPreferenceSync();
+  if (syncPreference) {
+  applyPreferredJapaneseSiteLanguageAtRevision(
+    syncPreference.enabled,
+    false,
+    revision,
+    false,
+    syncPreference.targetLanguage
+  );
   return;
   }
-  void readStoredPreferenceEnabledAsync().then((enabled) => {
+  void readStoredPreferenceAsync().then((preference) => {
   if (revision !== preferenceRevision) return;
-  applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision);
+  applyPreferredJapaneseSiteLanguageAtRevision(
+    preference.enabled,
+    false,
+    revision,
+    false,
+    preference.targetLanguage
+  );
   });
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   applyPreferredJapaneseSiteLanguageAtRevision(
   enabled,
   revertOnDisable,
   ++preferenceRevision,
-  deferCookieResponseReloadUntilPersisted
+  deferCookieResponseReloadUntilPersisted,
+  targetLanguage
   );
 }
-function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   if (typeof window === "undefined") return;
   if (revision !== preferenceRevision) return;
-  const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+  const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage);
+  const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
   pendingStartupOptOutCleanup = false;
-  currentPreferenceEnabled = enabled;
-  writeCachedPreferenceEnabled(enabled);
-  applyPageContextJapanesePreferences(enabled, revision);
-  if (enabled) {
+  currentPreferenceEnabled = effectiveEnabled;
+  writeCachedPreferenceEnabled(effectiveEnabled);
+  applyPageContextJapanesePreferences(effectiveEnabled, revision);
+  if (effectiveEnabled) {
   deferredCookieResponseReload = false;
   applySitePreferenceCookies();
   schedulePreferredJapaneseSiteRedirect(revision);
@@ -25466,34 +25633,43 @@ function preferredDefaultSiteUrl(sourceHref, root) {
   if (!target || target.href === current.href) return null;
   return target.href;
 }
-function readStoredPreferenceEnabledSync() {
+function readStoredPreferenceSync() {
   const preferredLanguage = gmStorageGetSharedSync(
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
   void 0
   );
-  if (typeof preferredLanguage === "boolean") return preferredLanguage;
+  let storedSettings;
   for (const key of SETTINGS_STORAGE_KEYS) {
   const stored = gmStorageGetSharedSync(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
+  if (!stored || typeof stored !== "object") continue;
+  storedSettings = stored;
+  break;
   }
-  }
-  return void 0;
+  if (preferredLanguage === true && !storedSettings) return void 0;
+  return sitePreference(preferredLanguage, storedSettings);
 }
-async function readStoredPreferenceEnabledAsync() {
+async function readStoredPreferenceAsync() {
   const preferredLanguage = await gmStorageGet(
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
   void 0
   );
-  if (typeof preferredLanguage === "boolean") return preferredLanguage;
+  let storedSettings;
   for (const key of SETTINGS_STORAGE_KEYS) {
   const stored = await gmStorageGet(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
-  }
+  if (!stored || typeof stored !== "object") continue;
+  storedSettings = stored;
+  break;
   }
   const cached = readCachedPreferenceEnabled();
-  return typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+  return sitePreference(
+  preferredLanguage,
+  storedSettings,
+  typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage
+  );
+}
+function sitePreference(dedicated, settings, fallback) {
+  const enabled = typeof dedicated === "boolean" ? dedicated : typeof settings?.preferJapaneseSiteLanguage === "boolean" ? settings.preferJapaneseSiteLanguage : fallback;
+  return typeof enabled === "boolean" ? { enabled, targetLanguage: targetLanguageOf(settings) } : void 0;
 }
 function readCachedPreferenceEnabled() {
   try {
@@ -25600,8 +25776,6 @@ function injectedPagePreferenceSource(enabled) {
   `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
   `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
   `const installIntlDefaults = ${installIntlDefaults.toString()};`,
-  `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
-  `const installGeolocationHint = ${installGeolocationHint.toString()};`,
   `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
   `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
   "})();"
@@ -25610,10 +25784,10 @@ function injectedPagePreferenceSource(enabled) {
 function applySitePreferenceCookies() {
   const hostname = currentLocationHostname();
   if (/(^|\.)youtube\.com$/.test(hostname)) {
+  clearCookieValues("PREF", ["tz"], ".youtube.com");
   mergeCookie("PREF", {
     hl: JA_LANG,
-    gl: JA_COUNTRY,
-    tz: JA_TZ
+    gl: JA_COUNTRY
   }, ".youtube.com");
   }
   if (/(^|\.)google\./.test(hostname)) {
@@ -26010,35 +26184,25 @@ function applyJapanesePreferencesInPage(scope, enabled) {
   if (state.installed) return;
   state.installed = true;
   const locale = JA_LOCALE;
-  const languages2 = ["ja-JP", "ja", "en-US", "en"];
-  const timeZone = "Asia/Tokyo";
-  const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
+  const languages2 = [locale, "ja", "en-US", "en"];
   const navigatorObject = root.navigator;
   const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
   defineGetter(state, navigatorPrototype, "language", () => locale);
   defineGetter(state, navigatorPrototype, "languages", () => languages2.slice());
-  defineGetter(state, navigatorPrototype, "userLanguage", () => locale);
-  defineGetter(state, navigatorPrototype, "browserLanguage", () => locale);
   defineGetter(state, navigatorObject, "language", () => locale);
   defineGetter(state, navigatorObject, "languages", () => languages2.slice());
-  installIntlDefaults(root, state, locale, timeZone);
-  installDateTimezoneHint(root, state, timeZone);
-  installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
+  installIntlDefaults(root, state, locale);
 }
 function preferenceState(root) {
   if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
   const state = {
   installed: false,
-  properties: [],
-  watchTimers: /* @__PURE__ */ new Map(),
-  nextWatchId: 1
+  properties: []
   };
   defineUntrackedValue(root, "__yomuJapaneseSiteLanguagePreference", state);
   return state;
 }
 function restoreJapanesePreferences(state) {
-  for (const timer of state.watchTimers.values()) clearInterval(timer);
-  state.watchTimers.clear();
   for (const snapshot of state.properties.slice().reverse()) {
   try {
     if (snapshot.hadOwn && snapshot.descriptor) {
@@ -26053,10 +26217,10 @@ function restoreJapanesePreferences(state) {
   state.properties = [];
   state.installed = false;
 }
-function installIntlDefaults(root, state, locale, timeZone) {
+function installIntlDefaults(root, state, locale) {
   const intl = root.Intl;
   if (!intl) return;
-  wrapIntlConstructor(intl, state, "DateTimeFormat", locale, (options) => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
+  wrapIntlConstructor(intl, state, "DateTimeFormat", locale);
   wrapIntlConstructor(intl, state, "NumberFormat", locale);
   wrapIntlConstructor(intl, state, "Collator", locale);
   wrapIntlConstructor(intl, state, "RelativeTimeFormat", locale);
@@ -26079,48 +26243,6 @@ function wrapIntlConstructor(intl, state, name, locale, normalizeOptions = (opti
   } catch {
   }
   defineValue(state, intl, name, WrappedConstructor);
-}
-function installDateTimezoneHint(root, state, timeZone) {
-  const datePrototype = root.Date?.prototype;
-  if (!datePrototype) return;
-  defineValue(state, datePrototype, "getTimezoneOffset", function getTimezoneOffset() {
-  return timeZone === "Asia/Tokyo" ? -540 : 0;
-  });
-}
-function installGeolocationHint(root, state, navigatorObject, navigatorPrototype, coords) {
-  if (!navigatorObject) return;
-  const nativeGeolocation = navigatorObject.geolocation;
-  const position = () => ({
-  coords: {
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    accuracy: coords.accuracy,
-    altitude: null,
-    altitudeAccuracy: null,
-    heading: null,
-    speed: null
-  },
-  timestamp: Date.now()
-  });
-  const geolocation = Object.create(nativeGeolocation ?? null);
-  defineUntrackedValue(geolocation, "getCurrentPosition", (success) => {
-  root.setTimeout(() => success(position()), 0);
-  });
-  defineUntrackedValue(geolocation, "watchPosition", (success) => {
-  const id = state.nextWatchId++;
-  const emit = () => success(position());
-  const timer = root.setInterval(emit, 6e4);
-  state.watchTimers.set(id, timer);
-  root.setTimeout(emit, 0);
-  return id;
-  });
-  defineUntrackedValue(geolocation, "clearWatch", (id) => {
-  const timer = state.watchTimers.get(id);
-  if (timer !== void 0) root.clearInterval(timer);
-  state.watchTimers.delete(id);
-  });
-  defineGetter(state, navigatorPrototype, "geolocation", () => geolocation);
-  defineGetter(state, navigatorObject, "geolocation", () => geolocation);
 }
 function rememberDescriptor(state, target, key) {
   if (!target || state.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;

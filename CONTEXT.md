@@ -1,6 +1,8 @@
 # Yomu Domain Context
 
-Yomu is a self-contained Japanese reading userscript. Use these terms when naming Modules, Interfaces, tests, and docs.
+Yomu is a self-contained reading userscript. Japanese is the full study target;
+the multilingual roster also exposes targets whose current promise is reading
+and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 
 ## Core Terms
 
@@ -12,6 +14,9 @@ Yomu is a self-contained Japanese reading userscript. Use these terms when namin
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.
 - Dictionary Import: Loading Yomitan ZIP, Yomitan Dexie JSON, or Yomu reader exports into local IndexedDB stores.
 - Dictionary Preference: User ordering, aliases, and enablement for local dictionaries.
+- Study Target Readiness: The explicit product promise attached to every target in the hand-maintained language roster: `full`, `reading-only`, or `planned`. Pickers and claims consume that one value; a planned target is named, disabled, and accompanied by its reason.
+- Learner-Target Dictionary Pair: The recommendation contract keyed by both the learner's definition language and the selected headword language. A released pair provides target-headword terms and, when present, target-headword IPA instead of inheriting Japanese defaults.
+- IPA Pronunciation Metadata: Yomitan term metadata whose mode is `ipa`. It is imported and rendered as pronunciation, independently of Japanese pitch metadata and frequency badges.
 - Subtitle Track: A detected, native, file-loaded, or YouTube subtitle source that can become overlay or transcript cues.
 - Subtitle Cue: A timed subtitle line, optionally with exact word timings for karaoke rendering.
 - Transcript Panel: The subtitle drawer view that renders cue rows, parsing, track selection, and navigation.

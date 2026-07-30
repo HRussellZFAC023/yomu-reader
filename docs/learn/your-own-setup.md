@@ -11,11 +11,11 @@ Yomu works with a starter dictionary and a local deck. Everything after that is 
 
 ## Bring your dictionaries
 
-Install a dictionary from the catalogue or import any compatible Yomitan ZIP. Dictionary files, search indexes and local lookup results stay in the browser. Reorder sources so the answer you trust appears first.
+Install a dictionary from the catalogue or import any compatible Yomitan ZIP. The starter uses both choices in your language profile: an English-speaking learner reading Spanish gets Spanish-headword terms with English definitions and Spanish IPA. Japanese terms, kanji and pitch remain the starter only when Japanese is the selected target. Dictionary files, search indexes and local lookup results stay in the browser. Reorder sources so the answer you trust appears first.
 
-Yomu ships definitions in 9 languages.
+Yomu ships definitions in 32 languages.
 
-The catalogue includes Japanese dictionaries and growing supply for Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese. The planned product treats all 32 roster languages as full study targets. That target selection and complete dictionary supply are in development; Japanese remains the deepest learning path today.
+Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 targets are labelled **Reading and lookup**, matching the features ready for them today. Japanese remains the deepest path for study and mining.
 
 ## Bring your audio
 
@@ -60,7 +60,7 @@ Settings can also be exported as JSON from the Dictionaries screen. Keep that fi
 
 ## Know what is still being built
 
-Sentence-audio mining, complete 32-language study targets and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
+Sentence-audio mining, deeper study tools for the reading-and-lookup targets, and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
 
 Planned does not mean installed. The [changelog](/changelog) is the record of what has shipped.
 

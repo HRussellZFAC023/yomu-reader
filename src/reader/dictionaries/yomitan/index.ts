@@ -860,6 +860,7 @@ export class YomitanDictionaryStore {
         const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
 
         const summary: ImportSummary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        let ipaRows = 0;
         let clearedTermIndexesForImport = false;
         let importedTerms = false;
         const importBank = async <T>(pattern: RegExp, label: keyof Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>, store: StoreName, normalize: (row: unknown) => T | null) => {
@@ -893,6 +894,7 @@ export class YomitanDictionaryStore {
                 for (const row of rows) {
                     const entry = normalize(row);
                     if (!entry) continue;
+                    if (store === 'termMeta' && (entry as { mode?: unknown }).mode === 'ipa') ipaRows++;
                     if (store === 'terms') await inlineStructuredImageDataUrls(zip, (entry as unknown as YomitanTermEntry).glossary);
                     pending.push(entry);
                     summary[label]++;
@@ -914,7 +916,7 @@ export class YomitanDictionaryStore {
 
         if (summary.entries === 0) throw new Error(this.text('dictionaryNoSupportedBanks'));
         if (importedTerms) await this.clearDerivedTermIndexes(db);
-        info.counts = dictionaryCountsFromSummary(summary);
+        info.counts = dictionaryCountsFromSummary(summary, ipaRows);
         info.type = dictionaryTypeFromCounts(info.counts);
         summary.dictionaryTypes = { [dictionary]: info.type };
         await this.putDictionaryInfo(info);
@@ -975,7 +977,7 @@ export class YomitanDictionaryStore {
         if (totalRows > 0) onProgress?.(`${this.text('dictionaryPreparingImport')} ${totalRows.toLocaleString()} ${this.text('dictionaryRecords')}...`);
         const dictionaries = new Set<string>();
         const dictionaryInfo = new Map<string, YomitanDictionaryInfo>();
-        const dictionaryCounts = new Map<string, Partial<Record<EntryStoreName, number>>>();
+        const dictionaryCounts = new Map<string, Record<string, number>>();
         const summary: ImportSummary = { dictionaries: [], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
         const batches: Record<EntryStoreName, unknown[]> = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
         const progressAt: Record<EntryStoreName, number> = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
@@ -1010,8 +1012,11 @@ export class YomitanDictionaryStore {
             const dictionary = (entry as { dictionary?: unknown }).dictionary;
             if (typeof dictionary === 'string') {
                 dictionaries.add(dictionary);
-                const counts = dictionaryCounts.get(dictionary) ?? {};
+                const counts = dictionaryCounts.get(dictionary) ?? { ipa: 0 };
                 counts[store] = (counts[store] ?? 0) + 1;
+                if (store === 'termMeta' && (entry as { mode?: unknown }).mode === 'ipa') {
+                    counts.ipa++;
+                }
                 dictionaryCounts.set(dictionary, counts);
             }
             if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {

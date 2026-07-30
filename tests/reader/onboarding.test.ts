@@ -134,10 +134,10 @@ describe('OnboardingController', () => {
         const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
         expect(offlineDownload?.checked).toBe(true);
         expect(document.body.textContent).toContain(
-            'Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)',
+            'Download starter dictionaries for this language',
         );
         expect(uiText('ja', 'onboardingInstallOfflineDictionaries'))
-            .toBe('日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）');
+            .toBe('この言語のスターター辞書をダウンロード');
 
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
         await settleAsyncHandlers();

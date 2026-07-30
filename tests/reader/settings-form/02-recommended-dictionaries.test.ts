@@ -56,7 +56,8 @@ describe('recommended dictionary settings buttons', () => {
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('通常の定義文は追加しません');
         expect(recommendedDictionaryHelp(form, 'kanjium-pitch')).toContain('ピッチアクセント専用');
         expect(recommendedDictionaryHelp(form, 'jpdbv2-kana')).toContain('頻度バッジ');
-        expect(settingsText(form, '#jpdb-reader-settings-panel-backup [data-import-status]')).toContain('語句/ピッチ/頻度辞書');
+        expect(settingsText(form, '#jpdb-reader-settings-panel-backup [data-import-status]'))
+            .toContain('語句/発音（IPA）/日本語ピッチ/頻度辞書');
     });
 
     it('does not treat Jitendex as the Jiten frequency dictionary', () => {

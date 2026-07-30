@@ -288,7 +288,7 @@ import { activeLearningTarget } from '../languages/active';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
-import { syncLanguageFamilyDom } from '../settings/language-gating';
+import { jpOnlyOn, syncLanguageFamilyDom } from '../settings/language-gating';
 import { applyInterfaceLocaleToRoot, resolveInterfaceLocale, type InterfaceLocale } from '../locales';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
@@ -1645,25 +1645,38 @@ export class ReaderApp {
     }
 
     private async toggleYoutubeImmersion(): Promise<void> {
-        await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
+        await this.setYoutubeImmersionEnabled(!this.isYoutubeImmersionEnabled());
     }
 
     private async setYoutubeImmersionEnabled(enabled: boolean): Promise<void> {
         const previous = this.settings.youtubeImmersionEnabled;
+        const previousChosen = this.settings.youtubeImmersionEnabledChosen;
         this.settings.youtubeImmersionEnabled = enabled;
+        this.settings.youtubeImmersionEnabledChosen = true;
         // Respond on screen before persisting: settings writes can stall for
         // hundreds of ms on iPad userscript managers, and the puck toggle
         // must not feel dead while the filter is busy (2026-07-11 report).
         this.youtube.refresh();
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
         try {
-            await saveSettings(this.settings, { explicitUserChoiceKeys: ['youtubeImmersionEnabled'] });
+            await saveSettings(this.settings, {
+                explicitUserChoiceKeys: ['youtubeImmersionEnabled', 'youtubeImmersionEnabledChosen'],
+            });
         } catch (error) {
             this.settings.youtubeImmersionEnabled = previous;
+            this.settings.youtubeImmersionEnabledChosen = previousChosen;
             this.youtube.refresh();
             this.toast(uiText(this.settings.interfaceLanguage, 'settingsSaveFailed'));
             throw error;
         }
+    }
+
+    private isYoutubeImmersionEnabled(): boolean {
+        return jpOnlyOn(
+            this.settings,
+            this.settings.youtubeImmersionEnabled,
+            this.settings.youtubeImmersionEnabledChosen,
+        );
     }
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
@@ -1697,7 +1710,13 @@ export class ReaderApp {
 
     private async setYoutubeChannelRecommendationsVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowChannelRecommendations = visible;
-        await saveSettings(this.settings);
+        this.settings.youtubeShowChannelRecommendationsChosen = true;
+        await saveSettings(this.settings, {
+            explicitUserChoiceKeys: [
+                'youtubeShowChannelRecommendations',
+                'youtubeShowChannelRecommendationsChosen',
+            ],
+        });
         this.youtube.refresh();
     }
 
@@ -1897,6 +1916,7 @@ export class ReaderApp {
             settings.preferJapaneseSiteLanguage,
             options,
             deferCookieResponseReloadUntilPersisted,
+            targetLanguageOf(settings),
         );
     }
 
@@ -2609,7 +2629,7 @@ export class ReaderApp {
                 toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
                 isYouTube: () => isYouTubeHostname(),
                 toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
-                isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+                isYoutubeFilterEnabled: () => this.isYoutubeImmersionEnabled(),
                 toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
                 isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
                 hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled

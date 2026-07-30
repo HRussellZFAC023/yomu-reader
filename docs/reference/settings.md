@@ -296,14 +296,16 @@ Reads nearby images. Google Lens needs no setup.
 
 ## YouTube (Media tab)
 
-Prefer Japanese UI and Japan-local content.
+Filter YouTube for Japanese and open Japanese versions of sites.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
 | Japanese YouTube only | — | on | `youtubeImmersionEnabled` |
+| Not yet described | — | off | `youtubeImmersionEnabledChosen` |
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
-| Prefer Japanese site language and location | — | on | `preferJapaneseSiteLanguage` |
+| Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
+| Open Japanese versions of sites | — | on | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 

@@ -29,15 +29,14 @@ import {
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLanguageProfile, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
 import { catalogBrowseDescription, catalogBrowseSectionGroups, catalogBrowseTotalBytes, formatDictionaryBytes, headwordLanguageEndonym, headwordLanguageName, type CatalogBrowseLanguageSection } from '../dictionaries/catalog-browse';
-import { catalogBrowseCopy, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
+import { catalogBrowseCopy, catalogBrowseLanguageNote, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
 import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse-filter';
 import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import {
-    LEARNING_TARGET_ROSTER,
     activeLanguageProfile,
     learningTargetRosterIdForTag,
     slice1LanguageIdForTag,
@@ -57,6 +56,7 @@ import {
 } from '../locales';
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
+import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
@@ -151,6 +151,15 @@ function renderLanguageOptions(
 ): string {
     return languages.map(item => `
         <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
+    `).join('');
+}
+
+function renderStudyTargetOptions(
+    language: InterfaceLanguage,
+    selected: LearningTargetRosterId,
+): string {
+    return studyTargetOptions(language).map(item => `
+        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} ${item.id === selected ? 'selected' : ''}>${escapeHtml(item.label)}</option>
     `).join('');
 }
 
@@ -257,7 +266,7 @@ function renderLanguageProfileControls(settings: ReaderSettings): string {
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage)}
+                                ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage)}
                             </select>
                         </label>
                         ${renderInterfaceLocaleSelect(settings)}
@@ -1316,10 +1325,16 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>${escapedUiText(language, 'youTube')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
-                    ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
-                    ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
-                    ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
+                    <div class="jp-only" data-language-family="youtube-immersion">
+                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
+                        ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
+                        ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
+                        ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
+                    </div>
+                    <div class="jp-only" data-language-family="preferred-japanese-sites">
+                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
+                        ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
+                    </div>
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
             </fieldset>
@@ -1361,7 +1376,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalo
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse)}
+                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse, activeTargetLanguageId(settings))}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>
@@ -1593,6 +1608,12 @@ function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceL
         const value = key ? copyValues[key] : undefined;
         if (value !== undefined) element.replaceChildren(value);
     });
+
+    const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
+    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
+    if (targetSelect && selectedTarget) {
+        setInnerHtml(targetSelect, renderStudyTargetOptions(language, selectedTarget));
+    }
 
     const learnerSelect = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]');
     const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? (learnerSelect.value as LearnerLanguageId) : 'en';
@@ -2267,6 +2288,7 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
         terms: text('termDictionaries'),
         kanji: text('kanjiDictionaries'),
         pitch: text('pitchDictionaries'),
+        pronunciation: text('pronunciationDictionaries'),
         frequency: text('frequencyDictionaries'),
     };
     form.querySelectorAll<HTMLElement>('[data-recommended-category]').forEach((title) => {
@@ -2314,10 +2336,15 @@ function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText)
     section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]').forEach((shelf) => {
         const language = shelf.dataset.catalogBrowseLanguage;
         if (!language) return;
+        const languageName = headwordLanguageName(language, locale);
         shelf.querySelector<HTMLElement>('[data-catalog-browse-language-title]')
-            ?.replaceChildren(headwordLanguageName(language, locale));
+            ?.replaceChildren(languageName);
         shelf.querySelector<HTMLElement>('[data-catalog-browse-language-note]')
-            ?.replaceChildren(copy?.otherLanguageNote ?? text('mirroredDictionaryOtherLanguage'));
+            ?.replaceChildren(
+                copy
+                    ? catalogBrowseLanguageNote(copy, languageName)
+                    : formatUiText(interfaceLanguage, 'mirroredDictionaryLanguageNote', { language: languageName }),
+            );
     });
     let count = 0;
     let bytes = 0;
@@ -3078,18 +3105,21 @@ export function renderRecommendedDictionaries(
     installed: YomitanDictionaryInfo[],
     learnerLanguage: LearnerLanguageId = 'en',
     includeCatalogBrowse = true,
+    targetLanguage: LearningTargetRosterId = 'ja',
 ): string {
     const groups: Array<[RecommendedDictionary['category'], string]> = [
         ['terms', 'Term dictionaries'],
         ['kanji', 'Kanji dictionaries'],
         ['pitch', 'Pitch dictionaries'],
+        ['pronunciation', 'Pronunciation dictionaries'],
         ['frequency', 'Frequency dictionaries'],
     ];
-    const catalogRecommendations = recommendedDictionariesForLearnerLanguage(learnerLanguage);
+    const catalogRecommendations = recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage);
 
     return `
-        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage)}
-        <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
+        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage, targetLanguage)}
+        ${targetLanguage === 'ja' ? `
+        <div class="jpdb-reader-recommended-title">Recommended Japanese dictionaries</div>
         <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText('en', 'dictionaryInstallQueueHelp')}</div>
         ${groups
             .map(([category, label]) => {
@@ -3102,9 +3132,13 @@ export function renderRecommendedDictionaries(
                 </div>
             `;
             })
-            .join('')}
+            .join('')}` : ''}
         ${includeCatalogBrowse
-            ? renderCatalogBrowseSection(catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)
+            ? renderCatalogBrowseSection(
+                catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage, targetLanguage),
+                installed,
+                learnerLanguage,
+            )
             : ''}
     `;
 }
@@ -3155,7 +3189,7 @@ function renderCatalogBrowseLanguage(
     return `
         <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language))}"${section.isTargetLanguage ? ' data-catalog-browse-language-target' : ''}>
             <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language, locale))}</div>
-            ${section.isTargetLanguage ? '' : `<div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(copy.otherLanguageNote)}</div>`}
+            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language, locale)))}</div>
             ${section.groups
                 .map(group => `
                     <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
@@ -3174,7 +3208,7 @@ const CATALOG_BROWSE_CATEGORY_TEXT_KEYS: Readonly<Record<DictionaryCategory, Set
     grammar: 'grammarDictionaries',
     kanji: 'kanjiDictionaries',
     frequency: 'frequencyDictionaries',
-    pronunciation: 'pitchDictionaries',
+    pronunciation: 'pronunciationDictionaries',
     examples: 'exampleDictionaries',
     thesaurus: 'thesaurusDictionaries',
     encyclopedia: 'encyclopediaDictionaries',
@@ -3187,15 +3221,23 @@ function catalogBrowseSummaryText(template: string, locale: string, count: numbe
         .replaceAll('{size}', formatDictionaryBytes(bytes, locale));
 }
 
-function renderCatalogRecommendationSeed(dictionaries: readonly RecommendedDictionary[], installed: YomitanDictionaryInfo[], learnerLanguageId: LearnerLanguageId): string {
+function renderCatalogRecommendationSeed(
+    dictionaries: readonly RecommendedDictionary[],
+    installed: YomitanDictionaryInfo[],
+    learnerLanguageId: LearnerLanguageId,
+    targetLanguage: LearningTargetRosterId,
+): string {
     if (!dictionaries.length) return '';
     const learnerLanguage = learnerLanguageById(learnerLanguageId);
     const messages = LOCALE_CATALOGS[learnerLanguageId].messages;
+    const title = targetLanguage === 'ja'
+        ? messages.recommendedDictionariesTitle
+        : headwordLanguageName(targetLanguage, learnerLanguage.runtimeLocale);
     const size = completeDictionarySeedSize(dictionaries, learnerLanguage.runtimeLocale);
     const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries.length, size, learnerLanguage.runtimeLocale);
     return `
-        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" lang="${escapeHtml(learnerLanguage.runtimeLocale)}" dir="${learnerLanguage.direction}">
-            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(messages.recommendedDictionariesTitle)}</div>
+        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml(targetLanguage)}" lang="${escapeHtml(learnerLanguage.runtimeLocale)}" dir="${learnerLanguage.direction}">
+            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(title)}</div>
             <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml(countAndSize)}</div>
             ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
         </section>
@@ -3212,7 +3254,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
           ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel('Guide')}</a>`
           : '';
     const description = dictionary.description ?? (dictionary.descriptionKey ? uiText('en', dictionary.descriptionKey) : '');
-    const catalogAttributes = dictionary.origin === 'catalog' ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? '')}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? '')}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? '')}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? '')}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? '')}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ''}` : '';
+    const catalogAttributes = dictionary.origin === 'catalog' ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? '')}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? '')}" data-target-language="${escapeHtml(dictionary.targetLanguage ?? '')}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? '')}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? '')}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? '')}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ''}` : '';
     return `
         <div class="jpdb-reader-recommended-item"${catalogAttributes}>
             <div>

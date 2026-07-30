@@ -1,8 +1,8 @@
 import shelfJson from '../../../../config/dictionaries/recommendation-shelf.v1.json';
 import { googleTranslationLanguageCapability } from '../../translation/google';
 import {
+    DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
     DICTIONARY_CATALOG_SCHEMA_VERSION,
-    DICTIONARY_CATALOG_TARGET_LANGUAGE,
     type DictionaryCatalogManifest,
     type DictionaryRecommendation,
     type DictionaryRecommendationManifest,
@@ -57,6 +57,7 @@ export function extendRecommendationManifest(
     manifest: DictionaryRecommendationManifest,
     catalog: DictionaryCatalogManifest,
 ): DictionaryRecommendationManifest {
+    if (manifest.targetLanguage !== DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE) return manifest;
     const entryById = new Map(catalog.entries.map(entry => [entry.id, entry]));
     const seeded = new Set(manifest.dictionaries.map(dictionary => dictionary.dictionaryId));
     const starter = manifest.dictionaries.filter(dictionary => STARTER_ROLES.has(dictionary.role));
@@ -65,9 +66,9 @@ export function extendRecommendationManifest(
         if (seeded.has(slot.dictionaryId)) continue;
         const entry = entryById.get(slot.dictionaryId);
         if (!entry || entry.distribution.state !== 'published') continue;
-        if (!entry.headwordLanguages.includes(catalog.targetLanguage)) continue;
+        if (!entry.headwordLanguages.includes(DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE)) continue;
         seeded.add(slot.dictionaryId);
-        const definitionLanguage = entry.definitionLanguages[0] ?? catalog.targetLanguage;
+        const definitionLanguage = entry.definitionLanguages[0] ?? DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE;
         added.push({
             dictionaryId: slot.dictionaryId,
             role: slot.role,
@@ -108,7 +109,7 @@ function parseShelf(input: unknown): readonly RecommendationShelfSlot[] {
     if (root.schemaVersion !== DICTIONARY_CATALOG_SCHEMA_VERSION) {
         throw new Error('Recommendation shelf schemaVersion must equal 1.');
     }
-    if (root.targetLanguage !== DICTIONARY_CATALOG_TARGET_LANGUAGE) {
+    if (root.targetLanguage !== DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE) {
         throw new Error('Recommendation shelf targetLanguage must equal ja.');
     }
     if (!Array.isArray(root.slots) || !root.slots.length) {

@@ -48,7 +48,7 @@ export interface YomitanDictionaryInfo {
     enabled: boolean;
     priority: number;
     counts?: Record<string, unknown>;
-    type?: 'terms' | 'kanji' | 'frequency' | 'metadata';
+    type?: 'terms' | 'kanji' | 'frequency' | 'pronunciation' | 'metadata';
     styles?: string;
     revision?: string;
     downloadUrl?: string;

@@ -185,7 +185,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         dictionaryPreferences,
         dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
         ...readSubtitleFormSettings(reader, current),
-        ...readYoutubeFormSettings(reader),
+        ...readYoutubeFormSettings(reader, current),
         ...readAnkiFormSettings(reader, current),
         ...readStudyToolFormSettings(reader, current),
         enableLogging: has('enableLogging'),
@@ -767,13 +767,29 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
     };
 }
 
-function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSettings> {
+function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { has } = reader;
+    const youtubeControlsPresent = has('youtubeImmersionSettingsPresent');
+    const immersionEnabled = youtubeControlsPresent
+        ? has('youtubeImmersionEnabled')
+        : current.youtubeImmersionEnabled;
+    const channelRecommendations = youtubeControlsPresent
+        ? has('youtubeShowChannelRecommendations')
+        : current.youtubeShowChannelRecommendations;
+    const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
-        preferJapaneseSiteLanguage: has('preferJapaneseSiteLanguage'),
-        youtubeShowChannelRecommendations: has('youtubeShowChannelRecommendations'),
-        youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
+        youtubeImmersionEnabled: immersionEnabled,
+        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen
+            || (youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled),
+        preferJapaneseSiteLanguage: siteLanguageSettingPresent
+            ? has('preferJapaneseSiteLanguage')
+            : current.preferJapaneseSiteLanguage,
+        youtubeShowChannelRecommendations: channelRecommendations,
+        youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
+            || (youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
+        youtubeShowFilterNotice: youtubeControlsPresent
+            ? has('youtubeShowFilterNotice')
+            : current.youtubeShowFilterNotice,
     };
 }
 
@@ -813,7 +829,12 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
 }
 
 function readDictionaryType(value: string): DictionaryPreference['type'] {
-    return value === 'kanji' || value === 'frequency' || value === 'metadata' ? value : 'terms';
+    return value === 'kanji'
+        || value === 'frequency'
+        || value === 'pronunciation'
+        || value === 'metadata'
+        ? value
+        : 'terms';
 }
 
 export function readAudioSources(data: FormData): AudioSourceSetting[] {

@@ -21,7 +21,7 @@ const temporaryDirectories: string[] = [];
 
 afterAll(async () => {
     await Promise.all(temporaryDirectories.map(directory => rm(directory, { recursive: true, force: true })));
-});
+}, 60_000);
 
 /**
  * The release runs against the catalogue as it stands AFTER the verified
@@ -57,20 +57,26 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
         const written = await regenerateRelease(join(PUBLISHED_ROOT, 'catalog.json'));
         const filenames = (await readdir(join(PUBLISHED_ROOT, 'recommendations'))).sort();
 
-        expect(filenames).toHaveLength(32);
+        expect(filenames).toHaveLength(32 * 33);
         for (const filename of filenames) {
             const regenerated = await readFile(join(written, filename), 'utf8');
             const shipped = await readFile(join(PUBLISHED_ROOT, 'recommendations', filename), 'utf8');
 
             expect(regenerated, filename).toBe(shipped);
             const roles = JSON.parse(regenerated).dictionaries.map((item: { role: string }) => item.role);
-            expect(roles, filename).toHaveLength(8);
-            for (const role of SHELF_ROLES) expect(roles, `${filename}/${role}`).toContain(role);
+            if (filename.endsWith('-ja.json')) {
+                expect(roles, filename).toHaveLength(8);
+                for (const role of SHELF_ROLES) expect(roles, `${filename}/${role}`).toContain(role);
+            } else {
+                expect(roles.filter((role: string) => role === 'primary-terms' || role === 'fallback-terms'), filename)
+                    .toHaveLength(1);
+                expect(roles.filter((role: string) => role === 'pronunciation'), filename).toHaveLength(1);
+            }
         }
-    // Regenerates all 32 published manifests and compares them byte for byte. That is
+    // Regenerates all 1,056 published manifests and compares them byte for byte. That is
     // genuinely slow, and under the parallel CI pass it overran the 5s default and read
     // as a failure rather than as work.
-    }, 60_000);
+    }, 120_000);
 
     it('leaves a pre-release catalogue on the three starter rows instead of inventing a shelf', async () => {
         const written = await regenerateRelease(join(PRE_RELEASE_ROOT, 'catalog.json'));
@@ -78,7 +84,7 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
         const english = JSON.parse(await readFile(join(written, 'en-ja.json'), 'utf8'));
         expect(english.dictionaries.map((item: { role: string }) => item.role))
             .toEqual(['primary-terms', 'names', 'kanji']);
-    });
+    }, 30_000);
 
     it('reads the shelf from the frozen policy rather than a copy inside the script', async () => {
         const policy = JSON.parse(await readFile(SHELF_POLICY, 'utf8'));
@@ -111,7 +117,7 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
             expect(modes.get('frequency'), language).toBe('off');
             expect(modes.get('pronunciation'), language).toBe('off');
         }
-    });
+    }, 30_000);
 });
 
 /**
@@ -277,7 +283,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         expect(summary.shelfStage).toBe('pre-release');
         expect(summary.shelfSlotsPerLanguage).toBe(0);
         expect(english.dictionaries.map((item: { role: string }) => item.role)).toEqual(['primary-terms', 'names', 'kanji']);
-    });
+    }, 30_000);
 
     // Editing the frozen policy is the last way to lose the shelf, and the only
     // one the shipped-bytes test above would have to catch on its own.

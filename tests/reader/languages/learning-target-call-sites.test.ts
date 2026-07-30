@@ -63,15 +63,23 @@ function activateAdHocTarget(language: string, overrides: Parameters<typeof adHo
 }
 
 // ---------------------------------------------------------------------------
-// app/onboarding.ts — typography.contentLocale on the rendered target word
+// app/onboarding.ts — typography.contentLocale on the selected target option
 // ---------------------------------------------------------------------------
 
-describe('onboarding target-language output', () => {
+describe('onboarding target-language picker', () => {
     it('stamps lang= from the active target typography, not a Japanese literal', async () => {
         const target = activateAdHocTarget('sv');
         expect(target.typography.contentLocale).toBe('sv');
 
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            onboardingSeen: false,
+            interfaceLanguage: 'en',
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
+                ...profile,
+                targetLanguage: 'sv',
+            })),
+        };
         const controller = new OnboardingController({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -81,9 +89,11 @@ describe('onboarding target-language output', () => {
 
         await expect(controller.showIfNeeded()).resolves.toBe(true);
 
-        const output = document.querySelector<HTMLElement>('[data-onboarding-target-language]');
-        expect(output).not.toBeNull();
-        expect(output!.lang).toBe('sv');
+        const picker = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
+        const selected = picker?.selectedOptions[0];
+        expect(picker).not.toBeNull();
+        expect(selected?.value).toBe('sv');
+        expect(selected?.lang).toBe('sv');
     });
 });
 
@@ -115,6 +125,53 @@ describe('browser text-to-speech', () => {
         await new AudioPlayer(() => DEFAULT_SETTINGS).playJapaneseText('hej');
 
         expect(spoken).toEqual([{ text: 'hej', lang: 'sv-SE' }]);
+    });
+
+    it('selects a Russian voice and never falls back to a Japanese voice', async () => {
+        expect(setActiveLearningTargetLanguage('ru')).not.toBeNull();
+        const spoken: Array<{ lang: string; voice: string; voiceLang: string }> = [];
+        class FakeUtterance {
+            lang = '';
+            voice: SpeechSynthesisVoice | null = null;
+            onend: (() => void) | null = null;
+            onerror: (() => void) | null = null;
+            constructor(public text: string) {}
+        }
+        let voices = [
+            { name: 'Kyoko', lang: 'ja-JP', default: true },
+            { name: 'Milena', lang: 'ru-RU', default: false },
+        ] as SpeechSynthesisVoice[];
+        vi.stubGlobal('SpeechSynthesisUtterance', FakeUtterance);
+        vi.stubGlobal('speechSynthesis', {
+            cancel: vi.fn(),
+            getVoices: vi.fn(() => voices),
+            speak: vi.fn((utterance: FakeUtterance) => {
+                spoken.push({
+                    lang: utterance.lang,
+                    voice: utterance.voice?.name ?? '',
+                    voiceLang: utterance.voice?.lang ?? '',
+                });
+                utterance.onend?.();
+            }),
+        });
+
+        const player = new AudioPlayer(() => DEFAULT_SETTINGS);
+        await player.playJapaneseText('привет');
+        await player.playJapaneseText('до свидания', 'Missing saved voice');
+        await player.playJapaneseText('пожалуйста', 'Kyoko');
+        voices = [
+            { name: 'Kyoko', lang: 'ja-JP', default: true },
+            { name: 'Samantha', lang: 'en-US', default: false },
+        ] as SpeechSynthesisVoice[];
+        await player.playJapaneseText('спасибо');
+
+        expect(spoken).toEqual([
+            { lang: 'ru-RU', voice: 'Milena', voiceLang: 'ru-RU' },
+            { lang: 'ru-RU', voice: 'Milena', voiceLang: 'ru-RU' },
+            { lang: 'ru-RU', voice: 'Milena', voiceLang: 'ru-RU' },
+            { lang: 'ru-RU', voice: 'Samantha', voiceLang: 'en-US' },
+        ]);
+        expect(spoken.some(entry => entry.voiceLang === 'ja-JP')).toBe(false);
     });
 });
 

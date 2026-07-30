@@ -13,7 +13,11 @@ import { crawlPublicDriveFolder } from '../../scripts/dictionaries/drive-invento
 import { ingestVerifiedConnectorManifest } from '../../scripts/dictionaries/ingest-verified-connector-manifest.mjs';
 import { prepareDictionaryRelease } from '../../scripts/dictionaries/prepare-release.mjs';
 import { buildUploadPlan } from '../../scripts/dictionaries/upload.mjs';
-import { parseDictionaryCatalogManifest } from '../../src/reader/dictionaries/catalog';
+import {
+    SLICE1_LEARNER_LANGUAGES,
+    SLICE1_TARGET_LANGUAGES,
+    parseDictionaryCatalogManifest,
+} from '../../src/reader/dictionaries/catalog';
 
 const CONFIG_ROOT = resolve(process.cwd(), 'config/dictionaries');
 
@@ -203,22 +207,29 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
         const stagingRoot = join(root, 'staging');
         await mkdir(join(publishedRoot, 'recommendations'), { recursive: true });
         await mkdir(join(stagingRoot, 'objects', 'sha256'), { recursive: true });
-        await writeFile(join(publishedRoot, 'catalog.json'), JSON.stringify({ schemaVersion: 1, entries }));
-        const languages = Array.from({ length: 32 }, (_, index) => ({ tag: `fixture-${index + 1}` }));
+        const normalizedEntries = (entries as any[]).map(entry =>
+            entry.id === seedId && !entry.headwordLanguages
+                ? { ...entry, headwordLanguages: [...SLICE1_TARGET_LANGUAGES] }
+                : entry);
+        await writeFile(join(publishedRoot, 'catalog.json'), JSON.stringify({ schemaVersion: 1, entries: normalizedEntries }));
+        const languages = SLICE1_LEARNER_LANGUAGES.map(tag => ({ tag }));
         await writeFile(join(publishedRoot, 'languages.json'), JSON.stringify({ schemaVersion: 1, count: 32, languages }));
-        for (const [index] of languages.entries()) {
-            await writeFile(
-                join(publishedRoot, 'recommendations', `${String(index + 1).padStart(2, '0')}-ja.json`),
+        await Promise.all(SLICE1_TARGET_LANGUAGES.flatMap(targetLanguage =>
+            languages.map(language => {
+                const targetSeed = normalizedEntries.find(entry =>
+                    entry.distribution?.state === 'published'
+                    && entry.headwordLanguages?.includes(targetLanguage))?.id ?? seedId;
+                return writeFile(
+                join(publishedRoot, 'recommendations', `${language.tag}-${targetLanguage}.json`),
                 JSON.stringify({
                     schemaVersion: 1,
-                    learnerLanguage: `fixture-${index + 1}`,
-                    targetLanguage: 'ja',
+                    learnerLanguage: language.tag,
+                    targetLanguage,
                     readiness: 'ready',
                     blockers: [],
-                    dictionaries: [{ dictionaryId: seedId }],
+                    dictionaries: [{ dictionaryId: targetSeed }],
                 }),
-            );
-        }
+            )})));
         return { root, publishedRoot, stagingRoot };
     }
 
@@ -227,6 +238,7 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
     const objectKey = `objects/sha256/${sha256}.zip`;
     const publishedEntry = {
         id: 'fixture',
+        headwordLanguages: [...SLICE1_TARGET_LANGUAGES],
         distribution: { state: 'published', object: { key: objectKey, sha256, bytes: archive.byteLength } },
     };
 
@@ -245,7 +257,7 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
             });
 
             expect(plan.map(item => item.key)).toContain(objectKey);
-            expect(plan).toHaveLength(35);
+            expect(plan).toHaveLength(1_059);
         } finally {
             await rm(root, { recursive: true, force: true });
         }
@@ -279,7 +291,7 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
                 manifestsOnly: true,
             });
 
-            expect(plan).toHaveLength(34);
+            expect(plan).toHaveLength(1_058);
             expect(plan.every(item => !item.key.startsWith('objects/sha256/'))).toBe(true);
         } finally {
             await rm(root, { recursive: true, force: true });
@@ -312,10 +324,10 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
         try {
             await writeFile(join(stagingRoot, objectKey), archive);
             await writeFile(
-                join(publishedRoot, 'recommendations', '01-ja.json'),
+                join(publishedRoot, 'recommendations', 'sq-ja.json'),
                 JSON.stringify({
                     schemaVersion: 1,
-                    learnerLanguage: 'fixture-1',
+                    learnerLanguage: 'sq',
                     targetLanguage: 'ja',
                     readiness: 'ready',
                     blockers: [],

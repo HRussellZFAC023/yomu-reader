@@ -3,12 +3,15 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     SLICE1_LEARNER_LANGUAGES,
+    SLICE1_TARGET_LANGUAGES,
     assertDictionaryObjectIntegrity,
     assertRecommendationReferencesCatalog,
     dictionaryObjectKey,
+    dictionaryRecommendationFilename,
     parseDictionaryCatalogManifest,
     parseDictionaryLanguageManifest,
     parseDictionaryRecommendationManifest,
+    parseDictionaryRecommendationFilename,
     sha256FromDictionaryObjectKey,
     verifyDictionaryObject,
 } from '../../src/reader/dictionaries/catalog';
@@ -48,21 +51,42 @@ describe('dictionary catalogue manifests', () => {
         expect(runtimeBytes).toBeLessThan(publishedBytes / 2);
     });
 
-    it('ships one valid, catalogue-linked recommendation manifest per learner language', async () => {
+    it('ships one valid, catalogue-linked recommendation manifest per learner-target pair', async () => {
         const catalog = parseDictionaryCatalogManifest(await json(resolve(MANIFEST_ROOT, 'catalog.json')));
         const files = (await readdir(resolve(MANIFEST_ROOT, 'recommendations')))
-            .filter(filename => filename.endsWith('-ja.json'))
+            .filter(filename => filename.endsWith('.json'))
             .sort();
 
-        expect(files).toHaveLength(32);
-        for (const language of SLICE1_LEARNER_LANGUAGES) {
-            const recommendation = parseDictionaryRecommendationManifest(
-                await json(resolve(MANIFEST_ROOT, 'recommendations', `${language}-ja.json`)),
-            );
-            expect(recommendation.learnerLanguage).toBe(language);
-            expect(recommendation.targetLanguage).toBe('ja');
-            expect(() => assertRecommendationReferencesCatalog(recommendation, catalog)).not.toThrow();
+        expect(files).toHaveLength(32 * 33);
+        for (const targetLanguage of SLICE1_TARGET_LANGUAGES) {
+            for (const learnerLanguage of SLICE1_LEARNER_LANGUAGES) {
+                const filename = dictionaryRecommendationFilename(learnerLanguage, targetLanguage);
+                expect(parseDictionaryRecommendationFilename(filename)).toEqual({ learnerLanguage, targetLanguage });
+                const recommendation = parseDictionaryRecommendationManifest(
+                    await json(resolve(MANIFEST_ROOT, 'recommendations', filename)),
+                );
+                expect(recommendation).toMatchObject({ learnerLanguage, targetLanguage });
+                expect(() => assertRecommendationReferencesCatalog(recommendation, catalog)).not.toThrow();
+            }
         }
+    }, 30_000);
+
+    it('selects Spanish-headword terms and IPA using the deterministic learner-first ranking', async () => {
+        const english = parseDictionaryRecommendationManifest(
+            await json(resolve(PUBLISHED_ROOT, 'recommendations/en-es.json')),
+        );
+        const spanish = parseDictionaryRecommendationManifest(
+            await json(resolve(PUBLISHED_ROOT, 'recommendations/es-es.json')),
+        );
+
+        expect(english.dictionaries).toEqual([
+            expect.objectContaining({ dictionaryId: 'wty-es-en', role: 'primary-terms', priority: 10 }),
+            expect.objectContaining({ dictionaryId: 'wty-es-en-ipa', role: 'pronunciation', priority: 20 }),
+        ]);
+        expect(spanish.dictionaries).toEqual([
+            expect.objectContaining({ dictionaryId: 'wty-es-es', role: 'primary-terms', priority: 10 }),
+            expect.objectContaining({ dictionaryId: 'wty-es-es-ipa', role: 'pronunciation', priority: 20 }),
+        ]);
     });
 
     it('keeps non-native fallback dictionaries explicit and opt-in for translation', async () => {
