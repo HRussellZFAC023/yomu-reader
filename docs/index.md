@@ -47,7 +47,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   <article class="yomu-letter">
     <h2 id="yomu-letter-title">I studied how to study Japanese for far too long before I read anything</h2>
     <p>The tools were scattered and each one wanted a different setup, so I built the one I wanted instead: read, watch, press a word, keep it, come back to it. Nothing to wire together.</p>
-    <p class="yomu-letter-sign">Henry, who makes Yomu</p>
+    <p class="yomu-letter-sign" data-yomu-localize="off">Henry</p>
   </article>
 </main>
 

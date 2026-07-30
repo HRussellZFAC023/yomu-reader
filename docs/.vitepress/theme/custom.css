@@ -1518,6 +1518,11 @@ body:has(.yomu-home) .jpdb-reader-fab {
   --rule: #29271f;
   --accent-ink: #27593e;
   --accent-fill: var(--accent);
+  /* Warm hand colour for pencil-written guidance (the try-me label and its
+     arrow). Deliberately NOT the accent: the accent is reserved for the primary
+     action, and it is learner-configurable, so guidance drawn in it vanishes
+     whenever someone picks a green. Darkened here for cream paper. */
+  --guide: #9a6512;
   /* Follow the runtime's own accent-ink, which is derived from whatever accent
      the learner chose, and fall back to the dark literal only when no accent is
      stamped. Hardcoding the dark ink assumed a light accent: against a dark
@@ -1563,15 +1568,24 @@ body:has(.yomu-home) .jpdb-reader-fab {
        an explicit "light" choice on a dark machine can never be
        overridden. Both directions, one token list. */
 .dark .yomu-home {
-  --surface-page: #1b1e18;
-  --surface-sunk: #14170f;
-  --surface-slab: #24281f;
-  --surface-plate: #272c22;
+  /* Warm charcoal, per the visual system's world ink (#181b18) — "never cold
+     navy or pure black". These were #1b1e18 / #14170f / #24281f / #272c22,
+     which measure olive (#24281f is R36 G40 B31): four near-identical
+     green-tinted greys with the accent also green made the page read as one
+     green wash with no material change between ground and paper. The ground is
+     now the bible's ink and the surfaces step up in warmth, not in green, so a
+     paper surface reads as a different material rather than a lighter sludge. */
+  --surface-page: #181b18;
+  --surface-sunk: #121411;
+  --surface-slab: #24221d;
+  --surface-plate: #2b2822;
   --ink-strong: #f1ead9;
   --ink-body: #c9c2ae;
   --ink-quiet: #a8a191;
-  --rule: #767c62;
+  --rule: #7b7365;
   --accent-ink: #7cc39c;
+  /* Brighter on the dark ground, the amber the earlier design used for this. */
+  --guide: #e0a94a;
   --on-plate: #f1ead9;
   --on-plate-quiet: #cfc8b5;
   --shadow-cast: rgba(0, 0, 0, 0.55);
@@ -1604,7 +1618,7 @@ html.dark:has(.yomu-home) {
     --ink-strong: #f1ead9;
     --ink-body: #c9c2ae;
     --ink-quiet: #a8a191;
-    --rule: #767c62;
+    --rule: #7b7365;
     --accent-ink: #7cc39c;
     --on-plate: #f1ead9;
     --on-plate-quiet: #cfc8b5;
@@ -1699,10 +1713,13 @@ html.dark:has(.yomu-home) {
   overflow-x: clip;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-content: center;
+  /* Anchored to the top, not centred. Centring inside an 860px fold left a tall
+     dead band above the wordmark whenever the copy was short — and it got
+     shorter deliberately. Centre-everything is also one of the template tells. */
+  align-content: start;
   gap: var(--s-5) 0;
   min-height: min(100svh, 860px);
-  padding: calc(var(--vp-nav-height) + var(--s-6)) var(--gutter) var(--band-y);
+  padding: calc(var(--vp-nav-height) + var(--s-4)) var(--gutter) var(--band-y);
   background: var(--surface-page);
   color: var(--ink-strong);
 }
@@ -1773,7 +1790,12 @@ html.dark:has(.yomu-home) {
   align-items: flex-end;
   gap: 6px;
   margin: 0 0 0 clamp(48px, 20%, 190px);
-  color: var(--accent-ink);
+  /* Pencil-written guidance, in the warm hand colour rather than the accent.
+     The arrow inherits it through currentColor, so the label and its arrow stay
+     one gesture. Amber also keeps this legible when a learner's chosen accent is
+     itself a green, which is when the old accent-coloured version disappeared
+     into the page. */
+  color: var(--guide);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1825,7 +1847,9 @@ html.dark:has(.yomu-home) {
 .yomu-fold-pitch-note {
   margin: var(--s-3) 0 0;
   padding-top: var(--s-3);
-  border-top: var(--rule-w) solid var(--accent-fill);
+  /* A plain rule. This was the accent, which added a fourth accented edge to
+     the fold; the accent belongs on the primary action, not on every divider. */
+  border-top: var(--rule-w) solid var(--rule);
   color: var(--ink-body);
   font-size: 13px;
   line-height: 1.45;
@@ -2620,7 +2644,11 @@ html.dark:has(.yomu-home) {
 .yomu-language-rotator {
   display: inline-grid;
   min-width: 10ch;
-  color: var(--accent-ink);
+  /* Inherits the heading ink. It used --accent-ink, which put the accent on the
+     headline as well as the guidance label, the arrow, the card edge and the
+     primary action — five accented things at once, which is what turned the
+     page green. The visual system spends the accent on "focus, selected edges,
+     underlines, stamps, and primary actions"; a headline is none of those. */
   vertical-align: baseline;
 }
 
@@ -2642,15 +2670,20 @@ html.dark:has(.yomu-home) {
   display: grid;
 }
 
+/* The outgoing word leaves quickly, the incoming one waits for it. Both used the
+   same slow duration, so for most of every transition two words in different
+   scripts sat on top of each other at half opacity and read as a rendering
+   fault rather than a fade. 160ms matches the system's response timing. */
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span {
   opacity: 0;
   transform: translateY(-0.12em);
-  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease;
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active] {
   opacity: 1;
   transform: translateY(0);
+  transition: opacity var(--motion-slow) ease 170ms, transform var(--motion-slow) ease 170ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

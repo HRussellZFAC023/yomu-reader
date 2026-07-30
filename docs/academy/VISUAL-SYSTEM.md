@@ -9,6 +9,9 @@ The approved entrance reference is `artifacts/yomu-academy/ui-reimagine/entrance
 - **World ink:** warm charcoal `#181b18`, never cold navy or pure black.
 - **Paper:** `#f1ead9`; folded paper `#ddd0b7`; paper ink `#29271f`; pencil copy `#655f51`.
 - **Accent:** `--academy-accent` inherits `--jpdb-reader-accent`, with a safe `#5ea780` fallback. Focus, selected edges, underlines, stamps, routes, and primary actions derive from it.
+- **Accent budget (owner rule, 2026-07-30 — "never go to the green sludge approach again"):** the accent is spent on the **primary action** and on the semantic underline/stamp colours. It does **not** go on headlines, guidance labels, arrows, dividers, or card edges. Accenting five things at once, on a ground that had itself drifted green, is what produced the sludge. Two independent reasons this is a rule and not a preference: the accent is **learner-configurable**, so anything drawn in it disappears for whoever picks a similar hue; and a page where everything is emphasised has no emphasis.
+- **The ground is warm, never green.** World ink is `#181b18`. Dark surfaces step up in **warmth** (`#24221d`, `#2b2822`), never toward olive — `#24281f` measures R36 G40 B31 and reads as sludge next to a green accent. A dark surface set must show a real material change between ground and paper, not four near-identical greys.
+- **Pencil guidance has its own warm hand colour**, `--guide` (amber: `#9a6512` on paper, `#e0a94a` on ink). Written guidance like a try-me label and its arrow is one gesture in that colour, and is deliberately not the accent.
 - **Geometry:** 3–15px asymmetric corners, slightly offset shadows, one folded corner or tape strip, and no wall of rounded cards.
 - **Type:** system/Yomu sans plus the Japanese font stack. Entrance and scene titles remain literal and below `3.6rem` on wide screens.
 - **Spacing:** 10–18px inside controls; 22–38px inside a paper surface. Touch targets are at least 44px.

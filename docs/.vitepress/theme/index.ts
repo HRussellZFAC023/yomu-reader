@@ -631,7 +631,6 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Vietnamese.': 'ベトナム語。',
     'I studied how to study Japanese for far too long before I read anything': '日本語を読み始めるより先に、勉強の仕方を調べることに時間をかけすぎました',
     'The tools were scattered and each one wanted a different setup, so I built the one I wanted instead: read, watch, press a word, keep it, come back to it. Nothing to wire together.': '道具はばらばらで、どれも別々の設定を求めてきました。そこで、自分がほしかったものを作りました。読む、見る、単語を押す、保存する、また戻る。つなぎ合わせる作業はありません。',
-    'Henry, who makes Yomu': 'よむを作っている Henry',
     'Furigana sits above the kanji and the lookup answers from dictionaries on your device. Open a PDF here, scanned pages included, or take the same reader to any web page.': 'ふりがなは漢字の上に付き、意味は端末の中の辞書が答えます。ここでPDFを開けば、スキャンされたページも読めます。同じリーダーをどのウェブページへも持っていけます。',
     'It fits the deck you already review in': 'いま復習しているデッキに、そのまま合わせられます',
     'Anki, jpdb, jiten, Bunpro.': 'Anki、jpdb、jiten、Bunpro。',
