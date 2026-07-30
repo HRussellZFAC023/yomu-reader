@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.43
+// @version 1.8.44
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.acbd371d45ed.user.js#sha256=rL03HUXtg682elUuGlGuS+zXkgGyFNLeJDGnaO8MJgo=
-// @require https://yomureader.com/greasyfork/yomu-audio.e60ffc276380.user.js#sha256=5g/8J2OAcu8iGVyUkBP/iRJm2BHAWa9MPlJDEk7Ad2g=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.61be7e991211.user.js#sha256=Yb5+mRIRT3dJi9MdOAyiGrFq+XrQc8bvBUMa2b4iGa8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.d8d6f606f4b5.user.js#sha256=2Nb2BvS1+G50MFBmqgGEKHTVihoBFaSBrU/Z0wuA0dI=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.20c21c90966d.user.js#sha256=IMIckJZtUf8xw707R6viTdqGANLSWqZtc4II5Ss7MIk=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.4b2ba26dd460.user.js#sha256=SyuibdRgrkS2myxWKURULn+n5chDiUKuOzdW7/Yad0Q=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.ed6b45c9432f.user.js#sha256=7WtFyUMvuEA1xzVY8duui6nFuDi6FveJiOqfe9roLYw=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.aceb45703e50.user.js#sha256=rOtFcD5QckB1Rek1eZzpeU8ERavVDw776zxd2Pr+sSo=
-// @require https://yomureader.com/greasyfork/yomu-jiten.7ce70ea082b1.user.js#sha256=fOcOoIKxaefc/Yi7s2UZPGEn0pJ7xdvoJ02KFQcLNMQ=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.541e8d737c11.user.js#sha256=VB6Nc3wRKZsy/v5cddDkcZUy8qStA5ji8Er6Mz9pU7g=
-// @require https://yomureader.com/greasyfork/yomu-video.c411b51ae801.user.js#sha256=xBG1GugB+whHLKgWHPHWIcPfjSDp+3krs/QbWyp6c0M=
+// @require https://yomureader.com/greasyfork/yomu-anki.eac196c86700.user.js#sha256=6sGWyGcA0l7rVsWHCk6s0ANTEBAFp+Kw2bUBzzi8pRg=
+// @require https://yomureader.com/greasyfork/yomu-audio.e4ac9f5b2470.user.js#sha256=5KyfWyRwB5YhOGJEV5B3o/AwtEVeB52l6J8EFQimIIw=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.d6f64a37c9d0.user.js#sha256=1vZKN8nQaGieNCBkKVr2Zt+FfpD/xmwYxG0f13CTxgc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.0e830a312f8b.user.js#sha256=DoMKMS+LkWVLvA89IO1Ih9o4LjBtWbWY7sznXJZX3ls=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.f7c8b022a66d.user.js#sha256=98iwIqZtF7/r5S3Qivhd0PO7wN5KbVRjqxMwKNYK0ag=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.778a5b320f6d.user.js#sha256=d4pbMg9t8Dud0L1PR25LL1Dz4jhVtgdzdL9Tnz/7MYc=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.43ddf62c75bb.user.js#sha256=Q932LHW7rRMOoaFX6gLP5BpaxXjEK6xO+vK65F0NFtI=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.7c857c355389.user.js#sha256=fIV8NVOJG0eXhu4elPvbsypZsquYSlNsO3Ru+FNiE2A=
+// @require https://yomureader.com/greasyfork/yomu-jiten.2c6c0c80ea91.user.js#sha256=LGwMgOqRtccwvmqksXJuvNeyvA8zxdYnvXDcZQdxOHo=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.603baa4f0a47.user.js#sha256=YDuqTwpH2az+Zpw8HE9NFza07eBTvOt9FU6mDsV9kug=
+// @require https://yomureader.com/greasyfork/yomu-video.8634ae4d56f2.user.js#sha256=hjSuTVbyOjGO+TwXKNJt1yUEg5RcSOu08sLLDQL0pOk=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -7470,17 +7470,6 @@ const shared = [
   enabled: true
   },
   {
-  id: "youglish",
-  label: "YouGlish",
-  code: "youglish",
-  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
   id: "reverso",
   label: "Reverso",
   code: "reverso",
@@ -7575,10 +7564,18 @@ const targets = {
     glosbe: "ar",
     tatoeba: "ara",
     forvo: "ar",
-    youglish: "arabic",
     reverso: "arabic"
   },
-  links: []
+  links: [
+    {
+      id: "maajim",
+      label: "Maajim",
+      urlTemplate: "https://maajim.com/dictionary/{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
   },
   yue: {
   codes: {
@@ -7634,7 +7631,6 @@ const targets = {
     glosbe: "zh",
     tatoeba: "cmn",
     forvo: "zh",
-    youglish: "chinese",
     reverso: "chinese",
     linguee: "chinese"
   },
@@ -7697,7 +7693,6 @@ const targets = {
     glosbe: "nl",
     tatoeba: "nld",
     forvo: "nl",
-    youglish: "dutch",
     reverso: "dutch",
     wordreference: "nlen",
     linguee: "dutch"
@@ -7726,8 +7721,7 @@ const targets = {
   codes: {
     wiktionaryEn: "English",
     tatoeba: "eng",
-    forvo: "en",
-    youglish: "english"
+    forvo: "en"
   },
   links: [
     {
@@ -7779,7 +7773,6 @@ const targets = {
     glosbe: "fr",
     tatoeba: "fra",
     forvo: "fr",
-    youglish: "french",
     reverso: "french",
     wordreference: "fren",
     linguee: "french"
@@ -7813,10 +7806,8 @@ const targets = {
     glosbe: "de",
     tatoeba: "deu",
     forvo: "de",
-    youglish: "german",
     reverso: "german",
-    wordreference: "deen",
-    linguee: "german"
+    wordreference: "deen"
   },
   links: [
     {
@@ -7846,8 +7837,7 @@ const targets = {
     wiktionary: "el",
     glosbe: "el",
     tatoeba: "ell",
-    forvo: "el",
-    youglish: "greek"
+    forvo: "el"
   },
   links: [
     {
@@ -7887,8 +7877,7 @@ const targets = {
     wiktionary: "id",
     glosbe: "id",
     tatoeba: "ind",
-    forvo: "id",
-    youglish: "indonesian"
+    forvo: "id"
   },
   links: [
     {
@@ -7918,7 +7907,6 @@ const targets = {
     glosbe: "it",
     tatoeba: "ita",
     forvo: "it",
-    youglish: "italian",
     reverso: "italian",
     wordreference: "iten",
     linguee: "italian"
@@ -7951,7 +7939,17 @@ const targets = {
     tatoeba: "khm",
     forvo: "km"
   },
-  links: []
+  links: [
+    {
+      id: "khmerdict",
+      label: "Khmer Dictionary",
+      urlTemplate: "https://khmerdict.com/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
   },
   ko: {
   codes: {
@@ -7959,8 +7957,7 @@ const targets = {
     wiktionary: "ko",
     glosbe: "ko",
     tatoeba: "kor",
-    forvo: "ko",
-    youglish: "korean"
+    forvo: "ko"
   },
   links: [
     {
@@ -8002,7 +7999,16 @@ const targets = {
     tatoeba: "lao",
     forvo: "lo"
   },
-  links: []
+  links: [
+    {
+      id: "laoswords",
+      label: "Lao Dictionary",
+      urlTemplate: "https://www.laoswords.com/{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
   },
   la: {
   codes: {
@@ -8080,8 +8086,7 @@ const targets = {
     wiktionary: "fa",
     glosbe: "fa",
     tatoeba: "pes",
-    forvo: "fa",
-    youglish: "persian"
+    forvo: "fa"
   },
   links: [
     {
@@ -8117,7 +8122,6 @@ const targets = {
     glosbe: "pl",
     tatoeba: "pol",
     forvo: "pl",
-    youglish: "polish",
     reverso: "polish",
     wordreference: "plen",
     linguee: "polish"
@@ -8140,7 +8144,6 @@ const targets = {
     glosbe: "pt",
     tatoeba: "por",
     forvo: "pt",
-    youglish: "portuguese",
     reverso: "portuguese",
     wordreference: "pten",
     linguee: "portuguese"
@@ -8171,7 +8174,6 @@ const targets = {
     glosbe: "ro",
     tatoeba: "ron",
     forvo: "ro",
-    youglish: "romanian",
     reverso: "romanian",
     wordreference: "roen",
     linguee: "romanian"
@@ -8195,7 +8197,6 @@ const targets = {
     glosbe: "ru",
     tatoeba: "rus",
     forvo: "ru",
-    youglish: "russian",
     reverso: "russian"
   },
   links: [
@@ -8254,7 +8255,6 @@ const targets = {
     glosbe: "es",
     tatoeba: "spa",
     forvo: "es",
-    youglish: "spanish",
     reverso: "spanish",
     wordreference: "esen",
     linguee: "spanish"
@@ -8287,7 +8287,6 @@ const targets = {
     glosbe: "sv",
     tatoeba: "swe",
     forvo: "sv",
-    youglish: "swedish",
     reverso: "swedish",
     wordreference: "sven",
     linguee: "swedish"
@@ -8344,10 +8343,19 @@ const targets = {
     wiktionary: "th",
     glosbe: "th",
     tatoeba: "tha",
-    forvo: "th",
-    youglish: "thai"
+    forvo: "th"
   },
-  links: []
+  links: [
+    {
+      id: "longdo",
+      label: "Longdo",
+      urlTemplate: "https://dict.longdo.com/search/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
   },
   tr: {
   codes: {
@@ -8356,7 +8364,6 @@ const targets = {
     glosbe: "tr",
     tatoeba: "tur",
     forvo: "tr",
-    youglish: "turkish",
     reverso: "turkish"
   },
   links: [
@@ -8394,8 +8401,7 @@ const targets = {
     wiktionary: "vi",
     glosbe: "vi",
     tatoeba: "vie",
-    forvo: "vi",
-    youglish: "vietnamese"
+    forvo: "vi"
   },
   links: [
     {
@@ -34055,8 +34061,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.43"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.43"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.44"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.44"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34199,7 +34205,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.43"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.44"}`;
   } catch {
   return null;
   }

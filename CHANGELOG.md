@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.44] - 2026-07-30
+
+### Changed
+
+- Lookup pills now include the twelve Linguee language pairs that returned word results in Chrome. German Linguee and YouGlish will return when their routes show word results.
+- Arabic, Khmer, Lao and Thai now open native dictionaries: Maajim, Khmer Dictionary, Lao Dictionary and Longdo. Their query paths preserve diacritics.
+- Vietnamese Settings labels Tra tu Soha as a plaintext HTTP link before it opens.
+
 ## [1.8.43] - 2026-07-30
 
 ### Added

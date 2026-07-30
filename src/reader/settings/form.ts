@@ -2133,6 +2133,7 @@ function localizeLookupLinkEditor(form: HTMLFormElement, text: SettingsText): vo
     lookupHead[3]?.replaceChildren(text('orderHeader'));
     lookupHead[4]?.replaceChildren(text('removeHeader'));
     form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-note[data-lookup-link-note="copy"]').forEach(note => note.replaceChildren(text('copiesCurrentWord')));
+    form.querySelectorAll<HTMLElement>('[data-lookup-link-transport]').forEach(note => note.replaceChildren(text('plaintextHttpLink')));
     form.querySelectorAll<HTMLElement>('.jpdb-reader-lookup-link-fixed').forEach(note => note.setAttribute('aria-label', text('builtInAction')));
     form.querySelectorAll<HTMLInputElement>('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input, index) => {
         input.setAttribute('aria-label', text('lookupPillLabelNumber').replace('{number}', String(index + 1)));

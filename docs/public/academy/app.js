@@ -37216,6 +37216,7 @@ ${spelling}`);
       offlineDictionarySetupComplete: "Offline dictionaries installed.",
       offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
       copiesCurrentWord: "Copies the current word",
+      plaintextHttpLink: "Opens over plaintext HTTP.",
       lookupPillLabelNumber: "Lookup pill {number} label",
       lookupUrlTemplate: "Lookup URL template",
       lookupUrlTemplateNumber: "Pill {number} URL",
@@ -38936,6 +38937,7 @@ parserProviderAuto	自動（Jiten/JPDB）
 parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
+plaintextHttpLink	プレーンテキストHTTPで開きます。
 lookupPillLabelNumber	検索ピル{number}のラベル
 lookupUrlTemplate	検索URLテンプレート
 lookupUrlTemplateNumber	ピル{number} URL
@@ -39282,17 +39284,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       enabled: true
     },
     {
-      id: "youglish",
-      label: "YouGlish",
-      code: "youglish",
-      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
-      components: [
-        "sentences",
-        "audio"
-      ],
-      enabled: false
-    },
-    {
       id: "reverso",
       label: "Reverso",
       code: "reverso",
@@ -39387,10 +39378,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "ar",
         tatoeba: "ara",
         forvo: "ar",
-        youglish: "arabic",
         reverso: "arabic"
       },
-      links: []
+      links: [
+        {
+          id: "maajim",
+          label: "Maajim",
+          urlTemplate: "https://maajim.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
     },
     yue: {
       codes: {
@@ -39446,7 +39445,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "zh",
         tatoeba: "cmn",
         forvo: "zh",
-        youglish: "chinese",
         reverso: "chinese",
         linguee: "chinese"
       },
@@ -39509,7 +39507,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "nl",
         tatoeba: "nld",
         forvo: "nl",
-        youglish: "dutch",
         reverso: "dutch",
         wordreference: "nlen",
         linguee: "dutch"
@@ -39538,8 +39535,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       codes: {
         wiktionaryEn: "English",
         tatoeba: "eng",
-        forvo: "en",
-        youglish: "english"
+        forvo: "en"
       },
       links: [
         {
@@ -39591,7 +39587,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "fr",
         tatoeba: "fra",
         forvo: "fr",
-        youglish: "french",
         reverso: "french",
         wordreference: "fren",
         linguee: "french"
@@ -39625,10 +39620,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "de",
         tatoeba: "deu",
         forvo: "de",
-        youglish: "german",
         reverso: "german",
-        wordreference: "deen",
-        linguee: "german"
+        wordreference: "deen"
       },
       links: [
         {
@@ -39658,8 +39651,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "el",
         glosbe: "el",
         tatoeba: "ell",
-        forvo: "el",
-        youglish: "greek"
+        forvo: "el"
       },
       links: [
         {
@@ -39699,8 +39691,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "id",
         glosbe: "id",
         tatoeba: "ind",
-        forvo: "id",
-        youglish: "indonesian"
+        forvo: "id"
       },
       links: [
         {
@@ -39730,7 +39721,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "it",
         tatoeba: "ita",
         forvo: "it",
-        youglish: "italian",
         reverso: "italian",
         wordreference: "iten",
         linguee: "italian"
@@ -39763,7 +39753,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
         tatoeba: "khm",
         forvo: "km"
       },
-      links: []
+      links: [
+        {
+          id: "khmerdict",
+          label: "Khmer Dictionary",
+          urlTemplate: "https://khmerdict.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
     },
     ko: {
       codes: {
@@ -39771,8 +39771,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "ko",
         glosbe: "ko",
         tatoeba: "kor",
-        forvo: "ko",
-        youglish: "korean"
+        forvo: "ko"
       },
       links: [
         {
@@ -39814,7 +39813,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         tatoeba: "lao",
         forvo: "lo"
       },
-      links: []
+      links: [
+        {
+          id: "laoswords",
+          label: "Lao Dictionary",
+          urlTemplate: "https://www.laoswords.com/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
     },
     la: {
       codes: {
@@ -39892,8 +39900,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "fa",
         glosbe: "fa",
         tatoeba: "pes",
-        forvo: "fa",
-        youglish: "persian"
+        forvo: "fa"
       },
       links: [
         {
@@ -39929,7 +39936,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "pl",
         tatoeba: "pol",
         forvo: "pl",
-        youglish: "polish",
         reverso: "polish",
         wordreference: "plen",
         linguee: "polish"
@@ -39952,7 +39958,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "pt",
         tatoeba: "por",
         forvo: "pt",
-        youglish: "portuguese",
         reverso: "portuguese",
         wordreference: "pten",
         linguee: "portuguese"
@@ -39983,7 +39988,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "ro",
         tatoeba: "ron",
         forvo: "ro",
-        youglish: "romanian",
         reverso: "romanian",
         wordreference: "roen",
         linguee: "romanian"
@@ -40007,7 +40011,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "ru",
         tatoeba: "rus",
         forvo: "ru",
-        youglish: "russian",
         reverso: "russian"
       },
       links: [
@@ -40066,7 +40069,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "es",
         tatoeba: "spa",
         forvo: "es",
-        youglish: "spanish",
         reverso: "spanish",
         wordreference: "esen",
         linguee: "spanish"
@@ -40099,7 +40101,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "sv",
         tatoeba: "swe",
         forvo: "sv",
-        youglish: "swedish",
         reverso: "swedish",
         wordreference: "sven",
         linguee: "swedish"
@@ -40156,10 +40157,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "th",
         glosbe: "th",
         tatoeba: "tha",
-        forvo: "th",
-        youglish: "thai"
+        forvo: "th"
       },
-      links: []
+      links: [
+        {
+          id: "longdo",
+          label: "Longdo",
+          urlTemplate: "https://dict.longdo.com/search/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
     },
     tr: {
       codes: {
@@ -40168,7 +40178,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "tr",
         tatoeba: "tur",
         forvo: "tr",
-        youglish: "turkish",
         reverso: "turkish"
       },
       links: [
@@ -40206,8 +40215,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "vi",
         glosbe: "vi",
         tatoeba: "vie",
-        forvo: "vi",
-        youglish: "vietnamese"
+        forvo: "vi"
       },
       links: [
         {
@@ -364243,11 +364251,14 @@ ${entry2.url}`),
     audio: "Audio",
     images: "Images"
   };
-  function renderLookupLinkComponents(targetLanguage2, link) {
+  function renderLookupLinkNotes(targetLanguage2, link) {
     const components2 = lookupSiteComponents(targetLanguage2, link.id);
-    if (!components2.length) return "";
+    const opensOverPlaintextHttp = /^http:\/\//i.test(link.urlTemplate);
+    if (!components2.length && !opensOverPlaintextHttp) return "";
     const note = components2.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
-    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="components" data-lookup-link-components="${escapeHtml$2(components2.join(" "))}">${escapeHtml$2(note)}</span>`;
+    const separator = components2.length && opensOverPlaintextHttp ? " · " : "";
+    const transport = opensOverPlaintextHttp ? `<span data-lookup-link-transport>${escapedUiText$3("en", "plaintextHttpLink")}</span>` : "";
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components2.length ? "components" : "transport"}"${components2.length ? ` data-lookup-link-components="${escapeHtml$2(components2.join(" "))}"` : ""}>${escapeHtml$2(note)}${separator}${transport}</span>`;
   }
   function renderLookupLinkComponentGaps(targetLanguage2) {
     const missing2 = missingLookupComponents(targetLanguage2);
@@ -364267,7 +364278,7 @@ ${entry2.url}`),
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
       const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkComponents(targetLanguage2, link)}`;
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage2, link)}`;
       const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
@@ -367097,6 +367108,7 @@ ${entry2.url}`),
     lookupHead[3]?.replaceChildren(text2("orderHeader"));
     lookupHead[4]?.replaceChildren(text2("removeHeader"));
     form2.querySelectorAll('.jpdb-reader-lookup-link-note[data-lookup-link-note="copy"]').forEach((note) => note.replaceChildren(text2("copiesCurrentWord")));
+    form2.querySelectorAll("[data-lookup-link-transport]").forEach((note) => note.replaceChildren(text2("plaintextHttpLink")));
     form2.querySelectorAll(".jpdb-reader-lookup-link-fixed").forEach((note) => note.setAttribute("aria-label", text2("builtInAction")));
     form2.querySelectorAll('input[name^="dictionaryLookupLinks."][name$=".label"]').forEach((input2, index) => {
       input2.setAttribute("aria-label", text2("lookupPillLabelNumber").replace("{number}", String(index + 1)));

@@ -15,6 +15,7 @@ import {
 import { formatLookupUrl } from '../../../src/reader/dictionaries/display';
 import { renderDictionaryLookupLinkEditor } from '../../../src/reader/settings/form-editors';
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
+import { uiText } from '../../../src/reader/app/i18n';
 
 const ROSTER_IDS = LEARNING_TARGET_ROSTER.map(entry => entry.id);
 const NON_JAPANESE_TARGETS = ROSTER_IDS.filter(id => id !== 'ja');
@@ -36,7 +37,7 @@ const DIACRITIC_PATH_PROBES: Readonly<Record<string, string>> = {
     it: 'perché',
     km: 'ទឹក',
     ko: '물',
-    lo: 'ບ້ານ',
+    lo: 'ເສືອ',
     la: 'cūrā',
     mn: 'үг',
     fa: 'آب',
@@ -128,13 +129,17 @@ describe('U46 per-target lookup hotlinks', () => {
         }
     });
 
-    it('uses the verified diacritic-safe routes for the three affected dictionaries', () => {
+    it('uses the verified diacritic-safe routes for the affected dictionaries', () => {
         const nativeTemplate = (targetLanguage: string, siteId: string) => (
             targetLookupSites(targetLanguage).find(site => site.id === siteId)?.urlTemplate
         );
         expect(nativeTemplate('de', 'duden')).toBe('https://www.duden.de/suchen/dudenonline/{query}');
         expect(nativeTemplate('it', 'demauro')).toBe('https://dizionario.internazionale.it/parola/{queryAscii}');
         expect(nativeTemplate('pt', 'dicio')).toBe('https://www.dicio.com.br/{queryAscii}/');
+        expect(nativeTemplate('ar', 'maajim')).toBe('https://maajim.com/dictionary/{query}');
+        expect(nativeTemplate('km', 'khmerdict')).toBe('https://khmerdict.com/{query}');
+        expect(nativeTemplate('lo', 'laoswords')).toBe('https://www.laoswords.com/{query}');
+        expect(nativeTemplate('th', 'longdo')).toBe('https://dict.longdo.com/search/{query}');
 
         expect(formatLookupUrl(nativeTemplate('de', 'duden') ?? '', lookupValues('Bär')))
             .toBe('https://www.duden.de/suchen/dudenonline/B%C3%A4r');
@@ -142,6 +147,14 @@ describe('U46 per-target lookup hotlinks', () => {
             .toBe('https://dizionario.internazionale.it/parola/perche');
         expect(formatLookupUrl(nativeTemplate('pt', 'dicio') ?? '', lookupValues('água')))
             .toBe('https://www.dicio.com.br/agua/');
+        expect(formatLookupUrl(nativeTemplate('ar', 'maajim') ?? '', lookupValues('كِتاب')))
+            .toBe('https://maajim.com/dictionary/%D9%83%D9%90%D8%AA%D8%A7%D8%A8');
+        expect(formatLookupUrl(nativeTemplate('km', 'khmerdict') ?? '', lookupValues('ទឹក')))
+            .toBe('https://khmerdict.com/%E1%9E%91%E1%9E%B9%E1%9E%80');
+        expect(formatLookupUrl(nativeTemplate('lo', 'laoswords') ?? '', lookupValues('ເສືອ')))
+            .toBe('https://www.laoswords.com/%E0%BB%80%E0%BA%AA%E0%BA%B7%E0%BA%AD');
+        expect(formatLookupUrl(nativeTemplate('th', 'longdo') ?? '', lookupValues('น้ำ')))
+            .toBe('https://dict.longdo.com/search/%E0%B8%99%E0%B9%89%E0%B8%B3');
     });
 
     it('claims a component only where a site in the set supplies it', () => {
@@ -185,14 +198,9 @@ describe('U46 per-target lookup hotlinks', () => {
     describe('measured opt-outs stay opted out', () => {
         const siteIds = (id: string) => targetLookupSites(id).map(site => site.id);
 
-        it('omits YouGlish where it silently serves English', () => {
-            // `pronounce/hund/danish` returns "110 pronunciations of Hund in
-            // English", so a Danish YouGlish pill would look alive and be wrong.
-            for (const id of ['da', 'fi', 'hu', 'la', 'grc', 'mn', 'sq', 'sh', 'tl', 'km', 'lo', 'yue']) {
+        it('omits YouGlish after every configured route served a bot or quota page', () => {
+            for (const id of NON_JAPANESE_TARGETS) {
                 expect(siteIds(id), id).not.toContain('youglish');
-            }
-            for (const id of ['es', 'zh', 'ko', 'ru', 'ar', 'th', 'vi']) {
-                expect(siteIds(id), id).toContain('youglish');
             }
         });
 
@@ -205,6 +213,7 @@ describe('U46 per-target lookup hotlinks', () => {
             // language name — the two-letter code renders German.
             const danish = targetLookupSites('da').find(site => site.id === 'linguee');
             expect(danish?.urlTemplate).toBe('https://www.linguee.com/english-danish/search?source=danish&query={query}');
+            expect(siteIds('de')).not.toContain('linguee');
             for (const id of NON_JAPANESE_TARGETS) {
                 const linguee = targetLookupSites(id).find(site => site.id === 'linguee');
                 if (linguee) expect(linguee.urlTemplate, id).not.toMatch(/english-[a-z]{2}\//);
@@ -214,6 +223,13 @@ describe('U46 per-target lookup hotlinks', () => {
         it('keeps Glosbe for Lao and Thai despite word-specific misses', () => {
             expect(siteIds('lo')).toContain('glosbe');
             expect(siteIds('th')).toContain('glosbe');
+        });
+
+        it('marks plaintext HTTP lookup links in Settings', () => {
+            const vietnamese = renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local', 'vi'), [], 'vi');
+            expect(vietnamese).toContain('data-lookup-link-transport');
+            expect(vietnamese).toContain(uiText('en', 'plaintextHttpLink'));
+            expect(uiText('ja', 'plaintextHttpLink')).toBe('プレーンテキストHTTPで開きます。');
         });
 
         it('uses Forvo language section ids rather than inert fragments', () => {

@@ -624,6 +624,7 @@ const COPY = {
         offlineDictionarySetupComplete: 'Offline dictionaries installed.',
         offlineDictionarySetupFailed: 'Offline dictionary setup failed. Retry from Settings → Sources.',
         copiesCurrentWord: 'Copies the current word',
+        plaintextHttpLink: 'Opens over plaintext HTTP.',
         lookupPillLabelNumber: 'Lookup pill {number} label',
         lookupUrlTemplate: 'Lookup URL template',
         lookupUrlTemplateNumber: 'Pill {number} URL',
@@ -2350,6 +2351,7 @@ parserProviderAuto	自動（Jiten/JPDB）
 parserProviderHelp	ローカルはインポート済み辞書でオフライン解析します。JitenとJPDBはキー設定時に必ずそのAPIを使います。自動はJiten、次にJPDBを優先します。
 lookupPillsHelp	外部リンクと頻度バッジを同じ順序で表示します。ローカル頻度辞書は一致するJiten/JPDBライブバッジを置き換えます。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
+plaintextHttpLink	プレーンテキストHTTPで開きます。
 lookupPillLabelNumber	検索ピル{number}のラベル
 lookupUrlTemplate	検索URLテンプレート
 lookupUrlTemplateNumber	ピル{number} URL

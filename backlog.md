@@ -521,18 +521,18 @@ release that fails one run in four is a release nobody can schedule.
 From the adversarial verification of the per-language hotlinks (full report in `scratchpad/u46-5-research.md`).
 None of these stop a patch release; all of them are things a later pass would otherwise rediscover.
 
-- [ ] **A41.1 — 20 YouGlish links and 10 of 11 Linguee links carry no reproducible verification.** They may
-      well work; the point is that nobody has evidence they do, and the whole value of this research was that
-      every shipped link was fetched with a real word and a nonsense word and the two compared. Either verify
-      them to that standard or mark them unverified in the data so the next audit does not re-litigate it.
-- [ ] **A41.2 — Arabic, Khmer, Lao and Thai ship with no native dictionary**, because the criterion that
+- [x] **A41.1 — VERIFIED 2026-07-30 in Chrome.** The live catalogue had 20 YouGlish routes and 13 Linguee
+      routes, correcting the stale 11-link count here. Every YouGlish route opened a bot-detection or
+      quota page, so the shared link was removed. Twelve Linguee routes showed the queried word and the
+      German route showed a request block, so German was removed. The repeatable words and observed page
+      content are recorded in `docs/dev/u46-hotlink-verification-2026-07-30.md`.
+- [x] **A41.2 — Arabic, Khmer, Lao and Thai now have browser-verified native dictionaries.** The criterion that
       rejected their candidates was a delta-0 body comparison that the verifier later invalidated (an SPA
       returns an identical shell for real and nonsense queries, so delta-0 proves nothing either way).
-      Re-check those four in a real browser: an SPA that renders client-side is still a perfectly good
-      hotlink target for a learner.
-- [ ] **A41.3 — `vi/tratu-soha` is plaintext HTTP** because the site offers no HTTPS. Keeping it is
-      defensible for a link a learner clicks, but the settings copy should say so rather than leaving a
-      mixed-content surprise, and it needs its verbatim ja key.
+      Chrome showed definitions for Maajim, Khmer Dictionary, Lao Dictionary and Longdo, including the
+      same diacritic-bearing words now used by the path-template regression test.
+- [x] **A41.3 — Settings marks `vi/tratu-soha` as plaintext HTTP.** The link remains available, and its
+      English and Japanese settings copy describes how it opens.
 
 ### A39 — OWNER DECISION: the visual bible and the anti-slop evidence disagree about the typeface
 

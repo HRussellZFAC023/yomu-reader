@@ -54,17 +54,6 @@
       "enabled": true
     },
     {
-      "id": "youglish",
-      "label": "YouGlish",
-      "code": "youglish",
-      "urlTemplate": "https://youglish.com/pronounce/{query}/%code%",
-      "components": [
-        "sentences",
-        "audio"
-      ],
-      "enabled": false
-    },
-    {
       "id": "reverso",
       "label": "Reverso",
       "code": "reverso",
@@ -159,10 +148,18 @@
         "glosbe": "ar",
         "tatoeba": "ara",
         "forvo": "ar",
-        "youglish": "arabic",
         "reverso": "arabic"
       },
-      "links": []
+      "links": [
+        {
+          "id": "maajim",
+          "label": "Maajim",
+          "urlTemplate": "https://maajim.com/dictionary/{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
     },
     "yue": {
       "codes": {
@@ -218,7 +215,6 @@
         "glosbe": "zh",
         "tatoeba": "cmn",
         "forvo": "zh",
-        "youglish": "chinese",
         "reverso": "chinese",
         "linguee": "chinese"
       },
@@ -281,7 +277,6 @@
         "glosbe": "nl",
         "tatoeba": "nld",
         "forvo": "nl",
-        "youglish": "dutch",
         "reverso": "dutch",
         "wordreference": "nlen",
         "linguee": "dutch"
@@ -310,8 +305,7 @@
       "codes": {
         "wiktionaryEn": "English",
         "tatoeba": "eng",
-        "forvo": "en",
-        "youglish": "english"
+        "forvo": "en"
       },
       "links": [
         {
@@ -363,7 +357,6 @@
         "glosbe": "fr",
         "tatoeba": "fra",
         "forvo": "fr",
-        "youglish": "french",
         "reverso": "french",
         "wordreference": "fren",
         "linguee": "french"
@@ -397,10 +390,8 @@
         "glosbe": "de",
         "tatoeba": "deu",
         "forvo": "de",
-        "youglish": "german",
         "reverso": "german",
-        "wordreference": "deen",
-        "linguee": "german"
+        "wordreference": "deen"
       },
       "links": [
         {
@@ -430,8 +421,7 @@
         "wiktionary": "el",
         "glosbe": "el",
         "tatoeba": "ell",
-        "forvo": "el",
-        "youglish": "greek"
+        "forvo": "el"
       },
       "links": [
         {
@@ -471,8 +461,7 @@
         "wiktionary": "id",
         "glosbe": "id",
         "tatoeba": "ind",
-        "forvo": "id",
-        "youglish": "indonesian"
+        "forvo": "id"
       },
       "links": [
         {
@@ -502,7 +491,6 @@
         "glosbe": "it",
         "tatoeba": "ita",
         "forvo": "it",
-        "youglish": "italian",
         "reverso": "italian",
         "wordreference": "iten",
         "linguee": "italian"
@@ -535,7 +523,17 @@
         "tatoeba": "khm",
         "forvo": "km"
       },
-      "links": []
+      "links": [
+        {
+          "id": "khmerdict",
+          "label": "Khmer Dictionary",
+          "urlTemplate": "https://khmerdict.com/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
     },
     "ko": {
       "codes": {
@@ -543,8 +541,7 @@
         "wiktionary": "ko",
         "glosbe": "ko",
         "tatoeba": "kor",
-        "forvo": "ko",
-        "youglish": "korean"
+        "forvo": "ko"
       },
       "links": [
         {
@@ -586,7 +583,16 @@
         "tatoeba": "lao",
         "forvo": "lo"
       },
-      "links": []
+      "links": [
+        {
+          "id": "laoswords",
+          "label": "Lao Dictionary",
+          "urlTemplate": "https://www.laoswords.com/{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
     },
     "la": {
       "codes": {
@@ -664,8 +670,7 @@
         "wiktionary": "fa",
         "glosbe": "fa",
         "tatoeba": "pes",
-        "forvo": "fa",
-        "youglish": "persian"
+        "forvo": "fa"
       },
       "links": [
         {
@@ -701,7 +706,6 @@
         "glosbe": "pl",
         "tatoeba": "pol",
         "forvo": "pl",
-        "youglish": "polish",
         "reverso": "polish",
         "wordreference": "plen",
         "linguee": "polish"
@@ -724,7 +728,6 @@
         "glosbe": "pt",
         "tatoeba": "por",
         "forvo": "pt",
-        "youglish": "portuguese",
         "reverso": "portuguese",
         "wordreference": "pten",
         "linguee": "portuguese"
@@ -755,7 +758,6 @@
         "glosbe": "ro",
         "tatoeba": "ron",
         "forvo": "ro",
-        "youglish": "romanian",
         "reverso": "romanian",
         "wordreference": "roen",
         "linguee": "romanian"
@@ -779,7 +781,6 @@
         "glosbe": "ru",
         "tatoeba": "rus",
         "forvo": "ru",
-        "youglish": "russian",
         "reverso": "russian"
       },
       "links": [
@@ -838,7 +839,6 @@
         "glosbe": "es",
         "tatoeba": "spa",
         "forvo": "es",
-        "youglish": "spanish",
         "reverso": "spanish",
         "wordreference": "esen",
         "linguee": "spanish"
@@ -871,7 +871,6 @@
         "glosbe": "sv",
         "tatoeba": "swe",
         "forvo": "sv",
-        "youglish": "swedish",
         "reverso": "swedish",
         "wordreference": "sven",
         "linguee": "swedish"
@@ -928,10 +927,19 @@
         "wiktionary": "th",
         "glosbe": "th",
         "tatoeba": "tha",
-        "forvo": "th",
-        "youglish": "thai"
+        "forvo": "th"
       },
-      "links": []
+      "links": [
+        {
+          "id": "longdo",
+          "label": "Longdo",
+          "urlTemplate": "https://dict.longdo.com/search/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
     },
     "tr": {
       "codes": {
@@ -940,7 +948,6 @@
         "glosbe": "tr",
         "tatoeba": "tur",
         "forvo": "tr",
-        "youglish": "turkish",
         "reverso": "turkish"
       },
       "links": [
@@ -978,8 +985,7 @@
         "wiktionary": "vi",
         "glosbe": "vi",
         "tatoeba": "vie",
-        "forvo": "vi",
-        "youglish": "vietnamese"
+        "forvo": "vi"
       },
       "links": [
         {

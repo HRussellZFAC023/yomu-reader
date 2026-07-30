@@ -609,6 +609,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Each site says what it gives you before you click it — definitions, example sentences, audio, images — and Yomu names the ones no site for your language offers, so an empty row is an answer rather than a puzzle. Ancient Greek has no pronunciation site; among these new rows, Chinese is the only target with a verified image source.": "各サイトは、押す前に何が得られるのかを示します。定義、例文、音声、画像です。さらに、その言語ではどのサイトも提供していないものをよむが名指しするので、並びが空いていることが謎ではなく答えになります。古典ギリシャ語には発音のサイトがなく、新しい並びの中で確認済みの画像情報源があるのは中国語だけです。",
     "Changing the language you are studying swaps the row to that language's sites. Any site you added yourself comes with you, and a pill you switched off — including an installed frequency badge — stays off.": "学習する言語を変えると、並びもその言語のサイトに入れ替わります。自分で追加したサイトはそのまま引き継がれ、インストール済みの頻度バッジを含め、オフにしたものはオフのまま維持されます。",
     "Japanese is untouched: same pills, same order, same settings.": "日本語はそのままです。並ぶものも、順番も、設定も変わりません。",
+    "Lookup pills now include the twelve Linguee language pairs that returned word results in Chrome. German Linguee and YouGlish will return when their routes show word results.": "検索ピルには、Chromeで単語の結果を返したLingueeの12組の言語ペアが含まれるようになりました。ドイツ語版LingueeとYouGlishは、それぞれの経路で単語の結果が表示されるようになった時点で戻ります。",
+    "Arabic, Khmer, Lao and Thai now open native dictionaries: Maajim, Khmer Dictionary, Lao Dictionary and Longdo. Their query paths preserve diacritics.": "アラビア語、クメール語、ラオ語、タイ語で、それぞれMaajim、Khmer Dictionary、Lao Dictionary、Longdoという母語辞書が開くようになりました。検索語のパスではダイアクリティカルマークが保持されます。",
+    "Vietnamese Settings labels Tra tu Soha as a plaintext HTTP link before it opens.": "ベトナム語の設定では、Tra tu Sohaを開く前に、プレーンテキストHTTPリンクであることを表示するようになりました。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',

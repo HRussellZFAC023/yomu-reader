@@ -372,11 +372,16 @@ const LOOKUP_COMPONENT_LABELS: Record<LookupLinkComponent, string> = {
  * unlisted component is a statement and not a gap in the data: Treccani has
  * usage examples and no recordings, MDBG has neither, and both say so.
  */
-function renderLookupLinkComponents(targetLanguage: string, link: DictionaryLookupLink): string {
+function renderLookupLinkNotes(targetLanguage: string, link: DictionaryLookupLink): string {
     const components = lookupSiteComponents(targetLanguage, link.id);
-    if (!components.length) return '';
+    const opensOverPlaintextHttp = /^http:\/\//i.test(link.urlTemplate);
+    if (!components.length && !opensOverPlaintextHttp) return '';
     const note = components.map(component => LOOKUP_COMPONENT_LABELS[component]).join(' · ');
-    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="components" data-lookup-link-components="${escapeHtml(components.join(' '))}">${escapeHtml(note)}</span>`;
+    const separator = components.length && opensOverPlaintextHttp ? ' · ' : '';
+    const transport = opensOverPlaintextHttp
+        ? `<span data-lookup-link-transport>${escapedUiText('en', 'plaintextHttpLink')}</span>`
+        : '';
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? 'components' : 'transport'}"${components.length ? ` data-lookup-link-components="${escapeHtml(components.join(' '))}"` : ''}>${escapeHtml(note)}${separator}${transport}</span>`;
 }
 
 /**
@@ -410,7 +415,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
                 ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
                 : isFrequencyAction
                     ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
-                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkComponents(targetLanguage, link)}`;
+                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage, link)}`;
             const removeControl = isCopyAction || isFrequencyAction
                 ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
                 : miniIconButton('remove', 'Remove', 'data-action="lookup-link-remove"');
