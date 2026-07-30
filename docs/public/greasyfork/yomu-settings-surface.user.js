@@ -1208,6 +1208,35 @@ const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
 const KANJI_RE = new RegExp(`[${KANJI}]`, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
 new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text2, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text2)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
+}
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
@@ -2008,35 +2037,6 @@ function fallbackRulePriority(candidate) {
   if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
   if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
   return 3;
-}
-const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-function wordSegmenter(locale) {
-  const cached = SEGMENTER_BY_LOCALE.get(locale);
-  if (cached !== void 0) return cached;
-  let segmenter = null;
-  try {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  }
-  } catch {
-  segmenter = null;
-  }
-  SEGMENTER_BY_LOCALE.set(locale, segmenter);
-  return segmenter;
-}
-function icuWordSegments(text2, locale) {
-  const segmenter = wordSegmenter(locale);
-  if (!segmenter) return null;
-  const segments = [];
-  for (const segment of segmenter.segment(text2)) {
-  if (!segment.isWordLike) continue;
-  segments.push({
-    text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length
-  });
-  }
-  return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
@@ -13380,7 +13380,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.52".trim() ? "1.8.52".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.53".trim() ? "1.8.53".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

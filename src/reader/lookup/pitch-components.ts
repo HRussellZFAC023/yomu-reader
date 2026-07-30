@@ -1,7 +1,7 @@
 import type { JPDBCard, JPDBPitchComponent } from '../app/types';
-import { annotatedWordRubies, readingFromSurfaceRubies } from '../cards/reading-display';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { icuWordSegments } from '../languages/icu-segmentation';
+import { annotatedWordRubies, readingFromSurfaceRubies } from './annotated-reading';
 import { KANJI_RE } from './japanese-script';
 
 const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);

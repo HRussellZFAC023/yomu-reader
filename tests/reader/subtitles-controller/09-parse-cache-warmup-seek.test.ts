@@ -193,6 +193,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             const activeGate = new Promise<void>(resolve => {
                 releaseActive = resolve;
             });
+            let releaseSuccessor!: () => void;
+            const successorGate = new Promise<void>(resolve => {
+                releaseSuccessor = resolve;
+            });
             const settings = makeSubtitleSettings({
                 apiKey: '',
                 jitenApiKey: '',
@@ -201,16 +205,21 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             });
             const parseJapanese = vi.fn(async (text: string) => {
                 if (text === '先生') await activeGate;
+                if (text === '仕事') await successorGate;
                 return [makeSubtitleToken(text, text === '先生'
                     ? {
                         reading: 'せんせい',
                         pitchClass: 'heiban',
                         rubies: [{ start: 0, end: 2, length: 2, text: 'せんせい' }],
                     }
-                    : { pitchClass: 'heiban' })];
+                    : {
+                        reading: 'しごと',
+                        pitchClass: 'heiban',
+                        rubies: [{ start: 0, end: 2, length: 2, text: 'しごと' }],
+                    })];
             });
             const { controller } = createInstalledSubtitleController(settings, { parseJapanese });
-            attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
+            const video = attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
             const cues = [
                 { start: 0, end: 4, text: '先生', transcriptEligible: true },
                 { start: 4, end: 8, text: '仕事', transcriptEligible: true },
@@ -221,6 +230,9 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 selectedTrackId: string;
                 selectTrack: (id: string) => Promise<void>;
                 subtitleEl: HTMLElement;
+                htmlCache: SubtitleParsedHtmlCache;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                updateFromLoadedCues: () => void;
                 tracks: Array<{
                     id: string;
                     label: string;
@@ -237,6 +249,11 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 includeLocalPitch: true,
                 skipJpdb: true,
             }));
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledWith('仕事', {
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+                skipJpdb: true,
+            }));
 
             expect(internals.cues).toEqual([]);
             expect(internals.currentCue).toBeUndefined();
@@ -244,12 +261,24 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
 
             releaseActive();
             await selection;
+            expect(parseJapanese.mock.calls.map(([text]) => text)).toEqual(['先生', '仕事']);
 
             const primary = internals.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
             expect(primary?.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             expect(primary?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
             expect(primary?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せんせい');
             expect(internals.currentCue?.text).toBe('先生');
+            video.currentTime = 5;
+            internals.updateFromLoadedCues();
+            expect(primary?.textContent).toContain('先生');
+            expect(primary?.textContent).not.toContain('仕事');
+            expect(primary?.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
+            releaseSuccessor();
+            const successorKey = internals.parseCacheKey('仕事', settings);
+            await vi.waitFor(() => expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(successorKey)).toBe(true));
+            await vi.waitFor(() => expect(primary?.textContent).toContain('仕事'));
+            expect(parseJapanese.mock.calls.filter(([text]) => text === '先生')).toHaveLength(1);
+            expect(parseJapanese.mock.calls.filter(([text]) => text === '仕事')).toHaveLength(1);
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

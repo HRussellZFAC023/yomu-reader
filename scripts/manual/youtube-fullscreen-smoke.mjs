@@ -470,7 +470,10 @@ async function installDiagnosticMasthead(page) {
 
 async function installDiagnosticCaption(page, text) {
     await evaluateWithNavigationRetry(page, captionText => {
-        const player = document.querySelector('#movie_player, .html5-video-player') ?? document.querySelector('video')?.parentElement;
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
+        const player = video?.closest('#movie_player, .html5-video-player, ytm-player') ?? video?.parentElement;
         if (!player) return;
         const existing = player.querySelector('[data-yomu-fullscreen-smoke-caption] .ytp-caption-segment');
         if (existing) {
@@ -498,8 +501,15 @@ async function installDiagnosticCaption(page, text) {
 
 async function installDiagnosticTrack(page) {
     await evaluateWithNavigationRetry(page, path => {
-        const video = document.querySelector('video');
-        if (!video || video.querySelector('track[data-yomu-fullscreen-smoke-track]')) return;
+        const existing = document.querySelector('track[data-yomu-fullscreen-smoke-track]');
+        const video = existing?.closest('video')
+            ?? document.querySelector('#movie_player video.html5-main-video')
+            ?? document.querySelector('ytm-player video')
+            ?? [...document.querySelectorAll('video')].find(candidate => candidate.clientWidth > 0 && candidate.clientHeight > 0)
+            ?? document.querySelector('video');
+        if (!(video instanceof HTMLVideoElement)) return;
+        video.dataset.yomuFullscreenSmokeVideo = 'true';
+        if (existing) return;
         const track = document.createElement('track');
         track.kind = 'subtitles';
         track.srclang = 'ja';
@@ -548,7 +558,9 @@ async function seekDiagnosticCue(page, cue, options = {}) {
         await evaluateWithNavigationRetry(page, ({ at, text, shouldInstallPauseGuard }) => {
             const caption = document.querySelector('[data-yomu-fullscreen-smoke-caption] .ytp-caption-segment');
             if (caption) caption.textContent = text;
-            const video = document.querySelector('video');
+            const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+                ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+                ?? document.querySelector('video');
             if (!(video instanceof HTMLVideoElement)) return;
             if (shouldInstallPauseGuard && !video.dataset.yomuFullscreenSmokePauseGuard) {
                 video.dataset.yomuFullscreenSmokePauseGuard = 'true';
@@ -591,7 +603,9 @@ async function seekDiagnosticCue(page, cue, options = {}) {
 
 async function startNaturalDiagnosticPlayback(page) {
     await page.evaluate(async () => {
-        const video = document.querySelector('video');
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
         if (!(video instanceof HTMLVideoElement)) throw new Error('Natural playback video is missing');
         video.muted = true;
         video.playbackRate = 1;
@@ -604,7 +618,9 @@ async function startNaturalDiagnosticPlayback(page) {
 
 async function pauseDiagnosticPlayback(page) {
     await page.evaluate(() => {
-        const video = document.querySelector('video');
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
         if (!(video instanceof HTMLVideoElement)) return;
         const player = video.closest('#movie_player, .html5-video-player, ytm-player')
             ?? document.querySelector('#movie_player, .html5-video-player, ytm-player');
@@ -745,7 +761,9 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
         const snapshot = timestamp => {
             const root = document.querySelector('.jpdb-subtitle-player');
             const primary = root?.querySelector('.jpdb-subtitle-primary');
-            const video = document.querySelector('video');
+            const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+                ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+                ?? document.querySelector('video');
             const rootRect = root?.getBoundingClientRect();
             const primaryRect = primary?.getBoundingClientRect();
             let rootId = null;
@@ -949,7 +967,9 @@ async function finishAnnotationStabilityRecorder(page) {
 
 async function enterRealVideoFullscreen(page) {
     await page.evaluate(() => {
-        const video = document.querySelector('video');
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
         const player = video?.closest('#movie_player, .html5-video-player, ytm-player') ?? video?.parentElement;
         if (!(video instanceof HTMLVideoElement) || !(player instanceof HTMLElement)) {
             throw new Error('Real fullscreen trigger could not find the active video/player');
@@ -1018,7 +1038,9 @@ async function enterYoutubeCssFullscreen(page) {
         }
     ` });
     await page.evaluate(() => {
-        const video = document.querySelector('video');
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
         const players = [...new Set([
             video?.closest('#movie_player, .html5-video-player, ytm-player'),
             document.querySelector('#movie_player, .html5-video-player, ytm-player'),
@@ -1172,7 +1194,9 @@ async function collectEvidence(page, mode) {
         const rail = root?.querySelector('.jpdb-subtitle-rail');
         const line = root?.querySelector('.jpdb-subtitle-lines');
         const player = document.querySelector('#movie_player, .html5-video-player, ytm-player');
-        const video = document.querySelector('video');
+        const video = document.querySelector('video[data-yomu-fullscreen-smoke-video]')
+            ?? document.querySelector('track[data-yomu-fullscreen-smoke-track]')?.closest('video')
+            ?? document.querySelector('video');
         const fullscreenHost = document.fullscreenElement;
         const rootRect = root?.getBoundingClientRect();
         const railRect = rail?.getBoundingClientRect();

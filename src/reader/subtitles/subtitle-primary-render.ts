@@ -14,10 +14,26 @@ export interface SubtitlePrimaryRenderOptions {
     lastRenderedHtml: string;
     hasFreshEmptyParsedHtml: boolean;
     hasParser: boolean;
+    holdLastAnnotatedWhilePending?: boolean;
     time: number;
 }
 
 export function renderControllerPrimarySubtitle(options: SubtitlePrimaryRenderOptions): ReturnType<typeof renderSubtitlePrimary> {
+    if (shouldHoldLastAnnotatedPrimary(options)) {
+        return {
+            ...renderSubtitlePrimary({
+                cue: undefined,
+                text: options.lastRenderedText,
+                parsedHtml: options.lastRenderedHtml,
+                hasParser: options.hasParser,
+                lastRenderedText: options.lastRenderedText,
+                lastRenderedHtml: options.lastRenderedHtml,
+                karaokeMode: false,
+                time: options.time,
+            }),
+            shouldRequestParse: true,
+        };
+    }
     const hasReusablePrimary = rendersTheSameCue(options)
         && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
     return renderSubtitlePrimary({
@@ -30,6 +46,13 @@ export function renderControllerPrimarySubtitle(options: SubtitlePrimaryRenderOp
         karaokeMode: options.settings.subtitleKaraokeMode,
         time: options.time,
     });
+}
+
+function shouldHoldLastAnnotatedPrimary(options: SubtitlePrimaryRenderOptions): boolean {
+    return Boolean(options.holdLastAnnotatedWhilePending
+        && options.cue
+        && options.lastRenderedText !== options.text
+        && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
 }
 
 // Which cached render belongs to this cue is decided by the cue text, not by

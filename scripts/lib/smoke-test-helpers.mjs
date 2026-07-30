@@ -4,10 +4,18 @@ import path from 'node:path';
 export async function installUserscriptCssResource(page, cssPath, resourceName = 'yomuCss') {
     const css = readFileSync(cssPath, 'utf8');
     await withNavigationRetry(page, async () => {
-        await page.addStyleTag({ content: css });
         await page.evaluate(({ cssText, name }) => {
             window.GM_getResourceText = requested => requested === name ? cssText : '';
         }, { cssText: css, name: resourceName });
+        try {
+            await page.addStyleTag({ content: css });
+        } catch {
+            await page.evaluate(cssText => {
+                const sheet = new CSSStyleSheet();
+                sheet.replaceSync(cssText);
+                document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+            }, css);
+        }
     });
     return css;
 }

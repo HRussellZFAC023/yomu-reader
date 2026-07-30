@@ -2649,6 +2649,35 @@ function deckProgressFields(vocabularyCount, knownCoverage) {
 function isDeckId(value) {
   return typeof value === "number" || typeof value === "string";
 }
+const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
+}
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
   "Arab",
@@ -3448,35 +3477,6 @@ function fallbackRulePriority(candidate) {
   if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
   if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
   return 3;
-}
-const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-function wordSegmenter(locale) {
-  const cached = SEGMENTER_BY_LOCALE.get(locale);
-  if (cached !== void 0) return cached;
-  let segmenter = null;
-  try {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  }
-  } catch {
-  segmenter = null;
-  }
-  SEGMENTER_BY_LOCALE.set(locale, segmenter);
-  return segmenter;
-}
-function icuWordSegments(text, locale) {
-  const segmenter = wordSegmenter(locale);
-  if (!segmenter) return null;
-  const segments = [];
-  for (const segment of segmenter.segment(text)) {
-  if (!segment.isWordLike) continue;
-  segments.push({
-    text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length
-  });
-  }
-  return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;

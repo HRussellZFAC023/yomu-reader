@@ -306,6 +306,8 @@ interface ParseCueHtmlOptions {
     refreshProvisional?: boolean;
 }
 
+type PendingProvisionalParse = Promise<string> & { yomuEnriched?: true };
+
 function isYouTubeTheaterMode(): boolean {
     return isYouTubePage() && Boolean(document.querySelector('ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]'));
 }
@@ -2547,11 +2549,11 @@ export class SubtitlePlayerController {
     }
 
     private afterLoadedCueStateChanged(): void {
+        this.warmParseAroundActiveCue();
         this.render();
         this.renderOpenSubtitlePanel();
         this.syncPauseTranscriptPanel();
         this.syncControls();
-        this.warmParseAroundActiveCue();
         this.scheduleTranscriptCacheWarmup();
         void this.autoCopyCurrentCue();
     }
@@ -2847,17 +2849,25 @@ export class SubtitlePlayerController {
     private renderPrimarySubtitle(text: string, settings: ReaderSettings): ReturnType<typeof renderSubtitlePrimary> {
         const activeCue = this.currentCue;
         const parseKey = this.parseCacheKey(text, settings);
+        const parsedHtml = this.primaryParsedHtmlForRender(text, settings, parseKey);
+        const pending = Boolean(this.pendingParsedCueHtml(parseKey, 'provisional')
+            ?? this.pendingParsedCueHtml(parseKey, 'authoritative'));
+        const provisionalStillEnriching = this.htmlCache.provisionalParsedHtmlCache.has(parseKey)
+            && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(parseKey);
+        const canHoldPreviousAnnotation = this.lastRenderedPrimaryText !== text
+            && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
         return renderControllerPrimarySubtitle({
             cue: activeCue,
             text,
             settings,
             parseKey,
-            parsedHtml: this.primaryParsedHtmlForRender(text, settings, parseKey),
+            parsedHtml: pending && provisionalStillEnriching && canHoldPreviousAnnotation ? undefined : parsedHtml,
             lastRenderedKey: this.lastRenderedPrimaryKey,
             lastRenderedText: this.lastRenderedPrimaryText,
             lastRenderedHtml: this.lastRenderedPrimaryHtml,
             hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
             hasParser: this.shouldParseSubtitles(settings),
+            holdLastAnnotatedWhilePending: pending,
             time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0,
         });
     }
@@ -3036,33 +3046,39 @@ export class SubtitlePlayerController {
             if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
             return cached;
         }
-        const pending = options.refreshProvisional
-            ? options.requireEnrichedProvisional ? undefined : this.htmlCache.pendingProvisionalParsedHtml.get(key)
-            : this.pendingParsedCueHtml(key, 'provisional');
-        if (pending) {
+        const pending = (options.refreshProvisional
+            ? this.htmlCache.pendingProvisionalParsedHtml.get(key)
+            : this.pendingParsedCueHtml(key, 'provisional')) as PendingProvisionalParse | undefined;
+        if (pending && (!options.refreshProvisional
+            || !options.requireEnrichedProvisional
+            || pending.yomuEnriched)) {
             const html = await pending;
             if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
             return html;
         }
-        const promise = (async () => {
+        const promise: PendingProvisionalParse = (async () => {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
             return html;
         })();
+        if (options.enrichBeforeRender) promise.yomuEnriched = true;
         this.htmlCache.pendingProvisionalParsedHtml.set(key, promise);
         try {
             const html = await promise;
             if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
             return html;
         } finally {
-            this.htmlCache.pendingProvisionalParsedHtml.delete(key);
+            if (this.htmlCache.pendingProvisionalParsedHtml.get(key) === promise) {
+                this.htmlCache.pendingProvisionalParsedHtml.delete(key);
+            }
         }
     }
 
     private ensureEnrichedProvisionalParsedCueHtml(text: string, settings: ReaderSettings, key: string): void {
-        if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || this.htmlCache.pendingProvisionalParsedHtml.has(key)) return;
+        const pending = this.htmlCache.pendingProvisionalParsedHtml.get(key) as PendingProvisionalParse | undefined;
+        if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || pending?.yomuEnriched) return;
         void this.parseProvisionalCueHtml(text, settings, key, {
             authoritativeUpgrade: false,
             enrichBeforeRender: true,
@@ -5013,13 +5029,8 @@ export class SubtitlePlayerController {
             refreshProvisional: true,
         });
         const active = parse(activeText);
-        // The successor starts only after active first paint is ready, keeping
-        // public detail fan-out bounded while still giving natural playback
-        // the full active-cue runway to prepare it.
-        void active.then(() => {
-            const nextText = cues[activeIndex + 1]?.text.trim();
-            if (nextText) return parse(nextText);
-        }).catch(() => undefined);
+        const nextText = cues[activeIndex + 1]?.text.trim();
+        if (nextText) void parse(nextText).catch(() => undefined);
         await promiseWithTimeout(
             active,
             SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS,
@@ -5218,7 +5229,6 @@ export class SubtitlePlayerController {
         this.markNativeCueListsDirty();
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
-        this.warmParseAroundActiveCue();
         this.render();
         this.refreshTranscriptPanelAfterTrackChange();
         this.syncControls();

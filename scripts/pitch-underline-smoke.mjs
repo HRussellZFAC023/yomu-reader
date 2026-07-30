@@ -136,6 +136,7 @@ try {
     const pitchRequestCount = requests.filter(request => request.kind === 'jpdb-public-pitch').length;
     assert(pitchRequestCount > 0, 'Expected real JPDB public pitch lookup to be used.', { requests });
 
+    await scrollFixtureTargetIntoView(page, wordSelector);
     const geometry = await wordGeometry(page, wordSelector);
     const rubyDecorations = await rubyDecorationInfo(page, wordSelector);
     const wordClip = paddedClip(geometry.rect, 22);
@@ -157,6 +158,7 @@ try {
     const underlineBaselineDelta = Math.abs(
         wordClip.y + analysis.sampledRow - (adjacentClip.y + adjacentAnalysis.sampledRow),
     );
+    await scrollFixtureTargetIntoView(page, '#mixed-mirror-word');
     const mixedMirrorGeometry = await wordGeometry(page, '#mixed-mirror-word');
     const mixedPlainGeometry = await wordGeometry(page, '#mixed-plain-word');
     const mixedMirrorClip = paddedClip(mixedMirrorGeometry.rect, 22);
@@ -243,14 +245,15 @@ function serveFixture(request, response) {
     body {
       margin: 0;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
+      padding: 24px 0;
+      box-sizing: border-box;
       background: #18151b;
       color: #fff;
       font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
     }
     main {
       width: min(820px, calc(100vw - 48px));
+      margin: 0 auto;
       text-align: center;
       --jpdb-reader-accent: ${PITCH_COLOR};
       --jpdb-reader-accent-readable: ${PITCH_COLOR};
@@ -258,7 +261,7 @@ function serveFixture(request, response) {
     }
     [data-pitch-scene] {
       position: relative;
-      min-height: 250px;
+      min-height: 600px;
       display: grid;
       place-items: center;
       overflow: hidden;
@@ -388,6 +391,7 @@ async function wordGeometry(page, selector) {
         const baseRight = bases.length ? Math.ceil(Math.max(...bases.map(base => base.right))) : Math.ceil(rect.width);
         const style = getComputedStyle(word);
         const underlineStyle = getComputedStyle(word, '::after');
+        const sceneRect = word.closest('[data-pitch-scene]')?.getBoundingClientRect();
         return {
             rect: {
                 x: rect.x,
@@ -410,6 +414,13 @@ async function wordGeometry(page, selector) {
             wordUnderline: style.getPropertyValue('--jpdb-reader-word-underline').trim(),
             sourcePitchDecoration: style.getPropertyValue('--jpdb-reader-source-pitch-decoration').trim(),
             pitchColor: style.getPropertyValue('--jpdb-reader-pitch-color').trim(),
+            viewport: {
+                scrollY: window.scrollY,
+                innerHeight: window.innerHeight,
+                scrollHeight: document.documentElement.scrollHeight,
+                sceneTop: sceneRect?.top ?? null,
+                sceneBottom: sceneRect?.bottom ?? null,
+            },
         };
     }, selector);
 }
@@ -463,6 +474,13 @@ function paddedClip(clip, padding = 18) {
         width: Math.ceil(clip.width + padding * 2),
         height: Math.ceil(clip.height + padding * 2),
     };
+}
+
+async function scrollFixtureTargetIntoView(page, selector) {
+    await page.evaluate(targetSelector => {
+        document.querySelector(targetSelector)?.scrollIntoView({ block: 'center', inline: 'center' });
+    }, selector);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
 function analyzeUnderline(buffer, geometry, targetRgb) {

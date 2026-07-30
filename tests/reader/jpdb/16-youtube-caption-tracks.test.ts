@@ -436,6 +436,24 @@ describe('reader helpers', () => {
         });
         expect(otherCue.html).toContain('jpdb-subtitle-primary-loading');
         expect(otherCue.html).toContain('違う行');
+
+        const pendingOtherCue = renderControllerPrimarySubtitle({
+            cue: { start: 2, end: 4, text: '違う行' },
+            text: '違う行',
+            settings: DEFAULT_SETTINGS,
+            parseKey: 'ja|違う行',
+            parsedHtml: undefined,
+            lastRenderedKey: 'ja|本を読む',
+            lastRenderedText: '本を読む',
+            lastRenderedHtml: annotated,
+            hasFreshEmptyParsedHtml: false,
+            hasParser: true,
+            holdLastAnnotatedWhilePending: true,
+            time: 2,
+        });
+        expect(pendingOtherCue.html).toBe(annotated);
+        expect(pendingOtherCue.html).not.toContain('jpdb-subtitle-primary-loading');
+        expect(pendingOtherCue.shouldRequestParse).toBe(true);
     });
 
     it('plans transcript hydration around active, visible, and background rows', () => {

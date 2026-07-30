@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.54] - 2026-07-30
+
+### Fixed
+
+- Subtitle tracks now prepare the active line while its successor starts concurrently, keep the last fully annotated row visible until the next is ready, and preserve that row through fullscreen video hand-offs. This removes the plain/loading flash and disappear/reappear frame around cue and fullscreen transitions.
+- Compounds without a defensible whole-expression pitch can now show exact pitch evidence for their aligned components while unresolved parts stay neutral. Subtitle component underlines also follow the subtitle pitch setting independently of page-word underline settings.
+
 ## [1.8.52] - 2026-07-30
 
 ### Fixed

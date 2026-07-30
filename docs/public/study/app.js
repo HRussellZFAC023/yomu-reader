@@ -8979,6 +8979,79 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return cards;
   }
+  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+  function wordSegmenter(locale) {
+    const cached = SEGMENTER_BY_LOCALE.get(locale);
+    if (cached !== void 0) return cached;
+    let segmenter = null;
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+      }
+    } catch {
+      segmenter = null;
+    }
+    SEGMENTER_BY_LOCALE.set(locale, segmenter);
+    return segmenter;
+  }
+  function icuWordSegments(text2, locale) {
+    const segmenter = wordSegmenter(locale);
+    if (!segmenter) return null;
+    const segments = [];
+    for (const segment of segmenter.segment(text2)) {
+      if (!segment.isWordLike) continue;
+      segments.push({
+        text: segment.segment,
+        start: segment.index,
+        end: segment.index + segment.segment.length
+      });
+    }
+    return segments;
+  }
+  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
+  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+  const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
+  function annotatedWordRubies(spelling, annotated) {
+    if (!annotated || !annotated.includes("[")) return [];
+    const rubies = [];
+    let cursor = 0;
+    let baseText2 = "";
+    let baseOffset = 0;
+    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+      const matchIndex = match.index ?? 0;
+      const captured = match[1] ?? "";
+      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+      const base = runMatch ? runMatch[1] : captured;
+      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
+      const reading = (match[2] ?? "").trim();
+      baseText2 += plain;
+      baseOffset += plain.length;
+      const start = baseOffset;
+      baseText2 += base;
+      baseOffset += base.length;
+      if (base && reading) {
+        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+      }
+      cursor = matchIndex + match[0].length;
+    }
+    baseText2 += annotated.slice(cursor);
+    return baseText2 === spelling ? rubies : [];
+  }
+  function readingFromSurfaceRubies(surface, rubies) {
+    let reading = "";
+    let offset = 0;
+    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
+      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+      reading += ruby.text;
+      offset = ruby.end;
+    }
+    reading += unannotatedPronunciationText$1(surface.slice(offset));
+    return reading;
+  }
+  function unannotatedPronunciationText$1(value) {
+    return Array.from(value).filter((character) => !KANJI_RE$3.test(character)).join("");
+  }
   const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
   function tiledPitchComponents(card) {
     if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
@@ -10073,35 +10146,6 @@ ${spelling}`);
   }
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-  function wordSegmenter(locale) {
-    const cached = SEGMENTER_BY_LOCALE.get(locale);
-    if (cached !== void 0) return cached;
-    let segmenter = null;
-    try {
-      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-      }
-    } catch {
-      segmenter = null;
-    }
-    SEGMENTER_BY_LOCALE.set(locale, segmenter);
-    return segmenter;
-  }
-  function icuWordSegments(text2, locale) {
-    const segmenter = wordSegmenter(locale);
-    if (!segmenter) return null;
-    const segments = [];
-    for (const segment of segmenter.segment(text2)) {
-      if (!segment.isWordLike) continue;
-      segments.push({
-        text: segment.segment,
-        start: segment.index,
-        end: segment.index + segment.segment.length
-      });
-    }
-    return segments;
   }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
   const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
@@ -34942,7 +34986,7 @@ ${key}`] = { t: now, v: value };
   function isDeckId(value) {
     return typeof value === "number" || typeof value === "string";
   }
-  const KANJI_RE$3 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
+  const KANJI_RE$2 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
   const JAPANESE_RE$1 = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
   const JPDB_BASE_URL = "https://jpdb.io";
   const JAPANESE_RUN_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3005\u3006\u3007々〆ヶー]+/u;
@@ -35009,10 +35053,10 @@ ${key}`] = { t: now, v: value };
     return cleanText$1(value.match(JAPANESE_RUN_RE)?.[0] ?? "");
   }
   function firstReviewGlyph(text2) {
-    const direct = text2.match(KANJI_RE$3);
+    const direct = text2.match(KANJI_RE$2);
     if (direct) return direct[0];
     try {
-      return decodeURIComponent(text2).match(KANJI_RE$3)?.[0] ?? null;
+      return decodeURIComponent(text2).match(KANJI_RE$2)?.[0] ?? null;
     } catch {
       return null;
     }
@@ -37219,14 +37263,14 @@ ${normalizedReading}`;
     const rubyPattern = /([^\[\]]+)\[([^\]]+)\]/g;
     for (const match of value.matchAll(rubyPattern)) {
       const index = match.index ?? 0;
-      reading += unannotatedPronunciationText$1(value.slice(offset, index));
+      reading += unannotatedPronunciationText(value.slice(offset, index));
       reading += match[2] ?? "";
       offset = index + match[0].length;
     }
-    reading += unannotatedPronunciationText$1(value.slice(offset));
+    reading += unannotatedPronunciationText(value.slice(offset));
     return reading;
   }
-  function unannotatedPronunciationText$1(value) {
+  function unannotatedPronunciationText(value) {
     return Array.from(value).filter((character) => !isKanjiCharacter$1(character)).join("");
   }
   const MAX_VISIBLE_KANJI_KEYWORDS = 5;
@@ -46238,14 +46282,14 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
   const log$o = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
     // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
-      if (!KANJI_RE$2.test(kanji)) return Promise.resolve(null);
+      if (!KANJI_RE$1.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
@@ -46304,7 +46348,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       onYomi,
       kunYomi,
       elements,
-      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$2.test(character) && character !== kanji))],
+      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$1.test(character) && character !== kanji))],
       heisigStory,
       heisigComment,
       koohiiStories
@@ -46370,7 +46414,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
   }
   function isKanjiCharacter(character) {
-    return KANJI_RE$2.test(character);
+    return KANJI_RE$1.test(character);
   }
   function addRtkKeywordIndexEntry(entries2, collisions, key, kanji) {
     if (!key || collisions.has(key)) return;
@@ -56208,7 +56252,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.52".trim() ? "1.8.52".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.53".trim() ? "1.8.53".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -110566,6 +110610,21 @@ ${reading}`);
     return view.scrollY || view.pageYOffset || view.document?.documentElement?.scrollTop || 0;
   }
   function renderControllerPrimarySubtitle(options) {
+    if (shouldHoldLastAnnotatedPrimary(options)) {
+      return {
+        ...renderSubtitlePrimary({
+          cue: void 0,
+          text: options.lastRenderedText,
+          parsedHtml: options.lastRenderedHtml,
+          hasParser: options.hasParser,
+          lastRenderedText: options.lastRenderedText,
+          lastRenderedHtml: options.lastRenderedHtml,
+          karaokeMode: false,
+          time: options.time
+        }),
+        shouldRequestParse: true
+      };
+    }
     const hasReusablePrimary = rendersTheSameCue(options) && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
     return renderSubtitlePrimary({
       cue: options.cue,
@@ -110577,6 +110636,9 @@ ${reading}`);
       karaokeMode: options.settings.subtitleKaraokeMode,
       time: options.time
     });
+  }
+  function shouldHoldLastAnnotatedPrimary(options) {
+    return Boolean(options.holdLastAnnotatedWhilePending && options.cue && options.lastRenderedText !== options.text && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
   }
   function rendersTheSameCue(options) {
     return options.lastRenderedText === options.text;
@@ -111901,6 +111963,7 @@ ${reading}`);
   }
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
+  const SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
   const SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS = 320;
   const SUBTITLE_TIMING_OFFSET_STEP_SECONDS = 0.1;
@@ -111932,6 +111995,7 @@ ${reading}`);
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const SUBTITLE_TICK_FORCED_CUE_REFRESH_MS = 5e3;
   const SUBTITLE_FRAME_GEOMETRY_SYNC_MS = 120;
+  const SUBTITLE_VIDEO_CANDIDATE_LOSS_GRACE_MS = 1800;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
   const SUBTITLE_TOKEN_ENRICHMENT_RETRY_MS = 1e3;
   const TRANSCRIPT_SMOOTH_FOLLOW_MAX_ROWS = 3;
@@ -112190,6 +112254,7 @@ ${reading}`);
     subtitleControlRail;
     lastPlayerChromeHidden = false;
     discoverTimer;
+    videoCandidateLossTimer;
     tickTimer;
     // Fullscreen top-layer host resolution + reader-root reparenting. Owns the
     // event-driven host-query cache; the controller keeps the fullscreen-state
@@ -112357,6 +112422,7 @@ ${reading}`);
     lastAppliedPrimaryRowHtml = "";
     parseWarmupSerial = 0;
     lastParseWarmupAnchor = -1;
+    priorityYouTubeCueWarmup = Promise.resolve();
     transcriptHydrationCursor = 0;
     effectiveTranscriptPlacement = "right";
     lastAutoCopiedCueSignature = "";
@@ -112603,6 +112669,7 @@ ${reading}`);
       this.subtitleControlRail?.destroy();
       this.subtitleControlRail = void 0;
       this.discoverTimer = clearWindowTimeout(this.discoverTimer);
+      this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
       this.tickTimer = clearWindowTimeout(this.tickTimer);
       this.stopFrameSync();
       this.clearControlsIdleTimer();
@@ -112789,16 +112856,39 @@ ${reading}`);
     discoverEnabledVideo() {
       const candidate = this.discoverVideoCandidate();
       if (!candidate) {
-        if (this.video && !this.isSubtitleVideoCandidate(this.video)) this.clearDiscoveredVideoCandidate();
+        if (this.video) {
+          if (this.syncSubtitleSourceContext(this.video)) {
+            this.clearDiscoveredVideoCandidate();
+            return;
+          }
+          this.scheduleDiscoveredVideoCandidateClear(this.video);
+          return;
+        }
         this.syncSubtitleSourceContext(void 0);
         this.refresh();
         return;
       }
-      if (candidate && candidate !== this.video) this.useDiscoveredVideoCandidate(candidate);
-      this.syncSubtitleSourceContext(candidate ?? this.video);
+      this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
+      const sourceChanged = this.syncSubtitleSourceContext(candidate ?? this.video);
+      if (candidate && candidate !== this.video) {
+        this.useDiscoveredVideoCandidate(candidate, { preserveTransientSubtitleState: !sourceChanged });
+      }
       this.discoverPageSubtitleTracks();
       void this.discoverYouTubeTracksThrottled(true);
       this.refresh();
+    }
+    scheduleDiscoveredVideoCandidateClear(expected) {
+      if (this.videoCandidateLossTimer !== void 0) return;
+      this.videoCandidateLossTimer = window.setTimeout(() => {
+        this.videoCandidateLossTimer = void 0;
+        if (this.destroyed || this.video !== expected) return;
+        const replacement = this.discoverVideoCandidate();
+        if (replacement) {
+          this.discoverEnabledVideo();
+          return;
+        }
+        this.clearDiscoveredVideoCandidate();
+      }, SUBTITLE_VIDEO_CANDIDATE_LOSS_GRACE_MS);
     }
     discoverVideoCandidate() {
       return Array.from(document.querySelectorAll("video")).filter((video) => this.isSubtitleVideoCandidate(video)).sort(compareSubtitleVideoCandidates)[0];
@@ -112823,6 +112913,7 @@ ${reading}`);
       return Boolean(this.tracks.length || this.cues.length || this.currentCue?.text);
     }
     clearDiscoveredVideoCandidate() {
+      this.videoCandidateLossTimer = clearWindowTimeout(this.videoCandidateLossTimer);
       this.bufferingPlayback = void 0;
       this.video = void 0;
       this.fullscreenHost.invalidateHostCache();
@@ -112837,12 +112928,13 @@ ${reading}`);
       this.syncControls();
       if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
     }
-    useDiscoveredVideoCandidate(candidate) {
+    useDiscoveredVideoCandidate(candidate, options = {}) {
       this.bufferingPlayback = void 0;
       this.video = candidate;
       this.fullscreenHost.invalidateHostCache();
       this.markNativeCueListsDirty();
-      this.clearTransientSubtitleState();
+      if (!options.preserveTransientSubtitleState) this.clearTransientSubtitleState();
+      if (options.preserveTransientSubtitleState) this.reconcileReplacementNativeTracks(candidate);
       this.removeStaleNativeTracks(candidate);
       this.attachTextTracks(candidate);
       this.observeVideoLayout(candidate);
@@ -112856,6 +112948,32 @@ ${reading}`);
         const track = event.track;
         if (track) this.addNativeTrack(track);
       }, this.eventOptions());
+    }
+    reconcileReplacementNativeTracks(video) {
+      if (isYouTubePage()) return;
+      const candidates = Array.from(video.textTracks).filter((track) => track !== this.nativeFullscreenCueTrack && track.label !== NATIVE_FULLSCREEN_CUE_TRACK_LABEL);
+      const candidateSet = new Set(candidates);
+      const claimed = /* @__PURE__ */ new Set();
+      for (const option of this.tracks) {
+        if (option.kind === "native" && !option.translatedFromTrackId && option.track && candidateSet.has(option.track)) {
+          claimed.add(option.track);
+        }
+      }
+      let reconciled = false;
+      for (const option of this.tracks) {
+        const previous = option.track;
+        if (option.kind !== "native" || option.translatedFromTrackId || !previous || candidateSet.has(previous)) continue;
+        const replacement = candidates.find((track) => !claimed.has(track) && this.nativeTrackMetadataMatches(previous, track));
+        if (!replacement) continue;
+        claimed.add(replacement);
+        option.track = replacement;
+        this.observeNativeTrack(replacement);
+        reconciled = true;
+      }
+      if (reconciled) this.setNativeTrackModes();
+    }
+    nativeTrackMetadataMatches(left, right) {
+      return left.id === right.id && left.kind === right.kind && left.label === right.label && left.language === right.language;
     }
     syncSubtitleSourceContext(video = this.video) {
       const key = subtitleSourceContextKey(video);
@@ -112998,7 +113116,7 @@ ${reading}`);
       const option = { id, label, kind: "native", language: track.language, track };
       this.tracks.push(option);
       this.markNativeCueListsDirty();
-      track.addEventListener("cuechange", () => this.updateFromNativeTrack(track), this.eventOptions());
+      this.observeNativeTrack(track);
       this.maybeAutoSelectNativeTrack(option);
       if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
       window.setTimeout(() => {
@@ -113007,6 +113125,9 @@ ${reading}`);
         this.syncControls();
       }, 0);
       this.syncControls();
+    }
+    observeNativeTrack(track) {
+      track.addEventListener("cuechange", () => this.updateFromNativeTrack(track), this.eventOptions());
     }
     discoverPageSubtitleTracks() {
       const sources = collectPageSubtitleSources(document);
@@ -113213,13 +113334,6 @@ ${reading}`);
       this.tickTimer = void 0;
       this.tick();
     }
-    // Frame-synced cue + karaoke sampler. The housekeeping tick (500ms) is too
-    // coarse for cue boundaries — a line could flip up to a tick late, worse at
-    // 1.5-2x playback — so sample once per presented frame while the bound video
-    // plays. Cancelled on pause/seek-away/destroy/hidden so a paused or
-    // backgrounded tab never spins. updateFromLoadedCues no-ops when the active
-    // cue is unchanged, so the steady-state per-frame cost is two bounded cue
-    // searches.
     startFrameSync(video) {
       if (this.destroyed || document.hidden || this.bufferingPlayback?.video === video) return;
       this.stopFrameSync();
@@ -113378,6 +113492,8 @@ ${reading}`);
     }
     shouldUpdateFromDomCaptions() {
       if (!isYouTubePage()) return true;
+      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+      if (selected?.loadingState === "loading") return false;
       return Boolean(getYouTubeVideoId()) && isYouTubeOwnedVideoElement(this.video) && !this.cues.length && (Boolean(this.selectedTrackId) || !this.tracks.some((track) => track.kind === "youtube"));
     }
     // Re-reading (and normalizing) every cue of the selected tracks on each
@@ -113422,6 +113538,9 @@ ${reading}`);
     }
     alignToVideo() {
       if (!this.root) return;
+      if (this.video && this.videoCandidateLossTimer !== void 0) {
+        return;
+      }
       if (!this.video) {
         this.pinnedPlayer.reset();
         setClassState(this.root, "jpdb-subtitle-has-video-frame", false);
@@ -113443,17 +113562,12 @@ ${reading}`);
     // playing; cheaply re-align whenever the video's on-screen box has moved.
     realignIfVideoMoved() {
       if (!this.video || !this.root) return;
+      if (this.videoCandidateLossTimer !== void 0) return;
       const rect = this.videoLayoutRect();
       const shouldShow = this.isVideoOverlayVisible(rect);
       const isShowing = !this.root.classList.contains("jpdb-subtitle-video-out-of-view");
       if (shouldShow !== isShowing || videoRectKey(rect) !== this.lastAlignedVideoRectKey) this.scheduleAlignToVideo();
     }
-    // Swiping between Shorts reels reuses the same <video> element at the same
-    // position and emits no yt-navigate-finish, so the controller never treats
-    // it as navigation: tracks/overlay stay bound to the previous reel and the
-    // overlay can latch out-of-view until an unrelated DOM mutation (a manual
-    // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
-    // from the tick and run the normal navigation path when it changes.
     syncShortsReelNavigation() {
       const pathname = typeof globalThis.location?.pathname === "string" ? globalThis.location.pathname : "";
       if (!pathname.startsWith("/shorts/")) {
@@ -113515,14 +113629,6 @@ ${reading}`);
     subtitlePlaybackTime(video) {
       return this.bufferingPlayback?.video === video ? this.bufferingPlayback.time : video.currentTime;
     }
-    // Auto-generated YouTube captions and their `&tlang=` translations are
-    // segmented independently, so the primary (JP) cue often begins a beat
-    // after — or falls into a gap relative to — the native (EN) line that's
-    // already active. That left no primary cue at the playhead while a native
-    // cue was active, showing the native line alone (user-reported). When the
-    // direct lookup misses but a native cue is active, surface the primary
-    // aligned to it so the pair appears together. Mirrors
-    // primaryHeldByActiveSecondary for the not-yet-shown direction.
     findRenderablePrimaryCue(time, activeSecondary) {
       const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
       if (direct || !activeSecondary || !this.cues.length) return direct;
@@ -113542,11 +113648,11 @@ ${reading}`);
       return primaryChanged || secondaryChanged;
     }
     afterLoadedCueStateChanged() {
+      this.warmParseAroundActiveCue();
       this.render();
       this.renderOpenSubtitlePanel();
       this.syncPauseTranscriptPanel();
       this.syncControls();
-      this.warmParseAroundActiveCue();
       this.scheduleTranscriptCacheWarmup();
       void this.autoCopyCurrentCue();
     }
@@ -113557,12 +113663,6 @@ ${reading}`);
       }
       return false;
     }
-    // Auto-generated YouTube captions and their `&tlang=` translations are
-    // normalized independently (text-overlap rolling-cue merge), so the
-    // primary line's cue often ends a beat before its translation's does.
-    // Clearing the primary on its own boundary left the translation showing
-    // alone (user-reported). Hold the primary while the still-active secondary
-    // cue is the one aligned to it, so the pair appears and clears as a unit.
     primaryHeldByActiveSecondary(time) {
       if (!this.secondaryTrackId || !this.currentCue || !this.secondaryCues.length) return false;
       const activeSecondary = findActiveSubtitleCue(this.secondaryCues, time);
@@ -113733,20 +113833,6 @@ ${reading}`);
       this.applyRenderedPrimarySubtitle(primary, text2);
       if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
-    // The subtitle body holds two independent rows: the annotated primary line
-    // and the native caption line, which is a real control (tap to hide or
-    // reveal the translation). Writing both as one innerHTML blob meant every
-    // primary change — a new cue, a karaoke tick, a parse landing — also tore
-    // down and rebuilt that button. A browser only delivers click when the
-    // pressed node is still in the document at release, so any tap spanning a
-    // caption change was dropped and had to be repeated (owner-reported on
-    // phones). Each row now reconciles on its own, so a primary render can
-    // never take the native line out from under a finger.
-    //
-    // render() also runs on every cue/time/settings tick; rebuilding identical
-    // DOM each tick wiped the async-applied word-state coloring and caused a
-    // visible rerender flicker plus constant layout work (user-reported), so
-    // both rows keep their applied-state guard.
     applyPrimaryRow(html) {
       const host = this.subtitleEl;
       if (!host) return false;
@@ -113794,16 +113880,21 @@ ${reading}`);
     renderPrimarySubtitle(text2, settings) {
       const activeCue = this.currentCue;
       const parseKey = this.parseCacheKey(text2, settings);
+      const parsedHtml = this.primaryParsedHtmlForRender(text2, settings, parseKey);
+      const pending2 = Boolean(this.pendingParsedCueHtml(parseKey, "provisional") ?? this.pendingParsedCueHtml(parseKey, "authoritative"));
+      const provisionalStillEnriching = this.htmlCache.provisionalParsedHtmlCache.has(parseKey) && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(parseKey);
+      const canHoldPreviousAnnotation = this.lastRenderedPrimaryText !== text2 && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
       return renderControllerPrimarySubtitle({
         cue: activeCue,
         text: text2,
         settings,
-        parsedHtml: this.primaryParsedHtmlForRender(text2, settings, parseKey),
+        parsedHtml: pending2 && provisionalStillEnriching && canHoldPreviousAnnotation ? void 0 : parsedHtml,
         lastRenderedKey: this.lastRenderedPrimaryKey,
         lastRenderedText: this.lastRenderedPrimaryText,
         lastRenderedHtml: this.lastRenderedPrimaryHtml,
         hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
         hasParser: this.shouldParseSubtitles(settings),
+        holdLastAnnotatedWhilePending: pending2,
         time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0
       });
     }
@@ -113955,8 +114046,8 @@ ${reading}`);
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return cached;
       }
-      const pending2 = options.refreshProvisional ? options.requireEnrichedProvisional ? void 0 : this.htmlCache.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
-      if (pending2) {
+      const pending2 = options.refreshProvisional ? this.htmlCache.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
+      if (pending2 && (!options.refreshProvisional || !options.requireEnrichedProvisional || pending2.yomuEnriched)) {
         const html = await pending2;
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return html;
@@ -113968,17 +114059,21 @@ ${reading}`);
         this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
         return html;
       })();
+      if (options.enrichBeforeRender) promise.yomuEnriched = true;
       this.htmlCache.pendingProvisionalParsedHtml.set(key, promise);
       try {
         const html = await promise;
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return html;
       } finally {
-        this.htmlCache.pendingProvisionalParsedHtml.delete(key);
+        if (this.htmlCache.pendingProvisionalParsedHtml.get(key) === promise) {
+          this.htmlCache.pendingProvisionalParsedHtml.delete(key);
+        }
       }
     }
     ensureEnrichedProvisionalParsedCueHtml(text2, settings, key) {
-      if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || this.htmlCache.pendingProvisionalParsedHtml.has(key)) return;
+      const pending2 = this.htmlCache.pendingProvisionalParsedHtml.get(key);
+      if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key) || pending2?.yomuEnriched) return;
       void this.parseProvisionalCueHtml(text2, settings, key, {
         authoritativeUpgrade: false,
         enrichBeforeRender: true,
@@ -114284,16 +114379,42 @@ ${reading}`);
       const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
       const serial = ++this.parseWarmupSerial;
       const settings = this.options.getSettings();
-      const texts = this.subtitleWarmupTexts(start, end, settings);
-      if (!texts.length) return;
+      const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings).catch(() => void 0);
+      this.priorityYouTubeCueWarmup = priorityWarmup;
       void (async () => {
-        try {
-          await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
-        } catch {
+        await priorityWarmup;
+        if (serial !== this.parseWarmupSerial) return;
+        const texts = this.subtitleWarmupTexts(start, end, settings);
+        if (texts.length) {
+          try {
+            await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
+          } catch {
+          }
         }
         if (serial !== this.parseWarmupSerial) return;
         if (this.currentCue?.text.trim()) this.render();
       })();
+    }
+    async prewarmPriorityYouTubeCues(anchor, settings) {
+      if (!isYouTubePage() || !this.shouldUseProvisionalSubtitleParse(settings)) return;
+      for (const priorityIndex of [anchor, anchor + 1]) {
+        const text2 = this.cues[priorityIndex]?.text.trim();
+        if (!text2) continue;
+        const key = this.parseCacheKey(text2, settings);
+        if (this.isWarmParsedCueKey(key, settings)) continue;
+        const pending2 = this.pendingParsedCueHtml(key, "provisional") ?? this.pendingParsedCueHtml(key, "authoritative");
+        if (pending2) {
+          await pending2.catch(() => void 0);
+          if (this.isWarmParsedCueKey(key, settings)) continue;
+        }
+        await this.parseCueHtml(text2, settings, {
+          enrichBeforeRender: true,
+          requireEnrichedProvisional: true,
+          // A cheap transcript parse may have populated a provisional
+          // tier without running before-render enrichment.
+          refreshProvisional: true
+        });
+      }
     }
     // A seek that lands between cues has no active cue; anchoring the warmup
     // window at the next upcoming cue (instead of the transcript start) keeps
@@ -114607,13 +114728,6 @@ ${reading}`);
     isInSubtitleUi(element2) {
       return Boolean(this.root?.contains(element2) || this.asbPlayerSubtitleMoveRoots().some((root) => root.contains(element2)));
     }
-    // Every reader-owned surface — the settings dialog, the popover, the
-    // onboarding sheet — paints ABOVE the subtitle layer. A click that lands on
-    // one of them is therefore never page content the subtitle frame is
-    // covering, whatever the geometry says, so the shield must let it through
-    // untouched. Without this the shield's stopPropagation at document capture
-    // kills the dialog's own button listeners: pressing Cancel over a video did
-    // nothing except focus the player, which made the site reveal its controls.
     isInReaderSurface(element2) {
       return Boolean(element2.closest(READER_ROOT_SELECTOR));
     }
@@ -114825,12 +114939,6 @@ ${reading}`);
       saveSubtitleDragOffsetFraction(0);
       this.syncSubtitleDragOffsetStyle();
     }
-    // Reproject the remembered nudge (a viewport-height fraction) into pixels
-    // against the current viewport. Runs on first install, on video changes, and
-    // on every viewport/fullscreen change (via syncFullscreenState) so the line
-    // keeps its relative position when the player resizes, rotates, or enters
-    // fullscreen instead of staying frozen at the old pixel magnitude. Skipped
-    // mid-drag so it never fights the gesture the user is performing.
     restoreSubtitleDragOffset() {
       if (this.subtitleDragActive) return;
       this.subtitleDragOffsetYPx = Math.round(this.subtitleDragOffsetFraction * this.subtitleDragViewportHeight());
@@ -115107,14 +115215,6 @@ ${reading}`);
     isYouTubeShortsControlSurface() {
       return Boolean(this.video && isYouTubePage() && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
     }
-    // Native player controls must win when a moved/long subtitle crosses them.
-    // The overlay frame is already click-through, but everything in it that a
-    // finger can act on opts back into pointer events: lookup words, and the
-    // native caption line, which is a toggle with a finger-sized box on touch.
-    // Sweep all of them — a control left out of this sweep is an invisible strip
-    // of the overlay stealing taps meant for the seek bar. Mark only boxes that
-    // overlap a small, visible native control; CSS then returns just those to
-    // the player while the rest of the subtitle stays interactive.
     syncNativePlayerControlHitProtection() {
       const targets2 = Array.from(this.root?.querySelectorAll(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
       targets2.forEach((target) => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
@@ -115249,12 +115349,6 @@ ${reading}`);
       }
       document.dispatchEvent(createWindowCustomEvent("yomu-ocr-video-frame-request", { video }));
     }
-    // YouTube's #movie_player exposes its player API on the element in the
-    // page world. Routing pause/play/seek through it keeps YT's own state
-    // machine in agreement — a raw currentTime write triggers a re-buffer YT
-    // can bounce, and a raw pause() gets reactively re-played. Feature-detected
-    // so embeds, mobile hosts, isolated-world extension builds, and every
-    // non-YouTube site keep the raw HTMLMediaElement path.
     youTubePlayerApi(video) {
       if (!isYouTubePage()) return null;
       const player = document.getElementById("movie_player");
@@ -115482,8 +115576,35 @@ ${reading}`);
       if (!loaded) return;
       if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
       if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
+      if (!await this.prewarmPrimaryTrackFirstPaint(loaded, requestId)) return;
       this.applyPrimaryTrackSelection(loaded);
       this.finishTrackSelection();
+    }
+    async prewarmPrimaryTrackFirstPaint(selection, requestId) {
+      if (!this.shouldParseSubtitles() || !selection.cues.length) {
+        return this.isTrackSelectionCurrent("primary", requestId, selection.trackId);
+      }
+      const cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
+      const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
+      let activeIndex = cues.findIndex((cue) => time >= cue.start && time <= cue.end);
+      if (activeIndex < 0) activeIndex = cues.findIndex((cue) => cue.end >= time);
+      const activeText = cues[activeIndex]?.text.trim();
+      if (!activeText) return this.isTrackSelectionCurrent("primary", requestId, selection.trackId);
+      const settings = this.options.getSettings();
+      const parse = (text2) => this.parseCueHtml(text2, settings, {
+        enrichBeforeRender: true,
+        requireEnrichedProvisional: true,
+        refreshProvisional: true
+      });
+      const active = parse(activeText);
+      const nextText = cues[activeIndex + 1]?.text.trim();
+      if (nextText) void parse(nextText).catch(() => void 0);
+      await promiseWithTimeout(
+        active,
+        SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS,
+        "Subtitle first-paint prewarm timed out."
+      ).catch(() => void 0);
+      return this.isTrackSelectionCurrent("primary", requestId, selection.trackId);
     }
     // A track whose entire payload is a single usable line (a one-cue credit,
     // or a metadata-only track whose cues the normalizer dropped) isn't worth
@@ -115639,7 +115760,6 @@ ${reading}`);
       this.markNativeCueListsDirty();
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
-      this.warmParseAroundActiveCue();
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
@@ -116451,20 +116571,6 @@ ${reading}`);
       this.showControlsTemporarily();
       this.syncControls();
     }
-    // Every drawer render re-emits the panel as markup, so a cue advance
-    // destroys and recreates each control in it — including whichever one a
-    // finger is currently on. Measured in Chromium: when the pressed node is
-    // removed before release, a mouse click is dropped outright, and a touch
-    // click is re-hit-tested at release, landing on whatever control the
-    // rebuild moved into that spot (tap "hide the translation", get a seek).
-    // Node identity is not enough to save it: re-attaching the very same
-    // element in the same task still loses the mouse click. So the render waits
-    // for the finger instead.
-    //
-    // The release is the click, not pointerup: a touch click is dispatched
-    // after pointerup — and after a task boundary — so flushing any earlier
-    // still eats the tap. pointercancel (a scroll taking the pointer) and a
-    // safety cap cover taps that never become a click.
     holdPanelRenderDuringPress(render) {
       if (!this.panelPressHeld) return false;
       this.heldPanelRender = render;
@@ -116989,12 +117095,6 @@ ${reading}`);
         bottomSpacer: Math.max(0, (rowCount - end) * rowEstimate)
       };
     }
-    // While auto-following, keep the committed window as long as the active row
-    // stays comfortably inside it: consecutive line advances then reuse the same
-    // window so the panel signature is unchanged and only the cheap active-line
-    // class-swap runs — no full list re-render recreating (and flickering) the
-    // highlighted row. The window only shifts when the active row nears an edge,
-    // or on a user scroll (auto-follow paused), where it tracks scrollTop as before.
     resolveVirtualWindowBounds(rowCount, currentRowIndex, scrollTop, visibleRows) {
       const prev = this.renderedVirtualWindow;
       const autoFollowing = this.options.getSettings().subtitleTranscriptAutoScroll && !this.isTranscriptAutoScrollPaused();
@@ -117224,17 +117324,6 @@ ${reading}`);
     isTranscriptVirtualScroller(scroller) {
       return scroller.dataset.virtualized === "true";
     }
-    // A scroll-driven virtual-window shift, or an append-only cue-list growth,
-    // only needs the rows inside the scroller swapped; the scroller element
-    // itself (and everything else in the panel) is unchanged. Patching its
-    // children in place -- instead of routing through renderTranscriptPanel's
-    // full setInnerHtml(panel, ...) -- keeps the scroller node identity stable,
-    // so a tablet's in-flight native touch scroll gesture (bound to that node)
-    // survives the update instead of stopping dead, and growth never paints a
-    // spacer-only, whitespace-band frame while the new rows mount.
-    // Only safe when the structure hasn't changed and the row count is equal
-    // or grew (append-only); a shrink or a structure change falls back to a
-    // full render.
     patchTranscriptVirtualWindow(state2, scroller) {
       if (!state2.virtual) return false;
       if (!this.isTranscriptVirtualScroller(scroller)) return false;
@@ -117481,14 +117570,6 @@ ${reading}`);
       if (this.cues.length) return this.transcriptGapAnchorRowIndex(rows);
       return 0;
     }
-    // A real inter-cue gap must still leave overlay/currentCue blank -- but for
-    // the transcript list only, snapping to "no active row" makes the highlight
-    // vanish and reappear a beat later, and forces a virtual-window recompute
-    // for no reason. Anchor instead on the latest row whose cue has already
-    // started: a seek into a gap lands near the seek destination immediately,
-    // and playback running through a gap keeps the previous row highlighted
-    // until the next cue advances it once. Only while auto-follow is enabled --
-    // with it off the previous "no active row" gap behavior is unchanged.
     transcriptGapAnchorRowIndex(rows) {
       if (this.currentCue || !this.video) return -1;
       if (!this.options.getSettings().subtitleTranscriptAutoScroll) return -1;
@@ -117614,6 +117695,8 @@ ${reading}`);
       ].join("|");
     }
     async warmTranscriptParseCache(rows, preferredIndex, settings, serial) {
+      await this.awaitLatestPriorityYouTubeCueWarmup();
+      if (serial !== this.transcriptCacheWarmupSerial) return;
       const planned = this.transcriptWarmupPlan(rows, preferredIndex, settings);
       if (!planned.length) return;
       let cursor = 0;
@@ -117640,6 +117723,13 @@ ${reading}`);
         () => worker()
       );
       await Promise.all(workers);
+    }
+    async awaitLatestPriorityYouTubeCueWarmup() {
+      let pending2;
+      do {
+        pending2 = this.priorityYouTubeCueWarmup;
+        await pending2;
+      } while (pending2 !== this.priorityYouTubeCueWarmup);
     }
     transcriptWarmupParseOptions(totalRows) {
       if (this.shouldUseCheapYouTubeTranscriptWarmup(totalRows)) {
@@ -118296,12 +118386,6 @@ ${reading}`);
       if (!this.video) return this.videoLayoutRect();
       return transcriptAvoidanceTarget(this.video).getBoundingClientRect();
     }
-    // The side panel normally hangs from the video's top. Once the video scrolls
-    // out of view, that top is off-screen (negative when scrolled up, huge when
-    // below the fold) and the clamp in the layout math then swings the panel's
-    // height from full-height to a bottom-pinned sliver. Return a stable on-screen
-    // anchor while the video is not overlay-visible so the panel keeps a steady
-    // height as you scroll past it (it stays position:fixed on screen regardless).
     stableTranscriptAnchorTop(referenceVideoRect) {
       const liveTop = this.transcriptAnchorRect().top;
       if (this.isTranscriptAnchorVideoVisible(referenceVideoRect)) return liveTop;
@@ -123472,9 +123556,6 @@ ${reading}`);
   function reviewButtonGrades(...args) {
     return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? [];
   }
-  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-  const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
   function compactReading(value) {
     return value.normalize("NFC").replace(/\s+/g, "").trim();
   }
@@ -123513,47 +123594,6 @@ ${reading}`);
   }
   function headwordFuriganaReading(spelling, token) {
     return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : activeLearningTarget().normalizeReading(spelling, token.card.reading).trim();
-  }
-  function annotatedWordRubies(spelling, annotated) {
-    if (!annotated || !annotated.includes("[")) return [];
-    const rubies = [];
-    let cursor = 0;
-    let baseText2 = "";
-    let baseOffset = 0;
-    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
-      const matchIndex = match.index ?? 0;
-      const captured = match[1] ?? "";
-      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
-      const base = runMatch ? runMatch[1] : captured;
-      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
-      const reading = (match[2] ?? "").trim();
-      baseText2 += plain;
-      baseOffset += plain.length;
-      const start = baseOffset;
-      baseText2 += base;
-      baseOffset += base.length;
-      if (base && reading) {
-        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
-      }
-      cursor = matchIndex + match[0].length;
-    }
-    baseText2 += annotated.slice(cursor);
-    return baseText2 === spelling ? rubies : [];
-  }
-  function readingFromSurfaceRubies(surface, rubies) {
-    let reading = "";
-    let offset = 0;
-    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
-      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
-      reading += unannotatedPronunciationText(surface.slice(offset, ruby.start));
-      reading += ruby.text;
-      offset = ruby.end;
-    }
-    reading += unannotatedPronunciationText(surface.slice(offset));
-    return reading;
-  }
-  function unannotatedPronunciationText(value) {
-    return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
   }
   function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
     const classified = segments.map((segment) => ({

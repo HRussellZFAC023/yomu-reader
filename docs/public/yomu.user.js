@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.52
+// @version 1.8.53
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.2b178f8f42ac.user.js#sha256=KxePj0KsHE+t3RTgDnn0RvJIc7o+OnE5PRf5J7/lcrE=
-// @resource yomuCss  https://yomureader.com/yomu.7476cc632b3a.css#sha256=dHbMYys6M7vAktSg7Hj0czUqdj4QJmlZMAANu3W7+LE=
+// @require https://yomureader.com/greasyfork/yomu-runtime.ec57486e5636.user.js#sha256=7FdIblY2ZxLp25IHDqZ/C7962zzOVDVmXU7UJIt2mbs=
+// @resource yomuCss  https://yomureader.com/yomu.328b7503fed4.css#sha256=Mot1A/7UinW2us3o4/FT0J7PVcoSCLvQxDEQzOueL0I=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -344,7 +344,120 @@ function getPitchClass(pitchAccent, reading) {
   const pattern = contextPitchPattern(pitchAccent, reading);
   return pattern ? pitchClassNameForPattern(pattern, reading) : "";
 }
+const SEGMENTER_BY_LOCALE = new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text2, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text2)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
+}
+const KANJI_RE$1 = /[\u3400-\u9fff]/u;
+const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
+function annotatedWordRubies(spelling, annotated) {
+  if (!annotated || !annotated.includes("[")) return [];
+  const rubies = [];
+  let cursor = 0;
+  let baseText = "";
+  let baseOffset = 0;
+  for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+  const matchIndex = match.index ?? 0;
+  const captured = match[1] ?? "";
+  const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+  const base = runMatch ? runMatch[1] : captured;
+  const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
+  const reading = (match[2] ?? "").trim();
+  baseText += plain;
+  baseOffset += plain.length;
+  const start = baseOffset;
+  baseText += base;
+  baseOffset += base.length;
+  if (base && reading) {
+    rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+  }
+  cursor = matchIndex + match[0].length;
+  }
+  baseText += annotated.slice(cursor);
+  return baseText === spelling ? rubies : [];
+}
+function readingFromSurfaceRubies(surface, rubies) {
+  let reading = "";
+  let offset = 0;
+  for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {
+  if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+  reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+  reading += ruby.text;
+  offset = ruby.end;
+  }
+  reading += unannotatedPronunciationText$1(surface.slice(offset));
+  return reading;
+}
+function unannotatedPronunciationText$1(value) {
+  return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
+}
 const PITCH_CLASSES$1 = new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
+const MAX_INFERRED_PITCH_LOOKUP_COMPONENTS = 3;
+function inferredAnnotatedPitchComponents(card) {
+  if (getPitchClass(card.pitchAccent, card.reading || card.spelling) || card.pitchComponents?.length) return [];
+  const spelling = compact(card.spelling);
+  const reading = compact(card.reading);
+  const annotated = compact(card.wordWithReading ?? "");
+  if (!spelling || !reading || !annotated.includes("[")) return [];
+  if (Array.from(spelling).filter((character) => KANJI_RE$2.test(character)).length < 2) return [];
+  const rubies = annotatedWordRubies(spelling, annotated);
+  if (!rubies.length || compact(readingFromSurfaceRubies(spelling, rubies)) !== reading) return [];
+  const rawSegments = icuWordSegments(spelling, "ja");
+  if (!rawSegments) return [];
+  const components = [];
+  for (const segment of rawSegments) {
+  const start = segment.start;
+  const end = segment.end;
+  const readingStart = readingOffsetAtSurfaceBoundary(start, rubies);
+  const readingEnd = readingOffsetAtSurfaceBoundary(end, rubies);
+  if (readingStart < 0 || readingEnd <= readingStart) return [];
+  const component = {
+    spelling: segment.text,
+    reading: reading.slice(readingStart, readingEnd),
+    pitchAccent: [],
+    wordWithReading: null,
+    inferredFromAnnotatedReading: true
+  };
+  const previous = components[components.length - 1];
+  if (previous && !containsKanji$1(previous.spelling) && !containsKanji$1(component.spelling)) {
+    previous.spelling += component.spelling;
+    previous.reading += component.reading;
+  } else {
+    components.push(component);
+  }
+  }
+  if (components.length < 2) return [];
+  if (components.map((component) => component.spelling).join("") !== spelling) return [];
+  if (components.map((component) => component.reading).join("") !== reading) return [];
+  if (components.filter((component) => containsKanji$1(component.spelling)).length > MAX_INFERRED_PITCH_LOOKUP_COMPONENTS) return [];
+  return components.some((component) => containsKanji$1(component.spelling)) ? components : [];
+}
 function tiledPitchComponents(card) {
   if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
   const components = card.pitchComponents ?? [];
@@ -388,6 +501,17 @@ function pitchComponentUnderlineGradient(card) {
 }
 function compact(value) {
   return value.replace(/\s+/g, "").trim();
+}
+function containsKanji$1(value) {
+  return KANJI_RE$2.test(value);
+}
+function readingOffsetAtSurfaceBoundary(offset, rubies) {
+  let readingOffset = offset;
+  for (const ruby of rubies) {
+  if (offset > ruby.start && offset < ruby.end) return -1;
+  if (ruby.end <= offset) readingOffset += ruby.text.length - ruby.length;
+  }
+  return readingOffset;
 }
 function formatPercent(value) {
   return `${Number(value.toFixed(3))}%`;
@@ -1520,35 +1644,6 @@ function hasAmbiguousContinuativeStemCandidate(source) {
 }
 function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-}
-const SEGMENTER_BY_LOCALE = new Map();
-function wordSegmenter(locale) {
-  const cached = SEGMENTER_BY_LOCALE.get(locale);
-  if (cached !== void 0) return cached;
-  let segmenter = null;
-  try {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  }
-  } catch {
-  segmenter = null;
-  }
-  SEGMENTER_BY_LOCALE.set(locale, segmenter);
-  return segmenter;
-}
-function icuWordSegments(text2, locale) {
-  const segmenter = wordSegmenter(locale);
-  if (!segmenter) return null;
-  const segments = [];
-  for (const segment of segmenter.segment(text2)) {
-  if (!segment.isWordLike) continue;
-  segments.push({
-    text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length
-  });
-  }
-  return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
@@ -19431,9 +19526,6 @@ function addAnkiReviewTargetLabel(candidates, cardId, label, cardName = "") {
   const template = cardName.trim();
   candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
 }
-const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
 function headwordFuriganaSettings(settings) {
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
@@ -19456,47 +19548,6 @@ function cardSpellingFuriganaToken(card, spelling) {
   pitchClass: "",
   sentence: spelling
   };
-}
-function annotatedWordRubies(spelling, annotated) {
-  if (!annotated || !annotated.includes("[")) return [];
-  const rubies = [];
-  let cursor = 0;
-  let baseText = "";
-  let baseOffset = 0;
-  for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
-  const matchIndex = match.index ?? 0;
-  const captured = match[1] ?? "";
-  const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
-  const base = runMatch ? runMatch[1] : captured;
-  const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
-  const reading = (match[2] ?? "").trim();
-  baseText += plain;
-  baseOffset += plain.length;
-  const start = baseOffset;
-  baseText += base;
-  baseOffset += base.length;
-  if (base && reading) {
-    rubies.push({ text: reading, start, end: start + base.length, length: base.length });
-  }
-  cursor = matchIndex + match[0].length;
-  }
-  baseText += annotated.slice(cursor);
-  return baseText === spelling ? rubies : [];
-}
-function readingFromSurfaceRubies(surface, rubies) {
-  let reading = "";
-  let offset = 0;
-  for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {
-  if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
-  reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
-  reading += ruby.text;
-  offset = ruby.end;
-  }
-  reading += unannotatedPronunciationText$1(surface.slice(offset));
-  return reading;
-}
-function unannotatedPronunciationText$1(value) {
-  return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
 }
 function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
   const classified = segments.map((segment) => ({
@@ -34061,8 +34112,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.52"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.52"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.53"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.53"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34205,7 +34256,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.52"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.53"}`;
   } catch {
   return null;
   }
@@ -41843,12 +41894,13 @@ class ReaderApp {
   this.pitchEnrichmentQueuedOptions.delete(key);
   }
   async drainPitchEnrichmentQueue() {
-  if (this.pitchEnrichmentDrain) return this.pitchEnrichmentDrain;
-  this.pitchEnrichmentDrain = this.runPitchEnrichmentQueue().finally(() => {
-    this.pitchEnrichmentDrain = void 0;
-    if (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) void this.drainPitchEnrichmentQueue();
-  });
-  return this.pitchEnrichmentDrain;
+  const previous = this.pitchEnrichmentDrain;
+  const drain = (previous ? previous.catch(() => void 0) : Promise.resolve()).then(() => this.runPitchEnrichmentQueue());
+  this.pitchEnrichmentDrain = drain;
+  void drain.finally(() => {
+    if (this.pitchEnrichmentDrain === drain) this.pitchEnrichmentDrain = void 0;
+  }).catch(() => void 0);
+  return drain;
   }
   async runPitchEnrichmentQueue() {
   while (!this.isDestroyed && this.shouldRunPitchOrReadingEnrichment() && this.pitchEnrichmentQueue.length) {
@@ -41925,14 +41977,41 @@ class ReaderApp {
   }
   async ensureCardPitchAccent(card, options) {
   if (!this.settings.showPitchAccent) return;
-  if (cardHasContextPitch(card) || hasResolvedPitchComponents(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
-  const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-  if (pitchAccent.length) {
-    card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+  if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
+  const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
+  if (allowPublicLookup) {
+    const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+    if (pitchAccent.length) {
+      card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
+      return;
+    }
+  }
+  if (card.pitchComponents?.length) {
+    await this.enrichCardPitchComponents(card, card.pitchComponents, allowPublicLookup);
     return;
   }
-  await Promise.all((card.pitchComponents ?? []).map(async (component) => {
+  const inferred = inferredAnnotatedPitchComponents(card);
+  if (!inferred.length) return;
+  await this.enrichCardPitchComponents(card, inferred, allowPublicLookup);
+  if (hasPaintablePitchComponents({ ...card, pitchComponents: inferred })) card.pitchComponents = inferred;
+  }
+  async enrichCardPitchComponents(card, components, allowPublicLookup) {
+  await Promise.all((components ?? []).map(async (component) => {
     if (getPitchClass(component.pitchAccent, component.reading || component.spelling)) return;
+    if (component.inferredFromAnnotatedReading && !Array.from(component.spelling).some(isKanjiCharacter)) return;
+    const localPitch = await this.localPitchAccentForCard({
+      ...card,
+      spelling: component.spelling,
+      reading: component.reading,
+      pitchAccent: [],
+      pitchComponents: void 0,
+      wordWithReading: component.wordWithReading
+    });
+    if (localPitch.length) {
+      component.pitchAccent = mergePitchPatterns(localPitch, component.pitchAccent);
+      return;
+    }
+    if (!allowPublicLookup) return;
     component.pitchAccent = await this.jpdbPublicPitch.lookup(component.spelling, component.reading).catch(() => []);
   }));
   }
