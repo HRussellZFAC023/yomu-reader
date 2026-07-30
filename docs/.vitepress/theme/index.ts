@@ -619,6 +619,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "First-run setup now shows progress while downloading the default offline Japanese dictionaries. Before it starts, the option names the dictionary contents and their 35.1 MiB download size.": "初回セットアップで、標準のオフライン日本語辞書をダウンロードしている間の進捗が表示されるようになりました。開始前の選択肢には、辞書の内容と35.1 MiBのダウンロードサイズが表示されます。",
     "OCR text stays aligned with manga pages while scrolling. In the Chromium fixture, the positioning pass for six visible layers from 24 recognised images ran 11.22 times faster.": "スクロール中もOCRテキストが漫画ページの文字位置にそろうようになりました。Chromiumのフィクスチャでは、認識済み画像24枚のうち表示中の6レイヤーを対象とした位置合わせ処理が11.22倍速くなりました。",
     "Study keeps typed answers in the selected language. Spanish stays Spanish, Russian stays Cyrillic, Arabic uses right-to-left input, and Japanese still converts romaji to kana.": "学習の入力式問題では、答えが選んだ言語のまま保たれるようになりました。スペイン語はスペイン語のまま、ロシア語はキリル文字のまま残り、アラビア語には右から左の入力方向が設定されます。日本語では引き続きローマ字をかなに変換します。",
+    "On iPad, subtitle font size now applies to the parsed Japanese words that actually paint the cue, including furigana and karaoke text. Mobile page styles can no longer leave the Japanese line tiny while the native subtitle grows.": "iPadで、字幕の文字サイズが、実際に字幕を描画する解析済みの日本語の単語、ふりがな、カラオケ表示にも適用されるようになりました。モバイル向けページのスタイルによって、母語字幕だけが大きくなり、日本語字幕が小さいままになることはありません。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',

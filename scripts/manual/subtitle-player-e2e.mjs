@@ -9,7 +9,7 @@ import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fi
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_E2E_USERSCRIPT ?? 'dist/yomu.user.js');
-const videoCompanionPath = resolve(process.env.YOMU_E2E_VIDEO_COMPANION ?? 'dist/greasyfork/yomu-video.user.js');
+const runtimeCompanionPath = resolve(process.env.YOMU_E2E_RUNTIME_COMPANION ?? 'dist/greasyfork/yomu-runtime.user.js');
 const readerCssPath = resolve(process.env.YOMU_E2E_READER_CSS ?? 'dist/yomu.css');
 const artifactsDir = resolve(process.env.YOMU_E2E_ARTIFACTS ?? join(qaArtifactsRoot, 'subtitle-e2e/latest'));
 const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s';
@@ -354,7 +354,9 @@ function send(res, body, contentType, status = 200) {
 async function ensureUserscript(page) {
     if (await page.locator('.jpdb-subtitle-player').count()) return;
     await installUserscriptStyleResource(page);
-    await addUserscriptFile(page, videoCompanionPath);
+    // Match the public metadata boundary: the main script has one
+    // unconditional @require containing the full companion registry.
+    await addUserscriptFile(page, runtimeCompanionPath);
     await addUserscriptFile(page, userscriptPath);
     await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 10000 });
 }
@@ -967,6 +969,11 @@ async function exerciseDrawerLayoutPhase(page, site, phase) {
 }
 
 async function prepareDrawerLayoutPhase(page, site, phase) {
+    // Font-persistence checks deliberately wait through player lifecycle
+    // changes, which can leave auto-mode controls in their normal hidden
+    // watching state. Reveal the player chrome as a user would before
+    // exercising the rail.
+    await revealSubtitleControls(page, site);
     await openLinesOrTracksPanel(page);
     await waitForDrawerLayoutSettled(page, site);
     if (phase !== 'resized') return { beforeResizePanel: undefined, resized: false };
@@ -1147,10 +1154,18 @@ async function runSite(browser, site) {
         ...site.contextOptions,
     });
     const page = await context.newPage();
+    const bootErrors = [];
+    page.on('console', message => {
+        if (message.type() === 'error') bootErrors.push(message.text());
+    });
+    page.on('pageerror', error => bootErrors.push(error.message));
     try {
         return await collectSiteResult(page, site);
     } catch (error) {
         console.error(`[subtitle-e2e] ${site.name} failed: ${errorMessage(error)}`);
+        if (bootErrors.length) {
+            console.error(`[subtitle-e2e] ${site.name} page errors: ${JSON.stringify(bootErrors.slice(-10))}`);
+        }
         throw error;
     } finally {
         await context.close();

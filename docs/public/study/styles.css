@@ -18050,6 +18050,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 .jpdb-subtitle-primary {
   display: inline;
+  /* The visible cue is painted by parser-created spans/ruby, not by this
+     container. Mobile host sheets commonly size generic spans after Yomu's
+     sheet loads; relying on inheritance let those rules pin the Japanese cue
+     to tiny text while the native button below still followed the slider. */
+  font-size: var(--subtitle-font-size) !important;
   padding: 0 .06em;
   border-radius: 3px;
   background: var(--subtitle-background-rgba);
@@ -18062,6 +18067,18 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   text-wrap: balance;
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
+}
+.jpdb-subtitle-primary :is(
+  .jpdb-reader-word,
+  .jpdb-subtitle-karaoke-word,
+  .jpdb-subtitle-primary-loading,
+  ruby,
+  .jpdb-reader-ruby-base
+) {
+  font-size: inherit !important;
+}
+.jpdb-subtitle-primary .jpdb-reader-furi {
+  font-size: .58em !important;
 }
 .jpdb-subtitle-primary:empty {
   display: none;

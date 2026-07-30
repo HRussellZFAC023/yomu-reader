@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.52] - 2026-07-30
+
+### Fixed
+
+- On iPad, subtitle font size now applies to the parsed Japanese words that actually paint the cue, including furigana and karaoke text. Mobile page styles can no longer leave the Japanese line tiny while the native subtitle grows.
+
 ## [1.8.51] - 2026-07-30
 
 ### Fixed
