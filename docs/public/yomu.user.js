@@ -17,12 +17,12 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.ad44ae2c433d.user.js#sha256=rUSuLEM9tKLr1JNmJU9h37IqkA61/uHU2rtR+HjL7lM=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.e60ab500d05e.user.js#sha256=5gq1ANBeAX1JyqKRyeDO2YYlH37sy0E+tVU4ncOyp/w=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.62847667e7cb.user.js#sha256=YoR2Z+fLGDRQO4BfnRJC8x0Qo5uXrOAwAFZZ9d4/juc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.48fdbfe22365.user.js#sha256=SP2/4iNlfqVPUaV8Z9L7XE3N2J5/B1b0KlFQCmtPHw0=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.c783fcbc0010.user.js#sha256=x4P8vAAQzSBD4vD6zOUtf8T3x0sY/yj/RNbMWbFQ5XE=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.33482acca749.user.js#sha256=M0gqzKdJl6vdYKCjir0OcJ+09LuVUsicWkoc19g+6P4=
 // @require https://yomureader.com/greasyfork/yomu-jiten.aa96372b99d9.user.js#sha256=qpY3K5nZWAL6mFs4/xfDhDIqUGU7KZY2iQfDYPyJjTM=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.568cd7cb8417.user.js#sha256=VozXy4QXC1TwYi0HGvFfQcN6QOSrPK9qHRbIqd0URgQ=
-// @require https://yomureader.com/greasyfork/yomu-video.5bfd1406d355.user.js#sha256=W/0UBtNVATr9gKMGSq6Gusimzz6apcpyk6WPXsCwlFk=
+// @require https://yomureader.com/greasyfork/yomu-video.ddd33b4ca4ee.user.js#sha256=3dM7TKTuVFkESOgC9KpHtNNUyF4Pnyy427ulWcNQirc=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7532,6 +7532,7 @@ const DEFAULT_SETTINGS = {
   youtubeImmersionEnabled: true,
   youtubeShowFilterNotice: true,
   youtubeFilterNoticeRestored20260711: true,
+  themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
   preferJapaneseSiteLanguage: true,
   ankiEnabled: false,
@@ -7629,8 +7630,10 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
 ];
 function mergeSettings(value) {
   const settingsValue = migrateSentenceAudioFieldMappings(
-  migratePinnedOcrLanguage(
-    migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+  migrateDefaultLightTheme(
+    migratePinnedOcrLanguage(
+      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+    )
   )
   );
   const audio = normalizeAudioSettings(settingsValue);
@@ -7766,6 +7769,13 @@ function migrateHiddenFilterNotice(value) {
   if (value.youtubeFilterNoticeRestored20260711) return value;
   const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
   if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+  return migrated;
+}
+function migrateDefaultLightTheme(value) {
+  if (!value) return value;
+  if (value.themeAutoRestored20260730) return value;
+  const migrated = { ...value, themeAutoRestored20260730: true };
+  if (migrated.theme === "light") migrated.theme = "auto";
   return migrated;
 }
 function migratePinnedOcrLanguage(value) {

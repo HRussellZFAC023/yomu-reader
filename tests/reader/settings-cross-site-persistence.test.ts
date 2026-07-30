@@ -459,6 +459,36 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
     });
 });
 
+// Until 1.8.39 the default theme was 'light' and every save persisted it, so a
+// stored 'light' cannot be told apart from a real choice — and because the
+// hosted appearance boot reads settings.theme before its 'auto' fallback, those
+// installs could never follow the operating system. Measured on the live site:
+// a browser that had visited before the fix still carried theme=light and stayed
+// bright with prefers-color-scheme: dark.
+describe('default light theme migration', () => {
+    it('moves a stored light default to auto once, then honors a later choice', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { theme: 'light' });
+
+        const migrated = await loadSettings();
+        expect(migrated.theme).toBe('auto');
+        expect(migrated.themeAutoRestored20260730).toBe(true);
+
+        // Choosing light AFTER the migration is a real choice and must stick.
+        migrated.theme = 'light';
+        await saveSettings(migrated);
+        expect((await loadSettings()).theme).toBe('light');
+    });
+
+    it('leaves a stored dark choice alone', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        store.set('jpdb-popup-reader-settings', { theme: 'dark' });
+        expect((await loadSettings()).theme).toBe('dark');
+    });
+});
+
 // Until 1.6.140 the YouTube filter notice's "hide" button silently persisted
 // youtubeShowFilterNotice=false — the only in-page path writing that key.
 // The one-time marker migration restores it; deliberate settings-dialog

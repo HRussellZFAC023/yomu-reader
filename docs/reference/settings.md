@@ -390,4 +390,5 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Not yet described | — | empty list | `dictionaryPreferences` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
 | Not yet described | — | on | `youtubeFilterNoticeRestored20260711` |
+| Not yet described | — | on | `themeAutoRestored20260730` |
 | Not yet described | — | on | `ankiSentenceAudioMappingMigrated` |

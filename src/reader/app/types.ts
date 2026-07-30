@@ -539,6 +539,8 @@ export interface ReaderSettings {
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;
     youtubeFilterNoticeRestored20260711: boolean;
+    /** Marks the one-time move of a stored `theme: 'light'` default to 'auto'. */
+    themeAutoRestored20260730: boolean;
     youtubeShowChannelRecommendations: boolean;
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;

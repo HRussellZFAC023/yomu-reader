@@ -533,6 +533,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // Default TRUE: only stored records that PREDATE this key (the era when
     // the notice's hide button persisted the setting off) migrate below.
     youtubeFilterNoticeRestored20260711: true,
+    // TRUE by default so a fresh install never runs the theme migration below;
+    // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
+    themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
@@ -644,8 +647,10 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
 
 function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
     const settingsValue = migrateSentenceAudioFieldMappings(
-        migratePinnedOcrLanguage(
-            migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
+        migrateDefaultLightTheme(
+            migratePinnedOcrLanguage(
+                migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
+            ),
         ),
     );
     const audio = normalizeAudioSettings(settingsValue);
@@ -859,6 +864,22 @@ function migrateHiddenFilterNotice(value: LegacyReaderSettings | null): LegacyRe
     if (value.youtubeFilterNoticeRestored20260711) return value;
     const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
     if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+    return migrated;
+}
+
+// Until 1.8.39 the default theme was 'light', and every save persisted it, so a
+// stored 'light' is indistinguishable from a real choice — yet almost nobody
+// chose it. The hosted appearance boot reads settings.theme before its own
+// 'auto' fallback, so those installs can never follow the operating system and
+// stay bright on a dark screen forever. Move a stored 'light' to 'auto' ONCE
+// (marker-gated). Someone whose system is light sees no change; someone whose
+// system is dark finally gets dark, and if they truly want light the settings
+// dialog still wins and the marker stops this ever running again.
+function migrateDefaultLightTheme(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
+    if (!value) return value;
+    if (value.themeAutoRestored20260730) return value;
+    const migrated = { ...value, themeAutoRestored20260730: true };
+    if (migrated.theme === 'light') migrated.theme = 'auto';
     return migrated;
 }
 

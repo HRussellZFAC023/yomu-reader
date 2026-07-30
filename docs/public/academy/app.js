@@ -39495,6 +39495,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // Default TRUE: only stored records that PREDATE this key (the era when
     // the notice's hide button persisted the setting off) migrate below.
     youtubeFilterNoticeRestored20260711: true,
+    // TRUE by default so a fresh install never runs the theme migration below;
+    // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
+    themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
@@ -39604,8 +39607,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   function mergeSettings(value) {
     const settingsValue = migrateSentenceAudioFieldMappings(
-      migratePinnedOcrLanguage(
-        migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+      migrateDefaultLightTheme(
+        migratePinnedOcrLanguage(
+          migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+        )
       )
     );
     const audio2 = normalizeAudioSettings(settingsValue);
@@ -39747,6 +39752,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value.youtubeFilterNoticeRestored20260711) return value;
     const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
     if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+    return migrated;
+  }
+  function migrateDefaultLightTheme(value) {
+    if (!value) return value;
+    if (value.themeAutoRestored20260730) return value;
+    const migrated = { ...value, themeAutoRestored20260730: true };
+    if (migrated.theme === "light") migrated.theme = "auto";
     return migrated;
   }
   function migratePinnedOcrLanguage(value) {
