@@ -30,9 +30,11 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
-0. **P0 — THE 1.9.0 GATE:** A37's active-profile pointer lookup, capability-bound hero, U79 DOM
-   gating, and no-empty-picker-target audit shipped in v1.8.38. The remaining multilingual gate is the
-   other U61 seams, then U105/D43/U46.
+0. **P0 — THE 1.9.0 GATE (owner ruling 2026-07-30):** `D43` full UI localisation **including the explicit
+   RTL decision**, `U105` the target/output/interface tiers, `U46` non-Japanese example sources, plus the
+   `A37.3` U79 DOM gating and `A37.4` Burmese leftovers. A37's active-profile pointer lookup and
+   capability-bound hero shipped in v1.8.38 and are proven. **The owner declined cutting 1.9.0 early**, so
+   the Chrome and Firefox stores stay on 1.8.2 by choice until this ships.
 0a. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
    ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
    definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
@@ -568,8 +570,27 @@ homepage now advertises the gap 34 times instead of 9.
       Burmese is not in `LEARNING_TARGET_ROSTER`, and the published-pages audit now fails if any
       lookup-capable picker target has zero published dictionary supply.
 
-**A37 no longer blocks 1.9.0.** The other `U61` seams plus `U105`, `D43`, and `U46` remain before the
-owner's minor-release decision.
+**A37 no longer blocks 1.9.0.** Proven with real browser evidence: ja, ko, es, ar and el each pressed on a
+raw unannotated Wikipedia heading (`rawReaderWords: 0`, so the text was not pre-annotated) opened a popover
+in the correct active language; screenshots in `scratchpad/a37-after-*.png`.
+
+**OWNER RULING 2026-07-30 — 1.9.0 waits for `D43` + `U105` + `U46`.** The owner was offered cutting 1.9.0
+immediately to unfreeze the Chrome and Firefox stores, still on **1.8.2** with none of the ~37 releases of
+fixes since, and chose the fuller multilingual story instead. **The store freeze therefore continues on
+purpose**, and patch releases carry fixes to the userscript and Greasyfork channels in the meantime
+(see `A27.3`). Do not offer the trade again unless the owner asks.
+
+The remaining gate, precisely:
+
+- **`D43`** full UI localisation for every target, **including an explicit RTL decision** for Arabic and
+  Farsi — in scope with named work, or excluded with a defined behaviour when someone picks Arabic. The
+  ticket forbids discovering RTL late.
+- **`U105`** the three tiers kept apart: target language ≠ definition/output language ≠ interface language.
+- **`U46`** example-sentence and media sources for the other targets, with the targets that have **no**
+  usable source named so the affordance degrades visibly rather than silently.
+- Plus the two A37 leftovers: `A37.3` U79 DOM gating and `A37.4` Burmese (`my`) having no dictionary supply.
+
+Plan of record for all three: `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices).
 
 ### A35 — UNDOCUMENTED WORK FOUND BY SWEEP 2026-07-29
 
