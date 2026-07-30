@@ -22,8 +22,10 @@ export type Slice1LearnerLanguageId = LearnerLanguageId;
 export const SLICE1_TARGET_LANGUAGE = 'ja' as const;
 export const DEFAULT_SLICE1_LEARNER_LANGUAGE = 'en' as const;
 export type LearningTargetRosterId = typeof SLICE1_TARGET_LANGUAGE | LearnerLanguageId;
+export type StudyTargetReadiness = 'full' | 'reading-only' | 'planned';
 export type LearningTargetRosterEntry = Omit<LearnerLanguage, 'id'> & {
     id: LearningTargetRosterId;
+    studyTargetReadiness: StudyTargetReadiness;
 };
 
 const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
@@ -34,7 +36,48 @@ const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
     defaultScript: 'Jpan',
     scripts: Object.freeze(['Jpan']),
     direction: 'ltr',
+    studyTargetReadiness: 'full',
 });
+
+/**
+ * A product decision, not a capability inference. Every target is named here so
+ * adding a roster row requires an explicit learner-facing readiness decision.
+ */
+export const STUDY_TARGET_READINESS_BY_ID = Object.freeze({
+    ja: 'full',
+    sq: 'reading-only',
+    grc: 'reading-only',
+    ar: 'reading-only',
+    yue: 'reading-only',
+    zh: 'reading-only',
+    da: 'reading-only',
+    nl: 'reading-only',
+    en: 'reading-only',
+    fi: 'reading-only',
+    fr: 'reading-only',
+    de: 'reading-only',
+    el: 'reading-only',
+    hu: 'reading-only',
+    id: 'reading-only',
+    it: 'reading-only',
+    km: 'reading-only',
+    ko: 'reading-only',
+    lo: 'reading-only',
+    la: 'reading-only',
+    mn: 'reading-only',
+    fa: 'reading-only',
+    pl: 'reading-only',
+    pt: 'reading-only',
+    ro: 'reading-only',
+    ru: 'reading-only',
+    sh: 'reading-only',
+    es: 'reading-only',
+    sv: 'reading-only',
+    tl: 'reading-only',
+    th: 'reading-only',
+    tr: 'reading-only',
+    vi: 'reading-only',
+} satisfies Readonly<Record<LearningTargetRosterId, StudyTargetReadiness>>);
 
 /**
  * The target picker is Japanese plus the frozen 32-language catalogue roster.
@@ -43,8 +86,29 @@ const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
  */
 export const LEARNING_TARGET_ROSTER: readonly LearningTargetRosterEntry[] = Object.freeze([
     JAPANESE_TARGET_ROSTER_ENTRY,
-    ...LEARNER_LANGUAGES,
+    ...LEARNER_LANGUAGES.map(language => Object.freeze({
+        ...language,
+        studyTargetReadiness: STUDY_TARGET_READINESS_BY_ID[language.id],
+    })),
 ]);
+
+const LEARNING_TARGET_BY_ID = new Map<LearningTargetRosterId, LearningTargetRosterEntry>(
+    LEARNING_TARGET_ROSTER.map(language => [language.id, language]),
+);
+
+export function learningTargetRosterEntry(id: LearningTargetRosterId): LearningTargetRosterEntry {
+    const target = LEARNING_TARGET_BY_ID.get(id);
+    if (!target) throw new Error(`Unknown learning target: ${id}`);
+    return target;
+}
+
+export function studyTargetReadinessMeets(
+    actual: StudyTargetReadiness,
+    claimed: Exclude<StudyTargetReadiness, 'planned'>,
+): boolean {
+    if (claimed === 'reading-only') return actual === 'full' || actual === 'reading-only';
+    return actual === 'full';
+}
 
 const RUNTIME_BASE_TO_CATALOGUE_ID = new Map<string, Slice1LearnerLanguageId>(
     LEARNER_LANGUAGES.map(language => [

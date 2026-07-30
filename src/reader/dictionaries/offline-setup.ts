@@ -5,7 +5,7 @@ import {
 } from '../settings/dictionary';
 import {
     findRecommendedDictionary,
-    recommendedDictionariesForLearnerLanguage,
+    recommendedDictionariesForLanguageProfile,
     recommendedDictionaryImportOptions,
     recommendedDictionaryInstalledIdentity,
     type RecommendedDictionary,
@@ -20,8 +20,11 @@ import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { ReaderSettings } from '../app/types';
 import {
     activeLanguageProfile,
+    learningTargetRosterIdForTag,
     slice1LanguageIdForTag,
+    type LearningTargetRosterId,
 } from '../languages';
+import type { Slice1LearnerLanguage } from './catalog';
 
 const log = Logger.scope('OfflineDictionarySetup');
 
@@ -63,10 +66,11 @@ interface OfflineDictionarySetupPlan {
 
 export async function installOfflineParsingDictionaries(options: OfflineDictionarySetupOptions): Promise<OfflineDictionarySetupResult> {
     const result: OfflineDictionarySetupResult = { installed: [], skipped: [], failed: [] };
-    const learnerLanguage = activeLearnerLanguage(options.getSettings());
+    const languages = activeOfflineDictionaryLanguages(options.getSettings());
     const plan = await offlineDictionarySetupPlan(
         options.dictionaries,
-        learnerLanguage,
+        languages.learnerLanguage,
+        languages.targetLanguage,
         result,
     );
     if (plan.installed.length) {
@@ -100,13 +104,16 @@ export async function installOfflineParsingDictionaries(options: OfflineDictiona
 
 async function offlineDictionarySetupPlan(
     store: OfflineDictionarySetupStore,
-    learnerLanguage: Parameters<typeof recommendedDictionariesForLearnerLanguage>[0],
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
     result: OfflineDictionarySetupResult,
 ): Promise<OfflineDictionarySetupPlan> {
     const targets = [
-        ...recommendedDictionariesForLearnerLanguage(learnerLanguage)
+        ...recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
             .filter(dictionary => dictionary.selectedByDefault !== false),
-        findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID),
+        ...(targetLanguage === 'ja'
+            ? [findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)]
+            : []),
     ]
         .filter((dictionary): dictionary is RecommendedDictionary => Boolean(dictionary?.downloadUrl));
     const installedDictionaries = await store.summary()
@@ -166,9 +173,12 @@ function canonicalDownloadUrl(value: string): string {
     }
 }
 
-function activeLearnerLanguage(
+function activeOfflineDictionaryLanguages(
     settings: ReaderSettings,
-): Parameters<typeof recommendedDictionariesForLearnerLanguage>[0] {
+): { learnerLanguage: Slice1LearnerLanguage; targetLanguage: LearningTargetRosterId } {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en';
+    return {
+        learnerLanguage: slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en',
+        targetLanguage: learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja',
+    };
 }

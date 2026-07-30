@@ -37,7 +37,6 @@ import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionar
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import {
-    LEARNING_TARGET_ROSTER,
     activeLanguageProfile,
     learningTargetRosterIdForTag,
     slice1LanguageIdForTag,
@@ -57,6 +56,7 @@ import {
 } from '../locales';
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
+import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
@@ -151,6 +151,15 @@ function renderLanguageOptions(
 ): string {
     return languages.map(item => `
         <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
+    `).join('');
+}
+
+function renderStudyTargetOptions(
+    language: InterfaceLanguage,
+    selected: LearningTargetRosterId,
+): string {
+    return studyTargetOptions(language).map(item => `
+        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ''} ${item.id === selected ? 'selected' : ''}>${escapeHtml(item.label)}</option>
     `).join('');
 }
 
@@ -257,7 +266,7 @@ function renderLanguageProfileControls(settings: ReaderSettings): string {
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage)}
+                                ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage)}
                             </select>
                         </label>
                         ${renderInterfaceLocaleSelect(settings)}
@@ -1599,6 +1608,12 @@ function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceL
         const value = key ? copyValues[key] : undefined;
         if (value !== undefined) element.replaceChildren(value);
     });
+
+    const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
+    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
+    if (targetSelect && selectedTarget) {
+        setInnerHtml(targetSelect, renderStudyTargetOptions(language, selectedTarget));
+    }
 
     const learnerSelect = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]');
     const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? (learnerSelect.value as LearnerLanguageId) : 'en';

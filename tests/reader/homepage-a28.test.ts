@@ -20,8 +20,8 @@ describe('A28 homepage contract', () => {
         expect(homepage).not.toContain('<figcaption');
     });
 
-    it('keeps the no-JS Japanese headline and enables only a progressive fade', () => {
-        expect(homepage).toContain('A complete system for learning <YomuLanguageRotator />');
+    it('keeps the no-JS reading headline and enables only a progressive fade', () => {
+        expect(homepage).toContain('Read in <YomuLanguageRotator /> Look up a word.');
         expect(homepageStyles).toContain('[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active]');
     });
 

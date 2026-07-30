@@ -17,7 +17,7 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         vi.restoreAllMocks();
     });
 
-    it('offers the frozen 32 learner languages while keeping Japanese fixed as the target', async () => {
+    it('lets a new learner choose a named target with an honest readiness label', async () => {
         let settings: ReaderSettings = normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
@@ -34,20 +34,47 @@ describe('Slice 1 multilingual onboarding and settings', () => {
 
         const learnerLanguage = document.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
         expect(Array.from(learnerLanguage.options, option => option.value)).toEqual(LEARNER_LANGUAGE_IDS);
-        expect(document.querySelector<HTMLElement>('[data-onboarding-target-language="ja"]')?.textContent).toContain('日本語');
+        const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        expect(targetLanguage.options).toHaveLength(33);
+        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="ja"]')).toMatchObject({
+            disabled: false,
+            textContent: expect.stringContaining('Full Yomu support'),
+        });
+        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')).toMatchObject({
+            disabled: false,
+            textContent: expect.stringContaining('Español'),
+            title: 'Reading and lookup are ready.',
+        });
+        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')?.dataset.studyTargetReadiness)
+            .toBe('reading-only');
         expect(document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')?.checked).toBe(true);
 
         learnerLanguage.value = 'ko';
+        targetLanguage.value = 'es';
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
         await new Promise(resolve => setTimeout(resolve, 0));
 
         const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
         expect(profile).toMatchObject({
             learnerLanguage: 'ko',
-            targetLanguage: 'ja',
+            targetLanguage: 'es',
             uiLocale: 'en',
         });
         expect(settings.interfaceLanguage).toBe('en');
+    });
+
+    it('uses the same readiness-labelled target options in Settings', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(multilingualSettings('en'), 'https://jpdb.io/settings');
+
+        const targetLanguage = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        expect(targetLanguage.options).toHaveLength(33);
+        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="ja"]')?.dataset.studyTargetReadiness)
+            .toBe('full');
+        const spanish = targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')!;
+        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
+        expect(spanish.textContent).toContain('Reading and lookup');
+        expect(spanish.title).toBe('Reading and lookup are ready.');
     });
 
     it('creates an independent profile when the learner language changes', () => {

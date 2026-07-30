@@ -46,7 +46,7 @@
 ## Why よむ
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
-- **Definitions in your language:** choose one of 32 learner languages while keeping Japanese as the Slice 1 learning target. よむ recommends a native-language dictionary where one is available; non-native sources can be translated only when you opt in, with the translation shown first and the original definition kept underneath.
+- **Choose what you read:** first-run setup and Settings name every study target and show its readiness. Japanese has the full よむ path; the other 32 targets are labelled for reading and lookup. Choose any of the 32 definition languages separately, with opt-in translation that keeps the original definition underneath.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
 - **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.

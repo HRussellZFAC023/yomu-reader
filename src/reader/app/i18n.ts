@@ -18,7 +18,13 @@ const COPY = {
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
         onboardingImmersionOptions: 'Immersion defaults',
-        onboardingInstallOfflineDictionaries: 'Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)',
+        onboardingInstallOfflineDictionaries: 'Download starter dictionaries for this language',
+        studyTargetReadinessFull: 'Full Yomu support',
+        studyTargetReadinessReadingOnly: 'Reading and lookup',
+        studyTargetReadinessPlanned: 'Planned',
+        studyTargetReadinessFullReason: 'Reading, lookup, study, and mining are ready.',
+        studyTargetReadinessReadingOnlyReason: 'Reading and lookup are ready.',
+        studyTargetReadinessPlannedReason: 'Support is planned.',
         onboardingHoverShortcut: 'Lookup hover modifier',
         manualPageScanShortcut: 'Manual page scan shortcut',
         onboardingAddApiKey: 'Add API key',
@@ -1309,7 +1315,13 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）
+onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
+studyTargetReadinessFull	よむの全機能
+studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessPlanned	準備中
+studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
+studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー

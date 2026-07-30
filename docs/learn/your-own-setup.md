@@ -15,7 +15,7 @@ Install a dictionary from the catalogue or import any compatible Yomitan ZIP. Di
 
 Yomu ships definitions in 9 languages.
 
-The catalogue includes Japanese dictionaries and growing supply for Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese. The planned product treats all 32 roster languages as full study targets. That target selection and complete dictionary supply are in development; Japanese remains the deepest learning path today.
+Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 targets are labelled **Reading and lookup**, matching the features ready for them today. Japanese remains the deepest path for study and mining.
 
 ## Bring your audio
 
@@ -60,7 +60,7 @@ Settings can also be exported as JSON from the Dictionaries screen. Keep that fi
 
 ## Know what is still being built
 
-Sentence-audio mining, complete 32-language study targets and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
+Sentence-audio mining, deeper study tools for the reading-and-lookup targets, and Migaku import are in development. Academy is a story-driven Japanese course from first sounds to N1; it is in development and invitation-only while it is built.
 
 Planned does not mean installed. The [changelog](/changelog) is the record of what has shipped.
 

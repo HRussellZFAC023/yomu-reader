@@ -196,6 +196,26 @@ describe('offline dictionary setup', () => {
         expect(harness.importFromUrl.mock.calls.at(-1)?.[0]).toBe(KANJIUM_URL);
     });
 
+    it('never substitutes Japanese starters for a non-Japanese target', async () => {
+        const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            languageProfiles: [{
+                ...profile,
+                outputLanguage: 'en',
+                learnerLanguage: 'en',
+                targetLanguage: 'es',
+            }],
+            localDictionariesEnabled: false,
+        };
+        const harness = setupHarness({}, settings);
+
+        const result = await harness.run();
+
+        expect(harness.importFromUrl).not.toHaveBeenCalled();
+        expect(result).toEqual({ installed: [], skipped: [], failed: [] });
+    });
+
     it('captures imported names only into the active language profile', async () => {
         const base = DEFAULT_SETTINGS.languageProfiles[0]!;
         const english = {

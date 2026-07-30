@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { LEARNER_LANGUAGE_IDS } from '../../../src/reader/locales/types';
+import { studyTargetOptions } from '../../../src/reader/app/study-target-picker';
+import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
 import { DEFAULT_SETTINGS, renderSettingsTestForm } from './fixtures';
@@ -16,6 +18,30 @@ describe('target-language settings', () => {
         ]);
         expect(picker.value).toBe('ja');
         expect(picker.selectedOptions[0]?.textContent).toContain('日本語');
+        expect(picker.querySelector<HTMLOptionElement>('option[value="ja"]')?.dataset.studyTargetReadiness)
+            .toBe('full');
+        const spanish = picker.querySelector<HTMLOptionElement>('option[value="es"]')!;
+        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
+        expect(spanish.textContent).toContain('Español');
+        expect(spanish.textContent).toContain('Reading and lookup');
+        expect(spanish.title).toBe('Reading and lookup are ready.');
+    });
+
+    it('keeps a planned target visible, named, and unavailable with a reason', () => {
+        const plannedTarget = {
+            ...LEARNING_TARGET_ROSTER.find(target => target.id === 'es')!,
+            studyTargetReadiness: 'planned' as const,
+        };
+
+        expect(studyTargetOptions('en', [plannedTarget])).toEqual([
+            expect.objectContaining({
+                id: 'es',
+                label: expect.stringContaining('Español'),
+                readiness: 'planned',
+                reason: 'Support is planned.',
+                disabled: true,
+            }),
+        ]);
     });
 
     it('persists the selected target through the active language profile', () => {

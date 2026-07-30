@@ -10,6 +10,8 @@ import {
     withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
 import {
+    assertStudyTargetClaimReadiness,
+    HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
     heroStudyLanguages,
     measuredDefinitionLanguageCount,
 } from '../../config/docs/product-claims';
@@ -183,26 +185,49 @@ describe('published docs pages', () => {
 });
 
 describe('published product claims', () => {
-    it('drives the homepage hero exactly from the shipped term-lookup capability', () => {
+    it('scopes the homepage hero to reading and lookup readiness', () => {
         const homepage = readProjectFile('docs/index.md');
         const config = readProjectFile('docs/.vitepress/config.mts');
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
-        const lookupCapableTargetIds = LEARNING_TARGET_ROSTER
-            .filter(language => learningTargetModuleFor(language.runtimeLocale)?.capabilities['term-lookup'])
-            .map(language => language.id);
         const heroLanguages = heroStudyLanguages();
 
-        expect(homepage).toContain('<YomuLanguageRotator />');
+        expect(homepage).toContain(
+            'data-yomu-study-target-claim="reading-only">Read in <YomuLanguageRotator /> Look up a word.</h1>',
+        );
+        expect(theme).toContain("'Read in': '読む言語：'");
+        expect(theme).toContain("'Look up a word.': '単語を調べる。'");
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
         expect(theme).toContain('const languages = __YOMU_HERO_LANGUAGES__;');
-        expect(heroLanguages.map(language => language.id)).toEqual(lookupCapableTargetIds);
+        expect(heroLanguages.length).toBeGreaterThan(1);
         for (const language of heroLanguages) {
-            expect(
-                learningTargetModuleFor(language.locale)?.capabilities['term-lookup'],
-                `homepage claims ${language.id}, but its target Module cannot open term lookups`,
-            ).toBe(true);
+            const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);
+            expect(target, `homepage names unknown target ${language.id}`).toBeDefined();
+            expect(target?.studyTargetReadiness).not.toBe('planned');
         }
+        expect(() => assertStudyTargetClaimReadiness(
+            heroLanguages.map(language => language.id),
+            HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
+            'Homepage hero',
+        )).not.toThrow();
+    });
+
+    it('fails if a reading-only target is claimed as full', () => {
+        const readingOnlyTarget = LEARNING_TARGET_ROSTER.find(
+            target => target.studyTargetReadiness === 'reading-only',
+        );
+        if (!readingOnlyTarget) throw new Error('The readiness fixture needs a reading-only target.');
+        expect(() => assertStudyTargetClaimReadiness(
+            [readingOnlyTarget.id],
+            'full',
+            'Mutation proof',
+        )).toThrow(
+            `Mutation proof claims ${readingOnlyTarget.englishName} (${readingOnlyTarget.id}) as full, `
+            + 'but its study-target readiness is reading-only.',
+        );
+        expect(() => heroStudyLanguages('full')).toThrow(
+            /Homepage hero claims .+ as full, but its study-target readiness is reading-only\./u,
+        );
     });
 
     it('keeps every lookup-capable picker target backed by published dictionary supply', () => {

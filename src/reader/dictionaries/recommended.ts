@@ -24,6 +24,7 @@ import {
 import { LOCALE_CATALOGS, learnerLanguageById } from '../locales';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportOptions } from './yomitan';
+import type { LearningTargetRosterId } from '../languages';
 
 export type RecommendedDictionaryCategory = 'terms' | 'kanji' | 'pitch' | 'frequency';
 export type RecommendedDictionaryOrigin = 'catalog';
@@ -193,6 +194,20 @@ export function recommendedDictionariesForLearnerLanguage(
     return CATALOG_RECOMMENDATIONS_BY_LANGUAGE[learnerLanguage];
 }
 
+/**
+ * Profile-aware recommendation seam. Until a target has its own recommendation
+ * manifest, an empty starter is safer than silently installing Japanese
+ * dictionaries for a different language.
+ */
+export function recommendedDictionariesForLanguageProfile(
+    learnerLanguage: Slice1LearnerLanguage,
+    targetLanguage: LearningTargetRosterId,
+): readonly RecommendedDictionary[] {
+    return targetLanguage === 'ja'
+        ? recommendedDictionariesForLearnerLanguage(learnerLanguage)
+        : [];
+}
+
 export function recommendedDictionaryInstalledIdentity(
     dictionary: RecommendedDictionary,
 ): string {
@@ -340,4 +355,3 @@ function catalogRecommendationDescription(
     const translation = messages.automaticTranslationLabel.replace('{language}', learner.nativeName);
     return `${original} · ${translation}`;
 }
-
