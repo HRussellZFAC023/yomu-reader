@@ -1518,7 +1518,12 @@ body:has(.yomu-home) .jpdb-reader-fab {
   --rule: #29271f;
   --accent-ink: #27593e;
   --accent-fill: var(--accent);
-  --on-accent: #14170f;
+  /* Follow the runtime's own accent-ink, which is derived from whatever accent
+     the learner chose, and fall back to the dark literal only when no accent is
+     stamped. Hardcoding the dark ink assumed a light accent: against a dark
+     custom accent the band buttons and the Discord call to action measured
+     1.04:1, which is unreadable. */
+  --on-accent: var(--yomu-accent-ink, var(--yomu-doc-accent-ink, #14170f));
   --on-plate: var(--paper);
   --on-plate-quiet: #cfc8b5;
   --shadow-cast: rgba(24, 27, 24, 0.3);

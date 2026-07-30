@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.39] - 2026-07-30
+
+### Changed
+
+- The homepage is easier to read at night and shorter to read at all. It carries a dark palette designed for the page rather than an inverted light one, so text keeps its contrast on a dark screen, and it now follows the light or dark setting your device already asks for. The longer explanations moved into the guides, which is where they belong.
+
 ## [1.8.38] - 2026-07-30
 
 ### Fixed
