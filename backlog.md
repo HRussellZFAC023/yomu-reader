@@ -483,6 +483,31 @@ Owner: *"we recieved £10 from kofi and £5 from patreon only the £5 is showing
       invisible until a row is inserted. Audit for other rejected donations at the same time. `wrangler d1`
       defaults to LOCAL — `--remote` or it is a no-op.
 
+### A39 — OWNER DECISION: the visual bible and the anti-slop evidence disagree about the typeface
+
+Raised 2026-07-30 while rebuilding the homepage. The owner's complaint included *"I dont like the signature
+ai copy and styling search the web how to avoid that"*, so the research was done properly (sources in
+`scratchpad/hp-slop.md`). Its **number one visual tell** is a typeface nobody chose: an unpaired
+`system-ui` / Inter stack at default weights, which reads as never having been styled.
+
+`docs/.vitepress/theme/custom.css:12` ships exactly that:
+`system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`.
+
+But `docs/academy/VISUAL-SYSTEM.md:13` specifies **"Type: system/Yomu sans plus the Japanese font stack"**.
+So the page is FOLLOWING the owner's own visual system, and the only way to remove this tell is to change
+that document. That is a brand decision, not an implementation one, which is why it is filed rather than
+done.
+
+- [ ] **A39.1 — pick a display face, or confirm system sans is deliberate.** If a face is chosen: ship it
+      self-hosted from `docs/public/fonts` (no CDN — the artifact CSP blocks external hosts and a silent
+      fallback would be worse than the system stack), subset it, and pair one display face for headings with
+      the existing stack for body. Then update VISUAL-SYSTEM.md so the two documents agree. If system sans
+      stays, record WHY in VISUAL-SYSTEM.md so the next anti-slop audit does not reopen it. Note the
+      Japanese stack is separate and already deliberate (`--ja-font`), so only the Latin face is in question.
+- [ ] **A39.2 — three bullets still lead with bold run-in labels**, which the same research lists as a
+      template tell. Cheap to rewrite as plain sentences; left alone because it is copy the owner may have a
+      view on after seeing the shorter page.
+
 ### A38 — saveSettings has a silent skip, and the puck's furigana fields may not survive a reload
 
 Found 2026-07-30 while adding a store-level assertion to the puck power-cycle test. Probed the actual
