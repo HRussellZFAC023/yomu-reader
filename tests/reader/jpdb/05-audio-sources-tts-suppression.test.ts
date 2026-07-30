@@ -997,22 +997,15 @@ describe('reader helpers', () => {
         expect(second.settings.puckFuriganaModeBeforeHide).toBe('');
         expect(second.puckPowerState()).toBe('on');
 
-        // The assertions above read the instance's own object, which says
-        // nothing about what a reload would see. Resuming stages three fields
-        // and then commits them through setAnnotationsPaused, so check the
-        // STORE: a commit that skipped the write would leave furigana off here
-        // while the in-memory state looked correct.
-        // The assertions above read the instance's own object, which says nothing
-        // about what a reload would see, so check the store too. Only the pause
-        // flag is asserted here: probing this harness showed the store still
-        // holding the furigana values from an EARLIER save in the same test, so
-        // the later writes went nowhere. That is either the shared module state
-        // this 53-test file carries between cases, or `saveSettings`'s silent
-        // `settingsResetInProgress` skip (settings/index.ts:2101). Tracked as
-        // A38 rather than asserted here, because a guard that cannot say which
-        // of those it caught is not a guard.
+        // The explicit-choice store protects these fields from stale writers.
+        // Resume therefore has to declare every protected field it stages, not
+        // only annotationsPaused, or the earlier explicit "hide furigana"
+        // values overlay the new blob and the next page sees the old state.
         const persisted = await loadSettings();
         expect(persisted.annotationsPaused).toBe(false);
+        expect(persisted.furiganaMode).toBe('all');
+        expect(persisted.showFurigana).toBe(true);
+        expect(persisted.puckFuriganaModeBeforeHide).toBe('');
     });
 
     it('reaches a genuine furigana-on state from a furigana-off preference (no two-state collapse)', async () => {
@@ -1053,15 +1046,19 @@ describe('reader helpers', () => {
         expect(app.puckPowerState()).toBe('no-furigana');
     });
 
-    it('marks the puck differently for furigana-hidden and annotation-paused states', () => {
+    it('marks the puck differently for furigana-hidden and annotation-paused states', async () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);
         let powerState: 'on' | 'no-furigana' | 'paused' = 'on';
-        const cyclePowerState = vi.fn(() => {
+        const cyclePowerState = vi.fn(async () => {
             powerState = powerState === 'on' ? 'no-furigana'
                 : powerState === 'no-furigana' ? 'paused'
                     : 'on';
         });
+        const waitForPowerCycle = async (): Promise<void> => {
+            await cyclePowerState.mock.results.at(-1)?.value;
+            await Promise.resolve();
+        };
         const settings = {
             ...DEFAULT_SETTINGS,
             showFloatingButton: true,
@@ -1090,6 +1087,7 @@ describe('reader helpers', () => {
             expect(onIcon).not.toContain('>ふ<');
 
             powerButton().click();
+            await waitForPowerCycle();
             expect(cyclePowerState).toHaveBeenCalledTimes(1);
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(true);
@@ -1102,6 +1100,7 @@ describe('reader helpers', () => {
             expect(noFuriganaIcon).not.toBe(onIcon);
 
             powerButton().click();
+            await waitForPowerCycle();
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(true);
@@ -1114,6 +1113,7 @@ describe('reader helpers', () => {
             expect(pausedIcon).not.toBe(noFuriganaIcon);
 
             powerButton().click();
+            await waitForPowerCycle();
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);

@@ -567,20 +567,25 @@ stored bytes after a full cycle (hide furigana, pause, resume) and the store hel
 same run — while the in-memory object correctly held `furiganaMode: "all"` and an empty marker. So later
 writes went nowhere, and every existing assertion passed because they all read the instance's own object.
 
-- [ ] **A38.1 — `saveSettings` can skip a write and tell nobody.** `src/reader/settings/index.ts:2101` is
+- [x] **A38.1 — `saveSettings` can skip a write and tell nobody.** Fixed for 1.8.46. `src/reader/settings/index.ts:2101` was
       `if (settingsResetInProgress) { log.warn('Skipped save during reset'); return; }`. A `log.warn` is not
       a signal a caller can act on: the function resolves successfully, so the UI confirms a setting that
       was never written. This is the same class the A35.2/A35.3 work just fixed elsewhere (a swallowed write
-      reported as success), and it is the one remaining instance. Make it reject, or return a result the
-      caller checks, and make the reset window as narrow as the reset actually needs.
-- [ ] **A38.2 — VERIFY whether the puck's resume really persists its furigana fields in a real browser.**
+      reported as success), and it was the one remaining instance. `saveSettings` now rejects with a typed,
+      message-less error during the reset guard, so UI callers use the localized save-failure message and no
+      caller can mistake a skipped write for a commit. A focused guard test proves the old stored object is
+      unchanged and the promise rejects.
+- [x] **A38.2 — VERIFY whether the puck's resume really persists its furigana fields in a real browser.**
       The unit harness could not separate the silent skip above from the module state that
       `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts` shares across its 53 cases, so this is
-      unproven either way and must not be closed from a test run. Reproduce by hand: hide furigana with the
-      puck, pause, resume, reload, and check whether furigana comes back. `annotationsPaused` itself IS
-      persisted correctly (asserted against the store, and the owner-reported toggle bug was fixed in
-      1.8.37 by `aa944d9f8`); this is specifically about the three fields the resume branch stages
-      (`puckFuriganaModeBeforeHide`, `showFurigana`, `furiganaMode`).
+      unproven either way. It **did reproduce** in the freshly built browser artifact: after hide → pause →
+      resume, the puck looked on in memory but the store still held `furiganaMode: "off"` and
+      `puckFuriganaModeBeforeHide: "all"`. The explicit-choice layer added after the earlier resume fix was
+      overlaying those earlier hide values because resume declared only `annotationsPaused` as changed.
+      Resume now restores those fields through the existing explicit furigana-save path before it commits
+      the annotation switch, and the puck waits for that asynchronous cycle before repainting. The browser
+      smoke reloads after hide, pause, resume, and a normal popup-mode dropdown; the four readbacks are
+      `off/auto`, `off/off`, `all/auto`, and `all/auto + popupMode: sheet`, with no browser errors.
 - [ ] **A38.3 — that test file shares module state across 53 cases.** It is why a store-level assertion
       cannot be trusted there, and it is the same fragility class as `youtube-filter.test.ts`, which fails 8
       tests standalone on `origin/main` and only passes inside the sharded suite. Both need per-case

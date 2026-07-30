@@ -42670,8 +42670,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function saveSettings(settings, options = {}) {
     if (settingsResetInProgress) {
-      log$u.warn("Skipped save during reset");
-      return;
+      log$u.warn("Rejected save during reset");
+      throw new Error();
     }
     try {
       const normalizedSettings = mergeSettings(settings);

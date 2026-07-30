@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.46
+// @version 1.8.47
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.0e3016d3f715.user.js#sha256=DjAW0/cVwgR7PfCFQq/WfJOF/UWxH+DFZnQEJCbZ0sY=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c1e59a8fc3a7.user.js#sha256=weWaj8OnFLxBLFdDwoBey2v8PSp8fC+RLbcRfzCX2R8=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -10546,8 +10546,8 @@ function subscribeToSettingsStorageChanges(onSettings) {
 }
 async function saveSettings(settings, options = {}) {
   if (settingsResetInProgress) {
-  log$7.warn("Skipped save during reset");
-  return;
+  log$7.warn("Rejected save during reset");
+  throw new Error();
   }
   try {
   const normalizedSettings = mergeSettings(settings);
@@ -29411,10 +29411,7 @@ class FloatingButtonController {
       tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "partial" : "off",
       primary: true,
       keepOpen: true,
-      run: () => {
-        actions.cyclePowerState();
-        this.syncButtonState();
-      }
+      run: () => void actions.cyclePowerState().finally(() => this.syncButtonState())
     },
     {
       id: "audio",
@@ -34050,8 +34047,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.46"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.46"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.47"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.47"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34194,7 +34191,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.46"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.47"}`;
   } catch {
   return null;
   }
@@ -36863,7 +36860,7 @@ class ReaderApp {
     {
       openSettings: () => this.showSettings(),
       openStudyPage: () => this.openStudyPage(),
-      cyclePowerState: () => void this.cyclePowerState(),
+      cyclePowerState: () => this.cyclePowerState(),
       powerState: () => this.puckPowerState(),
       isPaused: () => this.settings.annotationsPaused,
       toggleOcrMode: () => void this.cycleOcrMode(),
@@ -36895,7 +36892,9 @@ class ReaderApp {
   this.settings.annotationsPaused = paused;
   if (changed) this.applyAnnotationsPausedState();
   try {
-    await saveSettings(this.settings, { explicitUserChoiceKeys: ["annotationsPaused"] });
+    await saveSettings(this.settings, {
+      explicitUserChoiceKeys: ["annotationsPaused"]
+    });
   } catch (error) {
     this.settings.annotationsPaused = previous;
     if (changed) this.applyAnnotationsPausedState();
@@ -36959,8 +36958,7 @@ class ReaderApp {
   }
   const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
   this.settings.puckFuriganaModeBeforeHide = "";
-  this.settings.showFurigana = true;
-  this.settings.furiganaMode = hiddenMode || (this.settings.furiganaMode !== "off" ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode);
+  await this.applyFuriganaMode(hiddenMode || (this.settings.furiganaMode !== "off" ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode));
   await this.setAnnotationsPaused(false);
   }
   async applyFuriganaMode(mode) {

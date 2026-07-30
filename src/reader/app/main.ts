@@ -2600,7 +2600,7 @@ export class ReaderApp {
             {
                 openSettings: () => this.showSettings(),
                 openStudyPage: () => this.openStudyPage(),
-                cyclePowerState: () => void this.cyclePowerState(),
+                cyclePowerState: () => this.cyclePowerState(),
                 powerState: () => this.puckPowerState(),
                 isPaused: () => this.settings.annotationsPaused,
                 toggleOcrMode: () => void this.cycleOcrMode(),
@@ -2631,18 +2631,17 @@ export class ReaderApp {
         await this.setAnnotationsPaused(!this.settings.annotationsPaused);
     }
 
-    // Always persists, even when `paused` already matches. Callers stage other
-    // fields on `this.settings` first and rely on this call to commit them --
-    // the puck's resume branch stages three (the furigana restore marker,
-    // showFurigana and furiganaMode) -- so an early return here would drop them
-    // and the next page load would read the pre-cycle values back.
+    // Always persists, even when `paused` already matches, so the explicit
+    // annotation choice cannot be left behind an in-memory-only transition.
     private async setAnnotationsPaused(paused: boolean): Promise<void> {
         const changed = this.settings.annotationsPaused !== paused;
         const previous = this.settings.annotationsPaused;
         this.settings.annotationsPaused = paused;
         if (changed) this.applyAnnotationsPausedState();
         try {
-            await saveSettings(this.settings, { explicitUserChoiceKeys: ['annotationsPaused'] });
+            await saveSettings(this.settings, {
+                explicitUserChoiceKeys: ['annotationsPaused'],
+            });
         } catch (error) {
             this.settings.annotationsPaused = previous;
             if (changed) this.applyAnnotationsPausedState();
@@ -2741,9 +2740,8 @@ export class ReaderApp {
         // and "furigana off" collapse into one state.
         const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
         this.settings.puckFuriganaModeBeforeHide = '';
-        this.settings.showFurigana = true;
-        this.settings.furiganaMode = hiddenMode
-            || (this.settings.furiganaMode !== 'off' ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode);
+        await this.applyFuriganaMode(hiddenMode
+            || (this.settings.furiganaMode !== 'off' ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode));
         await this.setAnnotationsPaused(false);
     }
 

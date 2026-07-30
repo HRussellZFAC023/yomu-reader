@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.47] - 2026-07-30
+
+### Fixed
+
+- The puck's full three-state cycle now survives a reload. Resuming from paused restores furigana through the same durable preference path as a normal furigana change, so an older explicit "hide furigana" choice cannot replace it after the annotation switch is saved.
+- A setting changed while factory reset is already in progress now reports that it could not be saved instead of showing a successful save for a write the reset deliberately discarded.
+
 ## [1.8.46] - 2026-07-30
 
 ### Changed

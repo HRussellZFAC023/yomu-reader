@@ -53,7 +53,7 @@ export type PuckPowerState = 'on' | 'no-furigana' | 'paused';
 export interface FloatingButtonActions {
     openSettings(): void;
     openStudyPage(): void;
-    cyclePowerState(): void;
+    cyclePowerState(): Promise<void>;
     powerState(): PuckPowerState;
     isPaused(): boolean;
     toggleOcrMode(): void;
@@ -199,10 +199,7 @@ export class FloatingButtonController {
                 tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'partial' : 'off',
                 primary: true,
                 keepOpen: true,
-                run: () => {
-                    actions.cyclePowerState();
-                    this.syncButtonState();
-                },
+                run: () => void actions.cyclePowerState().finally(() => this.syncButtonState()),
             },
             {
                 id: 'audio',

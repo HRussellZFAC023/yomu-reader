@@ -16284,8 +16284,8 @@ ${spelling}`);
   }
   async function saveSettings(settings, options = {}) {
     if (settingsResetInProgress) {
-      log$K.warn("Skipped save during reset");
-      return;
+      log$K.warn("Rejected save during reset");
+      throw new Error();
     }
     try {
       const normalizedSettings = mergeSettings(settings);
@@ -56143,7 +56143,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.46".trim() ? "1.8.46".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.47".trim() ? "1.8.47".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

@@ -2662,7 +2662,7 @@ export function stubFloatingButtonActions(overrides: Partial<FloatingButtonActio
     return {
         openSettings: vi.fn(),
         openStudyPage: vi.fn(),
-        cyclePowerState: vi.fn(),
+        cyclePowerState: vi.fn(async () => undefined),
         powerState: () => 'on',
         isPaused: () => false,
         toggleOcrMode: vi.fn(),

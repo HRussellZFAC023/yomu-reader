@@ -2150,8 +2150,12 @@ export async function saveSettings(
     options: SaveSettingsOptions = {},
 ): Promise<void> {
     if (settingsResetInProgress) {
-        log.warn('Skipped save during reset');
-        return;
+        log.warn('Rejected save during reset');
+        // Resolving here told every caller that a write which never happened
+        // had succeeded. Keep the error message empty so UI callers use their
+        // localized settings-save fallback while still getting a rejection
+        // they can use to revert staged state.
+        throw new Error();
     }
     try {
         const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
