@@ -483,6 +483,32 @@ Owner: *"we recieved £10 from kofi and £5 from patreon only the £5 is showing
       invisible until a row is inserted. Audit for other rejected donations at the same time. `wrangler d1`
       defaults to LOCAL — `--remote` or it is a no-op.
 
+### A40 — the gaming settings-tab test flakes inside the sharded suite, and it gates the minor tag
+
+Raised by the D43 review 2026-07-30 and reproduced here. `tests/reader/gaming-first-run.test.ts` >
+"keeps the settings tab you were on when a snapshot restore re-renders" **passes alone and passes as a whole
+file**, but fails intermittently inside the sharded CI suite — observed failing in one `check:release` run
+and passing in the runs either side, on this commit and on its parent. It is not D43's bug.
+
+Why this outranks a normal flake: **a minor tag is what publishes to the Chrome and Firefox stores**, frozen
+at 1.8.2, so an intermittent red stands between ~37 releases of accumulated fixes and every store user. A
+release that fails one run in four is a release nobody can schedule.
+
+- [ ] **A40.1 — find the polluting file, not the symptom.** Measured: only this test file and
+      `src/gaming/renderer/app.ts` touch `yomu-gaming-settings-snapshot-v1`, so the snapshot key is not the
+      channel; running `settings-cross-site-persistence` immediately before it does not reproduce. The file
+      imports the renderer ONCE in `beforeAll` and shares one app instance and one localStorage across all
+      eleven tests, which makes it unusually sensitive to anything a neighbour leaves behind — a fake timer,
+      a stubbed global, a pending microtask. Bisect the shard rather than guess.
+- [x] **A40.2 — the intra-file half is closed.** `afterEach` now removes the snapshot key, so a backup test
+      can no longer change what a later restore observes. Defensible on its own, but a green run here is NOT
+      evidence the sharded failure is gone and must not be recorded as such.
+- [ ] **A40.3 — the general problem.** Two files already carry this shape:
+      `tests/reader/youtube-filter.test.ts` fails 8 tests standalone on unmodified `origin/main` and only
+      passes inside the shard, and `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts` shares module
+      state across 53 cases (it hid a real persistence question — see `A38`). Per-file isolation in the runner
+      would retire all three at once; decide whether that costs less than chasing each.
+
 ### A39 — OWNER DECISION: the visual bible and the anti-slop evidence disagree about the typeface
 
 Raised 2026-07-30 while rebuilding the homepage. The owner's complaint included *"I dont like the signature

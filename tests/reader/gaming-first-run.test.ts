@@ -83,6 +83,15 @@ beforeAll(async () => {
 afterEach(() => {
     const back = appRoot.querySelector<HTMLButtonElement>('[data-action="close-settings"]');
     if (shellView() === 'settings' && back) back.click();
+    // Every test in this file shares ONE app instance and one localStorage,
+    // because the renderer is imported once in beforeAll. The snapshot a backup
+    // test writes therefore survives into the next test, which is enough to
+    // change what a later restore observes. "keeps the settings tab you were on"
+    // fails intermittently inside the sharded CI suite while passing alone and
+    // as a whole file, so shared state is the shape to remove — this closes the
+    // intra-file half of it. Tracked as A40; do not read a green run here as
+    // proof the sharded failure is gone.
+    localStorage.removeItem(SNAPSHOT_KEY);
 });
 
 function shellView(): string {
