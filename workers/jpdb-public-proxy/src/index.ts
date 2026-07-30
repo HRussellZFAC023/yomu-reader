@@ -1,5 +1,6 @@
 import { isPrivateOrLocalHostname } from "../../../src/reader/network/private-host";
 import { withWorkerSecurityHeaders } from "../../shared/security-headers";
+import { serviceRevision } from "../../shared/service-revision";
 
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const FALLBACK_CORS_HEADERS =
@@ -294,6 +295,7 @@ function isCacheableUpstreamResponse(response: Response): boolean {
 }
 
 interface Env {
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   PUBLIC_PROXY_DISABLED?: string;
   PUBLIC_PROXY_DAILY_REQUEST_LIMIT?: string;
   PUBLIC_PROXY_ANALYTICS_LOGS?: string;
@@ -354,6 +356,7 @@ function statusResponse(request: Request, env: Env): Response {
   const body = {
     service: "yomu-jpdb-public-proxy",
     status: publicProxyDisabled(env) ? "disabled" : "ok",
+    revision: serviceRevision(env),
     allowlistVersion: PUBLIC_PROXY_ALLOWLIST_VERSION,
     allowedMethods: Array.from(READ_METHODS),
     allowedHosts: [

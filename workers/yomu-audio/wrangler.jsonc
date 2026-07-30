@@ -6,6 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  // Cloudflare's own record of the running version, reported by the health
+  // endpoint so a deploy can be identified without an API call.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "routes": [
     {
       "pattern": "audio.yomureader.com",

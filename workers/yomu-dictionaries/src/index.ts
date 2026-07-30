@@ -1,5 +1,6 @@
 import { SLICE1_LEARNER_LANGUAGES } from '../../../src/reader/dictionaries/catalog/types';
 import { withWorkerSecurityHeaders } from '../../shared/security-headers';
+import { serviceRevision, type ServiceRevision } from '../../shared/service-revision';
 
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
@@ -37,6 +38,7 @@ export interface DictionaryObjectStore {
 
 interface DictionaryWorkerEnv {
   DICTIONARY_BUCKET: DictionaryObjectStore;
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
 }
 
 // A Worker on a route runs in front of the zone cache, so reads through the R2
@@ -69,6 +71,7 @@ export default {
           },
           edgeCache(),
           promise => ctx?.waitUntil?.(promise),
+          serviceRevision(env),
         ),
       );
     } catch (error) {
@@ -94,6 +97,9 @@ export async function handleDictionaryRequest(
   store: DictionaryObjectStore,
   edge?: DictionaryEdgeCache | null,
   waitUntil?: (promise: Promise<unknown>) => void,
+  // Defaulted so the Worker tests can call the handler without an env: they get
+  // the built version with no deployment, which is exactly what a local run is.
+  revision: ServiceRevision = serviceRevision({}),
 ): Promise<Response> {
   if (request.method === 'OPTIONS') return corsPreflight();
   const method = request.method.toUpperCase();
@@ -108,7 +114,7 @@ export async function handleDictionaryRequest(
   }
 
   const path = new URL(request.url).pathname;
-  if (path === '/' || path === '/healthz') return serviceDescription(request);
+  if (path === '/' || path === '/healthz') return serviceDescription(request, revision);
   const key = objectKeyForRequestPath(path);
   if (!key) {
     return responseWithCors(request, 'Dictionary object not found.', {
@@ -288,10 +294,11 @@ function notFound(request: Request): Response {
   });
 }
 
-function serviceDescription(request: Request): Response {
+function serviceDescription(request: Request, revision: ServiceRevision): Response {
   const payload = JSON.stringify({
     service: 'yomu-dictionaries',
     status: 'ok',
+    revision,
     schemaVersion: 1,
     targetLanguage: 'ja',
     learnerLanguageCount: SLICE1_LEARNER_LANGUAGES.length,

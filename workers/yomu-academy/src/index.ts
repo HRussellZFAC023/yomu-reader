@@ -1,6 +1,7 @@
 import type { ExecutionContext } from './cf';
 import type { Env } from './env';
 import { errorResponse, HttpError, jsonResponse } from './http';
+import { serviceRevision } from '../../shared/service-revision';
 import { handleAdminCreateInvite } from './invites';
 import { handleMedia } from './media';
 import { pruneRateWindows } from './rate-limit';
@@ -173,7 +174,11 @@ export default {
                 case 'GET /academy/api/health':
                     return jsonResponse({
                         ok: true,
+                        service: 'yomu-academy',
+                        status: 'ok',
                         apiBase: `${env.ACADEMY_ORIGIN}/academy/api`,
+                        revision: serviceRevision(env),
+                        // Kept for the deploy-proof tooling that already reads it.
                         workerVersionId: env.CF_VERSION_METADATA?.id ?? null,
                         artifactProof: 'cloudflare-version-modules-v1',
                     });

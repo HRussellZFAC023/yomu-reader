@@ -1,0 +1,41 @@
+name: Production Health
+
+# Nothing watched production. Deployment is deliberately manual — no workflow
+# runs wrangler — but the deployed result went unchecked too, so a Worker
+# returning errors would have been reported by a user first.
+#
+# A schedule in this repository rather than a hosted monitor: the endpoint table
+# lives next to the wrangler configs that create the routes, a contract test
+# fails when a route has no probe, it needs no account, no secret and no paid
+# zone feature, and GitHub emails the repo owner when a scheduled run on the
+# default branch fails.
+on:
+  schedule:
+    # Every 30 minutes, off the hour. GitHub delays scheduled runs under load,
+    # so treat the detection window as roughly 30-45 minutes; that is the right
+    # order of magnitude for a free reading tool and it costs about 30s a run.
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.3
+
+      # No npm ci: the probe is plain Node with fetch, so a broken lockfile or a
+      # registry outage can never be why a monitor stops reporting.
+      - name: Probe every production health endpoint
+        run: node scripts/production-health-check.mjs

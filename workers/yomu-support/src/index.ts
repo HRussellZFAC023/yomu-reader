@@ -20,6 +20,7 @@ import {
   type AcademyCodeDeliveryEnv,
 } from "./academy-code-delivery";
 import { withWorkerSecurityHeaders } from "../../shared/security-headers";
+import { serviceRevision, type ServiceRevision } from "../../shared/service-revision";
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
@@ -86,6 +87,7 @@ interface KVNamespace {
 }
 
 interface Env extends AcademyCodeDeliveryEnv {
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   SUPPORT_DB?: D1Database;
   SUPPORT_KV?: KVNamespace;
   STRIPE_SECRET_KEY?: string;
@@ -197,6 +199,7 @@ interface SupportProviderLink {
 interface SupportStatus {
   service: "yomu-support";
   status: "ok" | "stripe-test-mode" | "stripe-unconfigured";
+  revision: ServiceRevision;
   currency: string;
   dailyBudgetGbp: number;
   donationGoalGbp: number;
@@ -549,6 +552,7 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
   return {
     service: "yomu-support",
     status: stripeStatusFor(request, env),
+    revision: serviceRevision(env),
     currency: supportBaseCurrency(env),
     dailyBudgetGbp,
     donationGoalGbp: displayDonationGoalGbp,

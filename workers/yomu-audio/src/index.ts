@@ -1,5 +1,6 @@
 import { handleWordTts, handleLineTts, ttsEnabled, type TtsEnv } from "./tts";
 import { withWorkerSecurityHeaders } from "../../shared/security-headers";
+import { serviceRevision, type ServiceRevision } from "../../shared/service-revision";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
@@ -27,6 +28,7 @@ interface EdgeCacheSlot {
 }
 
 interface Env {
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   AUDIO_BUCKET?: R2Bucket;
   AUDIO_MANIFEST_KEY?: string;
   AUDIO_INDEX_PREFIX?: string;
@@ -38,6 +40,7 @@ interface Env {
 interface AudioStatus {
   service: "yomu-audio";
   status: "ok" | "disabled" | "unconfigured";
+  revision: ServiceRevision;
   r2Configured: boolean;
   manifestKey: string;
   indexPrefix: string;
@@ -198,6 +201,7 @@ function audioStatus(env: Env): AudioStatus {
   return {
     service: "yomu-audio",
     status: truthyEnv(env.AUDIO_DISABLED) ? "disabled" : r2Configured || upstreamConfigured ? "ok" : "unconfigured",
+    revision: serviceRevision(env),
     r2Configured,
     manifestKey: manifestKey(env),
     indexPrefix: indexPrefix(env),
