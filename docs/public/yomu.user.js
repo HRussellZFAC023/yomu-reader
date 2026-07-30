@@ -17,12 +17,12 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.8231d202fd63.user.js#sha256=gjHSAv1jV5CcJWEOhdxL3BVRMEbYaqDefhRTD1D8St8=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.cae3349107f0.user.js#sha256=yuM0kQfwHRAaNkoG7Y/5zBev5D4Dn0BBlQ06Pt+d9Dc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.a362e255a166.user.js#sha256=o2LiVaFm1Ic95O1E6+ulCT6+rJVCUemo/xGVjxbpI44=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.a6601c7233bd.user.js#sha256=pmAccjO9mUJnLmaCZwYDo0B8e8qcNPcHdwibV9pS9Cc=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.30f20519d731.user.js#sha256=MPIFGdcxTREqvyG1sLc2g/UUCv0gYdUfjOG3rejw/bI=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.c0245e114c89.user.js#sha256=wCReEUyJmkL6k04m2detvt81b4cFiAssZ8wzlqGhMMU=
 // @require https://yomureader.com/greasyfork/yomu-jiten.2b804e607423.user.js#sha256=K4BOYHQjyLF+bu94XiLIepQUFZ4tTAwgjdSh1izqqNE=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.ee115343b6b8.user.js#sha256=7hFTQ7a4F15BUR9kdAFRhqsGnn/FlJm/wT8X1vhY4FE=
-// @require https://yomureader.com/greasyfork/yomu-video.e6f5bcbc8889.user.js#sha256=5vW8vIiJQePCRWPhmzziUnEaguAzIalyGDuUPF9SZIc=
+// @require https://yomureader.com/greasyfork/yomu-video.ff2d8c0eaf63.user.js#sha256=/y2MDq9jsOX2kuo6g6omOrHFPtq37sueYOCeEL/QcMI=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -7523,7 +7523,7 @@ const DEFAULT_SETTINGS = {
   ankiCaptureScreenshot: true,
   ankiFieldMappings: {},
   ankiSentenceAudioMappingMigrated: true,
-  theme: "light",
+  theme: "auto",
   popupMode: "auto",
   hoverPopupMode: "popover",
   stickyBottomSheet: false,

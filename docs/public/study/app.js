@@ -13120,7 +13120,14 @@ ${spelling}`);
     // Default TRUE: only stored records that PREDATE this key had a single
     // audio role and can hold a sentence-audio field in the word-audio slot.
     ankiSentenceAudioMappingMigrated: true,
-    theme: "light",
+    // 'auto' so the operating system's own light/dark choice wins until the
+    // learner picks one. It was 'light', and because the hosted appearance boot
+    // reads settings.theme BEFORE falling back to 'auto', that default made the
+    // fallback unreachable: yomureader.com rendered its cream paper theme to
+    // every first-time visitor whose OS asked for dark. Measured on the live
+    // site with prefers-color-scheme: dark — colorScheme resolved to 'light'
+    // and the body stayed white while the dark rules sat unused in the sheet.
+    theme: "auto",
     popupMode: "auto",
     hoverPopupMode: "popover",
     stickyBottomSheet: false,

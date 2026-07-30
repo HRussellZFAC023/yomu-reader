@@ -60,7 +60,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
 | Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
 | Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
-| Theme | — | `light` | `theme` |
+| Theme | — | `auto` | `theme` |
 | Popup mode | — | Auto (`auto`) | `popupMode` |
 | Hover popup mode | — | Popover (`popover`) | `hoverPopupMode` |
 | Keep sheet open after lookup | — | off | `stickyBottomSheet` |
