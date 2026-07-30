@@ -9076,8 +9076,8 @@ ${spelling}`);
     return segments;
   }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -9114,6 +9114,7 @@ ${spelling}`);
     const direction = spec.direction ?? localeDirection(language2);
     const detects = detectorFor(spec.detectsText);
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
+    const segment = spec.segment ?? ((text2) => defaultSegment(text2, language2));
     return Object.freeze({
       interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
       id: spec.id,
@@ -9151,7 +9152,8 @@ ${spelling}`);
       isLookupableText(text2) {
         return Boolean(text2) && detects(text2);
       },
-      segment: spec.segment ?? ((text2) => defaultSegment(text2, language2)),
+      segment,
+      pointerWordSegments: spec.pointerWordSegments ?? segment,
       lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
       compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
@@ -9203,6 +9205,10 @@ ${spelling}`);
   function defaultNormalizeReading(spelling, reading) {
     return (reading ?? "").trim() || spelling.trim();
   }
+  const JAPANESE_POINTER_WORD_RE = new RegExp(
+    `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+    "gu"
+  );
   const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
     id: "japanese-v1",
     language: "ja",
@@ -9265,6 +9271,7 @@ ${spelling}`);
         end: segment.end
       }));
     },
+    pointerWordSegments: japanesePointerWordSegments,
     // Morphology is the deinflector itself, verbatim and unnormalized: the
     // dictionary engine hands over raw substrings of the page and needs the
     // candidates to line up with those substrings character for character.
@@ -9282,11 +9289,19 @@ ${spelling}`);
   function normalizeJapaneseTargetText(text2) {
     return normalizeFallbackTerm(text2.normalize("NFKC"));
   }
+  function japanesePointerWordSegments(text2) {
+    return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    }));
+  }
   const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
   const KOREAN_LEARNING_TARGET = createLearningTargetModule({
     id: "korean-thin-v1",
     language: "ko",
     capabilities: {
+      "term-lookup": true,
       segmentation: true,
       "text-to-speech": true,
       ocr: true,
@@ -10165,6 +10180,7 @@ ${spelling}`);
       language: language2.runtimeLocale,
       direction: language2.direction,
       capabilities: {
+        "term-lookup": true,
         segmentation: true,
         "text-to-speech": true,
         subtitles: true,
@@ -54048,7 +54064,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.37".trim() ? "1.8.37".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.38".trim() ? "1.8.38".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -97651,18 +97667,19 @@ ${spelling}`);
     return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
   }
   function languageFamilyNodes(root) {
-    const cached = familyNodesByRoot.get(root);
-    if (cached) return cached;
+    const states = familyNodesByRoot.get(root) ?? [];
     const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
-    const nodes = Array.from(root.querySelectorAll(selector)).filter((node) => !node.parentElement?.closest(selector)).map((node) => {
+    const knownNodes = new Set(states.map((state2) => state2.node));
+    const discovered = Array.from(root.querySelectorAll(selector)).filter((node) => !knownNodes.has(node)).filter((node) => !node.parentElement?.closest(selector)).map((node) => {
       const family = LANGUAGE_FAMILY_CLASSES.find((value) => node.classList.contains(value));
       if (!family) throw new TypeError("Language-family node has no supported family class.");
       const placeholder = root.ownerDocument.createComment(`yomu-language-family:${family}`);
       node.before(placeholder);
       return { family, node, placeholder };
     });
-    familyNodesByRoot.set(root, nodes);
-    return nodes;
+    states.push(...discovered);
+    familyNodesByRoot.set(root, states);
+    return states;
   }
   const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
   async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {

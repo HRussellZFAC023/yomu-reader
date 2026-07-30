@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.37
+// @version 1.8.38
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.1d291cb40c3a.user.js#sha256=HSkctAw6mJHqid0qw6aB08yWsmJ3JMLvF55uGNXPIWs=
-// @require https://yomureader.com/greasyfork/yomu-audio.3e898fa74295.user.js#sha256=PomPp0KV+xj4HTcFMRJLQWaWs6+pi4dUDNAFuwcK3ls=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.8231d202fd63.user.js#sha256=gjHSAv1jV5CcJWEOhdxL3BVRMEbYaqDefhRTD1D8St8=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.cae3349107f0.user.js#sha256=yuM0kQfwHRAaNkoG7Y/5zBev5D4Dn0BBlQ06Pt+d9Dc=
+// @require https://yomureader.com/greasyfork/yomu-anki.6ba794b0568a.user.js#sha256=a6eUsFaKjXLuIvqwBdlzOSFRTXmW4xOf+5B2BboITH4=
+// @require https://yomureader.com/greasyfork/yomu-audio.ae5d8a749a86.user.js#sha256=rl2KdJqGsedvTVdJPPNbFwC9AD/z/prWvpbHn0cNIsQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.ad44ae2c433d.user.js#sha256=rUSuLEM9tKLr1JNmJU9h37IqkA61/uHU2rtR+HjL7lM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.e60ab500d05e.user.js#sha256=5gq1ANBeAX1JyqKRyeDO2YYlH37sy0E+tVU4ncOyp/w=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.a6601c7233bd.user.js#sha256=pmAccjO9mUJnLmaCZwYDo0B8e8qcNPcHdwibV9pS9Cc=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.30f20519d731.user.js#sha256=MPIFGdcxTREqvyG1sLc2g/UUCv0gYdUfjOG3rejw/bI=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.c0245e114c89.user.js#sha256=wCReEUyJmkL6k04m2detvt81b4cFiAssZ8wzlqGhMMU=
-// @require https://yomureader.com/greasyfork/yomu-jiten.2b804e607423.user.js#sha256=K4BOYHQjyLF+bu94XiLIepQUFZ4tTAwgjdSh1izqqNE=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.ee115343b6b8.user.js#sha256=7hFTQ7a4F15BUR9kdAFRhqsGnn/FlJm/wT8X1vhY4FE=
-// @require https://yomureader.com/greasyfork/yomu-video.ff2d8c0eaf63.user.js#sha256=/y2MDq9jsOX2kuo6g6omOrHFPtq37sueYOCeEL/QcMI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.9c43393e5b9a.user.js#sha256=nEM5Plua7StHHbF9g3BKwNJWHTxi07ken1TtLFfaFhU=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.c783fcbc0010.user.js#sha256=x4P8vAAQzSBD4vD6zOUtf8T3x0sY/yj/RNbMWbFQ5XE=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.33482acca749.user.js#sha256=M0gqzKdJl6vdYKCjir0OcJ+09LuVUsicWkoc19g+6P4=
+// @require https://yomureader.com/greasyfork/yomu-jiten.aa96372b99d9.user.js#sha256=qpY3K5nZWAL6mFs4/xfDhDIqUGU7KZY2iQfDYPyJjTM=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.568cd7cb8417.user.js#sha256=VozXy4QXC1TwYi0HGvFfQcN6QOSrPK9qHRbIqd0URgQ=
+// @require https://yomureader.com/greasyfork/yomu-video.5bfd1406d355.user.js#sha256=W/0UBtNVATr9gKMGSq6Gusimzz6apcpyk6WPXsCwlFk=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1560,8 +1560,8 @@ function icuWordSegments(text, locale) {
   return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -1598,6 +1598,7 @@ function createLearningTargetModule(spec) {
   const direction = spec.direction ?? localeDirection(language);
   const detects = detectorFor(spec.detectsText);
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
+  const segment = spec.segment ?? ((text) => defaultSegment(text, language));
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
@@ -1635,7 +1636,8 @@ function createLearningTargetModule(spec) {
   isLookupableText(text) {
     return Boolean(text) && detects(text);
   },
-  segment: spec.segment ?? ((text) => defaultSegment(text, language)),
+  segment,
+  pointerWordSegments: spec.pointerWordSegments ?? segment,
   lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
   compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
@@ -1687,6 +1689,10 @@ function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
 function defaultNormalizeReading(spelling, reading) {
   return (reading ?? "").trim() || spelling.trim();
 }
+const JAPANESE_POINTER_WORD_RE = new RegExp(
+  `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+  "gu"
+);
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   id: "japanese-v1",
   language: "ja",
@@ -1745,6 +1751,7 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
     end: segment.end
   }));
   },
+  pointerWordSegments: japanesePointerWordSegments,
   lookupCandidates: deinflectJapaneseTerm,
   compareLookupCandidates: compareJapaneseLookupCandidates,
   matchesLookupCandidateRules: termRulesMatch,
@@ -1755,11 +1762,19 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
 function normalizeJapaneseTargetText(text) {
   return normalizeFallbackTerm(text.normalize("NFKC"));
 }
+function japanesePointerWordSegments(text) {
+  return [...text.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
+  text: match[0],
+  start: match.index,
+  end: match.index + match[0].length
+  }));
+}
 const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   id: "korean-thin-v1",
   language: "ko",
   capabilities: {
+  "term-lookup": true,
   segmentation: true,
   "text-to-speech": true,
   ocr: true,
@@ -2594,6 +2609,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   language: language.runtimeLocale,
   direction: language.direction,
   capabilities: {
+    "term-lookup": true,
     segmentation: true,
     "text-to-speech": true,
     subtitles: true,
@@ -2688,6 +2704,23 @@ function isTargetLanguageText(text) {
 }
 function segmentTargetLanguageText(text) {
   return activeLearningTarget().segment(text);
+}
+function targetPointerWordSegments(text) {
+  return activeLearningTarget().pointerWordSegments(text);
+}
+function targetPointerWordAt(text, offset) {
+  if (!text.length) return null;
+  let index = Math.min(Math.max(offset, 0), text.length - 1);
+  const segments = targetPointerWordSegments(text);
+  let segment = segments.find((item) => item.start <= index && index < item.end);
+  if (!segment && index > 0) {
+  segment = segments.find((item) => item.start <= index - 1 && index - 1 < item.end);
+  if (segment) index--;
+  }
+  return segment ? { start: segment.start, end: segment.end, offset: index } : null;
+}
+function hasTargetPointerWord(text) {
+  return Boolean(text) && targetPointerWordSegments(text).length > 0;
 }
 const CORE_COLOR_TOKENS = {
   black: "#000000",
@@ -27404,7 +27437,6 @@ function pitchEnrichmentTokenForCard(card) {
   pitchClass: ""
   };
 }
-const JAPANESE_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]`, "u");
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
 const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
 const JPDB_POINTER_CANDIDATE_LIMIT = 24;
@@ -27524,18 +27556,15 @@ function caretTextPositionFromPoint(x, y) {
   }
   return null;
 }
-function japaneseRunAt(text, offset) {
-  const index = japaneseRunIndexAt(text, offset);
-  if (index === null) return null;
-  return {
-  start: japaneseRunStart(text, index),
-  end: japaneseRunEnd(text, index),
-  offset: index
-  };
-}
+const pointerTextRunAt = targetPointerWordAt;
 function jpdbPointerLookupCandidates(text, offset) {
-  const run = japaneseRunAt(text, offset);
+  const target = activeLearningTarget();
+  const run = pointerTextRunAt(text, offset);
   if (!run) return [];
+  if (target.lookupStartsAtSegmentBoundary) {
+  const term = text.slice(run.start, run.end).trim();
+  return term ? [{ term, start: run.start, end: run.end }] : [];
+  }
   const candidates = [];
   pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
   const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
@@ -27594,30 +27623,12 @@ function pointerCandidate(text, start, end) {
   return { term, start, end };
 }
 function isUsefulPointerCandidateTerm(term) {
-  return term.length > 1 && [...term].some((character) => JAPANESE_RUN_RE.test(character));
+  return term.length > 1 && hasTargetPointerWord(term);
 }
 function pushPointerCandidate(candidates, candidate) {
   if (!candidate) return;
   if (candidates.some((existing) => existing.term === candidate.term && existing.start === candidate.start && existing.end === candidate.end)) return;
   candidates.push(candidate);
-}
-function japaneseRunIndexAt(text, offset) {
-  let index = Math.min(Math.max(offset, 0), text.length - 1);
-  if (!isJapaneseCharacterAt(text, index) && index > 0 && isJapaneseCharacterAt(text, index - 1)) index--;
-  return isJapaneseCharacterAt(text, index) ? index : null;
-}
-function japaneseRunStart(text, index) {
-  let start = index;
-  while (start > 0 && isJapaneseCharacterAt(text, start - 1)) start--;
-  return start;
-}
-function japaneseRunEnd(text, index) {
-  let end = index + 1;
-  while (end < text.length && isJapaneseCharacterAt(text, end)) end++;
-  return end;
-}
-function isJapaneseCharacterAt(text, index) {
-  return JAPANESE_RUN_RE.test(text[index] ?? "");
 }
 function pointerTextCharacterOffset(node, caretOffset, x, y) {
   const parent = node.parentElement;
@@ -27648,11 +27659,11 @@ function pointerTextLookupContext(node, characterOffset, anchor) {
   if (!context || context.text.length > POINTER_TEXT_CONTEXT_MAX_LENGTH) return null;
   const offset = context.start + Math.min(Math.max(characterOffset, 0), node.data.length - 1);
   const lookup = pointerTextLookupForText(anchor, context.text, offset);
-  if (!lookup || lookup.end - lookup.start <= localJapaneseRunLength(node.data, characterOffset)) return null;
+  if (!lookup || lookup.end - lookup.start <= localPointerWordLength(node.data, characterOffset)) return null;
   return isLowValuePointerText(lookup.text, root) ? null : lookup;
 }
 function pointerTextLookupForText(anchor, text, offset) {
-  const run = japaneseRunAt(text, offset);
+  const run = pointerTextRunAt(text, offset);
   if (!run || isLowValuePointerText(text, anchor)) return null;
   return {
   text,
@@ -27662,8 +27673,8 @@ function pointerTextLookupForText(anchor, text, offset) {
   anchor
   };
 }
-function localJapaneseRunLength(text, offset) {
-  const run = japaneseRunAt(text, offset);
+function localPointerWordLength(text, offset) {
+  const run = pointerTextRunAt(text, offset);
   return run ? run.end - run.start : 0;
 }
 function pointerTextContextRoot(anchor) {
@@ -27685,7 +27696,7 @@ function pointerTextInlineContextRoot(anchor) {
 }
 function isPointerTextInlineContextCandidate(element, localTextLength) {
   const text = element.textContent ?? "";
-  return text.length > localTextLength && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && JAPANESE_RUN_RE.test(text) && isPointerTextParentEligible(element);
+  return text.length > localTextLength && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && hasTargetPointerWord(text) && isPointerTextParentEligible(element);
 }
 function readablePointerTextContext(root, target) {
   let text = "";
@@ -27707,11 +27718,11 @@ function readablePointerTextContext(root, target) {
   element.childNodes.forEach(visit);
   };
   visit(root);
-  if (rangeStart < 0 || rangeEnd <= rangeStart || !text || !JAPANESE_RUN_RE.test(text)) return null;
+  if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text)) return null;
   const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
   const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;
   const trimmedText2 = text.slice(leadingWhitespace, text.length - trailingWhitespace);
-  if (!trimmedText2 || !JAPANESE_RUN_RE.test(trimmedText2)) return null;
+  if (!trimmedText2 || !hasTargetPointerWord(trimmedText2)) return null;
   return {
   text: trimmedText2,
   start: rangeStart - leadingWhitespace,
@@ -28377,7 +28388,7 @@ function shouldPreferAnchoredKanaFragmentTerms(sentence, offset, surfaceLength) 
   return surfaceLength === 1 && Boolean(kanaFragmentBoundaryAt(sentence, offset));
 }
 function renderedKanaFragmentAnchoredTerms(sentence, offset, surfaceLength) {
-  const run = japaneseRunAt(sentence, offset);
+  const run = pointerTextRunAt(sentence, offset);
   if (!run) return [];
   const terms = [];
   const minStart = Math.max(run.start, offset - KANA_FRAGMENT_LOOKUP_START_WINDOW);
@@ -30529,6 +30540,47 @@ async function publicLookupFallbackCards(cards, deps, options) {
 async function translateJapaneseSentence(sentence, language = "en") {
   return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
 }
+const LANGUAGE_FAMILY_CLASSES = [
+  "jp-only",
+  "jpzhyue-only",
+  "jpzhyueko-only",
+  "not-jpzhyueko"
+];
+const familyNodesByRoot = new WeakMap();
+function syncLanguageFamilyDom(root, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  root.dataset.language = base;
+  for (const state of languageFamilyNodes(root)) {
+  if (languageFamilyIncludes(state.family, base)) {
+    if (!state.node.parentNode) state.placeholder.after(state.node);
+  } else {
+    state.node.remove();
+  }
+  }
+}
+function languageFamilyIncludes(family, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  if (family === "jp-only") return base === "ja";
+  const jpZhYue = base === "ja" || base === "zh" || base === "yue";
+  if (family === "jpzhyue-only") return jpZhYue;
+  const jpZhYueKo = jpZhYue || base === "ko";
+  return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
+}
+function languageFamilyNodes(root) {
+  const states = familyNodesByRoot.get(root) ?? [];
+  const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
+  const knownNodes = new Set(states.map((state) => state.node));
+  const discovered = Array.from(root.querySelectorAll(selector)).filter((node) => !knownNodes.has(node)).filter((node) => !node.parentElement?.closest(selector)).map((node) => {
+  const family = LANGUAGE_FAMILY_CLASSES.find((value) => node.classList.contains(value));
+  if (!family) throw new TypeError("Language-family node has no supported family class.");
+  const placeholder = root.ownerDocument.createComment(`yomu-language-family:${family}`);
+  node.before(placeholder);
+  return { family, node, placeholder };
+  });
+  states.push(...discovered);
+  familyNodesByRoot.set(root, states);
+  return states;
+}
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
@@ -31476,8 +31528,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.37"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.37"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.38"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.38"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -31620,7 +31672,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.37"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.38"}`;
   } catch {
   return null;
   }
@@ -34206,6 +34258,7 @@ class ReaderApp {
     existing.dataset.yomuGeneration = String(generation);
     existing.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
     existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
+    this.syncReaderRootLanguage(existing);
     this.applyJpdbReviewImmersionLayout(existing);
     return existing;
   }
@@ -34217,6 +34270,7 @@ class ReaderApp {
   root.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
   root.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
   root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
+  this.syncReaderRootLanguage(root);
   this.pauseAutoScanObserver(() => {
     anchor.insertAdjacentElement("afterend", root);
   });
@@ -34787,6 +34841,9 @@ class ReaderApp {
     saveSettings: (settings) => saveSettings(settings),
     clearBridgeCaches: () => this.clearBridgeBackedCaches()
   }, this.abortController.signal);
+  addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
+    if (!this.isDestroyed) this.syncReaderRootLanguages();
+  }, { signal: abortSignal });
   const swallowReaderRootGesture = (event) => {
     const swallow = event.type === "touchstart" || event.type === "touchend" ? pointOverReaderRoot(event) : readerRootGestureLeaks(event);
     if (swallow) event.stopPropagation();
@@ -36748,7 +36805,7 @@ class ReaderApp {
   }
   shouldSkipPointerTextToken(candidate, token) {
   const tokenLength = token.end - token.start;
-  const run = japaneseRunAt(candidate.text, candidate.offset);
+  const run = pointerTextRunAt(candidate.text, candidate.offset);
   const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
   if (surroundingLength <= tokenLength) return false;
   if (isLowValuePointerTextToken(token)) return true;
@@ -36845,7 +36902,7 @@ class ReaderApp {
   }
   async lookupLocalEntryAtOffset(text, offset) {
   if (!this.settings.localDictionariesEnabled) return void 0;
-  const run = japaneseRunAt(text, offset);
+  const run = pointerTextRunAt(text, offset);
   if (!run) return void 0;
   const pointerRange = fallbackLookupRangeAtOffset(text, run.offset) ?? { start: run.start, end: run.end };
   return await this.lookupLocalEntryInRun(text, run, pointerRange);
@@ -36876,6 +36933,11 @@ class ReaderApp {
   return Boolean(this.hoverPendingLookupKey && this.hoverPendingLookupKey !== hoverLookupKey || this.hoverLookupInFlightKey && this.hoverLookupInFlightKey !== hoverLookupKey);
   }
   async lookupLocalEntryInRun(text, run, pointerRange) {
+  if (activeLearningTarget().lookupStartsAtSegmentBoundary) {
+    const surface = text.slice(pointerRange.start, pointerRange.end);
+    const entry = await this.lookupSingleLocalSurface(surface);
+    return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : void 0;
+  }
   if (isOverbroadLocalPointerRange(run, pointerRange)) {
     return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
   }
@@ -36931,6 +36993,7 @@ class ReaderApp {
   return surface.length > 1 && range.start === candidate.start && range.end === candidate.end && KANA_ONLY_RUN_RE.test(surface);
   }
   isOverbroadPointerFallback(candidate, range) {
+  if (activeLearningTarget().lookupStartsAtSegmentBoundary) return false;
   const fallbackLength = range.end - range.start;
   const candidateLength = candidate.end - candidate.start;
   return fallbackLength >= candidateLength && candidateLength > 6 && fallbackLength > 4;
@@ -40010,7 +40073,7 @@ class ReaderApp {
     subtitles: this.subtitles,
     ocr: this.ocr,
     youtube: this.youtube,
-    createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
+    createBackdrop: () => this.createLanguageAwareBackdrop(() => this.dismiss()),
     mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
     dismiss: () => this.dismiss(),
     toast: (message) => this.toast(message),
@@ -40040,6 +40103,8 @@ class ReaderApp {
   }
   mountSettingsDialog(backdrop, form) {
   this.dismiss({ forceAll: true });
+  this.syncReaderRootLanguage(backdrop);
+  this.syncReaderRootLanguage(form);
   applyOverlayPageScale(form);
   document.body.append(backdrop, form);
   this.activeBackdrop = backdrop;
@@ -40047,7 +40112,9 @@ class ReaderApp {
   form.focus();
   }
   createPopover(trigger = "modal") {
-  return createReaderPopover(APP_NAME, this.settings, trigger);
+  const popover = createReaderPopover(APP_NAME, this.settings, trigger);
+  this.syncReaderRootLanguage(popover);
+  return popover;
   }
   mountPopover(popover, anchor, options = {}) {
   const settingsStack = this.settingsStackForMountedPopover(options);
@@ -40075,7 +40142,7 @@ class ReaderApp {
   }
   popoverMountState(anchor, options) {
   const mode = options.mode ?? "modal";
-  const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : createReaderBackdrop(() => {
+  const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : this.createLanguageAwareBackdrop(() => {
     this.dismiss();
   });
   const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
@@ -40084,6 +40151,18 @@ class ReaderApp {
   const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
   const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
   return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+  }
+  createLanguageAwareBackdrop(onDismiss) {
+  const backdrop = createReaderBackdrop(onDismiss);
+  this.syncReaderRootLanguage(backdrop);
+  return backdrop;
+  }
+  syncReaderRootLanguages() {
+  document.querySelectorAll(READER_ROOT_SELECTOR).forEach((root) => this.syncReaderRootLanguage(root));
+  }
+  syncReaderRootLanguage(root) {
+  syncLanguageFamilyDom(root, activeLearningTarget().language);
+  root.setAttribute("data-language", root.dataset.language ?? activeLearningTarget().language);
   }
   settingsStackForMountedPopover(options) {
   return this.activeSettingsLookupStack() ?? (options.stackOverSettings ? this.currentSettingsDialogStack() : void 0);
