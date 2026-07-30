@@ -283,6 +283,8 @@ import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallback
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { translateJapaneseSentence } from '../study/tools';
+import { activeLearningTarget } from '../languages/active';
+import { syncLanguageFamilyDom } from '../settings/language-gating';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
@@ -292,7 +294,7 @@ import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFrom
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
     caretTextPositionFromPoint,
-    japaneseRunAt,
+    pointerTextRunAt,
     jpdbPointerLookupCandidates,
     pointerTextCharacterOffset,
     pointerTextLookupFromTextNode,
@@ -2494,6 +2496,7 @@ export class ReaderApp {
             existing.dataset.yomuGeneration = String(generation);
             existing.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
             existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
+            this.syncReaderRootLanguage(existing);
             this.applyJpdbReviewImmersionLayout(existing);
             return existing;
         }
@@ -2507,6 +2510,7 @@ export class ReaderApp {
         // re-mounts once the real anchor exists instead of staying stranded.
         root.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
         root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
+        this.syncReaderRootLanguage(root);
         this.pauseAutoScanObserver(() => {
             anchor.insertAdjacentElement('afterend', root);
         });
@@ -3295,6 +3299,9 @@ export class ReaderApp {
             saveSettings: settings => saveSettings(settings),
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
+        addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
+            if (!this.isDestroyed) this.syncReaderRootLanguages();
+        }, { signal: abortSignal });
 
         // Tapping Yomu's OCR overlay must look the word up, never fall through to the
         // host viewer's tap-to-turn. BookWalker (NFBR) turns the page on a touchend /
@@ -5902,7 +5909,7 @@ export class ReaderApp {
 
     private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
         const tokenLength = token.end - token.start;
-        const run = japaneseRunAt(candidate.text, candidate.offset);
+        const run = pointerTextRunAt(candidate.text, candidate.offset);
         const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
         if (surroundingLength <= tokenLength) return false;
         if (isLowValuePointerTextToken(token)) return true;
@@ -6037,7 +6044,7 @@ export class ReaderApp {
 
     private async lookupLocalEntryAtOffset(text: string, offset: number): Promise<LocalPointerTextEntryMatch | undefined> {
         if (!this.settings.localDictionariesEnabled) return undefined;
-        const run = japaneseRunAt(text, offset);
+        const run = pointerTextRunAt(text, offset);
         if (!run) return undefined;
         const pointerRange = fallbackLookupRangeAtOffset(text, run.offset) ?? { start: run.start, end: run.end };
 
@@ -6087,9 +6094,14 @@ export class ReaderApp {
 
     private async lookupLocalEntryInRun(
         text: string,
-        run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
         pointerRange: { start: number; end: number },
     ): Promise<LocalPointerTextEntryMatch | undefined> {
+        if (activeLearningTarget().lookupStartsAtSegmentBoundary) {
+            const surface = text.slice(pointerRange.start, pointerRange.end);
+            const entry = await this.lookupSingleLocalSurface(surface);
+            return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : undefined;
+        }
         if (isOverbroadLocalPointerRange(run, pointerRange)) {
             return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
         }
@@ -6103,7 +6115,7 @@ export class ReaderApp {
 
     private async lookupContainingLocalEntryInRun(
         text: string,
-        run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
         pointerRange: { start: number; end: number },
         options: { preferShorter?: boolean } = {},
     ): Promise<LocalPointerTextEntryMatch | undefined> {
@@ -6123,7 +6135,7 @@ export class ReaderApp {
 
     private async lookupContainingLocalEntryShortestFirst(
         text: string,
-        run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
         minStart: number,
         maxEnd: number,
     ): Promise<LocalPointerTextEntryMatch | undefined> {
@@ -6167,6 +6179,7 @@ export class ReaderApp {
     }
 
     private isOverbroadPointerFallback(candidate: PointerTextLookup, range: { start: number; end: number }): boolean {
+        if (activeLearningTarget().lookupStartsAtSegmentBoundary) return false;
         const fallbackLength = range.end - range.start;
         const candidateLength = candidate.end - candidate.start;
         return fallbackLength >= candidateLength
@@ -10175,7 +10188,7 @@ export class ReaderApp {
             subtitles: this.subtitles,
             ocr: this.ocr,
             youtube: this.youtube,
-            createBackdrop: () => createReaderBackdrop(() => this.dismiss()),
+            createBackdrop: () => this.createLanguageAwareBackdrop(() => this.dismiss()),
             mountDialog: (backdrop, form) => this.mountSettingsDialog(backdrop, form),
             dismiss: () => this.dismiss(),
             toast: message => this.toast(message),
@@ -10206,6 +10219,8 @@ export class ReaderApp {
 
     private mountSettingsDialog(backdrop: HTMLElement, form: HTMLFormElement): void {
         this.dismiss({ forceAll: true });
+        this.syncReaderRootLanguage(backdrop);
+        this.syncReaderRootLanguage(form);
         applyOverlayPageScale(form);
         document.body.append(backdrop, form);
         this.activeBackdrop = backdrop;
@@ -10214,7 +10229,9 @@ export class ReaderApp {
     }
 
     private createPopover(trigger: 'modal' | 'hover' = 'modal'): HTMLElement {
-        return createReaderPopover(APP_NAME, this.settings, trigger);
+        const popover = createReaderPopover(APP_NAME, this.settings, trigger);
+        this.syncReaderRootLanguage(popover);
+        return popover;
     }
 
     private mountPopover(
@@ -10251,7 +10268,7 @@ export class ReaderApp {
         const mode = options.mode ?? 'modal';
         const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
             ? undefined
-            : createReaderBackdrop(() => {
+            : this.createLanguageAwareBackdrop(() => {
                 this.dismiss();
             });
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
@@ -10262,6 +10279,24 @@ export class ReaderApp {
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
         const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
         return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+    }
+
+    private createLanguageAwareBackdrop(onDismiss: () => void): HTMLElement {
+        const backdrop = createReaderBackdrop(onDismiss);
+        this.syncReaderRootLanguage(backdrop);
+        return backdrop;
+    }
+
+    private syncReaderRootLanguages(): void {
+        document.querySelectorAll<HTMLElement>(READER_ROOT_SELECTOR)
+            .forEach(root => this.syncReaderRootLanguage(root));
+    }
+
+    private syncReaderRootLanguage(root: HTMLElement): void {
+        syncLanguageFamilyDom(root, activeLearningTarget().language);
+        // U79's fail-closed CSS gate depends on this exact data-language
+        // attribute being present on every reader-owned surface.
+        root.setAttribute('data-language', root.dataset.language ?? activeLearningTarget().language);
     }
 
     private settingsStackForMountedPopover(options: MountPopoverOptions): SettingsDialogStack | undefined {

@@ -1,6 +1,6 @@
 import { sentenceAroundRange } from '../dom/index';
 import { activeLearningTarget } from '../languages/active';
-import type { japaneseRunAt } from './pointer-text-lookup';
+import type { pointerTextRunAt } from './pointer-text-lookup';
 import type { JPDBCard, JPDBToken } from '../app/types';
 import { HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';
 
@@ -59,7 +59,7 @@ export function canExpandLocalPointerRange(surface: string): boolean {
 }
 
 export function isOverbroadLocalPointerRange(
-    run: NonNullable<ReturnType<typeof japaneseRunAt>>,
+    run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
     range: { start: number; end: number },
 ): boolean {
     const rangeLength = range.end - range.start;

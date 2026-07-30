@@ -1,7 +1,10 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
-import { KANA, KANJI_LIKE_WITH_COUNTERS, PROLONGED_SOUND_MARK } from './japanese-script';
-
-const JAPANESE_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]`, 'u');
+import { activeLearningTarget } from '../languages/active';
+import {
+    hasTargetPointerWord,
+    targetPointerWordAt,
+    type TargetPointerWord,
+} from './target-text';
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
 const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
 const JPDB_POINTER_CANDIDATE_LIMIT = 24;
@@ -151,20 +154,16 @@ export function caretTextPositionFromPoint(x: number, y: number): { node: Text; 
     return null;
 }
 
-export function japaneseRunAt(text: string, offset: number): { start: number; end: number; offset: number } | null {
-    const index = japaneseRunIndexAt(text, offset);
-    if (index === null) return null;
-
-    return {
-        start: japaneseRunStart(text, index),
-        end: japaneseRunEnd(text, index),
-        offset: index,
-    };
-}
+export const pointerTextRunAt = targetPointerWordAt;
 
 export function jpdbPointerLookupCandidates(text: string, offset: number): PointerTextSpanCandidate[] {
-    const run = japaneseRunAt(text, offset);
+    const target = activeLearningTarget();
+    const run = pointerTextRunAt(text, offset);
     if (!run) return [];
+    if (target.lookupStartsAtSegmentBoundary) {
+        const term = text.slice(run.start, run.end).trim();
+        return term ? [{ term, start: run.start, end: run.end }] : [];
+    }
     const candidates: PointerTextSpanCandidate[] = [];
     pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
     const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
@@ -181,7 +180,7 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
     return candidates;
 }
 
-function pointerBoundaryCandidate(text: string, run: NonNullable<ReturnType<typeof japaneseRunAt>>): PointerTextSpanCandidate | null {
+function pointerBoundaryCandidate(text: string, run: TargetPointerWord): PointerTextSpanCandidate | null {
     const relativeOffset = run.offset - run.start;
     const runText = text.slice(run.start, run.end);
     const boundaries = pointerBoundarySegments(runText);
@@ -228,35 +227,13 @@ function pointerCandidate(text: string, start: number, end: number): PointerText
 }
 
 function isUsefulPointerCandidateTerm(term: string): boolean {
-    return term.length > 1 && [...term].some(character => JAPANESE_RUN_RE.test(character));
+    return term.length > 1 && hasTargetPointerWord(term);
 }
 
 function pushPointerCandidate(candidates: PointerTextSpanCandidate[], candidate: PointerTextSpanCandidate | null): void {
     if (!candidate) return;
     if (candidates.some(existing => existing.term === candidate.term && existing.start === candidate.start && existing.end === candidate.end)) return;
     candidates.push(candidate);
-}
-
-function japaneseRunIndexAt(text: string, offset: number): number | null {
-    let index = Math.min(Math.max(offset, 0), text.length - 1);
-    if (!isJapaneseCharacterAt(text, index) && index > 0 && isJapaneseCharacterAt(text, index - 1)) index--;
-    return isJapaneseCharacterAt(text, index) ? index : null;
-}
-
-function japaneseRunStart(text: string, index: number): number {
-    let start = index;
-    while (start > 0 && isJapaneseCharacterAt(text, start - 1)) start--;
-    return start;
-}
-
-function japaneseRunEnd(text: string, index: number): number {
-    let end = index + 1;
-    while (end < text.length && isJapaneseCharacterAt(text, end)) end++;
-    return end;
-}
-
-function isJapaneseCharacterAt(text: string, index: number): boolean {
-    return JAPANESE_RUN_RE.test(text[index] ?? '');
 }
 
 export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: number, y: number): number | null {
@@ -300,12 +277,12 @@ function pointerTextLookupContext(node: Text, characterOffset: number, anchor: H
     if (!context || context.text.length > POINTER_TEXT_CONTEXT_MAX_LENGTH) return null;
     const offset = context.start + Math.min(Math.max(characterOffset, 0), node.data.length - 1);
     const lookup = pointerTextLookupForText(anchor, context.text, offset);
-    if (!lookup || lookup.end - lookup.start <= localJapaneseRunLength(node.data, characterOffset)) return null;
+    if (!lookup || lookup.end - lookup.start <= localPointerWordLength(node.data, characterOffset)) return null;
     return isLowValuePointerText(lookup.text, root) ? null : lookup;
 }
 
 function pointerTextLookupForText(anchor: HTMLElement, text: string, offset: number): PointerTextLookup | null {
-    const run = japaneseRunAt(text, offset);
+    const run = pointerTextRunAt(text, offset);
     if (!run || isLowValuePointerText(text, anchor)) return null;
     return {
         text,
@@ -316,8 +293,8 @@ function pointerTextLookupForText(anchor: HTMLElement, text: string, offset: num
     };
 }
 
-function localJapaneseRunLength(text: string, offset: number): number {
-    const run = japaneseRunAt(text, offset);
+function localPointerWordLength(text: string, offset: number): number {
+    const run = pointerTextRunAt(text, offset);
     return run ? run.end - run.start : 0;
 }
 
@@ -346,7 +323,7 @@ function isPointerTextInlineContextCandidate(element: HTMLElement, localTextLeng
     const text = element.textContent ?? '';
     return text.length > localTextLength
         && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH
-        && JAPANESE_RUN_RE.test(text)
+        && hasTargetPointerWord(text)
         && isPointerTextParentEligible(element);
 }
 
@@ -372,11 +349,11 @@ function readablePointerTextContext(root: HTMLElement, target: Text): { text: st
     };
 
     visit(root);
-    if (rangeStart < 0 || rangeEnd <= rangeStart || !text || !JAPANESE_RUN_RE.test(text)) return null;
+    if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text)) return null;
     const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
     const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;
     const trimmedText = text.slice(leadingWhitespace, text.length - trailingWhitespace);
-    if (!trimmedText || !JAPANESE_RUN_RE.test(trimmedText)) return null;
+    if (!trimmedText || !hasTargetPointerWord(trimmedText)) return null;
     return {
         text: trimmedText,
         start: rangeStart - leadingWhitespace,

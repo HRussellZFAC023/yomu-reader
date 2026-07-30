@@ -24,6 +24,7 @@ import {
     siteNavRoutes,
 } from '../../src/reader/app/site-nav';
 import { LEARNING_TARGET_ROSTER } from '../../src/reader/languages/roster';
+import { learningTargetModuleFor } from '../../src/reader/languages/registry';
 
 const ROOT = process.cwd();
 const DOCS = path.join(ROOT, 'docs');
@@ -181,24 +182,53 @@ describe('published docs pages', () => {
 });
 
 describe('published product claims', () => {
-    it('keeps every homepage hero language inside the shipped target roster', () => {
+    it('drives the homepage hero exactly from the shipped term-lookup capability', () => {
         const homepage = readProjectFile('docs/index.md');
         const config = readProjectFile('docs/.vitepress/config.mts');
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
-        const shippedTargetIds = new Set<string>(LEARNING_TARGET_ROSTER.map(language => language.id));
+        const lookupCapableTargetIds = LEARNING_TARGET_ROSTER
+            .filter(language => learningTargetModuleFor(language.runtimeLocale)?.capabilities['term-lookup'])
+            .map(language => language.id);
         const heroLanguages = heroStudyLanguages();
-        const unsupported = heroLanguages
-            .map(language => language.id)
-            .filter(language => !shippedTargetIds.has(language));
 
         expect(homepage).toContain('<YomuLanguageRotator />');
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
         expect(theme).toContain('const languages = __YOMU_HERO_LANGUAGES__;');
-        expect(
-            unsupported,
-            `homepage claims unsupported study target(s): ${unsupported.join(', ')}`,
-        ).toEqual([]);
+        expect(heroLanguages.map(language => language.id)).toEqual(lookupCapableTargetIds);
+        for (const language of heroLanguages) {
+            expect(
+                learningTargetModuleFor(language.locale)?.capabilities['term-lookup'],
+                `homepage claims ${language.id}, but its target Module cannot open term lookups`,
+            ).toBe(true);
+        }
+    });
+
+    it('keeps every lookup-capable picker target backed by published dictionary supply', () => {
+        const catalogue = JSON.parse(
+            readProjectFile('config/dictionaries/published/v1/catalog.json'),
+        ) as {
+            entries?: Array<{
+                headwordLanguages?: string[];
+                distribution?: { state?: string };
+            }>;
+        };
+        const suppliedHeadwordLanguages = new Set(
+            (catalogue.entries ?? [])
+                .filter(entry => entry.distribution?.state === 'published' || entry.distribution?.state === 'upstream')
+                .flatMap(entry => entry.headwordLanguages ?? [])
+                .map(language => language.toLowerCase().replace(/_/gu, '-').split('-')[0]),
+        );
+        const lookupCapableTargets = LEARNING_TARGET_ROSTER
+            .filter(language => learningTargetModuleFor(language.runtimeLocale)?.capabilities['term-lookup']);
+
+        expect(lookupCapableTargets.map(language => language.id)).not.toContain('my');
+        for (const target of lookupCapableTargets) {
+            expect(
+                suppliedHeadwordLanguages.has(target.id),
+                `${target.id} has term lookup in the picker but zero published dictionary entries`,
+            ).toBe(true);
+        }
     });
 
     it('keeps every published "N languages" claim at the measured definition-language count', () => {

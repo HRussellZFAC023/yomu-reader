@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.38] - 2026-07-30
+
+### Fixed
+
+- Pressing words now opens the lookup in every study language offered by the target picker, while Japanese keeps its existing boundaries. The homepage language rotator follows that lookup capability, and non-Japanese settings omit Japanese-only reading and pitch controls.
+
 ## [1.8.37] - 2026-07-29
 
 ### Fixed

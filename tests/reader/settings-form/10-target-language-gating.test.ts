@@ -76,6 +76,18 @@ describe('target-language settings', () => {
         expect(root.textContent?.replace(/\s+/g, ' ').trim()).toBe('ja/zh/yue ja/zh/yue/ko');
     });
 
+    it('gates language-family nodes added after a reader root was first stamped', () => {
+        const root = document.createElement('section');
+        syncLanguageFamilyDom(root, 'es');
+        root.innerHTML = '<span class="jp-only">pitch</span>';
+
+        syncLanguageFamilyDom(root, 'es');
+        expect(root.querySelector('.jp-only')).toBeNull();
+
+        syncLanguageFamilyDom(root, 'ja');
+        expect(root.querySelector('.jp-only')?.textContent).toBe('pitch');
+    });
+
     it('does not overwrite detached Japanese settings while saving another target', () => {
         const current = {
             ...DEFAULT_SETTINGS,

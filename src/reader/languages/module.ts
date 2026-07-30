@@ -48,6 +48,7 @@ export interface LearningTargetSpec {
     detectsText?: RegExp | ((text: string) => boolean);
     normalizeText?: (text: string) => string;
     segment?: (text: string) => readonly LanguageTextSegment[];
+    pointerWordSegments?: (text: string) => readonly LanguageTextSegment[];
     lookupCandidates?: (text: string) => readonly LanguageLookupCandidate[];
     compareLookupCandidates?: (a: LanguageLookupCandidate, b: LanguageLookupCandidate) => number;
     matchesLookupCandidateRules?: (entryRules: string | undefined, candidateRules: readonly string[]) => boolean;
@@ -77,6 +78,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
     const direction = spec.direction ?? localeDirection(language);
     const detects = detectorFor(spec.detectsText);
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
+    const segment = spec.segment ?? ((text: string) => defaultSegment(text, language));
 
     return Object.freeze({
         interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
@@ -117,7 +119,8 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         isLookupableText(text: string): boolean {
             return Boolean(text) && detects(text);
         },
-        segment: spec.segment ?? ((text: string) => defaultSegment(text, language)),
+        segment,
+        pointerWordSegments: spec.pointerWordSegments ?? segment,
         lookupCandidates: spec.lookupCandidates
             ?? ((text: string) => defaultLookupCandidates(normalizeText(text))),
         compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,

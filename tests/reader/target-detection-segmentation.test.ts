@@ -15,6 +15,11 @@ import {
 import { collectFragmentTextTargetsIn, documentHasJapaneseText } from '../../src/reader/dom/index';
 import { isCompactInteractiveChromeText } from '../../src/reader/dom/decoration-policy';
 import { fallbackLookupRangeAtOffset } from '../../src/reader/lookup/parser';
+import {
+    jpdbPointerLookupCandidates,
+    pointerTextLookupFromTextNode,
+    pointerTextRunAt,
+} from '../../src/reader/lookup/pointer-text-lookup';
 import { pushTargetLanguageOcrLine } from '../../src/reader/ocr/response-shared';
 import { isTargetLanguageText, segmentTargetLanguageText } from '../../src/reader/lookup/target-text';
 import type { OcrLine, OcrRect } from '../../src/reader/ocr/response-shared';
@@ -150,5 +155,52 @@ describe('segmentation resolves through the active learning target', () => {
 
         activateLatinTarget();
         expect(fallbackLookupRangeAtOffset('hej vad heter du', 5)).toEqual({ start: 4, end: 7 });
+    });
+});
+
+describe('pointer lookup resolves through the active learning target', () => {
+    const cases = [
+        { language: 'ja', text: '私は日本語を読む', runTerm: '私は日本語を読む', term: '日本語', offset: 3 },
+        { language: 'ko', text: '나는 한국어를 읽는다', runTerm: '한국어를', term: '한국어를', offset: 4 },
+        { language: 'es', text: 'Leo español cada día', runTerm: 'español', term: 'español', offset: 6 },
+        { language: 'ar', text: 'أقرأ العربية يوميا', runTerm: 'العربية', term: 'العربية', offset: 7 },
+        { language: 'el', text: 'Διαβάζω ελληνικά κάθε μέρα', runTerm: 'ελληνικά', term: 'ελληνικά', offset: 9 },
+    ] as const;
+
+    it.each(cases)('$language opens the active profile word under the pointer', ({ language, text, runTerm, term, offset }) => {
+        expect(setActiveLearningTargetLanguage(language)).not.toBeNull();
+        document.body.innerHTML = `<p>${text}</p>`;
+        const node = document.querySelector('p')?.firstChild;
+        expect(node).toBeInstanceOf(Text);
+
+        const lookup = pointerTextLookupFromTextNode(node as Text, offset);
+        expect(lookup).not.toBeNull();
+        expect(lookup && lookup.text.slice(lookup.start, lookup.end)).toBe(runTerm);
+        expect(jpdbPointerLookupCandidates(text, offset)[0]).toMatchObject({
+            term,
+            start: text.indexOf(term),
+            end: text.indexOf(term) + term.length,
+        });
+    });
+
+    it('keeps every Japanese caret boundary byte-for-byte equal to the old run algorithm', () => {
+        const text = 'abc 日本語を読む。カタカナー・々ヶ xyz';
+        const legacyCharacter = /[぀-ヿ㐀-鿿々〆ヵヶー]/u;
+        const legacyRunAt = (offset: number) => {
+            let index = Math.min(Math.max(offset, 0), text.length - 1);
+            const isCharacterAt = (at: number) => legacyCharacter.test(text[at] ?? '');
+            if (!isCharacterAt(index) && index > 0 && isCharacterAt(index - 1)) index--;
+            if (!isCharacterAt(index)) return null;
+            let start = index;
+            let end = index + 1;
+            while (start > 0 && isCharacterAt(start - 1)) start--;
+            while (end < text.length && isCharacterAt(end)) end++;
+            return { start, end, offset: index };
+        };
+
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        const before = Array.from({ length: text.length + 3 }, (_, index) => legacyRunAt(index - 1));
+        const after = Array.from({ length: text.length + 3 }, (_, index) => pointerTextRunAt(text, index - 1));
+        expect(JSON.stringify(after)).toBe(JSON.stringify(before));
     });
 });

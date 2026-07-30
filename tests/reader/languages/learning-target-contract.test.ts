@@ -47,12 +47,11 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 4 added compareLookupCandidates: ranking two analyses of one
-        // surface needs the rule tags, which only the target that produced them
-        // may read, so the ordering had to become a contract member. Revision 3
-        // modules cannot supply it and no longer satisfy the contract.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(4);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(true);
+        // Revision 5 added pointerWordSegments: pointer admission and boundaries
+        // belong to the active target instead of a Japanese regex in core.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(5);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(3)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(2)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(1)).toBe(false);
@@ -88,6 +87,7 @@ describe('LearningTargetModule contract revision', () => {
             'normalizeReading',
             'normalizeText',
             'ocr',
+            'pointerWordSegments',
             'segment',
             'subtitles',
             'typography',
@@ -146,10 +146,10 @@ describe('a second target needs registration and nothing else', () => {
     it('ships a thin Korean target that declares only what it actually has', () => {
         expect(supportedLearningTargetLanguages()).toContain('ko');
         expect(KOREAN_LEARNING_TARGET.interfaceVersion).toBe(LEARNING_TARGET_MODULE_INTERFACE_VERSION);
+        expect(KOREAN_LEARNING_TARGET.capabilities['term-lookup']).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.segmentation).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.ocr).toBe(true);
-        // Honest about the absence of a dictionary and of morphology.
-        expect(KOREAN_LEARNING_TARGET.capabilities['term-lookup']).toBe(false);
+        // Honest about the absence of morphology and reading annotations.
         expect(KOREAN_LEARNING_TARGET.capabilities.morphology).toBe(false);
         expect(KOREAN_LEARNING_TARGET.capabilities['reading-annotation']).toBe(false);
 

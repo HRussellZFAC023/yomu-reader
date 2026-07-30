@@ -60,10 +60,11 @@ repeat reads no longer touch R2) · `A16` Study PWA · `A3b` settings reference 
 overlap) · **`U44`/`U97` language-aware card identity (`eb1271571`)** — the 1.9.0 blocker, landed with a
 4-slot key that elides `ja` so existing Japanese keys stay byte-identical and no E2EE migration is needed.
 
-**STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply for all 32 targets is complete (1,637 catalogue
-entries; 1,607 distinct objects verified through the public mirror), then `U61`/`U79` the target picker and CSS gating,
-then `U105`/`D43`/`U46` per the plan in `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced
-slices). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
+**STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply, `U44`/`U97` card identity, and A37's target
+picker, raw pointer lookup, honest homepage claim, and `U79` DOM gating are complete. What remains is
+classifying/migrating the other `U61` Japanese-only seams, then `U105`/`D43`/`U46` per the plan in
+`scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices). Until 1.9.0 ships, the Chrome
+and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
 
 - [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
       Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
@@ -520,9 +521,9 @@ homepage now advertises the gap 34 times instead of 9.
 - **U61 the target picker**: `src/reader/settings/form.ts:162` now renders a real
   `<select name="targetLanguage">` over `LEARNING_TARGET_ROSTER`, replacing the hidden input.
 
-**Not done, and it is the one that matters:**
+**Fixed in v1.8.38:**
 
-- [ ] **A37.1 — CRITICAL: the pointer lookup is hardcoded to Japanese script, so every non-Japanese target
+- [x] **A37.1 — CRITICAL: the pointer lookup was hardcoded to Japanese script, so every non-Japanese target
       is a dead end.** `src/reader/lookup/pointer-text-lookup.ts:4` builds
       `JAPANESE_RUN_RE` from kana, kanji-like ranges and the prolonged sound mark, and gates **six**
       decisions on it (`:231`, `:259`, `:349`, `:375`, `:379`). A learner who picks Spanish, Korean, Arabic
@@ -537,23 +538,37 @@ homepage now advertises the gap 34 times instead of 9.
       testing Japanese. Do it as a language-profile capability, never a per-language branch in the lookup.
       Test: for each of ja, ko, es, ar, el, pressing a word on a page in that language opens the popover;
       and Japanese behaviour is byte-identical to today, which is the non-negotiable.
-- [ ] **A37.2 — CRITICAL: the homepage hero now names ~34 study targets and A37.1 means one works.**
+      Contract revision 5 now owns `pointerWordSegments`: generic targets use their existing ICU word
+      segmentation and Japanese owns the old character class verbatim, so shared lookup contains no
+      per-language branch. Boundary-aware targets look up only the pressed segment rather than sweeping
+      false substrings inside a written word. Browser evidence presses raw, unannotated headings on real
+      Japanese, Korean, Spanish, Arabic, and Greek Wikipedia pages; all five open a popover. The Japanese
+      boundary/caret output is also compared byte-for-byte with the old algorithm across every offset in
+      the regression corpus.
+- [x] **A37.2 — CRITICAL: the homepage hero now names ~34 study targets and A37.1 means one works.**
       Live at 2026-07-30 the rotator cycles 日本語, Shqip, Ἑλληνιστί, العربية, 粵語, 中文（简体）, Dansk,
       Nederlands, English, Suomi, Français, Deutsch, Ελληνικά, Magyar, Bahasa Indonesia, Italiano and more.
       A35.5 asked for the hero to be driven by what the product supports; it is now driven by the
       dictionary roster, which is the wrong axis while lookups are Japanese-only. Either land A37.1 first,
       or drive the rotator from languages whose lookup path actually resolves. The audit guard A35.5 asked
       for must assert against the LOOKUP capability, not the catalogue.
-- [ ] **A37.3 — U79 CSS gating never landed.** `data-language` appears **zero** times in
+      `heroStudyLanguages()` now reads the `term-lookup` capability, and the published-pages audit asserts
+      exact equality between that capability roster and the homepage rotator.
+- [x] **A37.3 — U79 CSS gating never landed.** `data-language` appears **zero** times in
       `src/reader/app/main.ts`. For a target with no reading annotation the furigana controls, the
       `furiganaMode` row, pitch colouring, the pitch legend and the provider pills must be ABSENT from the
       DOM rather than greyed out, and must return when the target is Japanese again.
-- [ ] **A37.4 — Burmese (`my`) has zero dictionary entries** while the other 33 roster languages have some.
+      Reader-owned roots now carry `data-language`; the shared language-family mechanism physically
+      detaches unsupported nodes, discovers dynamically inserted nodes, and restores the same nodes for
+      Japanese.
+- [x] **A37.4 — Burmese (`my`) has zero dictionary entries** while the other 33 roster languages have some.
       Either source it or take it off the roster; a picker entry that resolves to nothing is the A11 defect
       class (a state the learner cannot tell from broken).
+      Burmese is not in `LEARNING_TARGET_ROSTER`, and the published-pages audit now fails if any
+      lookup-capable picker target has zero published dictionary supply.
 
-**Until A37.1 and A37.2 are true, 1.9.0 must not ship**, because the minor tag is what publishes to the
-Chrome and Firefox stores (`A27.3`) and it would ship the claim without the capability.
+**A37 no longer blocks 1.9.0.** The other `U61` seams plus `U105`, `D43`, and `U46` remain before the
+owner's minor-release decision.
 
 ### A35 — UNDOCUMENTED WORK FOUND BY SWEEP 2026-07-29
 
@@ -1453,20 +1468,12 @@ The measured picture, all re-verified this pass:
         un-migrated is STALE.**
       - **[x] `deinflectJapaneseTerm` is no longer imported by `dictionaries/yomitan/index.ts`** — fixed by
         `59e690658`. **That entry is STALE too.**
-      - **Still no UI to pick a target language.** `settings/form.ts:146` renders a hardcoded
-        `<span class="jpdb-reader-language-target" lang="ja">日本語 — Japanese</span>`. Two small edits
-        and the seam becomes user-reachable.
-- [ ] **U44 / U97 — the card model has no language field, and word identity is not a stable key.**
-      **This is the most time-critical item in the entire multilanguage effort and it has not moved.**
-      `StoredYomuSrsCard` (`src/reader/srs/local-yomu-deck.ts`) is `expression` + `reading` +
-      `meanings`; `reading` is a Japanese concept, and across 32 targets identical Latin strings
-      (es/fr/de) collide in one undifferentiated deck. The stronger primitive is identity =
-      **(dictionary form, secondary reading, part of speech, language)** with **knownStatus**,
-      **hasCard** and **tracked** as three *independent* fields — which also makes "collect without
-      scheduling" (U18/U89) expressible instead of a special case. Yomu's `CardState` union
-      (`src/reader/app/types.ts:5-22`) conflates all three into 21 mutually-exclusive values.
-      **Land it before decks are populated:** retrofitting onto already-synced E2EE events means a
-      migration that cannot be run server-side.
+      - **[x] The target picker is now a real select** over `LEARNING_TARGET_ROSTER`, and A37 moves raw
+        pointer-word admission behind contract revision 5. The remaining direct Japanese checks above
+        still need classification as genuinely Japanese or migration to a target capability.
+- [x] **U44 / U97 — language-aware card identity shipped in `eb1271571`.** The four-slot key includes
+      target language while eliding `ja`, so existing Japanese identities remain byte-identical and
+      existing E2EE data needs no migration.
 - [ ] **U105 — three-tier language model: target ≠ output ≠ interface.** sagamsil does not need Yomu
       translated into Korean; he needs **definitions rendered** in Korean (U15). Conflating the tiers
       makes the 32-language goal look 3× larger than it is. Record the real per-target cost too: not a
@@ -1479,10 +1486,11 @@ The measured picture, all re-verified this pass:
       MT is the only realistic first pass but will not honour the copy-voice rules; **RTL** (Arabic,
       Farsi are on the roster) has never been tested against the overlay and popover geometry — scope
       it explicitly or exclude it deliberately, do not discover it late.
-- [ ] **U79 — gate by language in CSS.** `data-language` on the root plus per-family classes, copied
-      from Yomitan rather than invented. Test: switch to a target with no reading annotation → the
-      furigana controls, `furiganaMode`, pitch colouring, the pitch legend and the provider pills are
-      **absent from the DOM**, not greyed out.
+- [x] **U79 — language-family DOM gating shipped in v1.8.38.** Every reader root carries
+      `data-language`; the shared `jp-only` / `jpzhyue-only` / `jpzhyueko-only` /
+      `not-jpzhyueko` mechanism physically detaches unsupported nodes. Tests switch to Korean and prove
+      the furigana controls, `furiganaMode`, pitch colouring, pitch legend, and provider pills are absent,
+      then switch back to Japanese and prove the same nodes return.
 - [ ] **U46 — example-sentence + media sources for the other 31 targets.** ImmersionKit is
       Japanese-only and it powers the thing users love most. Deliverable: a table of target → source →
       has audio? → has image? → API shape, plus an explicit list of targets with **no** usable source

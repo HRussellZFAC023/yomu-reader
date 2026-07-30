@@ -33,6 +33,42 @@ export function segmentTargetLanguageText(text: string): readonly LanguageTextSe
     return activeLearningTarget().segment(text);
 }
 
+export interface TargetPointerWord {
+    start: number;
+    end: number;
+    offset: number;
+}
+
+/** Pointer-word spans, resolved through the active target profile. */
+export function targetPointerWordSegments(text: string): readonly LanguageTextSegment[] {
+    return activeLearningTarget().pointerWordSegments(text);
+}
+
+/**
+ * The active target's word at a browser caret offset.
+ *
+ * Browser caret APIs may report the boundary just after the pressed character,
+ * so the historical reader rule first checks the offset and then the character
+ * immediately before it. Japanese depended on that rule and keeps it exactly;
+ * every other target gets the same predictable caret semantics.
+ */
+export function targetPointerWordAt(text: string, offset: number): TargetPointerWord | null {
+    if (!text.length) return null;
+    let index = Math.min(Math.max(offset, 0), text.length - 1);
+    const segments = targetPointerWordSegments(text);
+    let segment = segments.find(item => item.start <= index && index < item.end);
+    if (!segment && index > 0) {
+        segment = segments.find(item => item.start <= index - 1 && index - 1 < item.end);
+        if (segment) index--;
+    }
+    return segment ? { start: segment.start, end: segment.end, offset: index } : null;
+}
+
+/** Whether text contains any pointer-look-up word for the active target. */
+export function hasTargetPointerWord(text: string): boolean {
+    return Boolean(text) && targetPointerWordSegments(text).length > 0;
+}
+
 /** The active target's normalized form of a surface. */
 export function normalizeTargetLanguageText(text: string): string {
     return activeLearningTarget().normalizeText(text);

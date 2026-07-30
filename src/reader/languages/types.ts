@@ -5,7 +5,7 @@ export const LANGUAGE_PROFILE_SCHEMA_VERSION = 1 as const;
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -14,7 +14,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -170,6 +170,7 @@ export interface LearningTargetSubtitles {
  * Capability domains, and where each one lives on this contract:
  *   detection             -> isLookupableText
  *   segmentation          -> segment
+ *   pointer lookup        -> pointerWordSegments
  *   morphology            -> lookupCandidates, compareLookupCandidates,
  *                            matchesLookupCandidateRules
  *   reading normalization -> normalizeText, normalizeReading
@@ -221,6 +222,15 @@ export interface LearningTargetModule {
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;
     segment(text: string): readonly LanguageTextSegment[];
+    /**
+     * Word-shaped spans that a direct press or hover may look up.
+     *
+     * Most targets use their normal word segmentation. A target may override
+     * this when annotation boundaries and pointer boundaries are not the same:
+     * Japanese keeps the reader's historical contiguous kana/kanji run here,
+     * while its normal `segment` method remains the finer annotation parser.
+     */
+    pointerWordSegments(text: string): readonly LanguageTextSegment[];
     /**
      * Every dictionary form `text` could be an inflection of, most literal
      * first, with the surface itself always present at depth 0. This is the

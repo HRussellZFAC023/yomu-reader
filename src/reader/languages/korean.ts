@@ -11,8 +11,8 @@ const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 
 /**
  * A deliberately thin second target. It exists to prove the contract is real:
- * it ships no dictionary, no deinflection, and no reading data, and it says so
- * through its capability flags rather than by pretending. Everything it does
+ * it ships surface-form dictionary lookup but no deinflection or reading data,
+ * and it says so through its capability flags. Everything it does
  * not declare falls back to the generic behaviour in `module.ts` — whitespace
  * segmentation (which is genuinely how Korean eojeol are written), NFKC text
  * normalization, no morphology, and Intl-derived locale facts.
@@ -23,6 +23,7 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     id: 'korean-thin-v1',
     language: 'ko',
     capabilities: {
+        'term-lookup': true,
         segmentation: true,
         'text-to-speech': true,
         ocr: true,

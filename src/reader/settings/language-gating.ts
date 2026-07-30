@@ -15,7 +15,7 @@ interface LanguageFamilyNode {
     placeholder: Comment;
 }
 
-const familyNodesByRoot = new WeakMap<HTMLElement, readonly LanguageFamilyNode[]>();
+const familyNodesByRoot = new WeakMap<HTMLElement, LanguageFamilyNode[]>();
 
 /**
  * Applies Yomitan's language-family vocabulary, then physically detaches
@@ -44,10 +44,11 @@ export function languageFamilyIncludes(family: LanguageFamilyClass, language: st
 }
 
 function languageFamilyNodes(root: HTMLElement): readonly LanguageFamilyNode[] {
-    const cached = familyNodesByRoot.get(root);
-    if (cached) return cached;
+    const states = familyNodesByRoot.get(root) ?? [];
     const selector = LANGUAGE_FAMILY_CLASSES.map(family => `.${family}`).join(',');
-    const nodes = Array.from(root.querySelectorAll<HTMLElement>(selector))
+    const knownNodes = new Set(states.map(state => state.node));
+    const discovered = Array.from(root.querySelectorAll<HTMLElement>(selector))
+        .filter(node => !knownNodes.has(node))
         .filter(node => !node.parentElement?.closest(selector))
         .map(node => {
             const family = LANGUAGE_FAMILY_CLASSES.find(value => node.classList.contains(value));
@@ -56,6 +57,7 @@ function languageFamilyNodes(root: HTMLElement): readonly LanguageFamilyNode[] {
             node.before(placeholder);
             return { family, node, placeholder };
         });
-    familyNodesByRoot.set(root, nodes);
-    return nodes;
+    states.push(...discovered);
+    familyNodesByRoot.set(root, states);
+    return states;
 }

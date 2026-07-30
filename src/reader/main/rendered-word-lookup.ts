@@ -1,7 +1,7 @@
 import { readerWordSurfaceText } from '../dom/index';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { normalizedLookupText } from '../lookup/text-helpers';
-import { japaneseRunAt, JPDB_POINTER_BOUNDARY_SEGMENTS, jpdbPointerLookupCandidates } from '../lookup/pointer-text-lookup';
+import { pointerTextRunAt, JPDB_POINTER_BOUNDARY_SEGMENTS, jpdbPointerLookupCandidates } from '../lookup/pointer-text-lookup';
 import { KANA_ONLY_LOOKUP_RUN_RE } from '../app/main-helpers';
 import type { JPDBCard } from '../app/types';
 
@@ -148,7 +148,7 @@ function shouldPreferAnchoredKanaFragmentTerms(sentence: string, offset: number,
 }
 
 function renderedKanaFragmentAnchoredTerms(sentence: string, offset: number, surfaceLength: number): string[] {
-    const run = japaneseRunAt(sentence, offset);
+    const run = pointerTextRunAt(sentence, offset);
     if (!run) return [];
     const terms: string[] = [];
     const minStart = Math.max(run.start, offset - KANA_FRAGMENT_LOOKUP_START_WINDOW);

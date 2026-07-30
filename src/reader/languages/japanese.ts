@@ -6,8 +6,14 @@ import {
     segmentJapaneseText,
 } from '../lookup/japanese-segments';
 import { deinflectJapaneseTerm, termRulesMatch } from '../lookup/deinflect';
+import { KANA, KANJI_LIKE_WITH_COUNTERS, PROLONGED_SOUND_MARK } from '../lookup/japanese-script';
 import { createLearningTargetModule } from './module';
-import type { LearningTargetModule } from './types';
+import type { LanguageTextSegment, LearningTargetModule } from './types';
+
+const JAPANESE_POINTER_WORD_RE = new RegExp(
+    `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+    'gu',
+);
 
 /**
  * Japanese Adapter over Yomu's existing, heavily-tested parser primitives.
@@ -84,6 +90,7 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
             end: segment.end,
         }));
     },
+    pointerWordSegments: japanesePointerWordSegments,
 
     // Morphology is the deinflector itself, verbatim and unnormalized: the
     // dictionary engine hands over raw substrings of the page and needs the
@@ -103,4 +110,18 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
 
 function normalizeJapaneseTargetText(text: string): string {
     return normalizeFallbackTerm(text.normalize('NFKC'));
+}
+
+/**
+ * The pointer reader's pre-profile Japanese run, moved without changing its
+ * character class. Keeping it inside the Japanese Adapter makes the shared
+ * lookup ask the active target for word membership without altering a single
+ * Japanese boundary.
+ */
+function japanesePointerWordSegments(text: string): readonly LanguageTextSegment[] {
+    return [...text.matchAll(JAPANESE_POINTER_WORD_RE)].map(match => ({
+        text: match[0],
+        start: match.index,
+        end: match.index + match[0].length,
+    }));
 }

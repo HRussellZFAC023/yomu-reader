@@ -15,6 +15,7 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
             language: language.runtimeLocale,
             direction: language.direction,
             capabilities: {
+                'term-lookup': true,
                 segmentation: true,
                 'text-to-speech': true,
                 subtitles: true,
