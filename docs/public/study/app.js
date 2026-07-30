@@ -95773,13 +95773,13 @@ ${spelling}`);
                         </select></label>`;
   }
   function interfaceLocaleOptionLabel(locale) {
-    return locale.nativeName === locale.englishName ? locale.nativeName : `${locale.nativeName} — ${locale.englishName}`;
+    return locale.nativeName === locale.englishName ? isolate(locale.nativeName) : `${isolate(locale.nativeName)} — ${isolate(locale.englishName)}`;
   }
   function renderBlockedInterfaceLocaleOption(locale, language2) {
     const reason = uiText(language2, interfaceLocaleBlockerCopyKey(locale));
     const nativeReason = blockedReasonInLocale(locale);
     return `
-                            <option value="${escapeHtml$2(locale.tag)}" lang="${escapeHtml$2(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml$2(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml$2(locale.blockers[0] ?? "translation-incomplete")}">${escapeHtml$2(`${interfaceLocaleOptionLabel(locale)} · ${reason}`)}</option>`;
+                            <option value="${escapeHtml$2(locale.tag)}" lang="${escapeHtml$2(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml$2(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml$2(locale.blockers[0] ?? "translation-incomplete")}">${escapeHtml$2(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
   }
   function interfaceLocaleBlockerCopyKey(locale) {
     return locale.blockers[0] === "rtl-verification-pending" ? "interfaceLocaleRtlPending" : "interfaceLocaleTranslationPending";

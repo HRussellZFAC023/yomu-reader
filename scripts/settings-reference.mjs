@@ -374,7 +374,11 @@ function cell(text) {
 }
 
 function collapse(text) {
-    return text.replace(/\s+/g, ' ').trim();
+    // Drop bidi isolate/override controls. The interface-locale options wrap each
+    // part in FSI/PDI so "العربية — Arabic" cannot reorder inside an RTL <select>,
+    // which is right in the UI and pure noise in a Markdown table: invisible
+    // characters that alter the generated file and survive a copy-paste out of it.
+    return text.replace(/[⁦-⁩‪-‮]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // Bundle the settings source and load it against a jsdom window. The dialog is
