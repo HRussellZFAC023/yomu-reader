@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.50] - 2026-07-30
+
+### Fixed
+
+- First-run setup now shows progress while downloading the default offline Japanese dictionaries. Before it starts, the option names the dictionary contents and their 35.1 MiB download size.
+- OCR text stays aligned with manga pages while scrolling. In the Chromium fixture, the positioning pass for six visible layers from 24 recognised images ran 11.22 times faster.
+
 ## [1.8.49] - 2026-07-30
 
 ### Fixed

@@ -207,9 +207,9 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
     // annotate its lines in place), and a line that grew readings needs the taller top
     // gutter on the very next fit.
     const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
-    // The frame from the previous pass goes first, before anything is measured: a
-    // vertical column wraps inside its own height, so a line measured against the box it
-    // last had would be fitting itself to its own last answer.
+    const typeface = input.typeface ?? ocrLayerTypeface(element);
+    // A vertical column wraps inside its own previous answer. Clear that frame before
+    // measuring the natural line.
     element.style.width = '';
     element.style.height = '';
     const fontSize = ocrFontPx(
@@ -218,13 +218,11 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
         box.height,
         vertical,
         input.fontScale,
-        measureOcrLineExtent(element, textElement, vertical, input.typeface ?? ocrLayerTypeface(element), input.layerTransform),
+        measureOcrLineExtent(element, textElement, vertical, typeface, input.layerTransform),
     );
     element.style.fontSize = `${fontSize}px`;
     element.dataset.hasFuri = String(hasFurigana);
     const padding = ocrLinePadding(fontSize, vertical, hasFurigana);
-    // The padding has to be on the element before the text is measured: it drives the
-    // line box the re-typeset glyphs lay out inside.
     applyOcrLinePadding(element, padding);
     const content = paintedElementBox(textElement, input.layerTransform);
     const placed = ocrLineFrame({
@@ -253,9 +251,10 @@ export function layoutOcrOverlayLines(
     frame: OcrOverlayFrame,
     fontScale: number,
     layerTransform: OcrLinearTransform | null = null,
+    knownTypeface?: string,
 ): void {
     const lines = layer.querySelectorAll<HTMLElement>('.jpdb-ocr-line');
-    const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : '';
+    const typeface = knownTypeface ?? (lines.length > 0 ? ocrLayerTypeface(lines[0]) : '');
     lines.forEach(element => {
         layoutOcrLineElement(element, {
             text: element.dataset.ocrText ?? '',
@@ -286,6 +285,12 @@ export function layoutOcrOverlayLines(
 function ocrLayerTypeface(line: HTMLElement): string {
     const view = line.ownerDocument.defaultView;
     return view ? view.getComputedStyle(line).fontFamily : '';
+}
+
+/** Read a layer's typeface during the gather phase, before any overlay writes. */
+export function ocrOverlayTypeface(layer: ParentNode): string {
+    const line = layer.querySelector<HTMLElement>('.jpdb-ocr-line');
+    return line ? ocrLayerTypeface(line) : '';
 }
 
 // The size the fit is measured at. One reading is enough: text advances scale linearly
@@ -333,6 +338,10 @@ function measureOcrLineExtent(
     const signature = `${vertical ? 'vertical' : 'horizontal'}|${typeface}|${textElement.innerHTML}`;
     const remembered = rememberedLineExtents.get(line);
     if (remembered?.signature === signature) return remembered.measurement;
+    // A vertical line wraps inside its own previous answer. Clear that frame before taking
+    // the reference-size measurement.
+    line.style.width = '';
+    line.style.height = '';
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
     const length = axisLength(paintedElementBox(textElement, layerTransform), vertical);
     if (!(length > 0)) return undefined;
@@ -619,6 +628,22 @@ const TRANSFORM_EPSILON = 1e-6;
 // extents are the same sum of the two sides), so the box cannot be inverted and the
 // element's own layout box has to answer instead.
 const MIN_INVERTIBLE_DETERMINANT = 0.05;
+// A surface's ancestor transform chain is stable while the page scrolls. Cache it per
+// surface, and let the controller invalidate only surfaces below a mutated ancestor.
+// `globalEpoch` is reserved for infrequent whole-viewport signals such as resize,
+// orientation, and fullscreen; it is not bumped by ordinary DOM mutations.
+const rememberedAncestorTransforms =
+    new WeakMap<HTMLElement, [number, Element, string, OcrLinearTransform | null]>();
+let composedTransformGlobalEpoch = 0;
+
+export function forgetComposedOcrSurfaceTransform(element: HTMLElement): void {
+    rememberedAncestorTransforms.delete(element);
+}
+
+export function forgetAllComposedOcrSurfaceTransforms(): void {
+    composedTransformGlobalEpoch += 1;
+}
+
 /**
  * The transform between the surface's own box and the space the OCR layer is positioned
  * in, or null when there is nothing to apply.
@@ -630,16 +655,26 @@ export function composedOcrSurfaceTransform(
     element: HTMLElement,
     mountParent: Element | null,
     _rect: OcrSurfaceRect,
+    fresh = false,
 ): OcrLinearTransform | null {
     const view = element.ownerDocument.defaultView;
     if (!view) return null;
-    const own = parseCssTransformLinear(view.getComputedStyle(element).transform);
+    const ownTransform = view.getComputedStyle(element).transform;
     const stop = mountParent?.contains(element) ? mountParent : element.ownerDocument.body;
-    let composed = own;
+    const remembered = rememberedAncestorTransforms.get(element);
+    if (!fresh
+        && remembered?.[0] === composedTransformGlobalEpoch
+        && remembered[1] === stop
+        && remembered[2] === ownTransform) {
+        return remembered[3];
+    }
+    let composed = parseCssTransformLinear(ownTransform);
     for (let node = element.parentElement; node && node !== stop && composed; node = node.parentElement) {
         composed = multiplyTransforms(parseCssTransformLinear(view.getComputedStyle(node).transform), composed);
     }
-    return composed && !isIdentityTransform(composed) ? composed : null;
+    const transform = composed && !isIdentityTransform(composed) ? composed : null;
+    rememberedAncestorTransforms.set(element, [composedTransformGlobalEpoch, stop, ownTransform, transform]);
+    return transform;
 }
 
 /**

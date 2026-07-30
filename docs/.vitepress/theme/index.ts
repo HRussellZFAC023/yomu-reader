@@ -616,6 +616,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Vietnamese Settings labels Tra tu Soha as a plaintext HTTP link before it opens.": "ベトナム語の設定では、Tra tu Sohaを開く前に、プレーンテキストHTTPリンクであることを表示するようになりました。",
     "Hover lookups no longer announce themselves as modal dialogs. Clicked lookups keep keyboard focus inside, hide the page from screen readers while open, and return focus to the word after Escape.": "ホバー検索はモーダルダイアログとして読み上げられなくなりました。クリックで開いた検索では、開いている間はキーボードフォーカスが検索内に保たれ、スクリーンリーダーからページ本文が隠されます。Escapeで閉じるとフォーカスは調べた単語に戻ります。",
     "Error details stay in diagnostics while lookup, review, scan, settings, audio, subtitle-mining, and reset failures now show interface-language copy. JPDB key, rate-limit, connection, and timeout failures have their own messages.": "エラーの詳細は診断ログに残し、検索、レビュー、スキャン、設定、音声、字幕採掘、リセットの失敗はインターフェース言語で表示するようになりました。JPDBのキー、レート制限、接続、タイムアウトには、それぞれ専用のメッセージがあります。",
+    "First-run setup now shows progress while downloading the default offline Japanese dictionaries. Before it starts, the option names the dictionary contents and their 35.1 MiB download size.": "初回セットアップで、標準のオフライン日本語辞書をダウンロードしている間の進捗が表示されるようになりました。開始前の選択肢には、辞書の内容と35.1 MiBのダウンロードサイズが表示されます。",
+    "OCR text stays aligned with manga pages while scrolling. In the Chromium fixture, the positioning pass for six visible layers from 24 recognised images ran 11.22 times faster.": "スクロール中もOCRテキストが漫画ページの文字位置にそろうようになりました。Chromiumのフィクスチャでは、認識済み画像24枚のうち表示中の6レイヤーを対象とした位置合わせ処理が11.22倍速くなりました。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',

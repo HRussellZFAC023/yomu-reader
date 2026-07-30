@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-025bfb01ba87';
+const VERSION = 'yomu-academy-shell-s1-6ec0aa917dd2';
 const AUDIO_CACHE = 'yomu-academy-audio-v2-demand';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -451,8 +451,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-025bfb01ba87',
-    '/academy/style.css?v=s1-025bfb01ba87',
+    '/academy/app.js?v=s1-6ec0aa917dd2',
+    '/academy/style.css?v=s1-6ec0aa917dd2',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

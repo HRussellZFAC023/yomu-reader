@@ -198,6 +198,32 @@ describe('OCR transform controller wiring', () => {
         });
     }
 
+    it('keeps the Window receiver on the coalesced position frame in Firefox sandboxes', () => {
+        const controller = bareController();
+        let receiver: unknown;
+        const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(function (
+            this: Window,
+            _callback: FrameRequestCallback,
+        ) {
+            receiver = this;
+            return 73;
+        });
+        const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+        const internals = controller as unknown as {
+            positionFrame: number;
+            schedulePosition(): void;
+        };
+
+        internals.schedulePosition();
+        expect(receiver).toBe(window);
+        expect(internals.positionFrame).toBe(73);
+
+        controller.destroy();
+        expect(cancel).toHaveBeenCalledWith(73);
+        request.mockRestore();
+        cancel.mockRestore();
+    });
+
     it('uses the real positionState path with a top-left transform origin and one-space placed rect', () => {
         const controller = bareController();
         const image = document.createElement('img');

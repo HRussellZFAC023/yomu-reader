@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
     composedOcrSurfaceTransform,
+    forgetAllComposedOcrSurfaceTransforms,
+    forgetComposedOcrSurfaceTransform,
     fittedObjectSize,
     imageContentBox,
     layoutOcrOverlayLines,
@@ -263,6 +265,23 @@ describe('composedOcrSurfaceTransform', () => {
         expect(linear?.b).toBeCloseTo(2, 6);
         expect(linear?.c).toBeCloseTo(-2, 6);
         expect(linear?.d).toBeCloseTo(0, 6);
+    });
+
+    it('reuses one surface chain until that surface or the viewport is invalidated', () => {
+        const image = tree({ grandparent: 'rotate(90deg)' });
+        const ancestor = image.parentElement?.parentElement as HTMLElement;
+        const rect = rectOf(0, 0, 589, 414);
+        expect(composedOcrSurfaceTransform(image, document.body, rect)?.b).toBeCloseTo(1, 6);
+
+        ancestor.style.transform = 'rotate(-90deg)';
+        // Mutation-aware callers invalidate this exact surface; a plain scroll does not.
+        expect(composedOcrSurfaceTransform(image, document.body, rect)?.b).toBeCloseTo(1, 6);
+        forgetComposedOcrSurfaceTransform(image);
+        expect(composedOcrSurfaceTransform(image, document.body, rect)?.b).toBeCloseTo(-1, 6);
+
+        ancestor.style.transform = 'rotate(90deg)';
+        forgetAllComposedOcrSurfaceTransforms();
+        expect(composedOcrSurfaceTransform(image, document.body, rect)?.b).toBeCloseTo(1, 6);
     });
 
     it('does not miss an ancestor half-turn whose bounding box matches the layout box', () => {

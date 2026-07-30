@@ -3621,7 +3621,7 @@
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
-      onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
+      onboardingInstallOfflineDictionaries: "Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)",
       onboardingHoverShortcut: "Lookup hover modifier",
       manualPageScanShortcut: "Manual page scan shortcut",
       onboardingAddApiKey: "Add API key",
@@ -4907,7 +4907,7 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	オフライン辞書をダウンロード（Jitendex＋ピッチアクセント）
+onboardingInstallOfflineDictionaries	日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
@@ -49542,6 +49542,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const textElement = element2.querySelector(".jpdb-ocr-line-text");
     if (!textElement) return null;
     const hasFurigana = Boolean(textElement.querySelector(".jpdb-reader-has-furi"));
+    const typeface = input2.typeface ?? ocrLayerTypeface(element2);
     element2.style.width = "";
     element2.style.height = "";
     const fontSize = ocrFontPx(
@@ -49550,7 +49551,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       box.height,
       vertical,
       input2.fontScale,
-      measureOcrLineExtent(element2, textElement, vertical, input2.typeface ?? ocrLayerTypeface(element2), input2.layerTransform)
+      measureOcrLineExtent(element2, textElement, vertical, typeface, input2.layerTransform)
     );
     element2.style.fontSize = `${fontSize}px`;
     element2.dataset.hasFuri = String(hasFurigana);
@@ -49573,9 +49574,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     element2.style.height = `${placed.height}px`;
     return placed;
   }
-  function layoutOcrOverlayLines(layer, frame, fontScale, layerTransform = null) {
+  function layoutOcrOverlayLines(layer, frame, fontScale, layerTransform = null, knownTypeface) {
     const lines = layer.querySelectorAll(".jpdb-ocr-line");
-    const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : "";
+    const typeface = knownTypeface ?? (lines.length > 0 ? ocrLayerTypeface(lines[0]) : "");
     lines.forEach((element2) => {
       layoutOcrLineElement(element2, {
         text: element2.dataset.ocrText ?? "",
@@ -49597,12 +49598,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const view = line.ownerDocument.defaultView;
     return view ? view.getComputedStyle(line).fontFamily : "";
   }
+  function ocrOverlayTypeface(layer) {
+    const line = layer.querySelector(".jpdb-ocr-line");
+    return line ? ocrLayerTypeface(line) : "";
+  }
   const OCR_FIT_MEASURE_PX = 32;
   const rememberedLineExtents = /* @__PURE__ */ new WeakMap();
   function measureOcrLineExtent(line, textElement, vertical, typeface, layerTransform) {
     const signature = `${vertical ? "vertical" : "horizontal"}|${typeface}|${textElement.innerHTML}`;
     const remembered = rememberedLineExtents.get(line);
     if (remembered?.signature === signature) return remembered.measurement;
+    line.style.width = "";
+    line.style.height = "";
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
     const length = axisLength(paintedElementBox(textElement, layerTransform), vertical);
     if (!(length > 0)) return void 0;
@@ -49758,16 +49765,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const IDENTITY_TRANSFORM = { a: 1, b: 0, c: 0, d: 1 };
   const TRANSFORM_EPSILON = 1e-6;
   const MIN_INVERTIBLE_DETERMINANT = 0.05;
-  function composedOcrSurfaceTransform(element2, mountParent, _rect) {
+  const rememberedAncestorTransforms = /* @__PURE__ */ new WeakMap();
+  let composedTransformGlobalEpoch = 0;
+  function forgetComposedOcrSurfaceTransform(element2) {
+    rememberedAncestorTransforms.delete(element2);
+  }
+  function forgetAllComposedOcrSurfaceTransforms() {
+    composedTransformGlobalEpoch += 1;
+  }
+  function composedOcrSurfaceTransform(element2, mountParent, _rect, fresh = false) {
     const view = element2.ownerDocument.defaultView;
     if (!view) return null;
-    const own = parseCssTransformLinear(view.getComputedStyle(element2).transform);
+    const ownTransform = view.getComputedStyle(element2).transform;
     const stop = mountParent?.contains(element2) ? mountParent : element2.ownerDocument.body;
-    let composed = own;
+    const remembered = rememberedAncestorTransforms.get(element2);
+    if (!fresh && remembered?.[0] === composedTransformGlobalEpoch && remembered[1] === stop && remembered[2] === ownTransform) {
+      return remembered[3];
+    }
+    let composed = parseCssTransformLinear(ownTransform);
     for (let node = element2.parentElement; node && node !== stop && composed; node = node.parentElement) {
       composed = multiplyTransforms(parseCssTransformLinear(view.getComputedStyle(node).transform), composed);
     }
-    return composed && !isIdentityTransform(composed) ? composed : null;
+    const transform = composed && !isIdentityTransform(composed) ? composed : null;
+    rememberedAncestorTransforms.set(element2, [composedTransformGlobalEpoch, stop, ownTransform, transform]);
+    return transform;
   }
   function ocrOverlayLayerPlacement(rect, linear, layout) {
     const axisAligned = {
@@ -49905,6 +49926,49 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (value.endsWith("turn")) return amount * 2 * Math.PI;
     if (value.endsWith("grad")) return amount * Math.PI / 200;
     return amount * Math.PI / 180;
+  }
+  const positionedLayoutKeys = /* @__PURE__ */ new WeakMap();
+  function setOcrOverlayAccessibility(overlay, visible) {
+    overlay.setAttribute("aria-hidden", String(!visible));
+    if (!visible) {
+      overlay.removeAttribute("role");
+      overlay.removeAttribute("aria-label");
+      return;
+    }
+    overlay.setAttribute("role", "region");
+    overlay.setAttribute("aria-label", `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ""}`.trim());
+  }
+  function setOcrLayerTransform(overlay, transform) {
+    if (overlay.style.transform === transform) return;
+    overlay.style.transform = transform;
+    overlay.style.transformOrigin = transform ? "0 0" : "";
+  }
+  function layoutOcrOverlayIfChanged(overlay, frame, fontScale, transform, typeface, force = false) {
+    const key = JSON.stringify([frame, fontScale, transform, typeface]);
+    if (!force && positionedLayoutKeys.get(overlay) === key) return;
+    layoutOcrOverlayLines(overlay, frame, fontScale, transform, typeface);
+    positionedLayoutKeys.set(overlay, key);
+  }
+  function ocrPlacedSurfaceRect(rect, placement) {
+    if (placement.width === rect.width && placement.height === rect.height) return rect;
+    return {
+      left: placement.left,
+      top: placement.top,
+      bottom: placement.top + placement.height,
+      width: placement.width,
+      height: placement.height
+    };
+  }
+  function setOcrArtifactPosition(element2, viewportLeft, viewportTop, offset = ocrArtifactRootOffset(element2)) {
+    element2.style.left = `${viewportLeft - offset.left}px`;
+    element2.style.top = `${viewportTop - offset.top}px`;
+  }
+  function ocrArtifactRootOffset(element2) {
+    if (element2.dataset.yomuOcrFullscreenHosted !== "true") return { left: 0, top: 0 };
+    const root = element2.parentElement;
+    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
+    const rect = root.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
   }
   function pushTargetLanguageOcrLine(lines, text2, box) {
     if (!text2 || !box || !isTargetLanguageText(text2)) return;
@@ -52403,15 +52467,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     observerMargin = "";
     mutationObserver;
     queue = [];
-    // OCR runs as a small concurrency pool rather than one-at-a-time: manga
-    // readers surface many page images/canvases at once and the serial wait was
-    // the dominant source of "slow OCR". `activeScans` counts in-flight requests
-    // (capped by settings.ocrConcurrency) and `inFlightJobs` deduplicates work
-    // when several queued elements share the same image content (e.g. a canvas
-    // frame re-snapshotted on a page poll).
+    // Small bounded pool; inFlightJobs also deduplicates identical image content.
     activeScans = 0;
-    // A token owns each key. A stale scan may finish after a page turn/manual retry;
-    // it must not delete the marker belonging to the newer job for the same content.
+    // Tokens stop a stale scan deleting a newer job's marker.
     inFlightJobs = /* @__PURE__ */ new Map();
     positionFrame = 0;
     refreshTimer = 0;
@@ -52424,13 +52482,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
     videoFrameStatuses = /* @__PURE__ */ new Map();
-    // Compact loading/ready indicators for every OCR'd image (not just
-    // paused-video frames), so slow image OCR shows progress without a card.
     imageStatuses = /* @__PURE__ */ new Map();
     imageStatusTimers = /* @__PURE__ */ new Map();
-    // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
-    // background pages): map each page surface to the invisible <img> we OCR in
-    // its place, plus the page fingerprint and the page-turn poll.
+    // Reader surfaces map to the invisible images OCR actually scans.
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
@@ -52440,54 +52494,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     canvasFrameLoadTimers = /* @__PURE__ */ new Map();
     canvasPendingStatuses = /* @__PURE__ */ new Map();
     canvasPendingStatusKeys = /* @__PURE__ */ new Map();
-    // Canvases whose frame the user explicitly tapped to create. A native-text-layer
-    // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
-    // tapped to make must survive that poll — only a real page turn drops it.
+    // Explicitly tapped frames survive native-text-layer polling until a real turn.
     canvasFrameUserRequested = /* @__PURE__ */ new Set();
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
     canvasReaderSamePageSignatureSkips = 0;
-    // Memoized "this page is provably raster-reader-free" verdict. On a page
-    // with zero raster candidates (e.g. a video site full of background-image
-    // thumbnails) every viewport shift and mutation re-arm must be O(1) — no
-    // selector sweep, no forced layout. Invalidated per navigation (href key)
-    // and by mutations that could introduce a candidate.
+    // Keeps viewport shifts O(1) on pages proven free of reader rasters.
     readerRasterFreeMemo;
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
-    // Entries are short-lived: settled in the capture's `finally`, cancelled on
-    // release/rebind/teardown. Keep a real Map so pointer ownership can ask whether
-    // any capture is pending and destroy can invalidate every in-flight capture.
     pendingCanvasSnapshots = /* @__PURE__ */ new Map();
-    // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
-    // stable surface location instead of the canvas object: NFBR sometimes swaps an
-    // equivalent #viewport canvas node while painting the same page, and object-keyed
-    // readiness would then wait forever for "the same" sample to appear twice.
+    // Stable-location keys survive equivalent NFBR canvas-node swaps.
     canvasContentReadiness = /* @__PURE__ */ new Map();
-    // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
     canvasMirrorWaitStartedAt = /* @__PURE__ */ new Map();
     canvasCommitMismatches = /* @__PURE__ */ new Map();
-    // Content identity recorded when a canvas's automatic retries were paused on a
-    // terminal status. Continuous mode repaints the recycled canvas in place with
-    // no release-all page turn, so a paused surface must reopen when it shows a
-    // genuinely new page instead of inheriting "Could not read" forever.
+    // A recycled canvas reopens terminally paused capture for genuinely new content.
     canvasFailureContentTokens = /* @__PURE__ */ new Map();
     readerRasterEmptyScans = /* @__PURE__ */ new Map();
     readerRasterFailedScans = /* @__PURE__ */ new Set();
     readerRasterProviderFailures = /* @__PURE__ */ new Map();
     readerRasterProviderRetryTimers = /* @__PURE__ */ new Map();
-    // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
-    // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
-    // rebuild momentarily failed: the origin-clean page image was still loading, or
-    // the engine repainted the page a beat late) must keep retrying AS a tap. This
-    // window deliberately SURVIVES page-signature changes (a late NFBR repaint, or the
-    // poll first registering the freshly-composited page, looks like a "turn") so the
-    // tap isn't silently dropped — the reported "a page just has no OCR, no Scanning…/
-    // Text ready pill" bug. Bounded so it can never become permanent auto-OCR in tap
-    // mode; cleared on success, frame release, disconnect, or teardown.
+    // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     canvasTapRecapture = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
@@ -52495,15 +52525,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     lookupLineLeases = /* @__PURE__ */ new Map();
     recentTouchOcrPoint;
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
-    // Manual trigger from the subtitle rail's OCR button: reads the paused
-    // frame on demand even when automatic pause-frame OCR is switched off.
     handleManualFrameRequest = (event) => {
       const video = event.detail?.video;
       if (video) this.snapshotPausedVideo(video, true);
     };
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
-    // Stepping subtitle lines while paused seeks the video — the snapshot
-    // must follow the new frame instead of showing the stale one.
     handleMediaSeeked = (event) => this.refreshVideoFrameAfterSeek(event.target);
     handleDocumentPointerDown = (event) => {
       this.unpinOcrLinesFromDocumentEvent(event);
@@ -52518,10 +52544,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     handleDocumentClick = (event) => this.unpinOcrLinesFromDocumentEvent(event);
     handleDocumentScroll = () => this.handleOcrViewportShift(120);
     handleWindowScroll = () => this.handleOcrViewportShift(240);
-    handleWindowResize = () => this.handleOcrViewportShift(300);
+    handleWindowResize = () => {
+      forgetAllComposedOcrSurfaceTransforms();
+      this.handleOcrViewportShift(300);
+    };
+    handleVisualViewportResize = () => {
+      forgetAllComposedOcrSurfaceTransforms();
+      this.handleOcrViewportShift(120);
+    };
     handleSpaNavigation = () => this.teardownForNavigation();
     init() {
       this.destroyed = false;
+      forgetAllComposedOcrSurfaceTransforms();
       this.readerRasterFreeMemo = void 0;
       const body = document.body;
       if (!body) {
@@ -52548,7 +52582,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
         document.addEventListener(eventName, this.handleWindowResize, true);
       }
-      window.visualViewport?.addEventListener("resize", this.handleDocumentScroll, { passive: true });
+      window.visualViewport?.addEventListener("resize", this.handleVisualViewportResize, { passive: true });
       window.visualViewport?.addEventListener("scroll", this.handleDocumentScroll, { passive: true });
       for (const eventName of OCR_NAVIGATION_EVENTS) {
         window.addEventListener(eventName, this.handleSpaNavigation);
@@ -52558,10 +52592,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         childList: true,
         subtree: true,
         attributes: true,
-        // width/height catch a canvas backing store growing to page shape
-        // (a resize mutates only those attributes); the data-* reader
-        // signals catch surfaces marked up after insertion. All feed the
-        // raster-free memo invalidation in handleRenderableMediaMutations.
         attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster", "width", "height", "data-yomu-canvas-ocr", "data-page-index", "data-mokuro-reader"]
       });
       this.startReaderRasterPollingIfNeeded();
@@ -52585,7 +52615,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
         document.removeEventListener(eventName, this.handleWindowResize, true);
       }
-      window.visualViewport?.removeEventListener("resize", this.handleDocumentScroll);
+      window.visualViewport?.removeEventListener("resize", this.handleVisualViewportResize);
       window.visualViewport?.removeEventListener("scroll", this.handleDocumentScroll);
       for (const eventName of OCR_NAVIGATION_EVENTS) {
         window.removeEventListener(eventName, this.handleSpaNavigation);
@@ -52605,7 +52635,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         this.readerRasterRetryTimer = 0;
       }
       this.mutationObserver?.disconnect();
-      if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
+      if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
       this.clear();
     }
     refresh(options = {}) {
@@ -52680,6 +52710,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
     }
     handleRenderableMediaMutations(mutations) {
+      this.invalidatePositionTransformsForMutations(mutations);
       const settings = this.options.getSettings();
       if (!ocrRuntimeActive(settings)) {
         this.readerRasterFreeMemo = void 0;
@@ -52694,6 +52725,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.schedulePosition();
       if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
       this.scheduleRefresh(summary.addedImage ? 0 : 40);
+    }
+    invalidatePositionTransformsForMutations(mutations) {
+      if (mutations.some(mutationCanRestyleEverySurface)) {
+        forgetAllComposedOcrSurfaceTransforms();
+        return;
+      }
+      for (const image of this.states.keys()) {
+        const surface = this.ocrLayerTransformSurface(image);
+        if (surface && mutations.some(({ target }) => {
+          const element2 = target instanceof Element ? target : target.parentElement;
+          return element2 === surface || Boolean(element2?.contains(surface));
+        })) {
+          forgetComposedOcrSurfaceTransform(surface);
+        }
+      }
     }
     handleOcrViewportShift(refreshDelay) {
       if (!ocrRuntimeActive(this.options.getSettings())) return;
@@ -53561,13 +53607,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     schedulePosition() {
       if (this.destroyed) return;
       if (this.positionFrame) return;
-      this.positionFrame = requestAnimationFrame(() => {
+      this.positionFrame = window.requestAnimationFrame(() => {
         this.positionFrame = 0;
         if (this.destroyed) return;
         this.positionVideoFrames();
         this.positionCanvasFrames();
         this.positionBackgroundFrames();
-        for (const image of this.states.keys()) this.positionState(image);
+        this.positionAllStates();
         this.positionImageStatusCards();
       });
     }
@@ -54731,45 +54777,63 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }, delay2);
     }
     positionState(image) {
-      const state2 = this.states.get(image);
-      if (!state2) return;
-      const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
-      const visible = isImageVisibleForOcr(image, rect);
-      state2.overlay.hidden = !visible;
-      setOcrOverlayAccessibility(state2.overlay, visible);
-      if (!visible) return;
-      const placement = this.ocrLayerPlacement(image, rect, state2.overlay);
-      setOcrArtifactPosition(state2.overlay, placement.left, placement.top);
-      state2.overlay.style.width = `${placement.width}px`;
-      state2.overlay.style.height = `${placement.height}px`;
-      setOcrLayerTransform(state2.overlay, placement.transform);
-      layoutOcrOverlayLines(
-        state2.overlay,
-        this.renderedOcrImageFrameForState(
-          image,
-          ocrPlacedSurfaceRect(rect, placement),
-          state2.result,
-          rect.bottom
-        ),
-        this.options.getSettings().ocrFontScale,
-        placement.linear
-      );
+      this.positionStates([image], true);
     }
-    ocrLayerPlacement(image, rect, overlay) {
-      const surface = this.ocrLayerTransformSurface(image);
-      const linear = surface ? composedOcrSurfaceTransform(surface, overlay.parentElement) : null;
-      return ocrOverlayLayerPlacement(rect, linear, { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 });
+    positionAllStates() {
+      this.positionStates(this.states.keys());
     }
-    // Whose transform the layer has to carry: whatever is PAINTING the pixels the lines sit
-    // on. For a canvas or background surface that is the host element, not the frame image
-    // the capture went through — those are opacity:0 and exist only to carry pixels, and the
-    // OCR boxes come back in the surface's own unrotated space, which is exactly the space a
-    // rotated layer maps from. A paused video's frame image IS visible, and it is
-    // axis-aligned wherever it was put, so the layer follows it and stays in step.
-    //
-    // The exception is a canvas frame measured against a REGION of its canvas: that rect is
-    // a sub-box picked out by fractions rather than an element's own box, and taking a box
-    // back out of a bounding box only says anything about a whole element box.
+    positionStates(images, forceLayout = false) {
+      const plans = [];
+      const fontScale = this.options.getSettings().ocrFontScale;
+      for (const image of images) {
+        const state2 = this.states.get(image);
+        if (!state2) continue;
+        const overlay = state2.overlay;
+        const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
+        if (!isImageVisibleForOcr(image, rect)) {
+          plans.push([overlay]);
+          continue;
+        }
+        const surface = this.ocrLayerTransformSurface(image);
+        const linear = surface ? composedOcrSurfaceTransform(surface, overlay.parentElement) : null;
+        const placement = ocrOverlayLayerPlacement(
+          rect,
+          linear,
+          { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 }
+        );
+        plans.push([
+          overlay,
+          placement,
+          this.renderedOcrImageFrameForState(
+            image,
+            ocrPlacedSurfaceRect(rect, placement),
+            state2.result,
+            rect.bottom
+          ),
+          ocrArtifactRootOffset(overlay),
+          ocrOverlayTypeface(overlay)
+        ]);
+      }
+      for (const [overlay, placement, frame, offset, typeface] of plans) {
+        const visible = Boolean(placement && frame);
+        overlay.hidden = !visible;
+        setOcrOverlayAccessibility(overlay, visible);
+        if (!placement || !frame) continue;
+        setOcrArtifactPosition(overlay, placement.left, placement.top, offset);
+        overlay.style.width = `${placement.width}px`;
+        overlay.style.height = `${placement.height}px`;
+        setOcrLayerTransform(overlay, placement.transform);
+        layoutOcrOverlayIfChanged(
+          overlay,
+          frame,
+          fontScale,
+          placement.linear,
+          typeface,
+          forceLayout
+        );
+      }
+    }
+    // Follow the element painting the pixels; regional canvas captures stay axis-aligned.
     ocrLayerTransformSurface(image) {
       const canvas = this.canvasFrameSources.get(image);
       if (canvas) {
@@ -54786,11 +54850,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const surface = this.backgroundFrameSources.get(image);
       return surface?.getBoundingClientRect();
     }
-    // A bottom inset moves recognized text off the pixels it was read from, so it
-    // is reserved for chrome the overlay cannot paint over: the browser/reader
-    // furniture at the true viewport bottom under a reader raster surface. Player
-    // chrome inside the page never qualifies — the OCR layer paints above it, and
-    // a video's own subtitles live in exactly that bottom strip.
+    // Reserve only true viewport-bottom reader chrome, never in-page player chrome.
     renderedOcrImageFrameForState(image, rect, result, viewportBottom = rect.bottom) {
       const frame = this.canvasFrameSources.has(image) ? renderedCanvasReaderFrame(rect) : renderedOcrImageFrame(image, rect, result);
       if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
@@ -55188,16 +55248,6 @@ ${spelling}`);
       element2.dataset.vertical ?? ""
     ]);
   }
-  function setOcrOverlayAccessibility(overlay, visible) {
-    overlay.setAttribute("aria-hidden", String(!visible));
-    if (!visible) {
-      overlay.removeAttribute("role");
-      overlay.removeAttribute("aria-label");
-      return;
-    }
-    overlay.setAttribute("role", "region");
-    overlay.setAttribute("aria-label", `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ""}`.trim());
-  }
   function setOcrLineDataset(element2, result, line, sentence) {
     element2.dataset.ocrText = line.text;
     element2.dataset.boxLeft = String(line.box.left / result.width);
@@ -55469,6 +55519,9 @@ ${spelling}`);
       return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
     }
     return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+  }
+  function mutationCanRestyleEverySurface(mutation) {
+    return [mutation.target, ...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
   }
   function summarizeRenderableMediaMutations(mutations) {
     let addedImage = false;
@@ -55777,33 +55830,6 @@ ${spelling}`);
     const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
     setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
-  }
-  function setOcrLayerTransform(overlay, transform) {
-    if (overlay.style.transform === transform) return;
-    overlay.style.transform = transform;
-    overlay.style.transformOrigin = transform ? "0 0" : "";
-  }
-  function ocrPlacedSurfaceRect(rect, placement) {
-    if (placement.width === rect.width && placement.height === rect.height) return rect;
-    return {
-      left: placement.left,
-      top: placement.top,
-      bottom: placement.top + placement.height,
-      width: placement.width,
-      height: placement.height
-    };
-  }
-  function setOcrArtifactPosition(element2, viewportLeft, viewportTop) {
-    const offset = ocrArtifactRootOffset(element2);
-    element2.style.left = `${viewportLeft - offset.left}px`;
-    element2.style.top = `${viewportTop - offset.top}px`;
-  }
-  function ocrArtifactRootOffset(element2) {
-    if (element2.dataset.yomuOcrFullscreenHosted !== "true") return { left: 0, top: 0 };
-    const root = element2.parentElement;
-    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
-    const rect = root.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
   }
   function appendOcrArtifactToRoot(element2, root) {
     const oldRoot = element2.parentElement;
@@ -56173,7 +56199,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.49".trim() ? "1.8.49".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.50".trim() ? "1.8.50".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -145228,7 +145254,8 @@ ${rank.detail}` : baseTitle;
           applySettings: async (settings) => {
             this.settings = settings;
             await saveSettings(settings);
-          }
+          },
+          onProgress: (message) => this.toast(message)
         });
         if (result.installed.length) await this.refreshDictionaryStyles();
         if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, "offlineDictionarySetupFailed"));

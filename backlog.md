@@ -1202,23 +1202,21 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       header now loads one Rollup-deduplicated, wrapper-trimmed `yomu-runtime` companion, for 5,874,598
       injected bytes across two scripts (3,988,433 bytes / 40.4% less). The gate measures both files from the actual `@require`
       metadata, rejects unmeasurable dependencies, and holds an aggregate ratchet that cannot increase.
-- [ ] **A35.22 — OCR repositioning forces layout on every scroll frame.** `schedulePosition()`
-      (`src/reader/ocr/controller.ts:1792-1803`) arms one rAF that runs `positionVideoFrames`,
-      `positionCanvasFrames`, `positionBackgroundFrames`, then `positionState(image)` for every state, then
-      `positionImageStatusCards`. It is armed from scroll (`:477-479` bind document scroll with
-      `capture: true`, window scroll and resize to `handleOcrViewportShift`, which calls
-      `schedulePosition()` at :699; `visualViewport` scroll at :525). Inside `positionState`
-      (`:3280-3300`) the order is read, write, read, write: `getBoundingClientRect()` at :3283, then four
-      style writes at :3292-3295, and the placement it writes comes from `composedOcrSurfaceTransform`
-      (`src/reader/ocr/ocr-overlay-geometry.ts:629-643`), which calls
-      `getComputedStyle(element).transform` at :636 and then walks every ancestor to the mount parent or
-      body calling `getComputedStyle(node).transform` per node at :640. Then `layoutOcrOverlayLines`
-      writes per-line styles. Per image per frame that is 1 + ancestorDepth forced style recalcs, each
-      flushing what the previous image's writes dirtied: 20 images at depth 15 is roughly 320 flushing
-      reads per scroll frame. DV-4 and DV-5 both record BookWalker scroll lag as a live symptom with no
-      root cause attached; this is a mechanism for it. Do: gather every rect and computed transform first,
-      then apply all writes, and memoize the ancestor transform chain per image per epoch — the same shape
-      as the existing memos at `ocr-overlay-geometry.ts:302` and `subtitle-video-inset.ts:1109`.
+- [x] **A35.22 — FIXED: OCR scroll positioning now gathers every surface measurement before writing any
+      overlay.** `ocr-position-pass.ts` defines the read/write plan contract and layout memo, while the
+      controller batches every recognized image into one two-phase rAF pass. Ancestor transforms are memoized per
+      surface and invalidated for that surface when its ancestor mutates; resize, orientation, fullscreen,
+      stylesheet changes, and controller restart advance the whole-page epoch. The rAF call keeps its
+      `Window` receiver so Firefox userscript sandboxes cannot strand the position latch.
+      `scripts/ocr-scroll-position-perf-smoke.mjs` measures the old interleaved path and the shipped path
+      against separate, identical BookWalker-shaped fixtures in Chromium: 24 recognized images, ancestor
+      depth 15, eight OCR lines each, six layers visible, and 21 alternating rounds. Median positioning
+      time fell from **5.050 ms/frame to 0.450 ms/frame** (11.22x); `getComputedStyle` calls fell from
+      **120 to 18** and `getBoundingClientRect` calls from **72 to 24**. The old backlog estimate of 320
+      flushing reads assumed every recognized image was visible; the measured fixture has six visible layers
+      from 24 recognized images. `ocr-position-pass.test.ts` proves every read precedes the first write, and the line,
+      transform, and paused-YouTube-frame checks preserve glyph alignment. BookWalker spread and continuous
+      modes passed in Firefox, WebKit, and Chromium.
 - [ ] **A35.23 — three reader classes of 8k-11k lines, and no file or class size gate anywhere.** Measured
       line counts: `src/reader/newtab/controller.ts` 10,782, `src/reader/app/main.ts` 10,702,
       `src/reader/subtitles/controller.ts` 8,359, `src/reader/dom/index.ts` 7,940 (no class at all),

@@ -15,15 +15,26 @@ import {
 import {
     composedOcrSurfaceTransform,
     fittedObjectSize,
+    forgetAllComposedOcrSurfaceTransforms,
+    forgetComposedOcrSurfaceTransform,
     imageContentBox,
-    layoutOcrOverlayLines,
     objectPositionOffset,
     ocrOverlayLayerPlacement,
+    ocrOverlayTypeface,
     paintedImageFrame,
     type OcrLayerPlacement,
     type OcrOverlayFrame,
     type OcrSurfaceRect,
 } from './ocr-overlay-geometry';
+import {
+    layoutOcrOverlayIfChanged,
+    ocrArtifactRootOffset,
+    ocrPlacedSurfaceRect,
+    setOcrArtifactPosition,
+    setOcrLayerTransform,
+    setOcrOverlayAccessibility,
+    type OcrArtifactOffset,
+} from './ocr-position-pass';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
 import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
@@ -294,6 +305,14 @@ interface OcrScanContext {
     done: () => void;
 }
 
+type OcrPositionPlan = [
+    HTMLElement,
+    OcrLayerPlacement?,
+    OcrOverlayFrame?,
+    OcrArtifactOffset?,
+    string?,
+];
+
 class LocalOcrUnavailableError extends Error {
     constructor(readonly endpointUrl: string) {
         super('Local OCR server is unreachable.');
@@ -361,15 +380,9 @@ export class ImageOcrController {
     private observerMargin = '';
     private mutationObserver?: MutationObserver;
     private queue: HTMLImageElement[] = [];
-    // OCR runs as a small concurrency pool rather than one-at-a-time: manga
-    // readers surface many page images/canvases at once and the serial wait was
-    // the dominant source of "slow OCR". `activeScans` counts in-flight requests
-    // (capped by settings.ocrConcurrency) and `inFlightJobs` deduplicates work
-    // when several queued elements share the same image content (e.g. a canvas
-    // frame re-snapshotted on a page poll).
+    // Small bounded pool; inFlightJobs also deduplicates identical image content.
     private activeScans = 0;
-    // A token owns each key. A stale scan may finish after a page turn/manual retry;
-    // it must not delete the marker belonging to the newer job for the same content.
+    // Tokens stop a stale scan deleting a newer job's marker.
     private readonly inFlightJobs = new Map<string, symbol>();
     private positionFrame = 0;
     private refreshTimer = 0;
@@ -382,13 +395,9 @@ export class ImageOcrController {
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
-    // Compact loading/ready indicators for every OCR'd image (not just
-    // paused-video frames), so slow image OCR shows progress without a card.
     private imageStatuses = new Map<HTMLImageElement, HTMLElement>();
     private imageStatusTimers = new Map<HTMLImageElement, number>();
-    // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
-    // background pages): map each page surface to the invisible <img> we OCR in
-    // its place, plus the page fingerprint and the page-turn poll.
+    // Reader surfaces map to the invisible images OCR actually scans.
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
@@ -398,54 +407,30 @@ export class ImageOcrController {
     private readonly canvasFrameLoadTimers = new Map<HTMLImageElement, number>();
     private canvasPendingStatuses = new Map<HTMLCanvasElement, HTMLElement>();
     private canvasPendingStatusKeys = new Map<HTMLCanvasElement, string>();
-    // Canvases whose frame the user explicitly tapped to create. A native-text-layer
-    // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
-    // tapped to make must survive that poll — only a real page turn drops it.
+    // Explicitly tapped frames survive native-text-layer polling until a real turn.
     private readonly canvasFrameUserRequested = new Set<HTMLCanvasElement>();
     private backgroundFrames = new Map<HTMLElement, HTMLImageElement>();
     private backgroundFrameSources = new Map<HTMLImageElement, HTMLElement>();
     private backgroundFrameKeys = new Map<HTMLElement, string>();
     private canvasReaderSignature?: string;
     private canvasReaderSamePageSignatureSkips = 0;
-    // Memoized "this page is provably raster-reader-free" verdict. On a page
-    // with zero raster candidates (e.g. a video site full of background-image
-    // thumbnails) every viewport shift and mutation re-arm must be O(1) — no
-    // selector sweep, no forced layout. Invalidated per navigation (href key)
-    // and by mutations that could introduce a candidate.
+    // Keeps viewport shifts O(1) on pages proven free of reader rasters.
     private readerRasterFreeMemo?: { href: string; free: boolean };
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
-    // Entries are short-lived: settled in the capture's `finally`, cancelled on
-    // release/rebind/teardown. Keep a real Map so pointer ownership can ask whether
-    // any capture is pending and destroy can invalidate every in-flight capture.
     private readonly pendingCanvasSnapshots = new Map<HTMLCanvasElement, PendingCanvasSnapshot>();
-    // Map (not WeakMap) so a page turn can clear ALL readiness at once. Keyed by
-    // stable surface location instead of the canvas object: NFBR sometimes swaps an
-    // equivalent #viewport canvas node while painting the same page, and object-keyed
-    // readiness would then wait forever for "the same" sample to appear twice.
+    // Stable-location keys survive equivalent NFBR canvas-node swaps.
     private readonly canvasContentReadiness = new Map<string, string>();
-    // Per-canvas failed-capture counter driving the backoff retry above.
     private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
     private readonly canvasMirrorWaitStartedAt = new Map<HTMLCanvasElement, number>();
     private readonly canvasCommitMismatches = new Map<HTMLCanvasElement, number>();
-    // Content identity recorded when a canvas's automatic retries were paused on a
-    // terminal status. Continuous mode repaints the recycled canvas in place with
-    // no release-all page turn, so a paused surface must reopen when it shows a
-    // genuinely new page instead of inheriting "Could not read" forever.
+    // A recycled canvas reopens terminally paused capture for genuinely new content.
     private readonly canvasFailureContentTokens = new Map<HTMLCanvasElement, string>();
     private readonly readerRasterEmptyScans = new Map<string, number>();
     private readonly readerRasterFailedScans = new Set<string>();
     private readonly readerRasterProviderFailures = new Map<string, number>();
     private readonly readerRasterProviderRetryTimers = new Map<string, number>();
-    // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
-    // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
-    // rebuild momentarily failed: the origin-clean page image was still loading, or
-    // the engine repainted the page a beat late) must keep retrying AS a tap. This
-    // window deliberately SURVIVES page-signature changes (a late NFBR repaint, or the
-    // poll first registering the freshly-composited page, looks like a "turn") so the
-    // tap isn't silently dropped — the reported "a page just has no OCR, no Scanning…/
-    // Text ready pill" bug. Bounded so it can never become permanent auto-OCR in tap
-    // mode; cleared on success, frame release, disconnect, or teardown.
+    // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
@@ -453,15 +438,11 @@ export class ImageOcrController {
     private readonly lookupLineLeases = new Map<HTMLElement, Set<OcrLookupLineLease>>();
     private recentTouchOcrPoint?: { clientX: number; clientY: number; at: number };
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
-    // Manual trigger from the subtitle rail's OCR button: reads the paused
-    // frame on demand even when automatic pause-frame OCR is switched off.
     private readonly handleManualFrameRequest = (event: Event) => {
         const video = (event as CustomEvent<{ video?: HTMLVideoElement }>).detail?.video;
         if (video) this.snapshotPausedVideo(video, true);
     };
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
-    // Stepping subtitle lines while paused seeks the video — the snapshot
-    // must follow the new frame instead of showing the stale one.
     private readonly handleMediaSeeked = (event: Event) => this.refreshVideoFrameAfterSeek(event.target);
     private readonly handleDocumentPointerDown = (event: Event) => {
         this.unpinOcrLinesFromDocumentEvent(event);
@@ -476,19 +457,23 @@ export class ImageOcrController {
     private readonly handleDocumentClick = (event: Event) => this.unpinOcrLinesFromDocumentEvent(event);
     private readonly handleDocumentScroll = () => this.handleOcrViewportShift(120);
     private readonly handleWindowScroll = () => this.handleOcrViewportShift(240);
-    private readonly handleWindowResize = () => this.handleOcrViewportShift(300);
+    private readonly handleWindowResize = () => {
+        forgetAllComposedOcrSurfaceTransforms();
+        this.handleOcrViewportShift(300);
+    };
+    private readonly handleVisualViewportResize = () => {
+        forgetAllComposedOcrSurfaceTransforms();
+        this.handleOcrViewportShift(120);
+    };
     private readonly handleSpaNavigation = () => this.teardownForNavigation();
 
     constructor(private readonly options: OcrControllerOptions) {
-        // Re-use OCR results from a previous visit so refreshing a manga/reading
-        // page re-renders recognized text instantly instead of re-OCR'ing it.
         for (const [key, result] of loadPersistedOcrCache()) this.cache.set(key, result);
     }
 
     init(): void {
         this.destroyed = false;
-        // The observer was disconnected while destroyed, so any memo from a
-        // previous boot could be stale — recompute from the current DOM.
+        forgetAllComposedOcrSurfaceTransforms();
         this.readerRasterFreeMemo = undefined;
         const body = document.body;
         if (!body) {
@@ -503,9 +488,7 @@ export class ImageOcrController {
         document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.addEventListener('pointermove', this.handleDocumentPointerMove, true);
         document.addEventListener('click', this.handleDocumentClick, true);
-        // UT-27: paused video frames are OCR'd like images and cleared the
-        // moment playback resumes. Media events do not bubble, so listen in
-        // the capture phase.
+        // Media events do not bubble.
         document.addEventListener('pause', this.handleMediaPause, true);
         document.addEventListener('yomu-ocr-video-frame-request', this.handleManualFrameRequest, true);
         document.addEventListener('play', this.handleMediaResume, true);
@@ -514,38 +497,23 @@ export class ImageOcrController {
         document.addEventListener('scroll', this.handleDocumentScroll, { capture: true, passive: true });
         window.addEventListener('scroll', this.handleWindowScroll, { passive: true });
         window.addEventListener('resize', this.handleWindowResize, { passive: true });
-        // Rotate / fullscreen / pinch-zoom move the paused-frame overlay's
-        // reference box without always firing a plain window 'resize'; mirror the
-        // subtitle controller's listener set so the frame snaps with it.
+        // Rotate/fullscreen can move overlays without a window resize.
         window.addEventListener('orientationchange', this.handleWindowResize, { passive: true });
         for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
             document.addEventListener(eventName, this.handleWindowResize, true);
         }
-        window.visualViewport?.addEventListener('resize', this.handleDocumentScroll, { passive: true });
+        window.visualViewport?.addEventListener('resize', this.handleVisualViewportResize, { passive: true });
         window.visualViewport?.addEventListener('scroll', this.handleDocumentScroll, { passive: true });
-        // UT-77c: YouTube reuses its shared player <video> across SPA route
-        // changes, so a hover-preview's paused-frame OCR overlay, its rail
-        // resume control, and image overlays survive the navigation and pile
-        // onto the watch page (overlay stuck over the player, a duplicate play
-        // button in the subtitle rail). isConnected-based pruning never fires
-        // because the element is still attached. Tear everything down on
-        // navigation so the destination page re-scans from a clean slate.
+        // YouTube reuses its connected player across routes; navigation must tear OCR down.
         for (const eventName of OCR_NAVIGATION_EVENTS) {
             window.addEventListener(eventName, this.handleSpaNavigation);
         }
         this.mutationObserver = new MutationObserver(mutations => this.handleRenderableMediaMutations(mutations));
-        // Observe the root element, not <body>: an SPA that replaces <body>
-        // wholesale (or mounts media directly under <html>) delivers no records
-        // to a body-scoped observer, which would leave a stale raster-free memo
-        // trusted by every scroll/resize/refresh until navigation.
+        // Root scope survives SPA body replacement and direct <html> media mounts.
         this.mutationObserver.observe(document.documentElement, {
             childList: true,
             subtree: true,
             attributes: true,
-            // width/height catch a canvas backing store growing to page shape
-            // (a resize mutates only those attributes); the data-* reader
-            // signals catch surfaces marked up after insertion. All feed the
-            // raster-free memo invalidation in handleRenderableMediaMutations.
             attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster', 'width', 'height', 'data-yomu-canvas-ocr', 'data-page-index', 'data-mokuro-reader'],
         });
         this.startReaderRasterPollingIfNeeded();
@@ -570,7 +538,7 @@ export class ImageOcrController {
         for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
             document.removeEventListener(eventName, this.handleWindowResize, true);
         }
-        window.visualViewport?.removeEventListener('resize', this.handleDocumentScroll);
+        window.visualViewport?.removeEventListener('resize', this.handleVisualViewportResize);
         window.visualViewport?.removeEventListener('scroll', this.handleDocumentScroll);
         for (const eventName of OCR_NAVIGATION_EVENTS) {
             window.removeEventListener(eventName, this.handleSpaNavigation);
@@ -584,7 +552,7 @@ export class ImageOcrController {
         if (this.readerRasterPoll) { window.clearInterval(this.readerRasterPoll); this.readerRasterPoll = 0; }
         if (this.readerRasterRetryTimer) { window.clearTimeout(this.readerRasterRetryTimer); this.readerRasterRetryTimer = 0; }
         this.mutationObserver?.disconnect();
-        if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
+        if (this.positionFrame) window.cancelAnimationFrame(this.positionFrame);
         this.clear();
     }
 
@@ -597,8 +565,7 @@ export class ImageOcrController {
             this.clear();
             return;
         }
-        // Reader raster pages have no <img> to find, so drive their
-        // snapshots independently of the document.images skip logic below.
+        // Reader rasters have no <img>, so refresh them independently.
         this.refreshCanvasReaderSurfaces(settings, options.userRequested);
         this.refreshBackgroundImageReaderSurfaces(settings, options.userRequested);
         if (!this.canScanInlineImages(Boolean(options.userRequested))) {
@@ -668,19 +635,12 @@ export class ImageOcrController {
     }
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
+        this.invalidatePositionTransformsForMutations(mutations);
         const settings = this.options.getSettings();
         if (!ocrRuntimeActive(settings)) {
-            // Master pause stays computationally inert: drop the memo with one
-            // field write instead of matching every paused batch. The resume
-            // path (refreshForModeChange -> refresh) re-censuses once, so a
-            // reader surface added while paused is still found.
             this.readerRasterFreeMemo = undefined;
             return;
         }
-        // A "free" memo dies when a candidate may have been ADDED; a "not free"
-        // memo dies when one may have been REMOVED (or a canvas resized), so a
-        // transient splash/chart canvas cannot permanently disable the O(1)
-        // path — the next check re-censuses (layout-free, one-shot).
         const memo = this.readerRasterFreeMemo;
         if (memo && (memo.free
             ? mutationsMayAddReaderRasterCandidate(mutations)
@@ -692,6 +652,22 @@ export class ImageOcrController {
         this.schedulePosition();
         if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
         this.scheduleRefresh(summary.addedImage ? 0 : 40);
+    }
+
+    private invalidatePositionTransformsForMutations(mutations: MutationRecord[]): void {
+        if (mutations.some(mutationCanRestyleEverySurface)) {
+            forgetAllComposedOcrSurfaceTransforms();
+            return;
+        }
+        for (const image of this.states.keys()) {
+            const surface = this.ocrLayerTransformSurface(image);
+            if (surface && mutations.some(({ target }) => {
+                const element = target instanceof Element ? target : target.parentElement;
+                return element === surface || Boolean(element?.contains(surface));
+            })) {
+                forgetComposedOcrSurfaceTransform(surface);
+            }
+        }
     }
 
     private handleOcrViewportShift(refreshDelay: number): void {
@@ -1792,13 +1768,14 @@ export class ImageOcrController {
     private schedulePosition(): void {
         if (this.destroyed) return;
         if (this.positionFrame) return;
-        this.positionFrame = requestAnimationFrame(() => {
+        // The explicit receiver is required by Firefox userscript sandboxes.
+        this.positionFrame = window.requestAnimationFrame(() => {
             this.positionFrame = 0;
             if (this.destroyed) return;
             this.positionVideoFrames();
             this.positionCanvasFrames();
             this.positionBackgroundFrames();
-            for (const image of this.states.keys()) this.positionState(image);
+            this.positionAllStates();
             this.positionImageStatusCards();
         });
     }
@@ -3278,50 +3255,68 @@ export class ImageOcrController {
     }
 
     private positionState(image: HTMLImageElement): void {
-        const state = this.states.get(image);
-        if (!state) return;
-        const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
-        const visible = isImageVisibleForOcr(image, rect);
-        state.overlay.hidden = !visible;
-        setOcrOverlayAccessibility(state.overlay, visible);
-        if (!visible) return;
-        // A23.1. The layer takes the surface's own transform and is sized as the box that
-        // transform is applied TO, so lines keep being placed in the space OCR boxes are
-        // expressed in. An untransformed surface returns the measured rect unchanged.
-        const placement = this.ocrLayerPlacement(image, rect, state.overlay);
-        setOcrArtifactPosition(state.overlay, placement.left, placement.top);
-        state.overlay.style.width = `${placement.width}px`;
-        state.overlay.style.height = `${placement.height}px`;
-        setOcrLayerTransform(state.overlay, placement.transform);
-        layoutOcrOverlayLines(
-            state.overlay,
-            this.renderedOcrImageFrameForState(
-                image,
-                ocrPlacedSurfaceRect(rect, placement),
-                state.result,
-                rect.bottom,
-            ),
-            this.options.getSettings().ocrFontScale,
-            placement.linear,
-        );
+        this.positionStates([image], true);
     }
 
-    private ocrLayerPlacement(image: HTMLImageElement, rect: DOMRect, overlay: HTMLElement): OcrLayerPlacement {
-        const surface = this.ocrLayerTransformSurface(image);
-        const linear = surface ? composedOcrSurfaceTransform(surface, overlay.parentElement, rect) : null;
-        return ocrOverlayLayerPlacement(rect, linear, { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 });
+    private positionAllStates(): void {
+        this.positionStates(this.states.keys());
     }
 
-    // Whose transform the layer has to carry: whatever is PAINTING the pixels the lines sit
-    // on. For a canvas or background surface that is the host element, not the frame image
-    // the capture went through — those are opacity:0 and exist only to carry pixels, and the
-    // OCR boxes come back in the surface's own unrotated space, which is exactly the space a
-    // rotated layer maps from. A paused video's frame image IS visible, and it is
-    // axis-aligned wherever it was put, so the layer follows it and stays in step.
-    //
-    // The exception is a canvas frame measured against a REGION of its canvas: that rect is
-    // a sub-box picked out by fractions rather than an element's own box, and taking a box
-    // back out of a bounding box only says anything about a whole element box.
+    private positionStates(images: Iterable<HTMLImageElement>, forceLayout = false): void {
+        const plans: OcrPositionPlan[] = [];
+        const fontScale = this.options.getSettings().ocrFontScale;
+        for (const image of images) {
+            const state = this.states.get(image);
+            if (!state) continue;
+            const overlay = state.overlay;
+            const rect = this.readerRasterSourceRect(image) ?? image.getBoundingClientRect();
+            if (!isImageVisibleForOcr(image, rect)) {
+                plans.push([overlay]);
+                continue;
+            }
+            const surface = this.ocrLayerTransformSurface(image);
+            const linear = surface
+                ? composedOcrSurfaceTransform(surface, overlay.parentElement, rect)
+                : null;
+            const placement = ocrOverlayLayerPlacement(
+                rect,
+                linear,
+                { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 },
+            );
+            plans.push([
+                overlay,
+                placement,
+                this.renderedOcrImageFrameForState(
+                    image,
+                    ocrPlacedSurfaceRect(rect, placement),
+                    state.result,
+                    rect.bottom,
+                ),
+                ocrArtifactRootOffset(overlay),
+                ocrOverlayTypeface(overlay),
+            ]);
+        }
+        for (const [overlay, placement, frame, offset, typeface] of plans) {
+            const visible = Boolean(placement && frame);
+            overlay.hidden = !visible;
+            setOcrOverlayAccessibility(overlay, visible);
+            if (!placement || !frame) continue;
+            setOcrArtifactPosition(overlay, placement.left, placement.top, offset);
+            overlay.style.width = `${placement.width}px`;
+            overlay.style.height = `${placement.height}px`;
+            setOcrLayerTransform(overlay, placement.transform);
+            layoutOcrOverlayIfChanged(
+                overlay,
+                frame,
+                fontScale,
+                placement.linear,
+                typeface,
+                forceLayout,
+            );
+        }
+    }
+
+    // Follow the element painting the pixels; regional canvas captures stay axis-aligned.
     private ocrLayerTransformSurface(image: HTMLImageElement): HTMLElement | null {
         const canvas = this.canvasFrameSources.get(image);
         if (canvas) {
@@ -3340,11 +3335,7 @@ export class ImageOcrController {
         return surface?.getBoundingClientRect();
     }
 
-    // A bottom inset moves recognized text off the pixels it was read from, so it
-    // is reserved for chrome the overlay cannot paint over: the browser/reader
-    // furniture at the true viewport bottom under a reader raster surface. Player
-    // chrome inside the page never qualifies — the OCR layer paints above it, and
-    // a video's own subtitles live in exactly that bottom strip.
+    // Reserve only true viewport-bottom reader chrome, never in-page player chrome.
     private renderedOcrImageFrameForState(
         image: HTMLImageElement,
         rect: OcrSurfaceRect,
@@ -3832,17 +3823,6 @@ function ocrRenderedLineIdentity(element: HTMLElement): string {
     ]);
 }
 
-function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolean): void {
-    overlay.setAttribute('aria-hidden', String(!visible));
-    if (!visible) {
-        overlay.removeAttribute('role');
-        overlay.removeAttribute('aria-label');
-        return;
-    }
-    overlay.setAttribute('role', 'region');
-    overlay.setAttribute('aria-label', `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ''}`.trim());
-}
-
 function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLine, sentence: string): void {
     element.dataset.ocrText = line.text;
     element.dataset.boxLeft = String(line.box.left / result.width);
@@ -4189,6 +4169,13 @@ function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
         return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
     }
     return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+}
+
+function mutationCanRestyleEverySurface(mutation: MutationRecord): boolean {
+    return [mutation.target, ...mutation.addedNodes, ...mutation.removedNodes].some(node =>
+        node instanceof Element
+        && (node.matches('style, link[rel~="stylesheet"]')
+            || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
 }
 
 function summarizeRenderableMediaMutations(mutations: MutationRecord[]): OcrRenderableMediaMutationSummary {
@@ -4600,40 +4587,6 @@ function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
 // The layer is written to on every animation frame while the page scrolls, so the
 // transform is only touched when it actually changes: an identical style write still
 // invalidates the compositor's cached layer.
-function setOcrLayerTransform(overlay: HTMLElement, transform: string): void {
-    if (overlay.style.transform === transform) return;
-    overlay.style.transform = transform;
-    overlay.style.transformOrigin = transform ? '0 0' : '';
-}
-
-// The frame math answers in the layer's own space, so every rect field must describe the
-// same box. The measured bounding-box bottom is passed separately to the viewport-chrome
-// check; mixing it into this rect made `bottom !== top + height`.
-function ocrPlacedSurfaceRect(rect: DOMRect, placement: OcrLayerPlacement): OcrSurfaceRect {
-    if (placement.width === rect.width && placement.height === rect.height) return rect;
-    return {
-        left: placement.left,
-        top: placement.top,
-        bottom: placement.top + placement.height,
-        width: placement.width,
-        height: placement.height,
-    };
-}
-
-function setOcrArtifactPosition(element: HTMLElement, viewportLeft: number, viewportTop: number): void {
-    const offset = ocrArtifactRootOffset(element);
-    element.style.left = `${viewportLeft - offset.left}px`;
-    element.style.top = `${viewportTop - offset.top}px`;
-}
-
-function ocrArtifactRootOffset(element: HTMLElement): { left: number; top: number } {
-    if (element.dataset.yomuOcrFullscreenHosted !== 'true') return { left: 0, top: 0 };
-    const root = element.parentElement;
-    if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
-    const rect = root.getBoundingClientRect();
-    return { left: rect.left, top: rect.top };
-}
-
 function appendOcrArtifactToRoot(element: HTMLElement, root: HTMLElement): void {
     const oldRoot = element.parentElement;
     const fullscreenHosted = root !== document.body;
