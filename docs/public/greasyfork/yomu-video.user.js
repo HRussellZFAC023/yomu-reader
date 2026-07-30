@@ -9684,6 +9684,7 @@ const DEFAULT_SETTINGS = {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
+  youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
   // Default TRUE: only stored records that PREDATE this key (the era when
   // the notice's hide button persisted the setting off) migrate below.
@@ -9692,6 +9693,7 @@ const DEFAULT_SETTINGS = {
   // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
   themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
+  youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: true,
   // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
   ankiEnabled: false,
@@ -23315,6 +23317,13 @@ const YOUTUBE_UI_METADATA_RE = new RegExp([
 function normalizeYouTubeTitleForLanguageCheck(text) {
   return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
 }
+function languageFamilyIncludes(family, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  return base === "ja";
+}
+function jpOnlyOn(settings, storedValue, chosen) {
+  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+}
 const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
 const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
@@ -23599,7 +23608,7 @@ class YoutubeImmersionFilter {
   init() {
   this.destroy();
   this.destroyed = false;
-  if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+  if (!this.isActivePage() || !document.body || !youtubeImmersionFilterEnabled(this.options.getSettings())) {
     this.destroyed = true;
     return;
   }
@@ -23641,7 +23650,7 @@ class YoutubeImmersionFilter {
     this.destroy();
     return;
   }
-  if (!this.options.getSettings().youtubeImmersionEnabled) {
+  if (!youtubeImmersionFilterEnabled(this.options.getSettings())) {
     this.destroyed = true;
     this.stopWatching();
     this.clear();
@@ -23677,7 +23686,7 @@ class YoutubeImmersionFilter {
   }
   scan() {
   const settings = this.options.getSettings();
-  if (!settings.youtubeImmersionEnabled) {
+  if (!youtubeImmersionFilterEnabled(settings)) {
     this.clear();
     return;
   }
@@ -24087,7 +24096,7 @@ class YoutubeImmersionFilter {
   this.placeChannelShelf(shelf);
   }
   shouldShowChannelShelf(filteredCount, settings) {
-  if (!settings.youtubeShowChannelRecommendations) return false;
+  if (!youtubeChannelRecommendationsEnabled(settings)) return false;
   if (this.revealed) return false;
   if (!shouldShowChannelRecommendationsForRoute()) return false;
   if (isYouTubeHomePage()) return false;
@@ -24610,7 +24619,7 @@ class YoutubeImmersionFilter {
     this.rememberOEmbedTitle(videoId, null);
   }).finally(() => {
     this.pendingOembedTitles.delete(videoId);
-    if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+    if (!this.destroyed && youtubeImmersionFilterEnabled(this.options.getSettings())) this.scheduleMetadataRescan();
   });
   }
   cachedOEmbedTitle(videoId) {
@@ -24675,6 +24684,20 @@ class YoutubeImmersionFilter {
   setFilterActiveClass(active) {
   document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
   }
+}
+function youtubeImmersionFilterEnabled(settings) {
+  return jpOnlyOn(
+  settings,
+  settings.youtubeImmersionEnabled,
+  settings.youtubeImmersionEnabledChosen
+  );
+}
+function youtubeChannelRecommendationsEnabled(settings) {
+  return jpOnlyOn(
+  settings,
+  settings.youtubeShowChannelRecommendations,
+  settings.youtubeShowChannelRecommendationsChosen
+  );
 }
 function formatYoutubeText(template, values) {
   return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
@@ -25436,10 +25459,6 @@ function isYouTubeCardOrFeedElement(element) {
   if (element.matches(NON_VIDEO_CONTAINER_SELECTOR)) return true;
   if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
   return Boolean(element.closest(VIDEO_CARD_SELECTOR));
-}
-function languageFamilyIncludes(family, language) {
-  const base = languageSubtag(language) ?? language.toLowerCase();
-  return base === "ja";
 }
 const JA_LANG = "ja";
 const JA_COUNTRY = "JP";

@@ -23,6 +23,7 @@ import {
 } from './youtube-filter-scan';
 import { escapeRegExp, readYouTubeConfigStringFromScripts } from './youtube-config';
 import { isYouTubeAppHostname } from '../app/youtube-host';
+import { jpOnlyOn } from '../settings/language-gating';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
@@ -409,7 +410,7 @@ export class YoutubeImmersionFilter {
     init(): void {
         this.destroy();
         this.destroyed = false;
-        if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+        if (!this.isActivePage() || !document.body || !youtubeImmersionFilterEnabled(this.options.getSettings())) {
             this.destroyed = true;
             return;
         }
@@ -454,7 +455,7 @@ export class YoutubeImmersionFilter {
             this.destroy();
             return;
         }
-        if (!this.options.getSettings().youtubeImmersionEnabled) {
+        if (!youtubeImmersionFilterEnabled(this.options.getSettings())) {
             this.destroyed = true;
             this.stopWatching();
             this.clear();
@@ -495,7 +496,7 @@ export class YoutubeImmersionFilter {
 
     private scan(): void {
         const settings = this.options.getSettings();
-        if (!settings.youtubeImmersionEnabled) {
+        if (!youtubeImmersionFilterEnabled(settings)) {
             this.clear();
             return;
         }
@@ -1017,7 +1018,7 @@ export class YoutubeImmersionFilter {
     }
 
     private shouldShowChannelShelf(filteredCount: number, settings: ReaderSettings): boolean {
-        if (!settings.youtubeShowChannelRecommendations) return false;
+        if (!youtubeChannelRecommendationsEnabled(settings)) return false;
         if (this.revealed) return false;
         if (!shouldShowChannelRecommendationsForRoute()) return false;
         if (isYouTubeHomePage()) return false;
@@ -1635,7 +1636,7 @@ export class YoutubeImmersionFilter {
             })
             .finally(() => {
                 this.pendingOembedTitles.delete(videoId);
-                if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+                if (!this.destroyed && youtubeImmersionFilterEnabled(this.options.getSettings())) this.scheduleMetadataRescan();
             });
     }
 
@@ -1714,6 +1715,22 @@ export class YoutubeImmersionFilter {
     private setFilterActiveClass(active: boolean): void {
         document.documentElement.classList.toggle('jpdb-youtube-filter-active', active);
     }
+}
+
+export function youtubeImmersionFilterEnabled(settings: ReaderSettings): boolean {
+    return jpOnlyOn(
+        settings,
+        settings.youtubeImmersionEnabled,
+        settings.youtubeImmersionEnabledChosen,
+    );
+}
+
+function youtubeChannelRecommendationsEnabled(settings: ReaderSettings): boolean {
+    return jpOnlyOn(
+        settings,
+        settings.youtubeShowChannelRecommendations,
+        settings.youtubeShowChannelRecommendationsChosen,
+    );
 }
 
 function formatYoutubeText(template: string, values: Record<string, string>): string {

@@ -14714,6 +14714,9 @@ ${spelling}`);
     "ocrEnabled",
     "ocrAutoScanImages",
     "youtubeImmersionEnabled",
+    "youtubeImmersionEnabledChosen",
+    "youtubeShowChannelRecommendations",
+    "youtubeShowChannelRecommendationsChosen",
     "subtitleOverlayVisible",
     "subtitleSecondaryVisible",
     "subtitleOverlayVisibleChosen",
@@ -15156,6 +15159,7 @@ ${spelling}`);
     subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
+    youtubeImmersionEnabledChosen: false,
     youtubeShowFilterNotice: true,
     // Default TRUE: only stored records that PREDATE this key (the era when
     // the notice's hide button persisted the setting off) migrate below.
@@ -15164,6 +15168,7 @@ ${spelling}`);
     // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
     themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
+    youtubeShowChannelRecommendationsChosen: false,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
@@ -15729,6 +15734,11 @@ ${spelling}`);
     return {
       audioViaBlob: booleanSetting(value, "audioViaBlob"),
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
+      youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
+      youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
+      youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
+      youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
+      youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
       immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
       nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
       immersionKitPriority: clampNumber$3(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
@@ -94681,12 +94691,17 @@ ${spelling}`);
   }
   function readYoutubeFormSettings(reader, current) {
     const { has } = reader;
+    const youtubeControlsPresent = has("youtubeImmersionSettingsPresent");
+    const immersionEnabled = youtubeControlsPresent ? has("youtubeImmersionEnabled") : current.youtubeImmersionEnabled;
+    const channelRecommendations = youtubeControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
     return {
-      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
+      youtubeImmersionEnabled: immersionEnabled,
+      youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled,
       preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
-      youtubeShowChannelRecommendations: has("youtubeShowChannelRecommendations"),
-      youtubeShowFilterNotice: has("youtubeShowFilterNotice")
+      youtubeShowChannelRecommendations: channelRecommendations,
+      youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
+      youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
     };
   }
   function readShortcutFormSettings(reader, current) {
@@ -98011,13 +98026,16 @@ ${spelling}`);
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>${escapedUiText(language2, "youTube")}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
+                    <div class="jp-only" data-language-family="youtube-immersion">
+                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
+                        ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
+                        ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
+                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
+                    </div>
                     <div class="jp-only" data-language-family="preferred-japanese-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
-                    ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
-                    ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language2, "youtubeHelp")}</div>
             </fieldset>
@@ -99966,6 +99984,9 @@ ${spelling}`);
     if (family === "jpzhyue-only") return jpZhYue;
     const jpZhYueKo = jpZhYue || base === "ko";
     return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
+  }
+  function jpOnlyOn(settings, storedValue, chosen) {
+    return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
   }
   function languageFamilyNodes(root) {
     const states = familyNodesByRoot.get(root) ?? [];
@@ -118962,7 +118983,7 @@ ${reading}`);
     init() {
       this.destroy();
       this.destroyed = false;
-      if (!this.isActivePage() || !document.body || !this.options.getSettings().youtubeImmersionEnabled) {
+      if (!this.isActivePage() || !document.body || !youtubeImmersionFilterEnabled(this.options.getSettings())) {
         this.destroyed = true;
         return;
       }
@@ -119004,7 +119025,7 @@ ${reading}`);
         this.destroy();
         return;
       }
-      if (!this.options.getSettings().youtubeImmersionEnabled) {
+      if (!youtubeImmersionFilterEnabled(this.options.getSettings())) {
         this.destroyed = true;
         this.stopWatching();
         this.clear();
@@ -119040,7 +119061,7 @@ ${reading}`);
     }
     scan() {
       const settings = this.options.getSettings();
-      if (!settings.youtubeImmersionEnabled) {
+      if (!youtubeImmersionFilterEnabled(settings)) {
         this.clear();
         return;
       }
@@ -119450,7 +119471,7 @@ ${reading}`);
       this.placeChannelShelf(shelf);
     }
     shouldShowChannelShelf(filteredCount, settings) {
-      if (!settings.youtubeShowChannelRecommendations) return false;
+      if (!youtubeChannelRecommendationsEnabled(settings)) return false;
       if (this.revealed) return false;
       if (!shouldShowChannelRecommendationsForRoute()) return false;
       if (isYouTubeHomePage()) return false;
@@ -119973,7 +119994,7 @@ ${reading}`);
         this.rememberOEmbedTitle(videoId, null);
       }).finally(() => {
         this.pendingOembedTitles.delete(videoId);
-        if (!this.destroyed && this.options.getSettings().youtubeImmersionEnabled) this.scheduleMetadataRescan();
+        if (!this.destroyed && youtubeImmersionFilterEnabled(this.options.getSettings())) this.scheduleMetadataRescan();
       });
     }
     cachedOEmbedTitle(videoId) {
@@ -120038,6 +120059,20 @@ ${reading}`);
     setFilterActiveClass(active) {
       document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
     }
+  }
+  function youtubeImmersionFilterEnabled(settings) {
+    return jpOnlyOn(
+      settings,
+      settings.youtubeImmersionEnabled,
+      settings.youtubeImmersionEnabledChosen
+    );
+  }
+  function youtubeChannelRecommendationsEnabled(settings) {
+    return jpOnlyOn(
+      settings,
+      settings.youtubeShowChannelRecommendations,
+      settings.youtubeShowChannelRecommendationsChosen
+    );
   }
   function formatYoutubeText(template, values) {
     return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");

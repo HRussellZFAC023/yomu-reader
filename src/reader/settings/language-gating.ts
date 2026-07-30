@@ -1,4 +1,5 @@
 import { languageSubtag } from '../languages';
+import { targetLanguageOf } from '../languages/selection';
 
 export const LANGUAGE_FAMILY_CLASSES = [
     'jp-only',
@@ -41,6 +42,19 @@ export function languageFamilyIncludes(family: LanguageFamilyClass, language: st
     if (family === 'jpzhyue-only') return jpZhYue;
     const jpZhYueKo = jpZhYue || base === 'ko';
     return family === 'jpzhyueko-only' ? jpZhYueKo : !jpZhYueKo;
+}
+
+/**
+ * Uses the selected language family as the untouched default while preserving
+ * an explicit choice. The stored value is never rewritten when the target
+ * changes, so switching profiles cannot erase what the learner chose.
+ */
+export function jpOnlyOn(
+    settings: unknown,
+    storedValue: boolean,
+    chosen: boolean,
+): boolean {
+    return storedValue && (chosen || languageFamilyIncludes('jp-only', targetLanguageOf(settings)));
 }
 
 function languageFamilyNodes(root: HTMLElement): readonly LanguageFamilyNode[] {

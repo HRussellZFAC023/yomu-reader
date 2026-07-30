@@ -48,6 +48,9 @@ export const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
     'ocrEnabled',
     'ocrAutoScanImages',
     'youtubeImmersionEnabled',
+    'youtubeImmersionEnabledChosen',
+    'youtubeShowChannelRecommendations',
+    'youtubeShowChannelRecommendationsChosen',
     'subtitleOverlayVisible',
     'subtitleSecondaryVisible',
     'subtitleOverlayVisibleChosen',
@@ -530,6 +533,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
+    youtubeImmersionEnabledChosen: false,
     youtubeShowFilterNotice: true,
     // Default TRUE: only stored records that PREDATE this key (the era when
     // the notice's hide button persisted the setting off) migrate below.
@@ -538,6 +542,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
     themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
+    youtubeShowChannelRecommendationsChosen: false,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
@@ -1279,6 +1284,11 @@ function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<
     return {
         audioViaBlob: booleanSetting(value, 'audioViaBlob'),
         audioFallbackChimeEnabled: booleanSetting(value, 'audioFallbackChimeEnabled'),
+        youtubeImmersionEnabled: booleanSetting(value, 'youtubeImmersionEnabled'),
+        youtubeImmersionEnabledChosen: booleanSetting(value, 'youtubeImmersionEnabledChosen'),
+        youtubeShowFilterNotice: booleanSetting(value, 'youtubeShowFilterNotice'),
+        youtubeShowChannelRecommendations: booleanSetting(value, 'youtubeShowChannelRecommendations'),
+        youtubeShowChannelRecommendationsChosen: booleanSetting(value, 'youtubeShowChannelRecommendationsChosen'),
         immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
         nadeshikoApiKey: trimmedStringSetting(value, 'nadeshikoApiKey', DEFAULT_SETTINGS.nadeshikoApiKey),
         immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),

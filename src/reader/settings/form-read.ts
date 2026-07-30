@@ -769,14 +769,27 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
 
 function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { has } = reader;
+    const youtubeControlsPresent = has('youtubeImmersionSettingsPresent');
+    const immersionEnabled = youtubeControlsPresent
+        ? has('youtubeImmersionEnabled')
+        : current.youtubeImmersionEnabled;
+    const channelRecommendations = youtubeControlsPresent
+        ? has('youtubeShowChannelRecommendations')
+        : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
+        youtubeImmersionEnabled: immersionEnabled,
+        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen
+            || (youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled),
         preferJapaneseSiteLanguage: siteLanguageSettingPresent
             ? has('preferJapaneseSiteLanguage')
             : current.preferJapaneseSiteLanguage,
-        youtubeShowChannelRecommendations: has('youtubeShowChannelRecommendations'),
-        youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
+        youtubeShowChannelRecommendations: channelRecommendations,
+        youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
+            || (youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
+        youtubeShowFilterNotice: youtubeControlsPresent
+            ? has('youtubeShowFilterNotice')
+            : current.youtubeShowFilterNotice,
     };
 }
 

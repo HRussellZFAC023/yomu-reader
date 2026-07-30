@@ -537,11 +537,15 @@ export interface ReaderSettings {
     subtitleHoverPause: boolean;
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
+    /** True once the learner explicitly changes Japanese YouTube filtering. */
+    youtubeImmersionEnabledChosen: boolean;
     youtubeShowFilterNotice: boolean;
     youtubeFilterNoticeRestored20260711: boolean;
     /** Marks the one-time move of a stored `theme: 'light'` default to 'auto'. */
     themeAutoRestored20260730: boolean;
     youtubeShowChannelRecommendations: boolean;
+    /** True once the learner explicitly changes Japanese channel suggestions. */
+    youtubeShowChannelRecommendationsChosen: boolean;
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
     ankiSectionEnabled: boolean;

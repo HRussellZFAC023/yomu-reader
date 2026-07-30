@@ -6,6 +6,7 @@
 
 - Browser text-to-speech now selects a voice that matches the study language. Russian uses a Russian voice when installed, same-language regional voices are next, and a non-Japanese utterance no longer falls back to a Japanese voice.
 - Japanese site preference now runs only for a Japanese study target and no longer changes timezone or geolocation. It still opens Japanese versions of supported sites and supplies Japanese locale hints without rewriting the browser's physical location.
+- Japanese YouTube filtering and channel suggestions now stay inactive for other study languages until you turn them on. Switching to Russian leaves Russian videos visible, and changing language no longer rewrites your saved choice.
 
 ## [1.8.52] - 2026-07-30
 

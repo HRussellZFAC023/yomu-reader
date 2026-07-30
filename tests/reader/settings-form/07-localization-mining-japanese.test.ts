@@ -329,8 +329,10 @@ describe('settings form localization', () => {
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
         expect(saved.youtubeImmersionEnabled).toBe(false);
+        expect(saved.youtubeImmersionEnabledChosen).toBe(true);
         expect(saved.preferJapaneseSiteLanguage).toBe(false);
         expect(saved.youtubeShowChannelRecommendations).toBe(false);
+        expect(saved.youtubeShowChannelRecommendationsChosen).toBe(true);
         expect(saved.youtubeShowFilterNotice).toBe(false);
         expect(saved.shortcuts.toggleYoutubeImmersion).toBe('Ctrl+Y');
     });

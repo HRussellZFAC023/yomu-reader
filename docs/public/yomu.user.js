@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.560356a35342.user.js#sha256=VgNWo1NC/Gd1lGgKk6ZyNfKwN8Nb2D7uyvZ71MaNNM0=
+// @require https://yomureader.com/greasyfork/yomu-runtime.dec15df098e2.user.js#sha256=3sFd8JjiDnrI6M8Jbnx9+CtaRSpfeihU/uzRAV8jKYg=
 // @resource yomuCss  https://yomureader.com/yomu.7476cc632b3a.css#sha256=dHbMYys6M7vAktSg7Hj0czUqdj4QJmlZMAANu3W7+LE=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -8980,6 +8980,9 @@ const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
   "ocrEnabled",
   "ocrAutoScanImages",
   "youtubeImmersionEnabled",
+  "youtubeImmersionEnabledChosen",
+  "youtubeShowChannelRecommendations",
+  "youtubeShowChannelRecommendationsChosen",
   "subtitleOverlayVisible",
   "subtitleSecondaryVisible",
   "subtitleOverlayVisibleChosen",
@@ -9410,10 +9413,12 @@ const DEFAULT_SETTINGS = {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
+  youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
   youtubeFilterNoticeRestored20260711: true,
   themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
+  youtubeShowChannelRecommendationsChosen: false,
   preferJapaneseSiteLanguage: true,
   ankiEnabled: false,
   ankiSectionEnabled: false,
@@ -9957,6 +9962,11 @@ function normalizeMediaSettings(value) {
   return {
   audioViaBlob: booleanSetting(value, "audioViaBlob"),
   audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
+  youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
+  youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
+  youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
+  youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
+  youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
   immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
   nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
   immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
@@ -33099,6 +33109,9 @@ function languageFamilyIncludes(family, language) {
   const jpZhYueKo = jpZhYue || base === "ko";
   return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
 }
+function jpOnlyOn(settings, storedValue, chosen) {
+  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+}
 function languageFamilyNodes(root) {
   const states = familyNodesByRoot.get(root) ?? [];
   const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
@@ -36134,21 +36147,33 @@ class ReaderApp {
   });
   }
   async toggleYoutubeImmersion() {
-  await this.setYoutubeImmersionEnabled(!this.settings.youtubeImmersionEnabled);
+  await this.setYoutubeImmersionEnabled(!this.isYoutubeImmersionEnabled());
   }
   async setYoutubeImmersionEnabled(enabled) {
   const previous = this.settings.youtubeImmersionEnabled;
+  const previousChosen = this.settings.youtubeImmersionEnabledChosen;
   this.settings.youtubeImmersionEnabled = enabled;
+  this.settings.youtubeImmersionEnabledChosen = true;
   this.youtube.refresh();
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
   try {
-    await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeImmersionEnabled"] });
+    await saveSettings(this.settings, {
+      explicitUserChoiceKeys: ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"]
+    });
   } catch (error) {
     this.settings.youtubeImmersionEnabled = previous;
+    this.settings.youtubeImmersionEnabledChosen = previousChosen;
     this.youtube.refresh();
     this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
     throw error;
   }
+  }
+  isYoutubeImmersionEnabled() {
+  return jpOnlyOn(
+    this.settings,
+    this.settings.youtubeImmersionEnabled,
+    this.settings.youtubeImmersionEnabledChosen
+  );
   }
   async setYoutubeFilterNoticeVisible(visible) {
   this.settings.youtubeShowFilterNotice = visible;
@@ -36175,7 +36200,13 @@ class ReaderApp {
   }
   async setYoutubeChannelRecommendationsVisible(visible) {
   this.settings.youtubeShowChannelRecommendations = visible;
-  await saveSettings(this.settings);
+  this.settings.youtubeShowChannelRecommendationsChosen = true;
+  await saveSettings(this.settings, {
+    explicitUserChoiceKeys: [
+      "youtubeShowChannelRecommendations",
+      "youtubeShowChannelRecommendationsChosen"
+    ]
+  });
   this.youtube.refresh();
   }
   async setInterfaceLanguage(language) {
@@ -36883,7 +36914,7 @@ class ReaderApp {
       toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
       isYouTube: () => isYouTubeHostname(),
       toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
-      isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+      isYoutubeFilterEnabled: () => this.isYoutubeImmersionEnabled(),
       toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
       isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
       hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && (isYouTubeHostname() || Boolean(document.querySelector("video")))

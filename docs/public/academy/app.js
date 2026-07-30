@@ -41100,6 +41100,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "ocrEnabled",
     "ocrAutoScanImages",
     "youtubeImmersionEnabled",
+    "youtubeImmersionEnabledChosen",
+    "youtubeShowChannelRecommendations",
+    "youtubeShowChannelRecommendationsChosen",
     "subtitleOverlayVisible",
     "subtitleSecondaryVisible",
     "subtitleOverlayVisibleChosen",
@@ -41542,6 +41545,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
+    youtubeImmersionEnabledChosen: false,
     youtubeShowFilterNotice: true,
     // Default TRUE: only stored records that PREDATE this key (the era when
     // the notice's hide button persisted the setting off) migrate below.
@@ -41550,6 +41554,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // only a record stored before 1.8.39 lacks it and needs moving to 'auto'.
     themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
+    youtubeShowChannelRecommendationsChosen: false,
     preferJapaneseSiteLanguage: true,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
@@ -42115,6 +42120,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       audioViaBlob: booleanSetting(value, "audioViaBlob"),
       audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
+      youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
+      youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
+      youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
+      youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
+      youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
       immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
       nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
       immersionKitPriority: clampNumber$1(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
@@ -363599,12 +363609,17 @@ ${entry2.url}`),
   }
   function readYoutubeFormSettings(reader, current) {
     const { has } = reader;
+    const youtubeControlsPresent = has("youtubeImmersionSettingsPresent");
+    const immersionEnabled = youtubeControlsPresent ? has("youtubeImmersionEnabled") : current.youtubeImmersionEnabled;
+    const channelRecommendations = youtubeControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
     return {
-      youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
+      youtubeImmersionEnabled: immersionEnabled,
+      youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled,
       preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
-      youtubeShowChannelRecommendations: has("youtubeShowChannelRecommendations"),
-      youtubeShowFilterNotice: has("youtubeShowFilterNotice")
+      youtubeShowChannelRecommendations: channelRecommendations,
+      youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
+      youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
     };
   }
   function readShortcutFormSettings(reader, current) {
@@ -366465,13 +366480,16 @@ ${entry2.url}`),
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>${escapedUiText(language2, "youTube")}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
+                    <div class="jp-only" data-language-family="youtube-immersion">
+                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
+                        ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
+                        ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
+                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
+                    </div>
                     <div class="jp-only" data-language-family="preferred-japanese-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
-                    ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
-                    ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language2, "youtubeHelp")}</div>
             </fieldset>

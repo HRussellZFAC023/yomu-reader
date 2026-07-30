@@ -2098,6 +2098,54 @@ describe('YouTube immersion filter', () => {
         }
     });
 
+    it('leaves Russian videos visible until Japanese YouTube filtering is explicitly chosen', async () => {
+        const settings = youtubeFilterSettings({
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
+                profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
+                    ? { ...profile, targetLanguage: 'ru' }
+                    : profile),
+        });
+        const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
+            settings,
+            html: `
+                <main>
+                    <ytd-rich-item-renderer data-case="russian">
+                        <a id="video-title" href="/watch?v=ru">Русский язык для начинающих</a>
+                    </ytd-rich-item-renderer>
+                    <ytd-rich-item-renderer data-case="japanese">
+                        <a id="video-title" href="/watch?v=ja">日本語の聞き取り練習</a>
+                    </ytd-rich-item-renderer>
+                </main>
+            `,
+            oEmbedTitles: {
+                ru: 'Русский язык для начинающих',
+                ja: '日本語の聞き取り練習',
+            },
+        });
+
+        expect(card('russian').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(document.documentElement.classList.contains('jpdb-youtube-filter-active')).toBe(false);
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        expect(settings).toMatchObject({
+            youtubeImmersionEnabled: true,
+            youtubeImmersionEnabledChosen: false,
+            youtubeShowChannelRecommendations: true,
+            youtubeShowChannelRecommendationsChosen: false,
+        });
+
+        settings.youtubeImmersionEnabledChosen = true;
+        settings.youtubeShowChannelRecommendationsChosen = true;
+        filter.refresh();
+        await runInitialFilterScan();
+
+        expect(card('russian').classList.contains('jpdb-youtube-filtered')).toBe(true);
+        expect(document.documentElement.classList.contains('jpdb-youtube-filter-active')).toBe(true);
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).not.toBeNull();
+
+        filter.destroy();
+    });
+
     it('ignores reader roots appended to the YouTube body without scheduling a rescan', () => {
         vi.useFakeTimers();
         renderYouTubeCards();

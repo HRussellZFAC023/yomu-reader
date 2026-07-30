@@ -1316,13 +1316,16 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>${escapedUiText(language, 'youTube')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
-                    ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
+                    <div class="jp-only" data-language-family="youtube-immersion">
+                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
+                        ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
+                        ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
+                        ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
+                    </div>
                     <div class="jp-only" data-language-family="preferred-japanese-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
                     </div>
-                    ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
-                    ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
                 </div>
                 <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
             </fieldset>
