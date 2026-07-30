@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import http from 'node:http';
 import { resolve, join } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { assert } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
 import { dragTranscriptResizeHandle, panelSizeDelta } from '../lib/subtitle-layout-test-utils.mjs';
@@ -16,6 +16,8 @@ const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/
 const fixtureVideoUrl = process.env.YOMU_E2E_VIDEO_URL ?? '';
 const useYouTubeFixture = process.env.YOMU_E2E_YOUTUBE_FIXTURE === '1';
 const headed = process.env.YOMU_E2E_HEADED === '1';
+const browserName = process.env.YOMU_E2E_BROWSER === 'webkit' ? 'webkit' : 'chromium';
+const browserType = browserName === 'webkit' ? webkit : chromium;
 const siteFilters = (process.env.YOMU_E2E_SITE_FILTER ?? '')
     .split(',')
     .map(value => value.trim())
@@ -169,6 +171,7 @@ function genericHtml(origin) {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Yomu generic video fixture</title>
   <style>
     html, body { margin: 0; min-height: 100%; background: #101820; color: #e8edf4; font-family: system-ui, sans-serif; }
@@ -181,6 +184,12 @@ function genericHtml(origin) {
       main { display: block; padding: 0; }
       .player { border: 0; }
       aside { display: none; }
+    }
+    /* A representative mobile host reset. Parsed Yomu cues are spans/ruby,
+       whereas the native translation is plain button text; this exposed the
+       iPad-only cascade bug without naming or targeting a Yomu class. */
+    @media (hover: none), (pointer: coarse) {
+      body span { font-size: 10px !important; }
     }
   </style>
 </head>
@@ -1132,7 +1141,11 @@ function drawerLayoutResult(phase, effectivePlacement, resized, screenshot, stat
 }
 
 async function runSite(browser, site) {
-    const context = await browser.newContext({ viewport: site.viewport, locale: 'en-GB' });
+    const context = await browser.newContext({
+        viewport: site.viewport,
+        locale: 'en-GB',
+        ...site.contextOptions,
+    });
     const page = await context.newPage();
     try {
         return await collectSiteResult(page, site);
@@ -1161,6 +1174,7 @@ async function collectSiteResult(page, site) {
 
 async function exerciseOptionalSiteFlows(page, site) {
     const evidence = {};
+    if (site.exercisePaintedFontSize) evidence.paintedFontSize = await assertPaintedSubtitleFontSize(page, site);
     if (site.exerciseFontPersistence) evidence.fontPersistence = await assertSubtitleFontPersistence(page, site);
     if (site.exerciseSubtitleDrag) await assertSubtitleMoveHandle(page, site);
     if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
@@ -1176,6 +1190,7 @@ function readSubtitleFontState({ key, label }) {
     const text = document.querySelector('.jpdb-subtitle-text');
     const lines = document.querySelector('.jpdb-subtitle-lines');
     const primary = document.querySelector('.jpdb-subtitle-primary');
+    const paintedPrimary = primary?.querySelector('.jpdb-reader-word, .jpdb-subtitle-karaoke-word, .jpdb-subtitle-primary-loading') ?? primary;
     const secondary = document.querySelector('.jpdb-subtitle-secondary');
     return {
         label,
@@ -1184,6 +1199,8 @@ function readSubtitleFontState({ key, label }) {
         effective: styleProperty(root, '--subtitle-font-size'),
         computedText: computedFontSize(text),
         computedPrimary: computedFontSize(primary),
+        computedPaintedPrimary: computedFontSize(paintedPrimary),
+        paintedPrimaryClass: paintedPrimary instanceof Element ? paintedPrimary.className : '',
         cue: normalizedText(primary),
         surfaceCue: surfaceText(primary),
         viewport: { width: innerWidth, height: innerHeight },
@@ -1249,7 +1266,13 @@ function assertSubtitleFontSize(site, label, state) {
     assert(state.saved === 60, `${site.name}: saved subtitle size changed during ${label}`, state);
     assert(state.target === '60px', `${site.name}: target subtitle size changed during ${label}`, state);
     assert(state.effective === '60px', `${site.name}: effective subtitle size changed during ${label}`, state);
-    assert(state.computedText === '60px' && state.computedPrimary === '60px', `${site.name}: rendered subtitle size changed during ${label}`, state);
+    assert(
+        state.computedText === '60px'
+            && state.computedPrimary === '60px'
+            && state.computedPaintedPrimary === '60px',
+        `${site.name}: rendered subtitle size changed during ${label}`,
+        state,
+    );
 }
 
 function assertExpectedSurfaceCue(site, label, state, expectedSurface) {
@@ -1368,6 +1391,12 @@ async function assertSubtitleFontPersistence(page, site) {
         });
     }
     return checkpoints;
+}
+
+async function assertPaintedSubtitleFontSize(page, site) {
+    await closePanelIfOpen(page);
+    await showFontPersistenceCue(page, site, 1, /小人/u);
+    return captureSubtitleFontState(page, site, [], 'painted parsed cue', { expectedSurface: shortPrimaryCue });
 }
 
 async function assertSubtitleMoveHandle(page, site) {
@@ -1633,7 +1662,7 @@ rmSync(artifactsDir, { recursive: true, force: true });
 mkdirSync(artifactsDir, { recursive: true });
 
 const fixture = await startFixtureServer();
-const browser = await chromium.launch({ headless: !headed });
+const browser = await browserType.launch({ headless: !headed });
 try {
     const playerEngineSites = [
         { name: 'bbc-article', path: '/bbc', anchorSelector: '.bbc-media-player', exerciseSubtitleDrag: true },
@@ -1663,10 +1692,12 @@ try {
             name: 'generic-mobile',
             url: `${fixture.origin}/generic`,
             viewport: { width: 390, height: 844 },
+            contextOptions: { deviceScaleFactor: 2, hasTouch: true, isMobile: true },
             expectPlacement: 'bottom',
             expectEdgeToEdgePanel: true,
             expectNativeCaptions: true,
-            exerciseFontPersistence: true,
+            exercisePaintedFontSize: true,
+            exerciseFontPersistence: browserName === 'chromium',
             settings: { subtitleTranscriptPlacement: 'right', subtitleFontSize: 60 },
             anchorSelector: '.player',
         },

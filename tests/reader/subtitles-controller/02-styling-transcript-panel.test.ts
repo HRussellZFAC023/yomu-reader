@@ -247,6 +247,9 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).not.toContain('font-size: min(var(--subtitle-font-size)');
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-text \{[^}]*display: flex;[^}]*flex-direction: column;/);
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*align-content: end;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \{[^}]*font-size: var\(--subtitle-font-size\) !important;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary :is\([^}]*\.jpdb-reader-word,[^}]*ruby,[^}]*\.jpdb-reader-ruby-base[^}]*\) \{[^}]*font-size: inherit !important;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
     });
 
     it('renders the primary cue in its own row so the native secondary keeps a reserved bottom slot', () => {
