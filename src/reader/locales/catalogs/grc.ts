@@ -13,4 +13,6 @@ export const grcCatalog = defineLocaleCatalog("grc", "machine-draft", {
   setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
   continueAction: "Πρόβαινε",
   originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+  interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+  interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται.",
 });

@@ -13,4 +13,6 @@ export const fiCatalog = defineLocaleCatalog("fi", "machine-draft", {
   setupProgress: "Kieliasetukset: vaihe {current}/{total}",
   continueAction: "Jatka",
   originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+  interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+  interfaceTranslationPending: "Käännös on vielä kesken.",
 });

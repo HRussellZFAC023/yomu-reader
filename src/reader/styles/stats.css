@@ -268,7 +268,7 @@
   line-height: 1.35;
   opacity: 0;
   pointer-events: none;
-  text-align: left;
+  text-align: start;
   transform: translate(-50%, 4px);
   transition: opacity 120ms ease, transform 120ms ease;
   visibility: hidden;
@@ -377,7 +377,7 @@
   font-size: 10px;
   font-weight: 760;
   line-height: 1.1;
-  text-align: right;
+  text-align: end;
 }
 
 .jpdb-reader-stats-heatmap-grid {
@@ -622,6 +622,9 @@
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);

@@ -13,4 +13,6 @@ export const shCatalog = defineLocaleCatalog("sh", "machine-draft", {
   setupProgress: "Podešavanje jezika: {current} od {total}",
   continueAction: "Nastavi",
   originalDefinitionLabel: "Originalna definicija ({language})",
+  interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+  interfaceTranslationPending: "Prijevod je još u toku.",
 });

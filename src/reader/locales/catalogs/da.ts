@@ -13,4 +13,6 @@ export const daCatalog = defineLocaleCatalog("da", "machine-draft", {
   setupProgress: "Sprogopsætning: {current} af {total}",
   continueAction: "Fortsæt",
   originalDefinitionLabel: "Original på {language}",
+  interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+  interfaceTranslationPending: "Oversættelsen er stadig i gang.",
 });

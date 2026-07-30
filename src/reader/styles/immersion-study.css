@@ -82,9 +82,9 @@
   display: block;
   max-width: 100%;
   flex: 1 1 auto;
-  margin-left: 0;
+  margin-inline-start: 0;
   min-width: 0;
-  text-align: left;
+  text-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -507,7 +507,7 @@ mark.jpdb-reader-example-target {
   background: transparent;
 }
 .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 .jpdb-reader-immersion > .jpdb-reader-example-actions {
   display: flex;
@@ -560,7 +560,7 @@ mark.jpdb-reader-example-target {
     flex-basis: 100%;
   }
   .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
   .jpdb-reader-example-source {
     flex-basis: 100%;
@@ -760,7 +760,7 @@ mark.jpdb-reader-example-target {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  margin-inline-start: auto;
   white-space: nowrap;
 }
 .jpdb-reader-grammar-repeat {
@@ -918,7 +918,7 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-grammar-more > summary::after {
   content: "+";
-  margin-left: 5px;
+  margin-inline-start: 5px;
 }
 .jpdb-reader-grammar-more[open] > summary::after {
   content: "-";

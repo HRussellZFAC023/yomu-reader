@@ -114,6 +114,7 @@ import {
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
+import { applyInterfaceLocaleToDocument, applyInterfaceLocaleToRoot, resolveInterfaceLocale } from '../locales';
 import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
@@ -518,6 +519,11 @@ export class NewTabRuntime {
         }
         configureLogger({ forceEnabled: this.settings.enableLogging });
         log.info('Settings loaded', loggingSettingsSummary(this.settings));
+        // D43: the new tab and the study app are documents Yomu owns outright, so
+        // they take `lang`, `dir` and the per-script interface font from the
+        // locale manifest. When mounted into a host page (`mountHost`) we stamp
+        // the mount, never the page's documentElement.
+        this.applyInterfaceLocale();
         this.applyTheme();
         this.assertSessionVocabularyReadOnly();
         this.newTab = this.createNewTabController();
@@ -2346,6 +2352,16 @@ export class NewTabRuntime {
 
     private applyTheme(settings = this.settings): void {
         applyReaderTheme(settings);
+    }
+
+    private applyInterfaceLocale(settings = this.settings): void {
+        const locale = resolveInterfaceLocale(settings.interfaceLanguage, {
+            browserLocales: typeof navigator === 'undefined'
+                ? []
+                : [...(Array.isArray(navigator.languages) ? navigator.languages : []), navigator.language],
+        }).locale;
+        if (this.options.mountHost) applyInterfaceLocaleToRoot(this.options.mountHost, locale);
+        else applyInterfaceLocaleToDocument(document, locale);
     }
 
     private applyAccentColor(color: string): void {

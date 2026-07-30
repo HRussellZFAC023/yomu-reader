@@ -13,4 +13,6 @@ export const idCatalog = defineLocaleCatalog("id", "machine-draft", {
   setupProgress: "Penyiapan bahasa {current} dari {total}",
   continueAction: "Lanjutkan",
   originalDefinitionLabel: "Definisi asli dalam {language}",
+  interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+  interfaceTranslationPending: "Penerjemahan masih berlangsung.",
 });

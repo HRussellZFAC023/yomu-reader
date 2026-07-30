@@ -13,4 +13,6 @@ export const trCatalog = defineLocaleCatalog("tr", "machine-draft", {
   setupProgress: "Dil ayarı: {current}/{total}",
   continueAction: "Devam et",
   originalDefinitionLabel: "Orijinal tanım ({language})",
+  interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+  interfaceTranslationPending: "Çeviri hâlâ sürüyor.",
 });

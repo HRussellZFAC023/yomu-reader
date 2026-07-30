@@ -13,4 +13,6 @@ export const ruCatalog = defineLocaleCatalog("ru", "machine-draft", {
   setupProgress: "Настройка языка: {current} из {total}",
   continueAction: "Продолжить",
   originalDefinitionLabel: "Оригинал определения ({language})",
+  interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+  interfaceTranslationPending: "Перевод ещё выполняется.",
 });

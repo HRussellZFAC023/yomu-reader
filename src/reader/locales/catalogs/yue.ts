@@ -13,4 +13,6 @@ export const yueCatalog = defineLocaleCatalog("yue", "machine-draft", {
   setupProgress: "語言設定：第{current}步，共{total}步",
   continueAction: "繼續",
   originalDefinitionLabel: "原文（{language}）",
+  interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+  interfaceTranslationPending: "翻譯仲進行中。",
 });

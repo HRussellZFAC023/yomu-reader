@@ -43,7 +43,17 @@ import {
     slice1LanguageIdForTag,
     type LearningTargetRosterId,
 } from '../languages';
-import { LEARNER_LANGUAGES, LOCALE_CATALOGS, learnerLanguageById, type LearnerLanguageId } from '../locales';
+import {
+    INTERFACE_LOCALES,
+    LEARNER_LANGUAGES,
+    LOCALE_CATALOGS,
+    learnerLanguageById,
+    resolveMessage,
+    setupMessageIdFor,
+    setupPackFor,
+    type InterfaceLocale,
+    type LearnerLanguageId,
+} from '../locales';
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
 
@@ -143,6 +153,87 @@ function renderLanguageOptions(
     `).join('');
 }
 
+export const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = 'data-interface-locale-blocked';
+
+/**
+ * D43 — the interface-language picker over the full 33-locale manifest.
+ *
+ * The rule this control exists to enforce: a locale Yomu is not ready to speak
+ * is shown, named, and DISABLED with the reason. It is never selectable and then
+ * silently answered in English, which is the failure the ticket forbids and the
+ * one a learner cannot distinguish from a bug.
+ *
+ * Three localisations meet here, on purpose:
+ *
+ *  - the option label is the locale's own `nativeName — englishName`, so it is
+ *    findable by someone who does not read the current interface language;
+ *  - the reason on the option is in the CURRENT interface language, because that
+ *    is the language the person operating the dialog is reading;
+ *  - the `title` carries the same reason in the BLOCKED locale's own language,
+ *    from its `setup.*` catalogue, for the person who came looking for it.
+ */
+function renderInterfaceLocaleSelect(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const label = uiText(language, 'settingsLanguage');
+    const ready = INTERFACE_LOCALES.filter(locale => locale.available);
+    const blocked = INTERFACE_LOCALES.filter(locale => !locale.available);
+    const automatic = `<option value="auto" ${settings.interfaceLanguage === 'auto' ? 'selected' : ''}>${escapeHtml(uiText(language, 'automatic'))}</option>`;
+    const readyOptions = ready.map(locale => `
+                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? 'selected' : ''}>${escapeHtml(interfaceLocaleOptionLabel(locale))}</option>`).join('');
+    const blockedOptions = blocked.map(locale => renderBlockedInterfaceLocaleOption(locale, language)).join('');
+    return `<label>${escapeHtml(label)}<select name="interfaceLanguage">
+                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesReady'))}" data-interface-locale-group="ready">${automatic}${readyOptions}
+                            </optgroup>
+                            <optgroup label="${escapeHtml(uiText(language, 'interfaceLocalesInProgress'))}" data-interface-locale-group="in-progress">${blockedOptions}
+                            </optgroup>
+                        </select></label>`;
+}
+
+function interfaceLocaleOptionLabel(locale: InterfaceLocale): string {
+    return locale.nativeName === locale.englishName
+        ? locale.nativeName
+        : `${locale.nativeName} — ${locale.englishName}`;
+}
+
+function renderBlockedInterfaceLocaleOption(locale: InterfaceLocale, language: InterfaceLanguage): string {
+    const reason = uiText(language, interfaceLocaleBlockerCopyKey(locale));
+    const nativeReason = blockedReasonInLocale(locale);
+    return `
+                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? 'translation-incomplete')}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${reason}`)}</option>`;
+}
+
+function interfaceLocaleBlockerCopyKey(locale: InterfaceLocale): 'interfaceLocaleRtlPending' | 'interfaceLocaleTranslationPending' {
+    // The ledger orders blockers most-specific-first, so Arabic and Farsi report
+    // the RTL gate rather than the translation backlog they also have: the RTL
+    // gate is the one that has to pass before the locale can be offered at all.
+    return locale.blockers[0] === 'rtl-verification-pending'
+        ? 'interfaceLocaleRtlPending'
+        : 'interfaceLocaleTranslationPending';
+}
+
+/**
+ * The blocker reason in the blocked locale's own words, resolved through the
+ * unified fallback chain so a locale with no catalogue entry reads as English
+ * instead of as a missing-key placeholder.
+ */
+function blockedReasonInLocale(locale: InterfaceLocale): string {
+    const key = locale.blockers[0] === 'rtl-verification-pending'
+        ? 'interfaceRtlVerificationPending'
+        : 'interfaceTranslationPending';
+    const packs: Record<string, ReturnType<typeof setupPackFor>> = { en: setupPackFor('en') };
+    for (const tag of [locale.tag, ...locale.fallbacks]) packs[tag] ??= setupPackFor(tag);
+    return resolveMessage(setupMessageIdFor(key), locale, packs).value;
+}
+
+function renderInterfaceLocaleAvailabilityNote(language: InterfaceLanguage): string {
+    const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
+    const count = formatUiText(language, 'interfaceLocaleReadyCount', {
+        ready,
+        total: INTERFACE_LOCALES.length,
+    });
+    return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml(count)} ${escapeHtml(uiText(language, 'interfaceLocaleBlockedNote'))}</div>`;
+}
+
 function renderLanguageProfileControls(settings: ReaderSettings): string {
     const copy = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage = activeLearnerLanguageId(settings);
@@ -163,9 +254,10 @@ function renderLanguageProfileControls(settings: ReaderSettings): string {
                                 ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage)}
                             </select>
                         </label>
-                        ${select('interfaceLanguage', uiText(settings.interfaceLanguage, 'settingsLanguage'), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}
+                        ${renderInterfaceLocaleSelect(settings)}
                     </div>
                     <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml(copy.languageProfileHelp)}</div>
+                    ${renderInterfaceLocaleAvailabilityNote(settings.interfaceLanguage)}
                     <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
                 </div>
     `;
@@ -690,11 +782,11 @@ const FURIGANA_HIDE_GROUPS: readonly ReaderSettings['furiganaHiddenStateGroups']
 // key. renderSettingsForm localizes them on first paint (no English flash before
 // localizeSettingsForm runs) and localizeSettingsForm re-applies the same table
 // on live language switches — one source, two consumers.
-const INTERFACE_LANGUAGE_OPTIONS = [
-    ['auto', 'automatic'],
-    ['en', 'english'],
-    ['ja', 'japanese'],
-] as const satisfies SettingsOptionTable;
+//
+// The interface language is no longer one of them: D43 renders it from the
+// 33-locale manifest, grouped into what is ready and what is on the way, so a
+// blocked locale is visible and disabled rather than absent. See
+// renderInterfaceLocaleSelect / localizeInterfaceLocaleSelect.
 
 const POPUP_MODE_OPTIONS = [
     ['auto', 'auto'],
@@ -1466,7 +1558,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         localizeSettingsShell(form, language, text);
         localizeSettingsLabels(form, text);
         localizeSettingsSectionTitles(form, text);
-        localizeSettingsSelects(form, text);
+        localizeSettingsSelects(form, language, text);
         localizeSettingsShortcuts(form, text);
         localizeSettingsHelpText(form, text);
         localizeSettingsActions(form, text);
@@ -1774,15 +1866,50 @@ function replaceLocalTitle(form: HTMLFormElement, pattern: RegExp, value: string
     title?.replaceChildren(value);
 }
 
-function localizeSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
-    localizeBasicSettingsSelects(form, text);
+function localizeSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
+    localizeBasicSettingsSelects(form, language, text);
     localizeColorAndReaderSelects(form, text);
     localizeMediaSettingsSelects(form, text);
     localizeMiningSettingsSelects(form, text);
 }
 
-function localizeBasicSettingsSelects(form: HTMLFormElement, text: SettingsText): void {
-    setSelectOptionLabels(form, 'interfaceLanguage', localizedOptions(text, INTERFACE_LANGUAGE_OPTIONS));
+/**
+ * Re-localize the interface-locale picker on a live language switch.
+ *
+ * `setSelectOptionLabels` cannot do this: the labels are not a fixed table any
+ * more, the option list is grouped, and a blocked option's label is a locale
+ * name plus a reason that has to move to the new interface language while the
+ * `title` keeps the reason in the blocked locale's own language.
+ */
+function localizeInterfaceLocaleSelect(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
+    const selectElement = namedFormControls(form, 'interfaceLanguage').find(
+        (element): element is HTMLSelectElement => element instanceof HTMLSelectElement,
+    );
+    if (!selectElement) return;
+    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="ready"]')
+        .forEach(group => group.setAttribute('label', text('interfaceLocalesReady')));
+    form.querySelectorAll<HTMLElement>('[data-interface-locale-group="in-progress"]')
+        .forEach(group => group.setAttribute('label', text('interfaceLocalesInProgress')));
+    for (const option of Array.from(selectElement.options)) {
+        if (option.value === 'auto') {
+            option.textContent = text('automatic');
+            continue;
+        }
+        const locale = INTERFACE_LOCALES.find(candidate => candidate.tag === option.value);
+        if (!locale) continue;
+        option.textContent = locale.available
+            ? interfaceLocaleOptionLabel(locale)
+            : `${interfaceLocaleOptionLabel(locale)} · ${text(interfaceLocaleBlockerCopyKey(locale))}`;
+    }
+    const note = form.querySelector<HTMLElement>('[data-interface-locale-note]');
+    if (note) {
+        const ready = INTERFACE_LOCALES.filter(locale => locale.available).length;
+        note.textContent = `${formatUiText(language, 'interfaceLocaleReadyCount', { ready, total: INTERFACE_LOCALES.length })} ${text('interfaceLocaleBlockedNote')}`;
+    }
+}
+
+function localizeBasicSettingsSelects(form: HTMLFormElement, language: InterfaceLanguage, text: SettingsText): void {
+    localizeInterfaceLocaleSelect(form, language, text);
     form.querySelector<HTMLElement>('[data-theme-title]')?.replaceChildren(text('theme'));
     setSelectOptionLabels(form, 'popupMode', localizedOptions(text, POPUP_MODE_OPTIONS));
     setSelectOptionLabels(form, 'hoverPopupMode', localizedOptions(text, POPUP_MODE_OPTIONS));

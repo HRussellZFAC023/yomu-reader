@@ -16,6 +16,12 @@ export const ENGLISH_FALLBACK_MESSAGES = {
   setupProgress: "Language setup {current} of {total}",
   continueAction: "Continue",
   originalDefinitionLabel: "Original {language}",
+  // D43: a locale that is in scope but not yet selectable says why, in its own
+  // language, so the person who came looking for it can read the answer. The
+  // interface never offers one of these and then quietly speaks English.
+  interfaceRtlVerificationPending:
+    "Right-to-left layout checks are still running.",
+  interfaceTranslationPending: "Translation is still in progress.",
 } as const;
 
 export type LocaleMessageKey = keyof typeof ENGLISH_FALLBACK_MESSAGES;

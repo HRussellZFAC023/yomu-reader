@@ -657,7 +657,7 @@
 
   .jpdb-reader-newtab-support-copy {
     justify-content: flex-start;
-    text-align: left;
+    text-align: start;
   }
 }
 
@@ -736,7 +736,7 @@
   min-width: 112px;
   display: flex;
   align-items: center;
-  padding-left: clamp(6px, 1.2vw, 14px);
+  padding-inline-start: clamp(6px, 1.2vw, 14px);
 }
 
 .jpdb-reader-newtab-brand .title {
@@ -808,7 +808,7 @@
   font-size: 13px;
   font-weight: 650;
   line-height: 1.2;
-  text-align: left;
+  text-align: start;
   text-decoration: none;
   cursor: pointer;
 }
@@ -917,7 +917,7 @@
   padding: 0;
   font-size: clamp(1.95rem, 4.4vw, 3.4rem);
   line-height: 1;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-search-mode .jpdb-reader-newtab-answer,
@@ -1049,7 +1049,7 @@
   min-width: 0;
   min-height: 44px;
   padding: 12px;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-search-suggestions button[data-active="true"] {
@@ -1264,7 +1264,7 @@
     transparent
   );
   color: var(--jpdb-reader-text);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -1303,7 +1303,7 @@
     var(--jpdb-reader-bg) 72%,
     var(--jpdb-reader-surface) 28%
   );
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-search-detail
@@ -1319,7 +1319,7 @@
     .jpdb-reader-local-glossary
   ) {
   justify-items: stretch;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-search-detail
@@ -1852,7 +1852,7 @@
   font-size: 12px;
   font-weight: 720;
   line-height: 1.25;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-study-tour[hidden],
@@ -2066,7 +2066,7 @@ button.jpdb-reader-newtab-status:disabled:empty {
    the status-light span, so the dot is a background gradient). */
 .jpdb-reader-newtab-source-select[data-source] {
   --jpdb-reader-newtab-source-dot: var(--jpdb-reader-faint);
-  padding-left: 24px;
+  padding-inline-start: 24px;
   background-image: radial-gradient(
     circle at 12px 50%,
     var(--jpdb-reader-newtab-source-dot) 0 3.5px,
@@ -2269,7 +2269,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   width: min(100%, 680px);
   max-width: min(100%, 680px);
   min-width: 0;
-  border-left: 0;
+  border-inline-start: 0;
   padding: 0;
   text-align: center;
   font-size: clamp(19px, 1.7vw, 26px);
@@ -2419,7 +2419,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   font-size: 12px;
   font-weight: 780;
   line-height: 1.2;
-  text-align: left;
+  text-align: start;
   text-shadow: none;
 }
 
@@ -3310,7 +3310,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-size: 10px;
   font-weight: 780;
   line-height: 1.2;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-grade-target-panel {
@@ -3784,7 +3784,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   margin-inline: auto;
   margin-top: 12px;
   margin-bottom: 34px;
-  text-align: left;
+  text-align: start;
   overflow: hidden;
   overflow-wrap: anywhere;
   font-size: 13px;
@@ -3820,7 +3820,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   margin-top: 0;
   padding: 0;
   overflow: visible;
-  text-align: left;
+  text-align: start;
   border: 0;
   border-top: 1px solid
     color-mix(
@@ -4100,7 +4100,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     transparent
   );
   color: var(--jpdb-reader-text);
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-kanji-details .jpdb-reader-component-card strong,
@@ -4128,7 +4128,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
     );
   border-radius: 0;
   background: transparent;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-kanji-vocab > button {
@@ -4158,7 +4158,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-size: 12px;
   font-weight: 650;
   line-height: 1.45;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-doodle-pass .jpdb-reader-newtab-doodle-result {
@@ -4333,7 +4333,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-immersion .jpdb-reader-example-source {
@@ -4549,7 +4549,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 .jpdb-reader-newtab-kanji-immersion {
   width: 100%;
   gap: 6px;
-  text-align: left;
+  text-align: start;
 }
 
 .jpdb-reader-newtab-kanji-immersion .jpdb-reader-example-toolbar {
@@ -5323,7 +5323,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   background: none;
   color: var(--jpdb-reader-text);
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .jpdb-reader-newtab-browse-row:hover,
@@ -5339,7 +5339,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-weight: 600;
 }
 .jpdb-reader-newtab-browse-reading {
-  margin-left: 6px;
+  margin-inline-start: 6px;
   color: var(--jpdb-reader-muted);
   font-size: 12px;
 }
@@ -5440,7 +5440,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
 /* Keyboard hints on study controls (jpdb/Jiten advertise theirs the same
    way); pointless on touch, so coarse pointers hide them. */
 .jpdb-reader-newtab-key-hint {
-  margin-left: 6px;
+  margin-inline-start: 6px;
   padding: 1px 5px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 4px;
@@ -5551,7 +5551,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode, .jpdb-reader-newtab-empty-mode))
     .jpdb-reader-newtab-study > .jpdb-reader-newtab-answer {
     grid-column: 2;
-    text-align: left;
+    text-align: start;
   }
 }
 
@@ -6172,7 +6172,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   line-height: 1.35;
   opacity: 0;
   pointer-events: none;
-  text-align: left;
+  text-align: start;
   transform: translate(-50%, 4px);
   transition: opacity 120ms ease, transform 120ms ease;
   visibility: hidden;
@@ -6281,7 +6281,7 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-size: 10px;
   font-weight: 760;
   line-height: 1.1;
-  text-align: right;
+  text-align: end;
 }
 
 .jpdb-reader-stats-heatmap-grid {
@@ -6526,6 +6526,9 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);
@@ -9967,6 +9970,9 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);
@@ -10982,8 +10988,8 @@ button.jpdb-reader-token-sentence-word {
 }
 .jpdb-reader-example-summary .jpdb-reader-example-count {
   flex: 0 0 auto;
-  margin-left: auto;
-  text-align: right;
+  margin-inline-start: auto;
+  text-align: end;
   white-space: nowrap;
 }
 .jpdb-reader-example-availability {
@@ -10996,7 +11002,7 @@ button.jpdb-reader-token-sentence-word {
 .jpdb-reader-jpdb-example .jpdb-reader-example-translation {
   justify-self: stretch;
   width: 100%;
-  text-align: left;
+  text-align: start;
   text-wrap: pretty;
 }
 .jpdb-reader-jpdb-example .jpdb-reader-example-sentence {
@@ -11043,7 +11049,7 @@ button.jpdb-reader-token-sentence-word {
   border-radius: 50%;
   display: inline-block;
   background: var(--jpdb-reader-faint);
-  margin-right: 4px;
+  margin-inline-end: 4px;
 }
 .jpdb-reader-state-dot.jpdb-new,
 .jpdb-reader-state-dot.jpdb-in-deck,
@@ -11118,14 +11124,14 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   gap: 8px;
   font-size: 13px;
   line-height: 1.45;
-  text-align: left;
+  text-align: start;
 }
 .jpdb-reader-definition-stack {
   display: grid;
   justify-items: stretch;
   gap: 0;
   margin-top: 12px;
-  text-align: left;
+  text-align: start;
 }
 .jpdb-reader-definition-stack .jpdb-reader-local {
   margin-top: 0;
@@ -11188,7 +11194,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   gap: 0;
   padding-top: 0;
   position: relative;
-  text-align: left;
+  text-align: start;
 }
 .jpdb-reader-source-card .jpdb-reader-meanings {
   margin: 0;
@@ -11219,7 +11225,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
-  margin-left: 0;
+  margin-inline-start: 0;
   color: var(--jpdb-reader-muted);
   font-size: 15px;
   line-height: 1;
@@ -11254,8 +11260,8 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 
 .jpdb-reader-source-card > :not(summary) {
-  margin-left: 0;
-  margin-right: 0;
+  margin-inline-start: 0;
+  margin-inline-end: 0;
 }
 .jpdb-reader-source-card[open] > :last-child {
   margin-bottom: 7px;
@@ -11269,20 +11275,20 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 .jpdb-reader-dictionary-source-list {
   display: grid;
   justify-items: stretch;
-  text-align: left;
+  text-align: start;
 }
 .jpdb-reader-dictionary-group > .jpdb-reader-dictionary-source-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  text-align: left;
+  text-align: start;
 }
 .jpdb-reader-dictionary-group
   > .jpdb-reader-dictionary-source-title
   .jpdb-reader-source-status {
-  margin-left: auto;
-  padding-left: 8px;
+  margin-inline-start: auto;
+  padding-inline-start: 8px;
 }
 .jpdb-reader-dictionary-group .jpdb-reader-local-term {
   border: 0;
@@ -11310,11 +11316,11 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-source-status {
   flex: 0 0 auto;
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--jpdb-reader-muted);
   font-size: 11px;
   font-weight: 700;
-  text-align: right;
+  text-align: end;
   text-transform: none;
   white-space: nowrap;
 }
@@ -11368,7 +11374,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-local-term {
   padding: 7px 8px;
-  padding-right: 32px;
+  padding-inline-end: 32px;
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface) 88%,
@@ -11377,7 +11383,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-source-card .jpdb-reader-local-term {
   padding: 7px 0 8px;
-  padding-right: 0;
+  padding-inline-end: 0;
   border-top: 1px solid
     color-mix(in srgb, var(--jpdb-reader-border) 52%, transparent);
   border-radius: 0;
@@ -11412,10 +11418,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   font-weight: var(--jpdb-reader-popup-font-weight, 450);
 }
 .jpdb-reader-local-dict {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 .jpdb-reader-local-frequency {
-  margin-left: auto;
+  margin-inline-start: auto;
   color: var(--jpdb-reader-accent-readable);
   font-size: 11px;
   font-weight: 800;
@@ -11507,7 +11513,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   color: var(--jpdb-reader-faint);
   font-size: 11px;
   font-weight: 800;
-  text-align: right;
+  text-align: end;
 }
 .jpdb-reader-local-glossary {
   margin-top: 3px;
@@ -11600,7 +11606,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   place-items: center;
   width: 24px;
   height: 24px;
-  margin-left: 0;
+  margin-inline-start: 0;
   color: var(--jpdb-reader-muted);
   font-size: 16px;
   line-height: 1;
@@ -11618,7 +11624,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   > :is(summary.jpdb-reader-local-head, summary.jpdb-reader-local-title.jpdb-reader-example-summary)
   .jpdb-reader-source-status {
   justify-self: end;
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 .jpdb-reader-local-glossary .structured-content {
   display: inline;
@@ -11681,11 +11687,11 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-local-glossary .gloss-sc-li {
   margin: 0;
-  padding-left: 0.1em;
+  padding-inline-start: 0.1em;
 }
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ul,
 .jpdb-reader-local-glossary .gloss-sc-li > .gloss-sc-ol {
-  margin-left: var(--list-padding2, 1.1em);
+  margin-inline-start: var(--list-padding2, 1.1em);
 }
 .jpdb-reader-local-glossary .gloss-sc-details {
   margin: 0.35em 0;
@@ -11810,7 +11816,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 .jpdb-reader-anki-existing > summary small {
   color: var(--jpdb-reader-muted);
   font-weight: 700;
-  text-align: right;
+  text-align: end;
 }
 .jpdb-reader-anki-card-preview {
   display: grid;
@@ -11826,8 +11832,8 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   padding: 8px 0 0;
 }
 .jpdb-reader-anki-existing-note {
-  border-left: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-  padding-left: 8px;
+  border-inline-start: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+  padding-inline-start: 8px;
 }
 .jpdb-reader-anki-existing-note + .jpdb-reader-anki-existing-note {
   margin-top: 8px;
@@ -11876,7 +11882,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   max-width: min(38vw, 180px);
   min-width: 0;
   overflow: hidden;
-  text-align: right;
+  text-align: end;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -12000,7 +12006,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   overflow: visible;
   overscroll-behavior: contain;
   contain: content;
-  border-left: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
+  border-inline-start: 2px solid color-mix(in srgb, var(--jpdb-reader-border) 70%, transparent);
   padding: 2px 0 2px 8px;
   background: transparent;
   color: var(--jpdb-reader-text);
@@ -12238,9 +12244,9 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   display: block;
   max-width: 100%;
   flex: 1 1 auto;
-  margin-left: 0;
+  margin-inline-start: 0;
   min-width: 0;
-  text-align: left;
+  text-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -12663,7 +12669,7 @@ mark.jpdb-reader-example-target {
   background: transparent;
 }
 .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 .jpdb-reader-immersion > .jpdb-reader-example-actions {
   display: flex;
@@ -12716,7 +12722,7 @@ mark.jpdb-reader-example-target {
     flex-basis: 100%;
   }
   .jpdb-reader-example-toolbar .jpdb-reader-example-actions {
-    margin-left: 0;
+    margin-inline-start: 0;
   }
   .jpdb-reader-example-source {
     flex-basis: 100%;
@@ -12916,7 +12922,7 @@ mark.jpdb-reader-example-target {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
+  margin-inline-start: auto;
   white-space: nowrap;
 }
 .jpdb-reader-grammar-repeat {
@@ -13074,7 +13080,7 @@ mark.jpdb-reader-example-target {
 }
 .jpdb-reader-grammar-more > summary::after {
   content: "+";
-  margin-left: 5px;
+  margin-inline-start: 5px;
 }
 .jpdb-reader-grammar-more[open] > summary::after {
   content: "-";
@@ -13937,7 +13943,7 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-component-button {
   display: grid;
   gap: 2px;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   font: inherit;
 }
@@ -13960,7 +13966,7 @@ mark.jpdb-reader-example-target {
   gap: 4px;
   align-content: start;
   min-height: 104px;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   font: inherit;
 }
@@ -14048,7 +14054,7 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-jiten-kanji-word .jpdb-reader-similar-meaning {
   min-width: 0;
   color: var(--jpdb-reader-muted);
-  text-align: right;
+  text-align: end;
   -webkit-line-clamp: 1;
   line-clamp: 1;
 }
@@ -14063,7 +14069,7 @@ mark.jpdb-reader-example-target {
     gap: 4px;
   }
   .jpdb-reader-jiten-kanji-word .jpdb-reader-similar-meaning {
-    text-align: left;
+    text-align: start;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
@@ -14916,7 +14922,7 @@ html.jpdb-reader-doodle-active * {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 64%, transparent);
-  text-align: left;
+  text-align: start;
 }
 .yomu-jpdb-uchisen-field {
   display: grid;
@@ -14972,7 +14978,7 @@ html.jpdb-reader-doodle-active * {
   display: grid;
   gap: 8px;
   width: 100%;
-  text-align: left;
+  text-align: start;
 }
 
 .yomu-jpdb-component-group {
@@ -15097,7 +15103,7 @@ html.jpdb-reader-doodle-active * {
    ahead of the Anki status sentence. */
 .jpdb-reader-adapter-state-chip {
   display: inline-block;
-  margin-right: 6px;
+  margin-inline-end: 6px;
   padding: 1px 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
@@ -15393,7 +15399,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings select {
   appearance: none !important;
   -webkit-appearance: none !important;
-  padding-right: 34px;
+  padding-inline-end: 34px;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
@@ -15597,6 +15603,9 @@ html.jpdb-reader-doodle-active * {
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);
@@ -15652,6 +15661,15 @@ html.jpdb-reader-doodle-active * {
 
 .jpdb-reader-settings .grid > [data-language-family] {
   display: contents;
+}
+
+/* D43: an interface locale Yomu cannot speak yet is listed, dimmed and disabled,
+   with the reason in its label. Dimming is the visual half of the same statement
+   the `disabled` attribute makes to the keyboard and to assistive technology —
+   the option must read as "not yet", never as "broken" or as a normal choice. */
+.jpdb-reader-settings select option[data-interface-locale-blocked] {
+  opacity: 0.66;
+  font-style: italic;
 }
 .jpdb-reader-settings .grid > * {
   min-width: 0;
@@ -16098,9 +16116,13 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-anki-adapter {
   margin: 0;
-  padding: 0 0 0 18px;
+  padding: 0;
+  /* The indent has to follow the rail beside it, so both are logical. A
+     `padding: 0 0 0 18px` shorthand cannot be, and would leave the gap on the
+     wrong side of the rail in an RTL interface. */
+  padding-inline-start: 18px;
   border-top: 0;
-  border-left: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+  border-inline-start: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
 }
 .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {
   grid-template-columns: repeat(3, minmax(88px, 1fr));
@@ -16153,7 +16175,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-proxy-guide-body ol {
   display: grid;
   gap: 7px;
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 .jpdb-reader-proxy-guide-body code {
   font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -16272,10 +16294,10 @@ html.jpdb-reader-doodle-active * {
   flex: 1 1 100%;
   color: var(--jpdb-reader-accent-readable);
   font: 760 11px/1.35 var(--jpdb-reader-font);
-  text-align: right;
+  text-align: end;
 }
 .jpdb-reader-settings-footer-version {
-  margin-right: auto;
+  margin-inline-end: auto;
   color: var(--jpdb-reader-muted);
   font: 600 11px/1.35 var(--jpdb-reader-font);
 }
@@ -16302,7 +16324,7 @@ html.jpdb-reader-doodle-active * {
   display: inline-block;
   width: 0.95em;
   height: 0.95em;
-  margin-left: 0.2em;
+  margin-inline-start: 0.2em;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -17169,7 +17191,7 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-anki-adapter {
     padding: 12px 0 0;
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-    border-left: 0;
+    border-inline-start: 0;
   }
 
   .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {
@@ -17297,7 +17319,7 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-anki-adapter {
     padding: 12px 0 0;
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-    border-left: 0;
+    border-inline-start: 0;
   }
 
   .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {

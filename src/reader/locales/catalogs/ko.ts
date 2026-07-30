@@ -13,4 +13,6 @@ export const koCatalog = defineLocaleCatalog("ko", "machine-draft", {
   setupProgress: "언어 설정: {total}단계 중 {current}단계",
   continueAction: "계속",
   originalDefinitionLabel: "원문({language})",
+  interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+  interfaceTranslationPending: "번역이 아직 진행 중입니다.",
 });

@@ -13,4 +13,6 @@ export const svCatalog = defineLocaleCatalog("sv", "machine-draft", {
   setupProgress: "Språkinställning: {current} av {total}",
   continueAction: "Fortsätt",
   originalDefinitionLabel: "Ursprunglig definition på {language}",
+  interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+  interfaceTranslationPending: "Översättningen pågår fortfarande.",
 });

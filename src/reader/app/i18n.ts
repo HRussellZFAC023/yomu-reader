@@ -1,5 +1,6 @@
 import { ACADEMY_SRS_LABEL, APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { requestJson } from '../network/http';
+import { formatIsolated, isRtlInterface } from '../locales/direction';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
@@ -1235,6 +1236,16 @@ const COPY = {
         grammarGenericShort: 'Grammar point: {name}',
         grammarGenericDetail: 'Uses {name} in 「{match}」.',
         grammarLevelCore: 'Core',
+        // D43 interface-locale picker. Yomu is in scope for 33 interface
+        // languages and ships two. The picker names the other 31 and says what
+        // each is waiting on, because a language that is listed and then
+        // silently replaced by English is the worse of the two failures.
+        interfaceLocalesReady: 'Ready now',
+        interfaceLocalesInProgress: 'On the way',
+        interfaceLocaleRtlPending: 'Right-to-left layout checks are still running',
+        interfaceLocaleTranslationPending: 'Translation is still in progress',
+        interfaceLocaleBlockedNote: 'These are coming. Each one shows what it is waiting on.',
+        interfaceLocaleReadyCount: '{ready} of {total} interface languages are ready.',
     },
 } as const;
 
@@ -1276,6 +1287,12 @@ function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
 }
 
 const JA_COPY: Partial<Record<UiCopyKey, string>> = parseUiCopyTable(String.raw`
+interfaceLocalesReady	今すぐ使えます
+interfaceLocalesInProgress	準備中
+interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
+interfaceLocaleTranslationPending	翻訳が進行中です
+interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ何を待っているか表示します。
+interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
@@ -2565,8 +2582,36 @@ export async function grammarRuleText(language: InterfaceLanguage, ruleId: strin
 
 export function uiText(language: InterfaceLanguage, key: UiCopyKey): string {
     return resolveUiLanguage(language) === 'ja'
-        ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? '未翻訳'
+        // D43: the last resort is the English source, not the literal string
+        // `未翻訳`. A placeholder reads as a bug and tells a learner nothing;
+        // falling back down the chain to the source locale is the behaviour the
+        // unified pipeline specifies (`src/reader/locales/resolve.ts`).
+        ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? COPY.en[key]
         : COPY.en[key];
+}
+
+/**
+ * The reader-chrome message inventory, for the D43 coverage gate.
+ *
+ * `src/reader/locales/registry.ts` needs the English source of every chrome
+ * string to classify it into a copy tier and to measure per-locale coverage. It
+ * reads it through these two functions rather than importing the maps, so the
+ * maps stay private and the gate measures the same values the reader renders.
+ */
+export function chromeMessageSource(): Readonly<Record<string, string>> {
+    return COPY.en;
+}
+
+export function chromeMessageSourceForLocale(
+    locale: 'en' | 'ja',
+): Readonly<Record<string, string>> {
+    if (locale === 'en') return COPY.en;
+    const japanese: Record<string, string> = {};
+    for (const key of Object.keys(COPY.en) as UiCopyKey[]) {
+        const value = JA_SETTINGS_COPY[key] ?? JA_COPY[key];
+        if (typeof value === 'string' && value.length > 0) japanese[key] = value;
+    }
+    return japanese;
 }
 
 export function cardStateLabel(state: string, language: InterfaceLanguage, fallback = state): string {
@@ -2579,10 +2624,19 @@ export function audioSourceLabel(language: InterfaceLanguage, type: AudioSourceT
 }
 
 export function formatUiText(language: InterfaceLanguage, key: UiCopyKey, values: Record<string, string | number>): string {
-    return Object.entries(values).reduce(
-        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-        uiText(language, key),
-    );
+    const message = uiText(language, key);
+    // D43 bidi isolation. A substituted value is almost always foreign to the
+    // sentence around it — a Japanese term, a Latin source name, a URL, a
+    // version, a count. Dropped raw into an Arabic or Farsi sentence it reorders
+    // the sentence: a trailing bracket jumps to the wrong end, `1.8.40` reverses.
+    // Isolation is applied only when the interface itself is RTL, so English and
+    // Japanese output stays byte-identical and no test or snapshot moves.
+    return isRtlInterface(language)
+        ? formatIsolated(message, values)
+        : Object.entries(values).reduce(
+            (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+            message,
+        );
 }
 
 export function uiList(language: InterfaceLanguage, parts: string[]): string {

@@ -13,4 +13,6 @@ export const sqCatalog = defineLocaleCatalog("sq", "machine-draft", {
   setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
   continueAction: "Vazhdo",
   originalDefinitionLabel: "Origjinali në {language}",
+  interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+  interfaceTranslationPending: "Përkthimi është në vazhdim.",
 });

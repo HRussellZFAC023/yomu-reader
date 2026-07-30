@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.42] - 2026-07-30
+
+### Added
+
+- Yomu's own interface now lists all 33 languages it is built for instead of two. The 31 that are not ready yet are shown greyed out with the reason next to them, in your language and in theirs, so a language you were promised can never be chosen and then silently answered in English. Arabic and Farsi say that right-to-left layout checks are still running; the rest say translation is still in progress.
+
 ## [1.8.41] - 2026-07-30
 
 ### Added

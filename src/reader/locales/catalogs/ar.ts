@@ -13,4 +13,6 @@ export const arCatalog = defineLocaleCatalog("ar", "machine-draft", {
   setupProgress: "إعداد اللغة: \u2068{current}\u2069 من \u2068{total}\u2069",
   continueAction: "متابعة",
   originalDefinitionLabel: "التعريف الأصلي باللغة \u2068{language}\u2069",
+  interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+  interfaceTranslationPending: "الترجمة قيد التقدم.",
 });

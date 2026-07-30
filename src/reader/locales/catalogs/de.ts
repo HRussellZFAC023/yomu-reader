@@ -13,4 +13,6 @@ export const deCatalog = defineLocaleCatalog("de", "machine-draft", {
   setupProgress: "Sprache einrichten: {current} von {total}",
   continueAction: "Weiter",
   originalDefinitionLabel: "Originaldefinition auf {language}",
+  interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+  interfaceTranslationPending: "Die Übersetzung läuft noch.",
 });

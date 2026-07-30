@@ -12,6 +12,7 @@ import {
     shouldShowSupportBannerImpression,
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
+import { applyInterfaceLocaleToDocument, resolveInterfaceLocale } from '../../../src/reader/locales';
 import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
@@ -603,6 +604,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Example sentences now work in the language you are studying, not only Japanese. Pick Spanish, Korean, Arabic, Greek, Lao or any other study language and the popup fetches real sentences from Tatoeba, with the translation in the language you chose for definitions, and a credit link to the sentence and its licence.": "例文が日本語だけでなく、学習している言語でも使えるようになりました。スペイン語、韓国語、アラビア語、ギリシャ語、ラオ語など、どの学習言語を選んでも、ポップアップがTatoebaから実際の文を取得します。訳は定義用に選んだ言語で表示され、文とそのライセンスへのクレジットリンクが付きます。",
     "Sentence audio plays where the recording is openly licensed, and the card says so when it is not. Japanese keeps Immersion Kit exactly as before, with its clips and frames.": "録音が公開ライセンスの場合は文の音声を再生でき、そうでない場合はカードにその旨が表示されます。日本語ではこれまでどおりImmersion Kitを使い、クリップと場面画像もそのままです。",
     "An example source with nothing to show now tells you which of those it is. \"No examples for this word yet\", \"this source has no Spanish sentences\", \"this corpus is small\", \"these sentences came without openly licensed audio\" and \"examples did not load\" each read differently, and the last one offers a retry. Before, all five looked the same: an empty space.": "表示するものがない例文の情報源が、そのどれに当たるのかを伝えるようになりました。「この語の例文はまだありません」「この情報源にスペイン語の例文はありません」「コーパスが小さい」「公開ライセンスの音声が付いていない」「例文を読み込めませんでした」はそれぞれ別の文として表示され、最後のものには再試行が付きます。以前はこの5つがすべて同じ、ただの空白に見えていました。",
+    "Yomu's own interface now lists all 33 languages it is built for instead of two. The 31 that are not ready yet are shown greyed out with the reason next to them, in your language and in theirs, so a language you were promised can never be chosen and then silently answered in English. Arabic and Farsi say that right-to-left layout checks are still running; the rest say translation is still in progress.": "よむ自身の表示言語に、対応予定の33言語すべてが並ぶようになりました。これまでは2言語だけでした。まだ準備できていない31言語は薄く表示され、選べない理由をあなたの言語とその言語の両方で示します。約束された言語を選べたのに、黙って英語で答えられることはもうありません。アラビア語とペルシア語は右から左へのレイアウト確認が進行中であること、それ以外は翻訳が進行中であることを示します。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',
@@ -4664,6 +4666,13 @@ function localizeHostedDocsCopy(options: { resetReaderWords?: boolean } = {}): v
 }
 
 function syncHostedDocumentLocale(language: InterfaceLanguage): void {
+    // D43: hosted docs is a document Yomu owns, so it takes the full interface
+    // locale — `lang`, `dir` and the per-script font stack — from the same
+    // manifest the reader chrome uses. Today every available locale is ltr, so
+    // this changes nothing visible; it is the seam an RTL locale arrives through,
+    // and having it here means enabling Arabic is a ledger flip, not a hunt for
+    // every place a direction should have been set.
+    applyInterfaceLocaleToDocument(document, resolveInterfaceLocale(language).locale);
     document.documentElement.setAttribute('lang', language);
     document.querySelector<HTMLMetaElement>('meta[property="og:locale"]')
         ?.setAttribute('content', HOSTED_DOCS_LOCALE_META[language]);

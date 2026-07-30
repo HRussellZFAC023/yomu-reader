@@ -13,4 +13,6 @@ export const loCatalog = defineLocaleCatalog("lo", "machine-draft", {
   setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
   continueAction: "ສືບຕໍ່",
   originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+  interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+  interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່.",
 });

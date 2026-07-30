@@ -14,4 +14,6 @@ export const roCatalog = defineLocaleCatalog("ro", "machine-draft", {
   setupProgress: "Configurarea limbii: {current} din {total}",
   continueAction: "Continuă",
   originalDefinitionLabel: "Definiția originală în {language}",
+  interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+  interfaceTranslationPending: "Traducerea este încă în curs.",
 });

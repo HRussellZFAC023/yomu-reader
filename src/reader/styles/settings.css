@@ -43,7 +43,7 @@
    ahead of the Anki status sentence. */
 .jpdb-reader-adapter-state-chip {
   display: inline-block;
-  margin-right: 6px;
+  margin-inline-end: 6px;
   padding: 1px 8px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
@@ -339,7 +339,7 @@
 .jpdb-reader-settings select {
   appearance: none !important;
   -webkit-appearance: none !important;
-  padding-right: 34px;
+  padding-inline-end: 34px;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%) !important;
@@ -543,6 +543,9 @@
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);
@@ -598,6 +601,15 @@
 
 .jpdb-reader-settings .grid > [data-language-family] {
   display: contents;
+}
+
+/* D43: an interface locale Yomu cannot speak yet is listed, dimmed and disabled,
+   with the reason in its label. Dimming is the visual half of the same statement
+   the `disabled` attribute makes to the keyboard and to assistive technology —
+   the option must read as "not yet", never as "broken" or as a normal choice. */
+.jpdb-reader-settings select option[data-interface-locale-blocked] {
+  opacity: 0.66;
+  font-style: italic;
 }
 .jpdb-reader-settings .grid > * {
   min-width: 0;
@@ -1044,9 +1056,13 @@
 }
 .jpdb-reader-anki-adapter {
   margin: 0;
-  padding: 0 0 0 18px;
+  padding: 0;
+  /* The indent has to follow the rail beside it, so both are logical. A
+     `padding: 0 0 0 18px` shorthand cannot be, and would leave the gap on the
+     wrong side of the rail in an RTL interface. */
+  padding-inline-start: 18px;
   border-top: 0;
-  border-left: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
+  border-inline-start: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
 }
 .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {
   grid-template-columns: repeat(3, minmax(88px, 1fr));
@@ -1099,7 +1115,7 @@
 .jpdb-reader-proxy-guide-body ol {
   display: grid;
   gap: 7px;
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 .jpdb-reader-proxy-guide-body code {
   font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1218,10 +1234,10 @@
   flex: 1 1 100%;
   color: var(--jpdb-reader-accent-readable);
   font: 760 11px/1.35 var(--jpdb-reader-font);
-  text-align: right;
+  text-align: end;
 }
 .jpdb-reader-settings-footer-version {
-  margin-right: auto;
+  margin-inline-end: auto;
   color: var(--jpdb-reader-muted);
   font: 600 11px/1.35 var(--jpdb-reader-font);
 }
@@ -1248,7 +1264,7 @@
   display: inline-block;
   width: 0.95em;
   height: 0.95em;
-  margin-left: 0.2em;
+  margin-inline-start: 0.2em;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -2115,7 +2131,7 @@
   .jpdb-reader-anki-adapter {
     padding: 12px 0 0;
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-    border-left: 0;
+    border-inline-start: 0;
   }
 
   .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {
@@ -2243,7 +2259,7 @@
   .jpdb-reader-anki-adapter {
     padding: 12px 0 0;
     border-top: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-    border-left: 0;
+    border-inline-start: 0;
   }
 
   .jpdb-reader-settings .jpdb-reader-anki-adapter .grid {

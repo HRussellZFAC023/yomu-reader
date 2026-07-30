@@ -13,4 +13,6 @@ export const thCatalog = defineLocaleCatalog("th", "machine-draft", {
   setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
   continueAction: "ดำเนินการต่อ",
   originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+  interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+  interfaceTranslationPending: "การแปลยังดำเนินอยู่",
 });

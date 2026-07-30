@@ -13,4 +13,6 @@ export const mnCatalog = defineLocaleCatalog("mn", "machine-draft", {
   setupProgress: "Хэлний тохиргоо: {current}/{total}",
   continueAction: "Үргэлжлүүлэх",
   originalDefinitionLabel: "Эх тайлбар ({language})",
+  interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+  interfaceTranslationPending: "Орчуулга хийгдсээр байна.",
 });

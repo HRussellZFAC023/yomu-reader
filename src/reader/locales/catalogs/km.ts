@@ -13,4 +13,6 @@ export const kmCatalog = defineLocaleCatalog("km", "machine-draft", {
   setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
   continueAction: "បន្ត",
   originalDefinitionLabel: "និយមន័យដើម ({language})",
+  interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+  interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។",
 });

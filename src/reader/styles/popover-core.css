@@ -686,6 +686,9 @@
   content: "";
   width: 12px;
   height: 7px;
+  /* Physical on purpose: this is the two strokes of a checkmark glyph, rotated
+     -45deg. It is drawing, not layout — mirroring it in RTL would draw the tick
+     backwards. The plan keeps geometry physical and flips layout only. */
   border-left: 2.5px solid var(--jpdb-reader-accent-text);
   border-bottom: 2.5px solid var(--jpdb-reader-accent-text);
   transform: rotate(-45deg) translate(1px, -1px);
@@ -1701,8 +1704,8 @@ button.jpdb-reader-token-sentence-word {
 }
 .jpdb-reader-example-summary .jpdb-reader-example-count {
   flex: 0 0 auto;
-  margin-left: auto;
-  text-align: right;
+  margin-inline-start: auto;
+  text-align: end;
   white-space: nowrap;
 }
 .jpdb-reader-example-availability {
@@ -1715,7 +1718,7 @@ button.jpdb-reader-token-sentence-word {
 .jpdb-reader-jpdb-example .jpdb-reader-example-translation {
   justify-self: stretch;
   width: 100%;
-  text-align: left;
+  text-align: start;
   text-wrap: pretty;
 }
 .jpdb-reader-jpdb-example .jpdb-reader-example-sentence {
@@ -1762,7 +1765,7 @@ button.jpdb-reader-token-sentence-word {
   border-radius: 50%;
   display: inline-block;
   background: var(--jpdb-reader-faint);
-  margin-right: 4px;
+  margin-inline-end: 4px;
 }
 .jpdb-reader-state-dot.jpdb-new,
 .jpdb-reader-state-dot.jpdb-in-deck,

@@ -13,4 +13,6 @@ export const zhCatalog = defineLocaleCatalog("zh", "machine-draft", {
   setupProgress: "语言设置：第{current}步，共{total}步",
   continueAction: "继续",
   originalDefinitionLabel: "{language}原文",
+  interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+  interfaceTranslationPending: "翻译仍在进行中。",
 });

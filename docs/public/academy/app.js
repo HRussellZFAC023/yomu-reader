@@ -3722,7 +3722,7 @@
       });
     });
   }
-  const RTL_SCRIPTS = /* @__PURE__ */ new Set([
+  const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
     "Adlm",
     "Arab",
     "Hebr",
@@ -3773,7 +3773,7 @@
     try {
       const locale = new Intl.Locale(canonical);
       const script = locale.script || locale.maximize().script;
-      if (script && RTL_SCRIPTS.has(script)) return "rtl";
+      if (script && RTL_SCRIPTS$1.has(script)) return "rtl";
       return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
     } catch {
       return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
@@ -31957,7 +31957,12 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
     setupProgress: "Language setup {current} of {total}",
     continueAction: "Continue",
-    originalDefinitionLabel: "Original {language}"
+    originalDefinitionLabel: "Original {language}",
+    // D43: a locale that is in scope but not yet selectable says why, in its own
+    // language, so the person who came looking for it can read the answer. The
+    // interface never offers one of these and then quietly speaks English.
+    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+    interfaceTranslationPending: "Translation is still in progress."
   };
   function defineLocaleCatalog(locale, reviewStatus, messages) {
     return Object.freeze({
@@ -31977,7 +31982,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
     setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
     continueAction: "متابعة",
-    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩"
+    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+    interfaceTranslationPending: "الترجمة قيد التقدم."
   });
   const daCatalog = defineLocaleCatalog("da", "machine-draft", {
     setupTitle: "Opsæt よむ på dit sprog",
@@ -31989,7 +31996,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
     setupProgress: "Sprogopsætning: {current} af {total}",
     continueAction: "Fortsæt",
-    originalDefinitionLabel: "Original på {language}"
+    originalDefinitionLabel: "Original på {language}",
+    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+    interfaceTranslationPending: "Oversættelsen er stadig i gang."
   });
   const deCatalog = defineLocaleCatalog("de", "machine-draft", {
     setupTitle: "よむ in deiner Sprache einrichten",
@@ -32001,7 +32010,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
     setupProgress: "Sprache einrichten: {current} von {total}",
     continueAction: "Weiter",
-    originalDefinitionLabel: "Originaldefinition auf {language}"
+    originalDefinitionLabel: "Originaldefinition auf {language}",
+    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+    interfaceTranslationPending: "Die Übersetzung läuft noch."
   });
   const elCatalog = defineLocaleCatalog("el", "machine-draft", {
     setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
@@ -32013,7 +32024,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
     setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
     continueAction: "Συνέχεια",
-    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}"
+    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
   });
   const enCatalog = defineLocaleCatalog(
     "en",
@@ -32030,7 +32043,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
     setupProgress: "Configuración del idioma: {current} de {total}",
     continueAction: "Continuar",
-    originalDefinitionLabel: "Definición original ({language})"
+    originalDefinitionLabel: "Definición original ({language})",
+    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+    interfaceTranslationPending: "La traducción sigue en curso."
   });
   const faCatalog = defineLocaleCatalog("fa", "machine-draft", {
     setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
@@ -32042,7 +32057,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
     setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
     continueAction: "ادامه",
-    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩"
+    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
   });
   const fiCatalog = defineLocaleCatalog("fi", "machine-draft", {
     setupTitle: "Ota よむ käyttöön omalla kielelläsi",
@@ -32054,7 +32071,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
     setupProgress: "Kieliasetukset: vaihe {current}/{total}",
     continueAction: "Jatka",
-    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})"
+    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+    interfaceTranslationPending: "Käännös on vielä kesken."
   });
   const frCatalog = defineLocaleCatalog("fr", "machine-draft", {
     setupTitle: "Configurez よむ dans votre langue",
@@ -32066,7 +32085,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
     setupProgress: "Configuration de la langue : {current} sur {total}",
     continueAction: "Continuer",
-    originalDefinitionLabel: "Définition originale en {language}"
+    originalDefinitionLabel: "Définition originale en {language}",
+    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+    interfaceTranslationPending: "La traduction est en cours."
   });
   const grcCatalog = defineLocaleCatalog("grc", "machine-draft", {
     setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
@@ -32078,7 +32099,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
     setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
     continueAction: "Πρόβαινε",
-    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})"
+    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
   });
   const huCatalog = defineLocaleCatalog("hu", "machine-draft", {
     setupTitle: "A よむ beállítása az Ön nyelvén",
@@ -32090,7 +32113,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
     setupProgress: "Nyelvi beállítás: {current}/{total}",
     continueAction: "Folytatás",
-    originalDefinitionLabel: "Eredeti meghatározás ({language})"
+    originalDefinitionLabel: "Eredeti meghatározás ({language})",
+    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+    interfaceTranslationPending: "A fordítás még folyamatban van."
   });
   const idCatalog = defineLocaleCatalog("id", "machine-draft", {
     setupTitle: "Siapkan Yomu dalam bahasa Anda",
@@ -32102,7 +32127,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
     setupProgress: "Penyiapan bahasa {current} dari {total}",
     continueAction: "Lanjutkan",
-    originalDefinitionLabel: "Definisi asli dalam {language}"
+    originalDefinitionLabel: "Definisi asli dalam {language}",
+    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+    interfaceTranslationPending: "Penerjemahan masih berlangsung."
   });
   const itCatalog = defineLocaleCatalog("it", "machine-draft", {
     setupTitle: "Configura よむ nella tua lingua",
@@ -32114,7 +32141,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
     setupProgress: "Configurazione della lingua: {current} di {total}",
     continueAction: "Continua",
-    originalDefinitionLabel: "Definizione originale in {language}"
+    originalDefinitionLabel: "Definizione originale in {language}",
+    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+    interfaceTranslationPending: "La traduzione è ancora in corso."
   });
   const kmCatalog = defineLocaleCatalog("km", "machine-draft", {
     setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
@@ -32126,7 +32155,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
     setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
     continueAction: "បន្ត",
-    originalDefinitionLabel: "និយមន័យដើម ({language})"
+    originalDefinitionLabel: "និយមន័យដើម ({language})",
+    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
   });
   const koCatalog = defineLocaleCatalog("ko", "machine-draft", {
     setupTitle: "내 언어로 よむ 설정하기",
@@ -32138,7 +32169,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
     setupProgress: "언어 설정: {total}단계 중 {current}단계",
     continueAction: "계속",
-    originalDefinitionLabel: "원문({language})"
+    originalDefinitionLabel: "원문({language})",
+    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+    interfaceTranslationPending: "번역이 아직 진행 중입니다."
   });
   const laCatalog = defineLocaleCatalog("la", "machine-draft", {
     setupTitle: "Configura よむ in lingua tua",
@@ -32150,7 +32183,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
     setupProgress: "Configuratio linguae: {current} ex {total}",
     continueAction: "Perge",
-    originalDefinitionLabel: "Definitio originalis ({language})"
+    originalDefinitionLabel: "Definitio originalis ({language})",
+    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+    interfaceTranslationPending: "Translatio adhuc geritur."
   });
   const loCatalog = defineLocaleCatalog("lo", "machine-draft", {
     setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
@@ -32162,7 +32197,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
     setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
     continueAction: "ສືບຕໍ່",
-    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})"
+    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
   });
   const mnCatalog = defineLocaleCatalog("mn", "machine-draft", {
     setupTitle: "よむ-г өөрийн хэлээр тохируулах",
@@ -32174,7 +32211,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
     setupProgress: "Хэлний тохиргоо: {current}/{total}",
     continueAction: "Үргэлжлүүлэх",
-    originalDefinitionLabel: "Эх тайлбар ({language})"
+    originalDefinitionLabel: "Эх тайлбар ({language})",
+    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
   });
   const nlCatalog = defineLocaleCatalog("nl", "machine-draft", {
     setupTitle: "Stel よむ in jouw taal in",
@@ -32186,7 +32225,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
     setupProgress: "Taal instellen: {current} van {total}",
     continueAction: "Doorgaan",
-    originalDefinitionLabel: "Oorspronkelijke definitie ({language})"
+    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+    interfaceTranslationPending: "De vertaling is nog bezig."
   });
   const plCatalog = defineLocaleCatalog("pl", "machine-draft", {
     setupTitle: "Skonfiguruj Yomu w swoim języku",
@@ -32198,7 +32239,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
     setupProgress: "Konfiguracja języka: {current} z {total}",
     continueAction: "Kontynuuj",
-    originalDefinitionLabel: "Oryginalna definicja ({language})"
+    originalDefinitionLabel: "Oryginalna definicja ({language})",
+    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
   });
   const ptCatalog = defineLocaleCatalog("pt", "machine-draft", {
     setupTitle: "Configure o Yomu no seu idioma",
@@ -32210,7 +32253,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
     setupProgress: "Configuração do idioma: {current} de {total}",
     continueAction: "Continuar",
-    originalDefinitionLabel: "Definição original ({language})"
+    originalDefinitionLabel: "Definição original ({language})",
+    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+    interfaceTranslationPending: "A tradução ainda está em andamento."
   });
   const roCatalog = defineLocaleCatalog("ro", "machine-draft", {
     setupTitle: "Configurează Yomu în limba ta",
@@ -32222,7 +32267,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
     setupProgress: "Configurarea limbii: {current} din {total}",
     continueAction: "Continuă",
-    originalDefinitionLabel: "Definiția originală în {language}"
+    originalDefinitionLabel: "Definiția originală în {language}",
+    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+    interfaceTranslationPending: "Traducerea este încă în curs."
   });
   const ruCatalog = defineLocaleCatalog("ru", "machine-draft", {
     setupTitle: "Настройте Yomu на своём языке",
@@ -32234,7 +32281,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
     setupProgress: "Настройка языка: {current} из {total}",
     continueAction: "Продолжить",
-    originalDefinitionLabel: "Оригинал определения ({language})"
+    originalDefinitionLabel: "Оригинал определения ({language})",
+    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+    interfaceTranslationPending: "Перевод ещё выполняется."
   });
   const shCatalog = defineLocaleCatalog("sh", "machine-draft", {
     setupTitle: "Podesite Yomu na svom jeziku",
@@ -32246,7 +32295,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
     setupProgress: "Podešavanje jezika: {current} od {total}",
     continueAction: "Nastavi",
-    originalDefinitionLabel: "Originalna definicija ({language})"
+    originalDefinitionLabel: "Originalna definicija ({language})",
+    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+    interfaceTranslationPending: "Prijevod je još u toku."
   });
   const sqCatalog = defineLocaleCatalog("sq", "machine-draft", {
     setupTitle: "Konfiguro よむ në gjuhën tënde",
@@ -32258,7 +32309,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
     setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
     continueAction: "Vazhdo",
-    originalDefinitionLabel: "Origjinali në {language}"
+    originalDefinitionLabel: "Origjinali në {language}",
+    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+    interfaceTranslationPending: "Përkthimi është në vazhdim."
   });
   const svCatalog = defineLocaleCatalog("sv", "machine-draft", {
     setupTitle: "Ställ in よむ på ditt språk",
@@ -32270,7 +32323,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
     setupProgress: "Språkinställning: {current} av {total}",
     continueAction: "Fortsätt",
-    originalDefinitionLabel: "Ursprunglig definition på {language}"
+    originalDefinitionLabel: "Ursprunglig definition på {language}",
+    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+    interfaceTranslationPending: "Översättningen pågår fortfarande."
   });
   const thCatalog = defineLocaleCatalog("th", "machine-draft", {
     setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
@@ -32282,7 +32337,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
     setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
     continueAction: "ดำเนินการต่อ",
-    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})"
+    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
   });
   const tlCatalog = defineLocaleCatalog("tl", "machine-draft", {
     setupTitle: "I-set up ang Yomu sa iyong wika",
@@ -32294,7 +32351,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
     setupProgress: "Pag-set up ng wika: {current} sa {total}",
     continueAction: "Magpatuloy",
-    originalDefinitionLabel: "Orihinal na depinisyon ({language})"
+    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+    interfaceTranslationPending: "Isinasalin pa ito."
   });
   const trCatalog = defineLocaleCatalog("tr", "machine-draft", {
     setupTitle: "Yomu'yu dilinizde ayarlayın",
@@ -32306,7 +32365,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
     setupProgress: "Dil ayarı: {current}/{total}",
     continueAction: "Devam et",
-    originalDefinitionLabel: "Orijinal tanım ({language})"
+    originalDefinitionLabel: "Orijinal tanım ({language})",
+    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
   });
   const viCatalog = defineLocaleCatalog("vi", "machine-draft", {
     setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
@@ -32318,7 +32379,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
     setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
     continueAction: "Tiếp tục",
-    originalDefinitionLabel: "Định nghĩa gốc ({language})"
+    originalDefinitionLabel: "Định nghĩa gốc ({language})",
+    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
   });
   const yueCatalog = defineLocaleCatalog("yue", "machine-draft", {
     setupTitle: "用你嘅語言設定よむ",
@@ -32330,7 +32393,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
     setupProgress: "語言設定：第{current}步，共{total}步",
     continueAction: "繼續",
-    originalDefinitionLabel: "原文（{language}）"
+    originalDefinitionLabel: "原文（{language}）",
+    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+    interfaceTranslationPending: "翻譯仲進行中。"
   });
   const zhCatalog = defineLocaleCatalog("zh", "machine-draft", {
     setupTitle: "用您的语言设置よむ",
@@ -32342,7 +32407,9 @@ ${spelling}`);
     dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
     setupProgress: "语言设置：第{current}步，共{total}步",
     continueAction: "继续",
-    originalDefinitionLabel: "{language}原文"
+    originalDefinitionLabel: "{language}原文",
+    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+    interfaceTranslationPending: "翻译仍在进行中。"
   });
   const LOCALE_CATALOGS = Object.freeze({
     sq: sqCatalog,
@@ -32378,6 +32445,587 @@ ${spelling}`);
     tr: trCatalog,
     vi: viCatalog
   });
+  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+  new Set(MESSAGE_NAMESPACES);
+  function messageNamespaceOf(id2) {
+    return id2.slice(0, id2.indexOf("."));
+  }
+  const containsAny = (path, needles) => {
+    const lowered = path.toLowerCase();
+    return needles.some((needle) => lowered.includes(needle));
+  };
+  const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path.startsWith(prefix));
+  const COPY_TIER_RULES = Object.freeze([
+    {
+      rule: "destructive-and-irreversible",
+      category: "destructive-actions",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "delete",
+        "remove",
+        "reset",
+        "clear",
+        "overwrite",
+        "restore",
+        "import",
+        "unlink",
+        "revoke",
+        "discard",
+        "wipe",
+        "purge",
+        "forget",
+        "blacklist",
+        "suspend",
+        "conflict",
+        "replaceall"
+      ])
+    },
+    {
+      rule: "privacy-permissions-credentials-and-account",
+      category: "privacy-and-credentials",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "privacy",
+        "permission",
+        "consent",
+        "apikey",
+        "apitoken",
+        "credential",
+        "password",
+        "secret",
+        "token",
+        "account",
+        "signin",
+        "signout",
+        "login",
+        "logout",
+        "sync",
+        "proxy",
+        "remote",
+        "cloud",
+        "upload",
+        "network",
+        "sentto"
+      ])
+    },
+    {
+      rule: "first-run-setup-and-language-choice",
+      category: "first-run-and-language-choice",
+      tier: "human-critical",
+      matches: (id2, path) => messageNamespaceOf(id2) === "setup" || containsAny(path, ["onboarding", "welcome", "firstrun"]) || containsAny(path, [
+        "interfacelanguage",
+        "interfacelocale",
+        "learnerlanguage",
+        "targetlanguage",
+        "outputlanguage",
+        "settingslanguage",
+        "languageprofile"
+      ])
+    },
+    {
+      rule: "degraded-empty-and-unavailable-states",
+      category: "degraded-and-empty-states",
+      tier: "human-critical",
+      matches: (id2, path) => messageNamespaceOf(id2) === "errors" || startsWithAny(path, ["no", "cannot", "could"]) || containsAny(path, [
+        "unavailable",
+        "unsupported",
+        "offline",
+        "empty",
+        "failed",
+        "failure",
+        "error",
+        "retry",
+        "missing",
+        "notfound",
+        "degraded",
+        "unlicensed",
+        "blocked",
+        "pending",
+        "expired",
+        "timeout"
+      ])
+    },
+    {
+      rule: "lookup-primary-actions",
+      category: "lookup-primary-actions",
+      tier: "human-critical",
+      matches: (_id, path) => startsWithAny(path, ["add", "save", "mine", "lookup", "play", "state", "open", "copy"]) || containsAny(path, [
+        "revealtranslation",
+        "showtranslation",
+        "hidetranslation",
+        "playaudio",
+        "opensource",
+        "opendictionary",
+        "markknown",
+        "marklearning",
+        "knownstate"
+      ])
+    },
+    {
+      rule: "study-loop-and-grading",
+      category: "study-loop",
+      tier: "human-critical",
+      matches: (_id, path) => startsWithAny(path, ["grade", "study", "review", "due", "session", "reveal"]) || containsAny(path, ["duetoday", "sessioncomplete", "nothingdue"])
+    },
+    {
+      rule: "accessible-names-and-announcements",
+      category: "accessibility-names",
+      tier: "human-critical",
+      matches: (id2, path) => messageNamespaceOf(id2) === "a11y" || /(?:arialabel|screenreader|announce)/i.test(path) || /(?:^|[a-z])(?:AriaLabel|Announcement)$/.test(path)
+    },
+    {
+      rule: "install-update-support-membership-and-claims",
+      category: "product-claims-and-commerce",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "update",
+        "install",
+        "store",
+        "support",
+        "membership",
+        "patreon",
+        "payment",
+        "subscribe",
+        "donate",
+        "price",
+        "academyaccess",
+        "feedback"
+      ])
+    },
+    {
+      rule: "learner-facing-docs-entry-pages",
+      category: "critical-docs",
+      tier: "human-critical",
+      matches: (id2) => messageNamespaceOf(id2) === "docs" && /^docs\.(?:index|install|installation|getting-started|start|guide\.first)\b/.test(id2)
+    },
+    {
+      // The documented default. Setting help, tooltips, status detail,
+      // reference tables, older changelog prose and deep technical docs may
+      // ship as labelled machine drafts while native review catches up.
+      rule: "default-supplementary-copy",
+      category: "supplementary",
+      tier: "machine-draft-ok",
+      matches: () => true
+    }
+  ]);
+  Object.freeze(
+    COPY_TIER_RULES.map((rule) => rule.rule)
+  );
+  const locales = [
+    {
+      tag: "en",
+      reviewStatus: "source-approved",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "source locale",
+        evidence: "English is the source of record for every message ID."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ja",
+      reviewStatus: "native-reviewed",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "owner",
+        evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ar",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fa",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sq",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "grc",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "yue",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "zh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "da",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "nl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "de",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "el",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "hu",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "id",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "it",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "km",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ko",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "lo",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "la",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "mn",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pt",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ro",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ru",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "es",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sv",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "th",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "vi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    }
+  ];
+  const rtlGate = {
+    items: [
+      {
+        id: "direction-propagation",
+        done: true,
+        note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
+      },
+      {
+        id: "logical-css-properties",
+        done: false,
+        note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
+      },
+      {
+        id: "bidi-isolation",
+        done: false,
+        note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
+      },
+      {
+        id: "font-stacks",
+        done: true,
+        note: "Per-script interface font stacks in the locale manifest."
+      },
+      {
+        id: "geometry-verification",
+        done: false,
+        note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
+      },
+      {
+        id: "viewport-and-zoom-matrix",
+        done: false,
+        note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
+      },
+      {
+        id: "real-app-screenshots",
+        done: false,
+        note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
+      },
+      {
+        id: "owner-acceptance",
+        done: false,
+        note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
+      }
+    ]
+  };
+  const interfaceLocaleLedger = {
+    locales,
+    rtlGate
+  };
   const languages = [
     {
       id: "sq",
@@ -32791,6 +33439,227 @@ ${spelling}`);
   }
   function isLearnerLanguageId(value) {
     return LEARNER_LANGUAGE_IDS.includes(value);
+  }
+  const JAPANESE_INTERFACE_LOCALE = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    direction: "ltr"
+  });
+  const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
+  const SCRIPT_FONT_STACKS = Object.freeze({
+    Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
+    Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
+    Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+    Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+    Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+    Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
+    Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
+    Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
+    Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+  });
+  const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
+  function scriptFontStack(script) {
+    return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+  }
+  function directionForScript(script) {
+    return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+  }
+  const LEDGER_ROWS = new Map(
+    interfaceLocaleLedger.locales.map((row2) => [row2.tag, row2])
+  );
+  function fallbackChainFor(tag, id2) {
+    const chain = [];
+    const push = (value) => {
+      if (value !== tag && !chain.includes(value)) chain.push(value);
+    };
+    const base = tag.split("-")[0];
+    push(base);
+    push(id2);
+    if (id2 === "sh") {
+      push("sr");
+      push("hr");
+      push("bs");
+    }
+    if (id2 === "tl") push("fil");
+    if (id2 !== "en") push("en");
+    return Object.freeze(chain);
+  }
+  function buildLocale(source2) {
+    const ledger = LEDGER_ROWS.get(source2.id);
+    if (!ledger) throw new Error(`Interface locale ${source2.id} has no review-ledger row`);
+    return Object.freeze({
+      tag: source2.runtimeLocale,
+      id: source2.id,
+      fallbacks: fallbackChainFor(source2.runtimeLocale, source2.id),
+      nativeName: source2.nativeName,
+      englishName: source2.englishName,
+      script: source2.defaultScript,
+      // languages.json and the script table must agree; the script is the
+      // source of truth so one new RTL locale cannot arrive marked ltr.
+      direction: directionForScript(source2.defaultScript),
+      fontStack: scriptFontStack(source2.defaultScript),
+      reviewStatus: ledger.reviewStatus,
+      available: ledger.available,
+      blockers: Object.freeze([...ledger.blockers])
+    });
+  }
+  const INTERFACE_LOCALES = Object.freeze(
+    [
+      ...LEARNER_LANGUAGES.map(
+        (language2) => buildLocale({ ...language2, direction: language2.direction })
+      ),
+      buildLocale(JAPANESE_INTERFACE_LOCALE)
+    ].sort((left, right) => {
+      const rank2 = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
+      return rank2(left.tag) - rank2(right.tag) || left.englishName.localeCompare(right.englishName, "en");
+    })
+  );
+  const LOCALE_BY_KEY = new Map([
+    ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
+    ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
+  ]);
+  function interfaceLocaleByTag(tag) {
+    return LOCALE_BY_KEY.get(tag);
+  }
+  const ENGLISH_INTERFACE_LOCALE = (() => {
+    const english = LOCALE_BY_KEY.get("en");
+    if (!english) throw new Error("The interface manifest must always contain English");
+    return english;
+  })();
+  function availableInterfaceLocales() {
+    return INTERFACE_LOCALES.filter((locale) => locale.available);
+  }
+  Object.freeze(
+    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+  );
+  Object.freeze(
+    interfaceLocaleLedger.rtlGate.items.map(
+      (item2) => Object.freeze({ ...item2 })
+    )
+  );
+  const READER_INTERFACE_DIR_ATTRIBUTE = "data-yomu-interface-dir";
+  const READER_INTERFACE_LOCALE_ATTRIBUTE = "data-yomu-interface-locale";
+  const FIRST_STRONG_ISOLATE = "⁨";
+  const POP_DIRECTIONAL_ISOLATE = "⁩";
+  function interfaceDirectionOf(tag) {
+    return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
+  }
+  function isRtlInterface(tag) {
+    return interfaceDirectionOf(tag) === "rtl";
+  }
+  function applyInterfaceLocaleToRoot(root, locale) {
+    if (!root) return;
+    root.setAttribute("lang", locale.tag);
+    root.setAttribute("dir", locale.direction);
+    root.setAttribute(READER_INTERFACE_DIR_ATTRIBUTE, locale.direction);
+    root.setAttribute(READER_INTERFACE_LOCALE_ATTRIBUTE, locale.tag);
+    root.style?.setProperty("--jpdb-reader-interface-font", locale.fontStack);
+  }
+  function applyInterfaceLocaleToDocument(doc, locale) {
+    const root = doc?.documentElement;
+    if (!root) return;
+    applyInterfaceLocaleToRoot(root, locale);
+  }
+  function isolate(value) {
+    if (!value) return value;
+    return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
+  }
+  function formatIsolated(message, values) {
+    return Object.entries(values).reduce(
+      (text2, [name, value]) => text2.replaceAll(`{${name}}`, isolate(String(value))),
+      message
+    );
+  }
+  const JAPANESE_SETUP_MESSAGES = Object.freeze({
+    setupTitle: "よむをあなたの言語で設定",
+    learnerLanguageLabel: "あなたの言語",
+    targetLanguageLabel: "学習する言語",
+    targetJapanese: "日本語",
+    recommendedDictionariesTitle: "おすすめの日本語辞書",
+    automaticTranslationLabel: "{language}へ自動翻訳",
+    dictionaryCountAndSize: "{count, plural, one {辞書 #冊} other {辞書 #冊}} · {size}",
+    setupProgress: "言語設定 {current} / {total}",
+    continueAction: "次へ",
+    originalDefinitionLabel: "{language}の原文",
+    interfaceRtlVerificationPending: "右から左へのレイアウト確認が進行中です。",
+    interfaceTranslationPending: "翻訳が進行中です。"
+  });
+  function setupMessageIdFor(key2) {
+    return `setup.${key2}`;
+  }
+  function setupPackFor(tag) {
+    const id2 = interfaceLocaleByTag(tag)?.id ?? tag;
+    const messages = id2 === "ja" ? JAPANESE_SETUP_MESSAGES : LOCALE_CATALOGS[id2]?.messages;
+    if (!messages) return void 0;
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(messages).map(([key2, value]) => [`setup.${key2}`, value])
+      )
+    );
+  }
+  function matchAvailable(tag) {
+    const locale = interfaceLocaleByTag(tag);
+    if (locale?.available) return locale;
+    const base = tag.split("-")[0].toLowerCase();
+    const byBase = interfaceLocaleByTag(base);
+    if (byBase?.available) return byBase;
+    return INTERFACE_LOCALES.find(
+      (candidate2) => candidate2.available && candidate2.fallbacks.includes(base)
+    );
+  }
+  function resolveInterfaceLocale(requested, options = {}) {
+    const raw = (requested ?? "auto").trim();
+    if (!raw || raw === "auto") {
+      for (const preference of options.browserLocales ?? []) {
+        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
+        if (match) {
+          return { locale: match, requested: "auto", substituted: false, blockers: [] };
+        }
+      }
+      return {
+        locale: ENGLISH_INTERFACE_LOCALE,
+        requested: "auto",
+        substituted: false,
+        blockers: []
+      };
+    }
+    const exact2 = interfaceLocaleByTag(raw);
+    if (exact2?.available) {
+      return { locale: exact2, requested: raw, substituted: false, blockers: [] };
+    }
+    if (exact2) {
+      return {
+        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
+        requested: raw,
+        substituted: true,
+        blockers: exact2.blockers
+      };
+    }
+    const byFallback = matchAvailable(raw);
+    if (byFallback) {
+      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
+    }
+    return {
+      locale: ENGLISH_INTERFACE_LOCALE,
+      requested: raw,
+      substituted: true,
+      blockers: []
+    };
+  }
+  function resolveMessage(id2, locale, packs) {
+    for (const tag of [locale.tag, ...locale.fallbacks]) {
+      const value = packs[tag]?.[id2];
+      if (typeof value === "string" && value.length > 0) {
+        return { id: id2, value, resolvedFrom: tag, missing: false };
+      }
+    }
+    return { id: id2, value: id2, resolvedFrom: "none", missing: true };
   }
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => createLearningTargetModule({
@@ -36958,7 +37827,17 @@ ${spelling}`);
       grammarKnownHidden: "known hidden",
       grammarGenericShort: "Grammar point: {name}",
       grammarGenericDetail: "Uses {name} in 「{match}」.",
-      grammarLevelCore: "Core"
+      grammarLevelCore: "Core",
+      // D43 interface-locale picker. Yomu is in scope for 33 interface
+      // languages and ships two. The picker names the other 31 and says what
+      // each is waiting on, because a language that is listed and then
+      // silently replaced by English is the worse of the two failures.
+      interfaceLocalesReady: "Ready now",
+      interfaceLocalesInProgress: "On the way",
+      interfaceLocaleRtlPending: "Right-to-left layout checks are still running",
+      interfaceLocaleTranslationPending: "Translation is still in progress",
+      interfaceLocaleBlockedNote: "These are coming. Each one shows what it is waiting on.",
+      interfaceLocaleReadyCount: "{ready} of {total} interface languages are ready."
     }
   };
   const CARD_STATE_LABEL_KEYS = {
@@ -36995,6 +37874,12 @@ ${spelling}`);
     return copy2;
   }
   const JA_COPY = parseUiCopyTable(String.raw`
+interfaceLocalesReady	今すぐ使えます
+interfaceLocalesInProgress	準備中
+interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
+interfaceLocaleTranslationPending	翻訳が進行中です
+interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ何を待っているか表示します。
+interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
@@ -38252,7 +39137,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.toLowerCase().startsWith("ja");
   }
   function uiText(language2, key2) {
-    return resolveUiLanguage(language2) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? "未翻訳" : COPY$c.en[key2];
+    return resolveUiLanguage(language2) === "ja" ? JA_SETTINGS_COPY[key2] ?? JA_COPY[key2] ?? COPY$c.en[key2] : COPY$c.en[key2];
   }
   function cardStateLabel(state, language2, fallback = state) {
     const key2 = CARD_STATE_LABEL_KEYS[state];
@@ -38262,9 +39147,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return uiText(language2, AUDIO_SOURCE_LABEL_KEYS[type]);
   }
   function formatUiText(language2, key2, values) {
-    return Object.entries(values).reduce(
+    const message = uiText(language2, key2);
+    return isRtlInterface(language2) ? formatIsolated(message, values) : Object.entries(values).reduce(
       (text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
-      uiText(language2, key2)
+      message
     );
   }
   function uiList(language2, parts) {
@@ -360851,6 +361737,10 @@ ${entry2.url}`),
     return settings.ocrAutoScanImages ? "auto" : "manual";
   }
   const log$4 = Logger.scope("SettingsForm");
+  const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
+    "auto",
+    ...availableInterfaceLocales().map((locale) => locale.tag)
+  ]);
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const DEFAULT_COLOR_SOURCE_VALUES = {
@@ -360952,7 +361842,7 @@ ${entry2.url}`),
     const apiCredentials2 = readApiCredentialsFromFormData(data);
     const interfaceLanguage = readOption(
       get("interfaceLanguage"),
-      ["auto", "en", "ja"],
+      SELECTABLE_INTERFACE_LANGUAGES,
       current.interfaceLanguage
     );
     const settings = {
@@ -363338,6 +364228,49 @@ ${entry2.url}`),
         <option value="${escapeHtml$2(item2.id)}" lang="${escapeHtml$2(item2.runtimeLocale)}" dir="${item2.direction}" ${item2.id === selected2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item2))}</option>
     `).join("");
   }
+  const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = "data-interface-locale-blocked";
+  function renderInterfaceLocaleSelect(settings) {
+    const language2 = settings.interfaceLanguage;
+    const label = uiText(language2, "settingsLanguage");
+    const ready2 = INTERFACE_LOCALES.filter((locale) => locale.available);
+    const blocked2 = INTERFACE_LOCALES.filter((locale) => !locale.available);
+    const automatic = `<option value="auto" ${settings.interfaceLanguage === "auto" ? "selected" : ""}>${escapeHtml$2(uiText(language2, "automatic"))}</option>`;
+    const readyOptions = ready2.map((locale) => `
+                            <option value="${escapeHtml$2(locale.tag)}" lang="${escapeHtml$2(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? "selected" : ""}>${escapeHtml$2(interfaceLocaleOptionLabel(locale))}</option>`).join("");
+    const blockedOptions = blocked2.map((locale) => renderBlockedInterfaceLocaleOption(locale, language2)).join("");
+    return `<label>${escapeHtml$2(label)}<select name="interfaceLanguage">
+                            <optgroup label="${escapeHtml$2(uiText(language2, "interfaceLocalesReady"))}" data-interface-locale-group="ready">${automatic}${readyOptions}
+                            </optgroup>
+                            <optgroup label="${escapeHtml$2(uiText(language2, "interfaceLocalesInProgress"))}" data-interface-locale-group="in-progress">${blockedOptions}
+                            </optgroup>
+                        </select></label>`;
+  }
+  function interfaceLocaleOptionLabel(locale) {
+    return locale.nativeName === locale.englishName ? locale.nativeName : `${locale.nativeName} — ${locale.englishName}`;
+  }
+  function renderBlockedInterfaceLocaleOption(locale, language2) {
+    const reason = uiText(language2, interfaceLocaleBlockerCopyKey(locale));
+    const nativeReason = blockedReasonInLocale(locale);
+    return `
+                            <option value="${escapeHtml$2(locale.tag)}" lang="${escapeHtml$2(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml$2(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml$2(locale.blockers[0] ?? "translation-incomplete")}">${escapeHtml$2(`${interfaceLocaleOptionLabel(locale)} · ${reason}`)}</option>`;
+  }
+  function interfaceLocaleBlockerCopyKey(locale) {
+    return locale.blockers[0] === "rtl-verification-pending" ? "interfaceLocaleRtlPending" : "interfaceLocaleTranslationPending";
+  }
+  function blockedReasonInLocale(locale) {
+    const key2 = locale.blockers[0] === "rtl-verification-pending" ? "interfaceRtlVerificationPending" : "interfaceTranslationPending";
+    const packs = { en: setupPackFor("en") };
+    for (const tag of [locale.tag, ...locale.fallbacks]) packs[tag] ??= setupPackFor(tag);
+    return resolveMessage(setupMessageIdFor(key2), locale, packs).value;
+  }
+  function renderInterfaceLocaleAvailabilityNote(language2) {
+    const ready2 = INTERFACE_LOCALES.filter((locale) => locale.available).length;
+    const count2 = formatUiText(language2, "interfaceLocaleReadyCount", {
+      ready: ready2,
+      total: INTERFACE_LOCALES.length
+    });
+    return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml$2(count2)} ${escapeHtml$2(uiText(language2, "interfaceLocaleBlockedNote"))}</div>`;
+  }
   function renderLanguageProfileControls(settings) {
     const copy2 = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage2 = activeLearnerLanguageId(settings);
@@ -363358,9 +364291,10 @@ ${entry2.url}`),
                                 ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage2)}
                             </select>
                         </label>
-                        ${select("interfaceLanguage", uiText(settings.interfaceLanguage, "settingsLanguage"), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}
+                        ${renderInterfaceLocaleSelect(settings)}
                     </div>
                     <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml$2(copy2.languageProfileHelp)}</div>
+                    ${renderInterfaceLocaleAvailabilityNote(settings.interfaceLanguage)}
                     <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
                 </div>
     `;
@@ -363819,11 +364753,6 @@ ${entry2.url}`),
     "failed",
     "learning",
     "new"
-  ];
-  const INTERFACE_LANGUAGE_OPTIONS = [
-    ["auto", "automatic"],
-    ["en", "english"],
-    ["ja", "japanese"]
   ];
   const POPUP_MODE_OPTIONS = [
     ["auto", "auto"],
@@ -364515,7 +365444,7 @@ ${entry2.url}`),
       localizeSettingsShell(form2, language2, text2);
       localizeSettingsLabels(form2, text2);
       localizeSettingsSectionTitles(form2, text2);
-      localizeSettingsSelects(form2, text2);
+      localizeSettingsSelects(form2, language2, text2);
       localizeSettingsShortcuts(form2, text2);
       localizeSettingsHelpText(form2, text2);
       localizeSettingsActions(form2, text2);
@@ -364797,14 +365726,36 @@ ${entry2.url}`),
     const title2 = Array.from(form2.querySelectorAll(".jpdb-reader-local-title")).find((element2) => pattern.test(element2.textContent ?? ""));
     title2?.replaceChildren(value);
   }
-  function localizeSettingsSelects(form2, text2) {
-    localizeBasicSettingsSelects(form2, text2);
+  function localizeSettingsSelects(form2, language2, text2) {
+    localizeBasicSettingsSelects(form2, language2, text2);
     localizeColorAndReaderSelects(form2, text2);
     localizeMediaSettingsSelects(form2, text2);
     localizeMiningSettingsSelects(form2, text2);
   }
-  function localizeBasicSettingsSelects(form2, text2) {
-    setSelectOptionLabels(form2, "interfaceLanguage", localizedOptions(text2, INTERFACE_LANGUAGE_OPTIONS));
+  function localizeInterfaceLocaleSelect(form2, language2, text2) {
+    const selectElement = namedFormControls(form2, "interfaceLanguage").find(
+      (element2) => element2 instanceof HTMLSelectElement
+    );
+    if (!selectElement) return;
+    form2.querySelectorAll('[data-interface-locale-group="ready"]').forEach((group2) => group2.setAttribute("label", text2("interfaceLocalesReady")));
+    form2.querySelectorAll('[data-interface-locale-group="in-progress"]').forEach((group2) => group2.setAttribute("label", text2("interfaceLocalesInProgress")));
+    for (const option2 of Array.from(selectElement.options)) {
+      if (option2.value === "auto") {
+        option2.textContent = text2("automatic");
+        continue;
+      }
+      const locale = INTERFACE_LOCALES.find((candidate2) => candidate2.tag === option2.value);
+      if (!locale) continue;
+      option2.textContent = locale.available ? interfaceLocaleOptionLabel(locale) : `${interfaceLocaleOptionLabel(locale)} · ${text2(interfaceLocaleBlockerCopyKey(locale))}`;
+    }
+    const note = form2.querySelector("[data-interface-locale-note]");
+    if (note) {
+      const ready2 = INTERFACE_LOCALES.filter((locale) => locale.available).length;
+      note.textContent = `${formatUiText(language2, "interfaceLocaleReadyCount", { ready: ready2, total: INTERFACE_LOCALES.length })} ${text2("interfaceLocaleBlockedNote")}`;
+    }
+  }
+  function localizeBasicSettingsSelects(form2, language2, text2) {
+    localizeInterfaceLocaleSelect(form2, language2, text2);
     form2.querySelector("[data-theme-title]")?.replaceChildren(text2("theme"));
     setSelectOptionLabels(form2, "popupMode", localizedOptions(text2, POPUP_MODE_OPTIONS));
     setSelectOptionLabels(form2, "hoverPopupMode", localizedOptions(text2, POPUP_MODE_OPTIONS));
@@ -371041,6 +371992,7 @@ ${rank2.detail}` : baseTitle;
       }
       configureLogger({ forceEnabled: this.settings.enableLogging });
       log.info("Settings loaded", loggingSettingsSummary(this.settings));
+      this.applyInterfaceLocale();
       this.applyTheme();
       this.assertSessionVocabularyReadOnly();
       this.newTab = this.createNewTabController();
@@ -372613,6 +373565,13 @@ ${rank2.detail}` : baseTitle;
     }
     applyTheme(settings = this.settings) {
       applyReaderTheme(settings);
+    }
+    applyInterfaceLocale(settings = this.settings) {
+      const locale = resolveInterfaceLocale(settings.interfaceLanguage, {
+        browserLocales: typeof navigator === "undefined" ? [] : [...Array.isArray(navigator.languages) ? navigator.languages : [], navigator.language]
+      }).locale;
+      if (this.options.mountHost) applyInterfaceLocaleToRoot(this.options.mountHost, locale);
+      else applyInterfaceLocaleToDocument(document, locale);
     }
     applyAccentColor(color) {
       applyReaderAccentColor(color);

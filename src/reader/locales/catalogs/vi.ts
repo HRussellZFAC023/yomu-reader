@@ -13,4 +13,6 @@ export const viCatalog = defineLocaleCatalog("vi", "machine-draft", {
   setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
   continueAction: "Tiếp tục",
   originalDefinitionLabel: "Định nghĩa gốc ({language})",
+  interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+  interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện.",
 });

@@ -13,4 +13,6 @@ export const nlCatalog = defineLocaleCatalog("nl", "machine-draft", {
   setupProgress: "Taal instellen: {current} van {total}",
   continueAction: "Doorgaan",
   originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+  interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+  interfaceTranslationPending: "De vertaling is nog bezig.",
 });

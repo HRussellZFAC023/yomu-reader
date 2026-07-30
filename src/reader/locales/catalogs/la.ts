@@ -13,4 +13,6 @@ export const laCatalog = defineLocaleCatalog("la", "machine-draft", {
   setupProgress: "Configuratio linguae: {current} ex {total}",
   continueAction: "Perge",
   originalDefinitionLabel: "Definitio originalis ({language})",
+  interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+  interfaceTranslationPending: "Translatio adhuc geritur.",
 });

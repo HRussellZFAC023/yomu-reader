@@ -288,6 +288,7 @@ import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
 import { syncLanguageFamilyDom } from '../settings/language-gating';
+import { applyInterfaceLocaleToRoot, resolveInterfaceLocale, type InterfaceLocale } from '../locales';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
@@ -10308,6 +10309,19 @@ export class ReaderApp {
     private syncReaderRootLanguages(): void {
         document.querySelectorAll<HTMLElement>(READER_ROOT_SELECTOR)
             .forEach(root => this.syncReaderRootLanguage(root));
+        // `document.querySelectorAll` stops at a shadow boundary, so a reader
+        // surface mounted inside a page's shadow tree — which is where the
+        // fullscreen popover mount lands on several video sites — would keep the
+        // page's direction. The scanned-shadow-root registry is the only list of
+        // those trees, and it is already maintained for annotation.
+        // Note what is NOT stamped: the shadow host. Direction inherits across a
+        // shadow boundary, so stamping the host would be less code — but the host
+        // belongs to the page, and giving a page element `dir="rtl"` to lay out
+        // Yomu's popover would flip the site's own component.
+        forEachScannedShadowRoot(shadowRoot => {
+            shadowRoot.querySelectorAll<HTMLElement>(READER_ROOT_SELECTOR)
+                .forEach(root => this.syncReaderRootLanguage(root));
+        });
     }
 
     private syncReaderRootLanguage(root: HTMLElement): void {
@@ -10315,6 +10329,25 @@ export class ReaderApp {
         // U79's fail-closed CSS gate depends on this exact data-language
         // attribute being present on every reader-owned surface.
         root.setAttribute('data-language', root.dataset.language ?? activeLearningTarget().language);
+        // D43: the same seam carries the INTERFACE locale and its direction.
+        // These are two different axes on the same element — `data-language` is
+        // the TARGET being studied and drives which controls exist, while
+        // `lang`/`dir` are the language Yomu is speaking and drive layout,
+        // fonts and screen-reader voice. Every reader-owned surface reaches this
+        // method: popover, settings dialog, bottom sheet, backdrop, HUD, FAB.
+        //
+        // The host page's own documentElement is deliberately untouched. Yomu is
+        // injected into pages it does not own; flipping their direction would
+        // rewrite the article the learner came to read.
+        applyInterfaceLocaleToRoot(root, this.activeInterfaceLocale());
+    }
+
+    private activeInterfaceLocale(): InterfaceLocale {
+        return resolveInterfaceLocale(this.settings.interfaceLanguage, {
+            browserLocales: typeof navigator === 'undefined'
+                ? []
+                : [...(Array.isArray(navigator.languages) ? navigator.languages : []), navigator.language],
+        }).locale;
     }
 
     private settingsStackForMountedPopover(options: MountPopoverOptions): SettingsDialogStack | undefined {

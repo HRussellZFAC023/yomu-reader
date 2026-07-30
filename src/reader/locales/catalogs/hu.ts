@@ -13,4 +13,6 @@ export const huCatalog = defineLocaleCatalog("hu", "machine-draft", {
   setupProgress: "Nyelvi beállítás: {current}/{total}",
   continueAction: "Folytatás",
   originalDefinitionLabel: "Eredeti meghatározás ({language})",
+  interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+  interfaceTranslationPending: "A fordítás még folyamatban van.",
 });

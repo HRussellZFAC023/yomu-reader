@@ -15,9 +15,30 @@ import {
     slice1LanguageIdForTag,
     type LearningTargetRosterId,
 } from '../languages';
-import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
+import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
 const log = Logger.scope('SettingsForm');
+
+/**
+ * D43 — what may be STORED as the interface language is exactly what the locale
+ * manifest says is available, plus `auto`.
+ *
+ * The picker already renders a blocked locale as a disabled option, but
+ * `disabled` only stops a *user* from choosing it: assigning `select.value` in
+ * script, a hand-edited settings export, or a profile written by a build with a
+ * different ledger all reach this function with a tag we cannot speak. Any of
+ * those falls back to the value already in effect, so the one outcome D43
+ * forbids — a locale accepted and then silently answered in English — cannot
+ * happen through the settings form.
+ *
+ * `tests/reader/locales/rtl-interim.test.ts` pins this list to `auto/en/ja`, so
+ * enabling a locale in the ledger without widening `InterfaceLanguage` fails
+ * loudly instead of storing a value the type says is impossible.
+ */
+export const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
+    'auto',
+    ...availableInterfaceLocales().map(locale => locale.tag),
+]) as readonly ReaderSettings['interfaceLanguage'][];
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
 type FontFamilySettingName = 'readerFontFamily' | 'popupFontFamily' | 'subtitleFontFamily';
 type SourcePriorityFormRow = readonly [string, keyof ReaderSettings, keyof ReaderSettings, (keyof ReaderSettings)?];
@@ -136,7 +157,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const apiCredentials = readApiCredentialsFromFormData(data);
     const interfaceLanguage = readOption(
         get('interfaceLanguage'),
-        ['auto', 'en', 'ja'] as const,
+        SELECTABLE_INTERFACE_LANGUAGES,
         current.interfaceLanguage,
     );
     const settings: ReaderSettings = {

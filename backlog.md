@@ -608,6 +608,38 @@ The remaining gate, precisely:
 - **`D43`** full UI localisation for every target, **including an explicit RTL decision** for Arabic and
   Farsi — in scope with named work, or excluded with a defined behaviour when someone picks Arabic. The
   ticket forbids discovering RTL late.
+  **PLATFORM + RTL DECISION LANDED 1.8.42. CONTENT IS NOT DONE — 2 of 33 locales are complete.**
+  What landed: one locale manifest over all 33 interface locales
+  (`src/reader/locales/manifest.ts`, backed by the review ledger
+  `config/multilingual/interface-locales.json`); one stable ID vocabulary
+  `chrome.* / setup.* / errors.* / a11y.* / docs.*` with a compatibility resolver for both legacy
+  systems, so the 1,207 reader-chrome keys and the 3,662 docs prose strings get IDs without touching a
+  call site (`src/reader/locales/message-ids.ts`); deterministic fallback
+  `requested → language subtag → catalogue id → alias → en`, and the `未翻訳` placeholder is **gone**
+  (`src/reader/locales/resolve.ts`); the copy tier is a **property of the string**, resolved from its ID by
+  a ranked rule table naming all nine mandatory categories, plus a source-text escalation net that a test
+  runs adversarially over every chrome string (`src/reader/locales/copy-tiers.ts`); and the 32 machine-draft
+  setup catalogues **seed** the pipeline rather than being discarded — they gained two hand-written keys and
+  are served through the same `setup.*` namespace as Japanese.
+  **Availability is measured, not declared.** `tests/reader/locales/interface-locales.test.ts` re-measures
+  every ledger row against the real packs; a locale may only be offered when it answers **every** registered
+  ID itself. That is why exactly `en` and `ja` are selectable and the other 31 are not.
+  **The RTL decision, as shipped:** Arabic and Farsi are IN SCOPE, listed, dimmed, `disabled`,
+  `aria-disabled`, and labelled with the reason — in the current interface language on the option and in
+  their own language in the `title`. The read path is the real guarantee:
+  `SELECTABLE_INTERFACE_LANGUAGES` in `src/reader/settings/form-read.ts` is derived from the manifest, so a
+  blocked tag forced into the control (`disabled` does not stop `select.value = 'ar'`) is **never stored**
+  and can never be answered in English in silence.
+  **RTL gate: 2 of 8 items done**, each recorded item-by-item in the ledger's `rtlGate`, with the partial
+  ones described as partial. Done: direction propagation, per-script font stacks. **Half done:** bidi
+  isolation — substituted values are isolated when the interface is RTL, but the target terms, definitions,
+  source names, URLs and shortcuts chrome renders as their own elements are not yet wrapped with
+  `lang`/`dir=auto`; and the logical-CSS sweep, which moved 80 shared-chrome declarations and deliberately
+  left subtitle/video overlay CSS, positional `left`/`right` and the rotated checkmark glyph physical.
+  **Not started:** geometry verification, the 320/768/1440 × 100/200% matrix, real-app RTL screenshots,
+  owner acceptance. `rtlGatePasses()` returns **false** and is asserted false.
+  **Still open for D43:** MT drafts + native review for the human-critical tier across 31 locales, the
+  per-page docs migration off prose keys, and the six unfinished RTL gate items.
 - ~~**`U105`**~~ **DONE 2026-07-30.** The three axes are separately persisted, migrated and consumed;
   `target=ja, output=ko, interface=en` is a passing regression in
   `tests/reader/languages/language-tiers.test.ts`.

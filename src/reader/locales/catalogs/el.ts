@@ -13,4 +13,6 @@ export const elCatalog = defineLocaleCatalog("el", "machine-draft", {
   setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
   continueAction: "Συνέχεια",
   originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+  interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+  interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη.",
 });

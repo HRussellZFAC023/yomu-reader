@@ -14,4 +14,6 @@ export const tlCatalog = defineLocaleCatalog("tl", "machine-draft", {
   setupProgress: "Pag-set up ng wika: {current} sa {total}",
   continueAction: "Magpatuloy",
   originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+  interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+  interfaceTranslationPending: "Isinasalin pa ito.",
 });

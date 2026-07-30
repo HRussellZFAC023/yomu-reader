@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "purpose": "D43 review ledger. One row per interface locale. This file is the only place that decides whether a locale may be SELECTED as Yomu's interface language, and it records why not when it may not. tests/reader/locales/interface-locales.test.ts re-measures every claim here against the actual message packs and fails if a row flatters itself.",
+  "rules": [
+    "available:true requires ALL of: every human-critical message ID translated, a named human review of the human-critical tier, and (for an RTL script) rtlVerified:true.",
+    "A locale that is not available is shown DISABLED with its localised blocker reason. It is never silently substituted with English.",
+    "blockers are ordered most-specific-first; the first one is what the picker shows."
+  ],
+  "blockerReasons": {
+    "rtl-verification-pending": "The right-to-left layout gate in the D43 plan has not fully passed for this script yet.",
+    "translation-incomplete": "The human-critical copy tier is not fully translated for this locale.",
+    "human-review-pending": "Machine drafts exist but no named native reviewer has signed off the human-critical tier."
+  },
+  "locales": [
+    { "tag": "en", "reviewStatus": "source-approved", "rtlVerified": true, "humanReview": { "reviewer": "source locale", "evidence": "English is the source of record for every message ID." }, "available": true, "blockers": [] },
+    { "tag": "ja", "reviewStatus": "native-reviewed", "rtlVerified": true, "humanReview": { "reviewer": "owner", "evidence": "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder." }, "available": true, "blockers": [] },
+    { "tag": "ar", "reviewStatus": "machine-draft", "rtlVerified": false, "humanReview": null, "available": false, "blockers": ["rtl-verification-pending", "translation-incomplete", "human-review-pending"] },
+    { "tag": "fa", "reviewStatus": "machine-draft", "rtlVerified": false, "humanReview": null, "available": false, "blockers": ["rtl-verification-pending", "translation-incomplete", "human-review-pending"] },
+    { "tag": "sq", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "grc", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "yue", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "zh", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "da", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "nl", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "fi", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "fr", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "de", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "el", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "hu", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "id", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "it", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "km", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "ko", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "lo", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "la", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "mn", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "pl", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "pt", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "ro", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "ru", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "sh", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "es", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "sv", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "tl", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "th", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "tr", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] },
+    { "tag": "vi", "reviewStatus": "machine-draft", "rtlVerified": true, "humanReview": null, "available": false, "blockers": ["translation-incomplete", "human-review-pending"] }
+  ],
+  "rtlGate": {
+    "purpose": "The D43 RTL gate, item by item. rtlVerified may only flip to true for ar and fa when every item below is done. Anything not done is named here rather than assumed.",
+    "items": [
+      { "id": "direction-propagation", "done": true, "note": "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading." },
+      { "id": "logical-css-properties", "done": false, "note": "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical." },
+      { "id": "bidi-isolation", "done": false, "note": "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision." },
+      { "id": "font-stacks", "done": true, "note": "Per-script interface font stacks in the locale manifest." },
+      { "id": "geometry-verification", "done": false, "note": "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified." },
+      { "id": "viewport-and-zoom-matrix", "done": false, "note": "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run." },
+      { "id": "real-app-screenshots", "done": false, "note": "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured." },
+      { "id": "owner-acceptance", "done": false, "note": "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour." }
+    ]
+  }
+}

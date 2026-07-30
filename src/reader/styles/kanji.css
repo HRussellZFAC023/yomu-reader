@@ -700,7 +700,7 @@
 .jpdb-reader-component-button {
   display: grid;
   gap: 2px;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   font: inherit;
 }
@@ -723,7 +723,7 @@
   gap: 4px;
   align-content: start;
   min-height: 104px;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   font: inherit;
 }
@@ -811,7 +811,7 @@
 .jpdb-reader-jiten-kanji-word .jpdb-reader-similar-meaning {
   min-width: 0;
   color: var(--jpdb-reader-muted);
-  text-align: right;
+  text-align: end;
   -webkit-line-clamp: 1;
   line-clamp: 1;
 }
@@ -826,7 +826,7 @@
     gap: 4px;
   }
   .jpdb-reader-jiten-kanji-word .jpdb-reader-similar-meaning {
-    text-align: left;
+    text-align: start;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
@@ -1679,7 +1679,7 @@ html.jpdb-reader-doodle-active * {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--jpdb-reader-surface-2) 64%, transparent);
-  text-align: left;
+  text-align: start;
 }
 .yomu-jpdb-uchisen-field {
   display: grid;
@@ -1735,7 +1735,7 @@ html.jpdb-reader-doodle-active * {
   display: grid;
   gap: 8px;
   width: 100%;
-  text-align: left;
+  text-align: start;
 }
 
 .yomu-jpdb-component-group {
