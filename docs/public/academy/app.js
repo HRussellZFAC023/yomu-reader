@@ -31704,8 +31704,8 @@ ${spelling}`);
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -31760,6 +31760,11 @@ ${spelling}`);
         readingAnnotationMode: "none",
         supportsVerticalWriting: false,
         ...spec.typography
+      }),
+      typing: Object.freeze({
+        inputNormalizer: "preserve",
+        answerNormalizer: "target-text",
+        ...spec.typing
       }),
       audio: Object.freeze({
         speechSynthesisLocale: regionalTag,
@@ -31872,6 +31877,10 @@ ${spelling}`);
       contentLocale: "ja",
       readingAnnotationMode: "ruby",
       supportsVerticalWriting: true
+    },
+    typing: {
+      inputNormalizer: "romaji-kana",
+      answerNormalizer: "japanese-kana"
     },
     audio: {
       speechSynthesisLocale: "ja-JP",
@@ -312755,6 +312764,12 @@ ${entry2.url}`),
       gradeButton.setAttribute("aria-label", gradeLabel2 ? `${gradeLabel2}: ${label}` : label);
     });
   }
+  function normalizeLearningTargetInput(target2, value) {
+    return target2.typing.inputNormalizer === "romaji-kana" ? convertRomajiToKana(value) : value;
+  }
+  function normalizeLearningTargetAnswer(target2, value) {
+    return target2.typing.answerNormalizer === "japanese-kana" ? normalizeJapaneseStudyAnswer(value) : target2.normalizeText(value).toLocaleLowerCase(target2.language);
+  }
   function evaluateNewTabRecallAnswer(card, answer2, reading = card.reading) {
     const candidates = newTabRecallAnswerCandidates(card, reading);
     const normalized2 = normalizeNewTabRecallAnswer(answer2);
@@ -312798,7 +312813,7 @@ ${entry2.url}`),
     };
   }
   function normalizeNewTabRecallAnswer(value) {
-    return normalizeJapaneseStudyAnswer(value);
+    return normalizeLearningTargetAnswer(activeLearningTarget(), value);
   }
   function splitRecallAnswers(value) {
     return (value ?? "").split(/[;；/／|｜]/u).flatMap((part) => /[。！？!?]/u.test(part) ? [part] : part.split(/[,，、]/u)).map((part) => part.trim()).filter(Boolean);
@@ -320644,6 +320659,7 @@ ${entry2.url}`),
     }
     renderRecallAnswer(answer2, card, state) {
       if (!answer2) return;
+      const target2 = activeLearningTarget();
       delete answer2.dataset.newtabAnswerDetailsRequest;
       const key2 = cardKey(card);
       const recall = this.stepState(key2)?.recall;
@@ -320667,7 +320683,8 @@ ${entry2.url}`),
             spellcheck: false,
             inputmode: "text",
             enterkeyhint: "done",
-            lang: "ja",
+            lang: target2.typography.contentLocale,
+            dir: target2.direction,
             "aria-label": this.text("recallAnswer"),
             disabled: this.state.revealAnswer
           }),
@@ -320767,7 +320784,7 @@ ${entry2.url}`),
       const card = this.visibleWords[this.index];
       const input2 = root.querySelector("[data-newtab-recall-input]");
       if (!card || !input2) return;
-      input2.value = convertRomajiToKana(input2.value);
+      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       this.ensureStepState(cardKey(card)).recall = { answer: input2.value, outcome: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -320897,6 +320914,7 @@ ${entry2.url}`),
     }
     renderTypeWordKeyboard(card, feedback2) {
       const readyToContinue = feedback2 === "correct" || feedback2 === "accepted";
+      const target2 = activeLearningTarget();
       return el(
         "form",
         { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
@@ -320912,7 +320930,8 @@ ${entry2.url}`),
           spellcheck: false,
           inputmode: "text",
           enterkeyhint: "done",
-          lang: "ja",
+          lang: target2.typography.contentLocale,
+          dir: target2.direction,
           "aria-label": this.text("typeWordPlaceholder"),
           disabled: this.state.revealAnswer,
           readOnly: readyToContinue
@@ -321041,7 +321060,7 @@ ${entry2.url}`),
         if (!this.navigateStudyStep("next")) this.renderWord(root, card);
         return;
       }
-      input2.value = convertRomajiToKana(input2.value);
+      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       state.type = { ...state.type, answer: input2.value, feedback: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -321065,8 +321084,8 @@ ${entry2.url}`),
       state.type = { ...state.type, outcome };
     }
     typeWordOutcomeLabel(outcome, card) {
-      if (outcome === "correct") return `${this.text("recallCorrect")} · ${this.typeWordTarget(card)}`;
-      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${this.typeWordTarget(card)}`;
+      if (outcome === "correct") return `${this.text("recallCorrect")} · ${isolate(this.typeWordTarget(card))}`;
+      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${isolate(this.typeWordTarget(card))}`;
       if (outcome === "incorrect") return this.text("typeWordTryAgain");
       if (outcome === "empty") return this.text("recallEmpty");
       return this.text("typeWordSkipped");

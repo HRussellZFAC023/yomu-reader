@@ -2,10 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
+import { normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { suggestedStudyGrade } from '../../src/reader/newtab/study-outcomes';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
+import {
+    adoptLearningTargetLanguage,
+    resetActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
 import { testEnSettings } from './helpers/settings-fixture';
 
 function typeCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -130,6 +135,7 @@ function renderTypeWordStep(internals: TypeWordInternals, root: HTMLElement, car
 }
 
 afterEach(() => {
+    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     vi.clearAllMocks();
 });
@@ -213,6 +219,83 @@ describe('type-word step sequencing and gating', () => {
 });
 
 describe('type-word typed answers', () => {
+    it.each([
+        {
+            name: 'Spanish',
+            language: 'es',
+            spelling: 'comiendo',
+            reading: 'comiendo',
+            typed: 'comiendo',
+            visible: 'comiendo',
+            direction: 'ltr',
+            outcome: 'correct',
+        },
+        {
+            name: 'Russian',
+            language: 'ru',
+            spelling: 'читаю',
+            reading: 'читаю',
+            typed: 'читаю',
+            visible: 'читаю',
+            direction: 'ltr',
+            outcome: 'correct',
+        },
+        {
+            name: 'Arabic',
+            language: 'ar',
+            spelling: 'آكل',
+            reading: 'آكل',
+            typed: 'آكل',
+            visible: 'آكل',
+            direction: 'rtl',
+            outcome: 'correct',
+        },
+        {
+            name: 'Japanese',
+            language: 'ja',
+            spelling: '飲み物',
+            reading: 'のみもの',
+            typed: 'nomimono',
+            visible: 'のみもの',
+            direction: 'ltr',
+            outcome: 'accepted',
+        },
+    ])('uses $name target input behaviour without rewriting another script', ({
+        language,
+        spelling,
+        reading,
+        typed,
+        visible,
+        direction,
+        outcome,
+    }) => {
+        adoptLearningTargetLanguage(language);
+        const card = typeCard({
+            language,
+            spelling,
+            reading,
+            sentence: undefined,
+            pitchAccent: [],
+        });
+        const { controller, internals } = typeWordController([card]);
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            const input = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            input.value = typed;
+            internals.submitTypeWordAnswer(root);
+
+            const visibleInput = root.querySelector<HTMLInputElement>('[data-newtab-type-input]')!;
+            expect(visibleInput.value).toBe(visible);
+            expect(visibleInput.lang).toBe(language);
+            expect(visibleInput.dir).toBe(direction);
+            expect(normalizeNewTabRecallAnswer(typed)).toBe(visible);
+            expect(internals.studyStepStates.get(cardKey(card))?.type?.outcome).toBe(outcome);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('upgrades Type to an installed-dictionary N+1 cloze without exposing the answer', async () => {
         const card = typeCard({ sentence: undefined });
         const dictionarySentence = '冷たい飲み物が欲しい。';

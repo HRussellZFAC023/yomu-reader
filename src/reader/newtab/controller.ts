@@ -76,6 +76,8 @@ import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings';
+import { activeLearningTarget } from '../languages/active';
+import { isolate } from '../locales/direction';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
 import {
@@ -150,7 +152,7 @@ import {
     type NewTabReviewSourceSummary,
 } from './review-controls';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallCloze, type NewTabRecallOutcome } from './recall-practice';
-import { convertRomajiToKana } from './japanese-input';
+import { normalizeLearningTargetInput } from './typing-input';
 import { PitchSrsStore, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
 import { scoreSpeakingBlob, type SpeakingPitchScore } from './speaking-score';
@@ -6204,6 +6206,7 @@ export class NewTabController {
 
     private renderRecallAnswer(answer: HTMLElement | null, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
         if (!answer) return;
+        const target = activeLearningTarget();
         delete answer.dataset.newtabAnswerDetailsRequest;
         const key = cardKey(card);
         const recall = this.stepState(key)?.recall;
@@ -6224,7 +6227,8 @@ export class NewTabController {
                     spellcheck: false,
                     inputmode: 'text',
                     enterkeyhint: 'done',
-                    lang: 'ja',
+                    lang: target.typography.contentLocale,
+                    dir: target.direction,
                     'aria-label': this.text('recallAnswer'),
                     disabled: this.state.revealAnswer,
                 }),
@@ -6332,7 +6336,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         const input = root.querySelector<HTMLInputElement>('[data-newtab-recall-input]');
         if (!card || !input) return;
-        input.value = convertRomajiToKana(input.value);
+        input.value = normalizeLearningTargetInput(activeLearningTarget(), input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
         this.ensureStepState(cardKey(card)).recall = { answer: input.value, outcome: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
@@ -6472,6 +6476,7 @@ export class NewTabController {
 
     private renderTypeWordKeyboard(card: JPDBCard, feedback?: NewTabRecallOutcome): HTMLElement {
         const readyToContinue = feedback === 'correct' || feedback === 'accepted';
+        const target = activeLearningTarget();
         return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
             this.renderStudyWordAudioButton(card),
             el('input', {
@@ -6485,7 +6490,8 @@ export class NewTabController {
                 spellcheck: false,
                 inputmode: 'text',
                 enterkeyhint: 'done',
-                lang: 'ja',
+                lang: target.typography.contentLocale,
+                dir: target.direction,
                 'aria-label': this.text('typeWordPlaceholder'),
                 disabled: this.state.revealAnswer,
                 readOnly: readyToContinue,
@@ -6627,7 +6633,7 @@ export class NewTabController {
             if (!this.navigateStudyStep('next')) this.renderWord(root, card);
             return;
         }
-        input.value = convertRomajiToKana(input.value);
+        input.value = normalizeLearningTargetInput(activeLearningTarget(), input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
         state.type = { ...state.type, answer: input.value, feedback: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
@@ -6657,8 +6663,8 @@ export class NewTabController {
     }
 
     private typeWordOutcomeLabel(outcome: NewTabRecallOutcome | 'skipped', card: JPDBCard): string {
-        if (outcome === 'correct') return `${this.text('recallCorrect')} · ${this.typeWordTarget(card)}`;
-        if (outcome === 'accepted') return `${this.text('recallAccepted')} · ${this.typeWordTarget(card)}`;
+        if (outcome === 'correct') return `${this.text('recallCorrect')} · ${isolate(this.typeWordTarget(card))}`;
+        if (outcome === 'accepted') return `${this.text('recallAccepted')} · ${isolate(this.typeWordTarget(card))}`;
         if (outcome === 'incorrect') return this.text('typeWordTryAgain');
         if (outcome === 'empty') return this.text('recallEmpty');
         return this.text('typeWordSkipped');

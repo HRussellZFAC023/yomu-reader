@@ -47,10 +47,11 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 5 added pointerWordSegments: pointer admission and boundaries
-        // belong to the active target instead of a Japanese regex in core.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(5);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(true);
+        // Revision 6 added target-owned typed-answer input and comparison
+        // behaviour, keeping Japanese IME rules out of shared Study machinery.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(6);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(3)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(2)).toBe(false);
@@ -90,6 +91,7 @@ describe('LearningTargetModule contract revision', () => {
             'pointerWordSegments',
             'segment',
             'subtitles',
+            'typing',
             'typography',
         ]);
     });
@@ -109,6 +111,10 @@ describe('Japanese behind the contract', () => {
         expect(JAPANESE_LEARNING_TARGET.typography.contentLocale).toBe('ja'); // app/onboarding
         expect(JAPANESE_LEARNING_TARGET.typography.readingAnnotationMode).toBe('ruby');
         expect(JAPANESE_LEARNING_TARGET.typography.supportsVerticalWriting).toBe(true);
+        expect(JAPANESE_LEARNING_TARGET.typing).toEqual({
+            inputNormalizer: 'romaji-kana',
+            answerNormalizer: 'japanese-kana',
+        });
         expect(JAPANESE_LEARNING_TARGET.collationLocale).toBe('ja'); // subtitle-batch-mining
         expect(JAPANESE_LEARNING_TARGET.subtitles.languageTag).toBe('ja'); // subtitle-track-metadata
         expect(JAPANESE_LEARNING_TARGET.subtitles.languageAliases).toEqual([]);

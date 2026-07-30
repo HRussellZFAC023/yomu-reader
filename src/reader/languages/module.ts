@@ -14,6 +14,7 @@ import {
     type LearningTargetOcr,
     type LearningTargetSubtitles,
     type LearningTargetTypography,
+    type LearningTargetTyping,
     type TextDirection,
 } from './types';
 
@@ -34,6 +35,7 @@ export interface LearningTargetSpec {
     direction?: TextDirection;
     collationLocale?: LanguageTag;
     typography?: Partial<LearningTargetTypography>;
+    typing?: Partial<LearningTargetTyping>;
     audio?: Partial<LearningTargetAudio>;
     ocr?: Partial<LearningTargetOcr>;
     subtitles?: Partial<LearningTargetSubtitles>;
@@ -97,6 +99,11 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
             readingAnnotationMode: 'none' as const,
             supportsVerticalWriting: false,
             ...spec.typography,
+        }),
+        typing: Object.freeze({
+            inputNormalizer: 'preserve' as const,
+            answerNormalizer: 'target-text' as const,
+            ...spec.typing,
         }),
         audio: Object.freeze({
             speechSynthesisLocale: regionalTag,

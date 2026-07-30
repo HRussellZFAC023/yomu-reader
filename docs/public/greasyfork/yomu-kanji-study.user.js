@@ -3706,8 +3706,8 @@ const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -3762,6 +3762,11 @@ function createLearningTargetModule(spec) {
     readingAnnotationMode: "none",
     supportsVerticalWriting: false,
     ...spec.typography
+  }),
+  typing: Object.freeze({
+    inputNormalizer: "preserve",
+    answerNormalizer: "target-text",
+    ...spec.typing
   }),
   audio: Object.freeze({
     speechSynthesisLocale: regionalTag,
@@ -3874,6 +3879,10 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   contentLocale: "ja",
   readingAnnotationMode: "ruby",
   supportsVerticalWriting: true
+  },
+  typing: {
+  inputNormalizer: "romaji-kana",
+  answerNormalizer: "japanese-kana"
   },
   audio: {
   speechSynthesisLocale: "ja-JP",

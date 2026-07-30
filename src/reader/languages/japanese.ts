@@ -61,6 +61,10 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
         readingAnnotationMode: 'ruby',
         supportsVerticalWriting: true,
     },
+    typing: {
+        inputNormalizer: 'romaji-kana',
+        answerNormalizer: 'japanese-kana',
+    },
     audio: {
         speechSynthesisLocale: 'ja-JP',
         templateLanguageToken: 'ja',

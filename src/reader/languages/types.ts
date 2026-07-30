@@ -22,7 +22,7 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -31,7 +31,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -192,6 +192,14 @@ export interface LearningTargetTypography {
     supportsVerticalWriting: boolean;
 }
 
+/** Target-owned input and comparison behaviour for typed Study answers. */
+export interface LearningTargetTyping {
+    /** Named synchronous input method applied before text is written back. */
+    inputNormalizer: 'preserve' | 'romaji-kana';
+    /** Named comparison normalizer applied to the answer and every candidate. */
+    answerNormalizer: 'target-text' | 'japanese-kana';
+}
+
 /** Audio and speech-synthesis facts. */
 export interface LearningTargetAudio {
     /** `SpeechSynthesisUtterance.lang` for target-language playback. */
@@ -227,6 +235,7 @@ export interface LearningTargetSubtitles {
  *   morphology            -> lookupCandidates, compareLookupCandidates,
  *                            matchesLookupCandidateRules
  *   reading normalization -> normalizeText, normalizeReading
+ *   typed answers         -> typing
  *   script/pronunciation  -> featureSemantics
  *   typography            -> typography, direction
  *   audio + TTS           -> audio
@@ -250,6 +259,7 @@ export interface LearningTargetModule {
     readonly capabilities: LearningTargetCapabilities;
     readonly featureSemantics: LearningTargetFeatureSemantics;
     readonly typography: LearningTargetTypography;
+    readonly typing: LearningTargetTyping;
     readonly audio: LearningTargetAudio;
     readonly ocr: LearningTargetOcr;
     readonly subtitles: LearningTargetSubtitles;

@@ -22,6 +22,7 @@ import type {
     JPDBToken,
 } from './fixtures';
 import { cardKey } from '../../../src/reader/cards/utils';
+import { isolate } from '../../../src/reader/locales/direction';
 
 function bindKeyboardGradeFixture(controller: NewTabController, grades: string[]): { root: HTMLElement; clicks: string[] } {
     const root = document.createElement('main');
@@ -263,7 +264,8 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             retry.dispatchEvent(new Event('input', { bubbles: true }));
             root.querySelector<HTMLButtonElement>('[data-newtab-action="type-word-submit"]')?.click();
 
-            expect(root.querySelector('[data-newtab-type-result]')?.textContent).toBe('Reading accepted · 猫');
+            expect(root.querySelector('[data-newtab-type-result]')?.textContent)
+                .toBe(`Reading accepted · ${isolate('猫')}`);
             expect(root.querySelector<HTMLInputElement>('[data-newtab-type-input]')?.readOnly).toBe(true);
             const states = (controller as unknown as {
                 studyStepStates: Map<string, { type?: { outcome?: string; feedback?: string } }>;

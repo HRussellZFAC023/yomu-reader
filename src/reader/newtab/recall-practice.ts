@@ -1,5 +1,6 @@
 import type { JPDBCard } from '../app/types';
-import { normalizeJapaneseStudyAnswer } from './japanese-input';
+import { activeLearningTarget } from '../languages/active';
+import { normalizeLearningTargetAnswer } from './typing-input';
 
 export type NewTabRecallOutcome = 'empty' | 'correct' | 'accepted' | 'incorrect';
 
@@ -68,7 +69,7 @@ function newTabRecallAnswerCandidates(card: JPDBCard, reading = card.reading): {
 }
 
 export function normalizeNewTabRecallAnswer(value: string): string {
-    return normalizeJapaneseStudyAnswer(value);
+    return normalizeLearningTargetAnswer(activeLearningTarget(), value);
 }
 
 function splitRecallAnswers(value: string | undefined): string[] {

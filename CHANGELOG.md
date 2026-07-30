@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.51] - 2026-07-30
+
+### Fixed
+
+- Study keeps typed answers in the selected language. Spanish stays Spanish, Russian stays Cyrillic, Arabic uses right-to-left input, and Japanese still converts romaji to kana.
+
 ## [1.8.50] - 2026-07-30
 
 ### Fixed

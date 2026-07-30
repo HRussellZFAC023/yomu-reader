@@ -10108,8 +10108,8 @@ ${spelling}`);
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -10164,6 +10164,11 @@ ${spelling}`);
         readingAnnotationMode: "none",
         supportsVerticalWriting: false,
         ...spec.typography
+      }),
+      typing: Object.freeze({
+        inputNormalizer: "preserve",
+        answerNormalizer: "target-text",
+        ...spec.typing
       }),
       audio: Object.freeze({
         speechSynthesisLocale: regionalTag,
@@ -10276,6 +10281,10 @@ ${spelling}`);
       contentLocale: "ja",
       readingAnnotationMode: "ruby",
       supportsVerticalWriting: true
+    },
+    typing: {
+      inputNormalizer: "romaji-kana",
+      answerNormalizer: "japanese-kana"
     },
     audio: {
       speechSynthesisLocale: "ja-JP",
@@ -56199,7 +56208,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.50".trim() ? "1.8.50".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.51".trim() ? "1.8.51".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -133551,6 +133560,12 @@ ${entry.url}`),
   function hiraganaFromKatakana(value) {
     return value.replace(/[\u30a1-\u30f6]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
   }
+  function normalizeLearningTargetInput(target, value) {
+    return target.typing.inputNormalizer === "romaji-kana" ? convertRomajiToKana(value) : value;
+  }
+  function normalizeLearningTargetAnswer(target, value) {
+    return target.typing.answerNormalizer === "japanese-kana" ? normalizeJapaneseStudyAnswer(value) : target.normalizeText(value).toLocaleLowerCase(target.language);
+  }
   function evaluateNewTabRecallAnswer(card, answer, reading = card.reading) {
     const candidates = newTabRecallAnswerCandidates(card, reading);
     const normalized = normalizeNewTabRecallAnswer(answer);
@@ -133594,7 +133609,7 @@ ${entry.url}`),
     };
   }
   function normalizeNewTabRecallAnswer(value) {
-    return normalizeJapaneseStudyAnswer(value);
+    return normalizeLearningTargetAnswer(activeLearningTarget(), value);
   }
   function splitRecallAnswers(value) {
     return (value ?? "").split(/[;；/／|｜]/u).flatMap((part) => /[。！？!?]/u.test(part) ? [part] : part.split(/[,，、]/u)).map((part) => part.trim()).filter(Boolean);
@@ -140353,6 +140368,7 @@ ${entry.url}`),
     }
     renderRecallAnswer(answer, card, state2) {
       if (!answer) return;
+      const target = activeLearningTarget();
       delete answer.dataset.newtabAnswerDetailsRequest;
       const key = cardKey(card);
       const recall = this.stepState(key)?.recall;
@@ -140376,7 +140392,8 @@ ${entry.url}`),
             spellcheck: false,
             inputmode: "text",
             enterkeyhint: "done",
-            lang: "ja",
+            lang: target.typography.contentLocale,
+            dir: target.direction,
             "aria-label": this.text("recallAnswer"),
             disabled: this.state.revealAnswer
           }),
@@ -140476,7 +140493,7 @@ ${entry.url}`),
       const card = this.visibleWords[this.index];
       const input2 = root.querySelector("[data-newtab-recall-input]");
       if (!card || !input2) return;
-      input2.value = convertRomajiToKana(input2.value);
+      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       this.ensureStepState(cardKey(card)).recall = { answer: input2.value, outcome: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -140606,6 +140623,7 @@ ${entry.url}`),
     }
     renderTypeWordKeyboard(card, feedback) {
       const readyToContinue = feedback === "correct" || feedback === "accepted";
+      const target = activeLearningTarget();
       return el(
         "form",
         { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
@@ -140621,7 +140639,8 @@ ${entry.url}`),
           spellcheck: false,
           inputmode: "text",
           enterkeyhint: "done",
-          lang: "ja",
+          lang: target.typography.contentLocale,
+          dir: target.direction,
           "aria-label": this.text("typeWordPlaceholder"),
           disabled: this.state.revealAnswer,
           readOnly: readyToContinue
@@ -140750,7 +140769,7 @@ ${entry.url}`),
         if (!this.navigateStudyStep("next")) this.renderWord(root, card);
         return;
       }
-      input2.value = convertRomajiToKana(input2.value);
+      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       state2.type = { ...state2.type, answer: input2.value, feedback: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -140774,8 +140793,8 @@ ${entry.url}`),
       state2.type = { ...state2.type, outcome };
     }
     typeWordOutcomeLabel(outcome, card) {
-      if (outcome === "correct") return `${this.text("recallCorrect")} · ${this.typeWordTarget(card)}`;
-      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${this.typeWordTarget(card)}`;
+      if (outcome === "correct") return `${this.text("recallCorrect")} · ${isolate(this.typeWordTarget(card))}`;
+      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${isolate(this.typeWordTarget(card))}`;
       if (outcome === "incorrect") return this.text("typeWordTryAgain");
       if (outcome === "empty") return this.text("recallEmpty");
       return this.text("typeWordSkipped");
