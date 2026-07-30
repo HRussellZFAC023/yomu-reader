@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.45] - 2026-07-30
+
+### Changed
+
+- Pages now load one deduplicated reader runtime instead of twelve overlapping companion scripts, cutting the JavaScript injected before Yomu starts by 40%.
+- Release builds now measure the whole injected userscript payload and remove unreferenced hashed assets while retaining the current, recent, and browser-store versions.
+
 ## [1.8.44] - 2026-07-30
 
 ### Changed
