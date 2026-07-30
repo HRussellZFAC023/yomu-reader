@@ -1,3351 +1,3351 @@
 (function() {
-  "use strict";
-  const APP_NAME = "よむ";
-  const ACADEMY_SRS_LABEL = "Academy";
-  const APP_SLUG = "yomu";
-  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-  const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_ORIGIN = "https://yomureader.com";
-  const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
-  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
-  const PRIVATE_IPV4_RANGES = [
-    [0, 16777215],
-    [167772160, 184549375],
-    [1681915904, 1686110207],
-    [2130706432, 2147483647],
-    [2851995648, 2852061183],
-    [2886729728, 2887778303],
-    [3232235520, 3232301055]
-  ];
-  function isPrivateOrLocalHostname(hostname) {
-    const host = stripIpv6Brackets(hostname.trim().toLowerCase());
-    if (!host) return true;
-    return isLocalhostName(host) || isPrivateIpv4(host) || isPrivateIpv6(host);
+"use strict";
+const APP_NAME = "よむ";
+const ACADEMY_SRS_LABEL = "Academy";
+const APP_SLUG = "yomu";
+const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+const GITHUB_OWNER = "HRussellZFAC023";
+const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+const DOCS_ORIGIN = "https://yomureader.com";
+const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+const PRIVATE_IPV4_RANGES = [
+  [0, 16777215],
+  [167772160, 184549375],
+  [1681915904, 1686110207],
+  [2130706432, 2147483647],
+  [2851995648, 2852061183],
+  [2886729728, 2887778303],
+  [3232235520, 3232301055]
+];
+function isPrivateOrLocalHostname(hostname) {
+  const host = stripIpv6Brackets(hostname.trim().toLowerCase());
+  if (!host) return true;
+  return isLocalhostName(host) || isPrivateIpv4(host) || isPrivateIpv6(host);
+}
+function stripIpv6Brackets(host) {
+  return host.replace(/^\[/u, "").replace(/\]$/u, "");
+}
+function isLocalhostName(host) {
+  return host === "localhost" || host.endsWith(".localhost");
+}
+function isPrivateIpv4(host) {
+  const value = ipv4LiteralToInt(host);
+  return value !== null && isPrivateIpv4Int(value);
+}
+function isPrivateIpv4Int(value) {
+  return PRIVATE_IPV4_RANGES.some(([low, high]) => value >= low && value <= high);
+}
+function ipv4LiteralToInt(host) {
+  const fields = host.split(".");
+  if (fields.length === 0 || fields.length > 4) return null;
+  const values = [];
+  for (const field of fields) {
+  const value = parseIpv4Field(field);
+  if (value === null) return null;
+  values.push(value);
   }
-  function stripIpv6Brackets(host) {
-    return host.replace(/^\[/u, "").replace(/\]$/u, "");
+  const head = values.slice(0, -1);
+  if (head.some((value) => value > 255)) return null;
+  const tail = values[values.length - 1];
+  const tailBytes = 4 - head.length;
+  const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
+  if (tail > tailMax) return null;
+  let result = 0;
+  for (const value of head) result = result * 256 + value;
+  return result * 256 ** tailBytes + tail;
+}
+function parseIpv4Field(field) {
+  if (!field) return null;
+  if (/^0x[0-9a-f]+$/iu.test(field)) return finiteNonNegative(parseInt(field.slice(2), 16));
+  if (/^0[0-7]+$/u.test(field)) return finiteNonNegative(parseInt(field.slice(1), 8));
+  if (/^[0-9]+$/u.test(field)) return finiteNonNegative(parseInt(field, 10));
+  return null;
+}
+function finiteNonNegative(value) {
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+function isPrivateIpv6(host) {
+  if (!host.includes(":")) return false;
+  if (host === "::1" || host === "::") return true;
+  const mapped = host.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/u);
+  if (mapped) {
+  const value = ipv4LiteralToInt(mapped[1]);
+  if (value !== null && isPrivateIpv4Int(value)) return true;
   }
-  function isLocalhostName(host) {
-    return host === "localhost" || host.endsWith(".localhost");
+  return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
+}
+const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
+const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
+const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
+  "apiv2express.immersionkit.com",
+  "apiv2.immersionkit.com"
+]);
+const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
+  "d1pra95f92lrn3.cloudfront.net",
+  "d1vjc5dkcd3yh2.cloudfront.net",
+  // Bunpro pronunciation CDN: public (HTTP 200 without auth) but returns no
+  // access-control-allow-origin header, so browser fetch()/Web-Audio paths
+  // must go through the worker proxy; direct <audio src> playback is fine.
+  "dk3kgylsgq3k1.cloudfront.net"
+]);
+const YOMU_PUBLIC_PROXY_HOSTS = /* @__PURE__ */ new Set([
+  "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
+  "edge.yomureader.com",
+  "proxy.yomureader.com"
+]);
+const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
+const YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS = [
+  YOMU_SHARED_PUBLIC_PROXY_URL,
+  "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/"
+];
+function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
+  const proxyUrl = configuredProxyUrl.trim();
+  if (!proxyUrl) return null;
+  try {
+  const url = new URL(proxyUrl);
+  url.searchParams.set("url", targetUrl);
+  return url.href;
+  } catch {
+  return null;
   }
-  function isPrivateIpv4(host) {
-    const value = ipv4LiteralToInt(host);
-    return value !== null && isPrivateIpv4Int(value);
+}
+function isProxySafeRequest(targetUrl, options) {
+  return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+}
+function isSharedPublicProxySafeRequest(targetUrl, options) {
+  const target = fetchTarget(targetUrl);
+  return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
+}
+function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
+  return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
+}
+function isKnownCorsBlockedPublicAudioCdnUrl(target) {
+  try {
+  const url = typeof target === "string" ? typeof location === "undefined" ? new URL(target) : new URL(target, location.href) : target;
+  return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname) && url.pathname.startsWith("/audio/");
+  } catch {
+  return false;
   }
-  function isPrivateIpv4Int(value) {
-    return PRIVATE_IPV4_RANGES.some(([low, high]) => value >= low && value <= high);
+}
+function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
+  const target = fetchTarget(targetUrl);
+  const method = requestMethod(options);
+  return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
+}
+function builtInProxyUrls(targetUrl, options) {
+  if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
+  return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
+}
+function isJpdbPublicAudioUrl(targetUrl) {
+  try {
+  const target = new URL(targetUrl, location.href);
+  return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/") || isKnownCorsBlockedPublicAudioCdnUrl(target);
+  } catch {
+  return false;
   }
-  function ipv4LiteralToInt(host) {
-    const fields = host.split(".");
-    if (fields.length === 0 || fields.length > 4) return null;
-    const values = [];
-    for (const field of fields) {
-      const value = parseIpv4Field(field);
-      if (value === null) return null;
-      values.push(value);
+}
+function isYomuPublicProxyUrl(candidateUrl) {
+  try {
+  const url = new URL(candidateUrl);
+  return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
+  } catch {
+  return false;
+  }
+}
+function isKnownDirectCorsTarget(targetUrl) {
+  try {
+  const target = new URL(targetUrl, location.href);
+  return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
+  } catch {
+  return false;
+  }
+}
+function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
+  return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+}
+function isSharedPublicProxyAllowlistedTarget(target) {
+  const host = target.hostname.toLowerCase();
+  const path = target.pathname;
+  if (target.protocol !== "https:") return false;
+  if (host === "api.jiten.moe") {
+  return path.startsWith("/api/tts/word/") || path.startsWith("/api/tts/sentence/") || path === "/api/vocabulary/search" || path === "/api/vocabulary/parse" || path === "/api/vocabulary/parse-normalised" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path) || path.startsWith("/api/kanji/");
+  }
+  if (host === "jpdb.io") {
+  return path === "/search" || path.startsWith("/vocabulary/") || path.startsWith("/kanji/") || path.startsWith("/static/v/");
+  }
+  if (host === "jisho.org") return path.startsWith("/search/");
+  if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
+  if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
+  if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
+  if (host === "uchisen.com") return path.startsWith("/kanji/");
+  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
+  return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
+}
+function isJpdbPublicLookupTarget(target, method) {
+  return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
+}
+function isLocalHostedBrowserCorsTarget(target, method) {
+  return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
+}
+function isHostedGithubPagesApp() {
+  if (typeof location === "undefined") return false;
+  try {
+  const current = new URL(location.href);
+  const path = current.pathname.replace(/\/index\.html$/, "/");
+  return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+  } catch {
+  return false;
+  }
+}
+function isLocalHostedApp() {
+  if (typeof location === "undefined") return false;
+  return ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
+}
+function isCrossOriginHttpUrl(targetUrl) {
+  const target = fetchTarget(targetUrl);
+  return Boolean(target && isCrossOriginHttpTarget(target));
+}
+function isCrossOriginHttpTarget(target) {
+  return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+}
+function fetchTarget(targetUrl) {
+  try {
+  return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
+  } catch {
+  return null;
+  }
+}
+function requestMethod(options) {
+  return String(options.method ?? "GET").toUpperCase();
+}
+function hasSensitiveRequestHeaders(headers) {
+  if (!headers) return false;
+  if (headers instanceof Headers) {
+  return Array.from(headers.keys()).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+  }
+  if (Array.isArray(headers)) return headers.some(([header]) => SENSITIVE_REQUEST_KEY_RE.test(header));
+  return Object.keys(headers).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+}
+function hasCredentialedRequest(credentials) {
+  return credentials === "include";
+}
+function isPrivateJpdbTarget(targetUrl, options) {
+  try {
+  const url = new URL(targetUrl, location.href);
+  if (url.hostname !== "jpdb.io") return false;
+  if (!isReadMethod(options.method)) return true;
+  return url.pathname.startsWith("/api/") || /^\/(?:prioritize|review|settings|login)(?:\/|$)/.test(url.pathname);
+  } catch {
+  return false;
+  }
+}
+function isPrivateNetworkTarget(targetUrl) {
+  try {
+  const url = new URL(targetUrl, location.href);
+  return isPrivateOrLocalHostname(url.hostname);
+  } catch {
+  return false;
+  }
+}
+function hasSensitiveUrlParams(targetUrl) {
+  try {
+  const url = new URL(targetUrl, location.href);
+  return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
+  } catch {
+  return false;
+  }
+}
+function isReadMethod(method) {
+  return READ_METHODS.has(String(method ?? "GET").toUpperCase());
+}
+const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
+async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
+  const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
+  if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
+  let lastError;
+  for (const [index, candidate] of candidates.entries()) {
+  if (options.signal?.aborted) throw abortReasonFor(options.signal);
+  try {
+    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
+      lastError = new Error(`Proxy request failed (${response.status}).`);
+      continue;
     }
-    const head = values.slice(0, -1);
-    if (head.some((value) => value > 255)) return null;
-    const tail = values[values.length - 1];
-    const tailBytes = 4 - head.length;
-    const tailMax = tailBytes >= 4 ? 4294967295 : 256 ** tailBytes - 1;
-    if (tail > tailMax) return null;
-    let result = 0;
-    for (const value of head) result = result * 256 + value;
-    return result * 256 ** tailBytes + tail;
+    return response;
+  } catch (error) {
+    lastError = error;
+  }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+}
+function abortReasonFor(signal) {
+  return signal.reason ?? new DOMException("Aborted", "AbortError");
+}
+function fetchAttemptForCandidate(targetUrl, candidate, options) {
+  if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+  return { url: candidate.url, options };
+  }
+  return {
+  url: proxyControlUrl(candidate.url, options.headers),
+  options: {
+    ...options,
+    headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
   }
-  function parseIpv4Field(field) {
-    if (!field) return null;
-    if (/^0x[0-9a-f]+$/iu.test(field)) return finiteNonNegative(parseInt(field.slice(2), 16));
-    if (/^0[0-7]+$/u.test(field)) return finiteNonNegative(parseInt(field.slice(1), 8));
-    if (/^[0-9]+$/u.test(field)) return finiteNonNegative(parseInt(field, 10));
-    return null;
-  }
-  function finiteNonNegative(value) {
-    return Number.isFinite(value) && value >= 0 ? value : null;
-  }
-  function isPrivateIpv6(host) {
-    if (!host.includes(":")) return false;
-    if (host === "::1" || host === "::") return true;
-    const mapped = host.match(/^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/u);
-    if (mapped) {
-      const value = ipv4LiteralToInt(mapped[1]);
-      if (value !== null && isPrivateIpv4Int(value)) return true;
-    }
-    return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
-  }
-  const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
-  const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
-  const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
-    "apiv2express.immersionkit.com",
-    "apiv2.immersionkit.com"
-  ]);
-  const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
-    "d1pra95f92lrn3.cloudfront.net",
-    "d1vjc5dkcd3yh2.cloudfront.net",
-    // Bunpro pronunciation CDN: public (HTTP 200 without auth) but returns no
-    // access-control-allow-origin header, so browser fetch()/Web-Audio paths
-    // must go through the worker proxy; direct <audio src> playback is fine.
-    "dk3kgylsgq3k1.cloudfront.net"
-  ]);
-  const YOMU_PUBLIC_PROXY_HOSTS = /* @__PURE__ */ new Set([
-    "yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
-    "edge.yomureader.com",
-    "proxy.yomureader.com"
-  ]);
-  const YOMU_SHARED_PUBLIC_PROXY_URL = "https://edge.yomureader.com/";
-  const YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS = [
-    YOMU_SHARED_PUBLIC_PROXY_URL,
-    "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/"
-  ];
-  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
-    const proxyUrl = configuredProxyUrl.trim();
-    if (!proxyUrl) return null;
-    try {
-      const url = new URL(proxyUrl);
-      url.searchParams.set("url", targetUrl);
-      return url.href;
-    } catch {
-      return null;
-    }
-  }
-  function isProxySafeRequest(targetUrl, options) {
-    return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
-  }
-  function isSharedPublicProxySafeRequest(targetUrl, options) {
-    const target = fetchTarget(targetUrl);
-    return Boolean(target && isProxySafeRequest(targetUrl, options) && isReadMethod(options.method) && isSharedPublicProxyAllowlistedTarget(target));
-  }
-  function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
-    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
-  }
-  function isKnownCorsBlockedPublicAudioCdnUrl(target) {
-    try {
-      const url = typeof target === "string" ? typeof location === "undefined" ? new URL(target) : new URL(target, location.href) : target;
-      return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname) && url.pathname.startsWith("/audio/");
-    } catch {
-      return false;
-    }
-  }
-  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
-    const target = fetchTarget(targetUrl);
-    const method = requestMethod(options);
-    return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
-  }
-  function builtInProxyUrls(targetUrl, options) {
-    if (!isSharedPublicProxySafeRequest(targetUrl, options)) return [];
-    return YOMU_SHARED_PUBLIC_PROXY_FALLBACK_URLS.map((proxyUrl) => configuredProxyFetchUrl(targetUrl, proxyUrl)).filter((url) => Boolean(url));
-  }
-  function isJpdbPublicAudioUrl(targetUrl) {
-    try {
-      const target = new URL(targetUrl, location.href);
-      return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/") || isKnownCorsBlockedPublicAudioCdnUrl(target);
-    } catch {
-      return false;
-    }
-  }
-  function isYomuPublicProxyUrl(candidateUrl) {
-    try {
-      const url = new URL(candidateUrl);
-      return YOMU_PUBLIC_PROXY_HOSTS.has(url.hostname);
-    } catch {
-      return false;
-    }
-  }
-  function isKnownDirectCorsTarget(targetUrl) {
-    try {
-      const target = new URL(targetUrl, location.href);
-      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co" || target.hostname === "raw.githubusercontent.com";
-    } catch {
-      return false;
-    }
-  }
-  function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
-    return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
-  }
-  function isSharedPublicProxyAllowlistedTarget(target) {
-    const host = target.hostname.toLowerCase();
-    const path = target.pathname;
-    if (target.protocol !== "https:") return false;
-    if (host === "api.jiten.moe") {
-      return path.startsWith("/api/tts/word/") || path.startsWith("/api/tts/sentence/") || path === "/api/vocabulary/search" || path === "/api/vocabulary/parse" || path === "/api/vocabulary/parse-normalised" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(path) || path.startsWith("/api/kanji/");
-    }
-    if (host === "jpdb.io") {
-      return path === "/search" || path.startsWith("/vocabulary/") || path.startsWith("/kanji/") || path.startsWith("/static/v/");
-    }
-    if (host === "jisho.org") return path.startsWith("/search/");
-    if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
-    if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
-    if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-    if (host === "uchisen.com") return path.startsWith("/kanji/");
-    if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
-    return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
-  }
-  function isJpdbPublicLookupTarget(target, method) {
-    return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
-  }
-  function isLocalHostedBrowserCorsTarget(target, method) {
-    return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
-  }
-  function isHostedGithubPagesApp() {
-    if (typeof location === "undefined") return false;
-    try {
-      const current = new URL(location.href);
-      const path = current.pathname.replace(/\/index\.html$/, "/");
-      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-    } catch {
-      return false;
-    }
-  }
-  function isLocalHostedApp() {
-    if (typeof location === "undefined") return false;
-    return ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
-  }
-  function isCrossOriginHttpUrl(targetUrl) {
-    const target = fetchTarget(targetUrl);
-    return Boolean(target && isCrossOriginHttpTarget(target));
-  }
-  function isCrossOriginHttpTarget(target) {
-    return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
-  }
-  function fetchTarget(targetUrl) {
-    try {
-      return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
-    } catch {
-      return null;
-    }
-  }
-  function requestMethod(options) {
-    return String(options.method ?? "GET").toUpperCase();
-  }
-  function hasSensitiveRequestHeaders(headers) {
-    if (!headers) return false;
-    if (headers instanceof Headers) {
-      return Array.from(headers.keys()).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
-    }
-    if (Array.isArray(headers)) return headers.some(([header]) => SENSITIVE_REQUEST_KEY_RE.test(header));
-    return Object.keys(headers).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
-  }
-  function hasCredentialedRequest(credentials) {
-    return credentials === "include";
-  }
-  function isPrivateJpdbTarget(targetUrl, options) {
-    try {
-      const url = new URL(targetUrl, location.href);
-      if (url.hostname !== "jpdb.io") return false;
-      if (!isReadMethod(options.method)) return true;
-      return url.pathname.startsWith("/api/") || /^\/(?:prioritize|review|settings|login)(?:\/|$)/.test(url.pathname);
-    } catch {
-      return false;
-    }
-  }
-  function isPrivateNetworkTarget(targetUrl) {
-    try {
-      const url = new URL(targetUrl, location.href);
-      return isPrivateOrLocalHostname(url.hostname);
-    } catch {
-      return false;
-    }
-  }
-  function hasSensitiveUrlParams(targetUrl) {
-    try {
-      const url = new URL(targetUrl, location.href);
-      return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
-    } catch {
-      return false;
-    }
-  }
-  function isReadMethod(method) {
-    return READ_METHODS.has(String(method ?? "GET").toUpperCase());
-  }
-  const NO_PROXY_TRANSPORT_MESSAGE = "No configured proxy.";
-  async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
-    const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
-    if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
-    let lastError;
-    for (const [index, candidate] of candidates.entries()) {
-      if (options.signal?.aborted) throw abortReasonFor(options.signal);
-      try {
-        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-        const response = await fetchWithTimeout(attempt.url, attempt.options);
-        if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
-          lastError = new Error(`Proxy request failed (${response.status}).`);
-          continue;
-        }
-        return response;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-    throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
-  }
-  function abortReasonFor(signal) {
-    return signal.reason ?? new DOMException("Aborted", "AbortError");
-  }
-  function fetchAttemptForCandidate(targetUrl, candidate, options) {
-    if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
-      return { url: candidate.url, options };
-    }
-    return {
-      url: proxyControlUrl(candidate.url, options.headers),
-      options: {
-        ...options,
-        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
-      }
-    };
-  }
-  function proxyControlUrl(candidateUrl, headers) {
-    const forceCaf = headerValue(headers, "x-forcecaf");
-    if (!forceCaf) return candidateUrl;
-    try {
-      const url = new URL(candidateUrl);
-      url.searchParams.set("x-forcecaf", forceCaf);
-      return url.href;
-    } catch {
-      return candidateUrl;
-    }
-  }
-  function stripProxyOnlyHeaders(headers, names) {
-    if (!headers) return headers;
-    const excluded = new Set(names.map((name) => name.toLowerCase()));
-    const sanitized = {};
-    new Headers(headers).forEach((value, key) => {
-      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
-    });
-    return Object.keys(sanitized).length ? sanitized : void 0;
-  }
-  function headerValue(headers, name) {
-    if (!headers) return "";
-    return new Headers(headers).get(name) ?? "";
-  }
-  function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
-    const proxySafe = isProxySafeRequest(targetUrl, options);
-    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
-    const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
-    const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
-    const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
-    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-    const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy ? configuredUrl : null;
-    const publicProxies = publicProxySafe ? [
-      configuredPublicProxy,
-      ...builtInProxyUrls(targetUrl, options)
-    ].filter((url) => Boolean(url)) : [];
-    const proxyCandidates = [
-      configured ? { url: configured, kind: "configured-proxy" } : null,
-      ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
-    ].filter((candidate) => Boolean(candidate));
-    const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
-    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
-    const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
-    return uniqueFetchCandidates([
-      ...orderedCandidates
-    ]);
-  }
-  function directFetchUrl(targetUrl, options, hasProxyCandidate) {
-    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
-    return targetUrl;
-  }
-  function uniqueFetchCandidates(candidates) {
-    const seen = /* @__PURE__ */ new Set();
-    return candidates.filter((candidate) => {
-      if (!candidate || seen.has(candidate.url)) return false;
-      seen.add(candidate.url);
-      return true;
-    });
-  }
-  function shouldTryNextFetchCandidate(response, _candidate, index, candidates) {
-    return !response.ok && response.status !== 429 && index < candidates.length - 1;
-  }
-  function browserReadableUrl(url) {
-    if (!isHttpUrl(url)) return url;
-    try {
-      const target = new URL(url, location.href);
-      return target.origin === location.origin ? target.href : null;
-    } catch {
-      return null;
-    }
-  }
-  function isHttpUrl(url) {
-    return /^https?:\/\//i.test(url);
-  }
-  function fetchWithTimeout(url, options) {
-    const {
-      timeoutMs,
-      allowPublicProxies: _allowPublicProxies,
-      allowConfiguredProxy: _allowConfiguredProxy,
-      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
-      allowDirectCrossOrigin: _allowDirectCrossOrigin,
-      signal,
-      ...init
-    } = options;
-    if (!timeoutMs) return fetch(url, { ...init, signal });
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-    const abort = () => controller.abort();
-    signal?.addEventListener("abort", abort, { once: true });
-    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      window.clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
-    });
-  }
-  function bridgeEventId(event) {
-    return safeReadString(normalizedBridgeEventDetail(event), "id");
-  }
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
-    }
-  }
-  function normalizedBridgeEventDetail(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "string" ? value : void 0;
-  }
-  function userscriptRequestCandidates() {
-    const candidates = [];
-    const add = (request, thisArg) => {
-      candidates.push({ request, thisArg });
-    };
-    const direct = directUserscriptGlobals();
-    add(direct.GM_xmlhttpRequest, globalThis);
-    add(direct.GM?.xmlHttpRequest, direct.GM);
-    add(direct.GM?.xmlhttpRequest, direct.GM);
-    for (const source of userscriptRequestSources()) {
-      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
-      const gm = readSourceProperty(source, "GM");
-      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
-      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
-    }
-    return candidates;
-  }
-  function asUserscriptRequest(value) {
-    return typeof value === "function" ? value : void 0;
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
-  }
-  function directUserscriptGlobals() {
-    return {
-      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
-      GM: typeof GM === "object" && GM ? GM : void 0
-    };
-  }
-  function userscriptRequestSources() {
-    const sources = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (value) => {
-      if (!isRequestSource(value) || seen.has(value)) return;
-      seen.add(value);
-      sources.push(value);
-    };
-    for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(globalThis);
-    if (typeof window !== "undefined") add(window);
-    return sources;
-  }
-  function mountedMonkeyWindows() {
-    if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
-  }
-  function isRequestSource(value) {
-    return Boolean(value) && (typeof value === "object" || typeof value === "function");
-  }
-  function readSourceProperty(source, key) {
-    if (!isRequestSource(source)) return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  let initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
-  }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto) return detail;
-    try {
-      return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-    } catch {
-      try {
-        return JSON.stringify(detail);
-      } catch {
-        return void 0;
-      }
-    }
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key);
-  }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-    return methods;
-  }
-  function readMethod(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-    return readMethod(source, key);
-  }
-  function readProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key, descriptor) {
-    try {
-      const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
-  }
-  function pageCompartmentDescriptor(descriptor, _target) {
-    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-  }
-  function pageCompartmentValue(value, options = {}) {
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto || typeof window === "undefined") return value;
-    try {
-      return cloneInto(value, window, options);
-    } catch {
-      return value;
-    }
-  }
-  function safeWindowPropertyDescriptor(key) {
-    try {
-      const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
-    }
-  }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
-  const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
-  const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
-  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS = 3e4;
-  const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
-  let eventBridgeProbeInFlight;
-  function getUserscriptHttpRequest() {
-    for (const candidate of userscriptRequestCandidates()) {
-      const request = asUserscriptRequest(candidate.request);
-      if (request) {
-        return request.bind(candidate.thisArg);
-      }
-    }
-    return userscriptHttpEventBridge();
-  }
-  const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
-  function isUserscriptEventBridgeRequest(request) {
-    return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
-  }
-  function probeUserscriptEventBridge(request) {
-    if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
-    if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
-    if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-    const probe = new Promise((resolve) => {
-      const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      let settled = false;
-      let responseCleanup = noop;
-      let bridgeReadyCleanup = noop;
-      const finish = (alive) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        responseCleanup();
-        bridgeReadyCleanup();
-        if (!alive) {
-          const markerDataset = bridgeMarkerDataset();
-          if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
-        }
-        resolve(alive);
-      };
-      const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
-      responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
-        if (bridgeEventId(event) === id) finish(true);
-      });
-      bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-      dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
-    });
-    eventBridgeProbeInFlight = probe;
-    void probe.then(() => {
-      if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
-    });
-    return probe;
-  }
-  function userscriptHttpEventBridge() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-    return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
-      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        options.ontimeout?.();
-        reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-      let cleanupBridgeResponseListener = noop;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupBridgeResponseListener();
-      };
-      const onResponse = (event) => {
-        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-      };
-      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    }));
-  }
-  function tagEventBridgeRequest(request) {
-    request[EVENT_BRIDGE_TAG] = true;
-    return request;
-  }
-  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-    const detail = bridgeResponseEventDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.kind === "load" && detail.response) {
-      options.onload?.(detail.response);
-      resolve(detail.response);
-      return;
-    }
-    rejectBridgeResponse(detail, options, reject);
-  }
-  function rejectBridgeResponse(detail, options, reject) {
-    const message = detail.message || "Request failed.";
-    if (detail.kind === "timeout") options.ontimeout?.();
-    else options.onerror?.(new Error(message));
-    reject(new Error(message));
-  }
-  function addBridgeEventListener(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget) {
-      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function callRemoveEventListener(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop() {
-  }
-  function requestViaUserscriptManager(request, config) {
-    return new Promise((resolve, reject) => {
-      const signal = config.signal;
-      if (signal?.aborted) {
-        reject(abortReason(config));
-        return;
-      }
-      let handle;
-      let aborted = false;
-      const tryAbort = () => {
-        if (aborted) return;
-        aborted = true;
-        try {
-          handle?.abort?.();
-        } catch {
-        }
-      };
-      let settled = false;
-      let deadline;
-      const finish = (settle) => {
-        if (settled) return;
-        settled = true;
-        if (deadline !== void 0) clearTimeout(deadline);
-        if (signal) signal.removeEventListener("abort", onAbort);
-        try {
-          settle();
-        } catch (error) {
-          reject(error);
-        }
-      };
-      const handleLoad = (response) => finish(() => {
-        resolve(config.readResponse(response));
-      });
-      const handleError = (error) => finish(() => reject(errorReason(config, error)));
-      const handleTimeout = () => {
-        finish(() => reject(timeoutReason(config)));
-        tryAbort();
-      };
-      const onAbort = () => {
-        finish(() => reject(abortReason(config)));
-        tryAbort();
-      };
-      if (signal) signal.addEventListener("abort", onAbort, { once: true });
-      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
-      const reportProgress = config.details.onprogress;
-      const onprogress = reportProgress === void 0 ? void 0 : (event) => {
-        if (!settled) {
-          if (deadline !== void 0) clearTimeout(deadline);
-          deadline = setTimeout(handleTimeout, localDeadlineMs(config));
-        }
-        reportProgress(event);
-      };
-      try {
-        const result = request({
-          ...config.details,
-          ...onprogress === void 0 ? {} : { onprogress },
-          onload: handleLoad,
-          onerror: handleError,
-          ontimeout: handleTimeout
-        });
-        if (result && typeof result.abort === "function") {
-          handle = result;
-        }
-        if (isPromiseLike(result)) result.then(handleLoad, handleError);
-      } catch (error) {
-        handleError(error);
-      }
-    });
-  }
-  const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
-  function localDeadlineMs(config) {
-    const budget = config.deadlineMs ?? config.details.timeout;
-    return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
-  }
-  function errorReason(config, error) {
-    if (config.onError) return config.onError(error);
-    return error instanceof Error ? error : new Error("Request failed.");
-  }
-  function timeoutReason(config) {
-    return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
-  }
-  function abortReason(config) {
-    if (config.onAbort) return config.onAbort();
-    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-    const error = new Error("Aborted");
-    error.name = "AbortError";
-    return error;
-  }
-  async function requestHttp(url, options = {}) {
-    let userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
-      const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
-      if (!bridgeIsAlive) userscriptRequest = void 0;
-    }
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
-      try {
-        return await requestViaFetch(url, options, userscriptRequest ?? null);
-      } catch (error) {
-        if (!userscriptRequest) throw error;
-        return await requestViaUserscript(url, options, userscriptRequest);
-      }
-    }
-    if (userscriptRequest) {
-      try {
-        return await requestViaUserscript(url, options, userscriptRequest);
-      } catch (error) {
-        if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
-        userscriptRequest = void 0;
-      }
-    }
-    return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
-  }
-  function requestViaUserscript(url, options, userscriptRequest) {
-    return requestViaUserscriptManager(userscriptRequest, {
-      details: {
-        method: options.method ?? "GET",
-        url,
-        headers: recordHeaders(options.headers),
-        data: options.data,
-        responseType: options.responseType,
-        timeout: options.timeoutMs,
-        anonymous: options.anonymous,
-        withCredentials: options.withCredentials,
-        cookie: options.cookie
-      },
-      deadlineMs: options.timeoutMs,
-      signal: options.signal ?? void 0,
-      readResponse: (response) => {
-        if (response.status < 200 || response.status >= 300) throw new Error(formatStatusFailure(options, response.status));
-        return normalizeUserscriptResponse(response, options.responseType ?? "text");
-      },
-      onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
-      onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
-    });
-  }
-  function normalizeUserscriptResponse(response, responseType) {
-    return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
-  }
-  const USERSCRIPT_RESPONSE_NORMALIZERS = {
-    blob: (response) => response.response,
-    arraybuffer: (response) => response.response,
-    json: userscriptJsonResponse,
-    text: userscriptTextResponse
   };
-  function userscriptJsonResponse(response) {
-    return response.response !== void 0 && typeof response.response !== "string" ? response.response : JSON.parse(String(response.responseText ?? response.response ?? "null"));
+}
+function proxyControlUrl(candidateUrl, headers) {
+  const forceCaf = headerValue(headers, "x-forcecaf");
+  if (!forceCaf) return candidateUrl;
+  try {
+  const url = new URL(candidateUrl);
+  url.searchParams.set("x-forcecaf", forceCaf);
+  return url.href;
+  } catch {
+  return candidateUrl;
   }
-  function userscriptTextResponse(response) {
-    return String(response.responseText ?? response.response ?? "");
+}
+function stripProxyOnlyHeaders(headers, names) {
+  if (!headers) return headers;
+  const excluded = new Set(names.map((name) => name.toLowerCase()));
+  const sanitized = {};
+  new Headers(headers).forEach((value, key) => {
+  if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+  });
+  return Object.keys(sanitized).length ? sanitized : void 0;
+}
+function headerValue(headers, name) {
+  if (!headers) return "";
+  return new Headers(headers).get(name) ?? "";
+}
+function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
+  const proxySafe = isProxySafeRequest(targetUrl, options);
+  const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+  const configuredUrl = configuredProxyFetchUrl(targetUrl, configuredProxyUrl);
+  const configuredUrlIsSharedPublicProxy = configuredUrl ? isYomuPublicProxyUrl(configuredUrl) : false;
+  const configured = configuredProxySafe && options.allowConfiguredProxy !== false && !configuredUrlIsSharedPublicProxy ? configuredUrl : null;
+  const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
+  const configuredPublicProxy = publicProxySafe && configuredUrlIsSharedPublicProxy ? configuredUrl : null;
+  const publicProxies = publicProxySafe ? [
+  configuredPublicProxy,
+  ...builtInProxyUrls(targetUrl, options)
+  ].filter((url) => Boolean(url)) : [];
+  const proxyCandidates = [
+  configured ? { url: configured, kind: "configured-proxy" } : null,
+  ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
+  ].filter((candidate) => Boolean(candidate));
+  const direct = directFetchUrl(targetUrl, options, proxyCandidates.length > 0);
+  const directCandidate = direct ? { url: direct, kind: "direct" } : null;
+  const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
+  return uniqueFetchCandidates([
+  ...orderedCandidates
+  ]);
+}
+function directFetchUrl(targetUrl, options, hasProxyCandidate) {
+  if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+  if (hasProxyCandidate && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+  return targetUrl;
+}
+function uniqueFetchCandidates(candidates) {
+  const seen = /* @__PURE__ */ new Set();
+  return candidates.filter((candidate) => {
+  if (!candidate || seen.has(candidate.url)) return false;
+  seen.add(candidate.url);
+  return true;
+  });
+}
+function shouldTryNextFetchCandidate(response, _candidate, index, candidates) {
+  return !response.ok && response.status !== 429 && index < candidates.length - 1;
+}
+function browserReadableUrl(url) {
+  if (!isHttpUrl(url)) return url;
+  try {
+  const target = new URL(url, location.href);
+  return target.origin === location.origin ? target.href : null;
+  } catch {
+  return null;
   }
-  function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
-    if (userscriptRequest) return "";
-    if (!isSharedPublicProxySafeRequest(url, options)) return "";
-    return YOMU_SHARED_PUBLIC_PROXY_URL;
-  }
-  async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
-    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
-      method: options.method ?? "GET",
-      headers: options.headers,
-      body: options.data,
-      credentials: options.credentials ?? "omit",
-      redirect: options.redirect ?? "follow",
-      referrerPolicy: options.referrerPolicy ?? "no-referrer",
-      timeoutMs: options.timeoutMs,
-      allowConfiguredProxy: options.allowConfiguredProxy,
-      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
-      allowPublicProxies: options.allowPublicProxies,
-      allowDirectCrossOrigin: options.allowDirectCrossOrigin,
-      signal: options.signal
-    });
-    if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
-    return readFetchResponseBody(response, options.responseType);
-  }
-  function browserFetchFallbackOptions(url, options, userscriptRequest) {
-    if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
-    const method = String(options.method ?? "GET").toUpperCase();
-    if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
-    return { ...options, allowDirectCrossOrigin: true };
-  }
-  function readFetchResponseBody(response, responseType) {
-    return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
-  }
-  const FETCH_RESPONSE_READERS = {
-    blob: (response) => response.blob(),
-    arraybuffer: (response) => response.arrayBuffer(),
-    json: (response) => response.json(),
-    text: (response) => response.text()
+}
+function isHttpUrl(url) {
+  return /^https?:\/\//i.test(url);
+}
+function fetchWithTimeout(url, options) {
+  const {
+  timeoutMs,
+  allowPublicProxies: _allowPublicProxies,
+  allowConfiguredProxy: _allowConfiguredProxy,
+  allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
+  allowDirectCrossOrigin: _allowDirectCrossOrigin,
+  signal,
+  ...init
+  } = options;
+  if (!timeoutMs) return fetch(url, { ...init, signal });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+  window.clearTimeout(timeout);
+  signal?.removeEventListener("abort", abort);
+  });
+}
+function bridgeEventId(event) {
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
+}
+function bridgeResponseEventDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  const id = safeReadString(detail, "id");
+  const kind = safeReadString(detail, "kind");
+  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+  return {
+  id,
+  kind,
+  response: safeReadProperty(detail, "response"),
+  message: safeReadString(detail, "message")
   };
-  function formatFailure(options) {
-    return options.failureMessage ?? `${options.failureLabel ?? "Request"} failed.`;
-  }
-  function formatStatusFailure(options, status) {
-    return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
-  }
-  function isSameOriginUrl(url) {
-    if (typeof location === "undefined") return false;
-    try {
-      return new URL(url, location.href).origin === location.origin;
-    } catch {
-      return false;
+}
+function bridgeEventDetail(detail) {
+  if (detail === void 0) return void 0;
+  const json = bridgeEventJsonDetail(detail);
+  return json ?? detail;
+}
+function bridgeEventJsonDetail(detail) {
+  let unsupported = false;
+  try {
+  const json = JSON.stringify(detail, (_key, value) => {
+    if (isUnsupportedBridgeJsonValue(value)) {
+      unsupported = true;
+      return void 0;
     }
-  }
-  function shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error) {
-    if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
-    if (!(error instanceof Error)) return true;
-    return !/\(\d{3}\)/.test(error.message);
-  }
-  function shouldRetryWithFetch(error) {
-    if (!(error instanceof Error)) return true;
-    if (/\(\d{3}\)/.test(error.message)) return false;
-    if (/timed out|timeout/i.test(error.message)) return false;
-    return /network|cors|blocked|request failed/i.test(error.message);
-  }
-  function recordHeaders(headers) {
-    if (!headers) return void 0;
-    if (headers instanceof Headers) return Object.fromEntries(headers.entries());
-    if (Array.isArray(headers)) return Object.fromEntries(headers);
-    return headers;
-  }
-  async function requestJson(url, options = {}) {
-    const value = await requestHttp(url, { ...options, responseType: "json" });
     return value;
-  }
-  const locales = [
-    {
-      tag: "en",
-      reviewStatus: "source-approved",
-      rtlVerified: true,
-      humanReview: {
-        reviewer: "source locale",
-        evidence: "English is the source of record for every message ID."
-      },
-      available: true,
-      blockers: []
-    },
-    {
-      tag: "ja",
-      reviewStatus: "native-reviewed",
-      rtlVerified: true,
-      humanReview: {
-        reviewer: "owner",
-        evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
-      },
-      available: true,
-      blockers: []
-    },
-    {
-      tag: "ar",
-      reviewStatus: "machine-draft",
-      rtlVerified: false,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "rtl-verification-pending",
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fa",
-      reviewStatus: "machine-draft",
-      rtlVerified: false,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "rtl-verification-pending",
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sq",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "grc",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "yue",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "zh",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "da",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "nl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fi",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fr",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "de",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "el",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "hu",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "id",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "it",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "km",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ko",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "lo",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "la",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "mn",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "pl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "pt",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ro",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ru",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sh",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "es",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sv",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "tl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "th",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "tr",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "vi",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    }
-  ];
-  const rtlGate = {
-    items: [
-      {
-        id: "direction-propagation",
-        done: true,
-        note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
-      },
-      {
-        id: "logical-css-properties",
-        done: false,
-        note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
-      },
-      {
-        id: "bidi-isolation",
-        done: false,
-        note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
-      },
-      {
-        id: "font-stacks",
-        done: true,
-        note: "Per-script interface font stacks in the locale manifest."
-      },
-      {
-        id: "geometry-verification",
-        done: false,
-        note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
-      },
-      {
-        id: "viewport-and-zoom-matrix",
-        done: false,
-        note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
-      },
-      {
-        id: "real-app-screenshots",
-        done: false,
-        note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
-      },
-      {
-        id: "owner-acceptance",
-        done: false,
-        note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
-      }
-    ]
-  };
-  const interfaceLocaleLedger = {
-    locales,
-    rtlGate
-  };
-  const languages = [
-    {
-      id: "sq",
-      runtimeLocale: "sq",
-      englishName: "Albanian",
-      nativeName: "Shqip",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "grc",
-      runtimeLocale: "grc",
-      englishName: "Ancient Greek",
-      nativeName: "Ἑλληνιστί",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ar",
-      runtimeLocale: "ar",
-      englishName: "Arabic",
-      nativeName: "العربية",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "yue",
-      runtimeLocale: "yue-Hant",
-      englishName: "Cantonese",
-      nativeName: "粵語",
-      defaultScript: "Hant",
-      scripts: [
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "zh",
-      runtimeLocale: "zh-Hans",
-      englishName: "Chinese",
-      nativeName: "中文（简体）",
-      defaultScript: "Hans",
-      scripts: [
-        "Hans",
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "da",
-      runtimeLocale: "da",
-      englishName: "Danish",
-      nativeName: "Dansk",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "nl",
-      runtimeLocale: "nl",
-      englishName: "Dutch",
-      nativeName: "Nederlands",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "en",
-      runtimeLocale: "en",
-      englishName: "English",
-      nativeName: "English",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fi",
-      runtimeLocale: "fi",
-      englishName: "Finnish",
-      nativeName: "Suomi",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fr",
-      runtimeLocale: "fr",
-      englishName: "French",
-      nativeName: "Français",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "de",
-      runtimeLocale: "de",
-      englishName: "German",
-      nativeName: "Deutsch",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "el",
-      runtimeLocale: "el",
-      englishName: "Greek",
-      nativeName: "Ελληνικά",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "hu",
-      runtimeLocale: "hu",
-      englishName: "Hungarian",
-      nativeName: "Magyar",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "id",
-      runtimeLocale: "id",
-      englishName: "Indonesian",
-      nativeName: "Bahasa Indonesia",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "it",
-      runtimeLocale: "it",
-      englishName: "Italian",
-      nativeName: "Italiano",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "km",
-      runtimeLocale: "km",
-      englishName: "Khmer",
-      nativeName: "ខ្មែរ",
-      defaultScript: "Khmr",
-      scripts: [
-        "Khmr"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ko",
-      runtimeLocale: "ko",
-      englishName: "Korean",
-      nativeName: "한국어",
-      defaultScript: "Kore",
-      scripts: [
-        "Kore"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "lo",
-      runtimeLocale: "lo",
-      englishName: "Lao",
-      nativeName: "ລາວ",
-      defaultScript: "Laoo",
-      scripts: [
-        "Laoo"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "la",
-      runtimeLocale: "la",
-      englishName: "Latin",
-      nativeName: "Latina",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "mn",
-      runtimeLocale: "mn-Cyrl",
-      englishName: "Mongolian",
-      nativeName: "Монгол",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl",
-        "Mong"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fa",
-      runtimeLocale: "fa",
-      englishName: "Persian",
-      nativeName: "فارسی",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "pl",
-      runtimeLocale: "pl",
-      englishName: "Polish",
-      nativeName: "Polski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "pt",
-      runtimeLocale: "pt",
-      englishName: "Portuguese",
-      nativeName: "Português",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ro",
-      runtimeLocale: "ro",
-      englishName: "Romanian",
-      nativeName: "Română",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ru",
-      runtimeLocale: "ru",
-      englishName: "Russian",
-      nativeName: "Русский",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sh",
-      runtimeLocale: "sr-Latn",
-      englishName: "Serbo-Croatian",
-      nativeName: "Srpskohrvatski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn",
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "es",
-      runtimeLocale: "es",
-      englishName: "Spanish",
-      nativeName: "Español",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sv",
-      runtimeLocale: "sv",
-      englishName: "Swedish",
-      nativeName: "Svenska",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tl",
-      runtimeLocale: "fil",
-      englishName: "Tagalog",
-      nativeName: "Tagalog",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "th",
-      runtimeLocale: "th",
-      englishName: "Thai",
-      nativeName: "ไทย",
-      defaultScript: "Thai",
-      scripts: [
-        "Thai"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tr",
-      runtimeLocale: "tr",
-      englishName: "Turkish",
-      nativeName: "Türkçe",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "vi",
-      runtimeLocale: "vi",
-      englishName: "Vietnamese",
-      nativeName: "Tiếng Việt",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    }
-  ];
-  const languageConfig = {
-    languages
-  };
-  const configuredLanguages = languageConfig.languages;
-  const LEARNER_LANGUAGES = Object.freeze(
-    configuredLanguages.map(
-      (language) => Object.freeze({
-        ...language,
-        scripts: Object.freeze([...language.scripts])
-      })
-    )
-  );
-  new Map(
-    LEARNER_LANGUAGES.map((language) => [language.id, language])
-  );
-  const JAPANESE_INTERFACE_LOCALE = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    direction: "ltr"
   });
-  const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
-  const SCRIPT_FONT_STACKS = Object.freeze({
-    Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
-    Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
-    Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
-    Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
-    Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
-    Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
-    Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
-    Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
-    Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+  return unsupported || typeof json !== "string" ? void 0 : json;
+  } catch {
+  return void 0;
+  }
+}
+function normalizedBridgeEventDetail(event) {
+  const detail = safeEventDetail(event);
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function isUnsupportedBridgeJsonValue(value) {
+  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+}
+function isUnsupportedPrimitiveBridgeJsonValue(value) {
+  return typeof value === "function" || typeof value === "symbol";
+}
+function isArrayBufferBridgeJsonValue(value) {
+  if (typeof ArrayBuffer === "undefined") return false;
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+function isBlobBridgeJsonValue(value) {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+function isFormDataBridgeJsonValue(value) {
+  return typeof FormData !== "undefined" && value instanceof FormData;
+}
+function safeEventDetail(event) {
+  try {
+  return event.detail;
+  } catch {
+  return void 0;
+  }
+}
+function safeReadProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function safeReadString(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "string" ? value : void 0;
+}
+function userscriptRequestCandidates() {
+  const candidates = [];
+  const add = (request, thisArg) => {
+  candidates.push({ request, thisArg });
+  };
+  const direct = directUserscriptGlobals();
+  add(direct.GM_xmlhttpRequest, globalThis);
+  add(direct.GM?.xmlHttpRequest, direct.GM);
+  add(direct.GM?.xmlhttpRequest, direct.GM);
+  for (const source of userscriptRequestSources()) {
+  add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
+  const gm = readSourceProperty(source, "GM");
+  add(readSourceProperty(gm, "xmlHttpRequest"), gm);
+  add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+  }
+  return candidates;
+}
+function asUserscriptRequest(value) {
+  return typeof value === "function" ? value : void 0;
+}
+function isPromiseLike(value) {
+  return Boolean(value) && typeof value.then === "function";
+}
+function directUserscriptGlobals() {
+  return {
+  GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+  GM: typeof GM === "object" && GM ? GM : void 0
+  };
+}
+function userscriptRequestSources() {
+  const sources = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (value) => {
+  if (!isRequestSource(value) || seen.has(value)) return;
+  seen.add(value);
+  sources.push(value);
+  };
+  for (const mounted of mountedMonkeyWindows()) add(mounted);
+  add(globalThis);
+  if (typeof window !== "undefined") add(window);
+  return sources;
+}
+function mountedMonkeyWindows() {
+  if (typeof document === "undefined") return [];
+  return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+}
+function isRequestSource(value) {
+  return Boolean(value) && (typeof value === "object" || typeof value === "function");
+}
+function readSourceProperty(source, key) {
+  if (!isRequestSource(source)) return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+function createWindowCustomEvent(type, detail, init = {}) {
+  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+  const documentEvent = createDocumentCustomEvent(type, eventInit);
+  if (documentEvent) return documentEvent;
+  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+  if (CustomEventConstructor) {
+  try {
+    return new CustomEventConstructor(type, eventInit);
+  } catch {
+  }
+  }
+  throw new Error(`Unable to create window custom event: ${type}`);
+}
+function cloneCustomEventDetail(detail) {
+  if (detail === void 0 || typeof window === "undefined") return detail;
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto) return detail;
+  try {
+  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+  } catch {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return void 0;
+  }
+  }
+}
+function dispatchWindowEvent(event) {
+  const target = window;
+  const directDispatch = readMethod(target, "dispatchEvent");
+  const directResult = callEventTargetMethod(directDispatch, target, event);
+  if (directResult.called) return directResult.result;
+  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+  if (initialResult.called) return initialResult.result;
+  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+  if (prototypeResult.called) return prototypeResult.result;
+  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+  if (unshadowedResult.called) return unshadowedResult.result;
+  return false;
+}
+function addWindowEventListener(type, listener, options) {
+  const target = window;
+  const directAdd = readMethod(target, "addEventListener");
+  const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function removeWindowEventListener(type, listener, options) {
+  const target = window;
+  const directRemove = readMethod(target, "removeEventListener");
+  const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function initialWindowMethod(key) {
+  if (typeof window === "undefined") return void 0;
+  return readMethod(window, key);
+}
+function dispatchWithPrototypeMethod(target, directDispatch, event) {
+  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+  if (prototypeDispatch === directDispatch) continue;
+  const result = callEventTargetMethod(prototypeDispatch, target, event);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+  if (prototypeAdd === directAdd) continue;
+  const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+  if (prototypeRemove === directRemove) continue;
+  const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function eventConstructor(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function createDocumentCustomEvent(type, init) {
+  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+  try {
+  const event = document.createEvent("CustomEvent");
+  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+  return event;
+  } catch {
+  return void 0;
+  }
+}
+function eventTargetPrototypeMethods(target, key) {
+  const methods = [];
+  const add = (method) => {
+  if (method && !methods.includes(method)) methods.push(method);
+  };
+  let prototype = Object.getPrototypeOf(target);
+  while (prototype) {
+  add(readOwnMethod(prototype, key));
+  prototype = Object.getPrototypeOf(prototype);
+  }
+  const WindowEventTarget = readProperty(window, "EventTarget");
+  add(readMethod(WindowEventTarget?.prototype, key));
+  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+  return methods;
+}
+function readMethod(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function readOwnMethod(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+  return readMethod(source, key);
+}
+function readProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function callEventTargetMethod(method, target, event) {
+  if (!method) return { called: false };
+  try {
+  return { called: true, result: method.call(target, event) };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callAddEventListener$1(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callRemoveEventListener$1(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callWithUnshadowedWindowDispatch(event) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("dispatchEvent", descriptor);
+  }
+}
+function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("addEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+  return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("addEventListener", descriptor);
+  }
+}
+function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+  return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("removeEventListener", descriptor);
+  }
+}
+function restoreWindowProperty(key, descriptor) {
+  try {
+  const target = window.wrappedJSObject || window;
+  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+  } catch {
+  }
+}
+function pageCompartmentDescriptor(descriptor, _target) {
+  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+function pageCompartmentValue(value, options = {}) {
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto || typeof window === "undefined") return value;
+  try {
+  return cloneInto(value, window, options);
+  } catch {
+  return value;
+  }
+}
+function safeWindowPropertyDescriptor(key) {
+  try {
+  const target = window.wrappedJSObject || window;
+  return Object.getOwnPropertyDescriptor(target, key);
+  } catch {
+  return void 0;
+  }
+}
+function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+  if (!descriptor) return false;
+  try {
+  return typeof descriptor.value !== "function";
+  } catch {
+  return false;
+  }
+}
+function normalizedPropertyDescriptor(descriptor) {
+  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+  if (!hasDataShape || !hasAccessorShape) return descriptor;
+  try {
+  return {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    value: descriptor.value,
+    writable: descriptor.writable
+  };
+  } catch {
+  return {
+    configurable: true,
+    value: void 0,
+    writable: true
+  };
+  }
+}
+const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
+const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+const BRIDGE_TIMEOUT_MS = 3e4;
+const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let eventBridgeProbeInFlight;
+function getUserscriptHttpRequest() {
+  for (const candidate of userscriptRequestCandidates()) {
+  const request = asUserscriptRequest(candidate.request);
+  if (request) {
+    return request.bind(candidate.thisArg);
+  }
+  }
+  return userscriptHttpEventBridge();
+}
+const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+function isUserscriptEventBridgeRequest(request) {
+  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+}
+function probeUserscriptEventBridge(request) {
+  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+  const probe = new Promise((resolve) => {
+  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  let settled = false;
+  let responseCleanup = noop;
+  let bridgeReadyCleanup = noop;
+  const finish = (alive) => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timeout);
+    responseCleanup();
+    bridgeReadyCleanup();
+    if (!alive) {
+      const markerDataset = bridgeMarkerDataset();
+      if (markerDataset?.[BRIDGE_MARKER] === "true") delete markerDataset[BRIDGE_MARKER];
+    }
+    resolve(alive);
+  };
+  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+  responseCleanup = addBridgeEventListener(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+    if (bridgeEventId(event) === id) finish(true);
   });
-  const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
-  function scriptFontStack(script) {
-    return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+  bridgeReadyCleanup = addBridgeEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+  dispatchBridgeEvent(BRIDGE_PROBE_EVENT, { id });
+  });
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
+}
+function userscriptHttpEventBridge() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
+  const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    options.ontimeout?.();
+    reject(new Error("Request timed out."));
+  }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+  let cleanupBridgeResponseListener = noop;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupBridgeResponseListener();
+  };
+  const onResponse = (event) => {
+    handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+  };
+  cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+  const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+  }));
+}
+function tagEventBridgeRequest(request) {
+  request[EVENT_BRIDGE_TAG] = true;
+  return request;
+}
+function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+  const detail = bridgeResponseEventDetail(event);
+  if (!detail || detail.id !== id) return;
+  cleanup();
+  if (detail.kind === "load" && detail.response) {
+  options.onload?.(detail.response);
+  resolve(detail.response);
+  return;
   }
-  function directionForScript(script) {
-    return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+  rejectBridgeResponse(detail, options, reject);
+}
+function rejectBridgeResponse(detail, options, reject) {
+  const message = detail.message || "Request failed.";
+  if (detail.kind === "timeout") options.ontimeout?.();
+  else options.onerror?.(new Error(message));
+  reject(new Error(message));
+}
+function addBridgeEventListener(type, listener) {
+  const cleanups = [];
+  if (addWindowEventListener(type, listener)) {
+  cleanups.push(() => removeWindowEventListener(type, listener));
   }
-  const LEDGER_ROWS = new Map(
-    interfaceLocaleLedger.locales.map((row) => [row.tag, row])
-  );
-  function fallbackChainFor(tag, id) {
-    const chain = [];
-    const push = (value) => {
-      if (value !== tag && !chain.includes(value)) chain.push(value);
-    };
-    const base = tag.split("-")[0];
-    push(base);
-    push(id);
-    if (id === "sh") {
-      push("sr");
-      push("hr");
-      push("bs");
-    }
-    if (id === "tl") push("fil");
-    if (id !== "en") push("en");
-    return Object.freeze(chain);
+  const documentTarget = bridgeDocumentTarget();
+  if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+  cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
   }
-  function buildLocale(source) {
-    const ledger = LEDGER_ROWS.get(source.id);
-    if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
-    return Object.freeze({
-      tag: source.runtimeLocale,
-      id: source.id,
-      fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
-      nativeName: source.nativeName,
-      englishName: source.englishName,
-      script: source.defaultScript,
-      // languages.json and the script table must agree; the script is the
-      // source of truth so one new RTL locale cannot arrive marked ltr.
-      direction: directionForScript(source.defaultScript),
-      fontStack: scriptFontStack(source.defaultScript),
-      reviewStatus: ledger.reviewStatus,
-      available: ledger.available,
-      blockers: Object.freeze([...ledger.blockers])
-    });
+  return () => {
+  for (const cleanup of cleanups) cleanup();
+  };
+}
+function dispatchBridgeEvent(type, detail) {
+  const eventDetail = bridgeEventDetail(detail);
+  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+  const documentTarget = bridgeDocumentTarget();
+  if (documentTarget) {
+  dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
   }
-  const INTERFACE_LOCALES = Object.freeze(
-    [
-      ...LEARNER_LANGUAGES.map(
-        (language) => buildLocale({ ...language, direction: language.direction })
-      ),
-      buildLocale(JAPANESE_INTERFACE_LOCALE)
-    ].sort((left, right) => {
-      const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
-      return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
-    })
-  );
-  const LOCALE_BY_KEY = new Map([
-    ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
-    ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
-  ]);
-  function interfaceLocaleByTag(tag) {
-    return LOCALE_BY_KEY.get(tag);
+  return dispatched;
+}
+function bridgeDocumentTarget() {
+  if (typeof document === "undefined") return void 0;
+  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+}
+function bridgeMarkerDataset() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
+function callAddEventListener(target, type, listener) {
+  try {
+  target.addEventListener(type, listener);
+  return true;
+  } catch {
+  return false;
   }
-  const ENGLISH_INTERFACE_LOCALE = (() => {
-    const english = LOCALE_BY_KEY.get("en");
-    if (!english) throw new Error("The interface manifest must always contain English");
-    return english;
-  })();
-  Object.freeze(
-    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-  );
-  Object.freeze(
-    interfaceLocaleLedger.rtlGate.items.map(
-      (item) => Object.freeze({ ...item })
-    )
-  );
-  const FIRST_STRONG_ISOLATE = "⁨";
-  const POP_DIRECTIONAL_ISOLATE = "⁩";
-  function interfaceDirectionOf(tag) {
-    return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
+}
+function callRemoveEventListener(target, type, listener) {
+  try {
+  target.removeEventListener(type, listener);
+  } catch {
   }
-  function isRtlInterface(tag) {
-    return interfaceDirectionOf(tag) === "rtl";
+}
+function callDispatchEvent(target, event) {
+  try {
+  return target.dispatchEvent(event);
+  } catch {
+  return false;
   }
-  function isolate(value) {
-    if (!value) return value;
-    return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
+}
+function noop() {
+}
+function requestViaUserscriptManager(request, config) {
+  return new Promise((resolve, reject) => {
+  const signal = config.signal;
+  if (signal?.aborted) {
+    reject(abortReason(config));
+    return;
   }
-  function formatIsolated(message, values) {
-    return Object.entries(values).reduce(
-      (text, [name, value]) => text.replaceAll(`{${name}}`, isolate(String(value))),
-      message
-    );
-  }
-  const COPY = {
-    en: {
-      settingsTitle: `${APP_NAME} Settings`,
-      welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
-      onboardingLanguage: "Settings language",
-      onboardingAccentColor: "Accent color",
-      customAccentColor: "Custom color",
-      onboardingImmersionOptions: "Immersion defaults",
-      onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
-      onboardingHoverShortcut: "Lookup hover modifier",
-      manualPageScanShortcut: "Manual page scan shortcut",
-      onboardingAddApiKey: "Add API key",
-      onboardingUseWithoutApiKey: "Use without API key",
-      closeOnboarding: "Close welcome",
-      featureText: "Text",
-      featureTextBody: "Hover or tap scanned Japanese.",
-      featureImages: "Images",
-      featureImagesBody: "Read any image by tapping it.",
-      featureVideo: "Video",
-      featureVideoBody: "Make subtitle words tappable.",
-      featureControl: "Control",
-      featureControlBody: "Tune features, shortcuts, and color.",
-      featureStudy: "Study",
-      featureStudyBody: "Review words and kanji on the study page.",
-      featureGame: "Game",
-      featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
-      scanPage: "Scan page",
-      noUnscannedJapaneseText: "No unscanned Japanese text found.",
-      jpdbScanFailed: "Page scan failed.",
-      pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
-      settings: "Settings",
-      settingsSaved: "Settings saved.",
-      settingsSaveFailed: "Settings save failed.",
-      firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
-      firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
-      settingsSections: "Settings sections",
-      settingsSearch: "Search settings",
-      settingsSearchPlaceholder: "Search settings",
-      settingsSearchNoResults: "No matches.",
-      save: "Save",
-      cancel: "Cancel",
-      show: "Show",
-      hide: "Hide",
-      appearance: "Appearance",
-      reading: "Reading",
-      dictionaries: "Dictionaries",
-      sources: "Sources",
-      backupSync: "Backup & sync",
-      backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
-      backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
-      media: "Media",
-      mining: "Mining",
-      shortcuts: "Shortcuts",
-      help: "Help",
-      reader: "Reader",
-      kanji: "Kanji",
-      audio: "Audio",
-      images: "Image text (OCR)",
-      video: "Video",
-      youTube: "YouTube",
-      anki: "Anki",
-      jpdb: "JPDB",
-      api: "API",
-      apiCredential: "API key",
-      apiCredentialJpdb: "JPDB API key",
-      apiCredentialJiten: "Jiten API key",
-      apiCredentialBunpro: "Bunpro frontend API token",
-      apiCredentialBunproLegacy: "Bunpro API key",
-      apiCredentialWanikani: "WaniKani personal access token",
-      apiKey: "API key",
-      jitenApiKey: "Jiten API key",
-      apiAccess: "API access",
-      apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
-      wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
-      jpdbSettings: "JPDB settings",
-      jitenSettings: "Jiten settings",
-      bunproSettings: "Bunpro settings",
-      wanikaniSettings: "WaniKani settings",
-      jpdbApiKeyConfigured: "JPDB key set.",
-      jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
-      jpdbConnected: "Connected to JPDB.",
-      jpdbAndJitenConnected: "Connected to Jiten and JPDB.",
-      jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
-      statusReady: "Ready",
-      statusAttention: "Needs setup",
-      statusError: "Error",
-      disabledControlDescription: "Controlled by another setting.",
-      jpdbMiningEnabled: "Allow API review/deck changes",
-      bunproMiningEnabled: "Allow Bunpro review/mining",
-      wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
-      wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
-      yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
-      addToForq: "Also copy JPDB adds to forq",
-      enableReviews: "Show review buttons",
-      reviewRatingScale: "Review rating scale",
-      gradeTargetSelector: "Grade target",
-      gradeTargetBoth: "Both",
-      gradeTargetJpdb: "Grades JPDB",
-      gradeTargetJiten: "Grades Jiten",
-      gradeTargetBunpro: "Grades Bunpro",
-      gradeTargetWanikani: "Grades WaniKani",
-      gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
-      gradeTargetAnki: "Grades Anki card: {target}",
-      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
-      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
-      gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
-      gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
-      missingAnkiCardId: "Missing Anki card id.",
-      jpdbPageEnhancements: "Dictionary site enhancements",
-      jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
-      jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
-      jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
-      fivePoint: "Five point: NOTHING to EASY",
-      twoPoint: "Two point: FAIL / PASS",
-      settingsLanguage: "Settings language",
-      automatic: "Automatic",
-      english: "English",
-      japanese: "日本語",
-      theme: "Theme",
-      auto: "Auto",
-      dark: "Dark",
-      light: "Light",
-      switchToDarkTheme: "Switch to dark theme",
-      switchToLightTheme: "Switch to light theme",
-      popupMode: "Popup mode",
-      hoverPopupMode: "Hover popup mode",
-      bottomSheet: "Bottom sheet",
-      popover: "Popover",
-      stickyBottomSheet: "Keep sheet open after lookup",
-      popoverBackdropEnabled: "Dim page behind popover",
-      popoverWidth: "Popover width (px)",
-      popoverHeight: "Popover height (px)",
-      popoverHeightMode: "Popover height behavior",
-      popoverHeightAvailable: "Grow to available space",
-      popoverHeightFixed: "Use height setting",
-      readerFontFamily: "Reader interface font",
-      popupFontFamily: "Popup Japanese font",
-      fontPresetYomuDefault: "Built-in font",
-      fontPresetJapaneseSans: "Japanese sans",
-      fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
-      fontPresetJapaneseRounded: "Japanese rounded",
-      fontPresetJapaneseSerif: "Japanese serif",
-      fontPresetSystemUi: "System UI",
-      fontPresetCustom: "Custom...",
-      customFontFamily: "Custom font stack",
-      popupFontWeight: "Popup Japanese weight",
-      enableLogging: "Enable diagnostic logging",
-      diagnostics: "Diagnostics",
-      diagnosticsHelp: "Print diagnostics to the console.",
-      accentColor: "Accent color",
-      newTab: "Study",
-      newTabAnkiEnabled: "Use Anki cards in Study",
-      newTabAnkiReviewDecks: "Anki review decks",
-      newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
-      newTabSource: "Study review source",
-      newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
-      newTabApiSrs: "API SRS (Jiten / JPDB)",
-      newTabBunpro: "Bunpro",
-      newTabWanikani: "WaniKani",
-      newTabYomuLocal: ACADEMY_SRS_LABEL,
-      dictionaryFallback: "Dictionary fallback",
-      newTabJpdbReviewMode: "API review mode",
-      newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
-      newTabLiveReview: "Live JPDB review session",
-      newTabApiVocabulary: "API vocabulary only",
-      corsProxyUrl: "Cross-origin proxy URL",
-      newTabKanjiKeywordSource: "Kanji keyword source",
-      newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
-      newTabKanjiKeywordRtk: "RTK / Heisig",
-      newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
-      newTabKanjiKeywordLocal: "Local card meaning",
-      newTabParsingEnabled: "Enable sentence parsing on Study",
-      newTabFrontSentenceEnabled: "Show sentence on word fronts",
-      newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
-      newTabKanjiAutoSubmit: "Auto-submit kanji grade",
-      newTabOfflineEnabled: "Cache Study for offline use",
-      newTabOfflineLimit: "Offline review cache limit",
-      newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
-      newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
-      newTabStopAtBatchEnd: "Stop at the end of each batch",
-      newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
-      newTabShortcutHintsEnabled: "Show Study keyboard shortcut hints",
-      newTabUrl: "Study address",
-      newTabOfflineHelp: "Caches due cards and queued grades.",
-      newTabAddressHelp: "Use as a start page or iPad shortcut.",
-      newTabJpdbDeck: "Study JPDB deck",
-      newTabStudySteps: "Study steps",
-      newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
-      newTabStudyStepHeader: "Step",
-      newTabStudyStepKanji: "Kanji drawing",
-      newTabStudyStepWord: "Word meaning",
-      newTabStudyStepRecall: "Write in sentence",
-      newTabStudyStepListen: "Pitch listening",
-      newTabStudyStepSpeaking: "Speaking",
-      newTabStudyStepType: "Type the word",
-      newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-      newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
-      newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
-      newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
-      newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
-      newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
-      openNewTabPage: "Open Study",
-      copyAddress: "Copy address",
-      wordColors: "Word colors",
-      wordColorNew: "New and in deck",
-      wordColorLearning: "Learning",
-      wordColorKnown: "Known and never forget",
-      wordColorDue: "Due",
-      wordColorFailed: "Failed",
-      wordColorIgnored: "Ignored, suspended, and blacklisted",
-      pitchAccentColors: "Pitch accent colors",
-      pitchColorHeiban: "Heiban (flat)",
-      pitchColorAtamadaka: "Atamadaka (head-high)",
-      pitchColorNakadaka: "Nakadaka (middle-high)",
-      pitchColorOdaka: "Odaka (tail-high)",
-      pitchColorUnknown: "Unknown",
-      noExactPitch: "Exact pitch unavailable",
-      colorChannels: "Color channels",
-      wordHighlightColorSource: "Word highlight color",
-      wordUnderlineColorSource: "Word underline color",
-      wordTextColorSource: "Word text color",
-      subtitleHighlightColorSource: "Subtitle highlight color",
-      subtitleUnderlineColorSource: "Subtitle underline color",
-      subtitleTextColorSource: "Subtitle text color",
-      colorSourceStatus: "JPDB + Anki status",
-      colorSourceJpdb: "JPDB status",
-      colorSourceAnki: "Anki status",
-      colorSourceDeck: "Deck status",
-      colorSourcePitch: "Pitch accent",
-      colorSourceNone: "None",
-      popupLookup: "Popup lookup",
-      popupLookupEnabled: "Show Yomu lookup popup",
-      popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
-      lookupOnClick: "Look up on tap or click",
-      lookupOnHover: "Look up on hover",
-      lookupOnMiddleMouse: "Look up with middle-mouse hold",
-      showFloatingButton: "Show settings puck",
-      pageScanMode: "Japanese text on webpages",
-      pageScanModeOff: "Leave pages unchanged",
-      pageScanModeAuto: "Scan Japanese automatically",
-      pageScanModeManual: "Scan only when I ask",
-      manualScanEnabled: "Manual page scanning",
-      ocrInteractionMode: "Image OCR scanning",
-      ocrInteractionModeAuto: "Auto",
-      ocrInteractionModeManual: "Tap or hover",
-      ocrInteractionModeOff: "Off",
-      puckMenuLabel: `${APP_NAME} menu`,
-      puckStudyPage: "Study page",
-      puckPauseAnnotations: "Pause annotations",
-      puckResumeAnnotations: "Resume annotations",
-      puckOcrAuto: "OCR: Auto",
-      puckOcrManual: "OCR: Tap/Hover",
-      puckOcrOff: "OCR: Off",
-      annotationsPausedToast: "Annotations paused.",
-      annotationsResumedToast: "Annotations resumed.",
-      puckMuteAudio: "Mute auto-play audio",
-      puckUnmuteAudio: "Unmute auto-play audio",
-      autoplayAudioOnToast: "Auto-play audio on.",
-      autoplayAudioOffToast: "Auto-play audio muted.",
-      puckHideFurigana: "Hide furigana",
-      furiganaOffToast: "Furigana off. Lookups stay active.",
-      showFurigana: "Enable furigana annotations",
-      furiganaMode: "Furigana",
-      wordColorStates: "Color words",
-      appearancePreset: "Quick setup",
-      appearancePresetCustom: "Keep current custom settings",
-      appearancePresetBalanced: "Balanced reading",
-      appearancePresetNoColors: "Plain text",
-      appearancePresetNewOnly: "Focus on new words",
-      appearancePresetUnderlineNew: "Minimal highlights",
-      wordColorStatesAll: "Use all learning states",
-      wordColorStatesNewOnly: "Only new / not-in-deck words",
-      hideFuriganaFor: "Hide furigana for",
-      hideColorFor: "Hide color for",
-      furiganaDifficultKanji: "Hard kanji only",
-      furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
-      statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
-      furiganaHideKnown: "Hide familiar words",
-      furiganaHoverOnly: "Show on hover",
-      furiganaAllParsed: "Show on every parsed word",
-      clampedRowReadings: "Readings on clamped rows",
-      clampedRowReadingsShow: "Show (row grows)",
-      clampedRowReadingsHover: "Hover only",
-      showPitchAccent: "Show pitch accent",
-      showLookupPillFrequency: "Show site frequency in pills",
-      suppressRedundantWordUi: "Hide JPDB-redundant styling",
-      sheetCloseButtonOnLeft: "Sheet close button on left",
-      hideKnownFurigana: "Hide furigana for known cards only",
-      readerHelp: "Set a hover key. Blank means plain hover.",
-      hoverLookupSettings: "Hover lookup",
-      kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
-      kanjiOriginGraphEnabled: "Show component graph",
-      kanjiOriginRadicalImagesEnabled: "Show radical images",
-      similarKanjiWordLimit: "Similar word limit",
-      noSimilarWords: "No additional words found.",
-      audioEnabled: "Enable term audio",
-      autoPlayAudio: "Auto-play term audio",
-      suppressAutoAudioOnVideo: "Disable lookup audio on video pages",
-      audioAutoPlayMode: "Auto-play trigger",
-      audioEnableDefaultSources: "Enable built-in audio sources",
-      audioFallbackChimeEnabled: "Enable fallback chime",
-      audioSelectionMode: "When several sources or clips exist",
-      audioPlayback: "Audio playback",
-      firstAudio: "First audio",
-      randomAudio: "Shuffle audio",
-      audioTtsMode: "Text-to-speech handling",
-      audioTtsFallback: "Fallback after recorded audio",
-      audioTtsSourceOrder: "Follow source order / shuffle",
-      audioTimeoutMs: "Audio timeout (ms)",
-      previewAudio: "Preview audio",
-      audioHelp: "URL tokens: {term}, {reading}, {language}.",
-      audioSource: "Audio source",
-      urlVoice: "URL / voice",
-      addAudioSource: "Add audio source",
-      audioAutoPlayAll: "Hover and tap/click",
-      audioAutoPlayHover: "Hover only",
-      audioAutoPlayTap: "Tap/click only",
-      automaticBrowserVoice: "Automatic browser voice",
-      savedVoiceLabel: "Saved voice: {voice}",
-      audioSourceOrder: "Audio source order",
-      audioSourceNumber: "Audio source {number}",
-      enableAudioSourceNumber: "Enable audio source {number}",
-      enableLookupPillName: "Enable lookup pill: {name}",
-      enableSourceName: "Enable source: {name}",
-      textToSpeechVoiceNumber: "Text-to-speech voice {number}",
-      audioSourceJpod101: "JapanesePod101",
-      audioSourceLanguagePod101: "LanguagePod101",
-      audioSourceJisho: "Jisho.org",
-      audioSourceBunpro: "Bunpro",
-      audioSourceLinguaLibre: "(Commons) Lingua Libre",
-      audioSourceWiktionary: "(Commons) Wiktionary",
-      audioSourceJitenTts: "Jiten text-to-speech",
-      audioSourceJpdbTts: "JPDB text-to-speech",
-      audioSourceTextToSpeech: "Text-to-speech",
-      audioSourceTextToSpeechReading: "Text-to-speech (Kana reading)",
-      audioSourceCustom: "Custom direct audio file URL",
-      audioSourceCustomJson: "Custom URL",
-      audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
-      audioCustomUrlPlaceholder: "Direct audio file URL",
-      audioBuiltInPlaceholder: "Built-in source, no URL needed",
-      audioDetectingSubSources: "Checking included sources…",
-      audioNoSubSourcesDetected: "No named sources reported by this URL.",
-      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
-      audioSubSourceOverlapHint: "also listed as its own source",
-      defaultVoiceSuffix: "default",
-      audioGuideLinkLabel: "Yomitan audio guide",
-      audioProxyGuideSummary: "Make your own Cloudflare proxy",
-      audioProxyGuideIntro: "Use a Worker when you want a private proxy.",
-      audioProxyGuideCloudflare: "Open Cloudflare.",
-      audioProxyGuideWorkers: "Open Workers & Pages, then Create.",
-      audioProxyGuideCreateWorker: "Choose Worker, name it, deploy.",
-      audioProxyGuideEditCode: "Paste the Yomu Worker source.",
-      audioProxyGuideDeploy: "Deploy.",
-      audioProxyGuideCopyUrl: "Copy the Worker URL.",
-      audioProxyGuidePasteUrl: "Paste it into Cross-origin proxy URL.",
-      audioProxyGuideTest: "Save, then test lookup/import/audio.",
-      audioProxyGuideNote: "Limit hosts before sharing.",
-      audioProxyWorkerSource: "Worker source",
-      audioProxyDeployGuide: "Deploy guide",
-      immersionKit: "Immersion Kit",
-      immersionKitEnabled: "Show Immersion Kit examples",
-      immersionKitExampleSource: "Example provider",
-      immersionKitAndNadeshiko: "Immersion Kit + Nadeshiko",
-      nadeshikoApiKey: "Nadeshiko API key",
-      getNadeshikoKey: "Get a key",
-      immersionKitShowTranslation: "Show example translations",
-      immersionKitRevealTranslationOnClick: "Blur example translations until clicked",
-      immersionKitShowImages: "Show example thumbnails",
-      immersionKitAutoPlayAudio: "Play example audio after reveal or next/previous",
-      immersionKitPlayOnHover: "Play example audio when hovering thumbnails",
-      immersionKitPlayOnImageClick: "Play example audio when clicking thumbnails",
-      immersionKitCategory: "Immersion Kit category",
-      immersionKitSort: "Example order",
-      immersionKitLimitEnabled: "Examples per word limit",
-      allExamples: "All examples",
-      limitExamples: "Limit examples",
-      immersionKitLimit: "Examples per word",
-      immersionKitMinLength: "Minimum sentence length",
-      immersionKitMaxLength: "Maximum sentence length",
-      immersionKitPlaybackRate: "Example audio speed",
-      immersionKitExactMatch: "Prefer exact matches",
-      immersionKitHelp: "Examples appear in popups. Nadeshiko needs a key.",
-      loadingExamples: "Loading examples...",
-      noImmersionExamplesCompact: "No examples",
-      immersionKitRateLimited: "Immersion Kit rate-limited; retrying later.",
-      immersionKitRequest: "Immersion Kit request",
-      immersionKitRequestFailed: "Immersion Kit request failed.",
-      immersionKitRequestFailedWithStatus: "Immersion Kit request failed ({status}).",
-      immersionKitRequestTimedOut: "Immersion Kit request timed out.",
-      immersionKitSearchBlocked: "Immersion Kit blocked. Configure CORS.",
-      immersionKitMediaRequest: "Media request",
-      immersionKitMediaRequestFailed: "Media request failed.",
-      immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
-      immersionKitMediaRequestTimedOut: "Media request timed out.",
-      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error page.",
-      immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
-      nadeshikoRequest: "Nadeshiko request",
-      nadeshikoRequestFailed: "Nadeshiko request failed.",
-      nadeshikoRequestFailedWithStatus: "Nadeshiko request failed ({status}).",
-      nadeshikoRequestTimedOut: "Nadeshiko request timed out.",
-      previousExample: "Previous example",
-      nextExample: "Next example",
-      playExampleAudio: "Play example audio",
-      allCategories: "All",
-      anime: "Anime",
-      drama: "Drama",
-      games: "Games",
-      shortestFirst: "Shortest first",
-      longestFirst: "Longest first",
-      ocrEnabled: "Read text in images",
-      ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized text areas",
-      ocrVideoPauseFrames: "Auto-read paused video frames",
-      ocrInvertDarkPanels: "Read light text on dark panels",
-      ocrProvider: "Image reading",
-      ocrOverlayTheme: "OCR overlay theme",
-      ocrOverlayThemeAuto: "Match app theme",
-      ocrOverlayThemeLight: "Light overlay",
-      ocrOverlayThemeDark: "Dark overlay",
-      googleLens: "Google Lens (free, recommended)",
-      cloudVision: "Google Cloud Vision (API key)",
-      localOcr: "Local OCR server",
-      off: "Off",
-      ocrMaxImagesPerPage: "Images to read per page",
-      ocrMinImageArea: "Smallest image to read",
-      ocrMaxImagePixels: "Image detail",
-      lightWork: "Light",
-      normal: "Normal",
-      more: "More",
-      largeOnly: "Large images only",
-      includeSmall: "Include small images",
-      faster: "Faster",
-      balanced: "Balanced",
-      sharper: "Sharper",
-      ocrTextColor: "Image text color",
-      ocrOutlineColor: "Image text outline",
-      ocrBackgroundOpacity: "Image highlight opacity",
-      ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Local OCR server URL",
-      ocrEngine: "Local OCR engine",
-      ocrEngineMangaOcr: "MangaOCR (best for manga)",
-      ocrEngineAppleVision: "Apple Vision (macOS)",
-      cloudVisionApiKey: "Google Cloud Vision API key",
-      ocrHelp: "Reads nearby images. Google Lens needs no setup.",
-      ocrCloudHelp: "Paste a Google Cloud Vision API key.",
-      ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
-      subtitlePlayerEnabled: "Enable video subtitle player",
-      subtitleAutoDetect: "Auto-detect page subtitles",
-      subtitleOverlayVisible: "Show subtitle overlay",
-      subtitleSecondaryVisible: "Show native subtitles",
-      subtitleNativeBlurred: "Blur native subtitles until hover",
-      subtitleKaraokeMode: "Karaoke word timing",
-      subtitleTranscriptVisible: "Open transcript panel by default",
-      subtitlePausePanel: "Open side panel when paused",
-      subtitleShadowAutoPause: "Auto-pause after each shadow line",
-      subtitleTranscriptPlacement: "Transcript panel position",
-      subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-      subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
-      subtitleAutoCopyLine: "Auto-copy subtitle lines",
-      subtitleMiningPause: "Pause video on subtitle click",
-      subtitleHoverPause: "Pause video on subtitle hover",
-      subtitleControlsMode: "Subtitle controls",
-      right: "Right",
-      left: "Left",
-      bottom: "Below",
-      showWhenNeeded: "Compact controls",
-      hideControls: "Hide controls",
-      alwaysVisible: "Always visible",
-      subtitleFontSize: "Subtitle font size (px)",
-      subtitleBottomOffset: "Subtitle bottom offset (%)",
-      subtitleTextColor: "Subtitle color",
-      subtitleOutlineColor: "Subtitle outline",
-      subtitleBackgroundColor: "Subtitle background",
-      subtitleBackgroundOpacity: "Subtitle background opacity",
-      subtitleFontFamily: "Subtitle font family",
-      subtitleFontWeight: "Subtitle font weight",
-      subtitleSeekPadding: "Subtitle seek padding (s)",
-      subtitlePreview: "Live subtitle preview",
-      preview: "Preview",
-      youtubeImmersionEnabled: "Japanese YouTube only",
-      preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
-      youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
-      youtubeShowFilterNotice: "Show hidden-video notice",
-      youtubeHelp: "Prefer Japanese UI and Japan-local content.",
-      youtubeShowHiddenVideos: "Show hidden videos",
-      youtubeHideHiddenVideos: "Hide hidden videos",
-      youtubeHideNotice: "Hide notice",
-      youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-      youtubeFilterHid: "{appName} hid {count} non-Japanese item{plural}",
-      youtubeFilterVisible: "{count} Japanese items stayed visible.",
-      youtubeToggleToastOn: "YouTube immersion filter enabled.",
-      youtubeToggleToastOff: "YouTube immersion filter disabled.",
-      ankiEnabled: "Enable Anki mining",
-      ankiMineWithJpdb: "Also add to Anki when adding via API",
-      ankiCaptureScreenshot: "Attach context image when possible",
-      ankiConnectUrl: "AnkiConnect URL",
-      ankiDeck: "Anki deck",
-      ankiModel: "Anki note type",
-      mobileAnkiHandoff: "Mobile Anki add-note fallback",
-      ankiTemplateMode: "Anki card template",
-      ankiFrontReading: "Show reading on word-first front",
-      ankiFrontSentence: "Show sentence on word-first front",
-      ankiFrontImage: "Show image on front",
-      wordFirst: "Word first",
-      sentenceFirst: "Sentence first",
-      ankiTags: "Tags",
-      sentenceFirstPreset: "Sentence first preset",
-      wordFirstPreset: "Word first preset",
-      front: "Front",
-      back: "Back",
-      imageAbovePrompt: "Image appears above the prompt when available.",
-      recallHighlightedWord: "Recall the highlighted word from context.",
-      imageOnFront: "Image appears on the front when available.",
-      recallMeaning: "Recall the meaning first.",
-      ankiBackIncludes: "Includes dictionary, kanji, pitch, source, image.",
-      exampleMeaning: "to read",
-      scanAnkiFirst: "Connect Anki first",
-      notMapped: "Not mapped",
-      noScannedFields: "Check AnkiConnect to load this note type's fields.",
-      mappingForNoteType: "Mapping for {model}",
-      currentNoteType: "current note type",
-      ankiFieldMappingSelect: "{role} field",
-      ankiRoleExpression: "Expression",
-      ankiRoleReading: "Reading",
-      ankiRoleMeaning: "Meaning",
-      ankiRoleSentence: "Sentence",
-      ankiRoleAudio: "Word audio",
-      ankiRoleSentenceAudio: "Sentence audio",
-      ankiRoleImage: "Image",
-      testAnki: "Check AnkiConnect",
-      prepareAnki: "Set up Yomu note type",
-      updateAnkiModel: "Update note type",
-      ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
-      ankiModelUpdating: "Adding note type fields...",
-      ankiModelUpdated: "Note type updated. Added {fields}.",
-      ankiModelUpToDate: "Note type is up to date.",
-      ankiCheckingConnection: "Checking AnkiConnect at {url}.",
-      ankiMiningDisabledStatus: "Anki mining disabled.",
-      ankiTesting: "Checking AnkiConnect...",
-      ankiPreparing: "Setting up Yomu deck and note type...",
-      ankiScanning: "Reading decks, note types, fields...",
-      ankiScanSummary: "Decks {decks}, types {models}. Best: {model}. {fields}",
-      ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
-      ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "Open desktop Anki and check again.",
-      ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList; restart Anki.',
-      ankiSettingsUnreachable: "AnkiConnect not reached.",
-      ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
-      ankiStatusOpenDesktop: "Open desktop Anki",
-      ankiStatusInstallAddon: "Install/enable AnkiConnect",
-      ankiStatusMobileDocs: "Mobile setup docs",
-      ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
-      ankiStatusEnableUserscript: `Enable installed ${APP_NAME}`,
-      ankiStatusRefreshAndCheck: "Refresh and check",
-      ankiHostedCorsHint: "Add {origin} to webCorsOriginList.",
-      ankiLibraryAdapter: "Existing library adapter",
-      ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
-      ankiLibraryChoices: "Deck and note type",
-      ankiLibraryChoicesHelp: "Pick where mining saves notes.",
-      ankiTemplateSettings: "Yomu card template",
-      ankiTemplateSettingsHelp: "For Yomu note types. Templates stay in Anki.",
-      ankiMappingConfidenceHelp: "Based on fields/samples. Edit weak mappings.",
-      ankiMappingHighConfidence: "High",
-      ankiMappingMediumConfidence: "Medium",
-      ankiMappingLowConfidence: "Low",
-      ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
-      jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      dictionarySourcesInitiallyExpanded: "Open sources by default",
-      localDictionaryMaxResults: "Dictionary result limit",
-      cloudSettingsSync: "Google Drive settings sync",
-      cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
-      academyAccountSync: "Academy account sync",
-      academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
-      academyAccountManage: "Manage account & pairing code",
-      academyPairingCode: "One-time pairing code",
-      academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
-      academyAccountConnect: "Connect",
-      academyAccountSyncNow: "Sync now",
-      academyRecoveryCodeCreate: "Create website recovery code",
-      academyRecoveryCodeCreating: "Creating a one-time website recovery code...",
-      academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
-      academyRecoveryCodeDone: "Website recovery code created.",
-      academyAccountDisconnect: "Disconnect",
-      academyAccountChecking: "Checking Academy account connection...",
-      academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
-      academyAccountConnected: "Connected as {name}.",
-      academyAccountConnectedNoName: "Academy account connected.",
-      academyAccountLastSynced: "Last synced {time}.",
-      academyAccountNeverSynced: "Not synced yet.",
-      academyAccountConnectionProblem: "Could not refresh the account status: {message}",
-      academyAccountConnecting: "Connecting and syncing Academy progress...",
-      academyAccountSyncing: "Syncing Academy progress...",
-      academyAccountDisconnecting: "Disconnecting this Reader...",
-      academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
-      academyAccountConnectedDone: "Academy account connected and progress synced.",
-      academyAccountSyncedDone: "Academy progress synced.",
-      academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
-      importSettings: "Import settings JSON",
-      exportSettings: "Export settings JSON",
-      importDictionaries: "Import dictionaries",
-      exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
-      lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
-      parserProvider: "Parsing source",
-      parserProviderLocal: "Local dictionaries (offline)",
-      parserProviderJiten: "Jiten API",
-      parserProviderJpdb: "JPDB API",
-      parserProviderAuto: "Automatic (Jiten/JPDB)",
-      parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
-      offlineDictionarySetupComplete: "Offline dictionaries installed.",
-      offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
-      copiesCurrentWord: "Copies the current word",
-      plaintextHttpLink: "Opens over plaintext HTTP.",
-      lookupPillLabelNumber: "Lookup pill {number} label",
-      lookupUrlTemplate: "Lookup URL template",
-      lookupUrlTemplateNumber: "Pill {number} URL",
-      lookupPillOrder: "Lookup pill order",
-      builtInAction: "Built-in action",
-      recommendedDownloads: "Dictionaries",
-      termDictionaries: "Term dictionaries",
-      kanjiDictionaries: "Kanji dictionaries",
-      pitchDictionaries: "Pitch dictionaries",
-      frequencyDictionaries: "Frequency dictionaries",
-      nameDictionaries: "Name dictionaries",
-      grammarDictionaries: "Grammar dictionaries",
-      exampleDictionaries: "Example sentence dictionaries",
-      thesaurusDictionaries: "Thesauruses",
-      encyclopediaDictionaries: "Encyclopedias",
-      utilityDictionaries: "Utility dictionaries",
-      mirroredDictionaries: "All mirrored dictionaries",
-      mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
-      mirroredDictionarySearch: "Search dictionaries",
-      mirroredDictionarySearchNoResults: "No dictionaries match your search.",
-      mirroredDictionaryOtherLanguage: "These dictionaries are not for reading Japanese.",
-      install: "Install",
-      installing: "Installing",
-      queued: "Queued",
-      dictionaryGuide: "Guide",
-      saveAfterInstall: "Save after install",
-      download: "Download",
-      update: "Update",
-      checkingDictionaries: "Checking imported dictionaries...",
-      targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
-      targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
-      dictionaryDownloading: "Downloading",
-      dictionaryReadingZip: "Reading dictionary ZIP...",
-      dictionaryCheckingIndex: "Checking index...",
-      dictionaryBanksFound: "{count} bank{plural} found.",
-      dictionaryRemovingExisting: "removing old entries",
-      dictionaryReadingBank: "Reading",
-      dictionaryParsingBank: "Parsing",
-      dictionarySavingBank: "Saving",
-      dictionaryImporting: "Importing",
-      importingBundledDictionaries: "Importing bundled dictionaries...",
-      dictionaryImported: "Imported",
-      dictionaryPreparingImport: "Preparing import",
-      dictionaryRecords: "dictionary records",
-      dictionaryEntries: "entries",
-      dictionaryTotal: "total",
-      dictionaryDownloadProgress: "Downloading",
-      dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
-      dictionaryStatusUnavailable: "Unavailable.",
-      noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
-      dictionaryDownloadFailed: "Dictionary download failed.",
-      dictionaryDownloadTimedOut: "Dictionary download timed out.",
-      dictionaryDownloadNotZip: "Download was not a ZIP.",
-      dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
-      dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
-      dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-      dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
-      dictionaryInstallQueued: "{dictionary} queued.",
-      dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
-      dictionaryImportQueueStatus: "{count} install{plural} running.",
-      dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
-      dictionaryRemoving: "Removing {dictionary}...",
-      dictionaryRemoved: "Removed {dictionary}.",
-      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
-      dictionaryRecordsImported: "{dictionary}: {records} records.",
-      settingsImported: "Settings imported.",
-      settingsImportedWithDetails: "Settings imported; {details}.",
-      settingsExported: "Settings exported.",
-      restoredStoredChoices: "restored {count} stored choice{plural}",
-      importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
-      dictionaryNoSupportedBanks: "No supported banks found.",
-      dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
-      dictionaryZipMissingIndex: "ZIP missing index.json.",
-      yomitanSettingsInvalid: "Not a Yomitan settings export.",
-      localWordSingular: "entry",
-      localWordPlural: "entries",
-      decksLoaded: "Decks are loaded from your JPDB account.",
-      decksUnavailable: "Could not load decks; saved IDs kept.",
-      addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
-      miningDeck: "Mining deck",
-      neverForgetDeck: "Never forget deck",
-      blacklistDeck: "Blacklist deck",
-      allStudyDecks: "All study decks",
-      savedValue: "Saved: {value}",
-      holdWhileHovering: "Hold while hovering",
-      hoverOpenDelayMs: "Hover open delay (ms)",
-      hoverCloseDelayMs: "Hover close delay (ms)",
-      pressKeys: "Press keys",
-      blankPlainHover: "Blank = hover, no key",
-      openSettings: "Open settings",
-      resizeSettings: "Resize settings",
-      playAudio: "Play audio",
-      playingAudioPreview: `Playing ${APP_NAME}...`,
-      audioPreviewFailed: "Audio preview failed.",
-      audioPlaybackDisabled: "Audio playback is disabled",
-      audioPlaybackDisabledToast: "Audio playback is disabled.",
-      audioPlaybackFailed: "Audio playback failed.",
-      noSentenceToRead: "No sentence to read aloud.",
-      noTextToRead: "No text to read aloud.",
-      jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
-      jpdbAudioPlayableFileMissing: "JPDB audio returned no playable file.",
-      jpdbAudioResponseNotPlayable: "JPDB audio was not playable.",
-      audioSourceReturnedNoAudio: "Audio source did not return audio.",
-      audioJsonMissingPlayableUrl: "Audio JSON had no playable URL.",
-      textToSpeechUnavailable: "Text-to-speech is unavailable.",
-      textToSpeechFailed: "Text-to-speech failed.",
-      audioRequest: "Audio request",
-      audioRequestTimedOut: "Audio request timed out.",
-      audioRequestReturnedNonAudioWithType: "Audio request returned non-audio: {type}.",
-      audioUnknownContentType: "an unknown content type",
-      japanesePod101NoAudio: "JapanesePod101 has no audio for this term.",
-      invalidJpdbAudioId: "Invalid JPDB audio id.",
-      couldNotReadAudio: "Could not read audio.",
-      couldNotReadAudioBlob: "Could not read audio blob.",
-      closeDrawer: "Close drawer",
-      closePopup: "Close popup",
-      previousLookupWord: "Previous word",
-      nextLookupWord: "Next word",
-      previousSubtitle: "Previous subtitle",
-      nextSubtitle: "Next subtitle",
-      jumpToCurrentSubtitle: "Jump to current subtitle",
-      pauseVideo: "Pause video",
-      readVideoFrame: "Read video frame (OCR)",
-      readVideoFrameStop: "Stop reading video frames (OCR)",
-      copySubtitle: "Copy subtitle",
-      subtitleFallbackLabel: "Subtitle",
-      subtitlesTitle: "Subtitles",
-      openSubtitlePanel: "Open subtitle panel",
-      closeSubtitlePanel: "Close subtitle panel",
-      subtitleStyle: "Subtitle style",
-      subtitleResetDefaults: "Reset defaults",
-      enableSubtitleAutoHide: "Auto-hide panel while playing",
-      disableSubtitleAutoHide: "Keep panel open while playing",
-      subtitlePanelOptions: "Panel options",
-      loadJapaneseSubtitles: "Load Japanese subtitles",
-      loadNativeSubtitles: "Load native subtitles",
-      searchAnimeSubtitles: "Search anime subtitles",
-      toggleNativeSubtitleBlur: "Toggle native subtitle blur",
-      subtitleTrackDetectedSingular: "1 subtitle track detected",
-      subtitleTracksDetected: "subtitle tracks detected",
-      noSubtitleTracksDetected: "No subtitle tracks detected yet.",
-      resizeTranscriptPanel: "Resize transcript panel",
-      resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
-      subtitlePanelMode: "Mode",
-      subtitleLines: "Lines",
-      shadow: "Shadow",
-      subtitleTracks: "Tracks",
-      batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
-      subtitleTrackTiming: "Subtitle timing",
-      subtitleOffsetPrevious: "Align previous subtitle to current time",
-      subtitleOffsetNext: "Align next subtitle to current time",
-      subtitleOffsetPreviousShort: "Prev",
-      subtitleOffsetNextShort: "Next",
-      subtitleOffsetEarlier: "Show subtitles 100 ms earlier",
-      subtitleOffsetLater: "Show subtitles 100 ms later",
-      resetSubtitleOffset: "Reset subtitle timing",
-      copySubtitleLine: "Copy subtitle line",
-      subtitleCopyIncludeTranslation: "Copy line translation too",
-      peekSubtitleTranslation: "Show translation",
-      hideSubtitleTranslation: "Hide translation",
-      loadingSubtitleLines: "Loading subtitle lines",
-      waitingForCaptionLines: "Waiting for caption lines",
-      subtitleCurrentLineWillAppear: "Current line appears when captions load.",
-      seekSubtitleLine: "Seek subtitle line",
-      subtitleTracksHint: "Choose a primary track. Use Lines to jump.",
-      autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
-      autoDetectedOptionSingular: "1 subtitle option",
-      autoDetectedOptions: "subtitle options",
-      detected: "Detected",
-      primaryOverlay: "primary overlay",
-      nativeOverlay: "native overlay",
-      unsetPrimarySubtitles: "Unset primary",
-      primarySubtitles: "Primary",
-      unsetNativeSubtitles: "Unset native",
-      nativeSubtitles: "Native",
-      choosePrimarySubtitles: "Choose primary subtitles",
-      transcript: "Transcript",
-      subtitleOptionSingular: "option",
-      subtitleOptionPlural: "options",
-      subtitleLineSingular: "line",
-      subtitleLinePlural: "lines",
-      trackKindPageTrack: "page track",
-      trackKindPageFile: "page file",
-      trackKindYouTubeCaptions: "YouTube captions",
-      youTubeSubtitles: "YouTube subtitles",
-      autoGeneratedSubtitle: "auto-generated",
-      trackKindLoadedFile: "loaded file",
-      trackStatusLoading: "loading",
-      trackStatusWaiting: "waiting for captions",
-      trackStatusFailed: "failed",
-      moveSubtitles: "Move subtitles",
-      moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
-      moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
-      toggleImageReading: "Toggle image reading",
-      toggleSubtitleOverlay: "Toggle subtitle overlay",
-      toggleYoutubeImmersion: "Toggle YouTube filter",
-      readImagesNow: "Read images now",
-      massReviewVisible: "Mass review visible words (Jiten)",
-      studyReveal: "Study: reveal card",
-      studyRevealAlternate: "Study: reveal card (alternate)",
-      studyUndo: "Study: undo last review",
-      studyPrevious: "Study: previous card",
-      studyPreviousAlternate: "Study: previous card (alternate)",
-      studyNext: "Study: next card",
-      studyNextAlternate: "Study: next card (alternate)",
-      massReviewNoWords: "No due Jiten words on screen.",
-      massReviewNoKey: "Add a Jiten API key to mass review.",
-      massReviewDone: "Reviewed {count} words as Good.",
-      massReviewFailed: "Mass review failed.",
-      adapterStateDisabled: "Off",
-      adapterStateProbing: "Probing",
-      adapterStateUnreachable: "Unreachable",
-      adapterStateConnected: "Connected",
-      adapterStateScanning: "Scanning",
-      adapterStateSuggested: "Mapped",
-      adapterStateStale: "Needs review",
-      adapterStateReady: "Ready",
-      ankiMappingConfidenceHigh: "high match",
-      ankiMappingConfidenceMedium: "fuzzy match",
-      ankiMappingConfidenceLow: "unmapped",
-      ankiMappingStaleField: "saved field missing",
-      ocrPlayVideo: "Play video",
-      ocrPausedFrameScanning: "Scanning...",
-      ocrPausedFrameReady: "Text ready",
-      ocrPausedFrameNoText: "No text found",
-      ocrPausedFrameFailed: "Could not read text",
-      ocrRetryScan: "Scan again",
-      ocrNoReadableImages: "No readable images nearby.",
-      gradeNothing: "Grade NOTHING",
-      gradeSomething: "Grade SOMETHING",
-      gradeHard: "Grade HARD",
-      gradeOkay: "Grade OKAY",
-      gradeEasy: "Grade EASY",
-      gradeFail: "Pass/fail: FAIL",
-      gradePass: "Pass/fail: PASS",
-      helpLinksTitle: "Useful pages",
-      helpLinksCopy: "Open reader tools and docs from here.",
-      versionAndUpdates: "Version",
-      currentYomuVersion: "Yomu",
-      updateStatusIdle: "Current {current}. Latest check pending.",
-      updateStatusChecking: "Current {current}. Checking latest...",
-      updateStatusCurrent: "Current {current}. Latest {latest}. Up to date.",
-      updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
-      updateStatusUnknown: "Current {current}. Latest check failed; reinstall if needed.",
-      updateStatusIncomparable: "Current {current}. Latest {latest}. Cannot compare versions; use Update if this install is old.",
-      updateHelpNotesManager: 'Keep one Yomu script enabled. Update opens your userscript manager’s install screen. If the browser shows a blocked-install banner instead, open your extensions page, open the manager’s details, and turn on "Allow user scripts" (or Developer mode), then retry.',
-      updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
-      updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
-      updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
-      updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
-      updateUserscript: "Update",
-      duplicateStatusSingle: "One Yomu runtime active ({kind}).",
-      duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
-      ankiConnectSetupTitle: "AnkiConnect setup",
-      ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
-      ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
-      ankiConnectSetupMobile: "For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.",
-      ankiConnectSetupBrave: "In Brave, disable Shields for the Study page if local Anki checks are blocked.",
-      helpSupportTitle: "Support よむ",
-      helpSupportCopy: SUPPORT_COPY,
-      helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
-      videoPlayer: "Video Player",
-      pdfReader: "PDF Reader",
-      newTabPage: "Study",
-      github: "GitHub",
-      word: "Word",
-      search: "Search",
-      newTabAddressCopied: "Study address copied.",
-      loading: "Loading...",
-      reveal: "Reveal",
-      revealTranslation: "Reveal translation",
-      immersionExampleControls: "Immersion Kit example controls",
-      exampleSearchLinks: "Example searches",
-      loadingKanjiDetails: "Loading kanji details...",
-      loadingMnemonicImages: "Loading mnemonic images...",
-      lookupDialog: `${APP_NAME} lookup`,
-      resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
-      showMiningActions: "Show mining actions",
-      hideMiningActions: "Hide mining actions",
-      switchReviewTarget: "Switch review target",
-      switchGradingProvider: "Switch grading provider",
-      apiGradingProvider: "Preferred grading service",
-      apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
-      jpdbKanjiUpdated: "JPDB kanji updated.",
-      jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
-      apiSrsActionsDisabled: "API mining actions are disabled in settings.",
-      addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
-      addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
-      addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
-      addWanikaniApiKeyReview: "Add a WaniKani personal access token to review due WaniKani assignments.",
-      actionFailed: "Action failed.",
-      dictionary: "Dictionary",
-      dictionariesExported: "Dictionaries exported.",
-      local: "Local",
-      dict: "dict",
-      filterStudy: "Study",
-      filterAll: "All",
-      sortFrequency: "Frequency",
-      stateNew: "New",
-      stateLearning: "Learning",
-      stateYoung: "Young",
-      stateMature: "Mature",
-      stateDue: "Due",
-      stateFailed: "Failed",
-      stateKnown: "Known",
-      stateMastered: "Mastered",
-      stateNeverForget: "Never forget",
-      stateSuspended: "Suspended",
-      stateLocked: "Locked",
-      stateBlacklisted: "Blacklisted",
-      stateRedundant: "Redundant",
-      stateFrequent: "Frequent",
-      stateUnparsed: "Unparsed",
-      stateInDeck: "In deck",
-      stateNotInDeck: "Not in deck",
-      ankiReviewSingular: "review",
-      ankiReviewPlural: "reviews",
-      ankiLapseSingular: "lapse",
-      ankiLapsePlural: "lapses",
-      gradeNothingLabel: "Nothing",
-      gradeSomethingLabel: "Something",
-      gradeHardLabel: "Hard",
-      bunproGradeAgainLabel: "Again",
-      bunproGradeHardLabel: "Hard",
-      bunproGradeGoodLabel: "Good",
-      bunproGradeEasyLabel: "Easy",
-      gradeOkayLabel: "Okay",
-      gradeEasyLabel: "Easy",
-      gradeFailLabel: "Fail",
-      gradePassLabel: "Pass",
-      factKeyword: "Keyword",
-      factType: "Type",
-      factFrequency: "Frequency",
-      factMeaning: "Meaning",
-      factGrade: "Grade",
-      factOldForms: "Old forms",
-      docs: "Docs",
-      factoryReset: "Factory Reset",
-      factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
-      factoryResetFailed: "Reset failed.",
-      factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
-      factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
-      factoryResetDeleteSettingsFailed: "Could not delete settings.",
-      issues: "Issues",
-      donate: "Donate",
-      discord: "Discord",
-      openOnJpdb: "Open on JPDB",
-      openOnLookup: "Open on {label}",
-      viewOnLookup: "View on {label}",
-      copyWord: "Copy",
-      copyWordTitle: "Copy word",
-      copiedWord: "Copied word.",
-      backToWord: "Back to word",
-      backToKanji: "Back to kanji",
-      previousKanji: "Previous kanji",
-      nextKanji: "Next kanji",
-      openKanjiOnJpdb: "Open kanji on JPDB",
-      strokePractice: "Stroke order + practice",
-      practiceDrawing: "Practice drawing",
-      strokes: "strokes",
-      textTrace: "text trace",
-      hideTrace: "Hide trace",
-      showTrace: "Show trace",
-      clear: "Clear",
-      originStructure: "Component graph",
-      originMapLabel: "2D kanji origin and component map",
-      originShowSubcomponents: "Subcomponents",
-      originShowOutbound: "Outbounds",
-      kanjiAlive: "Kanji Alive",
-      wiktionary: "Wiktionary",
-      radical: "Radical",
-      readingsComponents: "Readings and components",
-      showKanji: "Show kanji",
-      jpdbMnemonic: "JPDB mnemonic",
-      rtkComponentKeywords: "RTK component keywords",
-      onReading: "On",
-      kunReading: "Kun",
-      heisigStory: "Heisig story",
-      heisigComment: "Heisig comment",
-      koohiiStories: "Koohii stories",
-      add: "Add",
-      addToDeck: "Add to deck",
-      deck: "Deck",
-      deckActions: "Deck actions",
-      reviewAddsToDeck: "Reviewing will add new words to",
-      reviewBlockedBlacklisted: "Blacklisted. Unlist before reviewing.",
-      reviewBlockedNeverForget: "Never-forget. Remove before reviewing.",
-      reviewBlockedRedundant: "JPDB marks this redundant.",
-      ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
-      ankiCardsUnsuspended: "Unsuspended in Anki.",
-      ankiNeverForgetTagAdded: "Tagged yomu-never-forget.",
-      ankiNeverForgetTagRemoved: "Removed yomu-never-forget.",
-      forget: "Forget",
-      never: "Never forget",
-      unlist: "Unlist",
-      blacklist: "Blacklist",
-      vocabularyStatusUpdated: "Vocabulary status updated.",
-      addToAnki: "Add to Anki",
-      sendToMobileAnki: "Send to {app}",
-      ankiAudioFileNotFound: "Anki audio file not found.",
-      ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
-      ankiAudioUnavailablePreview: "Audio not available in preview",
-      ankiAudioFilenameLabel: "Anki audio {filename}",
-      ankiStoredFields: "Stored fields",
-      ankiCardDetailsPending: "Matched in Anki. Loading details...",
-      ankiCardDetailsUnavailable: "Matched in Anki. showing cached status.",
-      ankiNewCard: "New card",
-      ankiMatches: "Anki matches",
-      gradeAnkiCardTarget: "Grades Anki card: {target}",
-      gradeJpdbCardTarget: "Grades API SRS card",
-      ankiNoteNotFound: "Anki note not found.",
-      mergeYomu: "Merge Yomu",
-      mergeYomuTitle: "Update matching fields and add Yomu media to this note",
-      editInAnki: "Edit in Anki",
-      keepBothAudio: "Keep both",
-      keepAnkiAudio: "Keep Anki",
-      useYomuAudio: "Use Yomu",
-      lastSeen: "Last seen",
-      unavailable: "Unavailable",
-      openedInAnki: "Opened in Anki.",
-      addedToDeckAndReviewed: "Added to deck and reviewed.",
-      sentToAnki: "Sent to Anki.",
-      openedMobileAnkiHandoff: "Opened Anki handoff. Continue in Anki.",
-      alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
-      removedFromDeck: "Removed from deck.",
-      addedToDeckToast: "Added to deck.",
-      apiDeckMediaNotSupported: "Media stays in Yomu; no media API.",
-      sentToAnkiWithContextImageAndAudio: "Sent to Anki with image and audio.",
-      sentToAnkiWithContextImage: "Sent to Anki with image.",
-      sentToAnkiWithAudio: "Sent to Anki with audio.",
-      ankiMergeNoNewData: "Anki note already has the Yomu data.",
-      ankiMergeFieldSingular: "field",
-      ankiMergeFieldPlural: "fields",
-      ankiMergeAudio: "audio",
-      ankiMergeImage: "image",
-      ankiMergeComplete: "Merged Yomu data into Anki ({parts}).",
-      ankiHandoffCancelled: "Anki handoff cancelled.",
-      ankiConnectActionFailed: "AnkiConnect action failed.",
-      ankiConnectRequestFailed: "AnkiConnect request failed.",
-      ankiConnectTimedOut: "AnkiConnect timed out.",
-      mobileAnkiReady: "Anki offline. Handoff can create notes.",
-      ankiConnectionReady: "Connected. AnkiConnect is reachable.",
-      ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
-      ankiPromptRecallWord: "Recall the highlighted word.",
-      ankiMeaningHeading: "Meaning",
-      ankiPitchHeading: "Pitch",
-      ankiPartOfSpeechHeading: "Part of speech",
-      ankiLinksHeading: "Links",
-      ankiSourceHeading: "Source",
-      ankiLocalDictionaryStatus: "local dictionary",
-      composedOf: "Composed of",
-      ocrModeAutoToast: "Image OCR automatic.",
-      ocrModeManualToast: "Image OCR on tap or hover.",
-      ocrModeOffToast: "Image OCR off.",
-      subtitleOverlayEnabled: "Subtitle overlay enabled.",
-      subtitleOverlayHidden: "Subtitle overlay hidden.",
-      reviewFailed: "Review failed.",
-      reviewActionsDisabled: "Review actions are disabled in settings.",
-      jpdbLookupFailed: "JPDB lookup failed.",
-      jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-      jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
-      addedToJpdb: "Added to JPDB.",
-      jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-      jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
-      bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
-      wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
-      yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
-      yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
-      chooseJitenStudyDeck: "Choose a Jiten study deck first.",
-      addedToJiten: "Added to Jiten.",
-      addedToBunpro: "Added to Bunpro.",
-      addedToWanikani: "Recorded on WaniKani.",
-      addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
-      kanjiDetailsUnavailable: "Kanji details are not available yet.",
-      loadingDictionaryDetails: "Loading dictionary details...",
-      jitenCompositeWords: "Composite words",
-      usedInVocabulary: "Used in vocabulary",
-      exampleSentences: "Example sentences",
-      // U46: every one of these is a state a learner can reach. They exist
-      // because an example source with nothing to show used to render nothing
-      // at all, so an unsupported language looked exactly like a broken one.
-      exampleSourceEmpty: "No examples for this word yet.",
-      exampleSourceEmptyShort: "None yet",
-      exampleSourceLimitedCorpus: "This corpus is small, so many words have no example yet.",
-      exampleSourceUnsupported: "This source has no {language} sentences.",
-      exampleSourceUnsupportedShort: "Other languages",
-      exampleSourceFailed: "Examples did not load.",
-      exampleSourceFailedShort: "Not loaded",
-      exampleSourceRetry: "Try again",
-      exampleSourceAudioPerItem: "Audio plays where the recording is openly licensed.",
-      exampleSourceNoSentenceAudio: "Open {language} sentence audio is not available yet.",
-      exampleSourceNoLicensedAudio: "These sentences came without openly licensed audio.",
-      exampleSourceNoImage: "Scene images are Japanese only for now.",
-      exampleSourceNoTranslation: "No {language} translation yet.",
-      exampleSourceMachineTranslation: "Machine translation",
-      exampleSourceIndirectTranslation: "Translated via another language",
-      exampleSourcePlayAudio: "Play sentence audio",
-      acceptedInputs: "Accepted inputs",
-      relatedWords: "Related words",
-      bunproUsedInVocab: "Used in",
-      relatedGrammar: "Related grammar",
-      antonymWord: "Antonym",
-      bunproCaution: "Caution",
-      bunproStructure: "Structure",
-      playJpdbExampleAudio: "Play JPDB example audio",
-      contextVideo: "Video",
-      contextImage: "Image",
-      contextCurrentPage: "Current page",
-      jpdbKanjiActionMine: "Add",
-      jpdbKanjiActionKnown: "Known",
-      jpdbKanjiActionNeverForget: "Never forget",
-      jpdbKanjiActionForget: "Forget",
-      jpdbKanjiActionBlacklist: "Blacklist",
-      jpdbKanjiActionReview: "Review",
-      noDefinitions: "No enabled definition source returned results.",
-      finishSetup: "Finish setup",
-      finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
-      enabledHeader: "On",
-      labelHeader: "Label",
-      detailsHeader: "Details",
-      displayName: "Display name",
-      orderHeader: "Order",
-      removeHeader: "Remove",
-      definitionSource: "Definition source",
-      kanjiSection: "Kanji section",
-      dragToReorder: "Drag to reorder",
-      moveUp: "Move up",
-      moveDown: "Move down",
-      remove: "Remove",
-      removeImportedDictionary: "Remove imported dictionary",
-      customAdvanced: "{label} (advanced)",
-      importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
-      frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
-      sourceHelpJpdb: "JPDB meanings from the current card.",
-      sourceHelpJiten: "Jiten meanings, examples, and related words.",
-      sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
-      sourceHelpWanikani: "WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account.",
-      sourceHelpAnki: "Matching Anki card content and status.",
-      sourceHelpTranslation: "Sentence translation.",
-      sourceHelpGrammar: "Local grammar hints.",
-      sourceHelpImmersionKit: "Example sentences, images, and audio.",
-      sourceNameImmersionKit: "Immersion Kit",
-      sourceNameAnki: "Anki",
-      sourceNameTranslation: "Translation",
-      sourceNameGrammar: "Grammar",
-      sourceNameStrokePractice: "Stroke practice",
-      sourceNameImportedKanjiDictionaries: "Imported kanji dictionaries",
-      sourceNameWordsUsingKanji: "Related vocabulary",
-      sourceNameJitenKanjiFacts: "Jiten kanji facts",
-      sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
-      sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
-      sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
-      sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
-      sourceHelpRtk: "RTK keywords, elements, and stories.",
-      sourceHelpUchisen: "Uchisen mnemonic image carousel.",
-      sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-      uchisenMnemonicImages: "Uchisen mnemonic images",
-      uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-      noUchisenImagesYet: "No Uchisen images yet.",
-      generateUchisenImage: "Generate image",
-      generateUchisenImageToggle: "Generate image +",
-      uchisenMnemonicStory: "Mnemonic story",
-      uchisenImagePrompt: "Image prompt",
-      uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-      uchisenGeneratingImage: "Generating image...",
-      uchisenPublishingMnemonic: "Publishing mnemonic...",
-      uchisenGeneratedImage: "Uchisen image published.",
-      uchisenGenerateFailed: "Could not generate Uchisen image.",
-      uchisenLoginRequired: "Log in to Uchisen to generate images.",
-      noStoryAvailable: "No story available",
-      sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
-      sourceHelpWordsUsingKanji: "Related vocabulary.",
-      sourceHelpComponentGraph: "Kanji facts, components, radical images.",
-      recommendedJitendex: "Term definitions with examples.",
-      recommendedJmdict: "Core term definitions.",
-      recommendedJmnedict: "Proper names.",
-      recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
-      recommendedPixivLight: "Pixiv terms.",
-      recommendedKanjidic: "Kanji facts.",
-      recommendedJpdbKanji: "JPDB kanji.",
-      recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
-      recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
-      recommendedBccwj: "Frequency badges from BCCWJ.",
-      recommendedJiten: "Frequency badges from Jiten.",
-      lines: "Lines",
-      tracks: "Tracks",
-      native: "Native",
-      options: "options",
-      option: "option",
-      line: "line",
-      translation: "Translation",
-      grammar: "Grammar",
-      meaning: "Meaning",
-      readSentenceAloud: "Read sentence aloud",
-      openSectionToTranslate: "Open this section to translate.",
-      translationUnavailable: "Translation unavailable.",
-      translating: "Translating...",
-      findingGrammar: "Finding grammar...",
-      grammarKnown: "Known",
-      grammarReview: "Review",
-      grammarDetails: "Details",
-      grammarFoundIn: "Found in",
-      grammarExample: "Example",
-      grammarGuide: "Guide",
-      grammarHideKnown: "Hide known",
-      grammarShowKnown: "Show known",
-      allDetectedGrammarKnown: "All detected grammar is marked known.",
-      grammarShown: "shown",
-      grammarKnownHidden: "known hidden",
-      grammarGenericShort: "Grammar point: {name}",
-      grammarGenericDetail: "Uses {name} in 「{match}」.",
-      grammarLevelCore: "Core",
-      // D43 interface-locale picker. Yomu is in scope for 33 interface
-      // languages and ships two. The picker names the other 31 and says what
-      // each is waiting on, because a language that is listed and then
-      // silently replaced by English is the worse of the two failures.
-      interfaceLocalesReady: "Ready now",
-      interfaceLocalesInProgress: "On the way",
-      interfaceLocaleRtlPending: "Right-to-left layout checks are still running",
-      interfaceLocaleTranslationPending: "Translation is still in progress",
-      interfaceLocaleBlockedNote: "These are coming. Each one shows what it is waiting on.",
-      interfaceLocaleReadyCount: "{ready} of {total} interface languages are ready."
+  let handle;
+  let aborted = false;
+  const tryAbort = () => {
+    if (aborted) return;
+    aborted = true;
+    try {
+      handle?.abort?.();
+    } catch {
     }
   };
-  const CARD_STATE_LABEL_KEYS = {
-    new: "stateNew",
-    learning: "stateLearning",
-    young: "stateYoung",
-    mature: "stateMature",
-    known: "stateKnown",
-    mastered: "stateMastered",
-    due: "stateDue",
-    failed: "stateFailed",
-    locked: "stateLocked",
-    "never-forget": "stateNeverForget",
-    blacklisted: "stateBlacklisted",
-    suspended: "stateSuspended",
-    "in-deck": "stateInDeck",
-    "not-in-deck": "stateNotInDeck",
-    redundant: "stateRedundant",
-    frequent: "stateFrequent",
-    unparsed: "stateUnparsed"
+  let settled = false;
+  let deadline;
+  const finish = (settle) => {
+    if (settled) return;
+    settled = true;
+    if (deadline !== void 0) clearTimeout(deadline);
+    if (signal) signal.removeEventListener("abort", onAbort);
+    try {
+      settle();
+    } catch (error) {
+      reject(error);
+    }
   };
-  function parseUiCopyTable(rows) {
-    const copy = {};
-    rows.trim().split("\n").forEach((row) => {
-      const tab = row.indexOf("	");
-      if (tab < 0) {
-        const key = row.trim();
-        if (key) copy[key] = "";
-        return;
-      }
-      if (tab === 0) return;
-      copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+  const handleLoad = (response) => finish(() => {
+    resolve(config.readResponse(response));
+  });
+  const handleError = (error) => finish(() => reject(errorReason(config, error)));
+  const handleTimeout = () => {
+    finish(() => reject(timeoutReason(config)));
+    tryAbort();
+  };
+  const onAbort = () => {
+    finish(() => reject(abortReason(config)));
+    tryAbort();
+  };
+  if (signal) signal.addEventListener("abort", onAbort, { once: true });
+  deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+  const reportProgress = config.details.onprogress;
+  const onprogress = reportProgress === void 0 ? void 0 : (event) => {
+    if (!settled) {
+      if (deadline !== void 0) clearTimeout(deadline);
+      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+    }
+    reportProgress(event);
+  };
+  try {
+    const result = request({
+      ...config.details,
+      ...onprogress === void 0 ? {} : { onprogress },
+      onload: handleLoad,
+      onerror: handleError,
+      ontimeout: handleTimeout
     });
-    return copy;
+    if (result && typeof result.abort === "function") {
+      handle = result;
+    }
+    if (isPromiseLike(result)) result.then(handleLoad, handleError);
+  } catch (error) {
+    handleError(error);
   }
-  const JA_COPY = parseUiCopyTable(String.raw`
+  });
+}
+const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
+function localDeadlineMs(config) {
+  const budget = config.deadlineMs ?? config.details.timeout;
+  return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
+}
+function errorReason(config, error) {
+  if (config.onError) return config.onError(error);
+  return error instanceof Error ? error : new Error("Request failed.");
+}
+function timeoutReason(config) {
+  return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
+}
+function abortReason(config) {
+  if (config.onAbort) return config.onAbort();
+  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+async function requestHttp(url, options = {}) {
+  let userscriptRequest = getUserscriptHttpRequest();
+  if (userscriptRequest && isUserscriptEventBridgeRequest(userscriptRequest)) {
+  const bridgeIsAlive = await probeUserscriptEventBridge(userscriptRequest);
+  if (!bridgeIsAlive) userscriptRequest = void 0;
+  }
+  if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || window.__YOMU_READER_RUNTIME__ === "newtab" && options.responseType === "blob")) {
+  try {
+    return await requestViaFetch(url, options, userscriptRequest ?? null);
+  } catch (error) {
+    if (!userscriptRequest) throw error;
+    return await requestViaUserscript(url, options, userscriptRequest);
+  }
+  }
+  if (userscriptRequest) {
+  try {
+    return await requestViaUserscript(url, options, userscriptRequest);
+  } catch (error) {
+    if (!shouldRetryWithFetch(error) && !shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error)) throw error;
+    userscriptRequest = void 0;
+  }
+  }
+  return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
+}
+function requestViaUserscript(url, options, userscriptRequest) {
+  return requestViaUserscriptManager(userscriptRequest, {
+  details: {
+    method: options.method ?? "GET",
+    url,
+    headers: recordHeaders(options.headers),
+    data: options.data,
+    responseType: options.responseType,
+    timeout: options.timeoutMs,
+    anonymous: options.anonymous,
+    withCredentials: options.withCredentials,
+    cookie: options.cookie
+  },
+  deadlineMs: options.timeoutMs,
+  signal: options.signal ?? void 0,
+  readResponse: (response) => {
+    if (response.status < 200 || response.status >= 300) throw new Error(formatStatusFailure(options, response.status));
+    return normalizeUserscriptResponse(response, options.responseType ?? "text");
+  },
+  onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
+  onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
+  });
+}
+function normalizeUserscriptResponse(response, responseType) {
+  return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
+}
+const USERSCRIPT_RESPONSE_NORMALIZERS = {
+  blob: (response) => response.response,
+  arraybuffer: (response) => response.response,
+  json: userscriptJsonResponse,
+  text: userscriptTextResponse
+};
+function userscriptJsonResponse(response) {
+  return response.response !== void 0 && typeof response.response !== "string" ? response.response : JSON.parse(String(response.responseText ?? response.response ?? "null"));
+}
+function userscriptTextResponse(response) {
+  return String(response.responseText ?? response.response ?? "");
+}
+function hostedFallbackProxyUrl(url, options = {}, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+  if (userscriptRequest) return "";
+  if (!isSharedPublicProxySafeRequest(url, options)) return "";
+  return YOMU_SHARED_PUBLIC_PROXY_URL;
+}
+async function requestViaFetch(url, options, userscriptRequest = getUserscriptHttpRequest() ?? null) {
+  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url, options, userscriptRequest), {
+  method: options.method ?? "GET",
+  headers: options.headers,
+  body: options.data,
+  credentials: options.credentials ?? "omit",
+  redirect: options.redirect ?? "follow",
+  referrerPolicy: options.referrerPolicy ?? "no-referrer",
+  timeoutMs: options.timeoutMs,
+  allowConfiguredProxy: options.allowConfiguredProxy,
+  allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
+  allowPublicProxies: options.allowPublicProxies,
+  allowDirectCrossOrigin: options.allowDirectCrossOrigin,
+  signal: options.signal
+  });
+  if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
+  return readFetchResponseBody(response, options.responseType);
+}
+function browserFetchFallbackOptions(url, options, userscriptRequest) {
+  if (userscriptRequest || options.allowDirectCrossOrigin !== void 0) return options;
+  const method = String(options.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" || !isKnownDirectCorsTarget(url) || !isProxySafeRequest(url, options)) return options;
+  return { ...options, allowDirectCrossOrigin: true };
+}
+function readFetchResponseBody(response, responseType) {
+  return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
+}
+const FETCH_RESPONSE_READERS = {
+  blob: (response) => response.blob(),
+  arraybuffer: (response) => response.arrayBuffer(),
+  json: (response) => response.json(),
+  text: (response) => response.text()
+};
+function formatFailure(options) {
+  return options.failureMessage ?? `${options.failureLabel ?? "Request"} failed.`;
+}
+function formatStatusFailure(options, status) {
+  return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+}
+function isSameOriginUrl(url) {
+  if (typeof location === "undefined") return false;
+  try {
+  return new URL(url, location.href).origin === location.origin;
+  } catch {
+  return false;
+  }
+}
+function shouldRetryEventBridgeFailureWithFetch(userscriptRequest, error) {
+  if (!isUserscriptEventBridgeRequest(userscriptRequest)) return false;
+  if (!(error instanceof Error)) return true;
+  return !/\(\d{3}\)/.test(error.message);
+}
+function shouldRetryWithFetch(error) {
+  if (!(error instanceof Error)) return true;
+  if (/\(\d{3}\)/.test(error.message)) return false;
+  if (/timed out|timeout/i.test(error.message)) return false;
+  return /network|cors|blocked|request failed/i.test(error.message);
+}
+function recordHeaders(headers) {
+  if (!headers) return void 0;
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  return headers;
+}
+async function requestJson(url, options = {}) {
+  const value = await requestHttp(url, { ...options, responseType: "json" });
+  return value;
+}
+const locales = [
+  {
+  tag: "en",
+  reviewStatus: "source-approved",
+  rtlVerified: true,
+  humanReview: {
+    reviewer: "source locale",
+    evidence: "English is the source of record for every message ID."
+  },
+  available: true,
+  blockers: []
+  },
+  {
+  tag: "ja",
+  reviewStatus: "native-reviewed",
+  rtlVerified: true,
+  humanReview: {
+    reviewer: "owner",
+    evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
+  },
+  available: true,
+  blockers: []
+  },
+  {
+  tag: "ar",
+  reviewStatus: "machine-draft",
+  rtlVerified: false,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "rtl-verification-pending",
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "fa",
+  reviewStatus: "machine-draft",
+  rtlVerified: false,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "rtl-verification-pending",
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "sq",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "grc",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "yue",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "zh",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "da",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "nl",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "fi",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "fr",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "de",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "el",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "hu",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "id",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "it",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "km",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "ko",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "lo",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "la",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "mn",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "pl",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "pt",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "ro",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "ru",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "sh",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "es",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "sv",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "tl",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "th",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "tr",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  },
+  {
+  tag: "vi",
+  reviewStatus: "machine-draft",
+  rtlVerified: true,
+  humanReview: null,
+  available: false,
+  blockers: [
+    "translation-incomplete",
+    "human-review-pending"
+  ]
+  }
+];
+const rtlGate = {
+  items: [
+  {
+    id: "direction-propagation",
+    done: true,
+    note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
+  },
+  {
+    id: "logical-css-properties",
+    done: false,
+    note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
+  },
+  {
+    id: "bidi-isolation",
+    done: false,
+    note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
+  },
+  {
+    id: "font-stacks",
+    done: true,
+    note: "Per-script interface font stacks in the locale manifest."
+  },
+  {
+    id: "geometry-verification",
+    done: false,
+    note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
+  },
+  {
+    id: "viewport-and-zoom-matrix",
+    done: false,
+    note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
+  },
+  {
+    id: "real-app-screenshots",
+    done: false,
+    note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
+  },
+  {
+    id: "owner-acceptance",
+    done: false,
+    note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
+  }
+  ]
+};
+const interfaceLocaleLedger = {
+  locales,
+  rtlGate
+};
+const languages = [
+  {
+  id: "sq",
+  runtimeLocale: "sq",
+  englishName: "Albanian",
+  nativeName: "Shqip",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "grc",
+  runtimeLocale: "grc",
+  englishName: "Ancient Greek",
+  nativeName: "Ἑλληνιστί",
+  defaultScript: "Grek",
+  scripts: [
+    "Grek"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "ar",
+  runtimeLocale: "ar",
+  englishName: "Arabic",
+  nativeName: "العربية",
+  defaultScript: "Arab",
+  scripts: [
+    "Arab"
+  ],
+  direction: "rtl"
+  },
+  {
+  id: "yue",
+  runtimeLocale: "yue-Hant",
+  englishName: "Cantonese",
+  nativeName: "粵語",
+  defaultScript: "Hant",
+  scripts: [
+    "Hant"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "zh",
+  runtimeLocale: "zh-Hans",
+  englishName: "Chinese",
+  nativeName: "中文（简体）",
+  defaultScript: "Hans",
+  scripts: [
+    "Hans",
+    "Hant"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "da",
+  runtimeLocale: "da",
+  englishName: "Danish",
+  nativeName: "Dansk",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "nl",
+  runtimeLocale: "nl",
+  englishName: "Dutch",
+  nativeName: "Nederlands",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "en",
+  runtimeLocale: "en",
+  englishName: "English",
+  nativeName: "English",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "fi",
+  runtimeLocale: "fi",
+  englishName: "Finnish",
+  nativeName: "Suomi",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "fr",
+  runtimeLocale: "fr",
+  englishName: "French",
+  nativeName: "Français",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "de",
+  runtimeLocale: "de",
+  englishName: "German",
+  nativeName: "Deutsch",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "el",
+  runtimeLocale: "el",
+  englishName: "Greek",
+  nativeName: "Ελληνικά",
+  defaultScript: "Grek",
+  scripts: [
+    "Grek"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "hu",
+  runtimeLocale: "hu",
+  englishName: "Hungarian",
+  nativeName: "Magyar",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "id",
+  runtimeLocale: "id",
+  englishName: "Indonesian",
+  nativeName: "Bahasa Indonesia",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "it",
+  runtimeLocale: "it",
+  englishName: "Italian",
+  nativeName: "Italiano",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "km",
+  runtimeLocale: "km",
+  englishName: "Khmer",
+  nativeName: "ខ្មែរ",
+  defaultScript: "Khmr",
+  scripts: [
+    "Khmr"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "ko",
+  runtimeLocale: "ko",
+  englishName: "Korean",
+  nativeName: "한국어",
+  defaultScript: "Kore",
+  scripts: [
+    "Kore"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "lo",
+  runtimeLocale: "lo",
+  englishName: "Lao",
+  nativeName: "ລາວ",
+  defaultScript: "Laoo",
+  scripts: [
+    "Laoo"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "la",
+  runtimeLocale: "la",
+  englishName: "Latin",
+  nativeName: "Latina",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "mn",
+  runtimeLocale: "mn-Cyrl",
+  englishName: "Mongolian",
+  nativeName: "Монгол",
+  defaultScript: "Cyrl",
+  scripts: [
+    "Cyrl",
+    "Mong"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "fa",
+  runtimeLocale: "fa",
+  englishName: "Persian",
+  nativeName: "فارسی",
+  defaultScript: "Arab",
+  scripts: [
+    "Arab"
+  ],
+  direction: "rtl"
+  },
+  {
+  id: "pl",
+  runtimeLocale: "pl",
+  englishName: "Polish",
+  nativeName: "Polski",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "pt",
+  runtimeLocale: "pt",
+  englishName: "Portuguese",
+  nativeName: "Português",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "ro",
+  runtimeLocale: "ro",
+  englishName: "Romanian",
+  nativeName: "Română",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "ru",
+  runtimeLocale: "ru",
+  englishName: "Russian",
+  nativeName: "Русский",
+  defaultScript: "Cyrl",
+  scripts: [
+    "Cyrl"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "sh",
+  runtimeLocale: "sr-Latn",
+  englishName: "Serbo-Croatian",
+  nativeName: "Srpskohrvatski",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn",
+    "Cyrl"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "es",
+  runtimeLocale: "es",
+  englishName: "Spanish",
+  nativeName: "Español",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "sv",
+  runtimeLocale: "sv",
+  englishName: "Swedish",
+  nativeName: "Svenska",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "tl",
+  runtimeLocale: "fil",
+  englishName: "Tagalog",
+  nativeName: "Tagalog",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "th",
+  runtimeLocale: "th",
+  englishName: "Thai",
+  nativeName: "ไทย",
+  defaultScript: "Thai",
+  scripts: [
+    "Thai"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "tr",
+  runtimeLocale: "tr",
+  englishName: "Turkish",
+  nativeName: "Türkçe",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  },
+  {
+  id: "vi",
+  runtimeLocale: "vi",
+  englishName: "Vietnamese",
+  nativeName: "Tiếng Việt",
+  defaultScript: "Latn",
+  scripts: [
+    "Latn"
+  ],
+  direction: "ltr"
+  }
+];
+const languageConfig = {
+  languages
+};
+const configuredLanguages = languageConfig.languages;
+const LEARNER_LANGUAGES = Object.freeze(
+  configuredLanguages.map(
+  (language) => Object.freeze({
+    ...language,
+    scripts: Object.freeze([...language.scripts])
+  })
+  )
+);
+new Map(
+  LEARNER_LANGUAGES.map((language) => [language.id, language])
+);
+const JAPANESE_INTERFACE_LOCALE = Object.freeze({
+  id: "ja",
+  runtimeLocale: "ja",
+  englishName: "Japanese",
+  nativeName: "日本語",
+  defaultScript: "Jpan",
+  direction: "ltr"
+});
+const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
+const SCRIPT_FONT_STACKS = Object.freeze({
+  Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
+  Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
+  Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+  Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+  Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+  Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
+  Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
+  Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
+  Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+});
+const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
+function scriptFontStack(script) {
+  return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+}
+function directionForScript(script) {
+  return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+}
+const LEDGER_ROWS = new Map(
+  interfaceLocaleLedger.locales.map((row) => [row.tag, row])
+);
+function fallbackChainFor(tag, id) {
+  const chain = [];
+  const push = (value) => {
+  if (value !== tag && !chain.includes(value)) chain.push(value);
+  };
+  const base = tag.split("-")[0];
+  push(base);
+  push(id);
+  if (id === "sh") {
+  push("sr");
+  push("hr");
+  push("bs");
+  }
+  if (id === "tl") push("fil");
+  if (id !== "en") push("en");
+  return Object.freeze(chain);
+}
+function buildLocale(source) {
+  const ledger = LEDGER_ROWS.get(source.id);
+  if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
+  return Object.freeze({
+  tag: source.runtimeLocale,
+  id: source.id,
+  fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
+  nativeName: source.nativeName,
+  englishName: source.englishName,
+  script: source.defaultScript,
+  // languages.json and the script table must agree; the script is the
+  // source of truth so one new RTL locale cannot arrive marked ltr.
+  direction: directionForScript(source.defaultScript),
+  fontStack: scriptFontStack(source.defaultScript),
+  reviewStatus: ledger.reviewStatus,
+  available: ledger.available,
+  blockers: Object.freeze([...ledger.blockers])
+  });
+}
+const INTERFACE_LOCALES = Object.freeze(
+  [
+  ...LEARNER_LANGUAGES.map(
+    (language) => buildLocale({ ...language, direction: language.direction })
+  ),
+  buildLocale(JAPANESE_INTERFACE_LOCALE)
+  ].sort((left, right) => {
+  const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
+  return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
+  })
+);
+const LOCALE_BY_KEY = new Map([
+  ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
+  ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
+]);
+function interfaceLocaleByTag(tag) {
+  return LOCALE_BY_KEY.get(tag);
+}
+const ENGLISH_INTERFACE_LOCALE = (() => {
+  const english = LOCALE_BY_KEY.get("en");
+  if (!english) throw new Error("The interface manifest must always contain English");
+  return english;
+})();
+Object.freeze(
+  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+);
+Object.freeze(
+  interfaceLocaleLedger.rtlGate.items.map(
+  (item) => Object.freeze({ ...item })
+  )
+);
+const FIRST_STRONG_ISOLATE = "⁨";
+const POP_DIRECTIONAL_ISOLATE = "⁩";
+function interfaceDirectionOf(tag) {
+  return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
+}
+function isRtlInterface(tag) {
+  return interfaceDirectionOf(tag) === "rtl";
+}
+function isolate(value) {
+  if (!value) return value;
+  return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
+}
+function formatIsolated(message, values) {
+  return Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, isolate(String(value))),
+  message
+  );
+}
+const COPY = {
+  en: {
+  settingsTitle: `${APP_NAME} Settings`,
+  welcomeLabel: `${APP_NAME} welcome`,
+  onboardingEyebrow: "Japanese, wherever it appears",
+  onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+  onboardingLanguage: "Settings language",
+  onboardingAccentColor: "Accent color",
+  customAccentColor: "Custom color",
+  onboardingImmersionOptions: "Immersion defaults",
+  onboardingInstallOfflineDictionaries: "Download offline dictionaries (Jitendex + pitch accents)",
+  onboardingHoverShortcut: "Lookup hover modifier",
+  manualPageScanShortcut: "Manual page scan shortcut",
+  onboardingAddApiKey: "Add API key",
+  onboardingUseWithoutApiKey: "Use without API key",
+  closeOnboarding: "Close welcome",
+  featureText: "Text",
+  featureTextBody: "Hover or tap scanned Japanese.",
+  featureImages: "Images",
+  featureImagesBody: "Read any image by tapping it.",
+  featureVideo: "Video",
+  featureVideoBody: "Make subtitle words tappable.",
+  featureControl: "Control",
+  featureControlBody: "Tune features, shortcuts, and color.",
+  featureStudy: "Study",
+  featureStudyBody: "Review words and kanji on the study page.",
+  featureGame: "Game",
+  featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
+  scanPage: "Scan page",
+  noUnscannedJapaneseText: "No unscanned Japanese text found.",
+  jpdbScanFailed: "Page scan failed.",
+  pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
+  settings: "Settings",
+  settingsSaved: "Settings saved.",
+  settingsSaveFailed: "Settings save failed.",
+  firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
+  firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
+  settingsSections: "Settings sections",
+  settingsSearch: "Search settings",
+  settingsSearchPlaceholder: "Search settings",
+  settingsSearchNoResults: "No matches.",
+  save: "Save",
+  cancel: "Cancel",
+  show: "Show",
+  hide: "Hide",
+  appearance: "Appearance",
+  reading: "Reading",
+  dictionaries: "Dictionaries",
+  sources: "Sources",
+  backupSync: "Backup & sync",
+  backupSyncHelp: "Save or move your Yomu setup: export and import settings as plain JSON, back up dictionaries, or sync through Google Drive.",
+  backupMovedHelp: "Backup, sync, and settings/dictionary import-export live in the Backup & sync section.",
+  media: "Media",
+  mining: "Mining",
+  shortcuts: "Shortcuts",
+  help: "Help",
+  reader: "Reader",
+  kanji: "Kanji",
+  audio: "Audio",
+  images: "Image text (OCR)",
+  video: "Video",
+  youTube: "YouTube",
+  anki: "Anki",
+  jpdb: "JPDB",
+  api: "API",
+  apiCredential: "API key",
+  apiCredentialJpdb: "JPDB API key",
+  apiCredentialJiten: "Jiten API key",
+  apiCredentialBunpro: "Bunpro frontend API token",
+  apiCredentialBunproLegacy: "Bunpro API key",
+  apiCredentialWanikani: "WaniKani personal access token",
+  apiKey: "API key",
+  jitenApiKey: "Jiten API key",
+  apiAccess: "API access",
+  apiAccessHelp: "Add each service credential here. Bunpro only needs the frontend token: import it from Bunpro settings, treat it like a password, and note that it is saved before it is verified. Academy reviews work locally without an account.",
+  wanikaniTokenHelp: "Create a read/write personal access token on WaniKani and paste it here. It is stored only in your browser, sent directly to api.wanikani.com (never through a proxy), and never logged.",
+  jpdbSettings: "JPDB settings",
+  jitenSettings: "Jiten settings",
+  bunproSettings: "Bunpro settings",
+  wanikaniSettings: "WaniKani settings",
+  jpdbApiKeyConfigured: "JPDB key set.",
+  jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
+  jpdbConnected: "Connected to JPDB.",
+  jpdbAndJitenConnected: "Connected to Jiten and JPDB.",
+  jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
+  statusReady: "Ready",
+  statusAttention: "Needs setup",
+  statusError: "Error",
+  disabledControlDescription: "Controlled by another setting.",
+  jpdbMiningEnabled: "Allow API review/deck changes",
+  bunproMiningEnabled: "Allow Bunpro review/mining",
+  wanikaniReviewEnabled: "Allow WaniKani review (due assignments only)",
+  wanikaniGradeMappingHelp: "Yomu maps its grade to WaniKani’s pass/fail answer counts: Okay, Good, and Easy submit a clean pass. Anything below Okay submits one incorrect meaning answer and, unless the subject is a radical, one incorrect reading answer.",
+  yomuLocalSrsEnabled: `Enable ${ACADEMY_SRS_LABEL}`,
+  addToForq: "Also copy JPDB adds to forq",
+  enableReviews: "Show review buttons",
+  reviewRatingScale: "Review rating scale",
+  gradeTargetSelector: "Grade target",
+  gradeTargetBoth: "Both",
+  gradeTargetJpdb: "Grades JPDB",
+  gradeTargetJiten: "Grades Jiten",
+  gradeTargetBunpro: "Grades Bunpro",
+  gradeTargetWanikani: "Grades WaniKani",
+  gradeTargetYomuLocal: `Grades ${ACADEMY_SRS_LABEL}`,
+  gradeTargetAnki: "Grades Anki card: {target}",
+  gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+  gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+  gradeTargetBunproAndAnki: "Grades Bunpro + Anki card: {target}",
+  gradeTargetYomuLocalAndAnki: `Grades ${ACADEMY_SRS_LABEL} + Anki card: {target}`,
+  missingAnkiCardId: "Missing Anki card id.",
+  jpdbPageEnhancements: "Dictionary site enhancements",
+  jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
+  jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
+  jpdbPageKanjiEnhancementsEnabled: "Add sources to kanji pages",
+  fivePoint: "Five point: NOTHING to EASY",
+  twoPoint: "Two point: FAIL / PASS",
+  settingsLanguage: "Settings language",
+  automatic: "Automatic",
+  english: "English",
+  japanese: "日本語",
+  theme: "Theme",
+  auto: "Auto",
+  dark: "Dark",
+  light: "Light",
+  switchToDarkTheme: "Switch to dark theme",
+  switchToLightTheme: "Switch to light theme",
+  popupMode: "Popup mode",
+  hoverPopupMode: "Hover popup mode",
+  bottomSheet: "Bottom sheet",
+  popover: "Popover",
+  stickyBottomSheet: "Keep sheet open after lookup",
+  popoverBackdropEnabled: "Dim page behind popover",
+  popoverWidth: "Popover width (px)",
+  popoverHeight: "Popover height (px)",
+  popoverHeightMode: "Popover height behavior",
+  popoverHeightAvailable: "Grow to available space",
+  popoverHeightFixed: "Use height setting",
+  readerFontFamily: "Reader interface font",
+  popupFontFamily: "Popup Japanese font",
+  fontPresetYomuDefault: "Built-in font",
+  fontPresetJapaneseSans: "Japanese sans",
+  fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
+  fontPresetJapaneseRounded: "Japanese rounded",
+  fontPresetJapaneseSerif: "Japanese serif",
+  fontPresetSystemUi: "System UI",
+  fontPresetCustom: "Custom...",
+  customFontFamily: "Custom font stack",
+  popupFontWeight: "Popup Japanese weight",
+  enableLogging: "Enable diagnostic logging",
+  diagnostics: "Diagnostics",
+  diagnosticsHelp: "Print diagnostics to the console.",
+  accentColor: "Accent color",
+  newTab: "Study",
+  newTabAnkiEnabled: "Use Anki cards in Study",
+  newTabAnkiReviewDecks: "Anki review decks",
+  newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
+  newTabSource: "Study review source",
+  newTabAuto: `Auto: ${ACADEMY_SRS_LABEL}, accounts, then study words`,
+  newTabApiSrs: "API SRS (Jiten / JPDB)",
+  newTabBunpro: "Bunpro",
+  newTabWanikani: "WaniKani",
+  newTabYomuLocal: ACADEMY_SRS_LABEL,
+  dictionaryFallback: "Dictionary fallback",
+  newTabJpdbReviewMode: "API review mode",
+  newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
+  newTabLiveReview: "Live JPDB review session",
+  newTabApiVocabulary: "API vocabulary only",
+  corsProxyUrl: "Cross-origin proxy URL",
+  newTabKanjiKeywordSource: "Kanji keyword source",
+  newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
+  newTabKanjiKeywordRtk: "RTK / Heisig",
+  newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
+  newTabKanjiKeywordLocal: "Local card meaning",
+  newTabParsingEnabled: "Enable sentence parsing on Study",
+  newTabFrontSentenceEnabled: "Show sentence on word fronts",
+  newTabKanjiAutogradeEnabled: "Auto-grade kanji drawing",
+  newTabKanjiAutoSubmit: "Auto-submit kanji grade",
+  newTabOfflineEnabled: "Cache Study for offline use",
+  newTabOfflineLimit: "Offline review cache limit",
+  newTabDailyGoalMinutes: "Daily study goal (minutes, 0 = off)",
+  newTabKanjiUnlockEnabled: "Study kanji before unlocking words",
+  newTabStopAtBatchEnd: "Stop at the end of each batch",
+  newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
+  newTabShortcutHintsEnabled: "Show Study keyboard shortcut hints",
+  newTabUrl: "Study address",
+  newTabOfflineHelp: "Caches due cards and queued grades.",
+  newTabAddressHelp: "Use as a start page or iPad shortcut.",
+  newTabJpdbDeck: "Study JPDB deck",
+  newTabStudySteps: "Study steps",
+  newTabStudyStepsHelp: "Drag to reorder. Turn off steps for faster reviews; Reveal and grading always stay at the end.",
+  newTabStudyStepHeader: "Step",
+  newTabStudyStepKanji: "Kanji drawing",
+  newTabStudyStepWord: "Word meaning",
+  newTabStudyStepRecall: "Write in sentence",
+  newTabStudyStepListen: "Pitch listening",
+  newTabStudyStepSpeaking: "Speaking",
+  newTabStudyStepType: "Type the word",
+  newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
+  newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
+  newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
+  newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
+  newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
+  newTabStudyStepTypeHelp: "Produce the word after hearing and speaking it: type it, or write it kanji by kanji. Skippable in-session.",
+  openNewTabPage: "Open Study",
+  copyAddress: "Copy address",
+  wordColors: "Word colors",
+  wordColorNew: "New and in deck",
+  wordColorLearning: "Learning",
+  wordColorKnown: "Known and never forget",
+  wordColorDue: "Due",
+  wordColorFailed: "Failed",
+  wordColorIgnored: "Ignored, suspended, and blacklisted",
+  pitchAccentColors: "Pitch accent colors",
+  pitchColorHeiban: "Heiban (flat)",
+  pitchColorAtamadaka: "Atamadaka (head-high)",
+  pitchColorNakadaka: "Nakadaka (middle-high)",
+  pitchColorOdaka: "Odaka (tail-high)",
+  pitchColorUnknown: "Unknown",
+  noExactPitch: "Exact pitch unavailable",
+  colorChannels: "Color channels",
+  wordHighlightColorSource: "Word highlight color",
+  wordUnderlineColorSource: "Word underline color",
+  wordTextColorSource: "Word text color",
+  subtitleHighlightColorSource: "Subtitle highlight color",
+  subtitleUnderlineColorSource: "Subtitle underline color",
+  subtitleTextColorSource: "Subtitle text color",
+  colorSourceStatus: "JPDB + Anki status",
+  colorSourceJpdb: "JPDB status",
+  colorSourceAnki: "Anki status",
+  colorSourceDeck: "Deck status",
+  colorSourcePitch: "Pitch accent",
+  colorSourceNone: "None",
+  popupLookup: "Popup lookup",
+  popupLookupEnabled: "Show Yomu lookup popup",
+  popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
+  lookupOnClick: "Look up on tap or click",
+  lookupOnHover: "Look up on hover",
+  lookupOnMiddleMouse: "Look up with middle-mouse hold",
+  showFloatingButton: "Show settings puck",
+  pageScanMode: "Japanese text on webpages",
+  pageScanModeOff: "Leave pages unchanged",
+  pageScanModeAuto: "Scan Japanese automatically",
+  pageScanModeManual: "Scan only when I ask",
+  manualScanEnabled: "Manual page scanning",
+  ocrInteractionMode: "Image OCR scanning",
+  ocrInteractionModeAuto: "Auto",
+  ocrInteractionModeManual: "Tap or hover",
+  ocrInteractionModeOff: "Off",
+  puckMenuLabel: `${APP_NAME} menu`,
+  puckStudyPage: "Study page",
+  puckPauseAnnotations: "Pause annotations",
+  puckResumeAnnotations: "Resume annotations",
+  puckOcrAuto: "OCR: Auto",
+  puckOcrManual: "OCR: Tap/Hover",
+  puckOcrOff: "OCR: Off",
+  annotationsPausedToast: "Annotations paused.",
+  annotationsResumedToast: "Annotations resumed.",
+  puckMuteAudio: "Mute auto-play audio",
+  puckUnmuteAudio: "Unmute auto-play audio",
+  autoplayAudioOnToast: "Auto-play audio on.",
+  autoplayAudioOffToast: "Auto-play audio muted.",
+  puckHideFurigana: "Hide furigana",
+  furiganaOffToast: "Furigana off. Lookups stay active.",
+  showFurigana: "Enable furigana annotations",
+  furiganaMode: "Furigana",
+  wordColorStates: "Color words",
+  appearancePreset: "Quick setup",
+  appearancePresetCustom: "Keep current custom settings",
+  appearancePresetBalanced: "Balanced reading",
+  appearancePresetNoColors: "Plain text",
+  appearancePresetNewOnly: "Focus on new words",
+  appearancePresetUnderlineNew: "Minimal highlights",
+  wordColorStatesAll: "Use all learning states",
+  wordColorStatesNewOnly: "Only new / not-in-deck words",
+  hideFuriganaFor: "Hide furigana for",
+  hideColorFor: "Hide color for",
+  furiganaDifficultKanji: "Hard kanji only",
+  furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
+  statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
+  furiganaHideKnown: "Hide familiar words",
+  furiganaHoverOnly: "Show on hover",
+  furiganaAllParsed: "Show on every parsed word",
+  clampedRowReadings: "Readings on clamped rows",
+  clampedRowReadingsShow: "Show (row grows)",
+  clampedRowReadingsHover: "Hover only",
+  showPitchAccent: "Show pitch accent",
+  showLookupPillFrequency: "Show site frequency in pills",
+  suppressRedundantWordUi: "Hide JPDB-redundant styling",
+  sheetCloseButtonOnLeft: "Sheet close button on left",
+  hideKnownFurigana: "Hide furigana for known cards only",
+  readerHelp: "Set a hover key. Blank means plain hover.",
+  hoverLookupSettings: "Hover lookup",
+  kanjiOriginKanjiMapEnabled: "Show kanji facts and component graph",
+  kanjiOriginGraphEnabled: "Show component graph",
+  kanjiOriginRadicalImagesEnabled: "Show radical images",
+  similarKanjiWordLimit: "Similar word limit",
+  noSimilarWords: "No additional words found.",
+  audioEnabled: "Enable term audio",
+  autoPlayAudio: "Auto-play term audio",
+  suppressAutoAudioOnVideo: "Disable lookup audio on video pages",
+  audioAutoPlayMode: "Auto-play trigger",
+  audioEnableDefaultSources: "Enable built-in audio sources",
+  audioFallbackChimeEnabled: "Enable fallback chime",
+  audioSelectionMode: "When several sources or clips exist",
+  audioPlayback: "Audio playback",
+  firstAudio: "First audio",
+  randomAudio: "Shuffle audio",
+  audioTtsMode: "Text-to-speech handling",
+  audioTtsFallback: "Fallback after recorded audio",
+  audioTtsSourceOrder: "Follow source order / shuffle",
+  audioTimeoutMs: "Audio timeout (ms)",
+  previewAudio: "Preview audio",
+  audioHelp: "URL tokens: {term}, {reading}, {language}.",
+  audioSource: "Audio source",
+  urlVoice: "URL / voice",
+  addAudioSource: "Add audio source",
+  audioAutoPlayAll: "Hover and tap/click",
+  audioAutoPlayHover: "Hover only",
+  audioAutoPlayTap: "Tap/click only",
+  automaticBrowserVoice: "Automatic browser voice",
+  savedVoiceLabel: "Saved voice: {voice}",
+  audioSourceOrder: "Audio source order",
+  audioSourceNumber: "Audio source {number}",
+  enableAudioSourceNumber: "Enable audio source {number}",
+  enableLookupPillName: "Enable lookup pill: {name}",
+  enableSourceName: "Enable source: {name}",
+  textToSpeechVoiceNumber: "Text-to-speech voice {number}",
+  audioSourceJpod101: "JapanesePod101",
+  audioSourceLanguagePod101: "LanguagePod101",
+  audioSourceJisho: "Jisho.org",
+  audioSourceBunpro: "Bunpro",
+  audioSourceLinguaLibre: "(Commons) Lingua Libre",
+  audioSourceWiktionary: "(Commons) Wiktionary",
+  audioSourceJitenTts: "Jiten text-to-speech",
+  audioSourceJpdbTts: "JPDB text-to-speech",
+  audioSourceTextToSpeech: "Text-to-speech",
+  audioSourceTextToSpeechReading: "Text-to-speech (Kana reading)",
+  audioSourceCustom: "Custom direct audio file URL",
+  audioSourceCustomJson: "Custom URL",
+  audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
+  audioCustomUrlPlaceholder: "Direct audio file URL",
+  audioBuiltInPlaceholder: "Built-in source, no URL needed",
+  audioDetectingSubSources: "Checking included sources…",
+  audioNoSubSourcesDetected: "No named sources reported by this URL.",
+  audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
+  audioSubSourceOverlapHint: "also listed as its own source",
+  defaultVoiceSuffix: "default",
+  audioGuideLinkLabel: "Yomitan audio guide",
+  audioProxyGuideSummary: "Make your own Cloudflare proxy",
+  audioProxyGuideIntro: "Use a Worker when you want a private proxy.",
+  audioProxyGuideCloudflare: "Open Cloudflare.",
+  audioProxyGuideWorkers: "Open Workers & Pages, then Create.",
+  audioProxyGuideCreateWorker: "Choose Worker, name it, deploy.",
+  audioProxyGuideEditCode: "Paste the Yomu Worker source.",
+  audioProxyGuideDeploy: "Deploy.",
+  audioProxyGuideCopyUrl: "Copy the Worker URL.",
+  audioProxyGuidePasteUrl: "Paste it into Cross-origin proxy URL.",
+  audioProxyGuideTest: "Save, then test lookup/import/audio.",
+  audioProxyGuideNote: "Limit hosts before sharing.",
+  audioProxyWorkerSource: "Worker source",
+  audioProxyDeployGuide: "Deploy guide",
+  immersionKit: "Immersion Kit",
+  immersionKitEnabled: "Show Immersion Kit examples",
+  immersionKitExampleSource: "Example provider",
+  immersionKitAndNadeshiko: "Immersion Kit + Nadeshiko",
+  nadeshikoApiKey: "Nadeshiko API key",
+  getNadeshikoKey: "Get a key",
+  immersionKitShowTranslation: "Show example translations",
+  immersionKitRevealTranslationOnClick: "Blur example translations until clicked",
+  immersionKitShowImages: "Show example thumbnails",
+  immersionKitAutoPlayAudio: "Play example audio after reveal or next/previous",
+  immersionKitPlayOnHover: "Play example audio when hovering thumbnails",
+  immersionKitPlayOnImageClick: "Play example audio when clicking thumbnails",
+  immersionKitCategory: "Immersion Kit category",
+  immersionKitSort: "Example order",
+  immersionKitLimitEnabled: "Examples per word limit",
+  allExamples: "All examples",
+  limitExamples: "Limit examples",
+  immersionKitLimit: "Examples per word",
+  immersionKitMinLength: "Minimum sentence length",
+  immersionKitMaxLength: "Maximum sentence length",
+  immersionKitPlaybackRate: "Example audio speed",
+  immersionKitExactMatch: "Prefer exact matches",
+  immersionKitHelp: "Examples appear in popups. Nadeshiko needs a key.",
+  loadingExamples: "Loading examples...",
+  noImmersionExamplesCompact: "No examples",
+  immersionKitRateLimited: "Immersion Kit rate-limited; retrying later.",
+  immersionKitRequest: "Immersion Kit request",
+  immersionKitRequestFailed: "Immersion Kit request failed.",
+  immersionKitRequestFailedWithStatus: "Immersion Kit request failed ({status}).",
+  immersionKitRequestTimedOut: "Immersion Kit request timed out.",
+  immersionKitSearchBlocked: "Immersion Kit blocked. Configure CORS.",
+  immersionKitMediaRequest: "Media request",
+  immersionKitMediaRequestFailed: "Media request failed.",
+  immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
+  immersionKitMediaRequestTimedOut: "Media request timed out.",
+  immersionKitMediaRequestReturnedNonMedia: "Media request returned an error page.",
+  immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
+  nadeshikoRequest: "Nadeshiko request",
+  nadeshikoRequestFailed: "Nadeshiko request failed.",
+  nadeshikoRequestFailedWithStatus: "Nadeshiko request failed ({status}).",
+  nadeshikoRequestTimedOut: "Nadeshiko request timed out.",
+  previousExample: "Previous example",
+  nextExample: "Next example",
+  playExampleAudio: "Play example audio",
+  allCategories: "All",
+  anime: "Anime",
+  drama: "Drama",
+  games: "Games",
+  shortestFirst: "Shortest first",
+  longestFirst: "Longest first",
+  ocrEnabled: "Read text in images",
+  ocrAutoScanImages: "Read images automatically",
+  ocrShowTextOverlay: "Show recognized text areas",
+  ocrVideoPauseFrames: "Auto-read paused video frames",
+  ocrInvertDarkPanels: "Read light text on dark panels",
+  ocrProvider: "Image reading",
+  ocrOverlayTheme: "OCR overlay theme",
+  ocrOverlayThemeAuto: "Match app theme",
+  ocrOverlayThemeLight: "Light overlay",
+  ocrOverlayThemeDark: "Dark overlay",
+  googleLens: "Google Lens (free, recommended)",
+  cloudVision: "Google Cloud Vision (API key)",
+  localOcr: "Local OCR server",
+  off: "Off",
+  ocrMaxImagesPerPage: "Images to read per page",
+  ocrMinImageArea: "Smallest image to read",
+  ocrMaxImagePixels: "Image detail",
+  lightWork: "Light",
+  normal: "Normal",
+  more: "More",
+  largeOnly: "Large images only",
+  includeSmall: "Include small images",
+  faster: "Faster",
+  balanced: "Balanced",
+  sharper: "Sharper",
+  ocrTextColor: "Image text color",
+  ocrOutlineColor: "Image text outline",
+  ocrBackgroundOpacity: "Image highlight opacity",
+  ocrFontScale: "Image text scale",
+  ocrEndpointUrl: "Local OCR server URL",
+  ocrEngine: "Local OCR engine",
+  ocrEngineMangaOcr: "MangaOCR (best for manga)",
+  ocrEngineAppleVision: "Apple Vision (macOS)",
+  cloudVisionApiKey: "Google Cloud Vision API key",
+  ocrHelp: "Reads nearby images. Google Lens needs no setup.",
+  ocrCloudHelp: "Paste a Google Cloud Vision API key.",
+  ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
+  subtitlePlayerEnabled: "Enable video subtitle player",
+  subtitleAutoDetect: "Auto-detect page subtitles",
+  subtitleOverlayVisible: "Show subtitle overlay",
+  subtitleSecondaryVisible: "Show native subtitles",
+  subtitleNativeBlurred: "Blur native subtitles until hover",
+  subtitleKaraokeMode: "Karaoke word timing",
+  subtitleTranscriptVisible: "Open transcript panel by default",
+  subtitlePausePanel: "Open side panel when paused",
+  subtitleShadowAutoPause: "Auto-pause after each shadow line",
+  subtitleTranscriptPlacement: "Transcript panel position",
+  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
+  subtitleAutoCopyLine: "Auto-copy subtitle lines",
+  subtitleMiningPause: "Pause video on subtitle click",
+  subtitleHoverPause: "Pause video on subtitle hover",
+  subtitleControlsMode: "Subtitle controls",
+  right: "Right",
+  left: "Left",
+  bottom: "Below",
+  showWhenNeeded: "Compact controls",
+  hideControls: "Hide controls",
+  alwaysVisible: "Always visible",
+  subtitleFontSize: "Subtitle font size (px)",
+  subtitleBottomOffset: "Subtitle bottom offset (%)",
+  subtitleTextColor: "Subtitle color",
+  subtitleOutlineColor: "Subtitle outline",
+  subtitleBackgroundColor: "Subtitle background",
+  subtitleBackgroundOpacity: "Subtitle background opacity",
+  subtitleFontFamily: "Subtitle font family",
+  subtitleFontWeight: "Subtitle font weight",
+  subtitleSeekPadding: "Subtitle seek padding (s)",
+  subtitlePreview: "Live subtitle preview",
+  preview: "Preview",
+  youtubeImmersionEnabled: "Japanese YouTube only",
+  preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
+  youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
+  youtubeShowFilterNotice: "Show hidden-video notice",
+  youtubeHelp: "Prefer Japanese UI and Japan-local content.",
+  youtubeShowHiddenVideos: "Show hidden videos",
+  youtubeHideHiddenVideos: "Hide hidden videos",
+  youtubeHideNotice: "Hide notice",
+  youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
+  youtubeFilterHid: "{appName} hid {count} non-Japanese item{plural}",
+  youtubeFilterVisible: "{count} Japanese items stayed visible.",
+  youtubeToggleToastOn: "YouTube immersion filter enabled.",
+  youtubeToggleToastOff: "YouTube immersion filter disabled.",
+  ankiEnabled: "Enable Anki mining",
+  ankiMineWithJpdb: "Also add to Anki when adding via API",
+  ankiCaptureScreenshot: "Attach context image when possible",
+  ankiConnectUrl: "AnkiConnect URL",
+  ankiDeck: "Anki deck",
+  ankiModel: "Anki note type",
+  mobileAnkiHandoff: "Mobile Anki add-note fallback",
+  ankiTemplateMode: "Anki card template",
+  ankiFrontReading: "Show reading on word-first front",
+  ankiFrontSentence: "Show sentence on word-first front",
+  ankiFrontImage: "Show image on front",
+  wordFirst: "Word first",
+  sentenceFirst: "Sentence first",
+  ankiTags: "Tags",
+  sentenceFirstPreset: "Sentence first preset",
+  wordFirstPreset: "Word first preset",
+  front: "Front",
+  back: "Back",
+  imageAbovePrompt: "Image appears above the prompt when available.",
+  recallHighlightedWord: "Recall the highlighted word from context.",
+  imageOnFront: "Image appears on the front when available.",
+  recallMeaning: "Recall the meaning first.",
+  ankiBackIncludes: "Includes dictionary, kanji, pitch, source, image.",
+  exampleMeaning: "to read",
+  scanAnkiFirst: "Connect Anki first",
+  notMapped: "Not mapped",
+  noScannedFields: "Check AnkiConnect to load this note type's fields.",
+  mappingForNoteType: "Mapping for {model}",
+  currentNoteType: "current note type",
+  ankiFieldMappingSelect: "{role} field",
+  ankiRoleExpression: "Expression",
+  ankiRoleReading: "Reading",
+  ankiRoleMeaning: "Meaning",
+  ankiRoleSentence: "Sentence",
+  ankiRoleAudio: "Word audio",
+  ankiRoleSentenceAudio: "Sentence audio",
+  ankiRoleImage: "Image",
+  testAnki: "Check AnkiConnect",
+  prepareAnki: "Set up Yomu note type",
+  updateAnkiModel: "Update note type",
+  ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
+  ankiModelUpdating: "Adding note type fields...",
+  ankiModelUpdated: "Note type updated. Added {fields}.",
+  ankiModelUpToDate: "Note type is up to date.",
+  ankiCheckingConnection: "Checking AnkiConnect at {url}.",
+  ankiMiningDisabledStatus: "Anki mining disabled.",
+  ankiTesting: "Checking AnkiConnect...",
+  ankiPreparing: "Setting up Yomu deck and note type...",
+  ankiScanning: "Reading decks, note types, fields...",
+  ankiScanSummary: "Decks {decks}, types {models}. Best: {model}. {fields}",
+  ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
+  ankiScanFieldSummary: "Fields: {fields}",
+  ankiUnreachable: "Open desktop Anki and check again.",
+  ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList; restart Anki.',
+  ankiSettingsUnreachable: "AnkiConnect not reached.",
+  ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
+  ankiStatusOpenDesktop: "Open desktop Anki",
+  ankiStatusInstallAddon: "Install/enable AnkiConnect",
+  ankiStatusMobileDocs: "Mobile setup docs",
+  ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
+  ankiStatusEnableUserscript: `Enable installed ${APP_NAME}`,
+  ankiStatusRefreshAndCheck: "Refresh and check",
+  ankiHostedCorsHint: "Add {origin} to webCorsOriginList.",
+  ankiLibraryAdapter: "Existing library adapter",
+  ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
+  ankiLibraryChoices: "Deck and note type",
+  ankiLibraryChoicesHelp: "Pick where mining saves notes.",
+  ankiTemplateSettings: "Yomu card template",
+  ankiTemplateSettingsHelp: "For Yomu note types. Templates stay in Anki.",
+  ankiMappingConfidenceHelp: "Based on fields/samples. Edit weak mappings.",
+  ankiMappingHighConfidence: "High",
+  ankiMappingMediumConfidence: "Medium",
+  ankiMappingLowConfidence: "Low",
+  ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
+  jpdbDefinitionsEnabled: "Show JPDB definitions",
+  localDictionariesEnabled: "Show imported dictionary definitions",
+  dictionarySourcesInitiallyExpanded: "Open sources by default",
+  localDictionaryMaxResults: "Dictionary result limit",
+  cloudSettingsSync: "Google Drive settings sync",
+  cloudSettingsSyncHelp: "Stores your Yomu settings and local SRS progress in Google Drive app data. Dictionaries stay local.",
+  academyAccountSync: "Academy account sync",
+  academyAccountSyncHelp: "Keep Academy SRS progress in sync across the Reader and your signed-in Yomu account. Create or manage your account on the website, then generate a one-time pairing code.",
+  academyAccountManage: "Manage account & pairing code",
+  academyPairingCode: "One-time pairing code",
+  academyPairingCodePlaceholder: "XXXX-XXXX-XXXX-XXXX-XXXX",
+  academyAccountConnect: "Connect",
+  academyAccountSyncNow: "Sync now",
+  academyRecoveryCodeCreate: "Create website recovery code",
+  academyRecoveryCodeCreating: "Creating a one-time website recovery code...",
+  academyRecoveryCodeReady: "Website recovery code: {code}. Enter it in Profile & sync within 10 minutes.",
+  academyRecoveryCodeDone: "Website recovery code created.",
+  academyAccountDisconnect: "Disconnect",
+  academyAccountChecking: "Checking Academy account connection...",
+  academyAccountDisconnected: "Not connected. Academy reviews stay on this device until you connect an account.",
+  academyAccountConnected: "Connected as {name}.",
+  academyAccountConnectedNoName: "Academy account connected.",
+  academyAccountLastSynced: "Last synced {time}.",
+  academyAccountNeverSynced: "Not synced yet.",
+  academyAccountConnectionProblem: "Could not refresh the account status: {message}",
+  academyAccountConnecting: "Connecting and syncing Academy progress...",
+  academyAccountSyncing: "Syncing Academy progress...",
+  academyAccountDisconnecting: "Disconnecting this Reader...",
+  academyPairingCodeRequired: "Enter the one-time pairing code from your Yomu account.",
+  academyAccountConnectedDone: "Academy account connected and progress synced.",
+  academyAccountSyncedDone: "Academy progress synced.",
+  academyAccountDisconnectedDone: "This Reader is disconnected. Local Academy progress is still available.",
+  importSettings: "Import settings JSON",
+  exportSettings: "Export settings JSON",
+  importDictionaries: "Import dictionaries",
+  exportDictionaries: "Export dictionaries",
+  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
+  lookupPills: "Lookup pills",
+  lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
+  parserProvider: "Parsing source",
+  parserProviderLocal: "Local dictionaries (offline)",
+  parserProviderJiten: "Jiten API",
+  parserProviderJpdb: "JPDB API",
+  parserProviderAuto: "Automatic (Jiten/JPDB)",
+  parserProviderHelp: "Local parses with imported dictionaries, offline. Jiten and JPDB always use that API when its key is set. Automatic prefers Jiten, then JPDB.",
+  offlineDictionarySetupComplete: "Offline dictionaries installed.",
+  offlineDictionarySetupFailed: "Offline dictionary setup failed. Retry from Settings → Sources.",
+  copiesCurrentWord: "Copies the current word",
+  plaintextHttpLink: "Opens over plaintext HTTP.",
+  lookupPillLabelNumber: "Lookup pill {number} label",
+  lookupUrlTemplate: "Lookup URL template",
+  lookupUrlTemplateNumber: "Pill {number} URL",
+  lookupPillOrder: "Lookup pill order",
+  builtInAction: "Built-in action",
+  recommendedDownloads: "Dictionaries",
+  termDictionaries: "Term dictionaries",
+  kanjiDictionaries: "Kanji dictionaries",
+  pitchDictionaries: "Pitch dictionaries",
+  frequencyDictionaries: "Frequency dictionaries",
+  nameDictionaries: "Name dictionaries",
+  grammarDictionaries: "Grammar dictionaries",
+  exampleDictionaries: "Example sentence dictionaries",
+  thesaurusDictionaries: "Thesauruses",
+  encyclopediaDictionaries: "Encyclopedias",
+  utilityDictionaries: "Utility dictionaries",
+  mirroredDictionaries: "All mirrored dictionaries",
+  mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
+  mirroredDictionarySearch: "Search dictionaries",
+  mirroredDictionarySearchNoResults: "No dictionaries match your search.",
+  mirroredDictionaryOtherLanguage: "These dictionaries are not for reading Japanese.",
+  install: "Install",
+  installing: "Installing",
+  queued: "Queued",
+  dictionaryGuide: "Guide",
+  saveAfterInstall: "Save after install",
+  download: "Download",
+  update: "Update",
+  checkingDictionaries: "Checking imported dictionaries...",
+  targetDictionaryUnavailable: "Dictionaries for {language} are not available yet.",
+  targetDictionaryAvailabilityUnavailable: "Dictionary availability could not be checked.",
+  dictionaryDownloading: "Downloading",
+  dictionaryReadingZip: "Reading dictionary ZIP...",
+  dictionaryCheckingIndex: "Checking index...",
+  dictionaryBanksFound: "{count} bank{plural} found.",
+  dictionaryRemovingExisting: "removing old entries",
+  dictionaryReadingBank: "Reading",
+  dictionaryParsingBank: "Parsing",
+  dictionarySavingBank: "Saving",
+  dictionaryImporting: "Importing",
+  importingBundledDictionaries: "Importing bundled dictionaries...",
+  dictionaryImported: "Imported",
+  dictionaryPreparingImport: "Preparing import",
+  dictionaryRecords: "dictionary records",
+  dictionaryEntries: "entries",
+  dictionaryTotal: "total",
+  dictionaryDownloadProgress: "Downloading",
+  dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
+  dictionaryStatusUnavailable: "Unavailable.",
+  noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
+  dictionaryDownloadFailed: "Dictionary download failed.",
+  dictionaryDownloadTimedOut: "Dictionary download timed out.",
+  dictionaryDownloadNotZip: "Download was not a ZIP.",
+  dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
+  dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
+  dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
+  dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
+  dictionaryInstallQueued: "{dictionary} queued.",
+  dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
+  dictionaryImportQueueStatus: "{count} install{plural} running.",
+  dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
+  dictionaryRemoving: "Removing {dictionary}...",
+  dictionaryRemoved: "Removed {dictionary}.",
+  dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+  dictionaryRecordsImported: "{dictionary}: {records} records.",
+  settingsImported: "Settings imported.",
+  settingsImportedWithDetails: "Settings imported; {details}.",
+  settingsExported: "Settings exported.",
+  restoredStoredChoices: "restored {count} stored choice{plural}",
+  importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
+  dictionaryNoSupportedBanks: "No supported banks found.",
+  dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
+  dictionaryZipMissingIndex: "ZIP missing index.json.",
+  yomitanSettingsInvalid: "Not a Yomitan settings export.",
+  localWordSingular: "entry",
+  localWordPlural: "entries",
+  decksLoaded: "Decks are loaded from your JPDB account.",
+  decksUnavailable: "Could not load decks; saved IDs kept.",
+  addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
+  miningDeck: "Mining deck",
+  neverForgetDeck: "Never forget deck",
+  blacklistDeck: "Blacklist deck",
+  allStudyDecks: "All study decks",
+  savedValue: "Saved: {value}",
+  holdWhileHovering: "Hold while hovering",
+  hoverOpenDelayMs: "Hover open delay (ms)",
+  hoverCloseDelayMs: "Hover close delay (ms)",
+  pressKeys: "Press keys",
+  blankPlainHover: "Blank = hover, no key",
+  openSettings: "Open settings",
+  resizeSettings: "Resize settings",
+  playAudio: "Play audio",
+  playingAudioPreview: `Playing ${APP_NAME}...`,
+  audioPreviewFailed: "Audio preview failed.",
+  audioPlaybackDisabled: "Audio playback is disabled",
+  audioPlaybackDisabledToast: "Audio playback is disabled.",
+  audioPlaybackFailed: "Audio playback failed.",
+  noSentenceToRead: "No sentence to read aloud.",
+  noTextToRead: "No text to read aloud.",
+  jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
+  jpdbAudioPlayableFileMissing: "JPDB audio returned no playable file.",
+  jpdbAudioResponseNotPlayable: "JPDB audio was not playable.",
+  audioSourceReturnedNoAudio: "Audio source did not return audio.",
+  audioJsonMissingPlayableUrl: "Audio JSON had no playable URL.",
+  textToSpeechUnavailable: "Text-to-speech is unavailable.",
+  textToSpeechFailed: "Text-to-speech failed.",
+  audioRequest: "Audio request",
+  audioRequestTimedOut: "Audio request timed out.",
+  audioRequestReturnedNonAudioWithType: "Audio request returned non-audio: {type}.",
+  audioUnknownContentType: "an unknown content type",
+  japanesePod101NoAudio: "JapanesePod101 has no audio for this term.",
+  invalidJpdbAudioId: "Invalid JPDB audio id.",
+  couldNotReadAudio: "Could not read audio.",
+  couldNotReadAudioBlob: "Could not read audio blob.",
+  closeDrawer: "Close drawer",
+  closePopup: "Close popup",
+  previousLookupWord: "Previous word",
+  nextLookupWord: "Next word",
+  previousSubtitle: "Previous subtitle",
+  nextSubtitle: "Next subtitle",
+  jumpToCurrentSubtitle: "Jump to current subtitle",
+  pauseVideo: "Pause video",
+  readVideoFrame: "Read video frame (OCR)",
+  readVideoFrameStop: "Stop reading video frames (OCR)",
+  copySubtitle: "Copy subtitle",
+  subtitleFallbackLabel: "Subtitle",
+  subtitlesTitle: "Subtitles",
+  openSubtitlePanel: "Open subtitle panel",
+  closeSubtitlePanel: "Close subtitle panel",
+  subtitleStyle: "Subtitle style",
+  subtitleResetDefaults: "Reset defaults",
+  enableSubtitleAutoHide: "Auto-hide panel while playing",
+  disableSubtitleAutoHide: "Keep panel open while playing",
+  subtitlePanelOptions: "Panel options",
+  loadJapaneseSubtitles: "Load Japanese subtitles",
+  loadNativeSubtitles: "Load native subtitles",
+  searchAnimeSubtitles: "Search anime subtitles",
+  toggleNativeSubtitleBlur: "Toggle native subtitle blur",
+  subtitleTrackDetectedSingular: "1 subtitle track detected",
+  subtitleTracksDetected: "subtitle tracks detected",
+  noSubtitleTracksDetected: "No subtitle tracks detected yet.",
+  resizeTranscriptPanel: "Resize transcript panel",
+  resizeSubtitleTracksPanel: "Resize subtitle tracks panel",
+  subtitlePanelMode: "Mode",
+  subtitleLines: "Lines",
+  shadow: "Shadow",
+  subtitleTracks: "Tracks",
+  batchMiningNoDestination: "Enable JPDB/Jiten API mining or Anki mining first.",
+  subtitleTrackTiming: "Subtitle timing",
+  subtitleOffsetPrevious: "Align previous subtitle to current time",
+  subtitleOffsetNext: "Align next subtitle to current time",
+  subtitleOffsetPreviousShort: "Prev",
+  subtitleOffsetNextShort: "Next",
+  subtitleOffsetEarlier: "Show subtitles 100 ms earlier",
+  subtitleOffsetLater: "Show subtitles 100 ms later",
+  resetSubtitleOffset: "Reset subtitle timing",
+  copySubtitleLine: "Copy subtitle line",
+  subtitleCopyIncludeTranslation: "Copy line translation too",
+  peekSubtitleTranslation: "Show translation",
+  hideSubtitleTranslation: "Hide translation",
+  loadingSubtitleLines: "Loading subtitle lines",
+  waitingForCaptionLines: "Waiting for caption lines",
+  subtitleCurrentLineWillAppear: "Current line appears when captions load.",
+  seekSubtitleLine: "Seek subtitle line",
+  subtitleTracksHint: "Choose a primary track. Use Lines to jump.",
+  autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
+  autoDetectedOptionSingular: "1 subtitle option",
+  autoDetectedOptions: "subtitle options",
+  detected: "Detected",
+  primaryOverlay: "primary overlay",
+  nativeOverlay: "native overlay",
+  unsetPrimarySubtitles: "Unset primary",
+  primarySubtitles: "Primary",
+  unsetNativeSubtitles: "Unset native",
+  nativeSubtitles: "Native",
+  choosePrimarySubtitles: "Choose primary subtitles",
+  transcript: "Transcript",
+  subtitleOptionSingular: "option",
+  subtitleOptionPlural: "options",
+  subtitleLineSingular: "line",
+  subtitleLinePlural: "lines",
+  trackKindPageTrack: "page track",
+  trackKindPageFile: "page file",
+  trackKindYouTubeCaptions: "YouTube captions",
+  youTubeSubtitles: "YouTube subtitles",
+  autoGeneratedSubtitle: "auto-generated",
+  trackKindLoadedFile: "loaded file",
+  trackStatusLoading: "loading",
+  trackStatusWaiting: "waiting for captions",
+  trackStatusFailed: "failed",
+  moveSubtitles: "Move subtitles",
+  moveSubtitlesAccessible: "Move subtitles. Drag, or use the arrow and Page Up/Page Down keys. Press Home or 0 to reset.",
+  moveSubtitleControls: "Subtitle controls. Tap to expand or collapse. Drag, or use the arrow keys, to move. Press Home or 0 to reset.",
+  toggleImageReading: "Toggle image reading",
+  toggleSubtitleOverlay: "Toggle subtitle overlay",
+  toggleYoutubeImmersion: "Toggle YouTube filter",
+  readImagesNow: "Read images now",
+  massReviewVisible: "Mass review visible words (Jiten)",
+  studyReveal: "Study: reveal card",
+  studyRevealAlternate: "Study: reveal card (alternate)",
+  studyUndo: "Study: undo last review",
+  studyPrevious: "Study: previous card",
+  studyPreviousAlternate: "Study: previous card (alternate)",
+  studyNext: "Study: next card",
+  studyNextAlternate: "Study: next card (alternate)",
+  massReviewNoWords: "No due Jiten words on screen.",
+  massReviewNoKey: "Add a Jiten API key to mass review.",
+  massReviewDone: "Reviewed {count} words as Good.",
+  massReviewFailed: "Mass review failed.",
+  adapterStateDisabled: "Off",
+  adapterStateProbing: "Probing",
+  adapterStateUnreachable: "Unreachable",
+  adapterStateConnected: "Connected",
+  adapterStateScanning: "Scanning",
+  adapterStateSuggested: "Mapped",
+  adapterStateStale: "Needs review",
+  adapterStateReady: "Ready",
+  ankiMappingConfidenceHigh: "high match",
+  ankiMappingConfidenceMedium: "fuzzy match",
+  ankiMappingConfidenceLow: "unmapped",
+  ankiMappingStaleField: "saved field missing",
+  ocrPlayVideo: "Play video",
+  ocrPausedFrameScanning: "Scanning...",
+  ocrPausedFrameReady: "Text ready",
+  ocrPausedFrameNoText: "No text found",
+  ocrPausedFrameFailed: "Could not read text",
+  ocrRetryScan: "Scan again",
+  ocrNoReadableImages: "No readable images nearby.",
+  gradeNothing: "Grade NOTHING",
+  gradeSomething: "Grade SOMETHING",
+  gradeHard: "Grade HARD",
+  gradeOkay: "Grade OKAY",
+  gradeEasy: "Grade EASY",
+  gradeFail: "Pass/fail: FAIL",
+  gradePass: "Pass/fail: PASS",
+  helpLinksTitle: "Useful pages",
+  helpLinksCopy: "Open reader tools and docs from here.",
+  versionAndUpdates: "Version",
+  currentYomuVersion: "Yomu",
+  updateStatusIdle: "Current {current}. Latest check pending.",
+  updateStatusChecking: "Current {current}. Checking latest...",
+  updateStatusCurrent: "Current {current}. Latest {latest}. Up to date.",
+  updateStatusAvailable: "Current {current}. Latest {latest}. Update available.",
+  updateStatusUnknown: "Current {current}. Latest check failed; reinstall if needed.",
+  updateStatusIncomparable: "Current {current}. Latest {latest}. Cannot compare versions; use Update if this install is old.",
+  updateHelpNotesManager: 'Keep one Yomu script enabled. Update opens your userscript manager’s install screen. If the browser shows a blocked-install banner instead, open your extensions page, open the manager’s details, and turn on "Allow user scripts" (or Developer mode), then retry.',
+  updateHelpNotesManagerDashboard: "On Chrome or Edge, Update opens the Tampermonkey dashboard instructions: Utilities → Check for userscript updates. This avoids the browser’s blocked website-install banner.",
+  updateHelpNotesExternalManager: "Keep one Yomu script enabled. Update opens the script source; your userscript app reads it from the open tab to update. If updates stall on iPhone/iPad, open this link in Safari and leave the tab open.",
+  updateHelpNotesNoManager: "No userscript manager was detected here, and browsers block direct script installs — Update opens the install guide with per-browser steps.",
+  updateHelpNotesExtensionStore: "You are running the Yomu browser extension. Update opens your browser’s extension store, where installs update automatically and you can trigger a manual update check.",
+  updateUserscript: "Update",
+  duplicateStatusSingle: "One Yomu runtime active ({kind}).",
+  duplicateStatusUnknown: "Duplicate check unavailable. If Yomu appears twice, disable the older script.",
+  ankiConnectSetupTitle: "AnkiConnect setup",
+  ankiConnectSetupCopy: "Keep desktop Anki open with AnkiConnect enabled. Hosted Study needs AnkiConnect to allow the Yomu origin.",
+  ankiConnectSetupConfig: "Add these origins to AnkiConnect's webCorsOriginList, keeping any existing entries:",
+  ankiConnectSetupMobile: "For phone or iPad, use the desktop computer's LAN or Tailscale URL; localhost on a phone means the phone itself.",
+  ankiConnectSetupBrave: "In Brave, disable Shields for the Study page if local Anki checks are blocked.",
+  helpSupportTitle: "Support よむ",
+  helpSupportCopy: SUPPORT_COPY,
+  helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
+  videoPlayer: "Video Player",
+  pdfReader: "PDF Reader",
+  newTabPage: "Study",
+  github: "GitHub",
+  word: "Word",
+  search: "Search",
+  newTabAddressCopied: "Study address copied.",
+  loading: "Loading...",
+  reveal: "Reveal",
+  revealTranslation: "Reveal translation",
+  immersionExampleControls: "Immersion Kit example controls",
+  exampleSearchLinks: "Example searches",
+  loadingKanjiDetails: "Loading kanji details...",
+  loadingMnemonicImages: "Loading mnemonic images...",
+  lookupDialog: `${APP_NAME} lookup`,
+  resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
+  showMiningActions: "Show mining actions",
+  hideMiningActions: "Hide mining actions",
+  switchReviewTarget: "Switch review target",
+  switchGradingProvider: "Switch grading provider",
+  apiGradingProvider: "Preferred grading service",
+  apiGradingProviderHelp: "Which service the popover grades when a word exists in both Jiten and JPDB. Bunpro cards grade to Bunpro; the ⇄ toggle next to the grade buttons switches per word.",
+  jpdbKanjiUpdated: "JPDB kanji updated.",
+  jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
+  apiSrsActionsDisabled: "API mining actions are disabled in settings.",
+  addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
+  addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
+  addBunproApiKeyReview: "Add a Bunpro frontend API token to review Bunpro cards.",
+  addWanikaniApiKeyReview: "Add a WaniKani personal access token to review due WaniKani assignments.",
+  actionFailed: "Action failed.",
+  dictionary: "Dictionary",
+  dictionariesExported: "Dictionaries exported.",
+  local: "Local",
+  dict: "dict",
+  filterStudy: "Study",
+  filterAll: "All",
+  sortFrequency: "Frequency",
+  stateNew: "New",
+  stateLearning: "Learning",
+  stateYoung: "Young",
+  stateMature: "Mature",
+  stateDue: "Due",
+  stateFailed: "Failed",
+  stateKnown: "Known",
+  stateMastered: "Mastered",
+  stateNeverForget: "Never forget",
+  stateSuspended: "Suspended",
+  stateLocked: "Locked",
+  stateBlacklisted: "Blacklisted",
+  stateRedundant: "Redundant",
+  stateFrequent: "Frequent",
+  stateUnparsed: "Unparsed",
+  stateInDeck: "In deck",
+  stateNotInDeck: "Not in deck",
+  ankiReviewSingular: "review",
+  ankiReviewPlural: "reviews",
+  ankiLapseSingular: "lapse",
+  ankiLapsePlural: "lapses",
+  gradeNothingLabel: "Nothing",
+  gradeSomethingLabel: "Something",
+  gradeHardLabel: "Hard",
+  bunproGradeAgainLabel: "Again",
+  bunproGradeHardLabel: "Hard",
+  bunproGradeGoodLabel: "Good",
+  bunproGradeEasyLabel: "Easy",
+  gradeOkayLabel: "Okay",
+  gradeEasyLabel: "Easy",
+  gradeFailLabel: "Fail",
+  gradePassLabel: "Pass",
+  factKeyword: "Keyword",
+  factType: "Type",
+  factFrequency: "Frequency",
+  factMeaning: "Meaning",
+  factGrade: "Grade",
+  factOldForms: "Old forms",
+  docs: "Docs",
+  factoryReset: "Factory Reset",
+  factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
+  factoryResetFailed: "Reset failed.",
+  factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
+  factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
+  factoryResetDeleteSettingsFailed: "Could not delete settings.",
+  issues: "Issues",
+  donate: "Donate",
+  discord: "Discord",
+  openOnJpdb: "Open on JPDB",
+  openOnLookup: "Open on {label}",
+  viewOnLookup: "View on {label}",
+  copyWord: "Copy",
+  copyWordTitle: "Copy word",
+  copiedWord: "Copied word.",
+  backToWord: "Back to word",
+  backToKanji: "Back to kanji",
+  previousKanji: "Previous kanji",
+  nextKanji: "Next kanji",
+  openKanjiOnJpdb: "Open kanji on JPDB",
+  strokePractice: "Stroke order + practice",
+  practiceDrawing: "Practice drawing",
+  strokes: "strokes",
+  textTrace: "text trace",
+  hideTrace: "Hide trace",
+  showTrace: "Show trace",
+  clear: "Clear",
+  originStructure: "Component graph",
+  originMapLabel: "2D kanji origin and component map",
+  originShowSubcomponents: "Subcomponents",
+  originShowOutbound: "Outbounds",
+  kanjiAlive: "Kanji Alive",
+  wiktionary: "Wiktionary",
+  radical: "Radical",
+  readingsComponents: "Readings and components",
+  showKanji: "Show kanji",
+  jpdbMnemonic: "JPDB mnemonic",
+  rtkComponentKeywords: "RTK component keywords",
+  onReading: "On",
+  kunReading: "Kun",
+  heisigStory: "Heisig story",
+  heisigComment: "Heisig comment",
+  koohiiStories: "Koohii stories",
+  add: "Add",
+  addToDeck: "Add to deck",
+  deck: "Deck",
+  deckActions: "Deck actions",
+  reviewAddsToDeck: "Reviewing will add new words to",
+  reviewBlockedBlacklisted: "Blacklisted. Unlist before reviewing.",
+  reviewBlockedNeverForget: "Never-forget. Remove before reviewing.",
+  reviewBlockedRedundant: "JPDB marks this redundant.",
+  ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
+  ankiCardsUnsuspended: "Unsuspended in Anki.",
+  ankiNeverForgetTagAdded: "Tagged yomu-never-forget.",
+  ankiNeverForgetTagRemoved: "Removed yomu-never-forget.",
+  forget: "Forget",
+  never: "Never forget",
+  unlist: "Unlist",
+  blacklist: "Blacklist",
+  vocabularyStatusUpdated: "Vocabulary status updated.",
+  addToAnki: "Add to Anki",
+  sendToMobileAnki: "Send to {app}",
+  ankiAudioFileNotFound: "Anki audio file not found.",
+  ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
+  ankiAudioUnavailablePreview: "Audio not available in preview",
+  ankiAudioFilenameLabel: "Anki audio {filename}",
+  ankiStoredFields: "Stored fields",
+  ankiCardDetailsPending: "Matched in Anki. Loading details...",
+  ankiCardDetailsUnavailable: "Matched in Anki. showing cached status.",
+  ankiNewCard: "New card",
+  ankiMatches: "Anki matches",
+  gradeAnkiCardTarget: "Grades Anki card: {target}",
+  gradeJpdbCardTarget: "Grades API SRS card",
+  ankiNoteNotFound: "Anki note not found.",
+  mergeYomu: "Merge Yomu",
+  mergeYomuTitle: "Update matching fields and add Yomu media to this note",
+  editInAnki: "Edit in Anki",
+  keepBothAudio: "Keep both",
+  keepAnkiAudio: "Keep Anki",
+  useYomuAudio: "Use Yomu",
+  lastSeen: "Last seen",
+  unavailable: "Unavailable",
+  openedInAnki: "Opened in Anki.",
+  addedToDeckAndReviewed: "Added to deck and reviewed.",
+  sentToAnki: "Sent to Anki.",
+  openedMobileAnkiHandoff: "Opened Anki handoff. Continue in Anki.",
+  alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
+  removedFromDeck: "Removed from deck.",
+  addedToDeckToast: "Added to deck.",
+  apiDeckMediaNotSupported: "Media stays in Yomu; no media API.",
+  sentToAnkiWithContextImageAndAudio: "Sent to Anki with image and audio.",
+  sentToAnkiWithContextImage: "Sent to Anki with image.",
+  sentToAnkiWithAudio: "Sent to Anki with audio.",
+  ankiMergeNoNewData: "Anki note already has the Yomu data.",
+  ankiMergeFieldSingular: "field",
+  ankiMergeFieldPlural: "fields",
+  ankiMergeAudio: "audio",
+  ankiMergeImage: "image",
+  ankiMergeComplete: "Merged Yomu data into Anki ({parts}).",
+  ankiHandoffCancelled: "Anki handoff cancelled.",
+  ankiConnectActionFailed: "AnkiConnect action failed.",
+  ankiConnectRequestFailed: "AnkiConnect request failed.",
+  ankiConnectTimedOut: "AnkiConnect timed out.",
+  mobileAnkiReady: "Anki offline. Handoff can create notes.",
+  ankiConnectionReady: "Connected. AnkiConnect is reachable.",
+  ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
+  ankiPromptRecallWord: "Recall the highlighted word.",
+  ankiMeaningHeading: "Meaning",
+  ankiPitchHeading: "Pitch",
+  ankiPartOfSpeechHeading: "Part of speech",
+  ankiLinksHeading: "Links",
+  ankiSourceHeading: "Source",
+  ankiLocalDictionaryStatus: "local dictionary",
+  composedOf: "Composed of",
+  ocrModeAutoToast: "Image OCR automatic.",
+  ocrModeManualToast: "Image OCR on tap or hover.",
+  ocrModeOffToast: "Image OCR off.",
+  subtitleOverlayEnabled: "Subtitle overlay enabled.",
+  subtitleOverlayHidden: "Subtitle overlay hidden.",
+  reviewFailed: "Review failed.",
+  reviewActionsDisabled: "Review actions are disabled in settings.",
+  jpdbLookupFailed: "JPDB lookup failed.",
+  jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
+  jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
+  addedToJpdb: "Added to JPDB.",
+  jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
+  jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
+  bunproAddApiKeyRequired: "Add a Bunpro frontend API token, or use Add to Anki.",
+  wanikaniAddApiKeyRequired: "Add a WaniKani personal access token to review due assignments.",
+  yomuLocalSrsDisabled: `Enable ${ACADEMY_SRS_LABEL} in Settings first.`,
+  yomuLocalSrsStorageFailed: "Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.",
+  chooseJitenStudyDeck: "Choose a Jiten study deck first.",
+  addedToJiten: "Added to Jiten.",
+  addedToBunpro: "Added to Bunpro.",
+  addedToWanikani: "Recorded on WaniKani.",
+  addedToYomuLocal: `Added to ${ACADEMY_SRS_LABEL}.`,
+  kanjiDetailsUnavailable: "Kanji details are not available yet.",
+  loadingDictionaryDetails: "Loading dictionary details...",
+  jitenCompositeWords: "Composite words",
+  usedInVocabulary: "Used in vocabulary",
+  exampleSentences: "Example sentences",
+  // U46: every one of these is a state a learner can reach. They exist
+  // because an example source with nothing to show used to render nothing
+  // at all, so an unsupported language looked exactly like a broken one.
+  exampleSourceEmpty: "No examples for this word yet.",
+  exampleSourceEmptyShort: "None yet",
+  exampleSourceLimitedCorpus: "This corpus is small, so many words have no example yet.",
+  exampleSourceUnsupported: "This source has no {language} sentences.",
+  exampleSourceUnsupportedShort: "Other languages",
+  exampleSourceFailed: "Examples did not load.",
+  exampleSourceFailedShort: "Not loaded",
+  exampleSourceRetry: "Try again",
+  exampleSourceAudioPerItem: "Audio plays where the recording is openly licensed.",
+  exampleSourceNoSentenceAudio: "Open {language} sentence audio is not available yet.",
+  exampleSourceNoLicensedAudio: "These sentences came without openly licensed audio.",
+  exampleSourceNoImage: "Scene images are Japanese only for now.",
+  exampleSourceNoTranslation: "No {language} translation yet.",
+  exampleSourceMachineTranslation: "Machine translation",
+  exampleSourceIndirectTranslation: "Translated via another language",
+  exampleSourcePlayAudio: "Play sentence audio",
+  acceptedInputs: "Accepted inputs",
+  relatedWords: "Related words",
+  bunproUsedInVocab: "Used in",
+  relatedGrammar: "Related grammar",
+  antonymWord: "Antonym",
+  bunproCaution: "Caution",
+  bunproStructure: "Structure",
+  playJpdbExampleAudio: "Play JPDB example audio",
+  contextVideo: "Video",
+  contextImage: "Image",
+  contextCurrentPage: "Current page",
+  jpdbKanjiActionMine: "Add",
+  jpdbKanjiActionKnown: "Known",
+  jpdbKanjiActionNeverForget: "Never forget",
+  jpdbKanjiActionForget: "Forget",
+  jpdbKanjiActionBlacklist: "Blacklist",
+  jpdbKanjiActionReview: "Review",
+  noDefinitions: "No enabled definition source returned results.",
+  finishSetup: "Finish setup",
+  finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
+  enabledHeader: "On",
+  labelHeader: "Label",
+  detailsHeader: "Details",
+  displayName: "Display name",
+  orderHeader: "Order",
+  removeHeader: "Remove",
+  definitionSource: "Definition source",
+  kanjiSection: "Kanji section",
+  dragToReorder: "Drag to reorder",
+  moveUp: "Move up",
+  moveDown: "Move down",
+  remove: "Remove",
+  removeImportedDictionary: "Remove imported dictionary",
+  customAdvanced: "{label} (advanced)",
+  importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
+  frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
+  sourceHelpJpdb: "JPDB meanings from the current card.",
+  sourceHelpJiten: "Jiten meanings, examples, and related words.",
+  sourceHelpBunpro: "Bunpro vocabulary and grammar meanings, nuance, and examples.",
+  sourceHelpWanikani: "WaniKani vocabulary meanings, mnemonics, and SRS status for subjects on your account.",
+  sourceHelpAnki: "Matching Anki card content and status.",
+  sourceHelpTranslation: "Sentence translation.",
+  sourceHelpGrammar: "Local grammar hints.",
+  sourceHelpImmersionKit: "Example sentences, images, and audio.",
+  sourceNameImmersionKit: "Immersion Kit",
+  sourceNameAnki: "Anki",
+  sourceNameTranslation: "Translation",
+  sourceNameGrammar: "Grammar",
+  sourceNameStrokePractice: "Stroke practice",
+  sourceNameImportedKanjiDictionaries: "Imported kanji dictionaries",
+  sourceNameWordsUsingKanji: "Related vocabulary",
+  sourceNameJitenKanjiFacts: "Jiten kanji facts",
+  sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
+  sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
+  sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
+  sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
+  sourceHelpRtk: "RTK keywords, elements, and stories.",
+  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
+  sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
+  uchisenMnemonicImages: "Uchisen mnemonic images",
+  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
+  noUchisenImagesYet: "No Uchisen images yet.",
+  generateUchisenImage: "Generate image",
+  generateUchisenImageToggle: "Generate image +",
+  uchisenMnemonicStory: "Mnemonic story",
+  uchisenImagePrompt: "Image prompt",
+  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
+  uchisenGeneratingImage: "Generating image...",
+  uchisenPublishingMnemonic: "Publishing mnemonic...",
+  uchisenGeneratedImage: "Uchisen image published.",
+  uchisenGenerateFailed: "Could not generate Uchisen image.",
+  uchisenLoginRequired: "Log in to Uchisen to generate images.",
+  noStoryAvailable: "No story available",
+  sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
+  sourceHelpWordsUsingKanji: "Related vocabulary.",
+  sourceHelpComponentGraph: "Kanji facts, components, radical images.",
+  recommendedJitendex: "Term definitions with examples.",
+  recommendedJmdict: "Core term definitions.",
+  recommendedJmnedict: "Proper names.",
+  recommendedWtyJapaneseJapanese: "Japanese-to-Japanese term definitions.",
+  recommendedPixivLight: "Pixiv terms.",
+  recommendedKanjidic: "Kanji facts.",
+  recommendedJpdbKanji: "JPDB kanji.",
+  recommendedKanjiumPitch: "Pitch accents only; add a term dictionary for definitions.",
+  recommendedJpdbv2Kana: "Recommended frequency badges from JPDB.",
+  recommendedBccwj: "Frequency badges from BCCWJ.",
+  recommendedJiten: "Frequency badges from Jiten.",
+  lines: "Lines",
+  tracks: "Tracks",
+  native: "Native",
+  options: "options",
+  option: "option",
+  line: "line",
+  translation: "Translation",
+  grammar: "Grammar",
+  meaning: "Meaning",
+  readSentenceAloud: "Read sentence aloud",
+  openSectionToTranslate: "Open this section to translate.",
+  translationUnavailable: "Translation unavailable.",
+  translating: "Translating...",
+  findingGrammar: "Finding grammar...",
+  grammarKnown: "Known",
+  grammarReview: "Review",
+  grammarDetails: "Details",
+  grammarFoundIn: "Found in",
+  grammarExample: "Example",
+  grammarGuide: "Guide",
+  grammarHideKnown: "Hide known",
+  grammarShowKnown: "Show known",
+  allDetectedGrammarKnown: "All detected grammar is marked known.",
+  grammarShown: "shown",
+  grammarKnownHidden: "known hidden",
+  grammarGenericShort: "Grammar point: {name}",
+  grammarGenericDetail: "Uses {name} in 「{match}」.",
+  grammarLevelCore: "Core",
+  // D43 interface-locale picker. Yomu is in scope for 33 interface
+  // languages and ships two. The picker names the other 31 and says what
+  // each is waiting on, because a language that is listed and then
+  // silently replaced by English is the worse of the two failures.
+  interfaceLocalesReady: "Ready now",
+  interfaceLocalesInProgress: "On the way",
+  interfaceLocaleRtlPending: "Right-to-left layout checks are still running",
+  interfaceLocaleTranslationPending: "Translation is still in progress",
+  interfaceLocaleBlockedNote: "These are coming. Each one shows what it is waiting on.",
+  interfaceLocaleReadyCount: "{ready} of {total} interface languages are ready."
+  }
+};
+const CARD_STATE_LABEL_KEYS = {
+  new: "stateNew",
+  learning: "stateLearning",
+  young: "stateYoung",
+  mature: "stateMature",
+  known: "stateKnown",
+  mastered: "stateMastered",
+  due: "stateDue",
+  failed: "stateFailed",
+  locked: "stateLocked",
+  "never-forget": "stateNeverForget",
+  blacklisted: "stateBlacklisted",
+  suspended: "stateSuspended",
+  "in-deck": "stateInDeck",
+  "not-in-deck": "stateNotInDeck",
+  redundant: "stateRedundant",
+  frequent: "stateFrequent",
+  unparsed: "stateUnparsed"
+};
+function parseUiCopyTable(rows) {
+  const copy = {};
+  rows.trim().split("\n").forEach((row) => {
+  const tab = row.indexOf("	");
+  if (tab < 0) {
+    const key = row.trim();
+    if (key) copy[key] = "";
+    return;
+  }
+  if (tab === 0) return;
+  copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+  });
+  return copy;
+}
+const JA_COPY = parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中
 interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
@@ -3858,7 +3858,7 @@ grammarGenericShort	文法項目: {name}
 grammarGenericDetail	「{match}」に「{name}」。
 grammarLevelCore	基本
 `);
-  const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
+const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -4592,165 +4592,165 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `);
-  const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
-  let jaGrammarRuleCopyPromise;
-  function resolveUiLanguage(language) {
-    if (language === "ja" || language === "en") return language;
-    return browserPrefersJapanese() ? "ja" : "en";
-  }
-  function nextExplicitUiLanguage(language) {
-    return resolveUiLanguage(language) === "ja" ? "en" : "ja";
-  }
-  function browserPrefersJapanese() {
-    const navigatorLanguages = typeof navigator === "undefined" ? [] : [
-      ...Array.isArray(navigator.languages) ? navigator.languages : [],
-      navigator.language
-    ];
-    return navigatorLanguages.some(isJapaneseLocale);
-  }
-  function isJapaneseLocale(value) {
-    return typeof value === "string" && value.toLowerCase().startsWith("ja");
-  }
-  async function grammarRuleText(language, ruleId) {
-    if (resolveUiLanguage(language) !== "ja") return void 0;
-    const copy = await loadJaGrammarRuleCopy();
-    return copy[ruleId];
-  }
-  function uiText(language, key) {
-    return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? COPY.en[key] : COPY.en[key];
-  }
-  function cardStateLabel(state, language, fallback = state) {
-    const key = CARD_STATE_LABEL_KEYS[state];
-    return key ? uiText(language, key) : fallback;
-  }
-  function audioSourceLabel(language, type) {
-    return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
-  }
-  function formatUiText(language, key, values) {
-    const message = uiText(language, key);
-    return isRtlInterface(language) ? formatIsolated(message, values) : Object.entries(values).reduce(
-      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-      message
-    );
-  }
-  function uiList(language, parts) {
-    return new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
-  }
-  const AUDIO_SOURCE_LABEL_KEYS = {
-    jpod101: "audioSourceJpod101",
-    "language-pod-101": "audioSourceLanguagePod101",
-    jisho: "audioSourceJisho",
-    bunpro: "audioSourceBunpro",
-    "lingua-libre": "audioSourceLinguaLibre",
-    wiktionary: "audioSourceWiktionary",
-    "jiten-tts": "audioSourceJitenTts",
-    "jpdb-tts": "audioSourceJpdbTts",
-    "text-to-speech": "audioSourceTextToSpeech",
-    "text-to-speech-reading": "audioSourceTextToSpeechReading",
-    custom: "audioSourceCustom",
-    "custom-json": "audioSourceCustomJson"
-  };
-  async function loadJaGrammarRuleCopy() {
-    jaGrammarRuleCopyPromise ??= requestJson(JA_GRAMMAR_RULE_COPY_URL, {
-      failureLabel: "Japanese grammar copy request",
-      timeoutMs: 15e3,
-      allowDirectCrossOrigin: true,
-      credentials: "omit",
-      anonymous: true
-    }).then(normalizeGrammarRuleCopy).catch(() => {
-      jaGrammarRuleCopyPromise = void 0;
-      return {};
-    });
-    return jaGrammarRuleCopyPromise;
-  }
-  function normalizeGrammarRuleCopy(value) {
-    if (!isGrammarRuleCopyRecord(value)) return {};
-    const copy = {};
-    for (const [ruleId, item] of Object.entries(value)) {
-      const ruleCopy = normalizeGrammarRuleCopyItem(item);
-      if (!ruleCopy) continue;
-      copy[ruleId] = ruleCopy;
-    }
-    return copy;
-  }
-  function normalizeGrammarRuleCopyItem(value) {
-    if (!isGrammarRuleCopyRecord(value)) return null;
-    const kind = grammarRuleCopyText(value.kind);
-    const short = grammarRuleCopyText(value.short);
-    const detail = grammarRuleCopyText(value.detail);
-    if (kind === void 0 || short === void 0 || detail === void 0) return null;
-    return { kind, short, detail };
-  }
-  function grammarRuleCopyText(value) {
-    return typeof value === "string" ? value : void 0;
-  }
-  function isGrammarRuleCopyRecord(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-  }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    writeYomuCompanionsTarget(globalThis, value);
-    if (typeof window !== "undefined" && window !== globalThis) {
-      const pageValue = pageCompartmentRegistryValue(value);
-      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-    }
-  }
-  function pageCompartmentRegistryValue(value) {
-    const cloneInto = globalThis.cloneInto;
-    if (typeof cloneInto !== "function") return value;
-    try {
-      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return void 0;
-    }
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
-  registerYomuCompanion("i18n", {
-    CARD_STATE_LABEL_KEYS,
-    audioSourceLabel,
-    cardStateLabel,
-    formatUiText,
-    grammarRuleText,
-    nextExplicitUiLanguage,
-    resolveUiLanguage,
-    uiList,
-    uiText
+const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
+let jaGrammarRuleCopyPromise;
+function resolveUiLanguage(language) {
+  if (language === "ja" || language === "en") return language;
+  return browserPrefersJapanese() ? "ja" : "en";
+}
+function nextExplicitUiLanguage(language) {
+  return resolveUiLanguage(language) === "ja" ? "en" : "ja";
+}
+function browserPrefersJapanese() {
+  const navigatorLanguages = typeof navigator === "undefined" ? [] : [
+  ...Array.isArray(navigator.languages) ? navigator.languages : [],
+  navigator.language
+  ];
+  return navigatorLanguages.some(isJapaneseLocale);
+}
+function isJapaneseLocale(value) {
+  return typeof value === "string" && value.toLowerCase().startsWith("ja");
+}
+async function grammarRuleText(language, ruleId) {
+  if (resolveUiLanguage(language) !== "ja") return void 0;
+  const copy = await loadJaGrammarRuleCopy();
+  return copy[ruleId];
+}
+function uiText(language, key) {
+  return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? COPY.en[key] : COPY.en[key];
+}
+function cardStateLabel(state, language, fallback = state) {
+  const key = CARD_STATE_LABEL_KEYS[state];
+  return key ? uiText(language, key) : fallback;
+}
+function audioSourceLabel(language, type) {
+  return uiText(language, AUDIO_SOURCE_LABEL_KEYS[type]);
+}
+function formatUiText(language, key, values) {
+  const message = uiText(language, key);
+  return isRtlInterface(language) ? formatIsolated(message, values) : Object.entries(values).reduce(
+  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+  message
+  );
+}
+function uiList(language, parts) {
+  return new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
+}
+const AUDIO_SOURCE_LABEL_KEYS = {
+  jpod101: "audioSourceJpod101",
+  "language-pod-101": "audioSourceLanguagePod101",
+  jisho: "audioSourceJisho",
+  bunpro: "audioSourceBunpro",
+  "lingua-libre": "audioSourceLinguaLibre",
+  wiktionary: "audioSourceWiktionary",
+  "jiten-tts": "audioSourceJitenTts",
+  "jpdb-tts": "audioSourceJpdbTts",
+  "text-to-speech": "audioSourceTextToSpeech",
+  "text-to-speech-reading": "audioSourceTextToSpeechReading",
+  custom: "audioSourceCustom",
+  "custom-json": "audioSourceCustomJson"
+};
+async function loadJaGrammarRuleCopy() {
+  jaGrammarRuleCopyPromise ??= requestJson(JA_GRAMMAR_RULE_COPY_URL, {
+  failureLabel: "Japanese grammar copy request",
+  timeoutMs: 15e3,
+  allowDirectCrossOrigin: true,
+  credentials: "omit",
+  anonymous: true
+  }).then(normalizeGrammarRuleCopy).catch(() => {
+  jaGrammarRuleCopyPromise = void 0;
+  return {};
   });
+  return jaGrammarRuleCopyPromise;
+}
+function normalizeGrammarRuleCopy(value) {
+  if (!isGrammarRuleCopyRecord(value)) return {};
+  const copy = {};
+  for (const [ruleId, item] of Object.entries(value)) {
+  const ruleCopy = normalizeGrammarRuleCopyItem(item);
+  if (!ruleCopy) continue;
+  copy[ruleId] = ruleCopy;
+  }
+  return copy;
+}
+function normalizeGrammarRuleCopyItem(value) {
+  if (!isGrammarRuleCopyRecord(value)) return null;
+  const kind = grammarRuleCopyText(value.kind);
+  const short = grammarRuleCopyText(value.short);
+  const detail = grammarRuleCopyText(value.detail);
+  if (kind === void 0 || short === void 0 || detail === void 0) return null;
+  return { kind, short, detail };
+}
+function grammarRuleCopyText(value) {
+  return typeof value === "string" ? value : void 0;
+}
+function isGrammarRuleCopyRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+let sandboxCompanions = {};
+function registerYomuCompanion(key, value) {
+  writeYomuCompanions({
+  ...yomuCompanions(),
+  [key]: value
+  });
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function writeYomuCompanions(value) {
+  sandboxCompanions = value;
+  writeYomuCompanionsTarget(globalThis, value);
+  if (typeof window !== "undefined" && window !== globalThis) {
+  const pageValue = pageCompartmentRegistryValue(value);
+  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+  }
+}
+function pageCompartmentRegistryValue(value) {
+  const cloneInto = globalThis.cloneInto;
+  if (typeof cloneInto !== "function") return value;
+  try {
+  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+  } catch {
+  return void 0;
+  }
+}
+function writeYomuCompanionsTarget(target, value) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return false;
+  const writable = target;
+  try {
+  writable.__yomuCompanions = value;
+  return true;
+  } catch {
+  }
+  try {
+  Object.defineProperty(writable, "__yomuCompanions", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value
+  });
+  return true;
+  } catch {
+  return false;
+  }
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+registerYomuCompanion("i18n", {
+  CARD_STATE_LABEL_KEYS,
+  audioSourceLabel,
+  cardStateLabel,
+  formatUiText,
+  grammarRuleText,
+  nextExplicitUiLanguage,
+  resolveUiLanguage,
+  uiList,
+  uiText
+});
 })();

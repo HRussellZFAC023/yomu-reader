@@ -11,18 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.eac196c86700.user.js#sha256=6sGWyGcA0l7rVsWHCk6s0ANTEBAFp+Kw2bUBzzi8pRg=
-// @require https://yomureader.com/greasyfork/yomu-audio.e4ac9f5b2470.user.js#sha256=5KyfWyRwB5YhOGJEV5B3o/AwtEVeB52l6J8EFQimIIw=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.d6f64a37c9d0.user.js#sha256=1vZKN8nQaGieNCBkKVr2Zt+FfpD/xmwYxG0f13CTxgc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.0e830a312f8b.user.js#sha256=DoMKMS+LkWVLvA89IO1Ih9o4LjBtWbWY7sznXJZX3ls=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.f7c8b022a66d.user.js#sha256=98iwIqZtF7/r5S3Qivhd0PO7wN5KbVRjqxMwKNYK0ag=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.778a5b320f6d.user.js#sha256=d4pbMg9t8Dud0L1PR25LL1Dz4jhVtgdzdL9Tnz/7MYc=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.43ddf62c75bb.user.js#sha256=Q932LHW7rRMOoaFX6gLP5BpaxXjEK6xO+vK65F0NFtI=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.7c857c355389.user.js#sha256=fIV8NVOJG0eXhu4elPvbsypZsquYSlNsO3Ru+FNiE2A=
-// @require https://yomureader.com/greasyfork/yomu-jiten.2c6c0c80ea91.user.js#sha256=LGwMgOqRtccwvmqksXJuvNeyvA8zxdYnvXDcZQdxOHo=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.603baa4f0a47.user.js#sha256=YDuqTwpH2az+Zpw8HE9NFza07eBTvOt9FU6mDsV9kug=
-// @require https://yomureader.com/greasyfork/yomu-video.8634ae4d56f2.user.js#sha256=hjSuTVbyOjGO+TwXKNJt1yUEg5RcSOu08sLLDQL0pOk=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0dc5caf7c138.user.js#sha256=DcXK98E4Q6DZy4/U/5Kv8yj9yAR9lwdQ7XRZsltukaE=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org

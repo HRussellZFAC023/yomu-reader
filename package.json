@@ -26,18 +26,12 @@
   ],
   "yomu": {
     "allowedRequireUrls": [
-      "https://yomureader.com/greasyfork/yomu-anki.user.js",
-      "https://yomureader.com/greasyfork/yomu-audio.user.js",
-      "https://yomureader.com/greasyfork/yomu-wanikani.user.js",
-      "https://yomureader.com/greasyfork/yomu-jpdb.user.js",
-      "https://yomureader.com/greasyfork/yomu-jiten.user.js",
-      "https://yomureader.com/greasyfork/yomu-kanji-study.user.js",
-      "https://yomureader.com/greasyfork/yomu-settings-surface.user.js",
-      "https://yomureader.com/greasyfork/yomu-video.user.js"
+      "https://yomureader.com/greasyfork/yomu-runtime.user.js"
     ]
   },
   "scripts": {
     "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
+    "assets:prune": "node scripts/prune-content-addressed-assets.mjs --write",
     "build:academy": "npm run academy:lessons:validate && npm run build:academy:prevalidated",
     "build:academy:prevalidated": "vite build --config config/vite/academy.config.ts && node scripts/sync-academy.cjs",
     "gate:academy-release": "npm run release:integrity:checkpoint && node scripts/academy-release-gate.mjs",
@@ -223,7 +217,7 @@
     "smoke:pitch-underline:webkit": "YOMU_PITCH_UNDERLINE_ENGINE=webkit node scripts/pitch-underline-smoke.mjs",
     "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "manual:reader-sites": "node scripts/manual/reader-sites-smoke.mjs",
-    "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
+    "smoke:release": "npm run smoke:userscript-boot && npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
     "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:ocr-transform-register && npm run smoke:youtube-paused-frame-register",
@@ -232,6 +226,7 @@
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "smoke:study-personas": "node scripts/study-personas-smoke.mjs",
     "smoke:study-flow-stability": "node scripts/study-flow-stability-smoke.mjs",
+    "smoke:userscript-boot": "node scripts/userscript-boot-smoke.mjs",
     "manual:subtitles": "node scripts/manual/subtitle-player-smoke.mjs",
     "smoke:subtitle-network": "node scripts/subtitle-network-resilience-smoke.mjs",
     "smoke:tatoeba-contract": "node scripts/tatoeba-contract-smoke.mjs",

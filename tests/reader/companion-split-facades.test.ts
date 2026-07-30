@@ -234,8 +234,23 @@ describe('Greasy Fork split manifest', () => {
         expect(readFileSync(entryPath, 'utf8')).toContain(`registerYomuCompanion('${id}'`);
         expect(readFileSync(path.join(repoRoot, 'src/reader/companions/register-build-companions.ts'), 'utf8'))
             .toContain(`import './${id}';`);
+    });
+
+    it('loads every focused companion through one deduplicated userscript runtime', () => {
+        const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
+        expect(runtime).toBeDefined();
+        expect(readFileSync(path.join(repoRoot, runtime!.entry), 'utf8'))
+            .toContain("import './register-build-companions';");
         expect(packageJson.yomu?.allowedRequireUrls ?? [])
-            .toContain(`https://yomureader.com/greasyfork/${library!.fileName}`);
+            .toEqual([`https://yomureader.com/greasyfork/${runtime!.fileName}`]);
+    });
+
+    it('removes only the generated IIFE wrapper indent from the injected runtime', () => {
+        const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
+        expect(runtime).toBeDefined();
+        const built = readFileSync(path.join(repoRoot, 'dist', 'greasyfork', runtime!.fileName), 'utf8');
+        expect(built).toMatch(/^\(function\(\) \{\n"use strict";\nfunction /);
+        expect(built).toContain('\n  return ');
     });
 
     it.each([

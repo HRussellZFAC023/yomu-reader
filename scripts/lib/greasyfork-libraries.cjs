@@ -87,6 +87,14 @@ const GREASY_FORK_LIBRARIES = [
     fileName: 'yomu-video.user.js',
     globalName: 'YomuVideoLibrary',
   },
+  {
+    id: 'runtime',
+    label: 'Yomu Runtime',
+    entry: 'src/reader/companions/runtime.ts',
+    fileName: 'yomu-runtime.user.js',
+    globalName: 'YomuRuntimeLibrary',
+    userscriptRequire: true,
+  },
 ];
 
 function readerCssResourceUrl() {
@@ -105,7 +113,11 @@ function greasyForkLibraryUrl(fileName) {
 }
 
 function greasyForkLibraryUrls() {
-  return GREASY_FORK_LIBRARIES.map(library => greasyForkLibraryUrl(library.fileName));
+  return userscriptRequireLibraries().map(library => greasyForkLibraryUrl(library.fileName));
+}
+
+function userscriptRequireLibraries() {
+  return GREASY_FORK_LIBRARIES.filter(library => library.userscriptRequire === true);
 }
 
 // ---------------------------------------------------------------------------
@@ -155,4 +167,5 @@ module.exports = {
   immutableReaderCssFileName,
   immutableReaderCssUrl,
   readerCssResourceUrl,
+  userscriptRequireLibraries,
 };

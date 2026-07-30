@@ -4,7 +4,7 @@ const { DIST_USERSCRIPT_PATH, ROOT, fileExists, readText, writeText } = require(
 
 for (const filePath of generatedScriptPaths()) {
   const code = readText(filePath);
-  const trimmed = trimGeneratedEmptyCopyRows(filePath === DIST_USERSCRIPT_PATH ? trimCommonWrapperIndent(code) : code);
+  const trimmed = trimGeneratedEmptyCopyRows(filePath.endsWith('.user.js') ? trimCommonWrapperIndent(code) : code);
 
   if (trimmed !== code) writeText(filePath, trimmed);
 }

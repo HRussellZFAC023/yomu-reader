@@ -2,12 +2,12 @@
 const { createHash } = require('node:crypto');
 const path = require('node:path');
 const {
-  GREASY_FORK_LIBRARIES,
   greasyForkLibraryPath,
   greasyForkLibraryUrl,
   immutableLibraryUrl,
   immutableReaderCssUrl,
   readerCssResourceUrl,
+  userscriptRequireLibraries,
 } = require('./lib/greasyfork-libraries.cjs');
 const {
   DIST_READER_CSS_PATH,
@@ -22,7 +22,7 @@ const {
 
 let code = readBuiltUserscript();
 
-for (const library of GREASY_FORK_LIBRARIES) {
+for (const library of userscriptRequireLibraries()) {
   const relativePath = greasyForkLibraryPath(library.fileName);
   const libraryFile = path.join(ROOT, 'dist', relativePath);
   if (!fileExists(libraryFile)) fail(`${relativePath} is missing. Run node scripts/build-greasyfork-libraries.mjs first.`);

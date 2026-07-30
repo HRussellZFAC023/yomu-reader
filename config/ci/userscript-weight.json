@@ -1,0 +1,5 @@
+{
+  "maxInjectedBytes": 5874598,
+  "measuredAtVersion": "1.8.44",
+  "includes": "dist/yomu.user.js plus every unconditional @require"
+}

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { execFileSync } = require('node:child_process');
 const { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
 const { createHash } = require('node:crypto');
 const { dirname, join } = require('node:path');
@@ -14,6 +15,7 @@ const {
   greasyForkLibraryPath,
   immutableLibraryFileName,
   immutableReaderCssFileName,
+  userscriptRequireLibraries,
 } = require('./lib/greasyfork-libraries.cjs');
 const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
 const { stampSiteNav } = require('./lib/hosted-site-nav.cjs');
@@ -47,9 +49,12 @@ copyBuiltAsset('dist/yomu.css', `docs/public/${immutableReaderCssFileName(readFi
 for (const library of GREASY_FORK_LIBRARIES) {
   const libraryPath = greasyForkLibraryPath(library.fileName);
   copyBuiltAsset(`dist/${libraryPath}`, `docs/public/${libraryPath}`);
-  // Immutable content-addressed companion copy for @require pinning. Old
-  // hashed copies from previous releases stay deployed on purpose: script
-  // managers with an older header must keep validating their pinned URLs.
+}
+for (const library of userscriptRequireLibraries()) {
+  const libraryPath = greasyForkLibraryPath(library.fileName);
+  // Only the consolidated runtime is pinned by the distributed userscript.
+  // Focused companions above are mutable hosted assets; publishing immutable
+  // copies of those too would recreate twelve unreferenced files per release.
   const immutableName = immutableLibraryFileName(library.fileName, readFileSync(join(root, `dist/${libraryPath}`), 'utf8'));
   copyBuiltAsset(`dist/${libraryPath}`, `docs/public/greasyfork/${immutableName}`);
 }
@@ -58,6 +63,7 @@ syncCanonicalStudyRoute();
 syncNewTabCompatibilityAlias();
 syncUserscript();
 stampStandaloneAppearanceBoot();
+pruneContentAddressedAssets();
 
 function stampStandaloneAppearanceBoot() {
   for (const page of APPEARANCE_BOOT_PAGES) {
@@ -70,6 +76,13 @@ function stampStandaloneAppearanceBoot() {
     if (stamped !== source) writeFileSync(page, stamped);
     console.log(`Stamped pre-paint appearance boot and site nav into ${page}`);
   }
+}
+
+function pruneContentAddressedAssets() {
+  execFileSync(process.execPath, [join(root, 'scripts', 'prune-content-addressed-assets.mjs'), '--write'], {
+    cwd: root,
+    stdio: 'inherit',
+  });
 }
 
 function syncUserscript() {

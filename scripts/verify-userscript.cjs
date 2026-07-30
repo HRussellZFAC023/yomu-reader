@@ -21,8 +21,16 @@ const {
   userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
+const {
+  GREASY_FORK_LIBRARIES,
+  greasyForkLibraryPath,
+  immutableLibraryUrl,
+  immutableReaderCssUrl,
+  readerCssResourceUrl,
+  userscriptRequireLibraries,
+} = require('./lib/greasyfork-libraries.cjs');
 const { collectBundledDependencyDrift, formatBundledDependencyDrift } = require('./lib/bundled-dependency-lock.cjs');
+const { userscriptWeightReport } = require('./lib/userscript-weight.cjs');
 
 const READER_CSS_NETWORK_SKIP_ENV = 'YOMU_VERIFY_SKIP_NETWORK';
 const READER_CSS_REQUEST_TIMEOUT_MS = 30_000;
@@ -109,6 +117,7 @@ if (lines.length < MIN_READABLE_LINE_COUNT || maxLineLength > MAX_READABLE_LINE_
 }
 failIfGreasyForkSizeExceeded(size);
 warnIfNearGreasyForkSizeLimit(size);
+assertInjectedUserscriptWeight();
 assertBundledDependenciesMatchLock();
 assertSyncedDocsAssets();
 assertNewTabCacheBusting();
@@ -127,6 +136,17 @@ function hasMetadataValue(key, expectedValue) {
 
 function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
+
+function assertInjectedUserscriptWeight() {
+  const report = userscriptWeightReport(ROOT);
+  if (report.previousMaxInjectedBytes != null && report.maxInjectedBytes > report.previousMaxInjectedBytes) {
+    fail(`injected userscript budget increased from ${formatCount(report.previousMaxInjectedBytes)} to ${formatCount(report.maxInjectedBytes)} bytes; the ratchet may only move down.`);
+  }
+  if (report.totalBytes > report.maxInjectedBytes) {
+    fail(`userscript plus unconditional @requires total ${formatCount(report.totalBytes)} bytes, over the ${formatCount(report.maxInjectedBytes)}-byte injected-weight ratchet.`);
+  }
+  console.log(`[verify] userscript plus ${formatCount(report.files.length - 1)} unconditional @require(s): ${formatCount(report.totalBytes)} bytes (ratchet ${formatCount(report.maxInjectedBytes)}).`);
 }
 
 // Jiten color state parity: shipped artifacts must not contain standalone
@@ -153,9 +173,9 @@ function assertNoStandaloneLegacyCopy() {
 }
 
 function assertCompanionBuildVersions() {
-  const settingsLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'settings-surface');
-  if (!settingsLibrary) fail('Yomu Settings Surface companion is missing from the Greasy Fork library manifest.');
-  const relativePath = `dist/${greasyForkLibraryPath(settingsLibrary.fileName)}`;
+  const runtimeLibrary = userscriptRequireLibraries()[0];
+  if (!runtimeLibrary) fail('The distributed userscript runtime companion is missing from the Greasy Fork library manifest.');
+  const relativePath = `dist/${greasyForkLibraryPath(runtimeLibrary.fileName)}`;
   const companionPath = join(ROOT, relativePath);
   if (!fileExists(companionPath)) fail(`${relativePath} is missing. Run npm run build first.`);
   const companionCode = readText(companionPath);
@@ -261,7 +281,7 @@ function assertCompanionRequireSriHashes() {
   // companion URL under a pinned hash bricked all Tampermonkey installs the
   // moment the next release changed the served bytes.
   const requireUrls = userscriptMetadataValues(code, 'require');
-  for (const library of GREASY_FORK_LIBRARIES) {
+  for (const library of userscriptRequireLibraries()) {
     const libraryPath = greasyForkLibraryPath(library.fileName);
     const content = readText(join(ROOT, 'dist', libraryPath));
     const expectedHash = createHash('sha256').update(content).digest('base64');
@@ -276,8 +296,8 @@ function assertCompanionRequireSriHashes() {
 }
 
 function settingsSurfaceCompanionCode() {
-  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'settings-surface');
-  if (!library) fail('Yomu Settings Surface companion is missing from the Greasy Fork library manifest.');
+  const library = userscriptRequireLibraries()[0];
+  if (!library) fail('The distributed userscript runtime companion is missing from the Greasy Fork library manifest.');
   const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(library.fileName));
   if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(library.fileName)} is missing. Run npm run build first.`);
   return readText(libraryPath);
@@ -295,8 +315,8 @@ function assertLocalDictionarySplitBoundary() {
 }
 
 function assertAnnotationsSplitBoundary() {
-  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'annotations');
-  if (!library) fail('Yomu Annotations companion is missing from the Greasy Fork library manifest.');
+  const library = userscriptRequireLibraries()[0];
+  if (!library) fail('The distributed userscript runtime companion is missing from the Greasy Fork library manifest.');
   const relativePath = `dist/${greasyForkLibraryPath(library.fileName)}`;
   if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
   const companionCode = readText(join(ROOT, relativePath));
@@ -334,8 +354,8 @@ function assertZipReaderBundled() {
 // Shared shape for the ADR-0003 surfaces: every listed implementation must be
 // absent from the size-limited core and present in the companion that owns it.
 function assertSplitBoundary(libraryId, label, signatures) {
-  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === libraryId);
-  if (!library) fail(`${label} companion is missing from the Greasy Fork library manifest.`);
+  const library = userscriptRequireLibraries()[0];
+  if (!library) fail(`The distributed userscript runtime companion is missing while checking ${label}.`);
   const relativePath = `dist/${greasyForkLibraryPath(library.fileName)}`;
   if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
   const companionCode = readText(join(ROOT, relativePath));
@@ -414,8 +434,8 @@ function assertJitenSplitBoundary() {
 }
 
 function assertKanjiStudySplitBoundary() {
-  const kanjiStudyLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'kanji-study');
-  if (!kanjiStudyLibrary) fail('Yomu Kanji/Study companion is missing from the Greasy Fork library manifest.');
+  const kanjiStudyLibrary = userscriptRequireLibraries()[0];
+  if (!kanjiStudyLibrary) fail('The distributed userscript runtime companion is missing while checking Yomu Kanji/Study.');
   const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(kanjiStudyLibrary.fileName));
   if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(kanjiStudyLibrary.fileName)} is missing. Run npm run build first.`);
   const companionCode = readText(libraryPath);
@@ -449,8 +469,8 @@ function assertKanjiStudySplitBoundary() {
 }
 
 function assertAnkiRenderSplitBoundary() {
-  const ankiLibrary = GREASY_FORK_LIBRARIES.find(library => library.id === 'anki');
-  if (!ankiLibrary) fail('Yomu Anki companion is missing from the Greasy Fork library manifest.');
+  const ankiLibrary = userscriptRequireLibraries()[0];
+  if (!ankiLibrary) fail('The distributed userscript runtime companion is missing while checking Yomu Anki.');
   const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(ankiLibrary.fileName));
   if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(ankiLibrary.fileName)} is missing. Run npm run build first.`);
   const companionCode = readText(libraryPath);

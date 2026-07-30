@@ -1192,7 +1192,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       refuse; Academy is now 3.4 MB compressed and 16.7 MB parsed in one file. Do, in order: re-encode the
       13 BGM tracks to Opus and make the precache demand-driven; run the 222 PNGs through the existing
       WebP export; turn on minify for the hosted configs; force br/zstd on `*.js`/`*.css` at the zone.
-- [ ] **A35.21 — HIGH: 8.55 MB of JS is injected into every page, half of the companion bytes are
+- [x] **A35.21 — HIGH: 8.55 MB of JS is injected into every page, half of the companion bytes are
       duplicated core, and the 2 MB gate reads one file.** `dist/yomu.user.js` = 1,736,020 B and the 12
       companions in `dist/greasyfork/` = 6,816,913 B, so 8,552,933 B across 13 scripts, all unconditional
       `@require`s (`dist/yomu.user.js:14-25`) under `@match *://*/*` and `@match file:///*` (:12-13).
@@ -1210,6 +1210,10 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       so the other 11 stop carrying it; run the size check over every emitted companion; skip the 473 KB
       sheet install on pages the reader has no work on. Cycle 10 asks for an early budget against the 2 MB
       core cap and does not describe the aggregate payload or the duplication the split introduced.
+      **Closed in `cx-weight-20260730`:** the stale total re-measured at 9,863,031 bytes. The distributed
+      header now loads one Rollup-deduplicated, wrapper-trimmed `yomu-runtime` companion, for 5,874,598
+      injected bytes across two scripts (3,988,433 bytes / 40.4% less). The gate measures both files from the actual `@require`
+      metadata, rejects unmeasurable dependencies, and holds an aggregate ratchet that cannot increase.
 - [ ] **A35.22 — OCR repositioning forces layout on every scroll frame.** `schedulePosition()`
       (`src/reader/ocr/controller.ts:1792-1803`) arms one rAF that runs `positionVideoFrames`,
       `positionCanvasFrames`, `positionBackgroundFrames`, then `positionState(image)` for every state, then
@@ -1297,7 +1301,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       as a gate; fix the AGENTS.md line; prune the entry-point list to what actually runs and re-file the
       genuinely dead module. U63 records that `fallow:dead-code` exits non-zero; it does not cover the
       config rot or the unpassable `qa`.
-- [ ] **A35.25 — docs/public keeps every content-addressed build forever.** `docs/public/greasyfork` is
+- [x] **A35.25 — docs/public keeps every content-addressed build forever.** `docs/public/greasyfork` is
       **385 MB across 536 tracked files**, of which **198 are copies of `yomu-settings-surface`**; there
       are also **48** tracked `docs/public/yomu.<hash>.css` copies. `git count-objects -vH` reports
       size-pack **4.68 GiB**. There is no pruning in the sync path: `scripts/sync-docs-userscript.cjs`
@@ -1308,6 +1312,9 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       serve nobody, and the weight is paid on every clone, every VitePress build and every Pages deploy.
       Do: keep the last N releases plus anything referenced by a still-supported header, prune the rest in
       one commit, and put the retention window in the sync script next to that comment.
+      **Closed in `cx-weight-20260730`:** sync now keeps current built/hosted headers, 40 release tags and
+      hosted-header revisions (7.68 days at the measured cadence), plus the frozen v1.8.2 store header.
+      The pruning gate fails on either an unreferenced committed hash or a missing supported pin.
 
 **Polish**
 

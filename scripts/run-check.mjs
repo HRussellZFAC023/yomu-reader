@@ -107,6 +107,7 @@ async function lane(...stages) {
 // so is immune to stage order; running it first just fails fast.
 try {
     await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
+    await runStage(stage('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check'));
     await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
 } catch {
     printSummary(false);
@@ -149,6 +150,16 @@ const results = await Promise.allSettled(lanes);
 const failures = results.filter(r => r.status === 'rejected');
 if (failures.length) {
     for (const f of failures) console.error(`[check] ${f.reason.message}`);
+    printSummary(false);
+    process.exit(1);
+}
+
+try {
+    // The metadata header is final only after the build lane has rewritten its
+    // immutable @require URL. Count the main script and every unconditional
+    // dependency before spending time on the hosted Academy/docs tail.
+    await runStage(stage('userscript-weight', 'node scripts/check-userscript-weight.cjs'));
+} catch {
     printSummary(false);
     process.exit(1);
 }

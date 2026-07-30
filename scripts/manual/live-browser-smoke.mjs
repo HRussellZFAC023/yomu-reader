@@ -25,7 +25,7 @@ import {
 import { waitForSelectorText } from '../lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('../lib/greasyfork-libraries.cjs');
+const { greasyForkLibraryPath, userscriptRequireLibraries } = require('../lib/greasyfork-libraries.cjs');
 const { assertNoRemoteExecutableMetadata, userscriptMetadataValues } = require('../lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
@@ -33,7 +33,7 @@ const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hr
 const EXPECTED_LIVE_VERSION = process.env.YOMU_LIVE_EXPECT_VERSION
     || (process.env.YOMU_LIVE_EXPECT_PACKAGE_VERSION === '1' ? pkg.version : '');
 const USERSCRIPT_PATH = path.join(DIST, 'yomu.user.js');
-const COMPANION_SCRIPT_PATHS = GREASY_FORK_LIBRARIES.map(library => path.join(DIST, greasyForkLibraryPath(library.fileName)));
+const COMPANION_SCRIPT_PATHS = userscriptRequireLibraries().map(library => path.join(DIST, greasyForkLibraryPath(library.fileName)));
 const CSS_PATH = path.join(DIST, 'yomu.css');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const ANKI_URL = process.env.YOMU_ANKI_CONNECT_URL || 'http://127.0.0.1:8765';
