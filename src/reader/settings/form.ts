@@ -47,6 +47,7 @@ import {
     INTERFACE_LOCALES,
     LEARNER_LANGUAGES,
     LOCALE_CATALOGS,
+    isolate,
     learnerLanguageById,
     resolveMessage,
     setupMessageIdFor,
@@ -190,16 +191,21 @@ function renderInterfaceLocaleSelect(settings: ReaderSettings): string {
 }
 
 function interfaceLocaleOptionLabel(locale: InterfaceLocale): string {
+    // Each side is bidi-isolated. The option carries dir="rtl" for Arabic and
+    // Farsi, so an unisolated "العربية — Arabic" reorders: the Latin half moves
+    // and the whole label detaches to the right. FSI/PDI is the only isolation
+    // available inside an <option>, which is the case direction.ts's isolate()
+    // was written for.
     return locale.nativeName === locale.englishName
-        ? locale.nativeName
-        : `${locale.nativeName} — ${locale.englishName}`;
+        ? isolate(locale.nativeName)
+        : `${isolate(locale.nativeName)} — ${isolate(locale.englishName)}`;
 }
 
 function renderBlockedInterfaceLocaleOption(locale: InterfaceLocale, language: InterfaceLanguage): string {
     const reason = uiText(language, interfaceLocaleBlockerCopyKey(locale));
     const nativeReason = blockedReasonInLocale(locale);
     return `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? 'translation-incomplete')}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${reason}`)}</option>`;
+                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? 'translation-incomplete')}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
 }
 
 function interfaceLocaleBlockerCopyKey(locale: InterfaceLocale): 'interfaceLocaleRtlPending' | 'interfaceLocaleTranslationPending' {

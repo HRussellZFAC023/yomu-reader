@@ -79,6 +79,33 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(HUMAN_TIER_ESCALATION_PHRASES).toContain('cannot be undone');
     });
 
+    // The check above escalates on SOURCE TEXT, so it passes even with the whole
+    // rule table deleted: a string classified human-critical by its ID, whose
+    // text contains no high-stakes phrase, would silently drop to the tier that
+    // may ship as raw machine output and nothing would fail. These pin the table
+    // itself. (The rule count is 10, not the 9 both the implementation report and
+    // its review stated — measured here rather than quoted.) If a number here moves, the tiering moved: read the diff and
+    // update it deliberately rather than to make the suite pass.
+    it('keeps every tier rule, and the tier split, where it was measured', () => {
+        expect(COPY_TIER_RULE_NAMES).toHaveLength(10);
+
+        const messages = registerChromeMessages(chromeMessageSource());
+        const humanCritical = messages.filter((message) => message.tier === 'human-critical');
+        expect(messages).toHaveLength(1229);
+        expect(humanCritical).toHaveLength(375);
+
+        // Split by WHAT classified each one. 369 are human-critical from their ID
+        // alone, so deleting the rule table collapses that number while the
+        // source-text check above stays green. The other 6 reach the tier only
+        // through text escalation, which is exactly the case that rule exists for
+        // (chrome.firefoxAuthenticationInfoDenied is one: nothing in the ID says
+        // it discusses credentials). Both counts are pinned because a change in
+        // either direction is a policy change.
+        const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
+        expect(byIdAlone).toHaveLength(369);
+        expect(humanCritical.length - byIdAlone.length).toBe(6);
+    });
+
     it('gives hosted-docs prose a stable ID that moves when the prose is edited', () => {
         // The docs map is keyed by the English source string, so a comma edit
         // orphans the Japanese translation silently. A content-addressed ID turns
