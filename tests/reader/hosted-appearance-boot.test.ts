@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { hostedAccentCssVariables, sanitizeHostedAccentColor } from '../../src/reader/core/hosted-accent-css';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 const ROOT = process.cwd();
 const START_MARKER = '/* yomu:appearance-boot:start */';
@@ -121,5 +122,15 @@ describe('stamped hosted surfaces', () => {
 
     it('keeps the new-tab template marked so the study build and extension can stamp it', () => {
         expect(stampedBootBlock(readProjectFile('public/newtab/index.html'))).toBeDefined();
+    });
+
+    // The boot reads settings.theme BEFORE its own 'auto' fallback, so a stored
+    // default of 'light' makes that fallback unreachable and the operating
+    // system's dark preference can never win. Measured on the live site: with
+    // prefers-color-scheme: dark the page still resolved colorScheme 'light' and
+    // a white body while the dark rules sat unused. Pin the default so a revert
+    // to 'light' fails here instead of on someone's screen.
+    it('defaults the theme to auto so the operating system decides until the learner does', () => {
+        expect(DEFAULT_SETTINGS.theme).toBe('auto');
     });
 });
