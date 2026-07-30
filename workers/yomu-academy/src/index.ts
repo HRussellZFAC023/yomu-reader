@@ -73,7 +73,15 @@ export default {
             if (readerDevice && request.method === 'DELETE') {
                 return await handleAccountRevokeReaderDevice(request, env, clock(), readerDevice[1]);
             }
-            const route = `${request.method} ${pathname}`;
+            // HEAD is a GET without a body, so it must reach the GET handler:
+            // the switch below matches on literals like 'GET /academy/api/health'
+            // and its default throws 404, which made every readable route in
+            // this Worker answer HEAD with 404 while GET returned 200. Uptime
+            // monitors, link checkers and prefetch all use HEAD, so the academy
+            // API reported itself down to any of them while perfectly healthy.
+            // The other Workers already fold HEAD into their read-method sets.
+            const method = request.method === 'HEAD' ? 'GET' : request.method;
+            const route = `${method} ${pathname}`;
             switch (route) {
                 case 'POST /academy/api/session':
                     ctx.waitUntil(pruneRateWindows(env, clock).catch(() => undefined));

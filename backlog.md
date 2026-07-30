@@ -581,7 +581,22 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       (T4 covers the supply work), and treat the shelf's readiness field as unfit for a UI to read — U62
       already records that `languages.json` lies; this is the same lie in the per-shelf files, on the
       definition axis rather than the headword axis T4 measures.
-- [ ] **A35.7 — HIGH: `@cijapanese` is dead in the docs, in that page's JSON-LD, and in the shipped
+- [x] **A35.7 — FIXED 2026-07-29.** `@cijapanese` was a RENAME, not a deletion: the surviving
+      `/c/ComprehensibleJapanese` URL carries `canonicalBaseUrl: @nijapanese`, titled "Natural Japanese
+      (NIJ)", same creator, so that entry is repointed and renamed. No live handle could be found for
+      `@chinese-muimui` (`@muimui` resolves but is a different channel — nothing on it carries むいむい), so
+      it is dropped rather than pointed somewhere wrong. The docs references the ticket lists were already
+      removed by the A3 narrative rewrite. The generic fix shipped as `npm run check:channels`, which curls
+      every handle: **99/99 resolve**. It stays OFF the release path deliberately — it needs the network and
+      YouTube rate-limits, so it belongs on a schedule rather than in front of a release.
+      Two things worth keeping: the checker's first version silently skipped
+      `{ handle: '@はいじぃ迷作劇場', name: "Haiji's ..." }` because the name is double-quoted, so it now
+      parses handles independently of row formatting and hard-fails when its count disagrees with the file.
+      And `tests/reader/youtube-filter.test.ts` hardcoded the roster size in six places; those now derive
+      from `YOUTUBE_CHANNEL_RECOMMENDATION_COUNT`. **Note for whoever touches that file next: it fails 8
+      tests on unmodified `origin/main` when run standalone and only passes inside the sharded CI suite, so
+      judge it with `check:release`, never with a single-file run.**
+      Original finding: **`@cijapanese` is dead in the docs, in that page's JSON-LD, and in the shipped
       channel roster, and nothing in the repo ever checks a link.** Verified with a Chrome UA following
       redirects on 2026-07-29: `youtube.com/@cijapanese` → 404 and `youtube.com/@chinese-muimui` → 404,
       while controls `@nihongoconteppei` and `@kurzgesagt_jp` → 200. Both dead handles ship in
@@ -673,7 +688,12 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       (`tests/reader/settings-form/05-localization-layout-scan`, `06-`, `07-`). Wrong key and rate limit
       are the two failures a new learner meets first. Do: map thrown errors to copy keys at the toast
       boundary and add one test that asserts a ja-interface toast contains no ASCII sentence. Feeds D43.
-- [ ] **A35.13 — the Academy Worker 404s HEAD on every one of its GET routes.** Measured: `GET
+- [x] **A35.13 — FIXED 2026-07-29 (deploy pending).** Reproduced first: `GET /academy/api/health` 200,
+      `HEAD` on the same URL 404, while `support.yomureader.com/status` and
+      `dictionaries.yomureader.com/healthz` both HEAD 200. `workers/yomu-academy/src/index.ts` now folds
+      HEAD into GET before building the `route` string, so every readable route answers HEAD the way the
+      other Workers already do. Needs a worker deploy to take effect; re-check both verbs after it.
+      Original finding: **the Academy Worker 404s HEAD on every one of its GET routes.** Measured: `GET
       https://yomureader.com/academy/api/health` → 200; `HEAD` on the same URL → **404** with
       `content-type: application/json`. The other Workers answer HEAD correctly — `support.yomureader.com/status`,
       `dictionaries.yomureader.com/healthz` both HEAD 200. The cause is

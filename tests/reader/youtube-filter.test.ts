@@ -930,7 +930,7 @@ describe('YouTube immersion filter', () => {
     });
 
     it('renders channel suggestions as an inline YouTube-style shelf instead of a popup card panel', async () => {
-        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
+        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(99);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
             location: YOUTUBE_RESULTS_LOCATION,
@@ -947,7 +947,7 @@ describe('YouTube immersion filter', () => {
         expect(shelf).not.toBeNull();
         expect(shelf.parentElement?.tagName.toLowerCase()).toBe('main');
         expect(shelf.textContent).toContain('Start your Japanese YouTube feed');
-        expect(shelf.textContent).toContain('100 curated channels');
+        expect(shelf.textContent).toContain(`${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels`);
         expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(8);
         expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
         expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toBe('');
@@ -961,7 +961,7 @@ describe('YouTube immersion filter', () => {
 
         const expanded = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
         expect(expanded.classList.contains('is-expanded')).toBe(true);
-        expect(expanded.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(100);
+        expect(expanded.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
         expect(expanded.textContent).toContain('にほんごのじかん');
 
         expanded.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="filter"][data-filter="kids"]')!.click();
@@ -976,7 +976,7 @@ describe('YouTube immersion filter', () => {
     });
 
     it('localizes channel suggestion shelf chrome in Japanese', async () => {
-        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
+        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(99);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
             location: YOUTUBE_RESULTS_LOCATION,
@@ -992,9 +992,9 @@ describe('YouTube immersion filter', () => {
 
         const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
         expect(shelf.textContent).toContain('日本語YouTubeを始める');
-        expect(shelf.textContent).toContain('厳選100件');
+        expect(shelf.textContent).toContain(`厳選${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}件`);
         expect(shelf.textContent).toContain('表示中を登録(8)');
-        expect(shelf.textContent).toContain('全100件登録');
+        expect(shelf.textContent).toContain(`全${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}件登録`);
         expect(shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-one"]')?.textContent).toBe('登録');
         expect(shelf.getAttribute('aria-label')).toBe('日本語チャンネル');
 
@@ -1207,7 +1207,7 @@ describe('YouTube immersion filter', () => {
         expect(handles).not.toContain('@SuitTravel');
         expect(handles).toContain('@oi_ken');
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
-            .toContain('99 shown from 100 curated channels.');
+            .toContain(`${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT - 1} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`);
 
         filter.destroy();
     }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
@@ -1234,7 +1234,7 @@ describe('YouTube immersion filter', () => {
         const handles = channelShelfRowHandles();
         expect(handles).not.toContain(subscribedHandle);
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
-            .toContain('99 shown from 100 curated channels.');
+            .toContain(`${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT - 1} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`);
 
         filter.destroy();
     }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
@@ -1358,7 +1358,11 @@ describe('YouTube immersion filter', () => {
         expect(document.querySelector('.jpdb-youtube-channel-shelf')?.textContent).not.toContain('Dismiss');
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!.click();
-        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
+        // Wait for the invariant, not a proxy for it. The shelf disappearing and
+        // the preference being written are two separate steps, so waiting only on
+        // the DOM left the assertion below racing the save.
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf')
+            && settings.youtubeShowChannelRecommendations === false);
 
         expect(settings.youtubeShowChannelRecommendations).toBe(false);
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
@@ -1439,7 +1443,7 @@ describe('YouTube immersion filter', () => {
                 channelIds: ['UC12345678901234567890'],
                 context: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
             });
-            expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent).toBe('Subscribed to 100 channels.');
+            expect(document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent).toBe(`Subscribed to ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} channels.`);
             // The subscribe write must carry the signed-in SAPISIDHASH
             // authorization; without it YouTube applies the call to the anonymous
             // visitor session and the account is never actually subscribed.

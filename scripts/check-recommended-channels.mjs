@@ -29,10 +29,26 @@ const TIMEOUT_MS = 20_000;
 
 function handles() {
     const source = readFileSync(ROSTER, 'utf8');
+    const declared = Number(/YOUTUBE_CHANNEL_RECOMMENDATIONS\.length/.test(source)
+        ? (source.match(/handle:\s*'@/g) ?? []).length
+        : 0);
     const found = [];
-    // Read the literal rather than importing: the module is browser-oriented TypeScript.
-    for (const match of source.matchAll(/\{\s*handle:\s*'(@[^']+)',\s*name:\s*'([^']*)'/g)) {
-        found.push({ handle: match[1], name: match[2] });
+    // Read the literal rather than importing: the module is browser-oriented
+    // TypeScript. Match the handle ALONE -- an earlier version required a
+    // single-quoted `name` right after it and so skipped
+    // `{ handle: '@はいじぃ迷作劇場', name: "Haiji's ..." }`, whose name is
+    // double-quoted because it contains an apostrophe. A checker that silently
+    // skips a row is the same failure it exists to catch, so the handle pattern
+    // stays independent of how the rest of the row is written, and the count is
+    // asserted below.
+    for (const match of source.matchAll(/handle:\s*'(@[^']+)'/g)) {
+        const rest = source.slice(match.index, match.index + 400);
+        const name = /name:\s*'([^']*)'/.exec(rest)?.[1] ?? /name:\s*"([^"]*)"/.exec(rest)?.[1] ?? '';
+        found.push({ handle: match[1], name });
+    }
+    if (found.length !== declared) {
+        console.error(`[channels] parsed ${found.length} handles but the file declares ${declared} — fix the parser before trusting this run.`);
+        process.exit(1);
     }
     return found;
 }
