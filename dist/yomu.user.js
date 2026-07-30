@@ -22,7 +22,7 @@
 // @require https://yomureader.com/greasyfork/yomu-jpdb.c0245e114c89.user.js#sha256=wCReEUyJmkL6k04m2detvt81b4cFiAssZ8wzlqGhMMU=
 // @require https://yomureader.com/greasyfork/yomu-jiten.2b804e607423.user.js#sha256=K4BOYHQjyLF+bu94XiLIepQUFZ4tTAwgjdSh1izqqNE=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.ee115343b6b8.user.js#sha256=7hFTQ7a4F15BUR9kdAFRhqsGnn/FlJm/wT8X1vhY4FE=
-// @require https://yomureader.com/greasyfork/yomu-video.b60ce5c22cf4.user.js#sha256=tgzlwiz0GsBfEAy42jj82p7EgZf3U5uznuGdw9nDGNs=
+// @require https://yomureader.com/greasyfork/yomu-video.e6f5bcbc8889.user.js#sha256=5vW8vIiJQePCRWPhmzziUnEaguAzIalyGDuUPF9SZIc=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -34313,18 +34313,19 @@ class ReaderApp {
   await this.setAnnotationsPaused(!this.settings.annotationsPaused);
   }
   async setAnnotationsPaused(paused) {
-  if (this.settings.annotationsPaused === paused) return;
+  const changed = this.settings.annotationsPaused !== paused;
   const previous = this.settings.annotationsPaused;
   this.settings.annotationsPaused = paused;
-  this.applyAnnotationsPausedState();
+  if (changed) this.applyAnnotationsPausedState();
   try {
     await saveSettings(this.settings, { explicitUserChoiceKeys: ["annotationsPaused"] });
   } catch (error) {
     this.settings.annotationsPaused = previous;
-    this.applyAnnotationsPausedState();
+    if (changed) this.applyAnnotationsPausedState();
     this.toast(uiText(this.settings.interfaceLanguage, "settingsSaveFailed"));
     throw error;
   }
+  if (!changed) return;
   log.info("Annotations paused toggled", { paused });
   this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
   }
