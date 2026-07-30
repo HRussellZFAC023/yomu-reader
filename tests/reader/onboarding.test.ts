@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { OnboardingController } from '../../src/reader/app/onboarding';
+import { uiText } from '../../src/reader/app/i18n';
 import {
     DEFAULT_SETTINGS,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
@@ -131,7 +133,11 @@ describe('OnboardingController', () => {
 
         const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
         expect(offlineDownload?.checked).toBe(true);
-        expect(document.body.textContent).toContain('Download offline dictionaries (Jitendex + pitch accents)');
+        expect(document.body.textContent).toContain(
+            'Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)',
+        );
+        expect(uiText('ja', 'onboardingInstallOfflineDictionaries'))
+            .toBe('日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）');
 
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
         await settleAsyncHandlers();
@@ -140,6 +146,13 @@ describe('OnboardingController', () => {
         // The API-key path must not switch local dictionaries off while the
         // offline download it just requested is installing them.
         expect(settings.localDictionariesEnabled).toBe(true);
+    });
+
+    it('keeps first-run dictionary progress visible in Reader and Study after onboarding closes', () => {
+        for (const sourcePath of ['src/reader/app/main.ts', 'src/reader/newtab/runtime.ts']) {
+            const source = readFileSync(sourcePath, 'utf8');
+            expect(source).toContain('onProgress: message => this.toast(message)');
+        }
     });
 
     it('skips the offline download when the user unchecks it', async () => {

@@ -1946,7 +1946,7 @@ export class ReaderApp {
 
     private offlineDictionarySetupInFlight = false;
 
-    // Onboarding offline setup; progress stays in the log, toasts carry milestones.
+    // Onboarding closes before setup starts, so keep its download/import progress visible.
     private async installOfflineParsingDictionaries(): Promise<void> {
         if (this.offlineDictionarySetupInFlight) return;
         const installOfflineParsingDictionaries =
@@ -1961,6 +1961,7 @@ export class ReaderApp {
                     this.settings = settings;
                     await saveSettings(settings);
                 },
+                onProgress: message => this.toast(message),
             });
             if (result.installed.length) {
                 await this.refreshDictionaryStyles();

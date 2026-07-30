@@ -943,23 +943,16 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       finish-setup prompt when the dictionary store is empty. The stores are the main distribution channel;
       today an install's first lookup returns the empty-source message. Feeds T3's try-first work, which
       describes the redesign but not this bug.
-- [ ] **A35.10 — HIGH: first run downloads 34.1 MiB with no progress, and the label names a dictionary it
-      does not install.** The checkbox defaults to checked (`src/reader/app/onboarding.ts:240`) with the
-      label "Download offline dictionaries (Jitendex + pitch accents)"
-      (`src/reader/app/i18n.ts:20`). Measured from the actual default set (`selectedByDefault !== false` in
-      `config/dictionaries/published/v1/recommendations/en-ja.json`, sizes resolved through
-      `catalog.json`): JMdict-en 15,509,389 + JMnedict 11,423,324 + KANJIDIC-en 721,025 + JPDB frequency
-      5,996,363 + NHK pitch 2,082,380 = **35,732,481 bytes (34.1 MiB)**, plus the unsized `kanjium-pitch`
-      zip appended at `src/reader/dictionaries/offline-setup.ts:110`. Jitendex is not in the shelf at all
-      (`grep jitendex en-ja.json` → no match). `installOfflineParsingDictionaries` accepts an `onProgress`
-      callback (`src/reader/dictionaries/offline-setup.ts:37-50`, threaded to `importFromUrl` at :79-80);
-      the Settings path passes one (`src/reader/settings/dialog-controller.ts:2636-2645`) and both
-      first-run call sites omit it (`src/reader/app/main.ts:1944-1950`,
-      `src/reader/newtab/runtime.ts:566-573`). `src/reader/app/onboarding.ts:435-441` closes the panel and
-      fires the install without awaiting it. So the learner presses Continue, the panel disappears, and for
-      minutes every lookup shows the empty-source message with nothing on screen. Do: pass the existing
-      progress callback on both first-run paths, state the download size before it starts, and fix the
-      label to name what installs.
+- [x] **A35.10 — FIXED 2026-07-30: first-run dictionary setup names its real contents, states the size,
+      and stays visible after onboarding closes.** The original 34.1 MiB measurement omitted the
+      `kanjium-pitch` ZIP: its current response is 1,072,708 bytes, making the full six-download set
+      **36,805,189 bytes (35.1 MiB)**. The English and Japanese labels now say definitions, names, kanji,
+      frequency, and pitch with that total; neither claims Jitendex. Reader and Study both pass the
+      importer's existing `onProgress` messages to their replacement toast, so download, ZIP reading,
+      parsing, and storage progress remain on screen after the welcome panel closes. Focused proof:
+      `npx vitest run tests/reader/onboarding.test.ts tests/reader/offline-dictionary-setup.test.ts`
+      (14/14) plus `npm run typecheck` and `npm run locales:report` (English and Japanese human-critical
+      coverage 387/387).
 - [ ] **A35.11 — HIGH: the lookup popover declares `aria-modal` with no focus trap, no background hiding
       and no focus restore.** `src/reader/popup/shell.ts:83-86` sets `role="dialog"` and
       `aria-modal="true"` on every lookup popover, hover-triggered ones included (the `trigger` parameter

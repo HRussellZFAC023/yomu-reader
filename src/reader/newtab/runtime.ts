@@ -579,6 +579,7 @@ export class NewTabRuntime {
                     this.settings = settings;
                     await saveSettings(settings);
                 },
+                onProgress: message => this.toast(message),
             });
             if (result.installed.length) await this.refreshDictionaryStyles();
             if (result.failed.length) this.toast(uiText(this.settings.interfaceLanguage, 'offlineDictionarySetupFailed'));
