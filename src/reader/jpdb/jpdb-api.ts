@@ -3,6 +3,24 @@ import { configuredProxyFetchUrl, shouldPreferConfiguredProxyForJpdbApi } from '
 import { delay } from '../core/async-utils';
 import { isAbortError } from '../core/errors';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript';
+import type { UiCopyKey } from '../app/i18n';
+
+export type JpdbApiFailureCode =
+    | 'missing-key'
+    | 'rejected-key'
+    | 'rate-limited'
+    | 'connection-cooldown'
+    | 'timed-out'
+    | 'request-failed';
+
+const JPDB_FAILURE_COPY_KEY = {
+    'missing-key': 'jpdbApiKeyMissingError',
+    'rejected-key': 'jpdbApiKeyRejectedError',
+    'rate-limited': 'jpdbRateLimitedError',
+    'connection-cooldown': 'jpdbConnectionCoolingDownError',
+    'timed-out': 'jpdbRequestTimedOutError',
+    'request-failed': 'jpdbRequestFailedError',
+} satisfies Record<JpdbApiFailureCode, UiCopyKey>;
 
 const API_BASE = 'https://jpdb.io/api/v1';
 const RATE_LIMIT_BACKOFF_MS = 30_000;
@@ -18,6 +36,18 @@ const RETRYABLE_API_READ_ENDPOINTS = new Set([
     'ping',
 ]);
 const log = Logger.scope('JpdbApi');
+
+export class JpdbApiError extends Error {
+    readonly yomuJpdbFailureCode: JpdbApiFailureCode;
+    readonly yomuUiCopyKey: UiCopyKey;
+
+    constructor(code: JpdbApiFailureCode, message: string, options: { cause?: unknown } = {}) {
+        super(message, { cause: options.cause });
+        this.name = 'JpdbApiError';
+        this.yomuJpdbFailureCode = code;
+        this.yomuUiCopyKey = JPDB_FAILURE_COPY_KEY[code];
+    }
+}
 
 export class JpdbApiClient {
     private retryAfter = 0;
@@ -49,19 +79,19 @@ export class JpdbApiClient {
     private assertCanRequest(token: string, endpoint: string): asserts token is string {
         if (!token) {
             log.warn('JPDB API key missing', { endpoint });
-            throw new Error('JPDB API key is not set.');
+            throw new JpdbApiError('missing-key', 'JPDB API key is not set.');
         }
         if (this.rejectedToken === token) {
             log.warn('JPDB API key was already rejected', { endpoint });
-            throw new Error('JPDB rejected the API key.');
+            throw new JpdbApiError('rejected-key', 'JPDB rejected the API key.');
         }
         if (Date.now() < this.retryAfter) {
             log.warn('JPDB rate-limit backoff', { endpoint, retryAfterMs: this.retryAfter - Date.now() });
-            throw new Error('JPDB is rate limited. Try again in a moment.');
+            throw new JpdbApiError('rate-limited', 'JPDB is rate limited. Try again in a moment.');
         }
         if (Date.now() < this.connectionRetryAfter) {
             log.warn('JPDB connection backoff', { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
-            throw new Error('JPDB connection is cooling down. Try again in a moment.');
+            throw new JpdbApiError('connection-cooldown', 'JPDB connection is cooling down. Try again in a moment.');
         }
     }
 
@@ -69,16 +99,16 @@ export class JpdbApiClient {
         if (response.status === 429) {
             this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
             log.warn('JPDB rate limit reached', { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
-            throw new Error('JPDB rate limit reached.');
+            throw new JpdbApiError('rate-limited', 'JPDB rate limit reached.');
         }
         if (response.status === 403) {
             this.rejectedToken = token;
             log.warn('JPDB rejected API key', { endpoint });
-            throw new Error('JPDB rejected the API key.');
+            throw new JpdbApiError('rejected-key', 'JPDB rejected the API key.');
         }
         if (!response.ok) {
             log.warn('JPDB request failed', { endpoint, status: response.status });
-            throw new Error(`JPDB request failed (${response.status}).`);
+            throw new JpdbApiError('request-failed', `JPDB request failed (${response.status}).`);
         }
     }
 
@@ -178,7 +208,9 @@ async function postJsonWithFetch(
             lastError = error;
         }
     }
-    throw lastError instanceof Error ? lastError : new Error('JPDB request failed.');
+    throw lastError instanceof Error
+        ? lastError
+        : new JpdbApiError('request-failed', 'JPDB request failed.', { cause: lastError });
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -187,7 +219,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     try {
         return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-        if (isAbortError(error)) throw new Error('JPDB request timed out.');
+        if (isAbortError(error)) throw new JpdbApiError('timed-out', 'JPDB request timed out.', { cause: error });
         throw error;
     } finally {
         window.clearTimeout(timeoutId);
@@ -230,7 +262,7 @@ function postJsonWithUserscriptRequest(
         // Matches the old bare `onerror: reject`: the transport error is passed
         // through untouched so callers keep classifying it as they always did.
         onError: error => error,
-        onTimeout: () => new Error('JPDB request timed out.'),
+        onTimeout: () => new JpdbApiError('timed-out', 'JPDB request timed out.'),
     });
 }
 
@@ -259,7 +291,13 @@ function isJpdbConnectionFailure(error: unknown): boolean {
 }
 
 function normalizeJpdbTransportError(error: unknown): Error {
-    return error instanceof Error ? error : new Error('JPDB request failed.');
+    if (error instanceof JpdbApiError) return error;
+    if (isJpdbConnectionFailure(error)) {
+        return new JpdbApiError('request-failed', error instanceof Error ? error.message : 'JPDB request failed.', { cause: error });
+    }
+    return error instanceof Error
+        ? error
+        : new JpdbApiError('request-failed', 'JPDB request failed.', { cause: error });
 }
 
 function retryableReadDelayMs(): number {

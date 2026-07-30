@@ -1,5 +1,6 @@
 import type { AudioPlayer } from './player';
-import { resolveUiLanguage, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
+import { userFacingError } from '../app/user-facing-errors';
 import { Logger } from '../app/logger';
 import type { JPDBCard, ReaderSettings } from '../app/types';
 
@@ -89,7 +90,7 @@ export class ReaderAudioActions {
             return played;
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);
-            this.dependencies.toast(this.audioErrorMessage(error));
+            this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'audioPlaybackFailed'));
             return false;
         } finally {
             this.clearLoading(loading.popover, loading.requestId);
@@ -134,7 +135,7 @@ export class ReaderAudioActions {
     async playSentenceAudio(sentence?: string): Promise<void> {
         if (!this.ensureAudioEnabled()) return;
         const text = sentence?.trim();
-        if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, 'noSentenceToRead'));
+        if (!text) throw userFacingError('noSentenceToRead');
         const voice = this.dependencies.getSettings().audioSources.find(source =>
             source.enabled && (source.type === 'text-to-speech' || source.type === 'text-to-speech-reading') && source.voice.trim()
         )?.voice.trim() ?? '';
@@ -160,12 +161,6 @@ export class ReaderAudioActions {
         if (settings.audioEnabled) return true;
         this.dependencies.toast(uiText(settings.interfaceLanguage, 'audioPlaybackDisabledToast'));
         return false;
-    }
-
-    private audioErrorMessage(error: unknown): string {
-        const language = this.dependencies.getSettings().interfaceLanguage;
-        if (resolveUiLanguage(language) === 'ja') return uiText(language, 'audioPlaybackFailed');
-        return error instanceof Error ? error.message : uiText(language, 'audioPlaybackFailed');
     }
 
     private setLoading(popover: HTMLElement | undefined, requestId: number): void {

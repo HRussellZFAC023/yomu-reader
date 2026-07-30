@@ -3,7 +3,8 @@ import { jpdbDeckLabel } from './deck-choice';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
-import { uiText, type UiCopyKey } from '../app/i18n';
+import type { UiCopyKey } from '../app/i18n';
+import { userFacingError } from '../app/user-facing-errors';
 import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
 import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import type {
@@ -403,7 +404,6 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         selectedDeckLabel: () => ACADEMY_SRS_LABEL,
         addToDeck: async (_deckId, card, sentence, context) => {
             const result = await localYomuMutation(
-                settings,
                 () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context)),
             );
             if (result.card) applyYomuLocalReviewableToCard(card, result.card);
@@ -411,7 +411,7 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
         reviewCard: async (card, grade, reviewOptions = {}) => {
             const wasNotInDeck = normalizeCardStates(card.cardState).includes('not-in-deck')
                 || card.reviewSource !== 'yomu-local';
-            const result = await localYomuMutation(settings, () => adapter.review({
+            const result = await localYomuMutation(() => adapter.review({
                 card: yomuLocalReviewableFromCard(card),
                 grade,
                 sentence: reviewOptions.sentence,
@@ -424,14 +424,13 @@ function createYomuLocalSrsProviderAdapter(adapter: YomuSrsAdapter, settings: Re
 }
 
 async function localYomuMutation<Result>(
-    settings: ReaderSettings,
     operation: () => Promise<Result>,
 ): Promise<Result> {
     try {
         return await operation();
     } catch (error) {
         if (isLocalYomuSrsStorageError(error)) {
-            throw new Error(uiText(settings.interfaceLanguage, 'yomuLocalSrsStorageFailed'), { cause: error });
+            throw userFacingError('yomuLocalSrsStorageFailed', { cause: error });
         }
         throw error;
     }

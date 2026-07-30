@@ -7,7 +7,7 @@ import { createAudioPreviewCard } from '../cards/utils';
 import { NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
-import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
+import { configureLogger, Logger } from '../app/logger';
 import { clearNewTabOfflineCache } from '../newtab/cache';
 import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
@@ -80,6 +80,7 @@ import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
+import { userFacingError, userFacingErrorText } from '../app/user-facing-errors';
 import {
     LEARNING_TARGET_ROSTER,
     isLearningTargetRosterId,
@@ -533,7 +534,7 @@ function handleSettingsActionError(
 ): string {
     log.warn('Settings action failed', { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute('disabled');
-    const message = errorMessage(error, uiText(language, 'actionFailed'));
+    const message = userFacingErrorText(language, 'actionFailed', error);
     setStatus(message);
     return message;
 }
@@ -598,13 +599,7 @@ function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLan
 }
 
 function setDictionaryStatusError(status: HTMLElement | null, error: unknown, language: InterfaceLanguage): void {
-    if (status) status.textContent = errorMessage(error, uiText(language, 'dictionaryStatusUnavailable'));
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-    if (error instanceof Error && error.message.trim()) return error.message;
-    if (typeof error === 'string' && error.trim()) return error;
-    return fallback;
+    if (status) status.textContent = userFacingErrorText(language, 'dictionaryStatusUnavailable', error);
 }
 
 function isAnkiConnectSetupError(error: unknown): boolean {
@@ -638,7 +633,6 @@ export class SettingsDialogController {
     }
 
     open(panel?: string): void {
-        log.info('Opening settings', { panel: panel ?? 'default' });
         const trigger = document.activeElement instanceof HTMLElement
             && !document.activeElement.closest('.jpdb-reader-settings')
             ? document.activeElement
@@ -697,7 +691,8 @@ export class SettingsDialogController {
         await this.clearPendingCloudSettingsAction();
         const language = this.settings.interfaceLanguage;
         if (!authResult.ok) {
-            const message = authResult.error || 'Google authorization failed.';
+            log.warn('Cloud settings authorization failed', { message: authResult.error });
+            const message = uiText(language, 'actionFailed');
             this.dependencies.toast(message);
             this.open('backup');
             return true;
@@ -707,7 +702,7 @@ export class SettingsDialogController {
             await this.performCloudSettingsAction(pending.action, language, undefined);
             if (pending.action === 'sync-cloud-settings') this.open('backup');
         } catch (error) {
-            const message = errorMessage(error, uiText(language, 'actionFailed'));
+            const message = userFacingErrorText(language, 'actionFailed', error);
             this.dependencies.toast(message);
             this.open('backup');
         }
@@ -793,7 +788,7 @@ export class SettingsDialogController {
             })
                 .catch(error => {
                     log.error('Settings save failed', error);
-                    this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'settingsSaveFailed')));
+                    this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, 'settingsSaveFailed', error));
                 });
         });
         form.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.dismissSettings());
@@ -866,7 +861,6 @@ export class SettingsDialogController {
 
     private afterSettingsSaved(form: HTMLFormElement, saveRequestId: number): void {
         if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-        log.info('Settings saved', loggingSettingsSummary(this.settings));
         this.dependencies.jpdb.clear();
         this.dependencies.applyTheme();
         this.dependencies.installFab();
@@ -886,7 +880,7 @@ export class SettingsDialogController {
             await this.dependencies.refreshDictionaryStyles();
         } catch (error) {
             log.warn('Dictionary style refresh failed', error);
-            this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, 'actionFailed')));
+            this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, 'actionFailed', error));
         }
     }
 
@@ -1590,7 +1584,6 @@ export class SettingsDialogController {
                 ...staleDetails,
                 ...this.ankiScanDetails(scan, language),
             ]);
-            log.info('Auto Anki scan ok', { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
         } catch (error) {
             if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
             log.warn('Automatic Anki library scan failed', error);
@@ -1615,7 +1608,6 @@ export class SettingsDialogController {
         }
         try {
             await warmStatusIndex.call(this.dependencies.anki);
-            log.info('Auto Anki status index warmup ok');
         } catch (error) {
             log.warn('Automatic Anki status index warmup failed', error);
         } finally {
@@ -1962,7 +1954,6 @@ export class SettingsDialogController {
             const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
             if (played) {
                 this.dependencies.toast(uiText(language, 'playingAudioPreview'));
-                log.info('Audio settings preview started');
             } else {
                 // play() resolves false (without throwing) when no source produced
                 // audible audio and the chime fallback is off — don't claim playback.
@@ -1970,7 +1961,7 @@ export class SettingsDialogController {
             }
         } catch (error) {
             log.warn('Audio settings preview failed', error);
-            this.dependencies.toast(errorMessage(error, uiText(language, 'audioPreviewFailed')));
+            this.dependencies.toast(userFacingErrorText(language, 'audioPreviewFailed', error));
         } finally {
             this.restoreTransientSettings(previous);
             button?.removeAttribute('disabled');
@@ -2074,7 +2065,6 @@ export class SettingsDialogController {
             const blob = await this.dependencies.dictionaries.exportJson();
             downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
             setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'dictionariesExported'));
-            log.info('Dictionaries exported');
             return true;
         }
         return false;
@@ -2119,7 +2109,6 @@ export class SettingsDialogController {
             const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
             setStatus?.(message);
             this.dependencies.toast(message);
-            log.info('Cloud settings synced', { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
             return;
         }
 
@@ -2147,7 +2136,6 @@ export class SettingsDialogController {
         this.dependencies.ocr.refresh();
         this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
-        log.info('Cloud settings restored', { syncedAt: snapshot.syncedAt });
         this.open('backup');
     }
 
@@ -2192,7 +2180,6 @@ export class SettingsDialogController {
                 ...(dictionaries ? { dictionaries } : {}),
             }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
             setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'settingsExported'));
-            log.info('Settings exported');
             return true;
         }
         return false;
@@ -2249,14 +2236,12 @@ export class SettingsDialogController {
     private finishAnkiConnectionTest(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
         setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
         this.queueAutomaticAnkiLibraryScan(form, language);
-        log.info('Anki settings check ok', { url: this.settings.ankiConnectUrl });
     }
 
     private async prepareAnkiConnectionAction(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): Promise<void> {
         await this.dependencies.anki.ensureDeckAndModel();
         setAnkiStatus(this.ankiReadyMessage(language), 'success');
         this.queueAutomaticAnkiLibraryScan(form, language);
-        log.info('Anki settings prepare succeeded', { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
     }
 
     // Runs from the user pressing Update, never from the scan that spots the
@@ -2280,7 +2265,6 @@ export class SettingsDialogController {
             ? formatUiText(language, 'ankiModelUpdated', { fields: added.join(', ') })
             : uiText(language, 'ankiModelUpToDate'), 'success');
         this.queueAutomaticAnkiLibraryScan(form, language);
-        log.info('Anki note type updated', { model: offeredModel, fields: added });
     }
 
     private handleAnkiConnectionActionError(error: unknown, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {
@@ -2539,7 +2523,7 @@ export class SettingsDialogController {
     }
 
     private ankiConnectionErrorMessage(error: unknown, language: InterfaceLanguage): string {
-        return error instanceof Error ? error.message : uiText(language, 'ankiUnreachable');
+        return userFacingErrorText(language, 'ankiUnreachable', error);
     }
 
     private async handleSettingsSupportAction(action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2586,7 +2570,6 @@ export class SettingsDialogController {
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
         setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
-        log.info('Dictionary removed', { dictionary });
     }
 
     private async importDictionaryFromSettings(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
@@ -2600,7 +2583,6 @@ export class SettingsDialogController {
                 sources: summary.dictionaries.length.toLocaleString(),
                 plural: summary.dictionaries.length === 1 ? '' : 's',
             }));
-            log.info('Dictionary file imported', summary);
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
         });
@@ -2626,7 +2608,6 @@ export class SettingsDialogController {
                 const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
                 this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', startedMessage);
                 setStatus(startedMessage);
-                log.info('Downloading selected dictionary', { dictionary: dictionary.name });
                 const summary = await this.downloadRecommendedDictionary(dictionary, control, message => {
                     setStatus(message);
                     this.setRecommendedDictionaryInstallState(form, dictionary.id, 'installing', `${dictionary.name}: ${message}`);
@@ -2639,7 +2620,6 @@ export class SettingsDialogController {
                 }));
                 await this.refreshDictionaryStatus(form);
                 this.dependencies.refreshNewTabIfCurrent();
-                log.info('Selected dictionary downloaded', { dictionary: dictionary.name, entries: summary.entries });
             } finally {
                 this.clearRecommendedDictionaryInstallState(form, dictionary.id);
             }
@@ -2695,9 +2675,14 @@ export class SettingsDialogController {
         setStatus: SettingsStatusSetter,
         error: unknown,
     ): null {
-        const message = errorMessage(error, uiText(this.settings.interfaceLanguage, 'dictionaryDownloadFailed'));
         control?.removeAttribute('disabled');
-        if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) throw error;
+        if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
+            throw userFacingError('dictionaryDownloadFailed', {
+                cause: error,
+                diagnostic: error instanceof Error ? error.message : String(error),
+            });
+        }
+        const message = userFacingErrorText(this.settings.interfaceLanguage, 'dictionaryDownloadBlocked', error);
         const status = `${message} ${uiText(this.settings.interfaceLanguage, 'dictionaryManualDownloadHint')}`;
         setStatus(status);
         this.dependencies.toast(status);
@@ -2753,7 +2738,6 @@ export class SettingsDialogController {
         this.dependencies.subtitles.refresh();
         this.dependencies.youtube.refresh();
         this.dependencies.clearSettingsPreview();
-        log.info('Settings imported', loggingSettingsSummary(this.settings));
         this.open();
     }
 

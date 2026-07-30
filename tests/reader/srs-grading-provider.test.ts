@@ -10,6 +10,7 @@ import {
 } from '../../src/reader/cards/srs-providers';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { LocalYomuSrsStorageError } from '../../src/reader/srs/local-yomu';
+import { userFacingErrorText } from '../../src/reader/app/user-facing-errors';
 
 function settings(overrides: Partial<ReaderSettings> = {}): ReaderSettings {
     return { ...DEFAULT_SETTINGS, ...overrides };
@@ -235,7 +236,7 @@ describe('Academy provider mutation state', () => {
         expect(target).toMatchObject({ cardState: ['learning'], reviewSource: 'yomu-local', dueAt: 2_000, lastReviewAt: 1_000 });
     });
 
-    it('localizes storage failures before they reach learner-facing actions', async () => {
+    it('marks storage failures for localized learner-facing actions', async () => {
         const failure = async (): Promise<never> => {
             throw new LocalYomuSrsStorageError();
         };
@@ -259,11 +260,14 @@ describe('Academy provider mutation state', () => {
             interfaceLanguage: 'ja',
         })).filter(candidate => candidate.id === 'yomu-local');
 
-        await expect(provider!.addToDeck('yomu-local', { ...baseCard })).rejects.toThrow(
-            'Academyデッキを保存できませんでした。',
-        );
-        await expect(provider!.reviewCard({ ...baseCard }, 'okay')).rejects.toThrow(
-            'Academyデッキを保存できませんでした。',
-        );
+        const addError = await provider!.addToDeck('yomu-local', { ...baseCard }).catch(error => error);
+        const reviewError = await provider!.reviewCard({ ...baseCard }, 'okay').catch(error => error);
+
+        expect(addError).toBeInstanceOf(Error);
+        expect(addError.message).toContain('Your Academy deck could not be saved.');
+        expect(userFacingErrorText('ja', 'actionFailed', addError))
+            .toContain('Academyデッキを保存できませんでした。');
+        expect(userFacingErrorText('ja', 'actionFailed', reviewError))
+            .toContain('Academyデッキを保存できませんでした。');
     });
 });

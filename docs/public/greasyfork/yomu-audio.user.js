@@ -2235,6 +2235,7 @@ const COPY = {
   settings: "Settings",
   settingsSaved: "Settings saved.",
   settingsSaveFailed: "Settings save failed.",
+  settingsCompanionUnavailable: "Settings are unavailable because part of Yomu did not load.",
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -3276,6 +3277,12 @@ const COPY = {
   reviewFailed: "Review failed.",
   reviewActionsDisabled: "Review actions are disabled in settings.",
   jpdbLookupFailed: "JPDB lookup failed.",
+  jpdbApiKeyMissingError: "Add a JPDB API key in Settings.",
+  jpdbApiKeyRejectedError: "JPDB rejected the API key. Check it in Settings.",
+  jpdbRateLimitedError: "JPDB is busy. Try again in a moment.",
+  jpdbConnectionCoolingDownError: "JPDB is temporarily unreachable. Try again in a moment.",
+  jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
+  jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
@@ -3495,6 +3502,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -3890,6 +3898,12 @@ subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbApiKeyMissingError	設定でJPDB APIキーを追加してください。
+jpdbApiKeyRejectedError	JPDBがAPIキーを拒否しました。設定でキーを確認してください。
+jpdbRateLimitedError	JPDBへのリクエストが多すぎます。しばらくしてからもう一度お試しください。
+jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しばらくしてからもう一度お試しください。
+jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
+jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
@@ -9369,6 +9383,12 @@ function orderedMediaCandidates(urls) {
 function audioErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
+}
 const log = Logger.scope("ReaderAudioActions");
 class ReaderAudioActions {
   constructor(dependencies) {
@@ -9425,7 +9445,7 @@ class ReaderAudioActions {
     return played;
   } catch (error) {
     log.warn("Term audio playback failed", { term: card.spelling }, error);
-    this.dependencies.toast(this.audioErrorMessage(error));
+    this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
     return false;
   } finally {
     this.clearLoading(loading.popover, loading.requestId);
@@ -9459,7 +9479,7 @@ class ReaderAudioActions {
   async playSentenceAudio(sentence) {
   if (!this.ensureAudioEnabled()) return;
   const text = sentence?.trim();
-  if (!text) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
+  if (!text) throw userFacingError("noSentenceToRead");
   const voice = this.dependencies.getSettings().audioSources.find(
     (source) => source.enabled && (source.type === "text-to-speech" || source.type === "text-to-speech-reading") && source.voice.trim()
   )?.voice.trim() ?? "";
@@ -9482,11 +9502,6 @@ class ReaderAudioActions {
   if (settings.audioEnabled) return true;
   this.dependencies.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
   return false;
-  }
-  audioErrorMessage(error) {
-  const language = this.dependencies.getSettings().interfaceLanguage;
-  if (resolveUiLanguage(language) === "ja") return uiText(language, "audioPlaybackFailed");
-  return error instanceof Error ? error.message : uiText(language, "audioPlaybackFailed");
   }
   setLoading(popover, requestId) {
   if (!popover?.isConnected) return;

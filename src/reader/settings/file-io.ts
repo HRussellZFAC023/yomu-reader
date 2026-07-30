@@ -81,7 +81,6 @@ export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Pr
         inputEl.onchange = () => {
             const file = inputEl.files?.[0] ?? null;
             inputEl.value = '';
-            log.info('File picker completed', { type, name: file?.name ?? '', size: file?.size ?? 0 });
             resolve(file);
         };
         inputEl.click();
@@ -95,7 +94,6 @@ export function downloadBlob(blob: Blob, filename: string): void {
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    log.info('Downloaded blob', { filename, size: blob.size, type: blob.type });
 }
 
 export function dateStamp(): string {

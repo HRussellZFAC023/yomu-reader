@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { chromeMessageSource } from '../../../src/reader/app/i18n';
 import {
@@ -79,6 +82,33 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(HUMAN_TIER_ESCALATION_PHRASES).toContain('cannot be undone');
     });
 
+    it('keeps toast copy behind stable IDs instead of raw English errors', () => {
+        const readerRoot = resolve('src/reader');
+        const offenders: string[] = [];
+        for (const file of typescriptFiles(readerRoot)) {
+            const source = ts.createSourceFile(
+                file,
+                readFileSync(file, 'utf8'),
+                ts.ScriptTarget.Latest,
+                true,
+                ts.ScriptKind.TS,
+            );
+            const visit = (node: ts.Node): void => {
+                if (ts.isCallExpression(node) && calledName(node.expression) === 'toast') {
+                    const reason = unsafeToastCopy(node.arguments[0]);
+                    if (reason) {
+                        const position = source.getLineAndCharacterOfPosition(node.getStart(source));
+                        offenders.push(`${relative(process.cwd(), file)}:${position.line + 1} ${reason}`);
+                    }
+                }
+                ts.forEachChild(node, visit);
+            };
+            visit(source);
+        }
+
+        expect(offenders).toEqual([]);
+    });
+
     // The check above escalates on SOURCE TEXT, so it passes even with the whole
     // rule table deleted: a string classified human-critical by its ID, whose
     // text contains no high-stakes phrase, would silently drop to the tier that
@@ -91,10 +121,10 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        expect(messages).toHaveLength(1230);
-        expect(humanCritical).toHaveLength(375);
+        expect(messages).toHaveLength(1237);
+        expect(humanCritical).toHaveLength(382);
 
-        // Split by WHAT classified each one. 369 are human-critical from their ID
+        // Split by WHAT classified each one. 376 are human-critical from their ID
         // alone, so deleting the rule table collapses that number while the
         // source-text check above stays green. The other 6 reach the tier only
         // through text escalation, which is exactly the case that rule exists for
@@ -102,7 +132,7 @@ describe('D43 copy tiers are a property of the string', () => {
         // it discusses credentials). Both counts are pinned because a change in
         // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(369);
+        expect(byIdAlone).toHaveLength(376);
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 
@@ -117,3 +147,48 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(legacyDocsMessageId('Make Japanese text tappable!')).not.toBe(original);
     });
 });
+
+function typescriptFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) return typescriptFiles(path);
+        return entry.isFile() && path.endsWith('.ts') ? [path] : [];
+    });
+}
+
+function calledName(expression: ts.Expression): string | undefined {
+    if (ts.isIdentifier(expression)) return expression.text;
+    if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+    return undefined;
+}
+
+function unsafeToastCopy(expression: ts.Expression | undefined): string | undefined {
+    if (!expression) return undefined;
+    if (ts.isParenthesizedExpression(expression)) return unsafeToastCopy(expression.expression);
+    if (ts.isStringLiteralLike(expression) && /[A-Za-z]{2}/.test(expression.text)) {
+        return `raw English literal: ${JSON.stringify(expression.text)}`;
+    }
+    if (ts.isPropertyAccessExpression(expression) && expression.name.text === 'message') {
+        return 'Error.message bypasses localized copy';
+    }
+    if (ts.isConditionalExpression(expression)) {
+        return unsafeToastCopy(expression.whenTrue) ?? unsafeToastCopy(expression.whenFalse);
+    }
+    if (ts.isBinaryExpression(expression)) {
+        return unsafeToastCopy(expression.left) ?? unsafeToastCopy(expression.right);
+    }
+    if (ts.isCallExpression(expression)) {
+        const name = calledName(expression.expression);
+        if (name === 'errorMessage') return 'errorMessage bypasses localized copy';
+        if (name === 'uiText'
+            || name === 'formatUiText'
+            || name === 'subtitleText'
+            || name === 'formatSubtitleText'
+            || name === 'newTabText'
+            || name === 'userFacingErrorText'
+            || name === 'text') {
+            return undefined;
+        }
+    }
+    return undefined;
+}

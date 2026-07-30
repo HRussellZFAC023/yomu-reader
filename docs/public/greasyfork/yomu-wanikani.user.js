@@ -5384,6 +5384,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -5779,6 +5780,12 @@ subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbApiKeyMissingError	設定でJPDB APIキーを追加してください。
+jpdbApiKeyRejectedError	JPDBがAPIキーを拒否しました。設定でキーを確認してください。
+jpdbRateLimitedError	JPDBへのリクエストが多すぎます。しばらくしてからもう一度お試しください。
+jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しばらくしてからもう一度お試しください。
+jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
+jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。

@@ -2039,8 +2039,8 @@ describe('settings dialog dictionary imports', () => {
         recommendedButton(form, 'jitendex').click();
         await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
 
-        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('Could not remove old dictionary entries.');
-        expect(dependencies.toast).toHaveBeenCalledWith('Could not remove old dictionary entries.');
+        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe('Dictionary download failed.');
+        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary download failed.');
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });
 
@@ -2057,7 +2057,7 @@ describe('settings dialog dictionary imports', () => {
         await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
 
         const status = form.querySelector<HTMLElement>('[data-import-status]')?.textContent ?? '';
-        expect(status).toContain('Dictionary download is blocked in this browser.');
+        expect(status).toContain('Download blocked.');
         expect(status).toContain('import the ZIP');
         expect(dependencies.toast).toHaveBeenCalledWith(status);
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);

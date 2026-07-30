@@ -17,6 +17,7 @@ import {
     type TextTarget,
 } from '../dom/index';
 import { formatUiText, uiText } from '../app/i18n';
+import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
@@ -261,10 +262,8 @@ export class VisiblePageScanner {
         // sweeps the memo is reused, which is what spares steady-state scans
         // their per-pass reflow.
         noteConstrainedRowLayoutSettled();
-        const adjusted = this.makeRoomForRuby(document);
-        if (adjusted) log.info('Made room for ruby in cropped rows', { adjusted });
-        const healed = healUngrowableInFlowClampRows(document);
-        if (healed) log.info('Rest-hid in-flow readings on ungrowable clamp rows', { healed });
+        this.makeRoomForRuby(document);
+        healUngrowableInFlowClampRows(document);
         refreshWrappedScanWordUnderlines(document);
         projectAdditiveTextMirrors(document);
     }
@@ -750,7 +749,10 @@ export class VisiblePageScanner {
 
     private handleVisiblePageScanError(error: unknown, silent: boolean): void {
         log.warn('Visible page scan failed', error);
-        if (!silent) this.dependencies.toast(error instanceof Error ? error.message : uiText(this.dependencies.getSettings().interfaceLanguage, 'jpdbScanFailed'));
+        if (!silent) {
+            const language = this.dependencies.getSettings().interfaceLanguage;
+            this.dependencies.toast(userFacingErrorText(language, 'jpdbScanFailed', error));
+        }
     }
 
     private reportVisiblePageCoverage(silent: boolean): void {

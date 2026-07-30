@@ -35,6 +35,22 @@ describe('VisiblePageScanner', () => {
         window.history.pushState({}, '', '/reading/');
     });
 
+    it('shows a Japanese toast instead of an English diagnostic when a scan fails', () => {
+        const toast = vi.fn();
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja' }),
+            parseJapanese: vi.fn(),
+            toast,
+        });
+
+        (scanner as unknown as {
+            handleVisiblePageScanError(error: unknown, silent: boolean): void;
+        }).handleVisiblePageScanError(new Error('JPDB request failed (500).'), false);
+
+        expect(toast).toHaveBeenCalledWith('ページスキャンに失敗しました。');
+        expect(toast.mock.calls[0]?.[0]).not.toMatch(/[A-Za-z]{2,}/);
+    });
+
     it('parses large page scans in batches so the first targets can render sooner', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = Array.from({ length: 170 }, (_, index) => `<p>日本語の文${index}</p>`).join('');

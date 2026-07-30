@@ -5444,6 +5444,7 @@ const COPY = {
   settings: "Settings",
   settingsSaved: "Settings saved.",
   settingsSaveFailed: "Settings save failed.",
+  settingsCompanionUnavailable: "Settings are unavailable because part of Yomu did not load.",
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -6485,6 +6486,12 @@ const COPY = {
   reviewFailed: "Review failed.",
   reviewActionsDisabled: "Review actions are disabled in settings.",
   jpdbLookupFailed: "JPDB lookup failed.",
+  jpdbApiKeyMissingError: "Add a JPDB API key in Settings.",
+  jpdbApiKeyRejectedError: "JPDB rejected the API key. Check it in Settings.",
+  jpdbRateLimitedError: "JPDB is busy. Try again in a moment.",
+  jpdbConnectionCoolingDownError: "JPDB is temporarily unreachable. Try again in a moment.",
+  jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
+  jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
@@ -6723,6 +6730,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -7118,6 +7126,12 @@ subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbApiKeyMissingError	設定でJPDB APIキーを追加してください。
+jpdbApiKeyRejectedError	JPDBがAPIキーを拒否しました。設定でキーを確認してください。
+jpdbRateLimitedError	JPDBへのリクエストが多すぎます。しばらくしてからもう一度お試しください。
+jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しばらくしてからもう一度お試しください。
+jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
+jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
@@ -14337,21 +14351,6 @@ function canUseDomCaptionFallback(options) {
   const selectedNativeTrackNeedsDomFallback = Boolean(options.selected?.kind === "native" && options.selected.track && !options.cues.length);
   return !options.selectedTrackId || selectedNativeTrackNeedsDomFallback;
 }
-function videoSummary(video) {
-  return {
-  currentSrcHost: safeHost(video.currentSrc || video.src),
-  width: video.videoWidth || video.clientWidth,
-  height: video.videoHeight || video.clientHeight,
-  textTracks: video.textTracks.length
-  };
-}
-function safeHost(value) {
-  try {
-  return new URL(value, location.href).host;
-  } catch {
-  return value ? "inline-or-invalid" : "";
-  }
-}
 function mutationInsideReaderRoot$1(mutation) {
   return mutationInsideClosest(mutation, "[data-jpdb-reader-root]");
 }
@@ -17041,7 +17040,6 @@ class SubtitlePlayerController {
   this.discoverVideo();
   this.syncRuntimeSignals();
   this.runtimeSignalsInitialized = true;
-  log.info("Subtitle controller initialized");
   }
   // Install the document observer that matches the current runtime state and
   // (re)start the housekeeping tick if it should run. Idempotent: the mode
@@ -17371,7 +17369,6 @@ class SubtitlePlayerController {
   this.observeVideoLayout(candidate);
   this.alignToVideo();
   if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
-  log.info("Subtitle video detected", videoSummary(candidate));
   }
   attachTextTracks(video) {
   for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
@@ -19998,7 +19995,6 @@ class SubtitlePlayerController {
   if (kind === "primary") await this.selectTrack(track.id);
   else await this.selectSecondaryTrack(track.id);
   this.updateFromLoadedCues();
-  log.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
   }
   async selectTrack(id, options = {}) {
   const requestId = this.preparePrimaryTrackSelection(id);
@@ -20008,7 +20004,7 @@ class SubtitlePlayerController {
   if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
   if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
   this.applyPrimaryTrackSelection(loaded);
-  this.finishPrimaryTrackSelection(id, loaded.track);
+  this.finishTrackSelection();
   }
   // A track whose entire payload is a single usable line (a one-cue credit,
   // or a metadata-only track whose cues the normalizer dropped) isn't worth
@@ -20117,9 +20113,6 @@ class SubtitlePlayerController {
   this.lastYouTubeCaptionActivationAt = 0;
   if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
   }
-  finishPrimaryTrackSelection(id, selected) {
-  this.finishTrackSelection("Primary", id, selected, this.cues.length);
-  }
   async selectSecondaryTrack(id, options = {}) {
   const requestId = this.prepareSecondaryTrackSelection(id);
   if (!options.auto) this.revealSecondarySubtitleOverlay();
@@ -20128,7 +20121,7 @@ class SubtitlePlayerController {
   if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
   if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
   this.applySecondaryTrackSelection(loaded);
-  this.finishSecondaryTrackSelection(id, loaded.track);
+  this.finishTrackSelection();
   }
   prepareSecondaryTrackSelection(id) {
   if (this.selectedTrackId === id) {
@@ -20163,10 +20156,7 @@ class SubtitlePlayerController {
   this.secondaryCues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
   if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
   }
-  finishSecondaryTrackSelection(id, selected) {
-  this.finishTrackSelection("Secondary", id, selected, this.secondaryCues.length);
-  }
-  finishTrackSelection(role, id, selected, cues) {
+  finishTrackSelection() {
   this.markNativeCueListsDirty();
   this.setNativeTrackModes();
   this.updateFromLoadedCues();
@@ -20174,7 +20164,6 @@ class SubtitlePlayerController {
   this.render();
   this.refreshTranscriptPanelAfterTrackChange();
   this.syncControls();
-  log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
   }
   setNativeTrackModes() {
   if (this.nativeFullscreenHostTracksRestored) return;
@@ -20813,7 +20802,6 @@ class SubtitlePlayerController {
   const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
   this.options.onSettingsChange();
   if (!appliedInline) this.render();
-  log.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
   }
   applyNativeSubtitleBlurState(nativeBlurred, language, target) {
   const targets2 = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
@@ -21371,7 +21359,8 @@ class SubtitlePlayerController {
     this.options.toast?.(formatSubtitleText(language, "bmAdded", { count }));
     this.renderBatchMiningPanel();
   } catch (error) {
-    this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, "bmAddFailed"));
+    log.warn("Batch mining add failed", error);
+    this.options.toast?.(subtitleText(language, "bmAddFailed"));
   }
   }
   async copySelectedBatchMiningCandidates() {
@@ -21410,7 +21399,8 @@ class SubtitlePlayerController {
     this.options.toast?.(formatSubtitleText(language, "bmGraded", { count }));
     this.renderBatchMiningPanel();
   } catch (error) {
-    this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, "bmGradeFailed"));
+    log.warn("Batch mining grade failed", error);
+    this.options.toast?.(subtitleText(language, "bmGradeFailed"));
   }
   }
   selectAllBatchMiningCandidates() {
@@ -22456,7 +22446,6 @@ class SubtitlePlayerController {
   this.render();
   this.refreshOpenTranscriptPanelAfterPrimaryClear();
   this.syncControls();
-  log.info("Primary subtitle track cleared");
   }
   clearPrimaryTrackLoadingStates() {
   for (const track of this.tracks) {
@@ -22480,7 +22469,6 @@ class SubtitlePlayerController {
   this.render();
   this.refreshOpenTranscriptPanelAfterSecondaryClear();
   this.syncControls();
-  log.info("Secondary subtitle track cleared");
   }
   clearSecondaryTrackLoadingStates() {
   for (const track of this.tracks) {
@@ -22495,10 +22483,9 @@ class SubtitlePlayerController {
   else this.renderTrackPanel();
   }
   clearAsbPlayerReaderLines() {
-  let cleared = 0;
-  const roots = Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
-  for (const root of roots) cleared += unwrapReaderWords(root);
-  if (cleared) log.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
+  for (const root of document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR)) {
+    unwrapReaderWords(root);
+  }
   }
   positionTranscriptPanel(options = {}) {
   if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {

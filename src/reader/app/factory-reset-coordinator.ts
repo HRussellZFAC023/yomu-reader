@@ -1,5 +1,6 @@
 import { APP_NAME } from './constants';
 import { uiText } from '../app/i18n';
+import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { delay } from '../core/async-utils';
 import {
@@ -15,7 +16,6 @@ import {
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     type FactoryResetSignal,
-    type FactoryResetSignalSource,
 } from './storage';
 import type { InterfaceLanguage } from './types';
 
@@ -72,8 +72,8 @@ export class FactoryResetCoordinator {
 
     bind(): void {
         if (this.unsubscribe) return;
-        this.unsubscribe = subscribeToFactoryResetSignals((signal, source) => {
-            void this.handleSignal(signal, source);
+        this.unsubscribe = subscribeToFactoryResetSignals(signal => {
+            void this.handleSignal(signal);
         });
     }
 
@@ -94,19 +94,18 @@ export class FactoryResetCoordinator {
             await publishFactoryResetSignal(resetSignal);
             await this.dependencies.invalidateRuntimeStores();
             await delay(FACTORY_RESET_PREPARE_DELAY_MS);
-            const deletedStorageValues = await clearManagedStoredValues();
+            await clearManagedStoredValues();
             await deleteSettingsStorage();
             await this.assertSettingsStorageDeleted();
-            const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
+            await this.resetDictionaryDatabaseBestEffort();
             await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id));
             await clearFactoryResetSignal();
-            log.info('Local data reset; reloading', { deletedStorageValues, dictionaryReset });
             this.dependencies.reload();
         } catch (error) {
             this.activeResetId = '';
             endSettingsResetGuard();
             log.warn('All-data reset failed', error);
-            this.dependencies.toast(error instanceof Error ? error.message : this.text('factoryResetFailed'));
+            this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), 'factoryResetFailed', error));
         }
     }
 
@@ -120,19 +119,13 @@ export class FactoryResetCoordinator {
         }
     }
 
-    private async handleSignal(signal: FactoryResetSignal, source: FactoryResetSignalSource): Promise<void> {
+    private async handleSignal(signal: FactoryResetSignal): Promise<void> {
         if (this.dependencies.isDestroyed() || signal.id === this.activeResetId) return;
         const handledKey = `${signal.id}:${signal.phase}`;
         if (this.handledSignals.has(handledKey)) return;
         this.handledSignals.add(handledKey);
         beginSettingsResetGuard();
 
-        log.info('Factory reset signal received', {
-            phase: signal.phase,
-            href: signal.href,
-            remote: source.remote,
-            transport: source.transport,
-        });
         await this.dependencies.invalidateRuntimeStores();
         if (signal.phase === 'complete') {
             this.clearRemoteGuardReleaseTimer();

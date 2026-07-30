@@ -615,6 +615,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Arabic, Khmer, Lao and Thai now open native dictionaries: Maajim, Khmer Dictionary, Lao Dictionary and Longdo. Their query paths preserve diacritics.": "アラビア語、クメール語、ラオ語、タイ語で、それぞれMaajim、Khmer Dictionary、Lao Dictionary、Longdoという母語辞書が開くようになりました。検索語のパスではダイアクリティカルマークが保持されます。",
     "Vietnamese Settings labels Tra tu Soha as a plaintext HTTP link before it opens.": "ベトナム語の設定では、Tra tu Sohaを開く前に、プレーンテキストHTTPリンクであることを表示するようになりました。",
     "Hover lookups no longer announce themselves as modal dialogs. Clicked lookups keep keyboard focus inside, hide the page from screen readers while open, and return focus to the word after Escape.": "ホバー検索はモーダルダイアログとして読み上げられなくなりました。クリックで開いた検索では、開いている間はキーボードフォーカスが検索内に保たれ、スクリーンリーダーからページ本文が隠されます。Escapeで閉じるとフォーカスは調べた単語に戻ります。",
+    "Error details stay in diagnostics while lookup, review, scan, settings, audio, subtitle-mining, and reset failures now show interface-language copy. JPDB key, rate-limit, connection, and timeout failures have their own messages.": "エラーの詳細は診断ログに残し、検索、レビュー、スキャン、設定、音声、字幕採掘、リセットの失敗はインターフェース言語で表示するようになりました。JPDBのキー、レート制限、接続、タイムアウトには、それぞれ専用のメッセージがあります。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',

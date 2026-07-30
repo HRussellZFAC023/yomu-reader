@@ -1556,6 +1556,14 @@ function abortReason(config) {
   error.name = "AbortError";
   return error;
 }
+const JPDB_FAILURE_COPY_KEY = {
+  "missing-key": "jpdbApiKeyMissingError",
+  "rejected-key": "jpdbApiKeyRejectedError",
+  "rate-limited": "jpdbRateLimitedError",
+  "connection-cooldown": "jpdbConnectionCoolingDownError",
+  "timed-out": "jpdbRequestTimedOutError",
+  "request-failed": "jpdbRequestFailedError"
+};
 const API_BASE = "https://jpdb.io/api/v1";
 const RATE_LIMIT_BACKOFF_MS = 3e4;
 const CONNECTION_FAILURE_BACKOFF_MS = 3e4;
@@ -1570,6 +1578,16 @@ const RETRYABLE_API_READ_ENDPOINTS = /* @__PURE__ */ new Set([
   "ping"
 ]);
 const log$3 = Logger.scope("JpdbApi");
+class JpdbApiError extends Error {
+  yomuJpdbFailureCode;
+  yomuUiCopyKey;
+  constructor(code, message, options = {}) {
+  super(message, { cause: options.cause });
+  this.name = "JpdbApiError";
+  this.yomuJpdbFailureCode = code;
+  this.yomuUiCopyKey = JPDB_FAILURE_COPY_KEY[code];
+  }
+}
 class JpdbApiClient {
   constructor(getApiKey, getProxyUrl = () => "") {
   this.getApiKey = getApiKey;
@@ -1595,35 +1613,35 @@ class JpdbApiClient {
   assertCanRequest(token, endpoint) {
   if (!token) {
     log$3.warn("JPDB API key missing", { endpoint });
-    throw new Error("JPDB API key is not set.");
+    throw new JpdbApiError("missing-key", "JPDB API key is not set.");
   }
   if (this.rejectedToken === token) {
     log$3.warn("JPDB API key was already rejected", { endpoint });
-    throw new Error("JPDB rejected the API key.");
+    throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
   }
   if (Date.now() < this.retryAfter) {
     log$3.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
-    throw new Error("JPDB is rate limited. Try again in a moment.");
+    throw new JpdbApiError("rate-limited", "JPDB is rate limited. Try again in a moment.");
   }
   if (Date.now() < this.connectionRetryAfter) {
     log$3.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
-    throw new Error("JPDB connection is cooling down. Try again in a moment.");
+    throw new JpdbApiError("connection-cooldown", "JPDB connection is cooling down. Try again in a moment.");
   }
   }
   assertSuccessfulResponse(response, endpoint, token) {
   if (response.status === 429) {
     this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
     log$3.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
-    throw new Error("JPDB rate limit reached.");
+    throw new JpdbApiError("rate-limited", "JPDB rate limit reached.");
   }
   if (response.status === 403) {
     this.rejectedToken = token;
     log$3.warn("JPDB rejected API key", { endpoint });
-    throw new Error("JPDB rejected the API key.");
+    throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
   }
   if (!response.ok) {
     log$3.warn("JPDB request failed", { endpoint, status: response.status });
-    throw new Error(`JPDB request failed (${response.status}).`);
+    throw new JpdbApiError("request-failed", `JPDB request failed (${response.status}).`);
   }
   }
   async postJsonWithReadRetry(url, token, body, endpoint) {
@@ -1701,7 +1719,7 @@ async function postJsonWithFetch(url, headers, data, proxyUrl) {
     lastError = error;
   }
   }
-  throw lastError instanceof Error ? lastError : new Error("JPDB request failed.");
+  throw lastError instanceof Error ? lastError : new JpdbApiError("request-failed", "JPDB request failed.", { cause: lastError });
 }
 async function fetchWithTimeout$1(url, init, timeoutMs) {
   const controller = new AbortController();
@@ -1709,7 +1727,7 @@ async function fetchWithTimeout$1(url, init, timeoutMs) {
   try {
   return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
-  if (isAbortError(error)) throw new Error("JPDB request timed out.");
+  if (isAbortError(error)) throw new JpdbApiError("timed-out", "JPDB request timed out.", { cause: error });
   throw error;
   } finally {
   window.clearTimeout(timeoutId);
@@ -1739,7 +1757,7 @@ function postJsonWithUserscriptRequest(request, url, headers, data) {
   // Matches the old bare `onerror: reject`: the transport error is passed
   // through untouched so callers keep classifying it as they always did.
   onError: (error) => error,
-  onTimeout: () => new Error("JPDB request timed out.")
+  onTimeout: () => new JpdbApiError("timed-out", "JPDB request timed out.")
   });
 }
 function endpointLabel(url) {
@@ -1759,7 +1777,11 @@ function isJpdbConnectionFailure(error) {
   return !message || /(?:network|connection|reset|closed|failed to fetch|load failed|timed out|timeout|PR_END_OF_FILE|NS_ERROR)/i.test(message);
 }
 function normalizeJpdbTransportError(error) {
-  return error instanceof Error ? error : new Error("JPDB request failed.");
+  if (error instanceof JpdbApiError) return error;
+  if (isJpdbConnectionFailure(error)) {
+  return new JpdbApiError("request-failed", error instanceof Error ? error.message : "JPDB request failed.", { cause: error });
+  }
+  return error instanceof Error ? error : new JpdbApiError("request-failed", "JPDB request failed.", { cause: error });
 }
 function retryableReadDelayMs() {
   return isTestRuntime$1() ? 0 : RETRYABLE_READ_DELAY_MS;
@@ -5888,6 +5910,7 @@ const COPY = {
   settings: "Settings",
   settingsSaved: "Settings saved.",
   settingsSaveFailed: "Settings save failed.",
+  settingsCompanionUnavailable: "Settings are unavailable because part of Yomu did not load.",
   firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
   firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
   settingsSections: "Settings sections",
@@ -6929,6 +6952,12 @@ const COPY = {
   reviewFailed: "Review failed.",
   reviewActionsDisabled: "Review actions are disabled in settings.",
   jpdbLookupFailed: "JPDB lookup failed.",
+  jpdbApiKeyMissingError: "Add a JPDB API key in Settings.",
+  jpdbApiKeyRejectedError: "JPDB rejected the API key. Check it in Settings.",
+  jpdbRateLimitedError: "JPDB is busy. Try again in a moment.",
+  jpdbConnectionCoolingDownError: "JPDB is temporarily unreachable. Try again in a moment.",
+  jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
+  jpdbRequestFailedError: "JPDB request failed. Try again.",
   jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
   jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
   addedToJpdb: "Added to JPDB.",
@@ -7148,6 +7177,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -7543,6 +7573,12 @@ subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbApiKeyMissingError	設定でJPDB APIキーを追加してください。
+jpdbApiKeyRejectedError	JPDBがAPIキーを拒否しました。設定でキーを確認してください。
+jpdbRateLimitedError	JPDBへのリクエストが多すぎます。しばらくしてからもう一度お試しください。
+jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しばらくしてからもう一度お試しください。
+jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
+jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。

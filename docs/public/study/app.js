@@ -3646,6 +3646,7 @@
       settings: "Settings",
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
+      settingsCompanionUnavailable: "Settings are unavailable because part of Yomu did not load.",
       firefoxAuthenticationInfoDenied: "Those account details were not saved because Firefox permission was not granted.",
       firefoxAuthenticationInfoExtensionPageRequired: "Firefox can only ask for that permission on a Yomu page. Open Study, then add the account details in Settings.",
       settingsSections: "Settings sections",
@@ -4687,6 +4688,12 @@
       reviewFailed: "Review failed.",
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
+      jpdbApiKeyMissingError: "Add a JPDB API key in Settings.",
+      jpdbApiKeyRejectedError: "JPDB rejected the API key. Check it in Settings.",
+      jpdbRateLimitedError: "JPDB is busy. Try again in a moment.",
+      jpdbConnectionCoolingDownError: "JPDB is temporarily unreachable. Try again in a moment.",
+      jpdbRequestTimedOutError: "JPDB took too long to respond. Try again.",
+      jpdbRequestFailedError: "JPDB request failed. Try again.",
       jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
       jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
       addedToJpdb: "Added to JPDB.",
@@ -4925,6 +4932,7 @@ japanese	日本語
 settings	設定
 settingsSaved	設定を保存しました。
 settingsSaveFailed	設定を保存できませんでした。
+settingsCompanionUnavailable	設定を開けません。よむの一部を読み込めませんでした。
 firefoxAuthenticationInfoDenied	Firefoxの許可がなかったため、アカウント情報は保存しませんでした。
 firefoxAuthenticationInfoExtensionPageRequired	Firefoxでこの許可を求めるにはYomuのページが必要です。学習ページを開き、設定からアカウント情報を追加してください。
 dictionaries	辞書
@@ -5320,6 +5328,12 @@ subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
+jpdbApiKeyMissingError	設定でJPDB APIキーを追加してください。
+jpdbApiKeyRejectedError	JPDBがAPIキーを拒否しました。設定でキーを確認してください。
+jpdbRateLimitedError	JPDBへのリクエストが多すぎます。しばらくしてからもう一度お試しください。
+jpdbConnectionCoolingDownError	JPDBに一時的に接続できません。しばらくしてからもう一度お試しください。
+jpdbRequestTimedOutError	JPDBからの応答に時間がかかりすぎました。もう一度お試しください。
+jpdbRequestFailedError	JPDBへのリクエストに失敗しました。もう一度お試しください。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
@@ -7599,21 +7613,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const Logger = new LoggerImpl();
   function configureLogger(options) {
     Logger.configure(options);
-  }
-  function loggingSettingsSummary(settings) {
-    return {
-      enableLogging: settings.enableLogging,
-      hasApiKey: hasJpdbApiCredential(settings),
-      hasJitenApiKey: hasJitenApiCredential(settings),
-      localDictionariesEnabled: settings.localDictionariesEnabled,
-      localDictionarySources: settings.dictionaryPreferences.length,
-      ankiEnabled: settings.ankiEnabled,
-      newTabEnabled: settings.newTabEnabled,
-      newTabSource: settings.newTabSource,
-      ocrEnabled: settings.ocrEnabled,
-      subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-      youtubeImmersionEnabled: settings.youtubeImmersionEnabled
-    };
   }
   function isDevMode() {
     return BUILD_IS_DEV_MODE;
@@ -21019,10 +21018,10 @@ ${item.sequence ?? ""}`;
       name: file.name,
       size: file.size,
       type: file.type,
-      sourceHost: sourceUrl ? safeHost$3(sourceUrl) : ""
+      sourceHost: sourceUrl ? safeHost$2(sourceUrl) : ""
     };
   }
-  function safeHost$3(url) {
+  function safeHost$2(url) {
     try {
       return new URL(url, location.href).host;
     } catch {
@@ -21052,7 +21051,7 @@ ${item.sequence ?? ""}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$3(url, proxyUrl, onProgress, language2 = "en") {
-    const done = log$I.time("Dictionary download", { host: safeHost$3(url) });
+    const done = log$I.time("Dictionary download", { host: safeHost$2(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
@@ -21073,26 +21072,26 @@ ${item.sequence ?? ""}`;
       },
       readResponse: (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$I.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
+          log$I.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: response.response.size });
           done();
           return response.response;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$I.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
+          log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status: response.status });
           done();
           throw new Error(formatDictionaryDownloadFailed(language2, response.status));
         }
-        log$I.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
+        log$I.warn("Dictionary download payload failed", { host: safeHost$2(url), status: response.status });
         done();
         throw new Error(uiText(language2, "dictionaryDownloadNotZip"));
       },
       onError: () => {
-        log$I.warn("Dictionary download failed", { host: safeHost$3(url) });
+        log$I.warn("Dictionary download failed", { host: safeHost$2(url) });
         done();
         return new Error(uiText(language2, "dictionaryDownloadFailed"));
       },
       onTimeout: () => {
-        log$I.warn("Dictionary download timed out", { host: safeHost$3(url) });
+        log$I.warn("Dictionary download timed out", { host: safeHost$2(url) });
         done();
         return new Error(uiText(language2, "dictionaryDownloadTimedOut"));
       }
@@ -21115,7 +21114,7 @@ ${item.sequence ?? ""}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
     const blob = await responseBlobWithProgress(response, onProgress, language2);
-    log$I.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
+    log$I.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -21147,11 +21146,11 @@ ${item.sequence ?? ""}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language2) {
-    log$I.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
+    log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status });
     throw new Error(formatDictionaryDownloadFailed(language2, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language2) {
-    const host = safeHost$3(url);
+    const host = safeHost$2(url);
     if (isDictionaryCorsError(error)) {
       log$I.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
@@ -23335,12 +23334,12 @@ ${entry.reading}`;
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
-      log$G.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
+      log$G.info("Dictionary URL import started", { filename, host: safeHost$2(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url, options);
-      log$G.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
+      log$G.info("Dictionary URL import completed", { filename, host: safeHost$2(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
@@ -30759,6 +30758,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
+  function userFacingError(copyKey, options = {}) {
+    return Object.assign(
+      new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+      { name: "UserFacingError", yomuUiCopyKey: copyKey }
+    );
+  }
+  function userFacingErrorText(language2, fallbackKey, error) {
+    const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+    const message = uiText(language2, copyKey);
+    return typeof message === "string" ? message : uiText(language2, fallbackKey);
+  }
+  function userFacingCopyKey(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const copyKey = error.yomuUiCopyKey;
+    return typeof copyKey === "string" ? copyKey : void 0;
+  }
   const log$C = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
@@ -30815,7 +30830,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return played;
       } catch (error) {
         log$C.warn("Term audio playback failed", { term: card.spelling }, error);
-        this.dependencies.toast(this.audioErrorMessage(error));
+        this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
         return false;
       } finally {
         this.clearLoading(loading.popover, loading.requestId);
@@ -30849,7 +30864,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async playSentenceAudio(sentence) {
       if (!this.ensureAudioEnabled()) return;
       const text2 = sentence?.trim();
-      if (!text2) throw new Error(uiText(this.dependencies.getSettings().interfaceLanguage, "noSentenceToRead"));
+      if (!text2) throw userFacingError("noSentenceToRead");
       const voice = this.dependencies.getSettings().audioSources.find(
         (source) => source.enabled && (source.type === "text-to-speech" || source.type === "text-to-speech-reading") && source.voice.trim()
       )?.voice.trim() ?? "";
@@ -30872,11 +30887,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (settings.audioEnabled) return true;
       this.dependencies.toast(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
       return false;
-    }
-    audioErrorMessage(error) {
-      const language2 = this.dependencies.getSettings().interfaceLanguage;
-      if (resolveUiLanguage(language2) === "ja") return uiText(language2, "audioPlaybackFailed");
-      return error instanceof Error ? error.message : uiText(language2, "audioPlaybackFailed");
     }
     setLoading(popover, requestId) {
       if (!popover?.isConnected) return;
@@ -33903,7 +33913,7 @@ ${key}`] = { t: now, v: value };
   function isPublicJitenBackoffError(error) {
     const name = errorName(error);
     if (name === "AbortError") return true;
-    const message = errorMessage$3(error);
+    const message = errorMessage$1(error);
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context, error) {
@@ -33912,7 +33922,7 @@ ${key}`] = { t: now, v: value };
   function errorName(error) {
     return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
   }
-  function errorMessage$3(error) {
+  function errorMessage$1(error) {
     if (error instanceof Error) return error.message;
     return isNonNullObject(error) && typeof error.message === "string" ? error.message : "";
   }
@@ -34252,6 +34262,14 @@ ${key}`] = { t: now, v: value };
   function isAbortError$1(error) {
     return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
   }
+  const JPDB_FAILURE_COPY_KEY = {
+    "missing-key": "jpdbApiKeyMissingError",
+    "rejected-key": "jpdbApiKeyRejectedError",
+    "rate-limited": "jpdbRateLimitedError",
+    "connection-cooldown": "jpdbConnectionCoolingDownError",
+    "timed-out": "jpdbRequestTimedOutError",
+    "request-failed": "jpdbRequestFailedError"
+  };
   const API_BASE$1 = "https://jpdb.io/api/v1";
   const RATE_LIMIT_BACKOFF_MS = 3e4;
   const CONNECTION_FAILURE_BACKOFF_MS = 3e4;
@@ -34266,6 +34284,16 @@ ${key}`] = { t: now, v: value };
     "ping"
   ]);
   const log$A = Logger.scope("JpdbApi");
+  class JpdbApiError extends Error {
+    yomuJpdbFailureCode;
+    yomuUiCopyKey;
+    constructor(code, message, options = {}) {
+      super(message, { cause: options.cause });
+      this.name = "JpdbApiError";
+      this.yomuJpdbFailureCode = code;
+      this.yomuUiCopyKey = JPDB_FAILURE_COPY_KEY[code];
+    }
+  }
   class JpdbApiClient {
     constructor(getApiKey, getProxyUrl = () => "") {
       this.getApiKey = getApiKey;
@@ -34291,35 +34319,35 @@ ${key}`] = { t: now, v: value };
     assertCanRequest(token, endpoint) {
       if (!token) {
         log$A.warn("JPDB API key missing", { endpoint });
-        throw new Error("JPDB API key is not set.");
+        throw new JpdbApiError("missing-key", "JPDB API key is not set.");
       }
       if (this.rejectedToken === token) {
         log$A.warn("JPDB API key was already rejected", { endpoint });
-        throw new Error("JPDB rejected the API key.");
+        throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (Date.now() < this.retryAfter) {
         log$A.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
-        throw new Error("JPDB is rate limited. Try again in a moment.");
+        throw new JpdbApiError("rate-limited", "JPDB is rate limited. Try again in a moment.");
       }
       if (Date.now() < this.connectionRetryAfter) {
         log$A.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
-        throw new Error("JPDB connection is cooling down. Try again in a moment.");
+        throw new JpdbApiError("connection-cooldown", "JPDB connection is cooling down. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
         log$A.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
-        throw new Error("JPDB rate limit reached.");
+        throw new JpdbApiError("rate-limited", "JPDB rate limit reached.");
       }
       if (response.status === 403) {
         this.rejectedToken = token;
         log$A.warn("JPDB rejected API key", { endpoint });
-        throw new Error("JPDB rejected the API key.");
+        throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (!response.ok) {
         log$A.warn("JPDB request failed", { endpoint, status: response.status });
-        throw new Error(`JPDB request failed (${response.status}).`);
+        throw new JpdbApiError("request-failed", `JPDB request failed (${response.status}).`);
       }
     }
     async postJsonWithReadRetry(url, token, body, endpoint) {
@@ -34397,7 +34425,7 @@ ${key}`] = { t: now, v: value };
         lastError = error;
       }
     }
-    throw lastError instanceof Error ? lastError : new Error("JPDB request failed.");
+    throw lastError instanceof Error ? lastError : new JpdbApiError("request-failed", "JPDB request failed.", { cause: lastError });
   }
   async function fetchWithTimeout$2(url, init, timeoutMs) {
     const controller = new AbortController();
@@ -34405,7 +34433,7 @@ ${key}`] = { t: now, v: value };
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$1(error)) throw new Error("JPDB request timed out.");
+      if (isAbortError$1(error)) throw new JpdbApiError("timed-out", "JPDB request timed out.", { cause: error });
       throw error;
     } finally {
       window.clearTimeout(timeoutId);
@@ -34435,7 +34463,7 @@ ${key}`] = { t: now, v: value };
       // Matches the old bare `onerror: reject`: the transport error is passed
       // through untouched so callers keep classifying it as they always did.
       onError: (error) => error,
-      onTimeout: () => new Error("JPDB request timed out.")
+      onTimeout: () => new JpdbApiError("timed-out", "JPDB request timed out.")
     });
   }
   function endpointLabel(url) {
@@ -34455,7 +34483,11 @@ ${key}`] = { t: now, v: value };
     return !message || /(?:network|connection|reset|closed|failed to fetch|load failed|timed out|timeout|PR_END_OF_FILE|NS_ERROR)/i.test(message);
   }
   function normalizeJpdbTransportError(error) {
-    return error instanceof Error ? error : new Error("JPDB request failed.");
+    if (error instanceof JpdbApiError) return error;
+    if (isJpdbConnectionFailure(error)) {
+      return new JpdbApiError("request-failed", error instanceof Error ? error.message : "JPDB request failed.", { cause: error });
+    }
+    return error instanceof Error ? error : new JpdbApiError("request-failed", "JPDB request failed.", { cause: error });
   }
   function retryableReadDelayMs() {
     return isTestRuntime$1() ? 0 : RETRYABLE_READ_DELAY_MS;
@@ -36869,14 +36901,14 @@ ${normalizedReading}`;
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$w.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+      log$w.warn("Kanji origin request failed", { host: safeHost$1(url), error });
       throw error;
     });
   }
   function first(values) {
     return values.find((value) => value?.trim())?.trim();
   }
-  function safeHost$2(url) {
+  function safeHost$1(url) {
     try {
       return new URL(url, location.href).host;
     } catch {
@@ -56032,7 +56064,7 @@ ${spelling}`);
   }
   function imageSummary(image) {
     return {
-      host: safeHost$1(image.currentSrc || image.src),
+      host: safeHost(image.currentSrc || image.src),
       width: image.naturalWidth || image.width,
       height: image.naturalHeight || image.height,
       altLength: image.alt?.length ?? 0,
@@ -56061,7 +56093,7 @@ ${spelling}`);
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
   }
-  function safeHost$1(value) {
+  function safeHost(value) {
     try {
       return new URL(value, location.href).host;
     } catch {
@@ -56141,7 +56173,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.48".trim() ? "1.8.48".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.49".trim() ? "1.8.49".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -93973,7 +94005,6 @@ ${spelling}`);
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$i = Logger.scope("SettingsForm");
   const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
     "auto",
     ...availableInterfaceLocales().map((locale) => locale.tag)
@@ -94118,17 +94149,7 @@ ${spelling}`);
       shortcuts: readShortcutFormSettings(reader, current)
     };
     preserveDetachedJapaneseSettings(settings, current, data);
-    const normalized = normalizeReaderSettings(settings);
-    log$i.info("Read settings form data", {
-      enableLogging: normalized.enableLogging,
-      dictionaries: normalized.dictionaryPreferences.length,
-      lookupLinks: normalized.dictionaryLookupLinks.length,
-      audioSources: normalized.audioSources.length,
-      ocrEnabled: normalized.ocrEnabled,
-      subtitlePlayerEnabled: normalized.subtitlePlayerEnabled,
-      ankiEnabled: normalized.ankiEnabled
-    });
-    return normalized;
+    return normalizeReaderSettings(settings);
   }
   function readLanguageProfileFormSettings(data, current, interfaceLanguage, dictionaryPreferences) {
     const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
@@ -99807,7 +99828,7 @@ ${spelling}`);
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
   }
-  const log$h = Logger.scope("SettingsFileIO");
+  const log$i = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -99853,14 +99874,13 @@ ${spelling}`);
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$h.warn("File picker input missing", { type });
+      log$i.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
       inputEl.onchange = () => {
         const file = inputEl.files?.[0] ?? null;
         inputEl.value = "";
-        log$h.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
         resolve(file);
       };
       inputEl.click();
@@ -99873,7 +99893,6 @@ ${spelling}`);
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$h.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
@@ -100079,7 +100098,7 @@ ${spelling}`);
     const padded = value.replaceAll("-", "+").replaceAll("_", "/") + "=".repeat((4 - value.length % 4) % 4);
     return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
   }
-  const log$g = Logger.scope("CardStateSignal");
+  const log$h = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
   const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
   const SEEN_SIGNAL_LIMIT = 32;
@@ -100121,7 +100140,7 @@ ${spelling}`);
     try {
       gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
     } catch (error) {
-      log$g.debug("GM card-state publish failed", error);
+      log$h.debug("GM card-state publish failed", error);
     }
     publishBroadcastCardStateSignal(signal);
   }
@@ -100132,7 +100151,7 @@ ${spelling}`);
       channel.postMessage(signal);
       channel.close();
     } catch (error) {
-      log$g.debug("Broadcast card-state publish failed", error);
+      log$h.debug("Broadcast card-state publish failed", error);
     }
   }
   function subscribeToCardStateSignals(onCard) {
@@ -100156,7 +100175,7 @@ ${spelling}`);
           if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
         });
       } catch (error) {
-        log$g.debug("GM card-state listener failed", error);
+        log$h.debug("GM card-state listener failed", error);
       }
     }
     if (typeof BroadcastChannel === "function") {
@@ -100165,7 +100184,7 @@ ${spelling}`);
         channel.onmessage = (event) => handle(event.data);
         cleanups.push(() => channel.close());
       } catch (error) {
-        log$g.debug("Broadcast card-state listener failed", error);
+        log$h.debug("Broadcast card-state listener failed", error);
       }
     }
     return () => cleanups.forEach((cleanup) => cleanup());
@@ -100999,7 +101018,7 @@ ${spelling}`);
       await saveDeviceState(updated);
       return statusFromState(updated);
     } catch (error) {
-      return { ...statusFromState(state2), error: errorMessage$2(error) };
+      return { ...statusFromState(state2), error: errorMessage(error) };
     }
   }
   async function claimAcademyReaderDevice(rawCode) {
@@ -101377,12 +101396,13 @@ ${spelling}`);
   function isUuid(value) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
   }
-  function errorMessage$2(error) {
+  function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
   }
   function isRecord$3(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
+  const log$g = Logger.scope("AcademyAccountSyncSettings");
   class AcademyAccountSyncSettingsController {
     constructor(toast) {
       this.toast = toast;
@@ -101398,10 +101418,11 @@ ${spelling}`);
         renderStatus(form, status, language2);
       } catch (error) {
         if (probeId !== this.statusProbeId || !form.isConnected) return;
+        log$g.warn("Academy account status failed", error);
         setMessage(
           form,
           formatUiText(language2, "academyAccountConnectionProblem", {
-            message: errorMessage$1(error, uiText(language2, "actionFailed"))
+            message: userFacingErrorText(language2, "actionFailed", error)
           }),
           "error"
         );
@@ -101445,7 +101466,8 @@ ${spelling}`);
           this.toast(uiText(language2, action === "connect-academy-account" ? "academyAccountConnectedDone" : "academyAccountSyncedDone"));
         }
       } catch (error) {
-        const message = errorMessage$1(error, uiText(language2, "actionFailed"));
+        log$g.warn("Academy account action failed", { action }, error);
+        const message = userFacingErrorText(language2, "actionFailed", error);
         setMessage(form, message, "error");
         this.toast(message);
       } finally {
@@ -101500,11 +101522,6 @@ ${spelling}`);
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
     return date.toLocaleString(resolveUiLanguage(language2) === "ja" ? "ja-JP" : "en-GB");
-  }
-  function errorMessage$1(error, fallback) {
-    if (error instanceof Error && error.message.trim()) return error.message;
-    if (typeof error === "string" && error.trim()) return error;
-    return fallback;
   }
   function isAcademyReaderAccountAction(action) {
     return action === "connect-academy-account" || action === "sync-academy-account" || action === "create-academy-recovery-code" || action === "disconnect-academy-account";
@@ -101779,7 +101796,7 @@ ${spelling}`);
   function handleSettingsActionError(action, control, setStatus, error, language2) {
     log$f.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
-    const message = errorMessage(error, uiText(language2, "actionFailed"));
+    const message = userFacingErrorText(language2, "actionFailed", error);
     setStatus(message);
     return message;
   }
@@ -101825,12 +101842,7 @@ ${spelling}`);
     return uiText(language2, "noLocalDictionariesImported");
   }
   function setDictionaryStatusError(status, error, language2) {
-    if (status) status.textContent = errorMessage(error, uiText(language2, "dictionaryStatusUnavailable"));
-  }
-  function errorMessage(error, fallback) {
-    if (error instanceof Error && error.message.trim()) return error.message;
-    if (typeof error === "string" && error.trim()) return error;
-    return fallback;
+    if (status) status.textContent = userFacingErrorText(language2, "dictionaryStatusUnavailable", error);
   }
   function isAnkiConnectSetupError(error) {
     if (isAnkiConnectAvailabilityError(error)) return true;
@@ -101860,7 +101872,6 @@ ${spelling}`);
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
-      log$f.info("Opening settings", { panel: panel ?? "default" });
       const trigger = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
@@ -101913,7 +101924,8 @@ ${spelling}`);
       await this.clearPendingCloudSettingsAction();
       const language2 = this.settings.interfaceLanguage;
       if (!authResult.ok) {
-        const message = authResult.error || "Google authorization failed.";
+        log$f.warn("Cloud settings authorization failed", { message: authResult.error });
+        const message = uiText(language2, "actionFailed");
         this.dependencies.toast(message);
         this.open("backup");
         return true;
@@ -101922,7 +101934,7 @@ ${spelling}`);
         await this.performCloudSettingsAction(pending2.action, language2, void 0);
         if (pending2.action === "sync-cloud-settings") this.open("backup");
       } catch (error) {
-        const message = errorMessage(error, uiText(language2, "actionFailed"));
+        const message = userFacingErrorText(language2, "actionFailed", error);
         this.dependencies.toast(message);
         this.open("backup");
       }
@@ -101996,7 +102008,7 @@ ${spelling}`);
           });
         }).catch((error) => {
           log$f.error("Settings save failed", error);
-          this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
+          this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
         });
       });
       form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
@@ -102063,7 +102075,6 @@ ${spelling}`);
     }
     afterSettingsSaved(form, saveRequestId) {
       if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-      log$f.info("Settings saved", loggingSettingsSummary(this.settings));
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       this.dependencies.installFab();
@@ -102082,7 +102093,7 @@ ${spelling}`);
         await this.dependencies.refreshDictionaryStyles();
       } catch (error) {
         log$f.warn("Dictionary style refresh failed", error);
-        this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "actionFailed")));
+        this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
       }
     }
     bindLivePreview(form) {
@@ -102727,7 +102738,6 @@ ${spelling}`);
           ...staleDetails,
           ...this.ankiScanDetails(scan, language2)
         ]);
-        log$f.info("Auto Anki scan ok", { decks: scan.deckNames.length, models: scan.models.length, suggestedModel: scan.suggestedModel?.modelName });
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         log$f.warn("Automatic Anki library scan failed", error);
@@ -102750,7 +102760,6 @@ ${spelling}`);
       }
       try {
         await warmStatusIndex2.call(this.dependencies.anki);
-        log$f.info("Auto Anki status index warmup ok");
       } catch (error) {
         log$f.warn("Automatic Anki status index warmup failed", error);
       } finally {
@@ -103038,13 +103047,12 @@ ${spelling}`);
         const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
         if (played) {
           this.dependencies.toast(uiText(language2, "playingAudioPreview"));
-          log$f.info("Audio settings preview started");
         } else {
           this.dependencies.toast(uiText(language2, "audioPreviewFailed"));
         }
       } catch (error) {
         log$f.warn("Audio settings preview failed", error);
-        this.dependencies.toast(errorMessage(error, uiText(language2, "audioPreviewFailed")));
+        this.dependencies.toast(userFacingErrorText(language2, "audioPreviewFailed", error));
       } finally {
         this.restoreTransientSettings(previous);
         button2?.removeAttribute("disabled");
@@ -103137,7 +103145,6 @@ ${spelling}`);
         const blob = await this.dependencies.dictionaries.exportJson();
         downloadBlob(blob, `yomu-dictionaries-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "dictionariesExported"));
-        log$f.info("Dictionaries exported");
         return true;
       }
       return false;
@@ -103173,7 +103180,6 @@ ${spelling}`);
         const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language2);
         setStatus?.(message2);
         this.dependencies.toast(message2);
-        log$f.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
         return;
       }
       const snapshot = await downloadCloudSettingsFromCloud();
@@ -103200,7 +103206,6 @@ ${spelling}`);
       this.dependencies.ocr.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$f.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
       this.open("backup");
     }
     async rememberPendingCloudSettingsAction(action) {
@@ -103241,7 +103246,6 @@ ${spelling}`);
           ...dictionaries2 ? { dictionaries: dictionaries2 } : {}
         }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
-        log$f.info("Settings exported");
         return true;
       }
       return false;
@@ -103294,13 +103298,11 @@ ${spelling}`);
     finishAnkiConnectionTest(form, setAnkiStatus, language2) {
       setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
       this.queueAutomaticAnkiLibraryScan(form, language2);
-      log$f.info("Anki settings check ok", { url: this.settings.ankiConnectUrl });
     }
     async prepareAnkiConnectionAction(form, setAnkiStatus, language2) {
       await this.dependencies.anki.ensureDeckAndModel();
       setAnkiStatus(this.ankiReadyMessage(language2), "success");
       this.queueAutomaticAnkiLibraryScan(form, language2);
-      log$f.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
     }
     // Runs from the user pressing Update, never from the scan that spots the
     // gap: the offer is a question, not a migration. The re-scan it queues
@@ -103321,7 +103323,6 @@ ${spelling}`);
       const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
       setAnkiStatus(added.length ? formatUiText(language2, "ankiModelUpdated", { fields: added.join(", ") }) : uiText(language2, "ankiModelUpToDate"), "success");
       this.queueAutomaticAnkiLibraryScan(form, language2);
-      log$f.info("Anki note type updated", { model: offeredModel, fields: added });
     }
     handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
@@ -103534,7 +103535,7 @@ ${spelling}`);
       }));
     }
     ankiConnectionErrorMessage(error, language2) {
-      return error instanceof Error ? error.message : uiText(language2, "ankiUnreachable");
+      return userFacingErrorText(language2, "ankiUnreachable", error);
     }
     async handleSettingsSupportAction(action, control, setStatus) {
       if (action === "open-yomu-update") {
@@ -103574,7 +103575,6 @@ ${spelling}`);
       await this.refreshDictionaryStatus(form);
       this.dependencies.refreshNewTabIfCurrent();
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      log$f.info("Dictionary removed", { dictionary });
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -103587,7 +103587,6 @@ ${spelling}`);
           sources: summary.dictionaries.length.toLocaleString(),
           plural: summary.dictionaries.length === 1 ? "" : "s"
         }));
-        log$f.info("Dictionary file imported", summary);
         await this.refreshDictionaryStatus(form);
         this.dependencies.refreshNewTabIfCurrent();
       });
@@ -103610,7 +103609,6 @@ ${spelling}`);
           const startedMessage = recommendedDictionaryDownloadStatus(control, dictionary.name, this.settings.interfaceLanguage);
           this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", startedMessage);
           setStatus(startedMessage);
-          log$f.info("Downloading selected dictionary", { dictionary: dictionary.name });
           const summary = await this.downloadRecommendedDictionary(dictionary, control, (message) => {
             setStatus(message);
             this.setRecommendedDictionaryInstallState(form, dictionary.id, "installing", `${dictionary.name}: ${message}`);
@@ -103623,7 +103621,6 @@ ${spelling}`);
           }));
           await this.refreshDictionaryStatus(form);
           this.dependencies.refreshNewTabIfCurrent();
-          log$f.info("Selected dictionary downloaded", { dictionary: dictionary.name, entries: summary.entries });
         } finally {
           this.clearRecommendedDictionaryInstallState(form, dictionary.id);
         }
@@ -103664,9 +103661,14 @@ ${spelling}`);
       }
     }
     handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
-      const message = errorMessage(error, uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed"));
       control?.removeAttribute("disabled");
-      if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) throw error;
+      if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
+        throw userFacingError("dictionaryDownloadFailed", {
+          cause: error,
+          diagnostic: error instanceof Error ? error.message : String(error)
+        });
+      }
+      const message = userFacingErrorText(this.settings.interfaceLanguage, "dictionaryDownloadBlocked", error);
       const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
       setStatus(status);
       this.dependencies.toast(status);
@@ -103717,7 +103719,6 @@ ${spelling}`);
       this.dependencies.subtitles.refresh();
       this.dependencies.youtube.refresh();
       this.dependencies.clearSettingsPreview();
-      log$f.info("Settings imported", loggingSettingsSummary(this.settings));
       this.open();
     }
     async importReaderDictionaryBackup(json, setStatus) {
@@ -109340,21 +109341,6 @@ ${reading}`);
     const selectedNativeTrackNeedsDomFallback = Boolean(options.selected?.kind === "native" && options.selected.track && !options.cues.length);
     return !options.selectedTrackId || selectedNativeTrackNeedsDomFallback;
   }
-  function videoSummary(video) {
-    return {
-      currentSrcHost: safeHost(video.currentSrc || video.src),
-      width: video.videoWidth || video.clientWidth,
-      height: video.videoHeight || video.clientHeight,
-      textTracks: video.textTracks.length
-    };
-  }
-  function safeHost(value) {
-    try {
-      return new URL(value, location.href).host;
-    } catch {
-      return value ? "inline-or-invalid" : "";
-    }
-  }
   function mutationInsideReaderRoot$1(mutation) {
     return mutationInsideClosest(mutation, "[data-jpdb-reader-root]");
   }
@@ -110086,14 +110072,13 @@ ${reading}`);
       selectedDeckLabel: () => ACADEMY_SRS_LABEL,
       addToDeck: async (_deckId, card, sentence, context) => {
         const result = await localYomuMutation(
-          settings,
           () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context))
         );
         if (result.card) applyYomuLocalReviewableToCard(card, result.card);
       },
       reviewCard: async (card, grade, reviewOptions = {}) => {
         const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-        const result = await localYomuMutation(settings, () => adapter.review({
+        const result = await localYomuMutation(() => adapter.review({
           card: yomuLocalReviewableFromCard(card),
           grade,
           sentence: reviewOptions.sentence
@@ -110104,12 +110089,12 @@ ${reading}`);
       setDeckState: async () => void 0
     };
   }
-  async function localYomuMutation(settings, operation) {
+  async function localYomuMutation(operation) {
     try {
       return await operation();
     } catch (error) {
       if (isLocalYomuSrsStorageError(error)) {
-        throw new Error(uiText(settings.interfaceLanguage, "yomuLocalSrsStorageFailed"), { cause: error });
+        throw userFacingError("yomuLocalSrsStorageFailed", { cause: error });
       }
       throw error;
     }
@@ -112499,7 +112484,6 @@ ${reading}`);
       this.discoverVideo();
       this.syncRuntimeSignals();
       this.runtimeSignalsInitialized = true;
-      log$9.info("Subtitle controller initialized");
     }
     // Install the document observer that matches the current runtime state and
     // (re)start the housekeeping tick if it should run. Idempotent: the mode
@@ -112829,7 +112813,6 @@ ${reading}`);
       this.observeVideoLayout(candidate);
       this.alignToVideo();
       if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
-      log$9.info("Subtitle video detected", videoSummary(candidate));
     }
     attachTextTracks(video) {
       for (const track of Array.from(video.textTracks)) this.addNativeTrack(track);
@@ -115456,7 +115439,6 @@ ${reading}`);
       if (kind === "primary") await this.selectTrack(track.id);
       else await this.selectSecondaryTrack(track.id);
       this.updateFromLoadedCues();
-      log$9.info("Subtitle file loaded", { kind, name: file.name, cues: cues.length });
     }
     async selectTrack(id, options = {}) {
       const requestId = this.preparePrimaryTrackSelection(id);
@@ -115466,7 +115448,7 @@ ${reading}`);
       if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
       if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
       this.applyPrimaryTrackSelection(loaded);
-      this.finishPrimaryTrackSelection(id, loaded.track);
+      this.finishTrackSelection();
     }
     // A track whose entire payload is a single usable line (a one-cue credit,
     // or a metadata-only track whose cues the normalizer dropped) isn't worth
@@ -115575,9 +115557,6 @@ ${reading}`);
       this.lastYouTubeCaptionActivationAt = 0;
       if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
     }
-    finishPrimaryTrackSelection(id, selected) {
-      this.finishTrackSelection("Primary", id, selected, this.cues.length);
-    }
     async selectSecondaryTrack(id, options = {}) {
       const requestId = this.prepareSecondaryTrackSelection(id);
       if (!options.auto) this.revealSecondarySubtitleOverlay();
@@ -115586,7 +115565,7 @@ ${reading}`);
       if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
       if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
       this.applySecondaryTrackSelection(loaded);
-      this.finishSecondaryTrackSelection(id, loaded.track);
+      this.finishTrackSelection();
     }
     prepareSecondaryTrackSelection(id) {
       if (this.selectedTrackId === id) {
@@ -115621,10 +115600,7 @@ ${reading}`);
       this.secondaryCues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
       if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
-    finishSecondaryTrackSelection(id, selected) {
-      this.finishTrackSelection("Secondary", id, selected, this.secondaryCues.length);
-    }
-    finishTrackSelection(role, id, selected, cues) {
+    finishTrackSelection() {
       this.markNativeCueListsDirty();
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
@@ -115632,7 +115608,6 @@ ${reading}`);
       this.render();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
-      log$9.info(`${role} subtitle track selected`, { id, label: selected?.label ?? "", kind: selected?.kind ?? "unknown", cues });
     }
     setNativeTrackModes() {
       if (this.nativeFullscreenHostTracksRestored) return;
@@ -116271,7 +116246,6 @@ ${reading}`);
       const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
       this.options.onSettingsChange();
       if (!appliedInline) this.render();
-      log$9.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     applyNativeSubtitleBlurState(nativeBlurred, language2, target) {
       const targets2 = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
@@ -116829,7 +116803,8 @@ ${reading}`);
         this.options.toast?.(formatSubtitleText(language2, "bmAdded", { count }));
         this.renderBatchMiningPanel();
       } catch (error) {
-        this.options.toast?.(error instanceof Error ? error.message : subtitleText(language2, "bmAddFailed"));
+        log$9.warn("Batch mining add failed", error);
+        this.options.toast?.(subtitleText(language2, "bmAddFailed"));
       }
     }
     async copySelectedBatchMiningCandidates() {
@@ -116868,7 +116843,8 @@ ${reading}`);
         this.options.toast?.(formatSubtitleText(language2, "bmGraded", { count }));
         this.renderBatchMiningPanel();
       } catch (error) {
-        this.options.toast?.(error instanceof Error ? error.message : subtitleText(language2, "bmGradeFailed"));
+        log$9.warn("Batch mining grade failed", error);
+        this.options.toast?.(subtitleText(language2, "bmGradeFailed"));
       }
     }
     selectAllBatchMiningCandidates() {
@@ -117914,7 +117890,6 @@ ${reading}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterPrimaryClear();
       this.syncControls();
-      log$9.info("Primary subtitle track cleared");
     }
     clearPrimaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -117938,7 +117913,6 @@ ${reading}`);
       this.render();
       this.refreshOpenTranscriptPanelAfterSecondaryClear();
       this.syncControls();
-      log$9.info("Secondary subtitle track cleared");
     }
     clearSecondaryTrackLoadingStates() {
       for (const track of this.tracks) {
@@ -117953,10 +117927,9 @@ ${reading}`);
       else this.renderTrackPanel();
     }
     clearAsbPlayerReaderLines() {
-      let cleared = 0;
-      const roots = Array.from(document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
-      for (const root of roots) cleared += unwrapReaderWords(root);
-      if (cleared) log$9.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
+      for (const root of document.querySelectorAll(ASBPLAYER_SUBTITLE_ROOT_SELECTOR)) {
+        unwrapReaderWords(root);
+      }
     }
     positionTranscriptPanel(options = {}) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
@@ -122698,10 +122671,10 @@ ${reading}`);
   function handleStudyGrammarAction(button2, sentence, language2 = "en", options = {}) {
     return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button2, sentence, language2, options) ?? false;
   }
-  function assertReviewableApiCardState(states, settings) {
-    if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
-    if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
-    if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
+  function assertReviewableApiCardState(states) {
+    if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
+    if (states.includes("never-forget")) throw userFacingError("reviewBlockedNeverForget");
+    if (states.includes("redundant")) throw userFacingError("reviewBlockedRedundant");
   }
   class CardActionController {
     constructor(options) {
@@ -122740,14 +122713,14 @@ ${reading}`);
       const provider = candidate && isApiSrsProviderEnabled(settings, candidate.id) ? candidate : null;
       if (provider?.hasApiKey) {
         const deckId = provider.id === "jiten" ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? "") : provider.selectedDeckId(settings.miningDeck, settings);
-        if (!deckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+        if (!deckId) throw userFacingError(provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey);
         await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
         this.notifyApiCardStateChanged(card);
         if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
         return true;
       }
       if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
-      throw new Error(uiText(settings.interfaceLanguage, "batchMiningNoDestination"));
+      throw userFacingError("batchMiningNoDestination");
     }
     performStudyAction(action, button2, sentence) {
       if (!action) return void 0;
@@ -122983,15 +122956,15 @@ ${reading}`);
     apiProviderForDeckSource(source, card, settings) {
       return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
     }
-    assertApiProviderActionAllowed(provider, message) {
+    assertApiProviderActionAllowed(provider, copyKey) {
       const settings = this.options.getSettings();
-      if (!isApiSrsProviderEnabled(settings, provider?.id)) throw new Error(uiText(settings.interfaceLanguage, "apiSrsActionsDisabled"));
-      if (!provider?.hasApiKey) throw new Error(message);
+      if (!isApiSrsProviderEnabled(settings, provider?.id)) throw userFacingError("apiSrsActionsDisabled");
+      if (!provider?.hasApiKey) throw userFacingError(copyKey);
     }
-    assertApiProviderReviewAllowed(provider, message) {
+    assertApiProviderReviewAllowed(provider, copyKey) {
       const settings = this.options.getSettings();
-      if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
-      this.assertApiProviderActionAllowed(provider, message);
+      if (!settings.enableReviews) throw userFacingError("reviewActionsDisabled");
+      this.assertApiProviderActionAllowed(provider, copyKey);
     }
     async addToSelectedDeck(button2, card, sentence, context) {
       const settings = this.options.getSettings();
@@ -123002,9 +122975,9 @@ ${reading}`);
       }
       const provider = this.apiProviderForDeckSource(deck.source, card, settings);
       const fallbackKey = deck.source === "jiten" ? "jitenAddApiKeyRequired" : deck.source === "bunpro" ? "bunproAddApiKeyRequired" : deck.source === "yomu-local" ? "yomuLocalSrsDisabled" : "jpdbAddApiKeyRequired";
-      this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
+      this.assertApiProviderActionAllowed(provider, provider?.addApiKeyRequiredKey ?? fallbackKey);
       const selectedDeckId2 = provider.selectedDeckId(deck.id, settings);
-      if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+      if (!selectedDeckId2) throw userFacingError(provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey);
       await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
       const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
       if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
@@ -123017,21 +122990,20 @@ ${reading}`);
     async openAnkiNote(button2) {
       const settings = this.options.getSettings();
       const noteId = Number(button2.dataset.noteId);
-      if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
+      if (!Number.isFinite(noteId)) throw userFacingError("ankiNoteNotFound");
       await this.options.anki.browseNote(noteId);
       this.options.toast(uiText(settings.interfaceLanguage, "openedInAnki"));
     }
     async playAnkiMediaAudio(button2) {
-      const settings = this.options.getSettings();
       const filename = button2.dataset.ankiMediaName?.trim();
-      if (!filename) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioFileNotFound"));
-      if (!this.options.playMediaUrl) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioPlaybackUnavailable"));
+      if (!filename) throw userFacingError("ankiAudioFileNotFound");
+      if (!this.options.playMediaUrl) throw userFacingError("ankiAudioPlaybackUnavailable");
       await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
     }
     async mergeExistingAnkiCard(button2, card, sentence, actionContext) {
       const settings = this.options.getSettings();
       const noteId = Number(button2.dataset.noteId);
-      if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
+      if (!Number.isFinite(noteId)) throw userFacingError("ankiNoteNotFound");
       const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
       const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
         imageDataUrl: context.imageDataUrl,
@@ -123059,8 +123031,8 @@ ${reading}`);
       const preferred = this.apiProviderForCard(card, settings);
       const provider = preferred?.supportsDeckState(state2) ? preferred : this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state2)) ?? preferred;
       if (!provider && settings.ankiEnabled && isAnkiDeckState(state2) && await this.changeAnkiDeckState(card, state2, settings)) return;
-      this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
-      if (!provider.supportsDeckState(state2)) throw new Error(uiText(settings.interfaceLanguage, "actionFailed"));
+      this.assertApiProviderActionAllowed(provider, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired");
+      if (!provider.supportsDeckState(state2)) throw userFacingError("actionFailed");
       const wasSet = normalizeCardStates(card.cardState).includes(cardStateForApiState(state2));
       await provider.setDeckState(card, state2, deck);
       const toastKey = state2 === "blacklisted" || state2 === "never-forget" ? wasSet ? "removedFromDeck" : "addedToDeckToast" : "vocabularyStatusUpdated";
@@ -123097,7 +123069,7 @@ ${reading}`);
     }
     async reviewGrade(grade, card, sentence, options = {}) {
       const settings = this.options.getSettings();
-      if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
+      if (!settings.enableReviews) throw userFacingError("reviewActionsDisabled");
       if (options.target === "both") {
         await this.reviewApiCard(grade, card, sentence, options);
         await this.answerAnkiCard(grade, card, options.ankiCardId);
@@ -123119,14 +123091,14 @@ ${reading}`);
         this.notifyAnkiStatusChanged(card);
         return;
       }
-      throw new Error(uiText(this.options.getSettings().interfaceLanguage, "missingAnkiCardId"));
+      throw userFacingError("missingAnkiCardId");
     }
     async reviewApiCard(grade, card, sentence, options) {
       const settings = this.options.getSettings();
       const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null : this.apiProviderForCard(card, settings);
-      this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview"));
+      this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
       const states = normalizeCardStates(card.cardState);
-      assertReviewableApiCardState(states, settings);
+      assertReviewableApiCardState(states);
       const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
       if (result.addedBeforeReview) {
         if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
@@ -127456,8 +127428,8 @@ ${component.reading}`;
     remoteGuardReleaseTimer;
     bind() {
       if (this.unsubscribe) return;
-      this.unsubscribe = subscribeToFactoryResetSignals((signal, source) => {
-        void this.handleSignal(signal, source);
+      this.unsubscribe = subscribeToFactoryResetSignals((signal) => {
+        void this.handleSignal(signal);
       });
     }
     destroy() {
@@ -127475,19 +127447,18 @@ ${component.reading}`;
         await publishFactoryResetSignal(resetSignal);
         await this.dependencies.invalidateRuntimeStores();
         await delay(FACTORY_RESET_PREPARE_DELAY_MS);
-        const deletedStorageValues = await clearManagedStoredValues();
+        await clearManagedStoredValues();
         await deleteSettingsStorage();
         await this.assertSettingsStorageDeleted();
-        const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
+        await this.resetDictionaryDatabaseBestEffort();
         await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
         await clearFactoryResetSignal();
-        log$6.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
         this.dependencies.reload();
       } catch (error) {
         this.activeResetId = "";
         endSettingsResetGuard();
         log$6.warn("All-data reset failed", error);
-        this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
+        this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
       }
     }
     async resetDictionaryDatabaseBestEffort() {
@@ -127499,18 +127470,12 @@ ${component.reading}`;
         return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
     }
-    async handleSignal(signal, source) {
+    async handleSignal(signal) {
       if (this.dependencies.isDestroyed() || signal.id === this.activeResetId) return;
       const handledKey = `${signal.id}:${signal.phase}`;
       if (this.handledSignals.has(handledKey)) return;
       this.handledSignals.add(handledKey);
       beginSettingsResetGuard();
-      log$6.info("Factory reset signal received", {
-        phase: signal.phase,
-        href: signal.href,
-        remote: source.remote,
-        transport: source.transport
-      });
       await this.dependencies.invalidateRuntimeStores();
       if (signal.phase === "complete") {
         this.clearRemoteGuardReleaseTimer();
@@ -145213,7 +145178,6 @@ ${rank.detail}` : baseTitle;
         this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
       }
       configureLogger({ forceEnabled: this.settings.enableLogging });
-      log.info("Settings loaded", loggingSettingsSummary(this.settings));
       this.applyInterfaceLocale();
       this.applyTheme();
       this.assertSessionVocabularyReadOnly();
@@ -146385,7 +146349,6 @@ ${rank.detail}` : baseTitle;
         const shouldRefresh = await this.cardActions.perform(action, button2, card, sentence);
         if (shouldRefresh && action === "grade") {
           this.dismissLookupPopover();
-          log.info("New tab card action completed", { action, term: card.spelling });
           return;
         }
         if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
@@ -146393,10 +146356,9 @@ ${rank.detail}` : baseTitle;
           reuseActivePopover: true,
           autoPlay: false
         });
-        log.info("New tab card action completed", { action, term: card.spelling });
       } catch (error) {
         log.warn("New tab card action failed", { action, term: card.spelling }, error);
-        this.toast(error instanceof Error ? error.message : this.text("actionFailed"));
+        this.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
       } finally {
         done();
         button2.disabled = false;

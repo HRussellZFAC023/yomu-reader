@@ -1,4 +1,6 @@
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { Logger } from '../app/logger';
+import { userFacingErrorText } from '../app/user-facing-errors';
 import type { InterfaceLanguage } from '../app/types';
 import {
     academyReaderDeviceStatus,
@@ -13,6 +15,8 @@ import { getFormInterfaceLanguage } from './form';
 type AcademyReaderAccountAction = 'connect-academy-account' | 'sync-academy-account'
     | 'create-academy-recovery-code' | 'disconnect-academy-account';
 type AcademyReaderAccountStatusTone = 'pending' | 'success' | 'error';
+
+const log = Logger.scope('AcademyAccountSyncSettings');
 
 export class AcademyAccountSyncSettingsController {
     private statusProbeId = 0;
@@ -29,10 +33,11 @@ export class AcademyAccountSyncSettingsController {
             renderStatus(form, status, language);
         } catch (error) {
             if (probeId !== this.statusProbeId || !form.isConnected) return;
+            log.warn('Academy account status failed', error);
             setMessage(
                 form,
                 formatUiText(language, 'academyAccountConnectionProblem', {
-                    message: errorMessage(error, uiText(language, 'actionFailed')),
+                    message: userFacingErrorText(language, 'actionFailed', error),
                 }),
                 'error',
             );
@@ -90,7 +95,8 @@ export class AcademyAccountSyncSettingsController {
                     : 'academyAccountSyncedDone'));
             }
         } catch (error) {
-            const message = errorMessage(error, uiText(language, 'actionFailed'));
+            log.warn('Academy account action failed', { action }, error);
+            const message = userFacingErrorText(language, 'actionFailed', error);
             setMessage(form, message, 'error');
             this.toast(message);
         } finally {
@@ -156,12 +162,6 @@ function syncTime(value: number, language: InterfaceLanguage): string {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
     return date.toLocaleString(resolveUiLanguage(language) === 'ja' ? 'ja-JP' : 'en-GB');
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-    if (error instanceof Error && error.message.trim()) return error.message;
-    if (typeof error === 'string' && error.trim()) return error;
-    return fallback;
 }
 
 function isAcademyReaderAccountAction(action: string): action is AcademyReaderAccountAction {

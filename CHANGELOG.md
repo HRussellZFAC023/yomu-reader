@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.49] - 2026-07-30
+
+### Fixed
+
+- Error details stay in diagnostics while lookup, review, scan, settings, audio, subtitle-mining, and reset failures now show interface-language copy. JPDB key, rate-limit, connection, and timeout failures have their own messages.
+
 ## [1.8.48] - 2026-07-30
 
 ### Fixed

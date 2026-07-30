@@ -33,6 +33,7 @@ import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from '../a
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { userFacingErrorText } from '../app/user-facing-errors';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
     consumeLookupPopoverButtonEvent,
@@ -64,7 +65,7 @@ import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-voca
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { KanjiSourceInfo } from '../kanji/origin';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
-import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
+import { configureLogger, Logger } from '../app/logger';
 import {
     inferMiningSourceKind,
     resolveMiningContext as resolveStoredMiningContext,
@@ -520,7 +521,6 @@ export class NewTabRuntime {
             this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
         }
         configureLogger({ forceEnabled: this.settings.enableLogging });
-        log.info('Settings loaded', loggingSettingsSummary(this.settings));
         // D43: the new tab and the study app are documents Yomu owns outright, so
         // they take `lang`, `dir` and the per-script interface font from the
         // locale manifest. When mounted into a host page (`mountHost`) we stamp
@@ -1878,7 +1878,6 @@ export class NewTabRuntime {
             const shouldRefresh = await this.cardActions.perform(action, button, card, sentence);
             if (shouldRefresh && action === 'grade') {
                 this.dismissLookupPopover();
-                log.info('New tab card action completed', { action, term: card.spelling });
                 return;
             }
             if (shouldRefresh) await this.showLookupCard(card, sentence, anchor, {
@@ -1886,10 +1885,9 @@ export class NewTabRuntime {
                 reuseActivePopover: true,
                 autoPlay: false,
             });
-            log.info('New tab card action completed', { action, term: card.spelling });
         } catch (error) {
             log.warn('New tab card action failed', { action, term: card.spelling }, error);
-            this.toast(error instanceof Error ? error.message : this.text('actionFailed'));
+            this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'actionFailed', error));
         } finally {
             done();
             button.disabled = false;

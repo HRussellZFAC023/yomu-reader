@@ -94,7 +94,6 @@ import {
     shouldHideSubtitleRoot,
     shouldKeepIdleControlClass,
     subtitleSourceContextKey,
-    videoSummary,
 } from './subtitle-player-context';
 import {
     SUBTITLE_SECONDARY_BLURRED_CLASS,
@@ -1184,7 +1183,6 @@ export class SubtitlePlayerController {
         this.discoverVideo();
         this.syncRuntimeSignals();
         this.runtimeSignalsInitialized = true;
-        log.info('Subtitle controller initialized');
     }
 
     // Install the document observer that matches the current runtime state and
@@ -1587,7 +1585,6 @@ export class SubtitlePlayerController {
         this.alignToVideo();
         // A bound video upgrades the observer to full mode and wakes the tick.
         if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
-        log.info('Subtitle video detected', videoSummary(candidate));
     }
 
     private attachTextTracks(video: HTMLVideoElement): void {
@@ -4829,7 +4826,6 @@ export class SubtitlePlayerController {
         if (kind === 'primary') await this.selectTrack(track.id);
         else await this.selectSecondaryTrack(track.id);
         this.updateFromLoadedCues();
-        log.info('Subtitle file loaded', { kind, name: file.name, cues: cues.length });
     }
 
     private async selectTrack(id: string, options: { auto?: boolean } = {}): Promise<void> {
@@ -4840,7 +4836,7 @@ export class SubtitlePlayerController {
         if (options.auto && this.revertSingleCueAutoSelection('primary', loaded)) return;
         if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
         this.applyPrimaryTrackSelection(loaded);
-        this.finishPrimaryTrackSelection(id, loaded.track);
+        this.finishTrackSelection();
     }
 
     // A track whose entire payload is a single usable line (a one-cue credit,
@@ -4981,10 +4977,6 @@ export class SubtitlePlayerController {
         if (!this.cues.length) this.ensureYouTubeDomCaptionFallbackActive(track);
     }
 
-    private finishPrimaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
-        this.finishTrackSelection('Primary', id, selected, this.cues.length);
-    }
-
     private async selectSecondaryTrack(id: string, options: { auto?: boolean } = {}): Promise<void> {
         const requestId = this.prepareSecondaryTrackSelection(id);
         if (!options.auto) this.revealSecondarySubtitleOverlay();
@@ -4993,7 +4985,7 @@ export class SubtitlePlayerController {
         if (options.auto && this.revertSingleCueAutoSelection('secondary', loaded)) return;
         if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
         this.applySecondaryTrackSelection(loaded);
-        this.finishSecondaryTrackSelection(id, loaded.track);
+        this.finishTrackSelection();
     }
 
     private prepareSecondaryTrackSelection(id: string): number {
@@ -5033,11 +5025,7 @@ export class SubtitlePlayerController {
         if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
 
-    private finishSecondaryTrackSelection(id: string, selected: SubtitleTrackOption | undefined): void {
-        this.finishTrackSelection('Secondary', id, selected, this.secondaryCues.length);
-    }
-
-    private finishTrackSelection(role: 'Primary' | 'Secondary', id: string, selected: SubtitleTrackOption | undefined, cues: number): void {
+    private finishTrackSelection(): void {
         this.markNativeCueListsDirty();
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
@@ -5045,7 +5033,6 @@ export class SubtitlePlayerController {
         this.render();
         this.refreshTranscriptPanelAfterTrackChange();
         this.syncControls();
-        log.info(`${role} subtitle track selected`, { id, label: selected?.label ?? '', kind: selected?.kind ?? 'unknown', cues });
     }
 
     private setNativeTrackModes(): void {
@@ -5784,7 +5771,6 @@ export class SubtitlePlayerController {
         const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
         this.options.onSettingsChange();
         if (!appliedInline) this.render();
-        log.info('Native subtitle blur toggled', { blurred: settings.subtitleNativeBlurred });
     }
 
     private applyNativeSubtitleBlurState(nativeBlurred: boolean, language: ReaderSettings['interfaceLanguage'], target?: HTMLElement | null): boolean {
@@ -6424,7 +6410,8 @@ export class SubtitlePlayerController {
             this.options.toast?.(formatSubtitleText(language, 'bmAdded', { count }));
             this.renderBatchMiningPanel();
         } catch (error) {
-            this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, 'bmAddFailed'));
+            log.warn('Batch mining add failed', error);
+            this.options.toast?.(subtitleText(language, 'bmAddFailed'));
         }
     }
 
@@ -6467,7 +6454,8 @@ export class SubtitlePlayerController {
             this.options.toast?.(formatSubtitleText(language, 'bmGraded', { count }));
             this.renderBatchMiningPanel();
         } catch (error) {
-            this.options.toast?.(error instanceof Error ? error.message : subtitleText(language, 'bmGradeFailed'));
+            log.warn('Batch mining grade failed', error);
+            this.options.toast?.(subtitleText(language, 'bmGradeFailed'));
         }
     }
 
@@ -7676,7 +7664,6 @@ export class SubtitlePlayerController {
         this.render();
         this.refreshOpenTranscriptPanelAfterPrimaryClear();
         this.syncControls();
-        log.info('Primary subtitle track cleared');
     }
 
     private clearPrimaryTrackLoadingStates(): void {
@@ -7704,7 +7691,6 @@ export class SubtitlePlayerController {
         this.render();
         this.refreshOpenTranscriptPanelAfterSecondaryClear();
         this.syncControls();
-        log.info('Secondary subtitle track cleared');
     }
 
     private clearSecondaryTrackLoadingStates(): void {
@@ -7722,10 +7708,9 @@ export class SubtitlePlayerController {
     }
 
     private clearAsbPlayerReaderLines(): void {
-        let cleared = 0;
-        const roots = Array.from(document.querySelectorAll<HTMLElement>(ASBPLAYER_SUBTITLE_ROOT_SELECTOR));
-        for (const root of roots) cleared += unwrapReaderWords(root);
-        if (cleared) log.info('Cleared parsed ASBPlayer subtitle lines', { roots: roots.length, cleared });
+        for (const root of document.querySelectorAll<HTMLElement>(ASBPLAYER_SUBTITLE_ROOT_SELECTOR)) {
+            unwrapReaderWords(root);
+        }
     }
 
     private positionTranscriptPanel(options: {

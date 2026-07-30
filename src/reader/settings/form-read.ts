@@ -1,4 +1,3 @@
-import { Logger } from '../app/logger';
 import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
@@ -17,7 +16,6 @@ import {
 } from '../languages';
 import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
-const log = Logger.scope('SettingsForm');
 
 /**
  * D43 — what may be STORED as the interface language is exactly what the locale
@@ -196,17 +194,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         shortcuts: readShortcutFormSettings(reader, current),
     };
     preserveDetachedJapaneseSettings(settings, current, data);
-    const normalized = normalizeReaderSettings(settings);
-    log.info('Read settings form data', {
-        enableLogging: normalized.enableLogging,
-        dictionaries: normalized.dictionaryPreferences.length,
-        lookupLinks: normalized.dictionaryLookupLinks.length,
-        audioSources: normalized.audioSources.length,
-        ocrEnabled: normalized.ocrEnabled,
-        subtitlePlayerEnabled: normalized.subtitlePlayerEnabled,
-        ankiEnabled: normalized.ankiEnabled,
-    });
-    return normalized;
+    return normalizeReaderSettings(settings);
 }
 
 function readLanguageProfileFormSettings(

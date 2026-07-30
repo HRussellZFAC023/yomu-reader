@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.48
+// @version 1.8.49
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.eaf541e8bd0c.user.js#sha256=6vVB6L0MA+8gB4lY8QIg3FHxUCgxiLUlUeydp58tYu4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.a5adce4fd09f.user.js#sha256=pa3OT9Cf4YZu+OtUEpjxFpYykEloPope5LOc8FqOA5k=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -16838,6 +16838,22 @@ async function renderStudyToolResult(button, action, sentence, grammarHints, lan
 function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
   return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language, options) ?? false;
 }
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
+}
+function userFacingErrorText(language, fallbackKey, error) {
+  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+  const message = uiText(language, copyKey);
+  return typeof message === "string" ? message : uiText(language, fallbackKey);
+}
+function userFacingCopyKey(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const copyKey = error.yomuUiCopyKey;
+  return typeof copyKey === "string" ? copyKey : void 0;
+}
 function renderDeckChoiceOptions(settings, jpdbDecks, ankiDecks, optionsOrIncludeJpdb = {}) {
   const renderOptions = normalizeDeckChoiceRenderOptions(optionsOrIncludeJpdb);
   const options = [];
@@ -18485,14 +18501,13 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   selectedDeckLabel: () => ACADEMY_SRS_LABEL,
   addToDeck: async (_deckId, card, sentence, context) => {
     const result = await localYomuMutation(
-      settings,
       () => adapter.mine(yomuLocalMiningRequestFromCard(card, sentence, context))
     );
     if (result.card) applyYomuLocalReviewableToCard(card, result.card);
   },
   reviewCard: async (card, grade, reviewOptions = {}) => {
     const wasNotInDeck = normalizeCardStates(card.cardState).includes("not-in-deck") || card.reviewSource !== "yomu-local";
-    const result = await localYomuMutation(settings, () => adapter.review({
+    const result = await localYomuMutation(() => adapter.review({
       card: yomuLocalReviewableFromCard(card),
       grade,
       sentence: reviewOptions.sentence
@@ -18503,12 +18518,12 @@ function createYomuLocalSrsProviderAdapter(adapter, settings) {
   setDeckState: async () => void 0
   };
 }
-async function localYomuMutation(settings, operation) {
+async function localYomuMutation(operation) {
   try {
   return await operation();
   } catch (error) {
   if (isLocalYomuSrsStorageError(error)) {
-    throw new Error(uiText(settings.interfaceLanguage, "yomuLocalSrsStorageFailed"), { cause: error });
+    throw userFacingError("yomuLocalSrsStorageFailed", { cause: error });
   }
   throw error;
   }
@@ -18670,10 +18685,10 @@ function shouldAlsoAddToForq(settings, targetDeck) {
 function jitenDeckLabel$1(deck) {
   return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
 }
-function assertReviewableApiCardState(states, settings) {
-  if (states.includes("blacklisted")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedBlacklisted"));
-  if (states.includes("never-forget")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedNeverForget"));
-  if (states.includes("redundant")) throw new Error(uiText(settings.interfaceLanguage, "reviewBlockedRedundant"));
+function assertReviewableApiCardState(states) {
+  if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
+  if (states.includes("never-forget")) throw userFacingError("reviewBlockedNeverForget");
+  if (states.includes("redundant")) throw userFacingError("reviewBlockedRedundant");
 }
 class CardActionController {
   constructor(options) {
@@ -18712,14 +18727,14 @@ class CardActionController {
   const provider = candidate && isApiSrsProviderEnabled(settings, candidate.id) ? candidate : null;
   if (provider?.hasApiKey) {
     const deckId = provider.id === "jiten" ? String((await this.options.jiten?.listStudyDecks?.().catch(() => []))?.[0]?.id ?? "") : provider.selectedDeckId(settings.miningDeck, settings);
-    if (!deckId) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+    if (!deckId) throw userFacingError(provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey);
     await provider.addToDeck(deckId, card, sentence, { sourceTitle: document.title });
     this.notifyApiCardStateChanged(card);
     if (shouldMineAnkiAlongsideApi(settings)) await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
     return true;
   }
   if (settings.ankiEnabled) return await this.addToAnkiForBatch(card, sentence, settings.ankiDeck);
-  throw new Error(uiText(settings.interfaceLanguage, "batchMiningNoDestination"));
+  throw userFacingError("batchMiningNoDestination");
   }
   performStudyAction(action, button, sentence) {
   if (!action) return void 0;
@@ -18952,15 +18967,15 @@ class CardActionController {
   apiProviderForDeckSource(source, card, settings) {
   return this.apiProviders(settings).find((provider) => provider.deckSource === source && (provider.supportsMiningCard?.(card) ?? provider.supportsCard(card))) ?? null;
   }
-  assertApiProviderActionAllowed(provider, message) {
+  assertApiProviderActionAllowed(provider, copyKey) {
   const settings = this.options.getSettings();
-  if (!isApiSrsProviderEnabled(settings, provider?.id)) throw new Error(uiText(settings.interfaceLanguage, "apiSrsActionsDisabled"));
-  if (!provider?.hasApiKey) throw new Error(message);
+  if (!isApiSrsProviderEnabled(settings, provider?.id)) throw userFacingError("apiSrsActionsDisabled");
+  if (!provider?.hasApiKey) throw userFacingError(copyKey);
   }
-  assertApiProviderReviewAllowed(provider, message) {
+  assertApiProviderReviewAllowed(provider, copyKey) {
   const settings = this.options.getSettings();
-  if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
-  this.assertApiProviderActionAllowed(provider, message);
+  if (!settings.enableReviews) throw userFacingError("reviewActionsDisabled");
+  this.assertApiProviderActionAllowed(provider, copyKey);
   }
   async addToSelectedDeck(button, card, sentence, context) {
   const settings = this.options.getSettings();
@@ -18971,9 +18986,9 @@ class CardActionController {
   }
   const provider = this.apiProviderForDeckSource(deck.source, card, settings);
   const fallbackKey = deck.source === "jiten" ? "jitenAddApiKeyRequired" : deck.source === "bunpro" ? "bunproAddApiKeyRequired" : deck.source === "yomu-local" ? "yomuLocalSrsDisabled" : "jpdbAddApiKeyRequired";
-  this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.addApiKeyRequiredKey ?? fallbackKey));
+  this.assertApiProviderActionAllowed(provider, provider?.addApiKeyRequiredKey ?? fallbackKey);
   const selectedDeckId2 = provider.selectedDeckId(deck.id, settings);
-  if (!selectedDeckId2) throw new Error(uiText(settings.interfaceLanguage, provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey));
+  if (!selectedDeckId2) throw userFacingError(provider.id === "jiten" ? "chooseJitenStudyDeck" : provider.addApiKeyRequiredKey);
   await provider.addToDeck(selectedDeckId2, card, sentence, { sourceTitle: document.title, sourceUrl: location.href });
   const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
   if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
@@ -18986,21 +19001,20 @@ class CardActionController {
   async openAnkiNote(button) {
   const settings = this.options.getSettings();
   const noteId = Number(button.dataset.noteId);
-  if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
+  if (!Number.isFinite(noteId)) throw userFacingError("ankiNoteNotFound");
   await this.options.anki.browseNote(noteId);
   this.options.toast(uiText(settings.interfaceLanguage, "openedInAnki"));
   }
   async playAnkiMediaAudio(button) {
-  const settings = this.options.getSettings();
   const filename = button.dataset.ankiMediaName?.trim();
-  if (!filename) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioFileNotFound"));
-  if (!this.options.playMediaUrl) throw new Error(uiText(settings.interfaceLanguage, "ankiAudioPlaybackUnavailable"));
+  if (!filename) throw userFacingError("ankiAudioFileNotFound");
+  if (!this.options.playMediaUrl) throw userFacingError("ankiAudioPlaybackUnavailable");
   await this.options.playMediaUrl(await this.options.anki.mediaFileDataUrl(filename));
   }
   async mergeExistingAnkiCard(button, card, sentence, actionContext) {
   const settings = this.options.getSettings();
   const noteId = Number(button.dataset.noteId);
-  if (!Number.isFinite(noteId)) throw new Error(uiText(settings.interfaceLanguage, "ankiNoteNotFound"));
+  if (!Number.isFinite(noteId)) throw userFacingError("ankiNoteNotFound");
   const { dictionaryContext, context, wordAudio } = await this.loadAnkiCardAssets(card, sentence, settings);
   const result = await this.options.anki.mergeYomuData(noteId, card, miningSentenceForAnki(context.sentence, sentence), {
     imageDataUrl: context.imageDataUrl,
@@ -19028,8 +19042,8 @@ class CardActionController {
   const preferred = this.apiProviderForCard(card, settings);
   const provider = preferred?.supportsDeckState(state) ? preferred : this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state)) ?? preferred;
   if (!provider && settings.ankiEnabled && isAnkiDeckState(state) && await this.changeAnkiDeckState(card, state, settings)) return;
-  this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
-  if (!provider.supportsDeckState(state)) throw new Error(uiText(settings.interfaceLanguage, "actionFailed"));
+  this.assertApiProviderActionAllowed(provider, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired");
+  if (!provider.supportsDeckState(state)) throw userFacingError("actionFailed");
   const wasSet = normalizeCardStates(card.cardState).includes(cardStateForApiState(state));
   await provider.setDeckState(card, state, deck);
   const toastKey = state === "blacklisted" || state === "never-forget" ? wasSet ? "removedFromDeck" : "addedToDeckToast" : "vocabularyStatusUpdated";
@@ -19063,7 +19077,7 @@ class CardActionController {
   }
   async reviewGrade(grade, card, sentence, options = {}) {
   const settings = this.options.getSettings();
-  if (!settings.enableReviews) throw new Error(uiText(settings.interfaceLanguage, "reviewActionsDisabled"));
+  if (!settings.enableReviews) throw userFacingError("reviewActionsDisabled");
   if (options.target === "both") {
     await this.reviewApiCard(grade, card, sentence, options);
     await this.answerAnkiCard(grade, card, options.ankiCardId);
@@ -19085,14 +19099,14 @@ class CardActionController {
     this.notifyAnkiStatusChanged(card);
     return;
   }
-  throw new Error(uiText(this.options.getSettings().interfaceLanguage, "missingAnkiCardId"));
+  throw userFacingError("missingAnkiCardId");
   }
   async reviewApiCard(grade, card, sentence, options) {
   const settings = this.options.getSettings();
   const provider = options.providerId ? this.apiProviders(settings).find((candidate) => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null : this.apiProviderForCard(card, settings);
-  this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview"));
+  this.assertApiProviderReviewAllowed(provider, provider?.reviewApiKeyRequiredKey ?? "addJpdbApiKeyReview");
   const states = normalizeCardStates(card.cardState);
-  assertReviewableApiCardState(states, settings);
+  assertReviewableApiCardState(states);
   const result = await provider.reviewCard(card, grade, { sentence, deckId: this.reviewDeckId(options) });
   if (result.addedBeforeReview) {
     if (!options.suppressToast) this.options.toast(uiText(settings.interfaceLanguage, "addedToDeckAndReviewed"));
@@ -25593,8 +25607,8 @@ class FactoryResetCoordinator {
   remoteGuardReleaseTimer;
   bind() {
   if (this.unsubscribe) return;
-  this.unsubscribe = subscribeToFactoryResetSignals((signal, source) => {
-    void this.handleSignal(signal, source);
+  this.unsubscribe = subscribeToFactoryResetSignals((signal) => {
+    void this.handleSignal(signal);
   });
   }
   destroy() {
@@ -25612,19 +25626,18 @@ class FactoryResetCoordinator {
     await publishFactoryResetSignal(resetSignal);
     await this.dependencies.invalidateRuntimeStores();
     await delay(FACTORY_RESET_PREPARE_DELAY_MS);
-    const deletedStorageValues = await clearManagedStoredValues();
+    await clearManagedStoredValues();
     await deleteSettingsStorage();
     await this.assertSettingsStorageDeleted();
-    const dictionaryReset = await this.resetDictionaryDatabaseBestEffort();
+    await this.resetDictionaryDatabaseBestEffort();
     await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
     await clearFactoryResetSignal();
-    log$3.info("Local data reset; reloading", { deletedStorageValues, dictionaryReset });
     this.dependencies.reload();
   } catch (error) {
     this.activeResetId = "";
     endSettingsResetGuard();
     log$3.warn("All-data reset failed", error);
-    this.dependencies.toast(error instanceof Error ? error.message : this.text("factoryResetFailed"));
+    this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
   }
   }
   async resetDictionaryDatabaseBestEffort() {
@@ -25636,18 +25649,12 @@ class FactoryResetCoordinator {
     return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
   }
   }
-  async handleSignal(signal, source) {
+  async handleSignal(signal) {
   if (this.dependencies.isDestroyed() || signal.id === this.activeResetId) return;
   const handledKey = `${signal.id}:${signal.phase}`;
   if (this.handledSignals.has(handledKey)) return;
   this.handledSignals.add(handledKey);
   beginSettingsResetGuard();
-  log$3.info("Factory reset signal received", {
-    phase: signal.phase,
-    href: signal.href,
-    remote: source.remote,
-    transport: source.transport
-  });
   await this.dependencies.invalidateRuntimeStores();
   if (signal.phase === "complete") {
     this.clearRemoteGuardReleaseTimer();
@@ -34045,8 +34052,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.48"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.48"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.49"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.49"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34189,7 +34196,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.48"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.49"}`;
   } catch {
   return null;
   }
@@ -34458,10 +34465,8 @@ class VisiblePageScanner {
   runGeometrySettleSweep() {
   if (this.destroyed || typeof document === "undefined") return;
   noteConstrainedRowLayoutSettled();
-  const adjusted = this.makeRoomForRuby(document);
-  if (adjusted) log$1.info("Made room for ruby in cropped rows", { adjusted });
-  const healed = healUngrowableInFlowClampRows(document);
-  if (healed) log$1.info("Rest-hid in-flow readings on ungrowable clamp rows", { healed });
+  this.makeRoomForRuby(document);
+  healUngrowableInFlowClampRows(document);
   refreshWrappedScanWordUnderlines(document);
   projectAdditiveTextMirrors(document);
   }
@@ -34760,7 +34765,10 @@ class VisiblePageScanner {
   }
   handleVisiblePageScanError(error, silent) {
   log$1.warn("Visible page scan failed", error);
-  if (!silent) this.dependencies.toast(error instanceof Error ? error.message : uiText(this.dependencies.getSettings().interfaceLanguage, "jpdbScanFailed"));
+  if (!silent) {
+    const language = this.dependencies.getSettings().interfaceLanguage;
+    this.dependencies.toast(userFacingErrorText(language, "jpdbScanFailed", error));
+  }
   }
   reportVisiblePageCoverage(silent) {
   if (silent) return;
@@ -37968,7 +37976,7 @@ class ReaderApp {
     ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId)
   }).then(() => this.dismissAfterReview()).catch((error) => {
     log.warn("Shortcut review failed", { grade: context.grade, ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId, true) }, error);
-    this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "reviewFailed"));
+    this.toast(userFacingErrorText(this.settings.interfaceLanguage, "reviewFailed", error));
   });
   }
   reviewShortcutAnkiCardId(ankiCardId, includeZero = false) {
@@ -39172,7 +39180,7 @@ class ReaderApp {
   }
   async showLocalOrFallbackLookupCard(context, sentence, error) {
   if (await this.showLocalLookupCard(context, sentence)) return;
-  if (error) this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "jpdbLookupFailed"));
+  if (error) this.toast(userFacingErrorText(this.settings.interfaceLanguage, "jpdbLookupFailed", error));
   void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, textLookupCardOptions(context));
   }
   async localLookupEntries(selected) {
@@ -42513,7 +42521,7 @@ class ReaderApp {
     if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: "preserve", preservePosition: true });
   } catch (error) {
     log.warn("Card action failed", { action, term: card.spelling }, error);
-    this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "actionFailed"));
+    this.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
   } finally {
     done();
     button.disabled = false;
@@ -42567,7 +42575,7 @@ class ReaderApp {
   const Controller = yomuSettingsDialogController();
   if (!Controller) {
     log.warnOnce("settings-companion-missing", "Settings companion missing.");
-    this.toast("Settings are unavailable because the settings companion did not load.");
+    this.toast(uiText(this.settings.interfaceLanguage, "settingsCompanionUnavailable"));
     return void 0;
   }
   this.settingsDialog ??= new Controller({

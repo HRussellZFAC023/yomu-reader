@@ -282,6 +282,7 @@ import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
+import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
 import { activeLearningTarget } from '../languages/active';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
@@ -4138,7 +4139,7 @@ export class ReaderApp {
             ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId),
         }).then(() => this.dismissAfterReview()).catch(error => {
             log.warn('Shortcut review failed', { grade: context.grade, ankiCardId: this.reviewShortcutAnkiCardId(context.ankiCardId, true) }, error);
-            this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'reviewFailed'));
+            this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'reviewFailed', error));
         });
     }
 
@@ -5699,7 +5700,7 @@ export class ReaderApp {
 
     private async showLocalOrFallbackLookupCard(context: TextLookupDisplayContext, sentence: string, error?: unknown): Promise<void> {
         if (await this.showLocalLookupCard(context, sentence)) return;
-        if (error) this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'jpdbLookupFailed'));
+        if (error) this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'jpdbLookupFailed', error));
         void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, textLookupCardOptions(context));
     }
 
@@ -10095,7 +10096,7 @@ export class ReaderApp {
             if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: 'preserve', preservePosition: true });
         } catch (error) {
             log.warn('Card action failed', { action, term: card.spelling }, error);
-            this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'actionFailed'));
+            this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'actionFailed', error));
         } finally {
             done();
             button.disabled = false;
@@ -10157,7 +10158,7 @@ export class ReaderApp {
         const Controller = yomuSettingsDialogController();
         if (!Controller) {
             log.warnOnce('settings-companion-missing', 'Settings companion missing.');
-            this.toast('Settings are unavailable because the settings companion did not load.');
+            this.toast(uiText(this.settings.interfaceLanguage, 'settingsCompanionUnavailable'));
             return undefined;
         }
         this.settingsDialog ??= new Controller({
