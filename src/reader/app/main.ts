@@ -1897,6 +1897,7 @@ export class ReaderApp {
             settings.preferJapaneseSiteLanguage,
             options,
             deferCookieResponseReloadUntilPersisted,
+            targetLanguageOf(settings),
         );
     }
 

@@ -907,7 +907,7 @@ describe('reader helpers', () => {
 
             expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
-            expect(labels).toContain('Prefer Japanese site language and location');
+            expect(labels).toContain('Open Japanese versions of sites');
             expect(labels).toContain('Hide furigana');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
@@ -1216,13 +1216,13 @@ describe('reader helpers', () => {
             }));
 
             const siteButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="japanese-site"]');
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Prefer Japanese site language and location');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
             expect(siteButton()?.classList.contains('is-on')).toBe(true);
 
             siteButton()?.click();
 
             expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(1);
-            expect(siteButton()?.getAttribute('aria-label')).toBe('Prefer Japanese site language and location');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
             expect(siteButton()?.classList.contains('is-off')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {

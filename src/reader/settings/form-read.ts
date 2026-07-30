@@ -185,7 +185,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         dictionaryPreferences,
         dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
         ...readSubtitleFormSettings(reader, current),
-        ...readYoutubeFormSettings(reader),
+        ...readYoutubeFormSettings(reader, current),
         ...readAnkiFormSettings(reader, current),
         ...readStudyToolFormSettings(reader, current),
         enableLogging: has('enableLogging'),
@@ -767,11 +767,14 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
     };
 }
 
-function readYoutubeFormSettings(reader: SettingsFormReader): Partial<ReaderSettings> {
+function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { has } = reader;
+    const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
         youtubeImmersionEnabled: has('youtubeImmersionEnabled'),
-        preferJapaneseSiteLanguage: has('preferJapaneseSiteLanguage'),
+        preferJapaneseSiteLanguage: siteLanguageSettingPresent
+            ? has('preferJapaneseSiteLanguage')
+            : current.preferJapaneseSiteLanguage,
         youtubeShowChannelRecommendations: has('youtubeShowChannelRecommendations'),
         youtubeShowFilterNotice: has('youtubeShowFilterNotice'),
     };

@@ -38,6 +38,7 @@ describe('target-language settings', () => {
             '[data-language-family="pitch-colouring"]',
             '[data-language-family="pitch-legend"]',
             '[data-language-family="provider-pills"]',
+            'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
         const japaneseNodes = selectors.map(selector => form.querySelector(selector));
 
@@ -96,6 +97,7 @@ describe('target-language settings', () => {
             showPitchAccent: true,
             showLookupPillFrequency: true,
             wordUnderlineColorSource: 'pitch' as const,
+            preferJapaneseSiteLanguage: true,
         };
         const form = renderSettingsTestForm(current);
         const picker = form.elements.namedItem('targetLanguage') as HTMLSelectElement;
@@ -111,6 +113,7 @@ describe('target-language settings', () => {
             showPitchAccent: true,
             showLookupPillFrequency: true,
             wordUnderlineColorSource: 'pitch',
+            preferJapaneseSiteLanguage: true,
         });
     });
 });

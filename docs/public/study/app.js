@@ -4094,10 +4094,10 @@
       subtitlePreview: "Live subtitle preview",
       preview: "Preview",
       youtubeImmersionEnabled: "Japanese YouTube only",
-      preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
+      preferJapaneseSiteLanguage: "Open Japanese versions of sites",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
       youtubeShowFilterNotice: "Show hidden-video notice",
-      youtubeHelp: "Prefer Japanese UI and Japan-local content.",
+      youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
       youtubeShowHiddenVideos: "Show hidden videos",
       youtubeHideHiddenVideos: "Hide hidden videos",
       youtubeHideNotice: "Hide notice",
@@ -5833,10 +5833,10 @@ subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	日本語UIと日本向け内容を優先します。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -94180,7 +94180,7 @@ ${spelling}`);
       dictionaryPreferences,
       dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
       ...readSubtitleFormSettings(reader, current),
-      ...readYoutubeFormSettings(reader),
+      ...readYoutubeFormSettings(reader, current),
       ...readAnkiFormSettings(reader, current),
       ...readStudyToolFormSettings(reader, current),
       enableLogging: has("enableLogging"),
@@ -94679,11 +94679,12 @@ ${spelling}`);
       immersionKitPlaybackRate: clamped("immersionKitPlaybackRate", 0.5, 2, current.immersionKitPlaybackRate)
     };
   }
-  function readYoutubeFormSettings(reader) {
+  function readYoutubeFormSettings(reader, current) {
     const { has } = reader;
+    const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
     return {
       youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
-      preferJapaneseSiteLanguage: has("preferJapaneseSiteLanguage"),
+      preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
       youtubeShowChannelRecommendations: has("youtubeShowChannelRecommendations"),
       youtubeShowFilterNotice: has("youtubeShowFilterNotice")
     };
@@ -98011,7 +98012,10 @@ ${spelling}`);
                 <legend>${escapedUiText(language2, "youTube")}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
-                    ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
+                    <div class="jp-only" data-language-family="preferred-japanese-sites">
+                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
+                        ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
+                    </div>
                     ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
                     ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
                 </div>
@@ -120798,7 +120802,6 @@ ${reading}`);
   }
   const JA_LANG = "ja";
   const JA_COUNTRY = "JP";
-  const JA_TZ = "Asia/Tokyo";
   const JA_LOCALE = "ja-JP";
   const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
   const REDIRECT_CACHE_KEY = "yomu:jps";
@@ -120835,33 +120838,47 @@ ${reading}`);
     const cachedPreference = readCachedPreferenceEnabled();
     const revision2 = ++preferenceRevision;
     pendingStartupOptOutCleanup ||= cachedPreference === true;
-    const syncPreference = readStoredPreferenceEnabledSync();
-    if (typeof syncPreference === "boolean") {
-      applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision2);
+    const syncPreference = readStoredPreferenceSync();
+    if (syncPreference) {
+      applyPreferredJapaneseSiteLanguageAtRevision(
+        syncPreference.enabled,
+        false,
+        revision2,
+        false,
+        syncPreference.targetLanguage
+      );
       return;
     }
-    void readStoredPreferenceEnabledAsync().then((enabled) => {
+    void readStoredPreferenceAsync().then((preference) => {
       if (revision2 !== preferenceRevision) return;
-      applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision2);
+      applyPreferredJapaneseSiteLanguageAtRevision(
+        preference.enabled,
+        false,
+        revision2,
+        false,
+        preference.targetLanguage
+      );
     });
   }
-  function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+  function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage2 = "ja") {
     applyPreferredJapaneseSiteLanguageAtRevision(
       enabled,
       revertOnDisable,
       ++preferenceRevision,
-      deferCookieResponseReloadUntilPersisted
+      deferCookieResponseReloadUntilPersisted,
+      targetLanguage2
     );
   }
-  function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision2, deferCookieResponseReloadUntilPersisted = false) {
+  function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision2, deferCookieResponseReloadUntilPersisted = false, targetLanguage2 = "ja") {
     if (typeof window === "undefined") return;
     if (revision2 !== preferenceRevision) return;
-    const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+    const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage2);
+    const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
     pendingStartupOptOutCleanup = false;
-    currentPreferenceEnabled = enabled;
-    writeCachedPreferenceEnabled(enabled);
-    applyPageContextJapanesePreferences(enabled, revision2);
-    if (enabled) {
+    currentPreferenceEnabled = effectiveEnabled;
+    writeCachedPreferenceEnabled(effectiveEnabled);
+    applyPageContextJapanesePreferences(effectiveEnabled, revision2);
+    if (effectiveEnabled) {
       deferredCookieResponseReload = false;
       applySitePreferenceCookies();
       schedulePreferredJapaneseSiteRedirect(revision2);
@@ -120891,34 +120908,43 @@ ${reading}`);
     if (!target || target.href === current.href) return null;
     return target.href;
   }
-  function readStoredPreferenceEnabledSync() {
+  function readStoredPreferenceSync() {
     const preferredLanguage = gmStorageGetSharedSync(
       PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
       void 0
     );
-    if (typeof preferredLanguage === "boolean") return preferredLanguage;
+    let storedSettings;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = gmStorageGetSharedSync(key, void 0);
-      if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-        return stored.preferJapaneseSiteLanguage;
-      }
+      if (!stored || typeof stored !== "object") continue;
+      storedSettings = stored;
+      break;
     }
-    return void 0;
+    if (preferredLanguage === true && !storedSettings) return void 0;
+    return sitePreference(preferredLanguage, storedSettings);
   }
-  async function readStoredPreferenceEnabledAsync() {
+  async function readStoredPreferenceAsync() {
     const preferredLanguage = await gmStorageGet(
       PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
       void 0
     );
-    if (typeof preferredLanguage === "boolean") return preferredLanguage;
+    let storedSettings;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = await gmStorageGet(key, void 0);
-      if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-        return stored.preferJapaneseSiteLanguage;
-      }
+      if (!stored || typeof stored !== "object") continue;
+      storedSettings = stored;
+      break;
     }
     const cached = readCachedPreferenceEnabled();
-    return typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    return sitePreference(
+      preferredLanguage,
+      storedSettings,
+      typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage
+    );
+  }
+  function sitePreference(dedicated, settings, fallback) {
+    const enabled = typeof dedicated === "boolean" ? dedicated : typeof settings?.preferJapaneseSiteLanguage === "boolean" ? settings.preferJapaneseSiteLanguage : fallback;
+    return typeof enabled === "boolean" ? { enabled, targetLanguage: targetLanguageOf(settings) } : void 0;
   }
   function readCachedPreferenceEnabled() {
     try {
@@ -121025,8 +121051,6 @@ ${reading}`);
       `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
       `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
       `const installIntlDefaults = ${installIntlDefaults.toString()};`,
-      `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
-      `const installGeolocationHint = ${installGeolocationHint.toString()};`,
       `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
       `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
       "})();"
@@ -121035,10 +121059,10 @@ ${reading}`);
   function applySitePreferenceCookies() {
     const hostname = currentLocationHostname();
     if (/(^|\.)youtube\.com$/.test(hostname)) {
+      clearCookieValues("PREF", ["tz"], ".youtube.com");
       mergeCookie("PREF", {
         hl: JA_LANG,
-        gl: JA_COUNTRY,
-        tz: JA_TZ
+        gl: JA_COUNTRY
       }, ".youtube.com");
     }
     if (/(^|\.)google\./.test(hostname)) {
@@ -121435,35 +121459,25 @@ ${reading}`);
     if (state2.installed) return;
     state2.installed = true;
     const locale = JA_LOCALE;
-    const languages2 = ["ja-JP", "ja", "en-US", "en"];
-    const timeZone = "Asia/Tokyo";
-    const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
+    const languages2 = [locale, "ja", "en-US", "en"];
     const navigatorObject = root.navigator;
     const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
     defineGetter(state2, navigatorPrototype, "language", () => locale);
     defineGetter(state2, navigatorPrototype, "languages", () => languages2.slice());
-    defineGetter(state2, navigatorPrototype, "userLanguage", () => locale);
-    defineGetter(state2, navigatorPrototype, "browserLanguage", () => locale);
     defineGetter(state2, navigatorObject, "language", () => locale);
     defineGetter(state2, navigatorObject, "languages", () => languages2.slice());
-    installIntlDefaults(root, state2, locale, timeZone);
-    installDateTimezoneHint(root, state2, timeZone);
-    installGeolocationHint(root, state2, navigatorObject, navigatorPrototype, tokyo);
+    installIntlDefaults(root, state2, locale);
   }
   function preferenceState(root) {
     if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
     const state2 = {
       installed: false,
-      properties: [],
-      watchTimers: /* @__PURE__ */ new Map(),
-      nextWatchId: 1
+      properties: []
     };
     defineUntrackedValue(root, "__yomuJapaneseSiteLanguagePreference", state2);
     return state2;
   }
   function restoreJapanesePreferences(state2) {
-    for (const timer of state2.watchTimers.values()) clearInterval(timer);
-    state2.watchTimers.clear();
     for (const snapshot of state2.properties.slice().reverse()) {
       try {
         if (snapshot.hadOwn && snapshot.descriptor) {
@@ -121478,10 +121492,10 @@ ${reading}`);
     state2.properties = [];
     state2.installed = false;
   }
-  function installIntlDefaults(root, state2, locale, timeZone) {
+  function installIntlDefaults(root, state2, locale) {
     const intl = root.Intl;
     if (!intl) return;
-    wrapIntlConstructor(intl, state2, "DateTimeFormat", locale, (options) => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
+    wrapIntlConstructor(intl, state2, "DateTimeFormat", locale);
     wrapIntlConstructor(intl, state2, "NumberFormat", locale);
     wrapIntlConstructor(intl, state2, "Collator", locale);
     wrapIntlConstructor(intl, state2, "RelativeTimeFormat", locale);
@@ -121504,48 +121518,6 @@ ${reading}`);
     } catch {
     }
     defineValue(state2, intl, name, WrappedConstructor);
-  }
-  function installDateTimezoneHint(root, state2, timeZone) {
-    const datePrototype = root.Date?.prototype;
-    if (!datePrototype) return;
-    defineValue(state2, datePrototype, "getTimezoneOffset", function getTimezoneOffset() {
-      return timeZone === "Asia/Tokyo" ? -540 : 0;
-    });
-  }
-  function installGeolocationHint(root, state2, navigatorObject, navigatorPrototype, coords) {
-    if (!navigatorObject) return;
-    const nativeGeolocation = navigatorObject.geolocation;
-    const position = () => ({
-      coords: {
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-        accuracy: coords.accuracy,
-        altitude: null,
-        altitudeAccuracy: null,
-        heading: null,
-        speed: null
-      },
-      timestamp: Date.now()
-    });
-    const geolocation = Object.create(nativeGeolocation ?? null);
-    defineUntrackedValue(geolocation, "getCurrentPosition", (success) => {
-      root.setTimeout(() => success(position()), 0);
-    });
-    defineUntrackedValue(geolocation, "watchPosition", (success) => {
-      const id = state2.nextWatchId++;
-      const emit = () => success(position());
-      const timer = root.setInterval(emit, 6e4);
-      state2.watchTimers.set(id, timer);
-      root.setTimeout(emit, 0);
-      return id;
-    });
-    defineUntrackedValue(geolocation, "clearWatch", (id) => {
-      const timer = state2.watchTimers.get(id);
-      if (timer !== void 0) root.clearInterval(timer);
-      state2.watchTimers.delete(id);
-    });
-    defineGetter(state2, navigatorPrototype, "geolocation", () => geolocation);
-    defineGetter(state2, navigatorObject, "geolocation", () => geolocation);
   }
   function rememberDescriptor(state2, target, key) {
     if (!target || state2.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;

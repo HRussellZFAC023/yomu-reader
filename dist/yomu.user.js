@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.192247d9d7e8.user.js#sha256=GSJH2dforgZmVyJqImf04uDGFuxWq1Q7i7j8qgxnM1A=
+// @require https://yomureader.com/greasyfork/yomu-runtime.560356a35342.user.js#sha256=VgNWo1NC/Gd1lGgKk6ZyNfKwN8Nb2D7uyvZ71MaNNM0=
 // @resource yomuCss  https://yomureader.com/yomu.7476cc632b3a.css#sha256=dHbMYys6M7vAktSg7Hj0czUqdj4QJmlZMAANu3W7+LE=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -33117,13 +33117,13 @@ function languageFamilyNodes(root) {
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
   if (deferCookieResponseReloadUntilPersisted) {
-  apply?.(enabled, revertOnDisable, true);
+  apply?.(enabled, revertOnDisable, true, targetLanguage);
   return;
   }
-  apply?.(enabled, revertOnDisable);
+  apply?.(enabled, revertOnDisable, false, targetLanguage);
 }
 function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
@@ -36339,7 +36339,8 @@ class ReaderApp {
   applyPreferredJapaneseSiteLanguage(
     settings.preferJapaneseSiteLanguage,
     options,
-    deferCookieResponseReloadUntilPersisted
+    deferCookieResponseReloadUntilPersisted,
+    targetLanguageOf(settings)
   );
   }
   stagePreferredJapaneseSiteLanguage(previous, next) {

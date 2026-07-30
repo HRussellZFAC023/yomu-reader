@@ -1317,7 +1317,10 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                 <legend>${escapedUiText(language, 'youTube')}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
-                    ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
+                    <div class="jp-only" data-language-family="preferred-japanese-sites">
+                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
+                        ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
+                    </div>
                     ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
                     ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
                 </div>

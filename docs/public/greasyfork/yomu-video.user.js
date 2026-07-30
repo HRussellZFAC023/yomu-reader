@@ -1452,6 +1452,10 @@ function icuWordSegments(text, locale) {
   return segments;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+function isSupportedLanguageProfileSchemaVersion(value) {
+  return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+}
 const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
 const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
@@ -4559,6 +4563,7 @@ function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER
   return canonicalTagForSlice1Language(fallbackId);
 }
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
+const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
 function readOutputLanguageField(source) {
   return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
@@ -4578,8 +4583,81 @@ function createDefaultLanguageProfile(defaults = {}) {
   definitionTranslationProviderIds: []
   };
 }
+function normalizeLanguageProfiles(value, activeProfileId, defaults = {}) {
+  const rawProfiles = Array.isArray(value) ? value : [];
+  const profiles = [];
+  const usedIds = /* @__PURE__ */ new Set();
+  for (let index = 0; index < rawProfiles.length; index += 1) {
+  const profile = normalizeLanguageProfile(rawProfiles[index], index, defaults);
+  if (!profile) continue;
+  profile.id = uniqueProfileId(profile.id, usedIds);
+  usedIds.add(profile.id);
+  profiles.push(profile);
+  }
+  if (!profiles.length) profiles.push(createDefaultLanguageProfile(defaults));
+  const requestedActiveId = typeof activeProfileId === "string" ? activeProfileId.trim() : "";
+  const active = profiles.find((profile) => profile.id === requestedActiveId) ?? profiles[0];
+  return {
+  profiles,
+  activeProfileId: active.id
+  };
+}
 function outputLanguageFields(outputLanguage) {
   return { outputLanguage, learnerLanguage: outputLanguage };
+}
+function activeLanguageProfile(profiles, activeProfileId) {
+  return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
+}
+function resolveLanguageProfile(value) {
+  if (isRecord(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+  const normalized2 = normalizeLanguageProfiles([value], value.id, {
+    outputLanguage: readOutputLanguageField(value),
+    uiLocale: value.uiLocale,
+    parserProvider: value.parserProvider
+  });
+  return normalized2.profiles[0];
+  }
+  const source = isRecord(value) ? value : {};
+  const normalized = normalizeLanguageProfiles(
+  source.languageProfiles,
+  source.activeLanguageProfileId,
+  {
+    outputLanguage: readOutputLanguageField(source),
+    uiLocale: source.interfaceLanguage,
+    parserProvider: source.parserProvider
+  }
+  );
+  return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
+}
+function normalizeLanguageProfile(value, index, defaults) {
+  if (!isRecord(value)) return null;
+  if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
+  return {
+  schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+  id: normalizeProfileId(value.id, index),
+  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+    readOutputLanguageField(value),
+    normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
+  )),
+  // A stored target survives only while core still has a module for it;
+  // anything else degrades to the default rather than leaving the reader
+  // pointed at a target nothing implements.
+  targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
+  uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
+  parserProvider: normalizeParserProvider(value.parserProvider, normalizeParserProvider(defaults.parserProvider, "local")),
+  dictionaries: normalizeProfileDictionaries(value.dictionaries),
+  definitionTranslationProviderIds: normalizeStringIds(value.definitionTranslationProviderIds)
+  };
+}
+function normalizeProfileId(value, index) {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  return PROFILE_ID_RE.test(candidate) ? candidate : `profile-${index + 1}`;
+}
+function uniqueProfileId(candidate, used) {
+  if (!used.has(candidate)) return candidate;
+  let suffix = 2;
+  while (used.has(`${candidate}-${suffix}`)) suffix += 1;
+  return `${candidate}-${suffix}`;
 }
 function normalizeUiLocale(value, fallback) {
   if (value === "auto") return "auto";
@@ -4588,8 +4666,46 @@ function normalizeUiLocale(value, fallback) {
 function normalizeParserProvider(value, fallback) {
   return PARSER_PROVIDERS.has(value) ? value : fallback;
 }
+function normalizeProfileDictionaries(value) {
+  if (!isRecord(value)) return emptyProfileDictionaries();
+  const enabled = normalizeStringIds(value.enabled);
+  const order = normalizeStringIds(value.order);
+  const installed = normalizeStringIds([
+  ...normalizeStringIds(value.installed),
+  ...enabled,
+  ...order
+  ]);
+  const installedSet = new Set(installed);
+  return {
+  installed,
+  enabled: enabled.filter((id) => installedSet.has(id)),
+  order: [
+    ...order.filter((id) => installedSet.has(id)),
+    ...installed.filter((id) => !order.includes(id))
+  ]
+  };
+}
 function emptyProfileDictionaries() {
   return { installed: [], enabled: [], order: [] };
+}
+function normalizeStringIds(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const item of value) {
+  if (typeof item !== "string") continue;
+  const id = item.trim();
+  if (!id || id.length > 160 || seen.has(id)) continue;
+  seen.add(id);
+  result.push(id);
+  }
+  return result;
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function targetLanguageOf(value) {
+  return resolveLanguageProfile(value).targetLanguage;
 }
 function targetCollationLocale() {
   return activeLearningTarget().collationLocale;
@@ -5901,10 +6017,10 @@ const COPY = {
   subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "Japanese YouTube only",
-  preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
+  preferJapaneseSiteLanguage: "Open Japanese versions of sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Prefer Japanese UI and Japan-local content.",
+  youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
@@ -7640,10 +7756,10 @@ subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	日本語UIと日本向け内容を優先します。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -25321,9 +25437,12 @@ function isYouTubeCardOrFeedElement(element) {
   if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
   return Boolean(element.closest(VIDEO_CARD_SELECTOR));
 }
+function languageFamilyIncludes(family, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  return base === "ja";
+}
 const JA_LANG = "ja";
 const JA_COUNTRY = "JP";
-const JA_TZ = "Asia/Tokyo";
 const JA_LOCALE = "ja-JP";
 const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
 const REDIRECT_CACHE_KEY = "yomu:jps";
@@ -25360,33 +25479,47 @@ function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   const cachedPreference = readCachedPreferenceEnabled();
   const revision = ++preferenceRevision;
   pendingStartupOptOutCleanup ||= cachedPreference === true;
-  const syncPreference = readStoredPreferenceEnabledSync();
-  if (typeof syncPreference === "boolean") {
-  applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision);
+  const syncPreference = readStoredPreferenceSync();
+  if (syncPreference) {
+  applyPreferredJapaneseSiteLanguageAtRevision(
+    syncPreference.enabled,
+    false,
+    revision,
+    false,
+    syncPreference.targetLanguage
+  );
   return;
   }
-  void readStoredPreferenceEnabledAsync().then((enabled) => {
+  void readStoredPreferenceAsync().then((preference) => {
   if (revision !== preferenceRevision) return;
-  applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision);
+  applyPreferredJapaneseSiteLanguageAtRevision(
+    preference.enabled,
+    false,
+    revision,
+    false,
+    preference.targetLanguage
+  );
   });
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   applyPreferredJapaneseSiteLanguageAtRevision(
   enabled,
   revertOnDisable,
   ++preferenceRevision,
-  deferCookieResponseReloadUntilPersisted
+  deferCookieResponseReloadUntilPersisted,
+  targetLanguage
   );
 }
-function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision, deferCookieResponseReloadUntilPersisted = false) {
+function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   if (typeof window === "undefined") return;
   if (revision !== preferenceRevision) return;
-  const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+  const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage);
+  const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
   pendingStartupOptOutCleanup = false;
-  currentPreferenceEnabled = enabled;
-  writeCachedPreferenceEnabled(enabled);
-  applyPageContextJapanesePreferences(enabled, revision);
-  if (enabled) {
+  currentPreferenceEnabled = effectiveEnabled;
+  writeCachedPreferenceEnabled(effectiveEnabled);
+  applyPageContextJapanesePreferences(effectiveEnabled, revision);
+  if (effectiveEnabled) {
   deferredCookieResponseReload = false;
   applySitePreferenceCookies();
   schedulePreferredJapaneseSiteRedirect(revision);
@@ -25416,34 +25549,43 @@ function preferredDefaultSiteUrl(sourceHref, root) {
   if (!target || target.href === current.href) return null;
   return target.href;
 }
-function readStoredPreferenceEnabledSync() {
+function readStoredPreferenceSync() {
   const preferredLanguage = gmStorageGetSharedSync(
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
   void 0
   );
-  if (typeof preferredLanguage === "boolean") return preferredLanguage;
+  let storedSettings;
   for (const key of SETTINGS_STORAGE_KEYS) {
   const stored = gmStorageGetSharedSync(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
+  if (!stored || typeof stored !== "object") continue;
+  storedSettings = stored;
+  break;
   }
-  }
-  return void 0;
+  if (preferredLanguage === true && !storedSettings) return void 0;
+  return sitePreference(preferredLanguage, storedSettings);
 }
-async function readStoredPreferenceEnabledAsync() {
+async function readStoredPreferenceAsync() {
   const preferredLanguage = await gmStorageGet(
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
   void 0
   );
-  if (typeof preferredLanguage === "boolean") return preferredLanguage;
+  let storedSettings;
   for (const key of SETTINGS_STORAGE_KEYS) {
   const stored = await gmStorageGet(key, void 0);
-  if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
-    return stored.preferJapaneseSiteLanguage;
-  }
+  if (!stored || typeof stored !== "object") continue;
+  storedSettings = stored;
+  break;
   }
   const cached = readCachedPreferenceEnabled();
-  return typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+  return sitePreference(
+  preferredLanguage,
+  storedSettings,
+  typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage
+  );
+}
+function sitePreference(dedicated, settings, fallback) {
+  const enabled = typeof dedicated === "boolean" ? dedicated : typeof settings?.preferJapaneseSiteLanguage === "boolean" ? settings.preferJapaneseSiteLanguage : fallback;
+  return typeof enabled === "boolean" ? { enabled, targetLanguage: targetLanguageOf(settings) } : void 0;
 }
 function readCachedPreferenceEnabled() {
   try {
@@ -25550,8 +25692,6 @@ function injectedPagePreferenceSource(enabled) {
   `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
   `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
   `const installIntlDefaults = ${installIntlDefaults.toString()};`,
-  `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
-  `const installGeolocationHint = ${installGeolocationHint.toString()};`,
   `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
   `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
   "})();"
@@ -25560,10 +25700,10 @@ function injectedPagePreferenceSource(enabled) {
 function applySitePreferenceCookies() {
   const hostname = currentLocationHostname();
   if (/(^|\.)youtube\.com$/.test(hostname)) {
+  clearCookieValues("PREF", ["tz"], ".youtube.com");
   mergeCookie("PREF", {
     hl: JA_LANG,
-    gl: JA_COUNTRY,
-    tz: JA_TZ
+    gl: JA_COUNTRY
   }, ".youtube.com");
   }
   if (/(^|\.)google\./.test(hostname)) {
@@ -25960,35 +26100,25 @@ function applyJapanesePreferencesInPage(scope, enabled) {
   if (state.installed) return;
   state.installed = true;
   const locale = JA_LOCALE;
-  const languages2 = ["ja-JP", "ja", "en-US", "en"];
-  const timeZone = "Asia/Tokyo";
-  const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
+  const languages2 = [locale, "ja", "en-US", "en"];
   const navigatorObject = root.navigator;
   const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
   defineGetter(state, navigatorPrototype, "language", () => locale);
   defineGetter(state, navigatorPrototype, "languages", () => languages2.slice());
-  defineGetter(state, navigatorPrototype, "userLanguage", () => locale);
-  defineGetter(state, navigatorPrototype, "browserLanguage", () => locale);
   defineGetter(state, navigatorObject, "language", () => locale);
   defineGetter(state, navigatorObject, "languages", () => languages2.slice());
-  installIntlDefaults(root, state, locale, timeZone);
-  installDateTimezoneHint(root, state, timeZone);
-  installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
+  installIntlDefaults(root, state, locale);
 }
 function preferenceState(root) {
   if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
   const state = {
   installed: false,
-  properties: [],
-  watchTimers: /* @__PURE__ */ new Map(),
-  nextWatchId: 1
+  properties: []
   };
   defineUntrackedValue(root, "__yomuJapaneseSiteLanguagePreference", state);
   return state;
 }
 function restoreJapanesePreferences(state) {
-  for (const timer of state.watchTimers.values()) clearInterval(timer);
-  state.watchTimers.clear();
   for (const snapshot of state.properties.slice().reverse()) {
   try {
     if (snapshot.hadOwn && snapshot.descriptor) {
@@ -26003,10 +26133,10 @@ function restoreJapanesePreferences(state) {
   state.properties = [];
   state.installed = false;
 }
-function installIntlDefaults(root, state, locale, timeZone) {
+function installIntlDefaults(root, state, locale) {
   const intl = root.Intl;
   if (!intl) return;
-  wrapIntlConstructor(intl, state, "DateTimeFormat", locale, (options) => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
+  wrapIntlConstructor(intl, state, "DateTimeFormat", locale);
   wrapIntlConstructor(intl, state, "NumberFormat", locale);
   wrapIntlConstructor(intl, state, "Collator", locale);
   wrapIntlConstructor(intl, state, "RelativeTimeFormat", locale);
@@ -26029,48 +26159,6 @@ function wrapIntlConstructor(intl, state, name, locale, normalizeOptions = (opti
   } catch {
   }
   defineValue(state, intl, name, WrappedConstructor);
-}
-function installDateTimezoneHint(root, state, timeZone) {
-  const datePrototype = root.Date?.prototype;
-  if (!datePrototype) return;
-  defineValue(state, datePrototype, "getTimezoneOffset", function getTimezoneOffset() {
-  return timeZone === "Asia/Tokyo" ? -540 : 0;
-  });
-}
-function installGeolocationHint(root, state, navigatorObject, navigatorPrototype, coords) {
-  if (!navigatorObject) return;
-  const nativeGeolocation = navigatorObject.geolocation;
-  const position = () => ({
-  coords: {
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    accuracy: coords.accuracy,
-    altitude: null,
-    altitudeAccuracy: null,
-    heading: null,
-    speed: null
-  },
-  timestamp: Date.now()
-  });
-  const geolocation = Object.create(nativeGeolocation ?? null);
-  defineUntrackedValue(geolocation, "getCurrentPosition", (success) => {
-  root.setTimeout(() => success(position()), 0);
-  });
-  defineUntrackedValue(geolocation, "watchPosition", (success) => {
-  const id = state.nextWatchId++;
-  const emit = () => success(position());
-  const timer = root.setInterval(emit, 6e4);
-  state.watchTimers.set(id, timer);
-  root.setTimeout(emit, 0);
-  return id;
-  });
-  defineUntrackedValue(geolocation, "clearWatch", (id) => {
-  const timer = state.watchTimers.get(id);
-  if (timer !== void 0) root.clearInterval(timer);
-  state.watchTimers.delete(id);
-  });
-  defineGetter(state, navigatorPrototype, "geolocation", () => geolocation);
-  defineGetter(state, navigatorObject, "geolocation", () => geolocation);
 }
 function rememberDescriptor(state, target, key) {
   if (!target || state.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;

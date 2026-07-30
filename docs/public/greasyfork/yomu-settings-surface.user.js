@@ -7346,10 +7346,10 @@ const COPY = {
   subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "Japanese YouTube only",
-  preferJapaneseSiteLanguage: "Prefer Japanese site language and location",
+  preferJapaneseSiteLanguage: "Open Japanese versions of sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Prefer Japanese UI and Japan-local content.",
+  youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
@@ -9085,10 +9085,10 @@ subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	サイトの言語と地域を日本優先にする
+preferJapaneseSiteLanguage	日本語版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	日本語UIと日本向け内容を優先します。
+youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
@@ -51762,7 +51762,7 @@ function readFormSettings(data, current) {
   dictionaryPreferences,
   dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
   ...readSubtitleFormSettings(reader, current),
-  ...readYoutubeFormSettings(reader),
+  ...readYoutubeFormSettings(reader, current),
   ...readAnkiFormSettings(reader, current),
   ...readStudyToolFormSettings(reader, current),
   enableLogging: has("enableLogging"),
@@ -52261,11 +52261,12 @@ function readImmersionKitFormSettings(reader, current) {
   immersionKitPlaybackRate: clamped("immersionKitPlaybackRate", 0.5, 2, current.immersionKitPlaybackRate)
   };
 }
-function readYoutubeFormSettings(reader) {
+function readYoutubeFormSettings(reader, current) {
   const { has } = reader;
+  const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
   return {
   youtubeImmersionEnabled: has("youtubeImmersionEnabled"),
-  preferJapaneseSiteLanguage: has("preferJapaneseSiteLanguage"),
+  preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
   youtubeShowChannelRecommendations: has("youtubeShowChannelRecommendations"),
   youtubeShowFilterNotice: has("youtubeShowFilterNotice")
   };
@@ -56074,7 +56075,10 @@ function renderYoutubeSettingsPanel(settings) {
                 <legend>${escapedUiText(language2, "youTube")}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
-                    ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
+                    <div class="jp-only" data-language-family="preferred-japanese-sites">
+                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
+                        ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
+                    </div>
                     ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
                     ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
                 </div>

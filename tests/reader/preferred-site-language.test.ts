@@ -5,6 +5,7 @@ import {
     preferredJapaneseSiteUrl,
 } from '../../src/reader/app/preferred-site-language-impl';
 import {
+    DEFAULT_SETTINGS,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings/index';
@@ -27,8 +28,13 @@ describe('preferred Japanese site language', () => {
         vi.useRealTimers();
     });
 
-    it('applies the default-on Japanese locale hints from empty storage', async () => {
+    it('applies Japanese locale hints without changing timezone or geolocation', async () => {
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('ok'));
+        const browserLocation = {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            offset: new Date().getTimezoneOffset(),
+            geolocation: navigator.geolocation,
+        };
         vi.stubGlobal('fetch', fetchMock);
         vi.stubGlobal('unsafeWindow', window);
 
@@ -37,15 +43,70 @@ describe('preferred Japanese site language', () => {
 
         expect(navigator.language).toBe('ja-JP');
         expect(navigator.languages.slice(0, 2)).toEqual(['ja-JP', 'ja']);
-        expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('Asia/Tokyo');
-        expect(new Date().getTimezoneOffset()).toBe(-540);
+        expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(browserLocation.timeZone);
+        expect(new Date().getTimezoneOffset()).toBe(browserLocation.offset);
+        expect(navigator.geolocation).toBe(browserLocation.geolocation);
+    });
+
+    it('leaves browser location signals untouched for a stored Spanish target', async () => {
+        const browserSignals = {
+            language: navigator.language,
+            languages: [...navigator.languages],
+            intlLocale: Intl.DateTimeFormat().resolvedOptions().locale,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            offset: new Date().getTimezoneOffset(),
+            geolocation: navigator.geolocation,
+        };
+        const replace = vi.fn();
+        const spanishSettings = {
+            ...DEFAULT_SETTINGS,
+            preferJapaneseSiteLanguage: true,
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
+                profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
+                    ? { ...profile, targetLanguage: 'es' }
+                    : profile),
+        };
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
+            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
+            // The dedicated scalar can be synchronous while the profile-bearing
+            // settings blob is still resolving through a userscript bridge.
+            if (key === SETTINGS_STORAGE_KEY) return Promise.resolve(spanishSettings);
+            return fallback;
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=hola',
+            hostname: 'www.google.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        await settleAsyncHandlers();
+
+        expect({
+            language: navigator.language,
+            languages: [...navigator.languages],
+            intlLocale: Intl.DateTimeFormat().resolvedOptions().locale,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            offset: new Date().getTimezoneOffset(),
+            geolocation: navigator.geolocation,
+        }).toEqual(browserSignals);
+        expect(replace).not.toHaveBeenCalled();
+
+        applyPreferredJapaneseSiteLanguage(true, false, false, 'es');
+
+        expect(navigator.language).toBe(browserSignals.language);
+        expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(browserSignals.timeZone);
+        expect(navigator.geolocation).toBe(browserSignals.geolocation);
+        expect(replace).not.toHaveBeenCalled();
     });
 
     it('does not wrap page fetch requests while applying locale hints', () => {
         // The language preference used to wrap page fetch/XHR to add
         // Accept-Language. A missing injected helper broke YouTube and Reddit
         // request pipelines with ReferenceError/Request failed. Locale hints now
-        // stay in navigator/Intl/time-zone/geolocation/cookies/URLs only.
+        // stay in navigator/Intl locale hints, cookies and URLs only.
         const seen: Array<{ url: string; acceptLanguage: string | null }> = [];
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             seen.push({ url: String(input), acceptLanguage: new Headers(init?.headers).get('Accept-Language') });

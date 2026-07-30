@@ -6,10 +6,11 @@ import {
 import { gmStorageGet, gmStorageGetSharedSync } from './storage';
 import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
+import { targetLanguageOf } from '../languages/selection';
+import { languageFamilyIncludes } from '../settings/language-gating';
 
 const JA_LANG = 'ja';
 const JA_COUNTRY = 'JP';
-const JA_TZ = 'Asia/Tokyo';
 const JA_LOCALE = 'ja-JP';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const REDIRECT_CACHE_KEY = 'yomu:jps';
@@ -31,7 +32,14 @@ const JA_MARKER_PARAM_KEYS = [
 const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
 const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
 
-type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>> | null;
+type StoredSettings = Partial<Pick<
+    ReaderSettings,
+    'preferJapaneseSiteLanguage' | 'languageProfiles' | 'activeLanguageProfileId'
+>> | null;
+interface StoredPreference {
+    enabled: boolean;
+    targetLanguage: string;
+}
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
 
 let alternateRedirectCleanup: (() => void) | undefined;
@@ -44,9 +52,15 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
     const cachedPreference = readCachedPreferenceEnabled();
     const revision = ++preferenceRevision;
     pendingStartupOptOutCleanup ||= cachedPreference === true;
-    const syncPreference = readStoredPreferenceEnabledSync();
-    if (typeof syncPreference === 'boolean') {
-        applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision);
+    const syncPreference = readStoredPreferenceSync();
+    if (syncPreference) {
+        applyPreferredJapaneseSiteLanguageAtRevision(
+            syncPreference.enabled,
+            false,
+            revision,
+            false,
+            syncPreference.targetLanguage,
+        );
         return;
     }
     // The shared setting is behind async-only storage here. This origin's cache
@@ -54,9 +68,15 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
     // any other site cannot reach it. Do not expose a cached "on" through
     // navigator/Intl while storage resolves: sites snapshot those values during
     // startup and cannot be repaired after the authoritative opt-out arrives.
-    void readStoredPreferenceEnabledAsync().then(enabled => {
+    void readStoredPreferenceAsync().then(preference => {
         if (revision !== preferenceRevision) return;
-        applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision);
+        applyPreferredJapaneseSiteLanguageAtRevision(
+            preference.enabled,
+            false,
+            revision,
+            false,
+            preference.targetLanguage,
+        );
     });
 }
 
@@ -64,12 +84,14 @@ export function applyPreferredJapaneseSiteLanguage(
     enabled: boolean,
     revertOnDisable = false,
     deferCookieResponseReloadUntilPersisted = false,
+    targetLanguage = 'ja',
 ): void {
     applyPreferredJapaneseSiteLanguageAtRevision(
         enabled,
         revertOnDisable,
         ++preferenceRevision,
         deferCookieResponseReloadUntilPersisted,
+        targetLanguage,
     );
 }
 
@@ -78,15 +100,18 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
     revertOnDisable: boolean,
     revision: number,
     deferCookieResponseReloadUntilPersisted = false,
+    targetLanguage = 'ja',
 ): void {
     if (typeof window === 'undefined') return;
     if (revision !== preferenceRevision) return;
-    const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+    const effectiveEnabled = enabled && languageFamilyIncludes('jp-only', targetLanguage);
+    const shouldRevert = !effectiveEnabled
+        && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
     pendingStartupOptOutCleanup = false;
-    currentPreferenceEnabled = enabled;
-    writeCachedPreferenceEnabled(enabled);
-    applyPageContextJapanesePreferences(enabled, revision);
-    if (enabled) {
+    currentPreferenceEnabled = effectiveEnabled;
+    writeCachedPreferenceEnabled(effectiveEnabled);
+    applyPageContextJapanesePreferences(effectiveEnabled, revision);
+    if (effectiveEnabled) {
         deferredCookieResponseReload = false;
         applySitePreferenceCookies();
         schedulePreferredJapaneseSiteRedirect(revision);
@@ -136,37 +161,61 @@ function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string |
 // pin every site the user had ever opened while the preference was on to "on":
 // turning it off elsewhere could not reach them, and each load rewrote the cache
 // from itself, so the toggle had to be pressed again on every site, forever.
-function readStoredPreferenceEnabledSync(): boolean | undefined {
+function readStoredPreferenceSync(): StoredPreference | undefined {
     const preferredLanguage = gmStorageGetSharedSync<unknown>(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
-    if (typeof preferredLanguage === 'boolean') return preferredLanguage;
+    let storedSettings: StoredSettings | undefined;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = gmStorageGetSharedSync<StoredSettings | undefined>(key, undefined);
-        if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
-            return stored.preferJapaneseSiteLanguage;
-        }
+        if (!stored || typeof stored !== 'object') continue;
+        storedSettings = stored;
+        break;
     }
-    return undefined;
+    // "Off" is safe before the target is known. "On" is not: a dedicated
+    // scalar can resolve synchronously while the profile-bearing settings blob
+    // is still behind an async bridge, and assuming Japanese in that gap would
+    // recreate the document-start race this gate exists to prevent.
+    if (preferredLanguage === true && !storedSettings) return undefined;
+    return sitePreference(preferredLanguage, storedSettings);
 }
 
-async function readStoredPreferenceEnabledAsync(): Promise<boolean> {
+async function readStoredPreferenceAsync(): Promise<StoredPreference> {
     const preferredLanguage = await gmStorageGet<unknown>(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
-    if (typeof preferredLanguage === 'boolean') return preferredLanguage;
+    let storedSettings: StoredSettings | undefined;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = await gmStorageGet<StoredSettings | undefined>(key, undefined);
-        if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
-            return stored.preferJapaneseSiteLanguage;
-        }
+        if (!stored || typeof stored !== 'object') continue;
+        storedSettings = stored;
+        break;
     }
     // No stored settings at all (a fresh install): an explicit local opt-out still
     // beats the default-on, it is just no longer allowed to outrank a real setting.
     const cached = readCachedPreferenceEnabled();
-    return typeof cached === 'boolean' ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    return sitePreference(
+        preferredLanguage,
+        storedSettings,
+        typeof cached === 'boolean' ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage,
+    )!;
+}
+
+function sitePreference(
+    dedicated: unknown,
+    settings: StoredSettings | undefined,
+    fallback?: boolean,
+): StoredPreference | undefined {
+    const enabled = typeof dedicated === 'boolean'
+        ? dedicated
+        : typeof settings?.preferJapaneseSiteLanguage === 'boolean'
+            ? settings.preferJapaneseSiteLanguage
+            : fallback;
+    return typeof enabled === 'boolean'
+        ? { enabled, targetLanguage: targetLanguageOf(settings) }
+        : undefined;
 }
 
 function readCachedPreferenceEnabled(): boolean | undefined {
@@ -302,8 +351,6 @@ function injectedPagePreferenceSource(enabled: boolean): string {
         `const restoreJapanesePreferences = ${restoreJapanesePreferences.toString()};`,
         `const wrapIntlConstructor = ${wrapIntlConstructor.toString()};`,
         `const installIntlDefaults = ${installIntlDefaults.toString()};`,
-        `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
-        `const installGeolocationHint = ${installGeolocationHint.toString()};`,
         `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
         `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
         '})();',
@@ -313,10 +360,12 @@ function injectedPagePreferenceSource(enabled: boolean): string {
 function applySitePreferenceCookies(): void {
     const hostname = currentLocationHostname();
     if (/(^|\.)youtube\.com$/.test(hostname)) {
+        // Older builds wrote a Tokyo timezone into PREF. Remove that legacy
+        // marker before keeping the narrower language and region preference.
+        clearCookieValues('PREF', ['tz'], '.youtube.com');
         mergeCookie('PREF', {
             hl: JA_LANG,
             gl: JA_COUNTRY,
-            tz: JA_TZ,
         }, '.youtube.com');
     }
     if (/(^|\.)google\./.test(hostname)) {
@@ -808,8 +857,6 @@ interface PropertySnapshot {
 interface JapanesePreferenceState {
     installed: boolean;
     properties: PropertySnapshot[];
-    watchTimers: Map<number, ReturnType<typeof setInterval>>;
-    nextWatchId: number;
 }
 
 function applyJapanesePreferencesInPage(scope: typeof globalThis, enabled: boolean): void {
@@ -826,22 +873,16 @@ function applyJapanesePreferencesInPage(scope: typeof globalThis, enabled: boole
     state.installed = true;
 
     const locale = JA_LOCALE;
-    const languages = ['ja-JP', 'ja', 'en-US', 'en'];
-    const timeZone = 'Asia/Tokyo';
-    const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
+    const languages = [locale, 'ja', 'en-US', 'en'];
 
     const navigatorObject = root.navigator;
     const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
     defineGetter(state, navigatorPrototype, 'language', () => locale);
     defineGetter(state, navigatorPrototype, 'languages', () => languages.slice());
-    defineGetter(state, navigatorPrototype, 'userLanguage', () => locale);
-    defineGetter(state, navigatorPrototype, 'browserLanguage', () => locale);
     defineGetter(state, navigatorObject, 'language', () => locale);
     defineGetter(state, navigatorObject, 'languages', () => languages.slice());
 
-    installIntlDefaults(root, state, locale, timeZone);
-    installDateTimezoneHint(root, state, timeZone);
-    installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
+    installIntlDefaults(root, state, locale);
 }
 
 function preferenceState(root: typeof globalThis & { __yomuJapaneseSiteLanguagePreference?: JapanesePreferenceState }): JapanesePreferenceState {
@@ -849,16 +890,12 @@ function preferenceState(root: typeof globalThis & { __yomuJapaneseSiteLanguageP
     const state: JapanesePreferenceState = {
         installed: false,
         properties: [],
-        watchTimers: new Map(),
-        nextWatchId: 1,
     };
     defineUntrackedValue(root, '__yomuJapaneseSiteLanguagePreference', state);
     return state;
 }
 
 function restoreJapanesePreferences(state: JapanesePreferenceState): void {
-    for (const timer of state.watchTimers.values()) clearInterval(timer);
-    state.watchTimers.clear();
     for (const snapshot of state.properties.slice().reverse()) {
         try {
             if (snapshot.hadOwn && snapshot.descriptor) {
@@ -875,10 +912,10 @@ function restoreJapanesePreferences(state: JapanesePreferenceState): void {
     state.installed = false;
 }
 
-function installIntlDefaults(root: typeof globalThis, state: JapanesePreferenceState, locale: string, timeZone: string): void {
+function installIntlDefaults(root: typeof globalThis, state: JapanesePreferenceState, locale: string): void {
     const intl = root.Intl as (typeof Intl & Record<string, unknown>) | undefined;
     if (!intl) return;
-    wrapIntlConstructor(intl, state, 'DateTimeFormat', locale, options => ({ ...options, timeZone: options?.timeZone ?? timeZone }));
+    wrapIntlConstructor(intl, state, 'DateTimeFormat', locale);
     wrapIntlConstructor(intl, state, 'NumberFormat', locale);
     wrapIntlConstructor(intl, state, 'Collator', locale);
     wrapIntlConstructor(intl, state, 'RelativeTimeFormat', locale);
@@ -909,56 +946,6 @@ function wrapIntlConstructor(
         // Constructor wrapping still works without mirroring every static property.
     }
     defineValue(state, intl, name, WrappedConstructor);
-}
-
-function installDateTimezoneHint(root: typeof globalThis, state: JapanesePreferenceState, timeZone: string): void {
-    const datePrototype = root.Date?.prototype;
-    if (!datePrototype) return;
-    defineValue(state, datePrototype, 'getTimezoneOffset', function getTimezoneOffset() {
-        return timeZone === 'Asia/Tokyo' ? -540 : 0;
-    });
-}
-
-function installGeolocationHint(
-    root: typeof globalThis,
-    state: JapanesePreferenceState,
-    navigatorObject: Navigator,
-    navigatorPrototype: object | null,
-    coords: { latitude: number; longitude: number; accuracy: number },
-): void {
-    if (!navigatorObject) return;
-    const nativeGeolocation = navigatorObject.geolocation;
-    const position = () => ({
-        coords: {
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            accuracy: coords.accuracy,
-            altitude: null,
-            altitudeAccuracy: null,
-            heading: null,
-            speed: null,
-        },
-        timestamp: Date.now(),
-    });
-    const geolocation = Object.create(nativeGeolocation ?? null) as Geolocation;
-    defineUntrackedValue(geolocation, 'getCurrentPosition', (success: PositionCallback) => {
-        root.setTimeout(() => success(position() as GeolocationPosition), 0);
-    });
-    defineUntrackedValue(geolocation, 'watchPosition', (success: PositionCallback) => {
-        const id = state.nextWatchId++;
-        const emit = () => success(position() as GeolocationPosition);
-        const timer = root.setInterval(emit, 60000);
-        state.watchTimers.set(id, timer);
-        root.setTimeout(emit, 0);
-        return id;
-    });
-    defineUntrackedValue(geolocation, 'clearWatch', (id: number) => {
-        const timer = state.watchTimers.get(id);
-        if (timer !== undefined) root.clearInterval(timer);
-        state.watchTimers.delete(id);
-    });
-    defineGetter(state, navigatorPrototype, 'geolocation', () => geolocation);
-    defineGetter(state, navigatorObject, 'geolocation', () => geolocation);
 }
 
 function rememberDescriptor(state: JapanesePreferenceState, target: object | null | undefined, key: PropertyKey): void {

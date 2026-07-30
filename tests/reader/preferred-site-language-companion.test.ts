@@ -28,8 +28,11 @@ describe('preferred-site-language companion wrapper', () => {
         applyPreferredJapaneseSiteLanguage(true, true);
         expect(preferredJapaneseSiteUrl('https://example.com/')).toBe('https://example.jp/');
         expect(install).toHaveBeenCalledOnce();
-        expect(apply).toHaveBeenCalledWith(true, true);
+        expect(apply).toHaveBeenCalledWith(true, true, false, 'ja');
         expect(url).toHaveBeenCalledWith('https://example.com/', undefined);
+
+        applyPreferredJapaneseSiteLanguage(true, false, false, 'es');
+        expect(apply).toHaveBeenLastCalledWith(true, false, false, 'es');
     });
 
     it('is inert without the video companion', () => {
