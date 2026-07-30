@@ -4,7 +4,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
-import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionReport, pinnedArtifactPaths } from '../../scripts/lib/content-addressed-retention.mjs';
+import {
+    RELEASE_RETENTION_COUNT,
+    SUPPORTED_RELEASE_REFS,
+    contentAddressedRetentionManifest,
+    contentAddressedRetentionReport,
+    isShallowRepository,
+    pinnedArtifactPaths,
+    retentionManifestIsCurrent,
+} from '../../scripts/lib/content-addressed-retention.mjs';
 
 const repositories: string[] = [];
 
@@ -96,5 +104,24 @@ describe('content-addressed artifact retention', () => {
     it('documents a week-sized release window and the frozen store version', () => {
         expect(RELEASE_RETENTION_COUNT).toBe(40);
         expect(SUPPORTED_RELEASE_REFS).toContain('v1.8.2');
+    });
+
+    it('uses the committed retention manifest when CI checks out one shallow commit', () => {
+        const source = repository();
+        const manifest = contentAddressedRetentionManifest(source);
+        write(source, 'config/ci/content-addressed-retention.json', `${JSON.stringify(manifest, null, 2)}\n`);
+        git(source, 'add', '.');
+        git(source, 'commit', '--quiet', '-m', 'retention manifest');
+        expect(retentionManifestIsCurrent(source)).toBe(true);
+
+        const clone = mkdtempSync(join(tmpdir(), 'yomu-retention-shallow-'));
+        repositories.push(clone);
+        execFileSync('git', ['clone', '--quiet', '--depth', '1', `file://${source}`, clone], { stdio: 'pipe' });
+
+        expect(isShallowRepository(clone)).toBe(true);
+        const report = contentAddressedRetentionReport(clone);
+        expect(report.missing).toEqual([]);
+        expect(report.stale).toEqual([]);
+        expect(report.retained).toEqual(manifest.retainedPaths);
     });
 });

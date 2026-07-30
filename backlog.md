@@ -1200,7 +1200,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       so the other 11 stop carrying it; run the size check over every emitted companion; skip the 473 KB
       sheet install on pages the reader has no work on. Cycle 10 asks for an early budget against the 2 MB
       core cap and does not describe the aggregate payload or the duplication the split introduced.
-      **Closed in `cx-weight-20260730` and released in v1.8.45:** the stale total re-measured at 9,863,031 bytes. The distributed
+      **Closed in `cx-weight-20260730` and released in v1.8.46:** the stale total re-measured at 9,863,031 bytes. The distributed
       header now loads one Rollup-deduplicated, wrapper-trimmed `yomu-runtime` companion, for 5,874,598
       injected bytes across two scripts (3,988,433 bytes / 40.4% less). The gate measures both files from the actual `@require`
       metadata, rejects unmeasurable dependencies, and holds an aggregate ratchet that cannot increase.
@@ -1302,7 +1302,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       serve nobody, and the weight is paid on every clone, every VitePress build and every Pages deploy.
       Do: keep the last N releases plus anything referenced by a still-supported header, prune the rest in
       one commit, and put the retention window in the sync script next to that comment.
-      **Closed in `cx-weight-20260730` and released in v1.8.45:** sync now keeps current built/hosted headers, 40 release tags and
+      **Closed in `cx-weight-20260730` and released in v1.8.46:** sync now keeps current built/hosted headers, 40 release tags and
       hosted-header revisions (7.68 days at the measured cadence), plus the frozen v1.8.2 store header.
       The pruning gate fails on either an unreferenced committed hash or a missing supported pin.
 

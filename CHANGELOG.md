@@ -1,11 +1,18 @@
 # Changelog
 
-## [1.8.45] - 2026-07-30
+## [1.8.46] - 2026-07-30
 
 ### Changed
 
 - Pages now load one deduplicated reader runtime instead of twelve overlapping companion scripts, cutting the JavaScript injected before Yomu starts by 40%.
 - Release builds now measure the whole injected userscript payload and remove unreferenced hashed assets while retaining the current, recent, and browser-store versions.
+- Hosted builds now carry the verified retention set into shallow CI checkouts, so deployment cannot mistake unavailable history for permission to remove pinned files.
+
+## [1.8.45] - 2026-07-30
+
+### Fixed
+
+- The 1.8.45 release stopped before publishing when its shallow checkout could not reconstruct the retained hash set. No release assets were published from that tag; 1.8.46 carries the same reader change with a committed retention snapshot.
 
 ## [1.8.44] - 2026-07-30
 

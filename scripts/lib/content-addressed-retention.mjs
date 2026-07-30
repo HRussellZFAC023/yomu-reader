@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 export const RELEASE_RETENTION_COUNT = 40;
 export const SUPPORTED_RELEASE_REFS = ['v1.8.2'];
+export const RETENTION_MANIFEST_PATH = 'config/ci/content-addressed-retention.json';
 
 const HASHED_COMPANION = /^yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js$/;
 const HASHED_READER_CSS = /^yomu\.[0-9a-f]{12}\.css$/;
@@ -42,11 +43,69 @@ export function contentAddressedArtifacts(root) {
 }
 
 export function retainedArtifactPaths(root) {
+    if (isShallowRepository(root)) {
+        const retained = retainedArtifactPathsFromManifest(root);
+        for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {
+            const absolutePath = join(root, relativePath);
+            if (!existsSync(absolutePath)) continue;
+            for (const path of pinnedArtifactPaths(readFileSync(absolutePath, 'utf8'))) retained.add(path);
+        }
+        return retained;
+    }
+    return retainedArtifactPathsFromHistory(root);
+}
+
+export function contentAddressedRetentionManifest(root) {
+    return {
+        schemaVersion: 1,
+        releaseRetentionCount: RELEASE_RETENTION_COUNT,
+        supportedReleaseRefs: SUPPORTED_RELEASE_REFS,
+        retainedPaths: [...retainedArtifactPathsFromHistory(root)].sort(),
+    };
+}
+
+export function retentionManifestIsCurrent(root) {
+    if (isShallowRepository(root)) return true;
+    const actual = readRetentionManifest(root);
+    const expected = contentAddressedRetentionManifest(root);
+    return JSON.stringify(actual) === JSON.stringify(expected);
+}
+
+export function isShallowRepository(root) {
+    return git(root, ['rev-parse', '--is-shallow-repository']) === 'true';
+}
+
+function retainedArtifactPathsFromHistory(root) {
     const retained = new Set();
     for (const header of supportedHeaders(root)) {
         for (const path of pinnedArtifactPaths(header.code)) retained.add(path);
     }
     return retained;
+}
+
+function retainedArtifactPathsFromManifest(root) {
+    const manifest = readRetentionManifest(root);
+    if (
+        manifest?.schemaVersion !== 1
+        || manifest.releaseRetentionCount !== RELEASE_RETENTION_COUNT
+        || JSON.stringify(manifest.supportedReleaseRefs) !== JSON.stringify(SUPPORTED_RELEASE_REFS)
+        || !Array.isArray(manifest.retainedPaths)
+    ) {
+        throw new Error(
+            `Content-addressed retention needs a current ${RETENTION_MANIFEST_PATH} in shallow checkouts.`,
+        );
+    }
+    return new Set(manifest.retainedPaths);
+}
+
+function readRetentionManifest(root) {
+    const path = join(root, RETENTION_MANIFEST_PATH);
+    if (!existsSync(path)) return null;
+    try {
+        return JSON.parse(readFileSync(path, 'utf8'));
+    } catch {
+        return null;
+    }
 }
 
 export function contentAddressedRetentionReport(root) {

@@ -1,11 +1,15 @@
 #!/usr/bin/env node
-import { rmSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
     RELEASE_RETENTION_COUNT,
+    RETENTION_MANIFEST_PATH,
     SUPPORTED_RELEASE_REFS,
+    contentAddressedRetentionManifest,
     contentAddressedRetentionReport,
+    isShallowRepository,
+    retentionManifestIsCurrent,
 } from './lib/content-addressed-retention.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -14,6 +18,21 @@ const check = process.argv.includes('--check');
 if (write === check) {
     console.error('Usage: node scripts/prune-content-addressed-assets.mjs --check|--write');
     process.exit(2);
+}
+
+const shallow = isShallowRepository(ROOT);
+if (!shallow && write) {
+    writeFileSync(
+        join(ROOT, RETENTION_MANIFEST_PATH),
+        `${JSON.stringify(contentAddressedRetentionManifest(ROOT), null, 2)}\n`,
+    );
+}
+if (!shallow && check && !retentionManifestIsCurrent(ROOT)) {
+    console.error(
+        `[content-retention] FAIL: ${RETENTION_MANIFEST_PATH} does not match the current retention history. `
+        + 'Run npm run assets:prune.',
+    );
+    process.exit(1);
 }
 
 const before = contentAddressedRetentionReport(ROOT);
@@ -55,7 +74,8 @@ printPolicy();
 function printPolicy() {
     console.log(
         `[content-retention] policy: current built + hosted headers, latest ${RELEASE_RETENTION_COUNT} release tags, `
-        + `${RELEASE_RETENTION_COUNT} recent hosted headers, and ${SUPPORTED_RELEASE_REFS.join(', ')}.`,
+        + `${RELEASE_RETENTION_COUNT} recent hosted headers, and ${SUPPORTED_RELEASE_REFS.join(', ')} `
+        + `(source: ${shallow ? RETENTION_MANIFEST_PATH : 'git history'}).`,
     );
 }
 

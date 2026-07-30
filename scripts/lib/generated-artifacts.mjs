@@ -25,6 +25,7 @@
 import { pathToFileURL } from 'node:url';
 
 export const GENERATED_ARTIFACT_PATHS = [
+    'config/ci/content-addressed-retention.json',
     'dist/yomu.user.js',
     'dist/yomu.css',
     'docs/public/yomu.user.js',
