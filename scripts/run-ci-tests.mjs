@@ -55,6 +55,15 @@ const ISOLATED_PASS_FILES = [
     join(ROOT, 'tests/reader/settings-form/06-localization-reader-controls.test.ts'),
     join(ROOT, 'tests/reader/settings-form/07-localization-mining-japanese.test.ts'),
     join(ROOT, 'tests/reader/settings-form/08-anki-connect-diagnosis.test.ts'),
+    // A40. "keeps the settings tab you were on when a snapshot restore
+    // re-renders" passes alone AND as a whole file, and failed inside the shared
+    // pass on this commit and its parent — the signature this list exists for.
+    // The file imports the gaming renderer ONCE in beforeAll and shares one app
+    // instance, one #app element and one localStorage across eleven tests, so it
+    // inherits whatever a neighbour leaves in the document. Isolating it costs
+    // one fork; an intermittently red release costs a release nobody can
+    // schedule, and a minor tag is what reaches the frozen stores.
+    join(ROOT, 'tests/reader/gaming-first-run.test.ts'),
 ];
 
 const args = parseArgs(process.argv.slice(2));

@@ -494,7 +494,14 @@ Why this outranks a normal flake: **a minor tag is what publishes to the Chrome 
 at 1.8.2, so an intermittent red stands between ~37 releases of accumulated fixes and every store user. A
 release that fails one run in four is a release nobody can schedule.
 
-- [ ] **A40.1 — find the polluting file, not the symptom.** Measured: only this test file and
+- [x] **A40.1 — FIXED by the mechanism the repo already has for this.** `scripts/run-ci-tests.mjs` keeps an
+      `ISOLATED_PASS_FILES` list whose own comment describes exactly this signature: files that "pass alone
+      but inherit state in the fork-reuse pass". `gaming-first-run.test.ts` is now on it. That is the right
+      answer rather than bisecting for the neighbour, because the fragility is on OUR side: the file imports
+      the gaming renderer once in `beforeAll` and shares one app instance, one `#app` element and one
+      localStorage across eleven tests, so any document state a neighbour leaves is inherited. Twenty-eight
+      files were already isolated for the same reason. Superseded finding below, kept for provenance:
+      **find the polluting file, not the symptom.** Measured: only this test file and
       `src/gaming/renderer/app.ts` touch `yomu-gaming-settings-snapshot-v1`, so the snapshot key is not the
       channel; running `settings-cross-site-persistence` immediately before it does not reproduce. The file
       imports the renderer ONCE in `beforeAll` and shares one app instance and one localStorage across all
@@ -508,6 +515,24 @@ release that fails one run in four is a release nobody can schedule.
       passes inside the shard, and `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts` shares module
       state across 53 cases (it hid a real persistence question — see `A38`). Per-file isolation in the runner
       would retire all three at once; decide whether that costs less than chasing each.
+
+### A41 — U46 hotlink findings the verifier recorded as non-blocking
+
+From the adversarial verification of the per-language hotlinks (full report in `scratchpad/u46-5-research.md`).
+None of these stop a patch release; all of them are things a later pass would otherwise rediscover.
+
+- [ ] **A41.1 — 20 YouGlish links and 10 of 11 Linguee links carry no reproducible verification.** They may
+      well work; the point is that nobody has evidence they do, and the whole value of this research was that
+      every shipped link was fetched with a real word and a nonsense word and the two compared. Either verify
+      them to that standard or mark them unverified in the data so the next audit does not re-litigate it.
+- [ ] **A41.2 — Arabic, Khmer, Lao and Thai ship with no native dictionary**, because the criterion that
+      rejected their candidates was a delta-0 body comparison that the verifier later invalidated (an SPA
+      returns an identical shell for real and nonsense queries, so delta-0 proves nothing either way).
+      Re-check those four in a real browser: an SPA that renders client-side is still a perfectly good
+      hotlink target for a learner.
+- [ ] **A41.3 — `vi/tratu-soha` is plaintext HTTP** because the site offers no HTTPS. Keeping it is
+      defensible for a link a learner clicks, but the settings copy should say so rather than leaving a
+      mixed-content surprise, and it needs its verbatim ja key.
 
 ### A39 — OWNER DECISION: the visual bible and the anti-slop evidence disagree about the typeface
 
