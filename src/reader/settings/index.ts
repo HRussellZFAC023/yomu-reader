@@ -17,12 +17,12 @@ import {
     DEFAULT_LANGUAGE_PROFILE_ID,
     normalizeLanguageProfiles,
 } from '../languages/profiles';
-import { SLICE1_TARGET_LANGUAGE } from '../languages/roster';
+import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
 import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
-export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
+export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
@@ -680,7 +680,13 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeMiningSettings(settingsValue),
         ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
-        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+        // The pill row belongs to the TARGET, so it is normalized against the
+        // profile's target rather than against Japanese. A fresh Spanish install
+        // boots with the Spanish hotlink set; a Japanese one is untouched.
+        dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
+            settingsValue,
+            activeTargetRosterId(languageProfileSettings),
+        ),
         ...languageProfileSettings,
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
@@ -763,6 +769,21 @@ function normalizeLanguageProfileSettings(
             ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries)
             : dictionaryPreferences,
     };
+}
+
+/**
+ * The roster ID of the target the normalized profiles point at.
+ *
+ * Reads the profiles this same normalization pass just produced rather than the
+ * raw stored value, so a profile that was repaired or created here answers for
+ * itself. Japanese is the fallback, which is what every install predating the
+ * target picker is.
+ */
+function activeTargetRosterId(
+    profileSettings: Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'>,
+): string {
+    const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
 }
 
 // Independence means "differs from the profile Yomu would create", so every

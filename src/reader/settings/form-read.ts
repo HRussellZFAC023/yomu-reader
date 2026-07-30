@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -185,7 +185,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readOcrFormSettings(reader, current),
         ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
         dictionaryPreferences,
-        dictionaryLookupLinks: readDictionaryLookupLinks(data),
+        dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
         ...readSubtitleFormSettings(reader, current),
         ...readYoutubeFormSettings(reader),
         ...readAnkiFormSettings(reader, current),
@@ -868,7 +868,20 @@ function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
 }
 
+/**
+ * The submitted pill row, normalized against the TARGET the same form declares.
+ *
+ * The target is read out of the FormData rather than passed in, so every caller
+ * — the dialog, the row editor, Yomu Gaming — stays a one-argument call and none
+ * of them can accidentally normalize a Spanish row against Japanese built-ins
+ * and have Jiten, JPDB and Bunpro appended to it. A form with no target select
+ * (the gaming surface, older fixtures) reads as Japanese, which is what it is.
+ */
 export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
+    return normalizeDictionaryLookupLinks(submittedDictionaryLookupLinkRows(data), false, readTargetLanguage(data, 'ja'));
+}
+
+function submittedDictionaryLookupLinkRows(data: FormData): DictionaryLookupLink[] {
     const get = (key: string) => String(data.get(key) ?? '');
     const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get('dictionaryLookupLinkCount')) || 0));
     const links: DictionaryLookupLink[] = [];
@@ -878,7 +891,25 @@ export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[
         if (link) links.push(link);
     }
 
-    return normalizeDictionaryLookupLinks(links);
+    return links;
+}
+
+/**
+ * The pill row this submit should persist, given the target it also declares.
+ *
+ * When the target is unchanged the submitted rows win, exactly as before. When
+ * it changed, the row is rebuilt from the new target's verified hotlinks, which
+ * is the whole point of a per-target set: the outgoing target's sites cannot
+ * answer for the incoming one, so keeping them would leave a Spanish learner
+ * clicking `dict.naver.com`.
+ */
+function readTargetAwareDictionaryLookupLinks(data: FormData, current: ReaderSettings): DictionaryLookupLink[] {
+    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+    const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
+    const next = readTargetLanguage(data, previous);
+    return next === previous
+        ? readDictionaryLookupLinks(data)
+        : dictionaryLookupLinksForTarget(submittedDictionaryLookupLinkRows(data), next);
 }
 
 function readDictionaryLookupLinkRow(

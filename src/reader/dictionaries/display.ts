@@ -124,6 +124,7 @@ function stableHue(value: string): number {
 export function formatLookupUrl(template: string, values: { query: string; word: string; reading: string; vid: string; sid: string }): string {
     const replacements: Record<string, string> = {
         query: values.query,
+        queryascii: asciiFoldLookupQuery(values.query),
         word: values.word,
         term: values.word,
         reading: values.reading,
@@ -137,4 +138,10 @@ export function formatLookupUrl(template: string, values: { query: string; word:
     } catch {
         return '';
     }
+}
+
+function asciiFoldLookupQuery(value: string): string {
+    return value.normalize('NFKD')
+        .replace(/\p{Mark}+/gu, '')
+        .replace(/[^\x00-\x7F]/g, '');
 }

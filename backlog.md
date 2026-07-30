@@ -668,6 +668,18 @@ homepage now advertises the gap 34 times instead of 9.
       fr 63 · grc 29 · hu 31 · id 37 · it 62 · ja 145 · km 29 · ko 63 · la 31 · lo 29 · mn 29 · nl 63 ·
       pl 61 · pt 62 · ro 31 · ru 62 · sh 23 · sq 31 · sv 31 · th 60 · tl 30 · tr 62 · vi 62 · yue 36 ·
       zh 99`, plus `lzh 4` which is supply only) — the "roster language with zero supply" set is empty.
+      **RE-CONFIRMED 2026-07-30 by the U46 hotlink pass, on the hotlink axis this time.** The owner's
+      "find existing websites and hotlink to it" direction removes the dictionary-data reason to keep
+      Burmese off the roster, so the question was asked again against live sites. Burmese still has
+      nothing worth a picker entry: **Tatoeba `mya` = 1 sentence** with an English translation (vs
+      `tha` 586, `tgl` 707), **en.wiktionary carries 0 audio files** for `ရေ` / `စာအုပ်` (vs ar 21, fa 17,
+      vi 10), **Glosbe returns 0 in-HTML example blocks**, `lo.wikipedia`-class native wikis are absent,
+      and the **entire Forvo Burmese hub is 488 words** — `ရေ` and `စာအုပ်` both have a page and zero
+      recordings. `my.wiktionary` (100,123 articles) is the single usable source, which is one
+      definition link and no sentences, no audio, no images. A one-link picker entry is the A11 defect
+      class again, so **Burmese stays off the roster and out of
+      `config/multilingual/lookup-links.json`**, and `11-target-lookup-hotlinks.test.ts` asserts both.
+      Same ruling, same reason, for `lzh` (Literary Chinese): supply-only, never a picker target.
 
 **A37 no longer blocks 1.9.0.** Proven with real browser evidence: ja, ko, es, ar and el each pressed on a
 raw unannotated Wikipedia heading (`rawReaderWords: 0`, so the text was not pre-annotated) opened a popover
@@ -2720,6 +2732,27 @@ Research per language and record what actually exists, with URL shapes, coverage
 - Per-language corpora (e.g. Leipzig collections) that our own `languages.json` already cites.
 Deliverable: a table of target → example source(s) → has audio? → has image? → API shape, and an
 explicit list of targets with NO usable source, so the affordance can degrade visibly per A2/A3.
+
+**OWNER REDIRECTION 2026-07-30, verbatim: "for U46 - find existing websites and hotlink to it like we
+do for immersion kit please", "you need to do some research what is availible", "do not worry about
+liscencing".** This supersedes the adapter/hosting half of the ticket above. Hotlinking a public site
+needs no adapter, no mirror and no licence review, and the mechanism has existed since the first
+Japanese defaults: `DictionaryLookupLink.urlTemplate` with a query token in it.
+
+- [x] **U46.a — SHIPPED 1.8.43: per-target lookup hotlinks for all 32 non-Japanese targets.**
+      Data lives in `config/multilingual/lookup-links.json`; `src/reader/settings/lookup-links.ts`
+      resolves it. Japanese keeps `DEFAULT_DICTIONARY_LOOKUP_LINKS` byte-identical (asserted).
+      A shared site reaches a target **only if that target lists the site's code**, so there is no
+      per-language branch anywhere and every omission is a measured one. Component labels
+      (definitions / example sentences / audio / images) are claimed only where measured, and the
+      components **no** site in a target's set can supply are stated in the editor rather than hidden —
+      the same reversal 1.8.41 applied to the example panels. The verifier's non-blocking live-site
+      follow-ups remain open under A41.
+- [ ] **U46.b — still open: the adapter-side work the hotlinks do not cover.** Hotlinks open a tab;
+      they do not put a sentence, a recording or an image *inside* the popup. The in-popup example
+      source contract landed in 1.8.41 (ImmersionKit for ja, Tatoeba for the 32) and is unchanged by
+      this pass. Sentence audio remains licence-checked per file and no target has a licensed
+      sentence-paired image source.
 
 ## U47. ACADEMY ACCESS — keep the donation gate, ADD grantable codes, and FIX the missed donors
 [owner 2026-07-26] "for academy - keep it gated by donation but also have codes I can give them.

@@ -1,0 +1,1012 @@
+{
+  "schemaVersion": 1,
+  "shared": [
+    {
+      "id": "wiktionary-en",
+      "label": "Wiktionary EN",
+      "code": "wiktionaryEn",
+      "urlTemplate": "https://en.wiktionary.org/wiki/{query}#%code%",
+      "components": [
+        "definition",
+        "sentences"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "wiktionary-native",
+      "label": "Wiktionary",
+      "code": "wiktionary",
+      "urlTemplate": "https://%code%.wiktionary.org/wiki/{query}",
+      "components": [
+        "definition"
+      ],
+      "enabled": false
+    },
+    {
+      "id": "glosbe",
+      "label": "Glosbe",
+      "code": "glosbe",
+      "urlTemplate": "https://glosbe.com/%code%/en/{query}",
+      "components": [
+        "definition",
+        "sentences"
+      ],
+      "enabled": false
+    },
+    {
+      "id": "tatoeba",
+      "label": "Tatoeba",
+      "code": "tatoeba",
+      "urlTemplate": "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+      "components": [
+        "sentences"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "forvo",
+      "label": "Forvo",
+      "code": "forvo",
+      "urlTemplate": "https://forvo.com/word/{query}/#language-%code%",
+      "components": [
+        "audio"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "youglish",
+      "label": "YouGlish",
+      "code": "youglish",
+      "urlTemplate": "https://youglish.com/pronounce/{query}/%code%",
+      "components": [
+        "sentences",
+        "audio"
+      ],
+      "enabled": false
+    },
+    {
+      "id": "reverso",
+      "label": "Reverso",
+      "code": "reverso",
+      "urlTemplate": "https://context.reverso.net/translation/%code%-english/{query}",
+      "components": [
+        "sentences",
+        "audio"
+      ],
+      "enabled": false
+    },
+    {
+      "id": "wordreference",
+      "label": "WordReference",
+      "code": "wordreference",
+      "urlTemplate": "https://www.wordreference.com/%code%/{query}",
+      "components": [
+        "definition",
+        "sentences",
+        "audio"
+      ],
+      "enabled": false
+    },
+    {
+      "id": "linguee",
+      "label": "Linguee",
+      "code": "linguee",
+      "urlTemplate": "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
+      "components": [
+        "sentences"
+      ],
+      "enabled": false
+    }
+  ],
+  "targets": {
+    "sq": {
+      "codes": {
+        "wiktionaryEn": "Albanian",
+        "wiktionary": "sq",
+        "glosbe": "sq",
+        "tatoeba": "sqi",
+        "forvo": "sq"
+      },
+      "links": [
+        {
+          "id": "fjalorthi",
+          "label": "Fjalorthi",
+          "urlTemplate": "https://fjalorthi.com/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "grc": {
+      "codes": {
+        "wiktionaryEn": "Ancient_Greek",
+        "glosbe": "grc",
+        "tatoeba": "grc"
+      },
+      "links": [
+        {
+          "id": "logeion",
+          "label": "Logeion",
+          "urlTemplate": "https://logeion.uchicago.edu/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "lsj",
+          "label": "LSJ",
+          "urlTemplate": "https://lsj.gr/wiki/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "scaife",
+          "label": "Scaife",
+          "urlTemplate": "https://scaife.perseus.org/search/?q={query}",
+          "components": [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "ar": {
+      "codes": {
+        "wiktionaryEn": "Arabic",
+        "wiktionary": "ar",
+        "glosbe": "ar",
+        "tatoeba": "ara",
+        "forvo": "ar",
+        "youglish": "arabic",
+        "reverso": "arabic"
+      },
+      "links": []
+    },
+    "yue": {
+      "codes": {
+        "wiktionaryEn": "Chinese",
+        "wiktionary": "yue",
+        "glosbe": "yue",
+        "tatoeba": "yue",
+        "forvo": "yue"
+      },
+      "links": [
+        {
+          "id": "words-hk",
+          "label": "words.hk",
+          "urlTemplate": "https://words.hk/zidin/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "cantowords",
+          "label": "CantoWords",
+          "urlTemplate": "https://cantowords.com/dictionary/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          "id": "cantodict",
+          "label": "CantoDict",
+          "urlTemplate": "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "cccanto",
+          "label": "CC-Canto",
+          "urlTemplate": "https://cantonese.org/search.php?q={query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "zh": {
+      "codes": {
+        "wiktionaryEn": "Chinese",
+        "wiktionary": "zh",
+        "glosbe": "zh",
+        "tatoeba": "cmn",
+        "forvo": "zh",
+        "youglish": "chinese",
+        "reverso": "chinese",
+        "linguee": "chinese"
+      },
+      "links": [
+        {
+          "id": "mdbg",
+          "label": "MDBG",
+          "urlTemplate": "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "purpleculture",
+          "label": "Purple Culture",
+          "urlTemplate": "https://www.purpleculture.net/dictionary-details/?word={query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio",
+            "images"
+          ]
+        },
+        {
+          "id": "zdic",
+          "label": "Zdic",
+          "urlTemplate": "https://www.zdic.net/hans/{query}",
+          "components": [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "da": {
+      "codes": {
+        "wiktionaryEn": "Danish",
+        "wiktionary": "da",
+        "glosbe": "da",
+        "tatoeba": "dan",
+        "forvo": "da",
+        "linguee": "danish"
+      },
+      "links": [
+        {
+          "id": "ddo",
+          "label": "Den Danske Ordbog",
+          "urlTemplate": "https://ordnet.dk/ddo/ordbog?query={query}",
+          "components": [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "nl": {
+      "codes": {
+        "wiktionaryEn": "Dutch",
+        "wiktionary": "nl",
+        "glosbe": "nl",
+        "tatoeba": "nld",
+        "forvo": "nl",
+        "youglish": "dutch",
+        "reverso": "dutch",
+        "wordreference": "nlen",
+        "linguee": "dutch"
+      },
+      "links": [
+        {
+          "id": "woorden",
+          "label": "woorden.org",
+          "urlTemplate": "https://www.woorden.org/woord/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "mijnwoordenboek",
+          "label": "MijnWoordenboek",
+          "urlTemplate": "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "en": {
+      "codes": {
+        "wiktionaryEn": "English",
+        "tatoeba": "eng",
+        "forvo": "en",
+        "youglish": "english"
+      },
+      "links": [
+        {
+          "id": "cambridge",
+          "label": "Cambridge",
+          "urlTemplate": "https://dictionary.cambridge.org/dictionary/english/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "fi": {
+      "codes": {
+        "wiktionaryEn": "Finnish",
+        "wiktionary": "fi",
+        "glosbe": "fi",
+        "tatoeba": "fin",
+        "forvo": "fi",
+        "linguee": "finnish"
+      },
+      "links": [
+        {
+          "id": "kotus",
+          "label": "Kielitoimiston",
+          "urlTemplate": "https://www.kielitoimistonsanakirja.fi/#/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "suomisanakirja",
+          "label": "Suomisanakirja",
+          "urlTemplate": "https://www.suomisanakirja.fi/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "fr": {
+      "codes": {
+        "wiktionaryEn": "French",
+        "wiktionary": "fr",
+        "glosbe": "fr",
+        "tatoeba": "fra",
+        "forvo": "fr",
+        "youglish": "french",
+        "reverso": "french",
+        "wordreference": "fren",
+        "linguee": "french"
+      },
+      "links": [
+        {
+          "id": "cnrtl",
+          "label": "CNRTL",
+          "urlTemplate": "https://www.cnrtl.fr/definition/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "larousse",
+          "label": "Larousse",
+          "urlTemplate": "https://www.larousse.fr/dictionnaires/francais/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "de": {
+      "codes": {
+        "wiktionaryEn": "German",
+        "wiktionary": "de",
+        "glosbe": "de",
+        "tatoeba": "deu",
+        "forvo": "de",
+        "youglish": "german",
+        "reverso": "german",
+        "wordreference": "deen",
+        "linguee": "german"
+      },
+      "links": [
+        {
+          "id": "dwds",
+          "label": "DWDS",
+          "urlTemplate": "https://www.dwds.de/wb/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          "id": "duden",
+          "label": "Duden",
+          "urlTemplate": "https://www.duden.de/suchen/dudenonline/{query}",
+          "components": [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "el": {
+      "codes": {
+        "wiktionaryEn": "Greek",
+        "wiktionary": "el",
+        "glosbe": "el",
+        "tatoeba": "ell",
+        "forvo": "el",
+        "youglish": "greek"
+      },
+      "links": [
+        {
+          "id": "triantafyllides",
+          "label": "Triantafyllides",
+          "urlTemplate": "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "hu": {
+      "codes": {
+        "wiktionaryEn": "Hungarian",
+        "wiktionary": "hu",
+        "glosbe": "hu",
+        "tatoeba": "hun",
+        "forvo": "hu",
+        "linguee": "hungarian"
+      },
+      "links": [
+        {
+          "id": "wikiszotar",
+          "label": "WikiSzotar",
+          "urlTemplate": "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "id": {
+      "codes": {
+        "wiktionaryEn": "Indonesian",
+        "wiktionary": "id",
+        "glosbe": "id",
+        "tatoeba": "ind",
+        "forvo": "id",
+        "youglish": "indonesian"
+      },
+      "links": [
+        {
+          "id": "kbbi-web",
+          "label": "KBBI",
+          "urlTemplate": "https://kbbi.web.id/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "kbbi-co",
+          "label": "KBBI.co.id",
+          "urlTemplate": "https://kbbi.co.id/arti-kata/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "it": {
+      "codes": {
+        "wiktionaryEn": "Italian",
+        "wiktionary": "it",
+        "glosbe": "it",
+        "tatoeba": "ita",
+        "forvo": "it",
+        "youglish": "italian",
+        "reverso": "italian",
+        "wordreference": "iten",
+        "linguee": "italian"
+      },
+      "links": [
+        {
+          "id": "treccani",
+          "label": "Treccani",
+          "urlTemplate": "https://www.treccani.it/vocabolario/{query}/",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "demauro",
+          "label": "De Mauro",
+          "urlTemplate": "https://dizionario.internazionale.it/parola/{queryAscii}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "km": {
+      "codes": {
+        "wiktionaryEn": "Khmer",
+        "wiktionary": "km",
+        "glosbe": "km",
+        "tatoeba": "khm",
+        "forvo": "km"
+      },
+      "links": []
+    },
+    "ko": {
+      "codes": {
+        "wiktionaryEn": "Korean",
+        "wiktionary": "ko",
+        "glosbe": "ko",
+        "tatoeba": "kor",
+        "forvo": "ko",
+        "youglish": "korean"
+      },
+      "links": [
+        {
+          "id": "naver",
+          "label": "Naver",
+          "urlTemplate": "https://dict.naver.com/dict.search?query={query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          "id": "krdict",
+          "label": "Krdict",
+          "urlTemplate": "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          "id": "daum",
+          "label": "Daum",
+          "urlTemplate": "https://dic.daum.net/search.do?q={query}",
+          "components": [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "lo": {
+      "codes": {
+        "wiktionaryEn": "Lao",
+        "wiktionary": "lo",
+        "glosbe": "lo",
+        "tatoeba": "lao",
+        "forvo": "lo"
+      },
+      "links": []
+    },
+    "la": {
+      "codes": {
+        "wiktionaryEn": "Latin",
+        "wiktionary": "la",
+        "glosbe": "la",
+        "tatoeba": "lat",
+        "forvo": "la"
+      },
+      "links": [
+        {
+          "id": "logeion",
+          "label": "Logeion",
+          "urlTemplate": "https://logeion.uchicago.edu/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "lsj",
+          "label": "Lewis & Short",
+          "urlTemplate": "https://lsj.gr/wiki/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "olivetti",
+          "label": "Olivetti",
+          "urlTemplate": "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "scaife",
+          "label": "Scaife",
+          "urlTemplate": "https://scaife.perseus.org/search/?q={query}",
+          "components": [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "mn": {
+      "codes": {
+        "wiktionaryEn": "Mongolian",
+        "wiktionary": "mn",
+        "glosbe": "mn",
+        "tatoeba": "mon",
+        "forvo": "mn"
+      },
+      "links": [
+        {
+          "id": "mongoltoli",
+          "label": "Mongoltoli",
+          "urlTemplate": "https://mongoltoli.mn/search.php?opt=1&word={query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "toli-query",
+          "label": "Toli",
+          "urlTemplate": "https://toli.query.mn/?q={query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "fa": {
+      "codes": {
+        "wiktionaryEn": "Persian",
+        "wiktionary": "fa",
+        "glosbe": "fa",
+        "tatoeba": "pes",
+        "forvo": "fa",
+        "youglish": "persian"
+      },
+      "links": [
+        {
+          "id": "vajehyab",
+          "label": "Vajehyab",
+          "urlTemplate": "https://www.vajehyab.com/?q={query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "abadis",
+          "label": "Abadis",
+          "urlTemplate": "https://abadis.ir/fatofa/{query}/",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "dehkhoda",
+          "label": "Dehkhoda",
+          "urlTemplate": "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "pl": {
+      "codes": {
+        "wiktionaryEn": "Polish",
+        "wiktionary": "pl",
+        "glosbe": "pl",
+        "tatoeba": "pol",
+        "forvo": "pl",
+        "youglish": "polish",
+        "reverso": "polish",
+        "wordreference": "plen",
+        "linguee": "polish"
+      },
+      "links": [
+        {
+          "id": "sjp-pwn",
+          "label": "SJP PWN",
+          "urlTemplate": "https://sjp.pwn.pl/szukaj/{query}.html",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "pt": {
+      "codes": {
+        "wiktionaryEn": "Portuguese",
+        "wiktionary": "pt",
+        "glosbe": "pt",
+        "tatoeba": "por",
+        "forvo": "pt",
+        "youglish": "portuguese",
+        "reverso": "portuguese",
+        "wordreference": "pten",
+        "linguee": "portuguese"
+      },
+      "links": [
+        {
+          "id": "priberam",
+          "label": "Priberam",
+          "urlTemplate": "https://dicionario.priberam.org/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "dicio",
+          "label": "Dicio",
+          "urlTemplate": "https://www.dicio.com.br/{queryAscii}/",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "ro": {
+      "codes": {
+        "wiktionaryEn": "Romanian",
+        "wiktionary": "ro",
+        "glosbe": "ro",
+        "tatoeba": "ron",
+        "forvo": "ro",
+        "youglish": "romanian",
+        "reverso": "romanian",
+        "wordreference": "roen",
+        "linguee": "romanian"
+      },
+      "links": [
+        {
+          "id": "dexonline",
+          "label": "dexonline",
+          "urlTemplate": "https://dexonline.ro/definitie/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "ru": {
+      "codes": {
+        "wiktionaryEn": "Russian",
+        "wiktionary": "ru",
+        "glosbe": "ru",
+        "tatoeba": "rus",
+        "forvo": "ru",
+        "youglish": "russian",
+        "reverso": "russian"
+      },
+      "links": [
+        {
+          "id": "openrussian",
+          "label": "OpenRussian",
+          "urlTemplate": "https://en.openrussian.org/ru/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          "id": "gramota",
+          "label": "Gramota",
+          "urlTemplate": "https://gramota.ru/poisk?query={query}&mode=all",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "kartaslov",
+          "label": "Kartaslov",
+          "urlTemplate": "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    "sh": {
+      "codes": {
+        "wiktionaryEn": "Serbo-Croatian",
+        "wiktionary": "sh",
+        "glosbe": "sh",
+        "tatoeba": "hrv",
+        "forvo": "hr"
+      },
+      "links": [
+        {
+          "id": "rjecnik-hr",
+          "label": "Skolski rjecnik",
+          "urlTemplate": "https://rjecnik.hr/search/?q={query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "es": {
+      "codes": {
+        "wiktionaryEn": "Spanish",
+        "wiktionary": "es",
+        "glosbe": "es",
+        "tatoeba": "spa",
+        "forvo": "es",
+        "youglish": "spanish",
+        "reverso": "spanish",
+        "wordreference": "esen",
+        "linguee": "spanish"
+      },
+      "links": [
+        {
+          "id": "rae",
+          "label": "RAE",
+          "urlTemplate": "https://dle.rae.es/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "spanishdict",
+          "label": "SpanishDict",
+          "urlTemplate": "https://www.spanishdict.com/translate/{query}",
+          "components": [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    "sv": {
+      "codes": {
+        "wiktionaryEn": "Swedish",
+        "wiktionary": "sv",
+        "glosbe": "sv",
+        "tatoeba": "swe",
+        "forvo": "sv",
+        "youglish": "swedish",
+        "reverso": "swedish",
+        "wordreference": "sven",
+        "linguee": "swedish"
+      },
+      "links": [
+        {
+          "id": "svenska-se",
+          "label": "svenska.se",
+          "urlTemplate": "https://svenska.se/?q={query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "tl": {
+      "codes": {
+        "wiktionaryEn": "Tagalog",
+        "wiktionary": "tl",
+        "glosbe": "tl",
+        "tatoeba": "tgl",
+        "forvo": "tl"
+      },
+      "links": [
+        {
+          "id": "tagalog-com",
+          "label": "Tagalog.com",
+          "urlTemplate": "https://www.tagalog.com/dictionary/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "diksiyonaryo-ph",
+          "label": "Diksiyonaryo.ph",
+          "urlTemplate": "https://diksiyonaryo.ph/search/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "pinoydictionary",
+          "label": "PinoyDictionary",
+          "urlTemplate": "https://tagalog.pinoydictionary.com/word/{query}/",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "th": {
+      "codes": {
+        "wiktionaryEn": "Thai",
+        "wiktionary": "th",
+        "glosbe": "th",
+        "tatoeba": "tha",
+        "forvo": "th",
+        "youglish": "thai"
+      },
+      "links": []
+    },
+    "tr": {
+      "codes": {
+        "wiktionaryEn": "Turkish",
+        "wiktionary": "tr",
+        "glosbe": "tr",
+        "tatoeba": "tur",
+        "forvo": "tr",
+        "youglish": "turkish",
+        "reverso": "turkish"
+      },
+      "links": [
+        {
+          "id": "tdk",
+          "label": "TDK Sozluk",
+          "urlTemplate": "https://sozluk.gov.tr/?ara={query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "tureng",
+          "label": "Tureng",
+          "urlTemplate": "https://tureng.com/en/turkish-english/{query}",
+          "components": [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          "id": "seslisozluk",
+          "label": "Sesli Sozluk",
+          "urlTemplate": "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    },
+    "vi": {
+      "codes": {
+        "wiktionaryEn": "Vietnamese",
+        "wiktionary": "vi",
+        "glosbe": "vi",
+        "tatoeba": "vie",
+        "forvo": "vi",
+        "youglish": "vietnamese"
+      },
+      "links": [
+        {
+          "id": "tratu-soha",
+          "label": "Tra tu Soha",
+          "urlTemplate": "http://tratu.soha.vn/dict/vn_vn/{query}",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "vdict",
+          "label": "VDict",
+          "urlTemplate": "https://vdict.com/{query},2,0,0.html",
+          "components": [
+            "definition"
+          ]
+        },
+        {
+          "id": "vtudien",
+          "label": "Vtudien",
+          "urlTemplate": "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+          "components": [
+            "definition"
+          ]
+        }
+      ]
+    }
+  }
+}

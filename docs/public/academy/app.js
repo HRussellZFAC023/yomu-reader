@@ -19284,8 +19284,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function prerequisite$9(conceptId, ja, en) {
     return Object.freeze({ conceptId, minimumEvidence: "introduced-and-attempted", reason: Object.freeze({ ja, en }) });
   }
-  function readerSrs(packageId, questions, targets, delayedReviewOf) {
-    const miningRequests2 = targets.map((target2) => ({
+  function readerSrs(packageId, questions, targets2, delayedReviewOf) {
+    const miningRequests2 = targets2.map((target2) => ({
       expression: target2.expression,
       sentence: target2.sentence,
       sourceTitle: "Yomu original N3 mock-listening adaptation",
@@ -20550,8 +20550,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function teachingSupportForActivity(model2) {
     if (model2.teachingSupport?.entries.length) return model2.teachingSupport;
     const payload = model2.payload && typeof model2.payload === "object" ? model2.payload : {};
-    const targets = Array.isArray(payload.reviewTargets) ? payload.reviewTargets : [];
-    const target2 = targets.find((candidate22) => candidate22 && typeof candidate22 === "object");
+    const targets2 = Array.isArray(payload.reviewTargets) ? payload.reviewTargets : [];
+    const target2 = targets2.find((candidate22) => candidate22 && typeof candidate22 === "object");
     const reviewContent = payload.reviewContent && typeof payload.reviewContent === "object" ? payload.reviewContent : void 0;
     const sourceSupport = payload.support && typeof payload.support === "object" ? payload.support : void 0;
     const candidate2 = target2 ?? reviewContent ?? sourceSupport;
@@ -20642,8 +20642,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       feedback: structuredClone(passed ? feedback2.pass : feedback2.lapse)
     };
   }
-  function reviewSeeds(targets, result2, sourceQuestionId2) {
-    return targets.map((target2) => ({
+  function reviewSeeds(targets2, result2, sourceQuestionId2) {
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -20662,13 +20662,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requireLocalized$1(value?.lapse?.repairPrompt, "payload.feedback.lapse.repairPrompt", issues2);
     requireLocalized$1(value?.lapse?.nearbyExample, "payload.feedback.lapse.nearbyExample", issues2);
   }
-  function validateReviewTargets$8(targets, conceptIds, issues2) {
-    if (!Array.isArray(targets) || targets.length === 0) {
+  function validateReviewTargets$8(targets2, conceptIds, issues2) {
+    if (!Array.isArray(targets2) || targets2.length === 0) {
       issues2.push({ path: "payload.reviewTargets", message: "At least one review target is required." });
       return;
     }
     const ids2 = /* @__PURE__ */ new Set();
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       const path = `payload.reviewTargets.${index}`;
       if (!text$k(target2.id) || ids2.has(target2.id)) issues2.push({ path: `${path}.id`, message: "Review ids must be stable and unique." });
       ids2.add(target2.id);
@@ -20791,8 +20791,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return gradeFromScore((model2.payload.questions.length - missed.length) / model2.payload.questions.length, model2.payload.passScore, missed.map((question2) => question2.errorTag), model2.payload.feedback);
   }
   function n3N4SleepBridgeReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -21004,13 +21004,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function validateReviewTargets$7(model2, issues2) {
-    const targets = model2.payload?.reviewTargets;
+    const targets2 = model2.payload?.reviewTargets;
     const errorTags = new Set(model2.payload?.questions.map((question2) => question2.errorTag));
-    if (!targets || targets.length !== 4) {
+    if (!targets2 || targets2.length !== 4) {
       issues2.push({ path: "payload.reviewTargets", message: "Four Reader/SRS targets are required." });
       return;
     }
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a concept and one assessment error." });
       }
@@ -21268,8 +21268,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n3PetHousingReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -21472,13 +21472,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function validateReviewTargets$6(model2, issues2) {
-    const targets = model2.payload?.reviewTargets;
+    const targets2 = model2.payload?.reviewTargets;
     const errorTags = new Set(model2.payload?.questions.map((question2) => question2.errorTag));
-    if (!Array.isArray(targets) || targets.length !== 4) {
+    if (!Array.isArray(targets2) || targets2.length !== 4) {
       issues2.push({ path: "payload.reviewTargets", message: "Four Reader/SRS targets are required." });
       return;
     }
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
@@ -21707,8 +21707,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n2OpeningReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -22899,8 +22899,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n2ExtensiveReadingReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -23312,8 +23312,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n2PolicyScopeReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -23486,8 +23486,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateReviewTargets$5(model2, issues2) {
-    const targets = model2.payload.reviewTargets;
-    if (targets.length !== 4 || targets.some((target2) => !text$k(target2.id) || !text$k(target2.conceptId) || !text$k(target2.expression) || !text$k(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
+    const targets2 = model2.payload.reviewTargets;
+    if (targets2.length !== 4 || targets2.some((target2) => !text$k(target2.id) || !text$k(target2.conceptId) || !text$k(target2.expression) || !text$k(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
       issues2.push({ path: "payload.reviewTargets", message: "Four complete N2 review targets are required." });
     }
   }
@@ -24394,8 +24394,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function n1OpeningSequenceReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -24977,8 +24977,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n1SoundDiscriminationReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -25645,10 +25645,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function n1ContrastInferenceReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
       (target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag))
     );
-    return targets.map((target2) => ({
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -26180,8 +26180,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function advancedImmersionReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -26407,13 +26407,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function validateReviewTargets$2(model2, issues2) {
-    const targets = model2.payload?.reviewTargets;
+    const targets2 = model2.payload?.reviewTargets;
     const errorTags = new Set(model2.payload?.questions.map((question2) => question2.errorTag));
-    if (!Array.isArray(targets) || targets.length !== 4) {
+    if (!Array.isArray(targets2) || targets2.length !== 4) {
       issues2.push({ path: "payload.reviewTargets", message: "Four Reader/SRS targets are required." });
       return;
     }
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
@@ -27919,8 +27919,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       try {
         const pendingPatch = pendingHostedLocalPatch(key2);
         if (pendingPatch) {
-          const shared = await getValue(key2, MISSING);
-          const sharedRecord = !isMissingSentinel(shared) && isPlainRecord$1(shared) ? shared : {};
+          const shared2 = await getValue(key2, MISSING);
+          const sharedRecord = !isMissingSentinel(shared2) && isPlainRecord$1(shared2) ? shared2 : {};
           const reconciled = { ...sharedRecord, ...pendingPatch };
           await gmStorageSet(key2, reconciled);
           return reconciled;
@@ -28920,9 +28920,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function reconcileGrammarKnowledge(record2) {
     const history2 = await record2.history();
     const latestEvents = latestGrammarEvents(history2);
-    const shared = readGrammarKnowledge();
+    const shared2 = readGrammarKnowledge();
     const imports = [];
-    for (const [ruleId, entry2] of Object.entries(shared.entries)) {
+    for (const [ruleId, entry2] of Object.entries(shared2.entries)) {
       const conceptId = `concept:grammar:${ruleId}`;
       const event = latestEvents.get(conceptId);
       if (!event || compareFacts(entry2, eventFact(event)) > 0) {
@@ -28941,7 +28941,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const event of reconciledEvents.values()) {
       const ruleId = grammarRuleIdForConcept(event.conceptId);
       if (!ruleId) continue;
-      const entry2 = shared.entries[ruleId];
+      const entry2 = shared2.entries[ruleId];
       if (!entry2 || compareFacts(eventFact(event), entry2) > 0 || event.eventId === entry2.changeId && event.knowledge !== entry2.knowledge) {
         setGrammarRuleKnowledge(ruleId, event.knowledge, {
           at: event.at,
@@ -39228,6 +39228,1078 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const label = formatUiText(language2, "viewOnLookup", { label: link.label });
     return `<a class="jpdb-reader-immersion-search-link" data-immersion-search-source="${link.id}" href="${escapeHtml$2(link.url)}" target="_blank" rel="noopener">${escapeHtml$2(label)} ${externalLinkIcon()}</a>`;
   }
+  const shared = [
+    {
+      id: "wiktionary-en",
+      label: "Wiktionary EN",
+      code: "wiktionaryEn",
+      urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "wiktionary-native",
+      label: "Wiktionary",
+      code: "wiktionary",
+      urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
+      components: [
+        "definition"
+      ],
+      enabled: false
+    },
+    {
+      id: "glosbe",
+      label: "Glosbe",
+      code: "glosbe",
+      urlTemplate: "https://glosbe.com/%code%/en/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: false
+    },
+    {
+      id: "tatoeba",
+      label: "Tatoeba",
+      code: "tatoeba",
+      urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "forvo",
+      label: "Forvo",
+      code: "forvo",
+      urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
+      components: [
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "reverso",
+      label: "Reverso",
+      code: "reverso",
+      urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "wordreference",
+      label: "WordReference",
+      code: "wordreference",
+      urlTemplate: "https://www.wordreference.com/%code%/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "linguee",
+      label: "Linguee",
+      code: "linguee",
+      urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: false
+    }
+  ];
+  const targets = {
+    sq: {
+      codes: {
+        wiktionaryEn: "Albanian",
+        wiktionary: "sq",
+        glosbe: "sq",
+        tatoeba: "sqi",
+        forvo: "sq"
+      },
+      links: [
+        {
+          id: "fjalorthi",
+          label: "Fjalorthi",
+          urlTemplate: "https://fjalorthi.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    grc: {
+      codes: {
+        wiktionaryEn: "Ancient_Greek",
+        glosbe: "grc",
+        tatoeba: "grc"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "LSJ",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ar: {
+      codes: {
+        wiktionaryEn: "Arabic",
+        wiktionary: "ar",
+        glosbe: "ar",
+        tatoeba: "ara",
+        forvo: "ar",
+        youglish: "arabic",
+        reverso: "arabic"
+      },
+      links: []
+    },
+    yue: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "yue",
+        glosbe: "yue",
+        tatoeba: "yue",
+        forvo: "yue"
+      },
+      links: [
+        {
+          id: "words-hk",
+          label: "words.hk",
+          urlTemplate: "https://words.hk/zidin/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cantowords",
+          label: "CantoWords",
+          urlTemplate: "https://cantowords.com/dictionary/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "cantodict",
+          label: "CantoDict",
+          urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cccanto",
+          label: "CC-Canto",
+          urlTemplate: "https://cantonese.org/search.php?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    zh: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "zh",
+        glosbe: "zh",
+        tatoeba: "cmn",
+        forvo: "zh",
+        youglish: "chinese",
+        reverso: "chinese",
+        linguee: "chinese"
+      },
+      links: [
+        {
+          id: "mdbg",
+          label: "MDBG",
+          urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "purpleculture",
+          label: "Purple Culture",
+          urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio",
+            "images"
+          ]
+        },
+        {
+          id: "zdic",
+          label: "Zdic",
+          urlTemplate: "https://www.zdic.net/hans/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    da: {
+      codes: {
+        wiktionaryEn: "Danish",
+        wiktionary: "da",
+        glosbe: "da",
+        tatoeba: "dan",
+        forvo: "da",
+        linguee: "danish"
+      },
+      links: [
+        {
+          id: "ddo",
+          label: "Den Danske Ordbog",
+          urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    nl: {
+      codes: {
+        wiktionaryEn: "Dutch",
+        wiktionary: "nl",
+        glosbe: "nl",
+        tatoeba: "nld",
+        forvo: "nl",
+        youglish: "dutch",
+        reverso: "dutch",
+        wordreference: "nlen",
+        linguee: "dutch"
+      },
+      links: [
+        {
+          id: "woorden",
+          label: "woorden.org",
+          urlTemplate: "https://www.woorden.org/woord/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "mijnwoordenboek",
+          label: "MijnWoordenboek",
+          urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    en: {
+      codes: {
+        wiktionaryEn: "English",
+        tatoeba: "eng",
+        forvo: "en",
+        youglish: "english"
+      },
+      links: [
+        {
+          id: "cambridge",
+          label: "Cambridge",
+          urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    fi: {
+      codes: {
+        wiktionaryEn: "Finnish",
+        wiktionary: "fi",
+        glosbe: "fi",
+        tatoeba: "fin",
+        forvo: "fi",
+        linguee: "finnish"
+      },
+      links: [
+        {
+          id: "kotus",
+          label: "Kielitoimiston",
+          urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "suomisanakirja",
+          label: "Suomisanakirja",
+          urlTemplate: "https://www.suomisanakirja.fi/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    fr: {
+      codes: {
+        wiktionaryEn: "French",
+        wiktionary: "fr",
+        glosbe: "fr",
+        tatoeba: "fra",
+        forvo: "fr",
+        youglish: "french",
+        reverso: "french",
+        wordreference: "fren",
+        linguee: "french"
+      },
+      links: [
+        {
+          id: "cnrtl",
+          label: "CNRTL",
+          urlTemplate: "https://www.cnrtl.fr/definition/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "larousse",
+          label: "Larousse",
+          urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    de: {
+      codes: {
+        wiktionaryEn: "German",
+        wiktionary: "de",
+        glosbe: "de",
+        tatoeba: "deu",
+        forvo: "de",
+        youglish: "german",
+        reverso: "german",
+        wordreference: "deen",
+        linguee: "german"
+      },
+      links: [
+        {
+          id: "dwds",
+          label: "DWDS",
+          urlTemplate: "https://www.dwds.de/wb/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "duden",
+          label: "Duden",
+          urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    el: {
+      codes: {
+        wiktionaryEn: "Greek",
+        wiktionary: "el",
+        glosbe: "el",
+        tatoeba: "ell",
+        forvo: "el",
+        youglish: "greek"
+      },
+      links: [
+        {
+          id: "triantafyllides",
+          label: "Triantafyllides",
+          urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    hu: {
+      codes: {
+        wiktionaryEn: "Hungarian",
+        wiktionary: "hu",
+        glosbe: "hu",
+        tatoeba: "hun",
+        forvo: "hu",
+        linguee: "hungarian"
+      },
+      links: [
+        {
+          id: "wikiszotar",
+          label: "WikiSzotar",
+          urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    id: {
+      codes: {
+        wiktionaryEn: "Indonesian",
+        wiktionary: "id",
+        glosbe: "id",
+        tatoeba: "ind",
+        forvo: "id",
+        youglish: "indonesian"
+      },
+      links: [
+        {
+          id: "kbbi-web",
+          label: "KBBI",
+          urlTemplate: "https://kbbi.web.id/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "kbbi-co",
+          label: "KBBI.co.id",
+          urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    it: {
+      codes: {
+        wiktionaryEn: "Italian",
+        wiktionary: "it",
+        glosbe: "it",
+        tatoeba: "ita",
+        forvo: "it",
+        youglish: "italian",
+        reverso: "italian",
+        wordreference: "iten",
+        linguee: "italian"
+      },
+      links: [
+        {
+          id: "treccani",
+          label: "Treccani",
+          urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "demauro",
+          label: "De Mauro",
+          urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    km: {
+      codes: {
+        wiktionaryEn: "Khmer",
+        wiktionary: "km",
+        glosbe: "km",
+        tatoeba: "khm",
+        forvo: "km"
+      },
+      links: []
+    },
+    ko: {
+      codes: {
+        wiktionaryEn: "Korean",
+        wiktionary: "ko",
+        glosbe: "ko",
+        tatoeba: "kor",
+        forvo: "ko",
+        youglish: "korean"
+      },
+      links: [
+        {
+          id: "naver",
+          label: "Naver",
+          urlTemplate: "https://dict.naver.com/dict.search?query={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "krdict",
+          label: "Krdict",
+          urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "daum",
+          label: "Daum",
+          urlTemplate: "https://dic.daum.net/search.do?q={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    lo: {
+      codes: {
+        wiktionaryEn: "Lao",
+        wiktionary: "lo",
+        glosbe: "lo",
+        tatoeba: "lao",
+        forvo: "lo"
+      },
+      links: []
+    },
+    la: {
+      codes: {
+        wiktionaryEn: "Latin",
+        wiktionary: "la",
+        glosbe: "la",
+        tatoeba: "lat",
+        forvo: "la"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "Lewis & Short",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "olivetti",
+          label: "Olivetti",
+          urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    mn: {
+      codes: {
+        wiktionaryEn: "Mongolian",
+        wiktionary: "mn",
+        glosbe: "mn",
+        tatoeba: "mon",
+        forvo: "mn"
+      },
+      links: [
+        {
+          id: "mongoltoli",
+          label: "Mongoltoli",
+          urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "toli-query",
+          label: "Toli",
+          urlTemplate: "https://toli.query.mn/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    fa: {
+      codes: {
+        wiktionaryEn: "Persian",
+        wiktionary: "fa",
+        glosbe: "fa",
+        tatoeba: "pes",
+        forvo: "fa",
+        youglish: "persian"
+      },
+      links: [
+        {
+          id: "vajehyab",
+          label: "Vajehyab",
+          urlTemplate: "https://www.vajehyab.com/?q={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "abadis",
+          label: "Abadis",
+          urlTemplate: "https://abadis.ir/fatofa/{query}/",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dehkhoda",
+          label: "Dehkhoda",
+          urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pl: {
+      codes: {
+        wiktionaryEn: "Polish",
+        wiktionary: "pl",
+        glosbe: "pl",
+        tatoeba: "pol",
+        forvo: "pl",
+        youglish: "polish",
+        reverso: "polish",
+        wordreference: "plen",
+        linguee: "polish"
+      },
+      links: [
+        {
+          id: "sjp-pwn",
+          label: "SJP PWN",
+          urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pt: {
+      codes: {
+        wiktionaryEn: "Portuguese",
+        wiktionary: "pt",
+        glosbe: "pt",
+        tatoeba: "por",
+        forvo: "pt",
+        youglish: "portuguese",
+        reverso: "portuguese",
+        wordreference: "pten",
+        linguee: "portuguese"
+      },
+      links: [
+        {
+          id: "priberam",
+          label: "Priberam",
+          urlTemplate: "https://dicionario.priberam.org/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dicio",
+          label: "Dicio",
+          urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    ro: {
+      codes: {
+        wiktionaryEn: "Romanian",
+        wiktionary: "ro",
+        glosbe: "ro",
+        tatoeba: "ron",
+        forvo: "ro",
+        youglish: "romanian",
+        reverso: "romanian",
+        wordreference: "roen",
+        linguee: "romanian"
+      },
+      links: [
+        {
+          id: "dexonline",
+          label: "dexonline",
+          urlTemplate: "https://dexonline.ro/definitie/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ru: {
+      codes: {
+        wiktionaryEn: "Russian",
+        wiktionary: "ru",
+        glosbe: "ru",
+        tatoeba: "rus",
+        forvo: "ru",
+        youglish: "russian",
+        reverso: "russian"
+      },
+      links: [
+        {
+          id: "openrussian",
+          label: "OpenRussian",
+          urlTemplate: "https://en.openrussian.org/ru/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "gramota",
+          label: "Gramota",
+          urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "kartaslov",
+          label: "Kartaslov",
+          urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    sh: {
+      codes: {
+        wiktionaryEn: "Serbo-Croatian",
+        wiktionary: "sh",
+        glosbe: "sh",
+        tatoeba: "hrv",
+        forvo: "hr"
+      },
+      links: [
+        {
+          id: "rjecnik-hr",
+          label: "Skolski rjecnik",
+          urlTemplate: "https://rjecnik.hr/search/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    es: {
+      codes: {
+        wiktionaryEn: "Spanish",
+        wiktionary: "es",
+        glosbe: "es",
+        tatoeba: "spa",
+        forvo: "es",
+        youglish: "spanish",
+        reverso: "spanish",
+        wordreference: "esen",
+        linguee: "spanish"
+      },
+      links: [
+        {
+          id: "rae",
+          label: "RAE",
+          urlTemplate: "https://dle.rae.es/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "spanishdict",
+          label: "SpanishDict",
+          urlTemplate: "https://www.spanishdict.com/translate/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    sv: {
+      codes: {
+        wiktionaryEn: "Swedish",
+        wiktionary: "sv",
+        glosbe: "sv",
+        tatoeba: "swe",
+        forvo: "sv",
+        youglish: "swedish",
+        reverso: "swedish",
+        wordreference: "sven",
+        linguee: "swedish"
+      },
+      links: [
+        {
+          id: "svenska-se",
+          label: "svenska.se",
+          urlTemplate: "https://svenska.se/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    tl: {
+      codes: {
+        wiktionaryEn: "Tagalog",
+        wiktionary: "tl",
+        glosbe: "tl",
+        tatoeba: "tgl",
+        forvo: "tl"
+      },
+      links: [
+        {
+          id: "tagalog-com",
+          label: "Tagalog.com",
+          urlTemplate: "https://www.tagalog.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "diksiyonaryo-ph",
+          label: "Diksiyonaryo.ph",
+          urlTemplate: "https://diksiyonaryo.ph/search/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "pinoydictionary",
+          label: "PinoyDictionary",
+          urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    th: {
+      codes: {
+        wiktionaryEn: "Thai",
+        wiktionary: "th",
+        glosbe: "th",
+        tatoeba: "tha",
+        forvo: "th",
+        youglish: "thai"
+      },
+      links: []
+    },
+    tr: {
+      codes: {
+        wiktionaryEn: "Turkish",
+        wiktionary: "tr",
+        glosbe: "tr",
+        tatoeba: "tur",
+        forvo: "tr",
+        youglish: "turkish",
+        reverso: "turkish"
+      },
+      links: [
+        {
+          id: "tdk",
+          label: "TDK Sozluk",
+          urlTemplate: "https://sozluk.gov.tr/?ara={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "tureng",
+          label: "Tureng",
+          urlTemplate: "https://tureng.com/en/turkish-english/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "seslisozluk",
+          label: "Sesli Sozluk",
+          urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    vi: {
+      codes: {
+        wiktionaryEn: "Vietnamese",
+        wiktionary: "vi",
+        glosbe: "vi",
+        tatoeba: "vie",
+        forvo: "vi",
+        youglish: "vietnamese"
+      },
+      links: [
+        {
+          id: "tratu-soha",
+          label: "Tra tu Soha",
+          urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vdict",
+          label: "VDict",
+          urlTemplate: "https://vdict.com/{query},2,0,0.html",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vtudien",
+          label: "Vtudien",
+          urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    }
+  };
+  const catalogue = {
+    shared,
+    targets
+  };
+  const LOOKUP_LINK_COMPONENTS = Object.freeze([
+    "definition",
+    "sentences",
+    "audio",
+    "images"
+  ]);
+  const CATALOGUE$1 = catalogue;
+  const TARGET_LOOKUP_LINK_IDS = /* @__PURE__ */ new Set([
+    ...CATALOGUE$1.shared.map((site) => site.id),
+    ...Object.values(CATALOGUE$1.targets).flatMap((entry2) => entry2.links.map((site) => site.id))
+  ]);
+  const CODE_TOKEN = /%code%/g;
+  function hasTargetLookupSites(targetLanguage2) {
+    return Object.hasOwn(CATALOGUE$1.targets, targetLanguage2);
+  }
+  function isTargetLookupLinkId(id2) {
+    return TARGET_LOOKUP_LINK_IDS.has(id2);
+  }
+  function targetLookupSites(targetLanguage2) {
+    const entry2 = CATALOGUE$1.targets[targetLanguage2];
+    if (!entry2) return [];
+    const natives = entry2.links.map((site, index) => ({
+      ...site,
+      // The target's best-attested dictionary is on by default; the rest of its
+      // shelf is one checkbox away.
+      enabled: index === 0,
+      origin: "native"
+    }));
+    const shared2 = [];
+    for (const site of CATALOGUE$1.shared) {
+      const code = entry2.codes[site.code];
+      if (!code) continue;
+      shared2.push({
+        id: site.id,
+        label: site.label,
+        urlTemplate: site.urlTemplate.replace(CODE_TOKEN, code),
+        components: site.components,
+        enabled: site.enabled,
+        origin: "shared"
+      });
+    }
+    return [...natives, ...shared2];
+  }
+  function targetLookupLinks(targetLanguage2) {
+    return targetLookupSites(targetLanguage2).map((site) => ({
+      id: site.id,
+      label: site.label,
+      urlTemplate: site.urlTemplate,
+      enabled: site.enabled
+    }));
+  }
+  function lookupSiteComponents(targetLanguage2, linkId) {
+    return targetLookupSites(targetLanguage2).find((site) => site.id === linkId)?.components ?? [];
+  }
+  function missingLookupComponents(targetLanguage2) {
+    if (!hasTargetLookupSites(targetLanguage2)) return [];
+    const present = new Set(targetLookupSites(targetLanguage2).flatMap((site) => site.components));
+    return LOOKUP_LINK_COMPONENTS.filter((component) => !present.has(component));
+  }
   const MAX_DICTIONARY_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -39430,10 +40502,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id
   ]];
-  function normalizeDictionaryLookupLinkSettings(value) {
+  function normalizeDictionaryLookupLinkSettings(value, targetLanguage2 = "ja") {
     const links = normalizeDictionaryLookupLinks(
       value?.dictionaryLookupLinks,
-      !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim())
+      !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
+      targetLanguage2
     );
     if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
@@ -39457,12 +40530,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
       type: normalizeDictionaryType(record2.type, name)
     };
   }
-  function defaultDictionaryLookupLinks(mode = "local") {
+  function defaultDictionaryLookupLinks(mode = "local", targetLanguage2 = "ja") {
+    if (targetLanguage2 !== "ja" && hasTargetLookupSites(targetLanguage2)) {
+      return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage2), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
+    }
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
       enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" || link.id === "bunpro-frequency" : link.enabled
     }));
+  }
+  function dictionaryLookupLinksForTarget(previous, targetLanguage2) {
+    const previousById = new Map(previous.map((link) => [link.id, link]));
+    const defaults = defaultDictionaryLookupLinks("local", targetLanguage2).map((link) => {
+      const saved = previousById.get(link.id);
+      return saved ? { ...link, enabled: saved.enabled } : link;
+    });
+    const defaultIds = new Set(defaults.map((link) => link.id));
+    const japaneseDefaultIds = new Set(DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => link.id));
+    const portable = previous.filter((link) => !defaultIds.has(link.id) && !japaneseDefaultIds.has(link.id) && !isTargetLookupLinkId(link.id));
+    return normalizeDictionaryLookupLinks(
+      insertPortableLookupLinks(defaults, portable),
+      false,
+      targetLanguage2
+    );
+  }
+  function insertPortableLookupLinks(defaults, portable) {
+    const links = [...defaults];
+    for (const link of portable) {
+      const requestedIndex = typeof link.priority === "number" && Number.isFinite(link.priority) ? Math.max(0, link.priority) : links.length;
+      links.splice(Math.min(requestedIndex, links.length), 0, link);
+    }
+    return links;
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
@@ -39501,8 +40600,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function matchesLegacyLookupLink(link, expected) {
     return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
   }
-  function normalizeDictionaryLookupLinks(value, preferJpdb = false) {
-    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
+  function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage2 = "ja") {
+    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage2);
     if (!Array.isArray(value)) return builtIns;
     const normalized2 = [];
     const seen = /* @__PURE__ */ new Set();
@@ -40575,7 +41674,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...normalizeMiningSettings(settingsValue),
       ...normalizeSourceAliasSettings(settingsValue),
       ...normalizeRemovedDictionarySettings(settingsValue),
-      dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+      // The pill row belongs to the TARGET, so it is normalized against the
+      // profile's target rather than against Japanese. A fresh Spanish install
+      // boots with the Spanish hotlink set; a Japanese one is untouched.
+      dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
+        settingsValue,
+        activeTargetRosterId(languageProfileSettings)
+      ),
       ...languageProfileSettings,
       preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -40633,6 +41738,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
       dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
     };
+  }
+  function activeTargetRosterId(profileSettings) {
+    const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
   }
   function languageProfileHasIndependentState(profile2) {
     return profile2.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile2.outputLanguage !== "en" || profile2.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile2.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile2.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile2.dictionaries.installed.length > 0 || profile2.definitionTranslationProviderIds.length > 0;
@@ -41817,15 +42926,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state.targets;
   }
   function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
-    const targets = [];
+    const targets2 = [];
     const controls = root instanceof HTMLElement && root.matches(FORM_CONTROL_TEXT_TARGET_SELECTOR) ? [root] : [];
     controls.push(...Array.from(root.querySelectorAll(FORM_CONTROL_TEXT_TARGET_SELECTOR)));
     for (const control2 of controls) {
-      if (targets.length >= limit) break;
+      if (targets2.length >= limit) break;
       const target2 = formControlTextTarget(control2, visibleOnly, options);
-      if (target2) targets.push(target2);
+      if (target2) targets2.push(target2);
     }
-    return targets;
+    return targets2;
   }
   function formControlTextTarget(control2, visibleOnly, options) {
     if (!isCollectableFormControlTextElement(control2, visibleOnly, options)) return null;
@@ -44860,8 +45969,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const prefix = gap2.slice(0, gap2.length - digits.length);
     return `${escapeHtml$2(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$2(digits)}</span>`;
   }
-  function renderHighlightedTextHtml(text2, targets, className) {
-    const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
+  function renderHighlightedTextHtml(text2, targets2, className) {
+    const needles = uniqueNonEmptyStrings(targets2).sort((a, b) => b.length - a.length);
     if (!text2 || !needles.length) return escapeHtml$2(text2);
     return renderHighlightChunks(text2, needles, className);
   }
@@ -123923,12 +125032,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
     return clamp$2(1 - distance / 54, 0, 1);
   }
-  function averageNearestDistance(points, targets) {
-    return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
+  function averageNearestDistance(points, targets2) {
+    return points.reduce((sum, point) => sum + nearestDistance(point, targets2), 0) / points.length;
   }
-  function nearestDistance(point, targets) {
+  function nearestDistance(point, targets2) {
     let best = Number.POSITIVE_INFINITY;
-    for (const target2 of targets) best = Math.min(best, manhattan(point, target2));
+    for (const target2 of targets2) best = Math.min(best, manhattan(point, target2));
     return best;
   }
   function strokeOccupancyScore(written, reference) {
@@ -245314,14 +246423,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function n3MockListeningReviewSeeds(model2, result2) {
     const currentTargets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    const targets = [
+    const targets2 = [
       ...currentTargets.map((target2) => ({
         target: target2,
         reason: result2.outcome === "pass" ? "new-learning" : "repair"
       })),
       ...result2.outcome === "pass" ? model2.payload.delayedReviewTargets.map((target2) => ({ target: target2, reason: "delayed-review" })) : []
     ];
-    return targets.map(({ target: target2, reason }) => ({
+    return targets2.map(({ target: target2, reason }) => ({
       id: reason === "delayed-review" ? `${target2.id}:via:${model2.provenance.packageId}` : target2.id,
       conceptId: target2.conceptId,
       reason,
@@ -245618,22 +246727,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function validateReviewTargets$1(model2, issues2) {
-    const targets = model2.payload.reviewTargets;
+    const targets2 = model2.payload.reviewTargets;
     const delayedTargets = model2.payload.delayedReviewTargets;
     const tags = /* @__PURE__ */ new Set([
       ...model2.payload.questions.map((question2) => question2.errorTag),
       ...model2.payload.production ? [model2.payload.production.errorTag] : []
     ]);
-    if (targets.length < 2) {
+    if (targets2.length < 2) {
       issues2.push({ path: "payload.reviewTargets", message: "At least two delayed SRS targets are required." });
       return;
     }
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Every review target must map to a Concept and assessment error." });
       }
     });
-    const covered = new Set(targets.flatMap((target2) => target2.repairFor));
+    const covered = new Set(targets2.flatMap((target2) => target2.repairFor));
     if ([...tags].some((tag) => !covered.has(tag))) {
       issues2.push({ path: "payload.reviewTargets", message: "Every possible lapse must have a targeted repair seed." });
     }
@@ -245724,10 +246833,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     );
   }
   function n3SourceOpeningReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter(
       (target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag))
     );
-    return targets.map((target2) => ({
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -246179,7 +247288,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function validateReviewTargets(model2, issues2) {
-    const targets = model2.payload?.reviewTargets;
+    const targets2 = model2.payload?.reviewTargets;
     const errorTags = new Set(
       model2.payload?.questions.map((question2) => question2.errorTag)
     );
@@ -246188,7 +247297,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       errorTags.add(model2.payload.production.boundaryErrorTag);
       errorTags.add(model2.payload.production.substanceErrorTag);
     }
-    if (!targets?.length) {
+    if (!targets2?.length) {
       issues2.push({
         path: "payload.reviewTargets",
         message: "At least one Reader/SRS target is required."
@@ -246196,7 +247305,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     const ids2 = /* @__PURE__ */ new Set();
-    targets.forEach((target2, index) => {
+    targets2.forEach((target2, index) => {
       if (!text$k(target2.id) || ids2.has(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({
           path: `payload.reviewTargets.${index}`,
@@ -258643,8 +259752,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return gradeFromScore(score, model2.payload.passScore, errorTags, model2.payload.feedback);
   }
   function n2EventInformationReviewSeeds(model2, result2) {
-    const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
-    return targets.map((target2) => ({
+    const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.repairFor.some((tag) => result2.errorTags.includes(tag)));
+    return targets2.map((target2) => ({
       id: target2.id,
       conceptId: target2.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -259222,12 +260331,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function phraseKarutaReviewSeeds(model2, result2) {
     const cards = new Map(model2.payload.cards.map((card) => [card.id, card]));
-    const targets = /* @__PURE__ */ new Map();
+    const targets2 = /* @__PURE__ */ new Map();
     for (const round2 of model2.payload.rounds) {
       const card = cards.get(round2.correctCardId);
-      targets.set(`${card.reviewSeedId}:${card.conceptId}`, card);
+      targets2.set(`${card.reviewSeedId}:${card.conceptId}`, card);
     }
-    return [...targets.values()].map((card) => ({
+    return [...targets2.values()].map((card) => ({
       id: `${card.reviewSeedId}:${card.conceptId}`,
       conceptId: card.conceptId,
       reason: result2.outcome === "pass" ? "new-learning" : "repair",
@@ -261851,8 +262960,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return gradeFromScore(correct2 / criteria, model2.payload.passScore, errorTags, model2.payload.feedback);
     },
     toReviewSeeds(model2, result2) {
-      const targets = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.errorTags.some((tag) => result2.errorTags.includes(tag)));
-      return targets.map((target2) => reviewSeed$3(target2, result2));
+      const targets2 = result2.outcome === "pass" ? model2.payload.reviewTargets : model2.payload.reviewTargets.filter((target2) => target2.errorTags.some((tag) => result2.errorTags.includes(tag)));
+      return targets2.map((target2) => reviewSeed$3(target2, result2));
     }
   };
   function validate$2(model2) {
@@ -275116,10 +276225,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       )
     );
     const evidenceTargets = new Set(targetEvidence.flatMap((item2) => item2.conceptIds));
-    const targets = new Set(targetConceptIds);
+    const targets2 = new Set(targetConceptIds);
     const encounter = candidates.filter(
       (candidate2) => candidate2.kind === "encounter" && !completedEncounterIds.has(candidate2.id)
-    ).slice().sort((left, right) => compareEncounters(left, right, knownConceptIds, targets, evidenceTargets))[0];
+    ).slice().sort((left, right) => compareEncounters(left, right, knownConceptIds, targets2, evidenceTargets))[0];
     if (!encounter) return null;
     const conceptIds = sortedUnique(encounter.conceptIds);
     return {
@@ -275137,23 +276246,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
       coverage: {
         knownConceptIds: conceptIds.filter((id2) => knownConceptIds.has(id2)),
         newConceptIds: conceptIds.filter((id2) => !knownConceptIds.has(id2)),
-        targetConceptIds: conceptIds.filter((id2) => !knownConceptIds.has(id2) && (targets.has(id2) || evidenceTargets.has(id2)))
+        targetConceptIds: conceptIds.filter((id2) => !knownConceptIds.has(id2) && (targets2.has(id2) || evidenceTargets.has(id2)))
       }
     };
   }
-  function compareEncounters(left, right, known, targets, evidenceTargets) {
-    const leftFit = nPlusOneFit(left.conceptIds, known, targets, evidenceTargets);
-    const rightFit = nPlusOneFit(right.conceptIds, known, targets, evidenceTargets);
+  function compareEncounters(left, right, known, targets2, evidenceTargets) {
+    const leftFit = nPlusOneFit(left.conceptIds, known, targets2, evidenceTargets);
+    const rightFit = nPlusOneFit(right.conceptIds, known, targets2, evidenceTargets);
     return leftFit.tier - rightFit.tier || leftFit.unknownCount - rightFit.unknownCount || rightFit.knownRatio - leftFit.knownRatio || rightFit.targetCount - leftFit.targetCount || rightFit.evidenceTargetCount - leftFit.evidenceTargetCount || left.id.localeCompare(right.id);
   }
-  function nPlusOneFit(conceptIds, known, targets, evidenceTargets) {
+  function nPlusOneFit(conceptIds, known, targets2, evidenceTargets) {
     const concepts = sortedUnique(conceptIds);
     const unknown = concepts.filter((id2) => !known.has(id2));
     return {
       tier: unknown.length === 1 ? 0 : unknown.length > 1 ? 1 : 2,
       unknownCount: unknown.length || Number.MAX_SAFE_INTEGER,
       knownRatio: concepts.filter((id2) => known.has(id2)).length / concepts.length,
-      targetCount: unknown.filter((id2) => targets.has(id2)).length,
+      targetCount: unknown.filter((id2) => targets2.has(id2)).length,
       evidenceTargetCount: unknown.filter((id2) => evidenceTargets.has(id2)).length
     };
   }
@@ -277997,11 +279106,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return practice2.id === "bookshop-small-change-available" ? "small-change" : "dictionary";
   }
   function renderBookshopCatalogue(options) {
-    const catalogue = element("section", "academy-bookshop-catalogue");
-    catalogue.dataset.bookshopCatalogue = options.practice.id;
-    catalogue.dataset.bookshopPhase = "browse";
-    catalogue.dataset.bookshopOutcome = targetEntryId(options.practice);
-    catalogue.setAttribute("aria-label", options.language === "ja" ? "書店の目録を探す" : "Search the bookshop catalogue");
+    const catalogue2 = element("section", "academy-bookshop-catalogue");
+    catalogue2.dataset.bookshopCatalogue = options.practice.id;
+    catalogue2.dataset.bookshopPhase = "browse";
+    catalogue2.dataset.bookshopOutcome = targetEntryId(options.practice);
+    catalogue2.setAttribute("aria-label", options.language === "ja" ? "書店の目録を探す" : "Search the bookshop catalogue");
     const heading = element("p", "academy-bookshop-catalogue-heading");
     heading.lang = "ja";
     heading.textContent = "目録を探す";
@@ -278046,7 +279155,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           return;
         }
         selected2 = true;
-        catalogue.dataset.bookshopPhase = "ask";
+        catalogue2.dataset.bookshopPhase = "ask";
         entries2.forEach((button2) => {
           button2.disabled = true;
           button2.setAttribute("aria-pressed", String(button2 === result2));
@@ -278072,8 +279181,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     search.addEventListener("input", syncResults);
     syncResults();
-    catalogue.append(heading, support2, searchLabel, search, results, status2, question2);
-    return catalogue;
+    catalogue2.append(heading, support2, searchLabel, search, results, status2, question2);
+    return catalogue2;
   }
   function bookshopQuestion(options) {
     const question2 = element("section", "academy-bookshop-question");
@@ -288026,6 +289135,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function formatLookupUrl(template, values) {
     const replacements = {
       query: values.query,
+      queryascii: asciiFoldLookupQuery(values.query),
       word: values.word,
       term: values.word,
       reading: values.reading,
@@ -288039,6 +289149,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
       return "";
     }
+  }
+  function asciiFoldLookupQuery(value) {
+    return value.normalize("NFKD").replace(/\p{Mark}+/gu, "").replace(/[^\x00-\x7F]/g, "");
   }
   const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
   const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
@@ -294910,10 +296023,10 @@ ${entry2.reading || ""}`;
   function deconjugatedReading(expression, baseTerm, reading) {
     const expressionChars = Array.from(expression);
     const baseChars = Array.from(baseTerm);
-    let shared = 0;
-    while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
-    const removed = expressionChars.slice(shared).join("");
-    const added = baseChars.slice(shared).join("");
+    let shared2 = 0;
+    while (shared2 < expressionChars.length && shared2 < baseChars.length && expressionChars[shared2] === baseChars[shared2]) shared2++;
+    const removed = expressionChars.slice(shared2).join("");
+    const added = baseChars.slice(shared2).join("");
     if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
     if (removed && !reading.endsWith(removed)) return "";
     const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
@@ -295488,8 +296601,8 @@ ${entry2.reading || ""}`;
       const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
-      const targets = this.popoverReviewTargets(card, data, provider, language2);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language2, targets.length > 1, this.switchProviderTarget(card, provider));
+      const targets2 = this.popoverReviewTargets(card, data, provider, language2);
+      if (targets2.length) return this.renderTargetedReviewButtons(targets2, language2, targets2.length > 1, this.switchProviderTarget(card, provider));
       if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -295627,9 +296740,9 @@ ${entry2.reading || ""}`;
         gradeProfile: "standard"
       }));
     }
-    renderTargetedReviewButtons(targets, language2, canSwitchTarget, switchProviderTarget) {
+    renderTargetedReviewButtons(targets2, language2, canSwitchTarget, switchProviderTarget) {
       const settings = this.settings();
-      const selected2 = targets[0];
+      const selected2 = targets2[0];
       if (!selected2) return "";
       const standardGrades = reviewButtonGrades(settings);
       const bunproRegularGrades = [
@@ -295642,14 +296755,14 @@ ${entry2.reading || ""}`;
         ["okay", uiText(language2, "bunproGradeGoodLabel")],
         ["easy", uiText(language2, "bunproGradeEasyLabel")]
       ];
-      const profiles = new Set(targets.map((target2) => target2.gradeProfile));
+      const profiles = new Set(targets2.map((target2) => target2.gradeProfile));
       const gradeRows = [
         profiles.has("standard") ? renderTargetedGradeRow(standardGrades, selected2, "standard", selected2.gradeProfile !== "standard") : "",
         profiles.has("bunpro-regular") ? renderTargetedGradeRow(bunproRegularGrades, selected2, "bunpro-regular", selected2.gradeProfile !== "bunpro-regular") : "",
         profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected2, "bunpro-fsrs", selected2.gradeProfile !== "bunpro-fsrs") : ""
       ].filter(Boolean).join("");
       if (!gradeRows) return "";
-      const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language2) : "";
+      const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language2) : "";
       const targetGutter = renderReviewTargetGutter(selected2, language2, canSwitchTarget, switchProviderTarget);
       return `
             ${targetGutter}
@@ -295749,10 +296862,10 @@ ${entry2.reading || ""}`;
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$2(label)}"></button>
     </div>`;
   }
-  function renderReviewTargetSelector(targets, language2) {
+  function renderReviewTargetSelector(targets2, language2) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$2(uiText(language2, "gradeTargetSelector"))}">
-            ${targets.map((target2, index) => `<option value="${escapeHtml$2(target2.id)}"${index === 0 ? " selected" : ""} data-review-target="${target2.kind}" data-review-grade-profile="${target2.gradeProfile}" data-review-target-label="${escapeHtml$2(target2.label)}" data-review-target-short-label="${escapeHtml$2(target2.shortLabel)}"${target2.ankiCardId ? ` data-anki-card-id="${target2.ankiCardId}"` : ""}>${escapeHtml$2(target2.shortLabel)}</option>`).join("")}
+            ${targets2.map((target2, index) => `<option value="${escapeHtml$2(target2.id)}"${index === 0 ? " selected" : ""} data-review-target="${target2.kind}" data-review-grade-profile="${target2.gradeProfile}" data-review-target-label="${escapeHtml$2(target2.label)}" data-review-target-short-label="${escapeHtml$2(target2.shortLabel)}"${target2.ankiCardId ? ` data-anki-card-id="${target2.ankiCardId}"` : ""}>${escapeHtml$2(target2.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -303739,10 +304852,10 @@ ${component.reading}`;
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
     return items;
   }
-  function renderNewTabLookupReviewButtons(grades, targets) {
+  function renderNewTabLookupReviewButtons(grades, targets2) {
     if (!grades.length) return "";
-    if (targets.length > 1) return renderLookupReviewTargetControls(targets, grades);
-    if (targets.length) return renderLookupReviewTargetButtons(targets[0], grades);
+    if (targets2.length > 1) return renderLookupReviewTargetControls(targets2, grades);
+    if (targets2.length) return renderLookupReviewTargetButtons(targets2[0], grades);
     return "";
   }
   function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
@@ -303833,12 +304946,12 @@ ${component.reading}`;
         </div>
     `;
   }
-  function renderLookupReviewTargetControls(targets, grades) {
-    const selected2 = targets[0];
+  function renderLookupReviewTargetControls(targets2, grades) {
+    const selected2 = targets2[0];
     if (!selected2) return "";
     return `
         ${renderLookupReviewTargetGutter(selected2)}
-        ${renderLookupReviewTargetSelector(targets)}
+        ${renderLookupReviewTargetSelector(targets2)}
         ${renderLookupReviewTargetButtons(selected2, grades)}
     `;
   }
@@ -303849,10 +304962,10 @@ ${component.reading}`;
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$2(target2.label)}" aria-label="${escapeHtml$2(target2.label)}"></button>
     </div>`;
   }
-  function renderLookupReviewTargetSelector(targets) {
+  function renderLookupReviewTargetSelector(targets2) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target">
-            ${targets.map((target2, index) => `<option value="${escapeHtml$2(target2.id)}"${index === 0 ? " selected" : ""} data-review-target="${target2.kind}" data-review-target-label="${escapeHtml$2(target2.label)}" data-review-target-short-label="${escapeHtml$2(target2.shortLabel)}"${target2.ankiCardId ? ` data-anki-card-id="${target2.ankiCardId}"` : ""}>${escapeHtml$2(target2.shortLabel)}</option>`).join("")}
+            ${targets2.map((target2, index) => `<option value="${escapeHtml$2(target2.id)}"${index === 0 ? " selected" : ""} data-review-target="${target2.kind}" data-review-target-label="${escapeHtml$2(target2.label)}" data-review-target-short-label="${escapeHtml$2(target2.shortLabel)}"${target2.ankiCardId ? ` data-anki-card-id="${target2.ankiCardId}"` : ""}>${escapeHtml$2(target2.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -306519,7 +307632,7 @@ ${normalizedReading}`;
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
-    const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+    const targets2 = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
       allowUiText: true,
       includePassiveInteractions: true,
@@ -306528,7 +307641,7 @@ ${normalizedReading}`;
       readerRootPassiveInteractions: true,
       parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+    return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
   }
   function providerExamplePriority(parseRoot) {
     return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
@@ -306537,7 +307650,7 @@ ${normalizedReading}`;
     const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
     if (!parseRoots.length) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
-    const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+    const targets2 = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
       allowUiText: true,
       includePassiveInteractions: true,
@@ -306546,7 +307659,7 @@ ${normalizedReading}`;
       readerRootPassiveInteractions: true,
       parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+    return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
   }
   function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options) {
     const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
@@ -306614,8 +307727,8 @@ ${normalizedReading}`;
     const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR)).map((parseRoot) => readerWordSurfaceText$1(parseRoot).trim()).filter(Boolean);
     return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") : "";
   }
-  function nestedParseKey(targets) {
-    return targets.map((target2) => target2.text).join("\n\n");
+  function nestedParseKey(targets2) {
+    return targets2.map((target2) => target2.text).join("\n\n");
   }
   const log$9 = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
@@ -307280,9 +308393,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function reviewTargetsForNewTabCard(card, settings, ankiCardId) {
     if (!settings.enableReviews) return [];
-    const targets = [];
+    const targets2 = [];
     const add = (target2) => {
-      if (!targets.includes(target2)) targets.push(target2);
+      if (!targets2.includes(target2)) targets2.push(target2);
     };
     if (isWanikaniReviewCard(card) && card.cardState.includes("due") && settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings)) {
       return ["wanikani-api"];
@@ -307301,10 +308414,10 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     if (card.reviewSource === "yomu-local" && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
-    return targets;
+    return targets2;
   }
-  function queueableNewTabReviewTargets(targets) {
-    return targets.filter((target2) => target2 === "anki" || target2 === "jpdb-api" || target2 === "jiten-api" || target2 === "yomu-local");
+  function queueableNewTabReviewTargets(targets2) {
+    return targets2.filter((target2) => target2 === "anki" || target2 === "jpdb-api" || target2 === "jiten-api" || target2 === "yomu-local");
   }
   function isWanikaniReviewCard(card) {
     return (card.source === "wanikani" || card.reviewSource === "wanikani-api") && typeof card.wanikaniAssignmentId === "number" && card.wanikaniAssignmentId > 0;
@@ -311413,15 +312526,15 @@ ${entry2.url}`),
   function cleanNestedLookupValue$1(value) {
     return (value ?? "").replace(/\s+/g, " ").trim();
   }
-  function summarizeNewTabReviewSources(targets) {
+  function summarizeNewTabReviewSources(targets2) {
     return {
-      targets,
-      hasJpdb: targets.some((target2) => isJpdbReviewTarget(target2)),
-      hasJiten: targets.includes("jiten-api"),
-      hasBunpro: targets.includes("bunpro-api"),
-      hasWanikani: targets.includes("wanikani-api"),
-      hasYomuLocal: targets.includes("yomu-local"),
-      hasAnki: targets.includes("anki")
+      targets: targets2,
+      hasJpdb: targets2.some((target2) => isJpdbReviewTarget(target2)),
+      hasJiten: targets2.includes("jiten-api"),
+      hasBunpro: targets2.includes("bunpro-api"),
+      hasWanikani: targets2.includes("wanikani-api"),
+      hasYomuLocal: targets2.includes("yomu-local"),
+      hasAnki: targets2.includes("anki")
     };
   }
   function isJpdbReviewTarget(target2) {
@@ -311445,10 +312558,10 @@ ${entry2.url}`),
     if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
-  function newTabMainGradeTargetOptions(targets, combinedLabel, bothLabel) {
-    const hasApi = targets.some((target2) => target2.kind !== "anki");
-    const ankiTargets = targets.filter((target2) => target2.kind === "anki" && target2.ankiCardId);
-    const options = targets.map(newTabMainGradeTargetOptionFromLookupTarget);
+  function newTabMainGradeTargetOptions(targets2, combinedLabel, bothLabel) {
+    const hasApi = targets2.some((target2) => target2.kind !== "anki");
+    const ankiTargets = targets2.filter((target2) => target2.kind === "anki" && target2.ankiCardId);
+    const options = targets2.map(newTabMainGradeTargetOptionFromLookupTarget);
     if (hasApi && ankiTargets.length) {
       return [
         {
@@ -312634,8 +313747,8 @@ ${entry2.url}`),
     return null;
   }
   function dictionaryExampleSentences(card, entries2) {
-    const targets = [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => value.trim()).filter(Boolean);
-    return uniqueSentences(entries2.flatMap((entry2) => entry2.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets.some((target2) => sentence.includes(target2))).filter((sentence) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
+    const targets2 = [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => value.trim()).filter(Boolean);
+    return uniqueSentences(entries2.flatMap((entry2) => entry2.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets2.some((target2) => sentence.includes(target2))).filter((sentence) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
   }
   function dictionaryGlossarySentences(value) {
     const explicitExamples = structuredExampleTexts(value);
@@ -312889,8 +314002,8 @@ ${entry2.url}`),
     // snapshot on the final write — a silently deleted review.
     serial = Promise.resolve();
     storage;
-    enqueue(card, grade2, targets) {
-      return this.locked(() => this.enqueueUnlocked(card, grade2, targets));
+    enqueue(card, grade2, targets2) {
+      return this.locked(() => this.enqueueUnlocked(card, grade2, targets2));
     }
     flush() {
       return this.locked(() => this.flushUnlocked());
@@ -312900,8 +314013,8 @@ ${entry2.url}`),
       this.serial = next.then(() => void 0, () => void 0);
       return next;
     }
-    async enqueueUnlocked(card, grade2, targets) {
-      const queueTargets = queueableNewTabReviewTargets(targets);
+    async enqueueUnlocked(card, grade2, targets2) {
+      const queueTargets = queueableNewTabReviewTargets(targets2);
       if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
       const queue = await this.read();
       const entries2 = queueTargets.map((target2) => ({
@@ -319684,9 +320797,9 @@ ${entry2.url}`),
     // fallback), rebuild the line from the cloze's before/after halves.
     blankTypeWordSentenceTargets(root, cloze) {
       const gapNode = () => el("span", { class: "jpdb-reader-newtab-recall-gap", role: "img", "aria-label": this.text("recallAnswer") });
-      const targets = [...root.querySelectorAll(".jpdb-reader-example-target")];
-      if (targets.length) {
-        targets.forEach((word) => word.replaceWith(gapNode()));
+      const targets2 = [...root.querySelectorAll(".jpdb-reader-example-target")];
+      if (targets2.length) {
+        targets2.forEach((word) => word.replaceWith(gapNode()));
         return;
       }
       if (root.querySelector(".jpdb-reader-newtab-recall-gap")) return;
@@ -321936,8 +323049,8 @@ ${entry2.url}`),
       return names.map((name) => shortcuts[name].trim()).find(Boolean) ?? "";
     }
     mainGradeTargetOptions(card) {
-      const targets = this.lookupReviewTargetsForCard(card);
-      return newTabMainGradeTargetOptions(targets, this.gradeTargetLabel(card), this.text("gradeTargetBoth"));
+      const targets2 = this.lookupReviewTargetsForCard(card);
+      return newTabMainGradeTargetOptions(targets2, this.gradeTargetLabel(card), this.text("gradeTargetBoth"));
     }
     selectedMainGradeTarget(root) {
       return selectedNewTabMainGradeTarget(root);
@@ -321975,26 +323088,26 @@ ${entry2.url}`),
     }
     // fallow-ignore-next-line complexity
     lookupReviewTargetsForCard(card, data) {
-      const targets = this.reviewTargetsForCard(card);
+      const targets2 = this.reviewTargetsForCard(card);
       const result2 = [];
-      if (targets.includes("jiten-api")) {
+      if (targets2.includes("jiten-api")) {
         result2.push({ id: "jiten", kind: "jiten", label: this.text("gradeTargetJiten"), shortLabel: "Jiten" });
       }
-      if (targets.some((target2) => target2 === "jpdb-api" || target2 === "jpdb-live")) {
+      if (targets2.some((target2) => target2 === "jpdb-api" || target2 === "jpdb-live")) {
         result2.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
       }
-      if (targets.includes("bunpro-api")) {
+      if (targets2.includes("bunpro-api")) {
         result2.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
       }
-      if (targets.includes("wanikani-api")) {
+      if (targets2.includes("wanikani-api")) {
         result2.push({ id: "wanikani", kind: "wanikani", label: this.text("gradeTargetWanikani"), shortLabel: "WaniKani" });
       }
-      if (targets.includes("yomu-local")) {
+      if (targets2.includes("yomu-local")) {
         result2.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
       }
       const settings = this.dependencies.getSettings();
       const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
-      if (targets.includes("anki") || ankiTargets.length) result2.push(...ankiTargets);
+      if (targets2.includes("anki") || ankiTargets.length) result2.push(...ankiTargets);
       return result2;
     }
     lookupAnkiReviewTargets(card, data) {
@@ -322153,11 +323266,11 @@ ${entry2.url}`),
     }
     // Local grading (Academy SRS) needs no connection, so it never raises the
     // connection-lost dialog; only queued grades bound for a network provider do.
-    networkGradeTargets(targets) {
-      return targets.some((target2) => target2 !== "yomu-local");
+    networkGradeTargets(targets2) {
+      return targets2.some((target2) => target2 !== "yomu-local");
     }
-    shouldConfirmOfflineReviewAfterFailure(targets, card, selectedTarget, error) {
-      return this.networkGradeTargets(targets) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
+    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget, error) {
+      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.
@@ -322216,10 +323329,10 @@ ${entry2.url}`),
       if (selectedTarget) {
         return await this.submitSelectedLookupTarget(card, selectedTarget, grade2);
       }
-      const targets = this.reviewTargetsForCard(card);
-      if (!targets.length) throw new Error(this.text("couldNotSubmitGrade"));
+      const targets2 = this.reviewTargetsForCard(card);
+      if (!targets2.length) throw new Error(this.text("couldNotSubmitGrade"));
       const failures = [];
-      for (const target2 of targets) {
+      for (const target2 of targets2) {
         try {
           await this.submitReviewTarget(card, target2, grade2);
         } catch (error) {
@@ -322244,15 +323357,15 @@ ${entry2.url}`),
     }
     // fallow-ignore-next-line complexity
     lookupReviewTargetForSelection(card, selectedTarget) {
-      const targets = this.lookupReviewTargetsForCard(card);
-      if (selectedTarget.kind === "jpdb") return targets.find((target2) => target2.kind === "jpdb") ?? null;
-      if (selectedTarget.kind === "jiten") return targets.find((target2) => target2.kind === "jiten") ?? null;
-      if (selectedTarget.kind === "bunpro") return targets.find((target2) => target2.kind === "bunpro") ?? null;
-      if (selectedTarget.kind === "wanikani") return targets.find((target2) => target2.kind === "wanikani") ?? null;
-      if (selectedTarget.kind === "yomu-local") return targets.find((target2) => target2.kind === "yomu-local") ?? null;
+      const targets2 = this.lookupReviewTargetsForCard(card);
+      if (selectedTarget.kind === "jpdb") return targets2.find((target2) => target2.kind === "jpdb") ?? null;
+      if (selectedTarget.kind === "jiten") return targets2.find((target2) => target2.kind === "jiten") ?? null;
+      if (selectedTarget.kind === "bunpro") return targets2.find((target2) => target2.kind === "bunpro") ?? null;
+      if (selectedTarget.kind === "wanikani") return targets2.find((target2) => target2.kind === "wanikani") ?? null;
+      if (selectedTarget.kind === "yomu-local") return targets2.find((target2) => target2.kind === "yomu-local") ?? null;
       const selectedCardId = Number(selectedTarget.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
-      return targets.find((target2) => target2.kind === "anki" && target2.ankiCardId === selectedCardId) ?? null;
+      return targets2.find((target2) => target2.kind === "anki" && target2.ankiCardId === selectedCardId) ?? null;
     }
     // fallow-ignore-next-line complexity
     reviewTargetForLookupKind(card, kind) {
@@ -322445,12 +323558,12 @@ ${entry2.url}`),
       };
     }
     invalidateReviewSourceCache(card) {
-      const targets = this.reviewTargetsForCard(card);
-      if (targets.includes("anki")) this.invalidateSourceResultCache("anki");
-      if (targets.some((target2) => target2 === "jpdb-api" || target2 === "jpdb-live" || target2 === "jiten-api")) this.invalidateSourceResultCache("jpdb");
-      if (targets.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
-      if (targets.includes("wanikani-api") || card.source === "wanikani" || card.reviewSource === "wanikani-api") this.invalidateSourceResultCache("wanikani");
-      if (targets.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
+      const targets2 = this.reviewTargetsForCard(card);
+      if (targets2.includes("anki")) this.invalidateSourceResultCache("anki");
+      if (targets2.some((target2) => target2 === "jpdb-api" || target2 === "jpdb-live" || target2 === "jiten-api")) this.invalidateSourceResultCache("jpdb");
+      if (targets2.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
+      if (targets2.includes("wanikani-api") || card.source === "wanikani" || card.reviewSource === "wanikani-api") this.invalidateSourceResultCache("wanikani");
+      if (targets2.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
     }
     ankiCardIdForReview(card) {
       const cardId = card.ankiCardId ?? (card.source === "anki" || card.reviewSource === "anki" ? card.rid : void 0);
@@ -361876,7 +362989,7 @@ ${entry2.url}`),
       ...readOcrFormSettings(reader, current),
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
-      dictionaryLookupLinks: readDictionaryLookupLinks(data),
+      dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
       ...readSubtitleFormSettings(reader, current),
       ...readYoutubeFormSettings(reader),
       ...readAnkiFormSettings(reader, current),
@@ -362462,6 +363575,9 @@ ${entry2.url}`),
     return !source2.enabled && !source2.url && !source2.voice && !builtInTypes.has(source2.type);
   }
   function readDictionaryLookupLinks(data) {
+    return normalizeDictionaryLookupLinks(submittedDictionaryLookupLinkRows(data), false, readTargetLanguage(data, "ja"));
+  }
+  function submittedDictionaryLookupLinkRows(data) {
     const get = (key2) => String(data.get(key2) ?? "");
     const count2 = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get("dictionaryLookupLinkCount")) || 0));
     const links = [];
@@ -362469,7 +363585,13 @@ ${entry2.url}`),
       const link = readDictionaryLookupLinkRow(data, get, index);
       if (link) links.push(link);
     }
-    return normalizeDictionaryLookupLinks(links);
+    return links;
+  }
+  function readTargetAwareDictionaryLookupLinks(data, current) {
+    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+    const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+    const next = readTargetLanguage(data, previous);
+    return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(submittedDictionaryLookupLinkRows(data), next);
   }
   function readDictionaryLookupLinkRow(data, get, index) {
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
@@ -363098,7 +364220,7 @@ ${entry2.url}`),
   function removeAudioSourceRow(sources, index) {
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
   }
-  function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = []) {
+  function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
     const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
@@ -363108,13 +364230,32 @@ ${entry2.url}`),
             <span>Order</span>
             <span>Remove</span>
         </div>
-        ${renderDictionaryLookupLinkRows(rows)}
+        ${renderDictionaryLookupLinkRows(rows, targetLanguage2)}
+        ${renderLookupLinkComponentGaps(targetLanguage2)}
         <div class="jpdb-reader-lookup-link-actions">
             <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
         </div>
     `;
   }
-  function renderDictionaryLookupLinkRows(rows) {
+  const LOOKUP_COMPONENT_LABELS = {
+    definition: "Definitions",
+    sentences: "Example sentences",
+    audio: "Audio",
+    images: "Images"
+  };
+  function renderLookupLinkComponents(targetLanguage2, link) {
+    const components2 = lookupSiteComponents(targetLanguage2, link.id);
+    if (!components2.length) return "";
+    const note = components2.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="components" data-lookup-link-components="${escapeHtml$2(components2.join(" "))}">${escapeHtml$2(note)}</span>`;
+  }
+  function renderLookupLinkComponentGaps(targetLanguage2) {
+    const missing2 = missingLookupComponents(targetLanguage2);
+    if (!missing2.length) return "";
+    const names = missing2.map((component) => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(", ");
+    return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml$2(missing2.join(" "))}">No verified site for this language offers ${escapeHtml$2(names)}. Add your own above if you know one.</p>`;
+  }
+  function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
     const orderTools = renderRowOrderTools({
       label: "Lookup pill order",
       upAction: "lookup-link-up",
@@ -363126,7 +364267,7 @@ ${entry2.url}`),
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
       const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkComponents(targetLanguage2, link)}`;
       const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
@@ -363179,11 +364320,15 @@ ${entry2.url}`),
   function updateDictionaryLookupLinkEditor(form2, action2, control2) {
     const container = form2.querySelector(".jpdb-reader-lookup-links");
     if (!container) return;
-    const links = readDictionaryLookupLinks(new FormData(form2));
+    const data = new FormData(form2);
+    const links = readDictionaryLookupLinks(data);
     const row2 = control2?.closest("[data-lookup-link-row]");
     const index = row2 ? Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row2) : -1;
     updateDictionaryLookupLinks(links, action2, index);
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
+  }
+  function formTargetLanguage(data) {
+    return String(data.get("targetLanguage") ?? "") || "ja";
   }
   function updateDictionaryLookupLinks(links, action2, index) {
     if (action2 === "lookup-link-add") addDictionaryLookupLink(links);
@@ -365255,7 +366400,7 @@ ${entry2.url}`),
                     <div class="jpdb-reader-help">${escapedUiText(language2, "lookupPillsHelp")}</div>
                     ${checkbox("showLookupPillFrequency", text2("showLookupPillFrequency"), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [], activeTargetLanguageId(settings))}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
@@ -366868,7 +368013,11 @@ ${entry2.url}`),
     });
   }
   function renderLookupPillsEditor(settings, installed = installedDictionariesFromPreferences(settings.dictionaryPreferences)) {
-    return renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installed));
+    return renderDictionaryLookupLinkEditor(
+      settings.dictionaryLookupLinks,
+      installedFrequencyDictionaryPreferences(settings, installed),
+      activeTargetLanguageId(settings)
+    );
   }
   function installedFrequencyDictionaryPreferences(settings, installed) {
     const installedFrequencyNames = new Set(installed.filter((dictionary) => dictionary.type === "frequency").map((dictionary) => dictionary.title));
@@ -368567,6 +369716,7 @@ ${entry2.url}`),
         const value = event.currentTarget.value;
         if (!isLearningTargetRosterId(value)) return;
         syncLanguageFamilyDom(form2, value);
+        this.renderLookupPillsForTarget(form2, value);
         localizeSettingsForm(form2, this.settings.interfaceLanguage);
         void this.refreshTargetDictionaryAvailability(form2, value);
         if (value === "ja") void this.refreshDictionaryStatus(form2);
@@ -368631,6 +369781,25 @@ ${entry2.url}`),
         input2.addEventListener("change", () => syncPageScanModeControls(form2));
       });
       syncPageScanModeControls(form2);
+    }
+    /**
+     * Swap the pill editor to the newly picked target's verified hotlinks.
+     *
+     * The dialog is the one place a target changes, and the row it shows has to
+     * change with it or the learner saves Japanese pills against a Spanish
+     * target. The rows are read back out of the live form first so anything the
+     * learner typed in this session — a custom site, a relabelled pill, an
+     * enabled toggle a shared site carries over — survives the swap.
+     */
+    renderLookupPillsForTarget(form2, targetLanguage2) {
+      const container = form2.querySelector(".jpdb-reader-lookup-links");
+      if (!container) return;
+      const submitted = readDictionaryLookupLinks(new FormData(form2));
+      setInnerHtml(container, renderDictionaryLookupLinkEditor(
+        dictionaryLookupLinksForTarget(submitted, targetLanguage2),
+        [],
+        targetLanguage2
+      ));
     }
     async refreshTargetDictionaryAvailability(form2, selected2 = selectedTargetLanguage(form2, this.settings)) {
       const requestId = ++this.targetDictionaryAvailabilityRequestId;
@@ -372643,8 +373812,8 @@ ${rank2.detail}` : baseTitle;
     }
     renderNewTabLookupReviewButtons(card, data) {
       const grades = this.newTab?.lookupGradeOptions(card) ?? [];
-      const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-      return renderNewTabLookupReviewButtons(grades, targets);
+      const targets2 = this.newTab?.lookupReviewTargets(card, data) ?? [];
+      return renderNewTabLookupReviewButtons(grades, targets2);
     }
     resetLookupHandlers() {
       this.activeLookupHandlerController?.abort();

@@ -46,8 +46,10 @@ import {
     renderAnkiTemplatePreview,
     renderNewTabAnkiDeckSelector,
     renderDeckControls,
+    renderDictionaryLookupLinkEditor,
     renderDictionarySourceRows,
     renderLookupPillsEditor,
+    readDictionaryLookupLinks,
     renderRecommendedDictionaries,
     appearancePreviewContentHtml,
     renderSettingsForm,
@@ -82,6 +84,7 @@ import {
     isLearningTargetRosterId,
     type LearningTargetRosterId,
 } from '../languages';
+import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
@@ -1054,6 +1057,7 @@ export class SettingsDialogController {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (!isLearningTargetRosterId(value)) return;
             syncLanguageFamilyDom(form, value);
+            this.renderLookupPillsForTarget(form, value);
             localizeSettingsForm(form, this.settings.interfaceLanguage);
             void this.refreshTargetDictionaryAvailability(form, value);
             if (value === 'ja') void this.refreshDictionaryStatus(form);
@@ -1114,6 +1118,26 @@ export class SettingsDialogController {
             input.addEventListener('change', () => syncPageScanModeControls(form));
         });
         syncPageScanModeControls(form);
+    }
+
+    /**
+     * Swap the pill editor to the newly picked target's verified hotlinks.
+     *
+     * The dialog is the one place a target changes, and the row it shows has to
+     * change with it or the learner saves Japanese pills against a Spanish
+     * target. The rows are read back out of the live form first so anything the
+     * learner typed in this session — a custom site, a relabelled pill, an
+     * enabled toggle a shared site carries over — survives the swap.
+     */
+    private renderLookupPillsForTarget(form: HTMLFormElement, targetLanguage: string): void {
+        const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
+        if (!container) return;
+        const submitted = readDictionaryLookupLinks(new FormData(form));
+        setInnerHtml(container, renderDictionaryLookupLinkEditor(
+            dictionaryLookupLinksForTarget(submitted, targetLanguage),
+            [],
+            targetLanguage,
+        ));
     }
 
     private async refreshTargetDictionaryAvailability(

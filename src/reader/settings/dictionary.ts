@@ -3,6 +3,7 @@ import { NEW_TAB_PAGE_URL } from '../app/constants';
 import { activeLanguageProfile } from '../languages';
 import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize';
 import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from '../immersion/search-links';
+import { hasTargetLookupSites, isTargetLookupLinkId, targetLookupLinks } from './lookup-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
 export const MAX_DICTIONARY_LOOKUP_LINKS = 16;
@@ -237,10 +238,14 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
     UCHISEN_LOOKUP_LINK.id,
 ]];
 
-export function normalizeDictionaryLookupLinkSettings(value: Partial<ReaderSettings> | null): ReaderSettings['dictionaryLookupLinks'] {
+export function normalizeDictionaryLookupLinkSettings(
+    value: Partial<ReaderSettings> | null,
+    targetLanguage = 'ja',
+): ReaderSettings['dictionaryLookupLinks'] {
     const links = normalizeDictionaryLookupLinks(
         value?.dictionaryLookupLinks,
         !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
+        targetLanguage,
     );
     if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
@@ -272,12 +277,82 @@ function normalizeDictionaryPreference(item: unknown, index: number): Dictionary
     };
 }
 
-export function defaultDictionaryLookupLinks(mode: 'jpdb' | 'local' = 'local'): DictionaryLookupLink[] {
+/**
+ * The built-in pill row for a target.
+ *
+ * Japanese returns `DEFAULT_DICTIONARY_LOOKUP_LINKS` unchanged — same entries,
+ * same order, same enabled flags — because every existing install is Japanese
+ * and none of them may see their row move. Any other target gets the verified
+ * hotlink set from `config/multilingual/lookup-links.json`, wrapped in the same
+ * two pills that are language-neutral: Yomu's own search at the front and Copy
+ * at the back. The Jiten/JPDB/Bunpro pills are deliberately absent — those are
+ * Japanese services and pointing a Spanish word at them returns nothing.
+ */
+export function defaultDictionaryLookupLinks(
+    mode: 'jpdb' | 'local' = 'local',
+    targetLanguage = 'ja',
+): DictionaryLookupLink[] {
+    // `jpdb` mode narrows the row to the parser's own pills, which only exist for
+    // Japanese. Applying it to another target would leave that learner with just
+    // the Yomu pill and no dictionary at all.
+    if (targetLanguage !== 'ja' && hasTargetLookupSites(targetLanguage)) {
+        return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK]
+            .map((link, index) => ({ ...link, priority: index }));
+    }
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
         ...link,
         priority: index,
         enabled: mode === 'jpdb' ? link.id === 'jpdb' || link.id === 'jiten' || link.id === 'yomu-search' || link.id === 'bunpro' || link.id === 'jiten-frequency' || link.id === 'jpdb-frequency' || link.id === 'bunpro-frequency' : link.enabled,
     }));
+}
+
+/**
+ * The pill row rebuilt for a different target.
+ *
+ * Switching target replaces the built-in rows with the incoming target's
+ * verified hotlinks, because the outgoing target's sites cannot answer for it —
+ * a Spanish word is a definition in `dle.rae.es` and a 404 in `words.hk`. Two
+ * things survive the switch: every learner-owned or locally discovered row, and
+ * the on/off state of any built-in both sets share (Wiktionary, Tatoeba, Forvo,
+ * Glosbe, Yomu, Copy). That includes `frequency-local:*` rows: auto-discovering
+ * an installed frequency dictionary must not turn a badge back on after the
+ * learner disabled it.
+ */
+export function dictionaryLookupLinksForTarget(
+    previous: DictionaryLookupLink[],
+    targetLanguage: string,
+): DictionaryLookupLink[] {
+    const previousById = new Map(previous.map(link => [link.id, link]));
+    const defaults = defaultDictionaryLookupLinks('local', targetLanguage).map(link => {
+        const saved = previousById.get(link.id);
+        return saved ? { ...link, enabled: saved.enabled } : link;
+    });
+    const defaultIds = new Set(defaults.map(link => link.id));
+    const japaneseDefaultIds = new Set(DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => link.id));
+    const portable = previous.filter(link => (
+        !defaultIds.has(link.id)
+        && !japaneseDefaultIds.has(link.id)
+        && !isTargetLookupLinkId(link.id)
+    ));
+    return normalizeDictionaryLookupLinks(
+        insertPortableLookupLinks(defaults, portable),
+        false,
+        targetLanguage,
+    );
+}
+
+function insertPortableLookupLinks(
+    defaults: DictionaryLookupLink[],
+    portable: DictionaryLookupLink[],
+): DictionaryLookupLink[] {
+    const links = [...defaults];
+    for (const link of portable) {
+        const requestedIndex = typeof link.priority === 'number' && Number.isFinite(link.priority)
+            ? Math.max(0, link.priority)
+            : links.length;
+        links.splice(Math.min(requestedIndex, links.length), 0, link);
+    }
+    return links;
 }
 
 function legacyDefaultLookupLinksWithNewBuiltIns(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
@@ -331,8 +406,12 @@ function matchesLegacyLookupLink(link: DictionaryLookupLink | undefined, expecte
         && (expected.action === undefined || link.action === expected.action));
 }
 
-export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = false): DictionaryLookupLink[] {
-    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
+export function normalizeDictionaryLookupLinks(
+    value: unknown,
+    preferJpdb = false,
+    targetLanguage = 'ja',
+): DictionaryLookupLink[] {
+    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
     if (!Array.isArray(value)) return builtIns;
 
     const normalized: DictionaryLookupLink[] = [];

@@ -1357,7 +1357,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalo
                     <div class="jpdb-reader-help">${escapedUiText(language, 'lookupPillsHelp')}</div>
                     ${checkbox('showLookupPillFrequency', text('showLookupPillFrequency'), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [], activeTargetLanguageId(settings))}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
@@ -3061,7 +3061,11 @@ export function renderKanjiSourceRows(settings: ReaderSettings): string {
 }
 
 export function renderLookupPillsEditor(settings: ReaderSettings, installed: YomitanDictionaryInfo[] = installedDictionariesFromPreferences(settings.dictionaryPreferences)): string {
-    return renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installed));
+    return renderDictionaryLookupLinkEditor(
+        settings.dictionaryLookupLinks,
+        installedFrequencyDictionaryPreferences(settings, installed),
+        activeTargetLanguageId(settings),
+    );
 }
 
 function installedFrequencyDictionaryPreferences(settings: ReaderSettings, installed: YomitanDictionaryInfo[]): DictionaryPreference[] {

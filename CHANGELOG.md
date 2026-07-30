@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.43] - 2026-07-30
+
+### Added
+
+- Every study language now has its own row of lookup sites, the way Japanese has had Jisho, Weblio and Immersion Kit all along. Pick Spanish and the pills open the Real Academia and SpanishDict; pick Cantonese and they open 粵典, CantoWords and CantoDict; pick Ancient Greek and they open Logeion, the LSJ and the Perseus corpus.
+- Each site says what it gives you before you click it — definitions, example sentences, audio, images — and Yomu names the ones no site for your language offers, so an empty row is an answer rather than a puzzle. Ancient Greek has no pronunciation site; among these new rows, Chinese is the only target with a verified image source.
+- Changing the language you are studying swaps the row to that language's sites. Any site you added yourself comes with you, and a pill you switched off — including an installed frequency badge — stays off.
+
+### Changed
+
+- Japanese is untouched: same pills, same order, same settings.
+
 ## [1.8.42] - 2026-07-30
 
 ### Added

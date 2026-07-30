@@ -6502,8 +6502,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       try {
         const pendingPatch = pendingHostedLocalPatch(key);
         if (pendingPatch) {
-          const shared = await getValue(key, MISSING);
-          const sharedRecord = !isMissingSentinel(shared) && isPlainRecord$1(shared) ? shared : {};
+          const shared2 = await getValue(key, MISSING);
+          const sharedRecord = !isMissingSentinel(shared2) && isPlainRecord$1(shared2) ? shared2 : {};
           const reconciled = { ...sharedRecord, ...pendingPatch };
           await gmStorageSet(key, reconciled);
           return reconciled;
@@ -8250,9 +8250,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
     if (options.audioMergeMode === "theirs") return [];
-    const targets = ankiAudioFieldTargets(fieldNames, mapping);
-    if (!targets) return [];
-    return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets);
+    const targets2 = ankiAudioFieldTargets(fieldNames, mapping);
+    if (!targets2) return [];
+    return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets2);
   }
   function ankiAudioFieldTargets(fieldNames, mapping) {
     const word = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
@@ -8260,14 +8260,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!word && !context) return null;
     return { word: word || context, context: context || word };
   }
-  function retargetAudioFilesByKind(files, targets) {
+  function retargetAudioFilesByKind(files, targets2) {
     return files.map((file) => {
       const { yomuAudioKind: _kind, ...rest } = file;
-      return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets)] };
+      return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets2)] };
     });
   }
-  function ankiAudioFieldForKind(kind, targets) {
-    return kind === "context" ? targets.context : targets.word;
+  function ankiAudioFieldForKind(kind, targets2) {
+    return kind === "context" ? targets2.context : targets2.word;
   }
   function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
     const fieldName = fieldNameForRole(fieldNames, "image", mapping);
@@ -12842,6 +12842,1078 @@ ${spelling}`);
     const label = formatUiText(language2, "viewOnLookup", { label: link.label });
     return `<a class="jpdb-reader-immersion-search-link" data-immersion-search-source="${link.id}" href="${escapeHtml$2(link.url)}" target="_blank" rel="noopener">${escapeHtml$2(label)} ${externalLinkIcon()}</a>`;
   }
+  const shared = [
+    {
+      id: "wiktionary-en",
+      label: "Wiktionary EN",
+      code: "wiktionaryEn",
+      urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "wiktionary-native",
+      label: "Wiktionary",
+      code: "wiktionary",
+      urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
+      components: [
+        "definition"
+      ],
+      enabled: false
+    },
+    {
+      id: "glosbe",
+      label: "Glosbe",
+      code: "glosbe",
+      urlTemplate: "https://glosbe.com/%code%/en/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: false
+    },
+    {
+      id: "tatoeba",
+      label: "Tatoeba",
+      code: "tatoeba",
+      urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "forvo",
+      label: "Forvo",
+      code: "forvo",
+      urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
+      components: [
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "reverso",
+      label: "Reverso",
+      code: "reverso",
+      urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "wordreference",
+      label: "WordReference",
+      code: "wordreference",
+      urlTemplate: "https://www.wordreference.com/%code%/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "linguee",
+      label: "Linguee",
+      code: "linguee",
+      urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: false
+    }
+  ];
+  const targets = {
+    sq: {
+      codes: {
+        wiktionaryEn: "Albanian",
+        wiktionary: "sq",
+        glosbe: "sq",
+        tatoeba: "sqi",
+        forvo: "sq"
+      },
+      links: [
+        {
+          id: "fjalorthi",
+          label: "Fjalorthi",
+          urlTemplate: "https://fjalorthi.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    grc: {
+      codes: {
+        wiktionaryEn: "Ancient_Greek",
+        glosbe: "grc",
+        tatoeba: "grc"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "LSJ",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ar: {
+      codes: {
+        wiktionaryEn: "Arabic",
+        wiktionary: "ar",
+        glosbe: "ar",
+        tatoeba: "ara",
+        forvo: "ar",
+        youglish: "arabic",
+        reverso: "arabic"
+      },
+      links: []
+    },
+    yue: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "yue",
+        glosbe: "yue",
+        tatoeba: "yue",
+        forvo: "yue"
+      },
+      links: [
+        {
+          id: "words-hk",
+          label: "words.hk",
+          urlTemplate: "https://words.hk/zidin/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cantowords",
+          label: "CantoWords",
+          urlTemplate: "https://cantowords.com/dictionary/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "cantodict",
+          label: "CantoDict",
+          urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cccanto",
+          label: "CC-Canto",
+          urlTemplate: "https://cantonese.org/search.php?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    zh: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "zh",
+        glosbe: "zh",
+        tatoeba: "cmn",
+        forvo: "zh",
+        youglish: "chinese",
+        reverso: "chinese",
+        linguee: "chinese"
+      },
+      links: [
+        {
+          id: "mdbg",
+          label: "MDBG",
+          urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "purpleculture",
+          label: "Purple Culture",
+          urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio",
+            "images"
+          ]
+        },
+        {
+          id: "zdic",
+          label: "Zdic",
+          urlTemplate: "https://www.zdic.net/hans/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    da: {
+      codes: {
+        wiktionaryEn: "Danish",
+        wiktionary: "da",
+        glosbe: "da",
+        tatoeba: "dan",
+        forvo: "da",
+        linguee: "danish"
+      },
+      links: [
+        {
+          id: "ddo",
+          label: "Den Danske Ordbog",
+          urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    nl: {
+      codes: {
+        wiktionaryEn: "Dutch",
+        wiktionary: "nl",
+        glosbe: "nl",
+        tatoeba: "nld",
+        forvo: "nl",
+        youglish: "dutch",
+        reverso: "dutch",
+        wordreference: "nlen",
+        linguee: "dutch"
+      },
+      links: [
+        {
+          id: "woorden",
+          label: "woorden.org",
+          urlTemplate: "https://www.woorden.org/woord/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "mijnwoordenboek",
+          label: "MijnWoordenboek",
+          urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    en: {
+      codes: {
+        wiktionaryEn: "English",
+        tatoeba: "eng",
+        forvo: "en",
+        youglish: "english"
+      },
+      links: [
+        {
+          id: "cambridge",
+          label: "Cambridge",
+          urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    fi: {
+      codes: {
+        wiktionaryEn: "Finnish",
+        wiktionary: "fi",
+        glosbe: "fi",
+        tatoeba: "fin",
+        forvo: "fi",
+        linguee: "finnish"
+      },
+      links: [
+        {
+          id: "kotus",
+          label: "Kielitoimiston",
+          urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "suomisanakirja",
+          label: "Suomisanakirja",
+          urlTemplate: "https://www.suomisanakirja.fi/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    fr: {
+      codes: {
+        wiktionaryEn: "French",
+        wiktionary: "fr",
+        glosbe: "fr",
+        tatoeba: "fra",
+        forvo: "fr",
+        youglish: "french",
+        reverso: "french",
+        wordreference: "fren",
+        linguee: "french"
+      },
+      links: [
+        {
+          id: "cnrtl",
+          label: "CNRTL",
+          urlTemplate: "https://www.cnrtl.fr/definition/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "larousse",
+          label: "Larousse",
+          urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    de: {
+      codes: {
+        wiktionaryEn: "German",
+        wiktionary: "de",
+        glosbe: "de",
+        tatoeba: "deu",
+        forvo: "de",
+        youglish: "german",
+        reverso: "german",
+        wordreference: "deen",
+        linguee: "german"
+      },
+      links: [
+        {
+          id: "dwds",
+          label: "DWDS",
+          urlTemplate: "https://www.dwds.de/wb/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "duden",
+          label: "Duden",
+          urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    el: {
+      codes: {
+        wiktionaryEn: "Greek",
+        wiktionary: "el",
+        glosbe: "el",
+        tatoeba: "ell",
+        forvo: "el",
+        youglish: "greek"
+      },
+      links: [
+        {
+          id: "triantafyllides",
+          label: "Triantafyllides",
+          urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    hu: {
+      codes: {
+        wiktionaryEn: "Hungarian",
+        wiktionary: "hu",
+        glosbe: "hu",
+        tatoeba: "hun",
+        forvo: "hu",
+        linguee: "hungarian"
+      },
+      links: [
+        {
+          id: "wikiszotar",
+          label: "WikiSzotar",
+          urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    id: {
+      codes: {
+        wiktionaryEn: "Indonesian",
+        wiktionary: "id",
+        glosbe: "id",
+        tatoeba: "ind",
+        forvo: "id",
+        youglish: "indonesian"
+      },
+      links: [
+        {
+          id: "kbbi-web",
+          label: "KBBI",
+          urlTemplate: "https://kbbi.web.id/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "kbbi-co",
+          label: "KBBI.co.id",
+          urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    it: {
+      codes: {
+        wiktionaryEn: "Italian",
+        wiktionary: "it",
+        glosbe: "it",
+        tatoeba: "ita",
+        forvo: "it",
+        youglish: "italian",
+        reverso: "italian",
+        wordreference: "iten",
+        linguee: "italian"
+      },
+      links: [
+        {
+          id: "treccani",
+          label: "Treccani",
+          urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "demauro",
+          label: "De Mauro",
+          urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    km: {
+      codes: {
+        wiktionaryEn: "Khmer",
+        wiktionary: "km",
+        glosbe: "km",
+        tatoeba: "khm",
+        forvo: "km"
+      },
+      links: []
+    },
+    ko: {
+      codes: {
+        wiktionaryEn: "Korean",
+        wiktionary: "ko",
+        glosbe: "ko",
+        tatoeba: "kor",
+        forvo: "ko",
+        youglish: "korean"
+      },
+      links: [
+        {
+          id: "naver",
+          label: "Naver",
+          urlTemplate: "https://dict.naver.com/dict.search?query={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "krdict",
+          label: "Krdict",
+          urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "daum",
+          label: "Daum",
+          urlTemplate: "https://dic.daum.net/search.do?q={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    lo: {
+      codes: {
+        wiktionaryEn: "Lao",
+        wiktionary: "lo",
+        glosbe: "lo",
+        tatoeba: "lao",
+        forvo: "lo"
+      },
+      links: []
+    },
+    la: {
+      codes: {
+        wiktionaryEn: "Latin",
+        wiktionary: "la",
+        glosbe: "la",
+        tatoeba: "lat",
+        forvo: "la"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "Lewis & Short",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "olivetti",
+          label: "Olivetti",
+          urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    mn: {
+      codes: {
+        wiktionaryEn: "Mongolian",
+        wiktionary: "mn",
+        glosbe: "mn",
+        tatoeba: "mon",
+        forvo: "mn"
+      },
+      links: [
+        {
+          id: "mongoltoli",
+          label: "Mongoltoli",
+          urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "toli-query",
+          label: "Toli",
+          urlTemplate: "https://toli.query.mn/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    fa: {
+      codes: {
+        wiktionaryEn: "Persian",
+        wiktionary: "fa",
+        glosbe: "fa",
+        tatoeba: "pes",
+        forvo: "fa",
+        youglish: "persian"
+      },
+      links: [
+        {
+          id: "vajehyab",
+          label: "Vajehyab",
+          urlTemplate: "https://www.vajehyab.com/?q={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "abadis",
+          label: "Abadis",
+          urlTemplate: "https://abadis.ir/fatofa/{query}/",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dehkhoda",
+          label: "Dehkhoda",
+          urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pl: {
+      codes: {
+        wiktionaryEn: "Polish",
+        wiktionary: "pl",
+        glosbe: "pl",
+        tatoeba: "pol",
+        forvo: "pl",
+        youglish: "polish",
+        reverso: "polish",
+        wordreference: "plen",
+        linguee: "polish"
+      },
+      links: [
+        {
+          id: "sjp-pwn",
+          label: "SJP PWN",
+          urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pt: {
+      codes: {
+        wiktionaryEn: "Portuguese",
+        wiktionary: "pt",
+        glosbe: "pt",
+        tatoeba: "por",
+        forvo: "pt",
+        youglish: "portuguese",
+        reverso: "portuguese",
+        wordreference: "pten",
+        linguee: "portuguese"
+      },
+      links: [
+        {
+          id: "priberam",
+          label: "Priberam",
+          urlTemplate: "https://dicionario.priberam.org/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dicio",
+          label: "Dicio",
+          urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    ro: {
+      codes: {
+        wiktionaryEn: "Romanian",
+        wiktionary: "ro",
+        glosbe: "ro",
+        tatoeba: "ron",
+        forvo: "ro",
+        youglish: "romanian",
+        reverso: "romanian",
+        wordreference: "roen",
+        linguee: "romanian"
+      },
+      links: [
+        {
+          id: "dexonline",
+          label: "dexonline",
+          urlTemplate: "https://dexonline.ro/definitie/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ru: {
+      codes: {
+        wiktionaryEn: "Russian",
+        wiktionary: "ru",
+        glosbe: "ru",
+        tatoeba: "rus",
+        forvo: "ru",
+        youglish: "russian",
+        reverso: "russian"
+      },
+      links: [
+        {
+          id: "openrussian",
+          label: "OpenRussian",
+          urlTemplate: "https://en.openrussian.org/ru/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "gramota",
+          label: "Gramota",
+          urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "kartaslov",
+          label: "Kartaslov",
+          urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    sh: {
+      codes: {
+        wiktionaryEn: "Serbo-Croatian",
+        wiktionary: "sh",
+        glosbe: "sh",
+        tatoeba: "hrv",
+        forvo: "hr"
+      },
+      links: [
+        {
+          id: "rjecnik-hr",
+          label: "Skolski rjecnik",
+          urlTemplate: "https://rjecnik.hr/search/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    es: {
+      codes: {
+        wiktionaryEn: "Spanish",
+        wiktionary: "es",
+        glosbe: "es",
+        tatoeba: "spa",
+        forvo: "es",
+        youglish: "spanish",
+        reverso: "spanish",
+        wordreference: "esen",
+        linguee: "spanish"
+      },
+      links: [
+        {
+          id: "rae",
+          label: "RAE",
+          urlTemplate: "https://dle.rae.es/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "spanishdict",
+          label: "SpanishDict",
+          urlTemplate: "https://www.spanishdict.com/translate/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    sv: {
+      codes: {
+        wiktionaryEn: "Swedish",
+        wiktionary: "sv",
+        glosbe: "sv",
+        tatoeba: "swe",
+        forvo: "sv",
+        youglish: "swedish",
+        reverso: "swedish",
+        wordreference: "sven",
+        linguee: "swedish"
+      },
+      links: [
+        {
+          id: "svenska-se",
+          label: "svenska.se",
+          urlTemplate: "https://svenska.se/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    tl: {
+      codes: {
+        wiktionaryEn: "Tagalog",
+        wiktionary: "tl",
+        glosbe: "tl",
+        tatoeba: "tgl",
+        forvo: "tl"
+      },
+      links: [
+        {
+          id: "tagalog-com",
+          label: "Tagalog.com",
+          urlTemplate: "https://www.tagalog.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "diksiyonaryo-ph",
+          label: "Diksiyonaryo.ph",
+          urlTemplate: "https://diksiyonaryo.ph/search/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "pinoydictionary",
+          label: "PinoyDictionary",
+          urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    th: {
+      codes: {
+        wiktionaryEn: "Thai",
+        wiktionary: "th",
+        glosbe: "th",
+        tatoeba: "tha",
+        forvo: "th",
+        youglish: "thai"
+      },
+      links: []
+    },
+    tr: {
+      codes: {
+        wiktionaryEn: "Turkish",
+        wiktionary: "tr",
+        glosbe: "tr",
+        tatoeba: "tur",
+        forvo: "tr",
+        youglish: "turkish",
+        reverso: "turkish"
+      },
+      links: [
+        {
+          id: "tdk",
+          label: "TDK Sozluk",
+          urlTemplate: "https://sozluk.gov.tr/?ara={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "tureng",
+          label: "Tureng",
+          urlTemplate: "https://tureng.com/en/turkish-english/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "seslisozluk",
+          label: "Sesli Sozluk",
+          urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    vi: {
+      codes: {
+        wiktionaryEn: "Vietnamese",
+        wiktionary: "vi",
+        glosbe: "vi",
+        tatoeba: "vie",
+        forvo: "vi",
+        youglish: "vietnamese"
+      },
+      links: [
+        {
+          id: "tratu-soha",
+          label: "Tra tu Soha",
+          urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vdict",
+          label: "VDict",
+          urlTemplate: "https://vdict.com/{query},2,0,0.html",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vtudien",
+          label: "Vtudien",
+          urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    }
+  };
+  const catalogue = {
+    shared,
+    targets
+  };
+  const LOOKUP_LINK_COMPONENTS = Object.freeze([
+    "definition",
+    "sentences",
+    "audio",
+    "images"
+  ]);
+  const CATALOGUE = catalogue;
+  const TARGET_LOOKUP_LINK_IDS = /* @__PURE__ */ new Set([
+    ...CATALOGUE.shared.map((site) => site.id),
+    ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
+  ]);
+  const CODE_TOKEN = /%code%/g;
+  function hasTargetLookupSites(targetLanguage2) {
+    return Object.hasOwn(CATALOGUE.targets, targetLanguage2);
+  }
+  function isTargetLookupLinkId(id) {
+    return TARGET_LOOKUP_LINK_IDS.has(id);
+  }
+  function targetLookupSites(targetLanguage2) {
+    const entry = CATALOGUE.targets[targetLanguage2];
+    if (!entry) return [];
+    const natives = entry.links.map((site, index) => ({
+      ...site,
+      // The target's best-attested dictionary is on by default; the rest of its
+      // shelf is one checkbox away.
+      enabled: index === 0,
+      origin: "native"
+    }));
+    const shared2 = [];
+    for (const site of CATALOGUE.shared) {
+      const code = entry.codes[site.code];
+      if (!code) continue;
+      shared2.push({
+        id: site.id,
+        label: site.label,
+        urlTemplate: site.urlTemplate.replace(CODE_TOKEN, code),
+        components: site.components,
+        enabled: site.enabled,
+        origin: "shared"
+      });
+    }
+    return [...natives, ...shared2];
+  }
+  function targetLookupLinks(targetLanguage2) {
+    return targetLookupSites(targetLanguage2).map((site) => ({
+      id: site.id,
+      label: site.label,
+      urlTemplate: site.urlTemplate,
+      enabled: site.enabled
+    }));
+  }
+  function lookupSiteComponents(targetLanguage2, linkId) {
+    return targetLookupSites(targetLanguage2).find((site) => site.id === linkId)?.components ?? [];
+  }
+  function missingLookupComponents(targetLanguage2) {
+    if (!hasTargetLookupSites(targetLanguage2)) return [];
+    const present = new Set(targetLookupSites(targetLanguage2).flatMap((site) => site.components));
+    return LOOKUP_LINK_COMPONENTS.filter((component) => !present.has(component));
+  }
   const MAX_DICTIONARY_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -13044,10 +14116,11 @@ ${spelling}`);
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id
   ]];
-  function normalizeDictionaryLookupLinkSettings(value) {
+  function normalizeDictionaryLookupLinkSettings(value, targetLanguage2 = "ja") {
     const links = normalizeDictionaryLookupLinks(
       value?.dictionaryLookupLinks,
-      !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim())
+      !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
+      targetLanguage2
     );
     if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
@@ -13071,12 +14144,38 @@ ${spelling}`);
       type: normalizeDictionaryType(record2.type, name)
     };
   }
-  function defaultDictionaryLookupLinks(mode = "local") {
+  function defaultDictionaryLookupLinks(mode = "local", targetLanguage2 = "ja") {
+    if (targetLanguage2 !== "ja" && hasTargetLookupSites(targetLanguage2)) {
+      return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage2), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
+    }
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
       ...link,
       priority: index,
       enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" || link.id === "bunpro-frequency" : link.enabled
     }));
+  }
+  function dictionaryLookupLinksForTarget(previous, targetLanguage2) {
+    const previousById = new Map(previous.map((link) => [link.id, link]));
+    const defaults = defaultDictionaryLookupLinks("local", targetLanguage2).map((link) => {
+      const saved = previousById.get(link.id);
+      return saved ? { ...link, enabled: saved.enabled } : link;
+    });
+    const defaultIds = new Set(defaults.map((link) => link.id));
+    const japaneseDefaultIds = new Set(DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => link.id));
+    const portable = previous.filter((link) => !defaultIds.has(link.id) && !japaneseDefaultIds.has(link.id) && !isTargetLookupLinkId(link.id));
+    return normalizeDictionaryLookupLinks(
+      insertPortableLookupLinks(defaults, portable),
+      false,
+      targetLanguage2
+    );
+  }
+  function insertPortableLookupLinks(defaults, portable) {
+    const links = [...defaults];
+    for (const link of portable) {
+      const requestedIndex = typeof link.priority === "number" && Number.isFinite(link.priority) ? Math.max(0, link.priority) : links.length;
+      links.splice(Math.min(requestedIndex, links.length), 0, link);
+    }
+    return links;
   }
   function legacyDefaultLookupLinksWithNewBuiltIns(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
@@ -13115,8 +14214,8 @@ ${spelling}`);
   function matchesLegacyLookupLink(link, expected) {
     return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
   }
-  function normalizeDictionaryLookupLinks(value, preferJpdb = false) {
-    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
+  function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage2 = "ja") {
+    const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage2);
     if (!Array.isArray(value)) return builtIns;
     const normalized = [];
     const seen = /* @__PURE__ */ new Set();
@@ -14189,7 +15288,13 @@ ${spelling}`);
       ...normalizeMiningSettings(settingsValue),
       ...normalizeSourceAliasSettings(settingsValue),
       ...normalizeRemovedDictionarySettings(settingsValue),
-      dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+      // The pill row belongs to the TARGET, so it is normalized against the
+      // profile's target rather than against Japanese. A fresh Spanish install
+      // boots with the Spanish hotlink set; a Japanese one is untouched.
+      dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
+        settingsValue,
+        activeTargetRosterId(languageProfileSettings)
+      ),
       ...languageProfileSettings,
       preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -14247,6 +15352,10 @@ ${spelling}`);
       interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
       dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
     };
+  }
+  function activeTargetRosterId(profileSettings) {
+    const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
   }
   function languageProfileHasIndependentState(profile) {
     return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
@@ -15431,15 +16540,15 @@ ${spelling}`);
     return state2.targets;
   }
   function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
-    const targets = [];
+    const targets2 = [];
     const controls = root instanceof HTMLElement && root.matches(FORM_CONTROL_TEXT_TARGET_SELECTOR) ? [root] : [];
     controls.push(...Array.from(root.querySelectorAll(FORM_CONTROL_TEXT_TARGET_SELECTOR)));
     for (const control of controls) {
-      if (targets.length >= limit) break;
+      if (targets2.length >= limit) break;
       const target = formControlTextTarget(control, visibleOnly, options);
-      if (target) targets.push(target);
+      if (target) targets2.push(target);
     }
-    return targets;
+    return targets2;
   }
   function formControlTextTarget(control, visibleOnly, options) {
     if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
@@ -18474,8 +19583,8 @@ ${spelling}`);
     const prefix = gap.slice(0, gap.length - digits.length);
     return `${escapeHtml$2(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$2(digits)}</span>`;
   }
-  function renderHighlightedTextHtml(text2, targets, className) {
-    const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
+  function renderHighlightedTextHtml(text2, targets2, className) {
+    const needles = uniqueNonEmptyStrings(targets2).sort((a, b) => b.length - a.length);
     if (!text2 || !needles.length) return escapeHtml$2(text2);
     return renderHighlightChunks(text2, needles, className);
   }
@@ -23663,15 +24772,15 @@ ${entry.reading || ""}`;
   function sentenceHighlightTargets(card, context) {
     return [context.sentenceTarget, card.spelling, card.reading];
   }
-  function renderSentence(sentence, targets) {
+  function renderSentence(sentence, targets2) {
     if (!sentence) return "";
-    const target = firstSentenceHighlightTarget(sentence, targets);
+    const target = firstSentenceHighlightTarget(sentence, targets2);
     if (!target) return escapeHtml$2(sentence);
     return sentence.split(target).map((part) => escapeHtml$2(part)).join(`<span class="yomu-highlight">${escapeHtml$2(target)}</span>`);
   }
-  function firstSentenceHighlightTarget(sentence, targets) {
+  function firstSentenceHighlightTarget(sentence, targets2) {
     const seen = /* @__PURE__ */ new Set();
-    for (const target of targets) {
+    for (const target of targets2) {
       const normalized = target.trim();
       if (!normalized || seen.has(normalized)) continue;
       seen.add(normalized);
@@ -31091,6 +32200,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function formatLookupUrl(template, values) {
     const replacements = {
       query: values.query,
+      queryascii: asciiFoldLookupQuery(values.query),
       word: values.word,
       term: values.word,
       reading: values.reading,
@@ -31104,6 +32214,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } catch {
       return "";
     }
+  }
+  function asciiFoldLookupQuery(value) {
+    return value.normalize("NFKD").replace(/\p{Mark}+/gu, "").replace(/[^\x00-\x7F]/g, "");
   }
   const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
   const JPDB_RELATED_WORD_STATE = "not-in-deck";
@@ -35817,10 +36930,10 @@ ${normalizedReading}`;
   function deconjugatedReading(expression, baseTerm, reading) {
     const expressionChars = Array.from(expression);
     const baseChars = Array.from(baseTerm);
-    let shared = 0;
-    while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
-    const removed = expressionChars.slice(shared).join("");
-    const added = baseChars.slice(shared).join("");
+    let shared2 = 0;
+    while (shared2 < expressionChars.length && shared2 < baseChars.length && expressionChars[shared2] === baseChars[shared2]) shared2++;
+    const removed = expressionChars.slice(shared2).join("");
+    const added = baseChars.slice(shared2).join("");
     if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
     if (removed && !reading.endsWith(removed)) return "";
     const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
@@ -44876,12 +45989,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
     return clamp$1(1 - distance / 54, 0, 1);
   }
-  function averageNearestDistance(points, targets) {
-    return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
+  function averageNearestDistance(points, targets2) {
+    return points.reduce((sum, point) => sum + nearestDistance(point, targets2), 0) / points.length;
   }
-  function nearestDistance(point, targets) {
+  function nearestDistance(point, targets2) {
     let best = Number.POSITIVE_INFINITY;
-    for (const target of targets) best = Math.min(best, manhattan(point, target));
+    for (const target of targets2) best = Math.min(best, manhattan(point, target));
     return best;
   }
   function strokeOccupancyScore(written, reference) {
@@ -55022,7 +56135,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.42".trim() ? "1.8.42".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.43".trim() ? "1.8.43".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -92933,7 +94046,7 @@ ${spelling}`);
       ...readOcrFormSettings(reader, current),
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
-      dictionaryLookupLinks: readDictionaryLookupLinks(data),
+      dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
       ...readSubtitleFormSettings(reader, current),
       ...readYoutubeFormSettings(reader),
       ...readAnkiFormSettings(reader, current),
@@ -93519,6 +94632,9 @@ ${spelling}`);
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
   }
   function readDictionaryLookupLinks(data) {
+    return normalizeDictionaryLookupLinks(submittedDictionaryLookupLinkRows(data), false, readTargetLanguage(data, "ja"));
+  }
+  function submittedDictionaryLookupLinkRows(data) {
     const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get("dictionaryLookupLinkCount")) || 0));
     const links = [];
@@ -93526,7 +94642,13 @@ ${spelling}`);
       const link = readDictionaryLookupLinkRow(data, get, index);
       if (link) links.push(link);
     }
-    return normalizeDictionaryLookupLinks(links);
+    return links;
+  }
+  function readTargetAwareDictionaryLookupLinks(data, current) {
+    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+    const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+    const next = readTargetLanguage(data, previous);
+    return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(submittedDictionaryLookupLinkRows(data), next);
   }
   function readDictionaryLookupLinkRow(data, get, index) {
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
@@ -94445,7 +95567,7 @@ ${spelling}`);
   function removeAudioSourceRow(sources, index) {
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
   }
-  function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = []) {
+  function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
     const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
@@ -94455,13 +95577,32 @@ ${spelling}`);
             <span>Order</span>
             <span>Remove</span>
         </div>
-        ${renderDictionaryLookupLinkRows(rows)}
+        ${renderDictionaryLookupLinkRows(rows, targetLanguage2)}
+        ${renderLookupLinkComponentGaps(targetLanguage2)}
         <div class="jpdb-reader-lookup-link-actions">
             <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
         </div>
     `;
   }
-  function renderDictionaryLookupLinkRows(rows) {
+  const LOOKUP_COMPONENT_LABELS = {
+    definition: "Definitions",
+    sentences: "Example sentences",
+    audio: "Audio",
+    images: "Images"
+  };
+  function renderLookupLinkComponents(targetLanguage2, link) {
+    const components2 = lookupSiteComponents(targetLanguage2, link.id);
+    if (!components2.length) return "";
+    const note = components2.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="components" data-lookup-link-components="${escapeHtml$2(components2.join(" "))}">${escapeHtml$2(note)}</span>`;
+  }
+  function renderLookupLinkComponentGaps(targetLanguage2) {
+    const missing = missingLookupComponents(targetLanguage2);
+    if (!missing.length) return "";
+    const names = missing.map((component) => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(", ");
+    return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml$2(missing.join(" "))}">No verified site for this language offers ${escapeHtml$2(names)}. Add your own above if you know one.</p>`;
+  }
+  function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
     const orderTools = renderRowOrderTools({
       label: "Lookup pill order",
       upAction: "lookup-link-up",
@@ -94473,7 +95614,7 @@ ${spelling}`);
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
       const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$2(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$2(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkComponents(targetLanguage2, link)}`;
       const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
                 <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
@@ -94526,11 +95667,15 @@ ${spelling}`);
   function updateDictionaryLookupLinkEditor(form, action, control) {
     const container = form.querySelector(".jpdb-reader-lookup-links");
     if (!container) return;
-    const links = readDictionaryLookupLinks(new FormData(form));
+    const data = new FormData(form);
+    const links = readDictionaryLookupLinks(data);
     const row = control?.closest("[data-lookup-link-row]");
     const index = row ? Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row) : -1;
     updateDictionaryLookupLinks(links, action, index);
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
+  }
+  function formTargetLanguage(data) {
+    return String(data.get("targetLanguage") ?? "") || "ja";
   }
   function updateDictionaryLookupLinks(links, action, index) {
     if (action === "lookup-link-add") addDictionaryLookupLink(links);
@@ -96776,7 +97921,7 @@ ${spelling}`);
                     <div class="jpdb-reader-help">${escapedUiText(language2, "lookupPillsHelp")}</div>
                     ${checkbox("showLookupPillFrequency", text2("showLookupPillFrequency"), settings.showLookupPillFrequency)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
-                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [])}
+                        ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, [], activeTargetLanguageId(settings))}
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
@@ -98389,7 +99534,11 @@ ${spelling}`);
     });
   }
   function renderLookupPillsEditor(settings, installed = installedDictionariesFromPreferences(settings.dictionaryPreferences)) {
-    return renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks, installedFrequencyDictionaryPreferences(settings, installed));
+    return renderDictionaryLookupLinkEditor(
+      settings.dictionaryLookupLinks,
+      installedFrequencyDictionaryPreferences(settings, installed),
+      activeTargetLanguageId(settings)
+    );
   }
   function installedFrequencyDictionaryPreferences(settings, installed) {
     const installedFrequencyNames = new Set(installed.filter((dictionary) => dictionary.type === "frequency").map((dictionary) => dictionary.title));
@@ -101030,6 +102179,7 @@ ${spelling}`);
         const value = event.currentTarget.value;
         if (!isLearningTargetRosterId(value)) return;
         syncLanguageFamilyDom(form, value);
+        this.renderLookupPillsForTarget(form, value);
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         void this.refreshTargetDictionaryAvailability(form, value);
         if (value === "ja") void this.refreshDictionaryStatus(form);
@@ -101094,6 +102244,25 @@ ${spelling}`);
         input2.addEventListener("change", () => syncPageScanModeControls(form));
       });
       syncPageScanModeControls(form);
+    }
+    /**
+     * Swap the pill editor to the newly picked target's verified hotlinks.
+     *
+     * The dialog is the one place a target changes, and the row it shows has to
+     * change with it or the learner saves Japanese pills against a Spanish
+     * target. The rows are read back out of the live form first so anything the
+     * learner typed in this session — a custom site, a relabelled pill, an
+     * enabled toggle a shared site carries over — survives the swap.
+     */
+    renderLookupPillsForTarget(form, targetLanguage2) {
+      const container = form.querySelector(".jpdb-reader-lookup-links");
+      if (!container) return;
+      const submitted = readDictionaryLookupLinks(new FormData(form));
+      setInnerHtml(container, renderDictionaryLookupLinkEditor(
+        dictionaryLookupLinksForTarget(submitted, targetLanguage2),
+        [],
+        targetLanguage2
+      ));
     }
     async refreshTargetDictionaryAvailability(form, selected = selectedTargetLanguage(form, this.settings)) {
       const requestId = ++this.targetDictionaryAvailabilityRequestId;
@@ -103396,14 +104565,14 @@ ${spelling}`);
     return result;
   }
   async function offlineDictionarySetupPlan(store, learnerLanguage2, result) {
-    const targets = [
+    const targets2 = [
       ...recommendedDictionariesForLearnerLanguage(learnerLanguage2).filter((dictionary) => dictionary.selectedByDefault !== false),
       findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)
     ].filter((dictionary) => Boolean(dictionary?.downloadUrl));
     const installedDictionaries = await store.summary().then((summary) => summary.dictionaries).catch(() => []);
     const missing = [];
     const installed = [];
-    for (const target of targets) {
+    for (const target of targets2) {
       const match = installedDictionaries.find((info) => canonicalDownloadUrl(info.downloadUrl ?? "") === canonicalDownloadUrl(target.downloadUrl) || yomitanDictionaryIdentity(info.title) === recommendedDictionaryInstalledIdentity(target));
       if (!match) {
         missing.push(target);
@@ -103611,7 +104780,7 @@ ${spelling}`);
     const renderedParseKey = renderedNestedParseKey(parseRoots);
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
-    const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+    const targets2 = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
       allowUiText: true,
       includePassiveInteractions: true,
@@ -103620,7 +104789,7 @@ ${spelling}`);
       readerRootPassiveInteractions: true,
       parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+    return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
   }
   function providerExamplePriority(parseRoot) {
     return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
@@ -103629,7 +104798,7 @@ ${spelling}`);
     const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
     if (!parseRoots.length) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
-    const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+    const targets2 = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
       includeReaderRoot: true,
       allowUiText: true,
       includePassiveInteractions: true,
@@ -103638,11 +104807,11 @@ ${spelling}`);
       readerRootPassiveInteractions: true,
       parseSurfaceIgnoredRoot: true
     })).slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+    return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right)).filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => {
+    const targets2 = parseRoots.sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right)).filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => {
       const settingsChrome = isSettingsChromeParseRoot(parseRoot);
       return nestedParseTargetsIn(
         parseRoot,
@@ -103663,7 +104832,7 @@ ${spelling}`);
         }
       );
     }).slice(0, limit);
-    return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+    return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
   }
   function nestedSettingsParseAlreadyRendered(root) {
     if (!root.dataset.jpdbReaderParseKey) return false;
@@ -103754,8 +104923,8 @@ ${spelling}`);
     const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR)).map((parseRoot) => readerWordSurfaceText$1(parseRoot).trim()).filter(Boolean);
     return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") : "";
   }
-  function nestedParseKey(targets) {
-    return targets.map((target) => target.text).join("\n\n");
+  function nestedParseKey(targets2) {
+    return targets2.map((target) => target.text).join("\n\n");
   }
   const SETTINGS_FALLBACK_READINGS = [
     ["日本語", "にほんご"],
@@ -103813,8 +104982,8 @@ ${spelling}`);
     ["色", "いろ"]
   ];
   const SORTED_SETTINGS_FALLBACK_READINGS = [...SETTINGS_FALLBACK_READINGS].sort((left, right) => right[0].length - left[0].length || left[0].localeCompare(right[0]));
-  function supplementSettingsFallbackTokens(targets, parsed) {
-    return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
+  function supplementSettingsFallbackTokens(targets2, parsed) {
+    return targets2.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
   }
   function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, currentPlan) {
     const parsedByText = /* @__PURE__ */ new Map();
@@ -113921,11 +115090,11 @@ ${reading}`);
     // overlap a small, visible native control; CSS then returns just those to
     // the player while the rest of the subtitle stays interactive.
     syncNativePlayerControlHitProtection() {
-      const targets = Array.from(this.root?.querySelectorAll(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
-      targets.forEach((target) => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
+      const targets2 = Array.from(this.root?.querySelectorAll(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
+      targets2.forEach((target) => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
       const safeZones = this.nativePlayerControlSafeZones();
       if (!safeZones.length) return;
-      for (const target of targets) {
+      for (const target of targets2) {
         const rect = target.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) continue;
         if (safeZones.some((zone) => rectsOverlap(rect, zone))) {
@@ -114145,10 +115314,10 @@ ${reading}`);
       if (this.nativeFullscreenHostTracksRestored) return true;
       const restorable = this.tracks.filter((option) => option.track);
       const selected = restorable.filter((option) => option.id === this.selectedTrackId || option.id === this.secondaryTrackId);
-      const targets = selected.length ? selected : restorable.slice(0, 1);
-      if (!targets.length) return false;
+      const targets2 = selected.length ? selected : restorable.slice(0, 1);
+      if (!targets2.length) return false;
       this.nativeFullscreenHostTracksRestored = true;
-      for (const option of targets) {
+      for (const option of targets2) {
         if (option.track) option.track.mode = "showing";
       }
       return true;
@@ -115097,9 +116266,9 @@ ${reading}`);
       log$9.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     applyNativeSubtitleBlurState(nativeBlurred, language2, target) {
-      const targets = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
-      if (!targets.length) return false;
-      for (const button2 of targets) syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2);
+      const targets2 = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
+      if (!targets2.length) return false;
+      for (const button2 of targets2) syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2);
       return true;
     }
     togglePausePanelMode() {
@@ -116318,16 +117487,16 @@ ${reading}`);
       if (!request) return;
       const serial = ++this.transcriptHydrationSerial;
       const indexes = this.transcriptHydrationIndexes(preferredIndex, request.rows.length);
-      const targets = [];
+      const targets2 = [];
       for (const index of indexes) {
         if (serial !== this.transcriptHydrationSerial) return;
         const hydration = this.transcriptRowHydrationTarget(index, request.settings, request.rows);
         if (!hydration) continue;
         const cached = this.htmlCache.parsedHtmlCache.get(hydration.key);
         if (cached) this.applyCachedTranscriptRowHtml(hydration, cached);
-        else targets.push(hydration);
+        else targets2.push(hydration);
       }
-      if (targets.length) await this.hydrateTranscriptRowTargets(targets, request.settings, serial);
+      if (targets2.length) await this.hydrateTranscriptRowTargets(targets2, request.settings, serial);
     }
     transcriptHydrationRequest() {
       if (!this.canHydrateTranscriptRows()) return null;
@@ -116354,10 +117523,10 @@ ${reading}`);
       this.transcriptHydrationCursor = plan.nextCursor;
       return plan.indexes;
     }
-    async hydrateTranscriptRowTargets(targets, settings, serial) {
+    async hydrateTranscriptRowTargets(targets2, settings, serial) {
       try {
         const rows = this.transcriptRows();
-        const parsed = await this.parseTranscriptRowHtmlBatch(targets.map((target) => ({
+        const parsed = await this.parseTranscriptRowHtmlBatch(targets2.map((target) => ({
           rowIndex: target.rowIndex,
           text: target.cue.text,
           key: target.key
@@ -116374,7 +117543,7 @@ ${reading}`);
           });
         }
       } catch {
-        targets.forEach((hydration) => {
+        targets2.forEach((hydration) => {
           hydration.target.dataset.parseFailedKey = hydration.key;
           hydration.target.dataset.parseFailedAt = String(Date.now());
           delete hydration.target.dataset.parsedKey;
@@ -116553,15 +117722,15 @@ ${reading}`);
       for (const target of Array.from(panel.querySelectorAll("[data-transcript-text][data-parse-key]"))) {
         const key = target.dataset.parseKey;
         if (!key) continue;
-        const targets = this.transcriptTextTargetsByParseKey.get(key);
-        if (targets) targets.push(target);
+        const targets2 = this.transcriptTextTargetsByParseKey.get(key);
+        if (targets2) targets2.push(target);
         else this.transcriptTextTargetsByParseKey.set(key, [target]);
       }
     }
     transcriptTextTargetsForParseKey(panel, key) {
       if (!this.transcriptTextTargetsByParseKey.size) this.indexTranscriptTextTargets(panel);
-      const targets = this.transcriptTextTargetsByParseKey.get(key) ?? [];
-      return targets.filter((target) => target.isConnected && panel.contains(target));
+      const targets2 = this.transcriptTextTargetsByParseKey.get(key) ?? [];
+      return targets2.filter((target) => target.isConnected && panel.contains(target));
     }
     updatableTranscriptPanel() {
       if (!this.transcriptPanel) return null;
@@ -122576,8 +123745,8 @@ ${reading}`);
       const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
-      const targets = this.popoverReviewTargets(card, data, provider, language2);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language2, targets.length > 1, this.switchProviderTarget(card, provider));
+      const targets2 = this.popoverReviewTargets(card, data, provider, language2);
+      if (targets2.length) return this.renderTargetedReviewButtons(targets2, language2, targets2.length > 1, this.switchProviderTarget(card, provider));
       if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -122715,9 +123884,9 @@ ${reading}`);
         gradeProfile: "standard"
       }));
     }
-    renderTargetedReviewButtons(targets, language2, canSwitchTarget, switchProviderTarget) {
+    renderTargetedReviewButtons(targets2, language2, canSwitchTarget, switchProviderTarget) {
       const settings = this.settings();
-      const selected = targets[0];
+      const selected = targets2[0];
       if (!selected) return "";
       const standardGrades = reviewButtonGrades(settings);
       const bunproRegularGrades = [
@@ -122730,14 +123899,14 @@ ${reading}`);
         ["okay", uiText(language2, "bunproGradeGoodLabel")],
         ["easy", uiText(language2, "bunproGradeEasyLabel")]
       ];
-      const profiles = new Set(targets.map((target) => target.gradeProfile));
+      const profiles = new Set(targets2.map((target) => target.gradeProfile));
       const gradeRows = [
         profiles.has("standard") ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.gradeProfile !== "standard") : "",
         profiles.has("bunpro-regular") ? renderTargetedGradeRow(bunproRegularGrades, selected, "bunpro-regular", selected.gradeProfile !== "bunpro-regular") : "",
         profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected, "bunpro-fsrs", selected.gradeProfile !== "bunpro-fsrs") : ""
       ].filter(Boolean).join("");
       if (!gradeRows) return "";
-      const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language2) : "";
+      const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language2) : "";
       const targetGutter = renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget);
       return `
             ${targetGutter}
@@ -122837,10 +124006,10 @@ ${reading}`);
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$2(label)}"></button>
     </div>`;
   }
-  function renderReviewTargetSelector(targets, language2) {
+  function renderReviewTargetSelector(targets2, language2) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$2(uiText(language2, "gradeTargetSelector"))}">
-            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
+            ${targets2.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -126964,10 +128133,10 @@ ${component.reading}`;
     if (ankiLabel) items.push(newLookupMetaLabel(ankiLabel, `anki-${options.ankiLookup.state}`));
     return items;
   }
-  function renderNewTabLookupReviewButtons(grades, targets) {
+  function renderNewTabLookupReviewButtons(grades, targets2) {
     if (!grades.length) return "";
-    if (targets.length > 1) return renderLookupReviewTargetControls(targets, grades);
-    if (targets.length) return renderLookupReviewTargetButtons(targets[0], grades);
+    if (targets2.length > 1) return renderLookupReviewTargetControls(targets2, grades);
+    if (targets2.length) return renderLookupReviewTargetButtons(targets2[0], grades);
     return "";
   }
   function updateKanjiLookupMiningControls(popover, controls, setMiningControlsExpanded2) {
@@ -127058,12 +128227,12 @@ ${component.reading}`;
         </div>
     `;
   }
-  function renderLookupReviewTargetControls(targets, grades) {
-    const selected = targets[0];
+  function renderLookupReviewTargetControls(targets2, grades) {
+    const selected = targets2[0];
     if (!selected) return "";
     return `
         ${renderLookupReviewTargetGutter(selected)}
-        ${renderLookupReviewTargetSelector(targets)}
+        ${renderLookupReviewTargetSelector(targets2)}
         ${renderLookupReviewTargetButtons(selected, grades)}
     `;
   }
@@ -127074,10 +128243,10 @@ ${component.reading}`;
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$2(target.label)}" aria-label="${escapeHtml$2(target.label)}"></button>
     </div>`;
   }
-  function renderLookupReviewTargetSelector(targets) {
+  function renderLookupReviewTargetSelector(targets2) {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
         <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="Review target">
-            ${targets.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
+            ${targets2.map((target, index) => `<option value="${escapeHtml$2(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$2(target.label)}" data-review-target-short-label="${escapeHtml$2(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$2(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
   }
@@ -127842,9 +129011,9 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   function reviewTargetsForNewTabCard(card, settings, ankiCardId) {
     if (!settings.enableReviews) return [];
-    const targets = [];
+    const targets2 = [];
     const add = (target) => {
-      if (!targets.includes(target)) targets.push(target);
+      if (!targets2.includes(target)) targets2.push(target);
     };
     if (isWanikaniReviewCard(card) && card.cardState.includes("due") && settings.wanikaniReviewEnabled && hasWanikaniApiCredential(settings)) {
       return ["wanikani-api"];
@@ -127863,10 +129032,10 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     if (card.reviewSource === "yomu-local" && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (card.source === "fallback" && !card.reviewSource && settings.yomuLocalSrsEnabled) add("yomu-local");
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
-    return targets;
+    return targets2;
   }
-  function queueableNewTabReviewTargets(targets) {
-    return targets.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
+  function queueableNewTabReviewTargets(targets2) {
+    return targets2.filter((target) => target === "anki" || target === "jpdb-api" || target === "jiten-api" || target === "yomu-local");
   }
   function isWanikaniReviewCard(card) {
     return (card.source === "wanikani" || card.reviewSource === "wanikani-api") && typeof card.wanikaniAssignmentId === "number" && card.wanikaniAssignmentId > 0;
@@ -131962,15 +133131,15 @@ ${entry.url}`),
   function cleanNestedLookupValue$1(value) {
     return (value ?? "").replace(/\s+/g, " ").trim();
   }
-  function summarizeNewTabReviewSources(targets) {
+  function summarizeNewTabReviewSources(targets2) {
     return {
-      targets,
-      hasJpdb: targets.some((target) => isJpdbReviewTarget(target)),
-      hasJiten: targets.includes("jiten-api"),
-      hasBunpro: targets.includes("bunpro-api"),
-      hasWanikani: targets.includes("wanikani-api"),
-      hasYomuLocal: targets.includes("yomu-local"),
-      hasAnki: targets.includes("anki")
+      targets: targets2,
+      hasJpdb: targets2.some((target) => isJpdbReviewTarget(target)),
+      hasJiten: targets2.includes("jiten-api"),
+      hasBunpro: targets2.includes("bunpro-api"),
+      hasWanikani: targets2.includes("wanikani-api"),
+      hasYomuLocal: targets2.includes("yomu-local"),
+      hasAnki: targets2.includes("anki")
     };
   }
   function isJpdbReviewTarget(target) {
@@ -131994,10 +133163,10 @@ ${entry.url}`),
     if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
-  function newTabMainGradeTargetOptions(targets, combinedLabel, bothLabel) {
-    const hasApi = targets.some((target) => target.kind !== "anki");
-    const ankiTargets = targets.filter((target) => target.kind === "anki" && target.ankiCardId);
-    const options = targets.map(newTabMainGradeTargetOptionFromLookupTarget);
+  function newTabMainGradeTargetOptions(targets2, combinedLabel, bothLabel) {
+    const hasApi = targets2.some((target) => target.kind !== "anki");
+    const ankiTargets = targets2.filter((target) => target.kind === "anki" && target.ankiCardId);
+    const options = targets2.map(newTabMainGradeTargetOptionFromLookupTarget);
     if (hasApi && ankiTargets.length) {
       return [
         {
@@ -133409,8 +134578,8 @@ ${entry.url}`),
     return null;
   }
   function dictionaryExampleSentences(card, entries2) {
-    const targets = [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => value.trim()).filter(Boolean);
-    return uniqueSentences(entries2.flatMap((entry) => entry.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets.some((target) => sentence.includes(target))).filter((sentence) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
+    const targets2 = [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => value.trim()).filter(Boolean);
+    return uniqueSentences(entries2.flatMap((entry) => entry.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets2.some((target) => sentence.includes(target))).filter((sentence) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
   }
   function dictionaryGlossarySentences(value) {
     const explicitExamples = structuredExampleTexts(value);
@@ -133664,8 +134833,8 @@ ${entry.url}`),
     // snapshot on the final write — a silently deleted review.
     serial = Promise.resolve();
     storage;
-    enqueue(card, grade, targets) {
-      return this.locked(() => this.enqueueUnlocked(card, grade, targets));
+    enqueue(card, grade, targets2) {
+      return this.locked(() => this.enqueueUnlocked(card, grade, targets2));
     }
     flush() {
       return this.locked(() => this.flushUnlocked());
@@ -133675,8 +134844,8 @@ ${entry.url}`),
       this.serial = next.then(() => void 0, () => void 0);
       return next;
     }
-    async enqueueUnlocked(card, grade, targets) {
-      const queueTargets = queueableNewTabReviewTargets(targets);
+    async enqueueUnlocked(card, grade, targets2) {
+      const queueTargets = queueableNewTabReviewTargets(targets2);
       if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
       const queue = await this.read();
       const entries2 = queueTargets.map((target) => ({
@@ -139372,9 +140541,9 @@ ${entry.url}`),
     // fallback), rebuild the line from the cloze's before/after halves.
     blankTypeWordSentenceTargets(root, cloze) {
       const gapNode = () => el("span", { class: "jpdb-reader-newtab-recall-gap", role: "img", "aria-label": this.text("recallAnswer") });
-      const targets = [...root.querySelectorAll(".jpdb-reader-example-target")];
-      if (targets.length) {
-        targets.forEach((word) => word.replaceWith(gapNode()));
+      const targets2 = [...root.querySelectorAll(".jpdb-reader-example-target")];
+      if (targets2.length) {
+        targets2.forEach((word) => word.replaceWith(gapNode()));
         return;
       }
       if (root.querySelector(".jpdb-reader-newtab-recall-gap")) return;
@@ -141624,8 +142793,8 @@ ${entry.url}`),
       return names.map((name) => shortcuts[name].trim()).find(Boolean) ?? "";
     }
     mainGradeTargetOptions(card) {
-      const targets = this.lookupReviewTargetsForCard(card);
-      return newTabMainGradeTargetOptions(targets, this.gradeTargetLabel(card), this.text("gradeTargetBoth"));
+      const targets2 = this.lookupReviewTargetsForCard(card);
+      return newTabMainGradeTargetOptions(targets2, this.gradeTargetLabel(card), this.text("gradeTargetBoth"));
     }
     selectedMainGradeTarget(root) {
       return selectedNewTabMainGradeTarget(root);
@@ -141663,26 +142832,26 @@ ${entry.url}`),
     }
     // fallow-ignore-next-line complexity
     lookupReviewTargetsForCard(card, data) {
-      const targets = this.reviewTargetsForCard(card);
+      const targets2 = this.reviewTargetsForCard(card);
       const result = [];
-      if (targets.includes("jiten-api")) {
+      if (targets2.includes("jiten-api")) {
         result.push({ id: "jiten", kind: "jiten", label: this.text("gradeTargetJiten"), shortLabel: "Jiten" });
       }
-      if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live")) {
+      if (targets2.some((target) => target === "jpdb-api" || target === "jpdb-live")) {
         result.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
       }
-      if (targets.includes("bunpro-api")) {
+      if (targets2.includes("bunpro-api")) {
         result.push({ id: "bunpro", kind: "bunpro", label: this.text("gradeTargetBunpro"), shortLabel: "Bunpro" });
       }
-      if (targets.includes("wanikani-api")) {
+      if (targets2.includes("wanikani-api")) {
         result.push({ id: "wanikani", kind: "wanikani", label: this.text("gradeTargetWanikani"), shortLabel: "WaniKani" });
       }
-      if (targets.includes("yomu-local")) {
+      if (targets2.includes("yomu-local")) {
         result.push({ id: "yomu-local", kind: "yomu-local", label: this.text("gradeTargetYomuLocal"), shortLabel: "Yomu" });
       }
       const settings = this.dependencies.getSettings();
       const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];
-      if (targets.includes("anki") || ankiTargets.length) result.push(...ankiTargets);
+      if (targets2.includes("anki") || ankiTargets.length) result.push(...ankiTargets);
       return result;
     }
     lookupAnkiReviewTargets(card, data) {
@@ -141841,11 +143010,11 @@ ${entry.url}`),
     }
     // Local grading (Academy SRS) needs no connection, so it never raises the
     // connection-lost dialog; only queued grades bound for a network provider do.
-    networkGradeTargets(targets) {
-      return targets.some((target) => target !== "yomu-local");
+    networkGradeTargets(targets2) {
+      return targets2.some((target) => target !== "yomu-local");
     }
-    shouldConfirmOfflineReviewAfterFailure(targets, card, selectedTarget, error) {
-      return this.networkGradeTargets(targets) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
+    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget, error) {
+      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.
@@ -141904,10 +143073,10 @@ ${entry.url}`),
       if (selectedTarget) {
         return await this.submitSelectedLookupTarget(card, selectedTarget, grade);
       }
-      const targets = this.reviewTargetsForCard(card);
-      if (!targets.length) throw new Error(this.text("couldNotSubmitGrade"));
+      const targets2 = this.reviewTargetsForCard(card);
+      if (!targets2.length) throw new Error(this.text("couldNotSubmitGrade"));
       const failures = [];
-      for (const target of targets) {
+      for (const target of targets2) {
         try {
           await this.submitReviewTarget(card, target, grade);
         } catch (error) {
@@ -141932,15 +143101,15 @@ ${entry.url}`),
     }
     // fallow-ignore-next-line complexity
     lookupReviewTargetForSelection(card, selectedTarget) {
-      const targets = this.lookupReviewTargetsForCard(card);
-      if (selectedTarget.kind === "jpdb") return targets.find((target) => target.kind === "jpdb") ?? null;
-      if (selectedTarget.kind === "jiten") return targets.find((target) => target.kind === "jiten") ?? null;
-      if (selectedTarget.kind === "bunpro") return targets.find((target) => target.kind === "bunpro") ?? null;
-      if (selectedTarget.kind === "wanikani") return targets.find((target) => target.kind === "wanikani") ?? null;
-      if (selectedTarget.kind === "yomu-local") return targets.find((target) => target.kind === "yomu-local") ?? null;
+      const targets2 = this.lookupReviewTargetsForCard(card);
+      if (selectedTarget.kind === "jpdb") return targets2.find((target) => target.kind === "jpdb") ?? null;
+      if (selectedTarget.kind === "jiten") return targets2.find((target) => target.kind === "jiten") ?? null;
+      if (selectedTarget.kind === "bunpro") return targets2.find((target) => target.kind === "bunpro") ?? null;
+      if (selectedTarget.kind === "wanikani") return targets2.find((target) => target.kind === "wanikani") ?? null;
+      if (selectedTarget.kind === "yomu-local") return targets2.find((target) => target.kind === "yomu-local") ?? null;
       const selectedCardId = Number(selectedTarget.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
-      return targets.find((target) => target.kind === "anki" && target.ankiCardId === selectedCardId) ?? null;
+      return targets2.find((target) => target.kind === "anki" && target.ankiCardId === selectedCardId) ?? null;
     }
     // fallow-ignore-next-line complexity
     reviewTargetForLookupKind(card, kind) {
@@ -142133,12 +143302,12 @@ ${entry.url}`),
       };
     }
     invalidateReviewSourceCache(card) {
-      const targets = this.reviewTargetsForCard(card);
-      if (targets.includes("anki")) this.invalidateSourceResultCache("anki");
-      if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live" || target === "jiten-api")) this.invalidateSourceResultCache("jpdb");
-      if (targets.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
-      if (targets.includes("wanikani-api") || card.source === "wanikani" || card.reviewSource === "wanikani-api") this.invalidateSourceResultCache("wanikani");
-      if (targets.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
+      const targets2 = this.reviewTargetsForCard(card);
+      if (targets2.includes("anki")) this.invalidateSourceResultCache("anki");
+      if (targets2.some((target) => target === "jpdb-api" || target === "jpdb-live" || target === "jiten-api")) this.invalidateSourceResultCache("jpdb");
+      if (targets2.includes("bunpro-api")) this.invalidateSourceResultCache("bunpro");
+      if (targets2.includes("wanikani-api") || card.source === "wanikani" || card.reviewSource === "wanikani-api") this.invalidateSourceResultCache("wanikani");
+      if (targets2.includes("yomu-local")) this.invalidateSourceResultCache("yomu-local");
     }
     ankiCardIdForReview(card) {
       const cardId = card.ankiCardId ?? (card.source === "anki" || card.reviewSource === "anki" ? card.rid : void 0);
@@ -144681,8 +145850,8 @@ ${rank.detail}` : baseTitle;
     }
     renderNewTabLookupReviewButtons(card, data) {
       const grades = this.newTab?.lookupGradeOptions(card) ?? [];
-      const targets = this.newTab?.lookupReviewTargets(card, data) ?? [];
-      return renderNewTabLookupReviewButtons(grades, targets);
+      const targets2 = this.newTab?.lookupReviewTargets(card, data) ?? [];
+      return renderNewTabLookupReviewButtons(grades, targets2);
     }
     resetLookupHandlers() {
       this.activeLookupHandlerController?.abort();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.42
+// @version 1.8.43
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.dc914e772ead.user.js#sha256=3JFOdy6tbgozKIzIFLnOB6S3KQfpZVCnlv6LzzeZ/rc=
+// @require https://yomureader.com/greasyfork/yomu-anki.acbd371d45ed.user.js#sha256=rL03HUXtg682elUuGlGuS+zXkgGyFNLeJDGnaO8MJgo=
 // @require https://yomureader.com/greasyfork/yomu-audio.e60ffc276380.user.js#sha256=5g/8J2OAcu8iGVyUkBP/iRJm2BHAWa9MPlJDEk7Ad2g=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.c0d80eb6eab1.user.js#sha256=wNgOtuqxMtkALDasF6f4C0YWQjpSJ4ETlUeQRhEnCQY=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b38abde1c14f.user.js#sha256=s4q94cFPVD6gEgrFlrIdwCVWt7h+DEFlHH5N6Sur/NA=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.61be7e991211.user.js#sha256=Yb5+mRIRT3dJi9MdOAyiGrFq+XrQc8bvBUMa2b4iGa8=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.d8d6f606f4b5.user.js#sha256=2Nb2BvS1+G50MFBmqgGEKHTVihoBFaSBrU/Z0wuA0dI=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.20c21c90966d.user.js#sha256=IMIckJZtUf8xw707R6viTdqGANLSWqZtc4II5Ss7MIk=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.1d7f42edb57a.user.js#sha256=HX9C7bV6s7ayy43MHeK31LhaVF1/Z95jBabwKlHmq9I=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.03e45ddb2db7.user.js#sha256=A+Rd2y23tFgcdso466NxGPb14KPTy74iG3CfuasW/cA=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.7fa14b09f96e.user.js#sha256=f6FLCfluGdVM0D7dN97m6auTsnEUgKqY0Rfv9jdBdxU=
-// @require https://yomureader.com/greasyfork/yomu-jiten.45308309d901.user.js#sha256=RTCDCdkB01M444EI4GdKh1ZV9MUZ5mvpTAGnfkabbjU=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.c8d4473d484b.user.js#sha256=yNRHPUhLqhViXEU8Y4o0/4PvofnWPoDOBikzbWeHWN4=
-// @require https://yomureader.com/greasyfork/yomu-video.3610f5002b62.user.js#sha256=NhD1ACtiwfFjLGjAAQjduWVSkrl4Gcr1HNSrd6f0zC0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.f1477f31241e.user.js#sha256=8Ud/MSQeQ8MS86Qy+YCcmVZK3z8mk5i3stZqMj+6kbI=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.ed6b45c9432f.user.js#sha256=7WtFyUMvuEA1xzVY8duui6nFuDi6FveJiOqfe9roLYw=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.aceb45703e50.user.js#sha256=rOtFcD5QckB1Rek1eZzpeU8ERavVDw776zxd2Pr+sSo=
+// @require https://yomureader.com/greasyfork/yomu-jiten.7ce70ea082b1.user.js#sha256=fOcOoIKxaefc/Yi7s2UZPGEn0pJ7xdvoJ02KFQcLNMQ=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.541e8d737c11.user.js#sha256=VB6Nc3wRKZsy/v5cddDkcZUy8qStA5ji8Er6Mz9pU7g=
+// @require https://yomureader.com/greasyfork/yomu-video.c411b51ae801.user.js#sha256=xBG1GugB+whHLKgWHPHWIcPfjSDp+3krs/QbWyp6c0M=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -6140,8 +6140,8 @@ async function gmStorageGet(key, fallback) {
   try {
     const pendingPatch = pendingHostedLocalPatch(key);
     if (pendingPatch) {
-      const shared = await getValue(key, MISSING);
-      const sharedRecord = !isMissingSentinel(shared) && isPlainRecord(shared) ? shared : {};
+      const shared2 = await getValue(key, MISSING);
+      const sharedRecord = !isMissingSentinel(shared2) && isPlainRecord(shared2) ? shared2 : {};
       const reconciled = { ...sharedRecord, ...pendingPatch };
       await gmStorageSet(key, reconciled);
       return reconciled;
@@ -7147,6 +7147,11 @@ function canonicalTagForSlice1Language(id) {
   const runtimeLocale = learnerLanguageById(id).runtimeLocale;
   return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
 }
+function learningTargetRosterIdForTag(value) {
+  const canonical = canonicalLanguageTag(value);
+  if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
+  return slice1LanguageIdForTag(value);
+}
 function slice1LanguageIdForTag(value) {
   if (typeof value !== "string") return null;
   const input = value.trim().toLowerCase().replace(/_/g, "-");
@@ -7411,6 +7416,1059 @@ function speakerIcon() {
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
+const shared = [
+  {
+  id: "wiktionary-en",
+  label: "Wiktionary EN",
+  code: "wiktionaryEn",
+  urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
+  components: [
+    "definition",
+    "sentences"
+  ],
+  enabled: true
+  },
+  {
+  id: "wiktionary-native",
+  label: "Wiktionary",
+  code: "wiktionary",
+  urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
+  components: [
+    "definition"
+  ],
+  enabled: false
+  },
+  {
+  id: "glosbe",
+  label: "Glosbe",
+  code: "glosbe",
+  urlTemplate: "https://glosbe.com/%code%/en/{query}",
+  components: [
+    "definition",
+    "sentences"
+  ],
+  enabled: false
+  },
+  {
+  id: "tatoeba",
+  label: "Tatoeba",
+  code: "tatoeba",
+  urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+  components: [
+    "sentences"
+  ],
+  enabled: true
+  },
+  {
+  id: "forvo",
+  label: "Forvo",
+  code: "forvo",
+  urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
+  components: [
+    "audio"
+  ],
+  enabled: true
+  },
+  {
+  id: "youglish",
+  label: "YouGlish",
+  code: "youglish",
+  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+  components: [
+    "sentences",
+    "audio"
+  ],
+  enabled: false
+  },
+  {
+  id: "reverso",
+  label: "Reverso",
+  code: "reverso",
+  urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
+  components: [
+    "sentences",
+    "audio"
+  ],
+  enabled: false
+  },
+  {
+  id: "wordreference",
+  label: "WordReference",
+  code: "wordreference",
+  urlTemplate: "https://www.wordreference.com/%code%/{query}",
+  components: [
+    "definition",
+    "sentences",
+    "audio"
+  ],
+  enabled: false
+  },
+  {
+  id: "linguee",
+  label: "Linguee",
+  code: "linguee",
+  urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
+  components: [
+    "sentences"
+  ],
+  enabled: false
+  }
+];
+const targets = {
+  sq: {
+  codes: {
+    wiktionaryEn: "Albanian",
+    wiktionary: "sq",
+    glosbe: "sq",
+    tatoeba: "sqi",
+    forvo: "sq"
+  },
+  links: [
+    {
+      id: "fjalorthi",
+      label: "Fjalorthi",
+      urlTemplate: "https://fjalorthi.com/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  grc: {
+  codes: {
+    wiktionaryEn: "Ancient_Greek",
+    glosbe: "grc",
+    tatoeba: "grc"
+  },
+  links: [
+    {
+      id: "logeion",
+      label: "Logeion",
+      urlTemplate: "https://logeion.uchicago.edu/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "lsj",
+      label: "LSJ",
+      urlTemplate: "https://lsj.gr/wiki/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "scaife",
+      label: "Scaife",
+      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+      components: [
+        "sentences"
+      ]
+    }
+  ]
+  },
+  ar: {
+  codes: {
+    wiktionaryEn: "Arabic",
+    wiktionary: "ar",
+    glosbe: "ar",
+    tatoeba: "ara",
+    forvo: "ar",
+    youglish: "arabic",
+    reverso: "arabic"
+  },
+  links: []
+  },
+  yue: {
+  codes: {
+    wiktionaryEn: "Chinese",
+    wiktionary: "yue",
+    glosbe: "yue",
+    tatoeba: "yue",
+    forvo: "yue"
+  },
+  links: [
+    {
+      id: "words-hk",
+      label: "words.hk",
+      urlTemplate: "https://words.hk/zidin/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "cantowords",
+      label: "CantoWords",
+      urlTemplate: "https://cantowords.com/dictionary/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    },
+    {
+      id: "cantodict",
+      label: "CantoDict",
+      urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "cccanto",
+      label: "CC-Canto",
+      urlTemplate: "https://cantonese.org/search.php?q={query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  zh: {
+  codes: {
+    wiktionaryEn: "Chinese",
+    wiktionary: "zh",
+    glosbe: "zh",
+    tatoeba: "cmn",
+    forvo: "zh",
+    youglish: "chinese",
+    reverso: "chinese",
+    linguee: "chinese"
+  },
+  links: [
+    {
+      id: "mdbg",
+      label: "MDBG",
+      urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "purpleculture",
+      label: "Purple Culture",
+      urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio",
+        "images"
+      ]
+    },
+    {
+      id: "zdic",
+      label: "Zdic",
+      urlTemplate: "https://www.zdic.net/hans/{query}",
+      components: [
+        "definition",
+        "audio"
+      ]
+    }
+  ]
+  },
+  da: {
+  codes: {
+    wiktionaryEn: "Danish",
+    wiktionary: "da",
+    glosbe: "da",
+    tatoeba: "dan",
+    forvo: "da",
+    linguee: "danish"
+  },
+  links: [
+    {
+      id: "ddo",
+      label: "Den Danske Ordbog",
+      urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
+      components: [
+        "definition",
+        "audio"
+      ]
+    }
+  ]
+  },
+  nl: {
+  codes: {
+    wiktionaryEn: "Dutch",
+    wiktionary: "nl",
+    glosbe: "nl",
+    tatoeba: "nld",
+    forvo: "nl",
+    youglish: "dutch",
+    reverso: "dutch",
+    wordreference: "nlen",
+    linguee: "dutch"
+  },
+  links: [
+    {
+      id: "woorden",
+      label: "woorden.org",
+      urlTemplate: "https://www.woorden.org/woord/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "mijnwoordenboek",
+      label: "MijnWoordenboek",
+      urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  en: {
+  codes: {
+    wiktionaryEn: "English",
+    tatoeba: "eng",
+    forvo: "en",
+    youglish: "english"
+  },
+  links: [
+    {
+      id: "cambridge",
+      label: "Cambridge",
+      urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    }
+  ]
+  },
+  fi: {
+  codes: {
+    wiktionaryEn: "Finnish",
+    wiktionary: "fi",
+    glosbe: "fi",
+    tatoeba: "fin",
+    forvo: "fi",
+    linguee: "finnish"
+  },
+  links: [
+    {
+      id: "kotus",
+      label: "Kielitoimiston",
+      urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "suomisanakirja",
+      label: "Suomisanakirja",
+      urlTemplate: "https://www.suomisanakirja.fi/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  fr: {
+  codes: {
+    wiktionaryEn: "French",
+    wiktionary: "fr",
+    glosbe: "fr",
+    tatoeba: "fra",
+    forvo: "fr",
+    youglish: "french",
+    reverso: "french",
+    wordreference: "fren",
+    linguee: "french"
+  },
+  links: [
+    {
+      id: "cnrtl",
+      label: "CNRTL",
+      urlTemplate: "https://www.cnrtl.fr/definition/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "larousse",
+      label: "Larousse",
+      urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    }
+  ]
+  },
+  de: {
+  codes: {
+    wiktionaryEn: "German",
+    wiktionary: "de",
+    glosbe: "de",
+    tatoeba: "deu",
+    forvo: "de",
+    youglish: "german",
+    reverso: "german",
+    wordreference: "deen",
+    linguee: "german"
+  },
+  links: [
+    {
+      id: "dwds",
+      label: "DWDS",
+      urlTemplate: "https://www.dwds.de/wb/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    },
+    {
+      id: "duden",
+      label: "Duden",
+      urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
+      components: [
+        "definition",
+        "audio"
+      ]
+    }
+  ]
+  },
+  el: {
+  codes: {
+    wiktionaryEn: "Greek",
+    wiktionary: "el",
+    glosbe: "el",
+    tatoeba: "ell",
+    forvo: "el",
+    youglish: "greek"
+  },
+  links: [
+    {
+      id: "triantafyllides",
+      label: "Triantafyllides",
+      urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  hu: {
+  codes: {
+    wiktionaryEn: "Hungarian",
+    wiktionary: "hu",
+    glosbe: "hu",
+    tatoeba: "hun",
+    forvo: "hu",
+    linguee: "hungarian"
+  },
+  links: [
+    {
+      id: "wikiszotar",
+      label: "WikiSzotar",
+      urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  id: {
+  codes: {
+    wiktionaryEn: "Indonesian",
+    wiktionary: "id",
+    glosbe: "id",
+    tatoeba: "ind",
+    forvo: "id",
+    youglish: "indonesian"
+  },
+  links: [
+    {
+      id: "kbbi-web",
+      label: "KBBI",
+      urlTemplate: "https://kbbi.web.id/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "kbbi-co",
+      label: "KBBI.co.id",
+      urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  it: {
+  codes: {
+    wiktionaryEn: "Italian",
+    wiktionary: "it",
+    glosbe: "it",
+    tatoeba: "ita",
+    forvo: "it",
+    youglish: "italian",
+    reverso: "italian",
+    wordreference: "iten",
+    linguee: "italian"
+  },
+  links: [
+    {
+      id: "treccani",
+      label: "Treccani",
+      urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "demauro",
+      label: "De Mauro",
+      urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  km: {
+  codes: {
+    wiktionaryEn: "Khmer",
+    wiktionary: "km",
+    glosbe: "km",
+    tatoeba: "khm",
+    forvo: "km"
+  },
+  links: []
+  },
+  ko: {
+  codes: {
+    wiktionaryEn: "Korean",
+    wiktionary: "ko",
+    glosbe: "ko",
+    tatoeba: "kor",
+    forvo: "ko",
+    youglish: "korean"
+  },
+  links: [
+    {
+      id: "naver",
+      label: "Naver",
+      urlTemplate: "https://dict.naver.com/dict.search?query={query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    },
+    {
+      id: "krdict",
+      label: "Krdict",
+      urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    },
+    {
+      id: "daum",
+      label: "Daum",
+      urlTemplate: "https://dic.daum.net/search.do?q={query}",
+      components: [
+        "definition",
+        "audio"
+      ]
+    }
+  ]
+  },
+  lo: {
+  codes: {
+    wiktionaryEn: "Lao",
+    wiktionary: "lo",
+    glosbe: "lo",
+    tatoeba: "lao",
+    forvo: "lo"
+  },
+  links: []
+  },
+  la: {
+  codes: {
+    wiktionaryEn: "Latin",
+    wiktionary: "la",
+    glosbe: "la",
+    tatoeba: "lat",
+    forvo: "la"
+  },
+  links: [
+    {
+      id: "logeion",
+      label: "Logeion",
+      urlTemplate: "https://logeion.uchicago.edu/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "lsj",
+      label: "Lewis & Short",
+      urlTemplate: "https://lsj.gr/wiki/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "olivetti",
+      label: "Olivetti",
+      urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "scaife",
+      label: "Scaife",
+      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+      components: [
+        "sentences"
+      ]
+    }
+  ]
+  },
+  mn: {
+  codes: {
+    wiktionaryEn: "Mongolian",
+    wiktionary: "mn",
+    glosbe: "mn",
+    tatoeba: "mon",
+    forvo: "mn"
+  },
+  links: [
+    {
+      id: "mongoltoli",
+      label: "Mongoltoli",
+      urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "toli-query",
+      label: "Toli",
+      urlTemplate: "https://toli.query.mn/?q={query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  fa: {
+  codes: {
+    wiktionaryEn: "Persian",
+    wiktionary: "fa",
+    glosbe: "fa",
+    tatoeba: "pes",
+    forvo: "fa",
+    youglish: "persian"
+  },
+  links: [
+    {
+      id: "vajehyab",
+      label: "Vajehyab",
+      urlTemplate: "https://www.vajehyab.com/?q={query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "abadis",
+      label: "Abadis",
+      urlTemplate: "https://abadis.ir/fatofa/{query}/",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "dehkhoda",
+      label: "Dehkhoda",
+      urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  pl: {
+  codes: {
+    wiktionaryEn: "Polish",
+    wiktionary: "pl",
+    glosbe: "pl",
+    tatoeba: "pol",
+    forvo: "pl",
+    youglish: "polish",
+    reverso: "polish",
+    wordreference: "plen",
+    linguee: "polish"
+  },
+  links: [
+    {
+      id: "sjp-pwn",
+      label: "SJP PWN",
+      urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  pt: {
+  codes: {
+    wiktionaryEn: "Portuguese",
+    wiktionary: "pt",
+    glosbe: "pt",
+    tatoeba: "por",
+    forvo: "pt",
+    youglish: "portuguese",
+    reverso: "portuguese",
+    wordreference: "pten",
+    linguee: "portuguese"
+  },
+  links: [
+    {
+      id: "priberam",
+      label: "Priberam",
+      urlTemplate: "https://dicionario.priberam.org/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "dicio",
+      label: "Dicio",
+      urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  ro: {
+  codes: {
+    wiktionaryEn: "Romanian",
+    wiktionary: "ro",
+    glosbe: "ro",
+    tatoeba: "ron",
+    forvo: "ro",
+    youglish: "romanian",
+    reverso: "romanian",
+    wordreference: "roen",
+    linguee: "romanian"
+  },
+  links: [
+    {
+      id: "dexonline",
+      label: "dexonline",
+      urlTemplate: "https://dexonline.ro/definitie/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  ru: {
+  codes: {
+    wiktionaryEn: "Russian",
+    wiktionary: "ru",
+    glosbe: "ru",
+    tatoeba: "rus",
+    forvo: "ru",
+    youglish: "russian",
+    reverso: "russian"
+  },
+  links: [
+    {
+      id: "openrussian",
+      label: "OpenRussian",
+      urlTemplate: "https://en.openrussian.org/ru/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    },
+    {
+      id: "gramota",
+      label: "Gramota",
+      urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "kartaslov",
+      label: "Kartaslov",
+      urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    }
+  ]
+  },
+  sh: {
+  codes: {
+    wiktionaryEn: "Serbo-Croatian",
+    wiktionary: "sh",
+    glosbe: "sh",
+    tatoeba: "hrv",
+    forvo: "hr"
+  },
+  links: [
+    {
+      id: "rjecnik-hr",
+      label: "Skolski rjecnik",
+      urlTemplate: "https://rjecnik.hr/search/?q={query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  es: {
+  codes: {
+    wiktionaryEn: "Spanish",
+    wiktionary: "es",
+    glosbe: "es",
+    tatoeba: "spa",
+    forvo: "es",
+    youglish: "spanish",
+    reverso: "spanish",
+    wordreference: "esen",
+    linguee: "spanish"
+  },
+  links: [
+    {
+      id: "rae",
+      label: "RAE",
+      urlTemplate: "https://dle.rae.es/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "spanishdict",
+      label: "SpanishDict",
+      urlTemplate: "https://www.spanishdict.com/translate/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ]
+    }
+  ]
+  },
+  sv: {
+  codes: {
+    wiktionaryEn: "Swedish",
+    wiktionary: "sv",
+    glosbe: "sv",
+    tatoeba: "swe",
+    forvo: "sv",
+    youglish: "swedish",
+    reverso: "swedish",
+    wordreference: "sven",
+    linguee: "swedish"
+  },
+  links: [
+    {
+      id: "svenska-se",
+      label: "svenska.se",
+      urlTemplate: "https://svenska.se/?q={query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  tl: {
+  codes: {
+    wiktionaryEn: "Tagalog",
+    wiktionary: "tl",
+    glosbe: "tl",
+    tatoeba: "tgl",
+    forvo: "tl"
+  },
+  links: [
+    {
+      id: "tagalog-com",
+      label: "Tagalog.com",
+      urlTemplate: "https://www.tagalog.com/dictionary/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "diksiyonaryo-ph",
+      label: "Diksiyonaryo.ph",
+      urlTemplate: "https://diksiyonaryo.ph/search/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "pinoydictionary",
+      label: "PinoyDictionary",
+      urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  th: {
+  codes: {
+    wiktionaryEn: "Thai",
+    wiktionary: "th",
+    glosbe: "th",
+    tatoeba: "tha",
+    forvo: "th",
+    youglish: "thai"
+  },
+  links: []
+  },
+  tr: {
+  codes: {
+    wiktionaryEn: "Turkish",
+    wiktionary: "tr",
+    glosbe: "tr",
+    tatoeba: "tur",
+    forvo: "tr",
+    youglish: "turkish",
+    reverso: "turkish"
+  },
+  links: [
+    {
+      id: "tdk",
+      label: "TDK Sozluk",
+      urlTemplate: "https://sozluk.gov.tr/?ara={query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "tureng",
+      label: "Tureng",
+      urlTemplate: "https://tureng.com/en/turkish-english/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ]
+    },
+    {
+      id: "seslisozluk",
+      label: "Sesli Sozluk",
+      urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  },
+  vi: {
+  codes: {
+    wiktionaryEn: "Vietnamese",
+    wiktionary: "vi",
+    glosbe: "vi",
+    tatoeba: "vie",
+    forvo: "vi",
+    youglish: "vietnamese"
+  },
+  links: [
+    {
+      id: "tratu-soha",
+      label: "Tra tu Soha",
+      urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "vdict",
+      label: "VDict",
+      urlTemplate: "https://vdict.com/{query},2,0,0.html",
+      components: [
+        "definition"
+      ]
+    },
+    {
+      id: "vtudien",
+      label: "Vtudien",
+      urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+      components: [
+        "definition"
+      ]
+    }
+  ]
+  }
+};
+const catalogue = {
+  shared,
+  targets
+};
+const CATALOGUE = catalogue;
+new Set([
+  ...CATALOGUE.shared.map((site) => site.id),
+  ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
+]);
+const CODE_TOKEN = /%code%/g;
+function hasTargetLookupSites(targetLanguage) {
+  return Object.hasOwn(CATALOGUE.targets, targetLanguage);
+}
+function targetLookupSites(targetLanguage) {
+  const entry = CATALOGUE.targets[targetLanguage];
+  if (!entry) return [];
+  const natives = entry.links.map((site, index) => ({
+  ...site,
+  enabled: index === 0,
+  origin: "native"
+  }));
+  const shared2 = [];
+  for (const site of CATALOGUE.shared) {
+  const code = entry.codes[site.code];
+  if (!code) continue;
+  shared2.push({
+    id: site.id,
+    label: site.label,
+    urlTemplate: site.urlTemplate.replace(CODE_TOKEN, code),
+    components: site.components,
+    enabled: site.enabled,
+    origin: "shared"
+  });
+  }
+  return [...natives, ...shared2];
+}
+function targetLookupLinks(targetLanguage) {
+  return targetLookupSites(targetLanguage).map((site) => ({
+  id: site.id,
+  label: site.label,
+  urlTemplate: site.urlTemplate,
+  enabled: site.enabled
+  }));
+}
 const MAX_DICTIONARY_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
   id: "jpdb",
@@ -7607,10 +8665,11 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-function normalizeDictionaryLookupLinkSettings(value) {
+function normalizeDictionaryLookupLinkSettings(value, targetLanguage = "ja") {
   const links = normalizeDictionaryLookupLinks(
   value?.dictionaryLookupLinks,
-  !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim())
+  !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
+  targetLanguage
   );
   if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
   return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
@@ -7634,7 +8693,10 @@ function normalizeDictionaryPreference(item, index) {
   type: normalizeDictionaryType(record.type, name)
   };
 }
-function defaultDictionaryLookupLinks(mode = "local") {
+function defaultDictionaryLookupLinks(mode = "local", targetLanguage = "ja") {
+  if (targetLanguage !== "ja" && hasTargetLookupSites(targetLanguage)) {
+  return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
+  }
   return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
   ...link,
   priority: index,
@@ -7678,8 +8740,8 @@ function isDictionaryLookupLink(link) {
 function matchesLegacyLookupLink(link, expected) {
   return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
 }
-function normalizeDictionaryLookupLinks(value, preferJpdb = false) {
-  const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb));
+function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage = "ja") {
+  const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
   if (!Array.isArray(value)) return builtIns;
   const normalized = [];
   const seen = new Set();
@@ -8476,7 +9538,10 @@ function mergeSettings(value) {
   ...normalizeMiningSettings(settingsValue),
   ...normalizeSourceAliasSettings(settingsValue),
   ...normalizeRemovedDictionarySettings(settingsValue),
-  dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
+  dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
+    settingsValue,
+    activeTargetRosterId(languageProfileSettings)
+  ),
   ...languageProfileSettings,
   preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
@@ -8527,6 +9592,10 @@ function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPrefe
   interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
   dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
   };
+}
+function activeTargetRosterId(profileSettings) {
+  const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
+  return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
 }
 function languageProfileHasIndependentState(profile) {
   return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
@@ -9859,15 +10928,15 @@ function nodeTextContent(node) {
 }
 function collectTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
   const walker = textTargetWalker(root, visibleOnly, options);
-  const targets = [];
+  const targets2 = [];
   let node;
-  while (targets.length < limit) {
+  while (targets2.length < limit) {
   node = walker.nextNode();
   if (!node) break;
   const target = textTargetFromAcceptedNode(node);
-  if (target) targets.push(target);
+  if (target) targets2.push(target);
   }
-  return targets;
+  return targets2;
 }
 function textTargetWalker(root, visibleOnly, options) {
   return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -9964,15 +11033,15 @@ function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excl
   return state.targets;
 }
 function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
-  const targets = [];
+  const targets2 = [];
   const controls = root instanceof HTMLElement && root.matches(FORM_CONTROL_TEXT_TARGET_SELECTOR) ? [root] : [];
   controls.push(...Array.from(root.querySelectorAll(FORM_CONTROL_TEXT_TARGET_SELECTOR)));
   for (const control of controls) {
-  if (targets.length >= limit) break;
+  if (targets2.length >= limit) break;
   const target = formControlTextTarget(control, visibleOnly, options);
-  if (target) targets.push(target);
+  if (target) targets2.push(target);
   }
-  return targets;
+  return targets2;
 }
 function formControlTextTarget(control, visibleOnly, options) {
   if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
@@ -18905,6 +19974,7 @@ function stableHue(value) {
 function formatLookupUrl(template, values) {
   const replacements = {
   query: values.query,
+  queryascii: asciiFoldLookupQuery(values.query),
   word: values.word,
   term: values.word,
   reading: values.reading,
@@ -18918,6 +19988,9 @@ function formatLookupUrl(template, values) {
   } catch {
   return "";
   }
+}
+function asciiFoldLookupQuery(value) {
+  return value.normalize("NFKD").replace(/\p{Mark}+/gu, "").replace(/[^\x00-\x7F]/g, "");
 }
 const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
 const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
@@ -20313,10 +21386,10 @@ async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) 
 function deconjugatedReading(expression, baseTerm, reading) {
   const expressionChars = Array.from(expression);
   const baseChars = Array.from(baseTerm);
-  let shared = 0;
-  while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
-  const removed = expressionChars.slice(shared).join("");
-  const added = baseChars.slice(shared).join("");
+  let shared2 = 0;
+  while (shared2 < expressionChars.length && shared2 < baseChars.length && expressionChars[shared2] === baseChars[shared2]) shared2++;
+  const removed = expressionChars.slice(shared2).join("");
+  const added = baseChars.slice(shared2).join("");
   if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
   if (removed && !reading.endsWith(removed)) return "";
   const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
@@ -20755,8 +21828,8 @@ class CardPopoverRenderer {
   const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
   const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
   if (earlyResult !== void 0) return earlyResult;
-  const targets = this.popoverReviewTargets(card, data, provider, language);
-  if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
+  const targets2 = this.popoverReviewTargets(card, data, provider, language);
+  if (targets2.length) return this.renderTargetedReviewButtons(targets2, language, targets2.length > 1, this.switchProviderTarget(card, provider));
   if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
     return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
   }
@@ -20890,9 +21963,9 @@ class CardPopoverRenderer {
     gradeProfile: "standard"
   }));
   }
-  renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
+  renderTargetedReviewButtons(targets2, language, canSwitchTarget, switchProviderTarget) {
   const settings = this.settings();
-  const selected = targets[0];
+  const selected = targets2[0];
   if (!selected) return "";
   const standardGrades = reviewButtonGrades(settings);
   const bunproRegularGrades = [
@@ -20905,14 +21978,14 @@ class CardPopoverRenderer {
     ["okay", uiText(language, "bunproGradeGoodLabel")],
     ["easy", uiText(language, "bunproGradeEasyLabel")]
   ];
-  const profiles = new Set(targets.map((target) => target.gradeProfile));
+  const profiles = new Set(targets2.map((target) => target.gradeProfile));
   const gradeRows = [
     profiles.has("standard") ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.gradeProfile !== "standard") : "",
     profiles.has("bunpro-regular") ? renderTargetedGradeRow(bunproRegularGrades, selected, "bunpro-regular", selected.gradeProfile !== "bunpro-regular") : "",
     profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected, "bunpro-fsrs", selected.gradeProfile !== "bunpro-fsrs") : ""
   ].filter(Boolean).join("");
   if (!gradeRows) return "";
-  const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
+  const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language) : "";
   const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
   return `
         ${targetGutter}
@@ -21017,10 +22090,10 @@ function renderReviewTargetGutter(target, language, canSwitchTarget, switchProvi
     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button>
   </div>`;
 }
-function renderReviewTargetSelector(targets, language) {
+function renderReviewTargetSelector(targets2, language) {
   return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
     <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language, "gradeTargetSelector"))}">
-        ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+        ${targets2.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
     </select>
   </div>`;
 }
@@ -26538,8 +27611,8 @@ function siteScanRemaining(context) {
 function siteScanHasRoom(context) {
   return siteScanRemaining(context) > 0;
 }
-function siteScanResult(profiles, targets) {
-  if (targets.length) return targets;
+function siteScanResult(profiles, targets2) {
+  if (targets2.length) return targets2;
   return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
 }
 function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
@@ -26550,9 +27623,9 @@ function* scanTargetCollectionSteps(limit, href, options) {
   const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
   const collectionLimit = limit + skipTargetCount;
   const matchingProfiles = getMatchingSiteParsers(href);
-  const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
+  const targets2 = yield* scanTargetPhaseSteps(collectionLimit, href, options);
   const withDeferred = yield* withDeferredShadowScanTargets(
-  targets,
+  targets2,
   effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
   matchingProfiles
   );
@@ -26560,14 +27633,14 @@ function* scanTargetCollectionSteps(limit, href, options) {
   return eligible.slice(0, limit);
 }
 function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
-  let targets = baseTargets;
+  let targets2 = baseTargets;
   const nonDestructive = profiles.some((profile) => profile.nonDestructive);
   for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
-  const remaining = effectiveLimit - targets.length;
+  const remaining = effectiveLimit - targets2.length;
   const hosts = drainDepthCappedShadowHosts();
   if (!hosts.length || remaining <= 0) break;
   yield;
-  const seen = seenTextNodes(targets);
+  const seen = seenTextNodes(targets2);
   const collected = [];
   for (const host of hosts) {
     if (collected.length >= remaining) break;
@@ -26583,9 +27656,9 @@ function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
     collected.push(...hostTargets);
   }
   if (!collected.length) continue;
-  targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
+  targets2 = [...targets2, ...markTargetsPassive(collected, { nonDestructive })];
   }
-  return targets;
+  return targets2;
 }
 function* scanTargetPhaseSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
@@ -26657,8 +27730,8 @@ function* scanTargetPhaseSteps(limit, href, options) {
   if (annotationScopeActive()) return [];
   return collectVisibleTextTargets(effectiveLimit);
 }
-function markTargetsPassive(targets, options = {}) {
-  return targets.map((target) => ({
+function markTargetsPassive(targets2, options = {}) {
+  return targets2.map((target) => ({
   ...target,
   passiveInteraction: true,
   nonDestructive: options.nonDestructive || void 0,
@@ -26683,11 +27756,11 @@ function genericUiChromeTargetLimit(remaining) {
   if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
   return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
 }
-function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
-  const remaining = effectiveLimit - targets.length;
-  if (remaining <= 0) return targets;
-  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
-  return residual.length ? [...targets, ...residual] : targets;
+function withResidualVisibleJapaneseTargets(targets2, effectiveLimit, profiles, options = {}) {
+  const remaining = effectiveLimit - targets2.length;
+  if (remaining <= 0) return targets2;
+  const residual = collectResidualVisibleJapaneseTargets(remaining, targets2, profiles, options);
+  return residual.length ? [...targets2, ...residual] : targets2;
 }
 function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, options = {}) {
   if (limit <= 0 || !document.body) return [];
@@ -26754,7 +27827,7 @@ function effectiveScanTargetLimit(profiles, requestedLimit, profileLimitOffset =
   return Math.max(1, profileLimit);
 }
 function collectWholePageScanTargets(limit) {
-  const targets = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
+  const targets2 = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
   allowUiText: true,
   includeUiChrome: true,
   includeFormChrome: true,
@@ -26763,7 +27836,7 @@ function collectWholePageScanTargets(limit) {
   heading: true,
   minLength: 1
   })).slice(0, limit);
-  return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
+  return targets2.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
 }
 function collectGenericProseTargets(limit, existingTargets = [], options = {}) {
   const roots = genericProseRoots();
@@ -26783,8 +27856,8 @@ function createGenericProseCollection(limit, existingTargets, options) {
   candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0)
   };
 }
-function seenTextNodes(targets) {
-  return new Set(targets.flatMap((target) => {
+function seenTextNodes(targets2) {
+  return new Set(targets2.flatMap((target) => {
   if ("fragments" in target) return textNodesForFragmentTarget(target);
   return [target.node];
   }));
@@ -26809,10 +27882,10 @@ function collectSafeUiChromeTargets(limit, existingTargets = [], options = {}) {
   return collection.targets;
 }
 function collectSafeFormControlTextTargets(collection, extraExclude = "") {
-  const targets = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
+  const targets2 = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
   excludeSelector: extraExclude
   }));
-  for (const target of targets) {
+  for (const target of targets2) {
   collection.targets.push(target);
   if (genericProseCollectionFull(collection)) break;
   }
@@ -26879,14 +27952,14 @@ function genericProseRemaining(collection) {
 function genericProseCollectionFull(collection) {
   return genericProseRemaining(collection) <= 0;
 }
-function appendGenericProseTarget(targets, seen, target, options) {
+function appendGenericProseTarget(targets2, seen, target, options) {
   const admissionOptions = { defaultParserId: "generic-prose-parser" };
-  return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
+  return appendAdmittedFragmentTarget(targets2, seen, target, admissionOptions);
 }
-function appendResidualVisibleTarget(targets, seen, target) {
+function appendResidualVisibleTarget(targets2, seen, target) {
   const nodes = textNodesForFragmentTarget(target);
   if (!nodes.some((node) => seen.has(node))) {
-  appendGenericProseTarget(targets, seen, target);
+  appendGenericProseTarget(targets2, seen, target);
   return;
   }
   for (const fragments of unseenFragmentRuns(target, seen)) {
@@ -26896,7 +27969,7 @@ function appendResidualVisibleTarget(targets, seen, target) {
   if (!isTargetLanguageText(text2)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
-  appendAdmittedFragmentTarget(targets, seen, {
+  appendAdmittedFragmentTarget(targets2, seen, {
     ...target,
     text: text2,
     parent,
@@ -26940,7 +28013,7 @@ function trimFragmentRun(fragments) {
   }
   return fragments;
 }
-function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
+function appendAdmittedFragmentTarget(targets2, seen, target, options = {}) {
   const nodes = textNodesForFragmentTarget(target);
   if (!nodes.length || nodes.some((node) => seen.has(node))) return false;
   if (options.reject?.(target)) return false;
@@ -26948,7 +28021,7 @@ function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
   if (isResidualJpdbAlternateSpellingTarget(target)) return false;
   nodes.forEach((node) => seen.add(node));
   const admittedTarget = options.transform ? options.transform(target) : { ...target, parserId: target.parserId ?? options.defaultParserId };
-  targets.push(admittedTarget);
+  targets2.push(admittedTarget);
   return true;
 }
 function isResidualReaderParticleTarget(target) {
@@ -31807,7 +32880,7 @@ function nestedTextParsePlan(root, limit, options = {}) {
   const renderedParseKey = renderedNestedParseKey(parseRoots);
   if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
-  const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  const targets2 = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
   allowUiText: true,
   includePassiveInteractions: true,
@@ -31816,7 +32889,7 @@ function nestedTextParsePlan(root, limit, options = {}) {
   readerRootPassiveInteractions: true,
   parseSurfaceIgnoredRoot: true
   })).slice(0, limit);
-  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
 }
 function providerExamplePriority(parseRoot) {
   return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
@@ -31825,7 +32898,7 @@ function providerExampleTextParsePlan(root, limit) {
   const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
   if (!parseRoots.length) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
-  const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  const targets2 = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
   allowUiText: true,
   includePassiveInteractions: true,
@@ -31834,7 +32907,7 @@ function providerExampleTextParsePlan(root, limit) {
   readerRootPassiveInteractions: true,
   parseSurfaceIgnoredRoot: true
   })).slice(0, limit);
-  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
 }
 function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options) {
   const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
@@ -31902,8 +32975,8 @@ function renderedNestedParseKey(parseRoots) {
   const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR)).map((parseRoot) => readerWordSurfaceText(parseRoot).trim()).filter(Boolean);
   return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") : "";
 }
-function nestedParseKey(targets) {
-  return targets.map((target) => target.text).join("\n\n");
+function nestedParseKey(targets2) {
+  return targets2.map((target) => target.text).join("\n\n");
 }
 const log$2 = Logger.scope("PublicLookupFallback");
 function normalizedJitenLookupKey(term) {
@@ -32982,8 +34055,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.42"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.42"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.43"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.43"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33126,7 +34199,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.42"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.43"}`;
   } catch {
   return null;
   }
@@ -33457,10 +34530,10 @@ class VisiblePageScanner {
   const roots = Array.from(document.querySelectorAll(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
   if (!roots.length) return false;
   roots.sort((a, b) => Number(a.classList.contains("asbplayer-offscreen")) - Number(b.classList.contains("asbplayer-offscreen")));
-  const targets = roots.flatMap((root) => collectTextTargetsIn(root, ASB_SCAN_BATCH_LIMIT, false)).slice(0, ASB_SCAN_BATCH_LIMIT);
-  if (!targets.length) return false;
+  const targets2 = roots.flatMap((root) => collectTextTargetsIn(root, ASB_SCAN_BATCH_LIMIT, false)).slice(0, ASB_SCAN_BATCH_LIMIT);
+  if (!targets2.length) return false;
   try {
-    const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
+    const parsed = await this.dependencies.parseJapanese(targets2.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
     if (this.destroyed) return false;
     const tokens = parsed.flat();
     if (this.dependencies.prepareSubtitleTokensBeforeRender) {
@@ -33470,14 +34543,14 @@ class VisiblePageScanner {
     }
     const applyAnkiColors = this.shouldEnrichAnkiWords() ? await this.prepareAnkiColorsBeforeSubtitleRender(tokens) : void 0;
     if (this.destroyed) return false;
-    const changedRoots = await this.applyTokens(targets, parsed, this.dependencies.getSettings());
+    const changedRoots = await this.applyTokens(targets2, parsed, this.dependencies.getSettings());
     applyAnkiColors?.(changedRoots);
     if (this.dependencies.prepareSubtitleTokensBeforeRender) {
       if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
     } else {
       this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
     }
-    return targets.length === ASB_SCAN_BATCH_LIMIT;
+    return targets2.length === ASB_SCAN_BATCH_LIMIT;
   } catch {
     return false;
   }
@@ -33510,16 +34583,16 @@ class VisiblePageScanner {
     source,
     chunks: chunkLongScanTarget(source, settings).reverse()
   }));
-  const targets = chunkGroups.flatMap((group) => group.chunks);
-  if (!targets.length) {
+  const targets2 = chunkGroups.flatMap((group) => group.chunks);
+  if (!targets2.length) {
     this.resetContinuationState();
     this.handleEmptyVisiblePageScan(silent);
     return;
   }
-  const unparsedTargets = await this.parseAndApplyTargets(targets, generation, settings);
+  const unparsedTargets = await this.parseAndApplyTargets(targets2, generation, settings);
   if (this.isStaleScan(generation)) return;
   const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-  if (collected.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
+  if (collected.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets2, silent)) {
     const unparsed = new Set(unparsedTargets);
     chunkGroups.filter((group) => group.chunks.length > 0 && group.chunks.every((chunk) => unparsed.has(chunk))).forEach((group) => this.continuationFailedTargetKeys.add(this.continuationTargetKey(group.source)));
     this.queueContinuationScan(silent);
@@ -33528,8 +34601,8 @@ class VisiblePageScanner {
   this.resetContinuationState();
   this.reportVisiblePageCoverage(silent);
   }
-  canQueueContinuationScan(targets, silent) {
-  return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS && (silent || targets.some((target) => !target.singlePassScan));
+  canQueueContinuationScan(targets2, silent) {
+  return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS && (silent || targets2.some((target) => !target.singlePassScan));
   }
   isStaleScan(generation) {
   return this.destroyed || generation !== this.scanGeneration;
@@ -33566,7 +34639,7 @@ class VisiblePageScanner {
     }
   }
   }
-  async parseAndApplyTargets(targets, generation, scanStartSettings, allowTransientReparse = true) {
+  async parseAndApplyTargets(targets2, generation, scanStartSettings, allowTransientReparse = true) {
   let cursor = 0;
   const unparsedTargets = [];
   const transientTargets = [];
@@ -33574,8 +34647,8 @@ class VisiblePageScanner {
   const parseCharBudget = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_PARSE_CHAR_BUDGET : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
   const concurrency = hasRemoteParseApiKey(scanStartSettings) ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   const schedule = () => {
-    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
-      const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
+    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets2.length) {
+      const next = nextVisibleScanParseBatch(targets2, cursor, parseCharBudget);
       cursor = next.cursor;
       if (!next.batch.length) continue;
       const work = {
@@ -33600,7 +34673,7 @@ class VisiblePageScanner {
     if (this.isStaleScan(generation)) return unparsedTargets;
     await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
     schedule();
-    if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
+    if (pending.length || cursor < targets2.length) await waitForVisibleScanTurn();
   }
   if (allowTransientReparse && transientTargets.length && !this.isStaleScan(generation)) {
     const stillUnparsed = await this.parseAndApplyTargets(transientTargets, generation, scanStartSettings, false);
@@ -33638,13 +34711,13 @@ class VisiblePageScanner {
     skipPitch: pitchStartedBeforeApply
   });
   }
-  async applyTokens(targets, parsed, scanStartSettings, generation) {
+  async applyTokens(targets2, parsed, scanStartSettings, generation) {
   const allChangedRoots = new Set();
   const applyBatchSize = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_APPLY_BATCH_SIZE : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-  for (let index = 0; index < targets.length; index += applyBatchSize) {
+  for (let index = 0; index < targets2.length; index += applyBatchSize) {
     if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
     const start = index;
-    const batch = targets.slice(start, start + applyBatchSize);
+    const batch = targets2.slice(start, start + applyBatchSize);
     this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
       if (this.shouldStopApplyingTokens(generation)) return;
       const changedRoots = new Set();
@@ -33659,7 +34732,7 @@ class VisiblePageScanner {
         this.dependencies.refreshWordContrast?.(root);
       });
     }));
-    if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
+    if (index + applyBatchSize < targets2.length) await waitForVisibleScanTurn();
   }
   this.reserveRubyRoomForNewRoots(allChangedRoots);
   return [...allChangedRoots];
@@ -33937,12 +35010,12 @@ function countVisiblePageCoverageMiningInsight(summary, word, key) {
 function visiblePageCoverageInsightSurface(word, key) {
   return key || word.dataset.expression || word.textContent || "";
 }
-function nextVisibleScanParseBatch(targets, startCursor, charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET) {
+function nextVisibleScanParseBatch(targets2, startCursor, charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET) {
   const batch = [];
   let cursor = startCursor;
   let budget = 0;
-  while (cursor < targets.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
-  const target = targets[cursor];
+  while (cursor < targets2.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+  const target = targets2[cursor];
   if (!target || !isCurrentScanTarget(target)) {
     cursor += 1;
     continue;
@@ -35556,8 +36629,8 @@ class ReaderApp {
   }
   }
   async installJpdbWordPageEnhancements(generation) {
-  const targets = currentPageLocalDictionaryTargets();
-  await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
+  const targets2 = currentPageLocalDictionaryTargets();
+  await Promise.all(targets2.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
   }
   installJpdbWordPageEnhancement(target, generation) {
   const card = this.jpdbPageWordCard(target);

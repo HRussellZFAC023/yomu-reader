@@ -6,6 +6,7 @@ import { audioSubSourceNameKey } from '../audio/source-resolution';
 import { knownAudioSubSourceNames } from '../audio/candidates';
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
+import { lookupSiteComponents, missingLookupComponents, type LookupLinkComponent } from './lookup-links';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
 import type { AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage } from '../app/types';
 
@@ -335,7 +336,11 @@ function removeAudioSourceRow(sources: AudioSourceSetting[], index: number): voi
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
 }
 
-export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[], localFrequencyPreferences: DictionaryPreference[] = []): string {
+export function renderDictionaryLookupLinkEditor(
+    links: DictionaryLookupLink[],
+    localFrequencyPreferences: DictionaryPreference[] = [],
+    targetLanguage = 'ja',
+): string {
     const rows = lookupPillEditorRows(links, localFrequencyPreferences);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
@@ -345,14 +350,51 @@ export function renderDictionaryLookupLinkEditor(links: DictionaryLookupLink[], 
             <span>Order</span>
             <span>Remove</span>
         </div>
-        ${renderDictionaryLookupLinkRows(rows)}
+        ${renderDictionaryLookupLinkRows(rows, targetLanguage)}
+        ${renderLookupLinkComponentGaps(targetLanguage)}
         <div class="jpdb-reader-lookup-link-actions">
             <button class="jpdb-reader-btn add" type="button" data-action="lookup-link-add">Add</button>
         </div>
     `;
 }
 
-function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
+const LOOKUP_COMPONENT_LABELS: Record<LookupLinkComponent, string> = {
+    definition: 'Definitions',
+    sentences: 'Example sentences',
+    audio: 'Audio',
+    images: 'Images',
+};
+
+/**
+ * What a built-in site actually hands back, beside its own row.
+ *
+ * U46's rule is that a component is claimed only where it was measured, so an
+ * unlisted component is a statement and not a gap in the data: Treccani has
+ * usage examples and no recordings, MDBG has neither, and both say so.
+ */
+function renderLookupLinkComponents(targetLanguage: string, link: DictionaryLookupLink): string {
+    const components = lookupSiteComponents(targetLanguage, link.id);
+    if (!components.length) return '';
+    const note = components.map(component => LOOKUP_COMPONENT_LABELS[component]).join(' · ');
+    return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="components" data-lookup-link-components="${escapeHtml(components.join(' '))}">${escapeHtml(note)}</span>`;
+}
+
+/**
+ * The components no site in this target's row can supply.
+ *
+ * This is the same reversal U46 applied to the example panels, moved to the pill
+ * editor: a learner of Ancient Greek is told there is no pronunciation site
+ * rather than left to wonder why no pill plays anything, and only Chinese and
+ * Cantonese are told nothing about images because only they have an image site.
+ */
+function renderLookupLinkComponentGaps(targetLanguage: string): string {
+    const missing = missingLookupComponents(targetLanguage);
+    if (!missing.length) return '';
+    const names = missing.map(component => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(', ');
+    return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml(missing.join(' '))}">No verified site for this language offers ${escapeHtml(names)}. Add your own above if you know one.</p>`;
+}
+
+function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLanguage: string): string {
     const orderTools = renderRowOrderTools({
         label: 'Lookup pill order',
         upAction: 'lookup-link-up',
@@ -368,7 +410,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[]): string {
                 ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
                 : isFrequencyAction
                     ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">`
-                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">`;
+                    : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkComponents(targetLanguage, link)}`;
             const removeControl = isCopyAction || isFrequencyAction
                 ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>'
                 : miniIconButton('remove', 'Remove', 'data-action="lookup-link-remove"');
@@ -432,11 +474,18 @@ function frequencyLookupPillNote(link: DictionaryLookupLink): string {
 export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
     const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
     if (!container) return;
-    const links = readDictionaryLookupLinks(new FormData(form));
+    const data = new FormData(form);
+    const links = readDictionaryLookupLinks(data);
     const row = control?.closest<HTMLElement>('[data-lookup-link-row]');
     const index = row ? Array.from(container.querySelectorAll('[data-lookup-link-row]')).indexOf(row) : -1;
     updateDictionaryLookupLinks(links, action, index);
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links));
+    // The target lives in this same form, so re-rendering a row keeps the
+    // component notes and the gap line describing the language on screen.
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
+}
+
+function formTargetLanguage(data: FormData): string {
+    return String(data.get('targetLanguage') ?? '') || 'ja';
 }
 
 function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {

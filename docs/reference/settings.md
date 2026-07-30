@@ -60,6 +60,7 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
 | Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
 | Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
+| Not yet described | — | 16 entries | `dictionaryLookupLinks` |
 | Theme | — | `auto` | `theme` |
 | Popup mode | — | Auto (`auto`) | `popupMode` |
 | Hover popup mode | — | Popover (`popover`) | `hoverPopupMode` |
@@ -191,7 +192,6 @@ Set a hover key. Blank means plain hover.
 | Immersion Kit: order in the popup | Example sentences, images, and audio. | `80` | `immersionKitPriority` |
 | Show site frequency in pills | — | on | `showLookupPillFrequency` |
 | Parsing source | — | Local dictionaries (offline) (`local`) | `parserProvider` |
-| Not yet described | — | 16 entries | `dictionaryLookupLinks` |
 | Anki: shown in the popup | Matching Anki card content and status. | off | `ankiSectionEnabled` |
 | Anki: display name | Matching Anki card content and status. | empty | `ankiSectionAlias` |
 | Anki: order in the popup | Matching Anki card content and status. | `90` | `ankiSectionPriority` |
