@@ -52,7 +52,7 @@ describe('sentence translation gating', () => {
             'これは日本語です。',
             undefined,
             'en',
-            { translationLanguage: 'grc' },
+            { outputLanguage: 'grc' },
         )).resolves.toBeUndefined();
 
         expect(fetchSpy).not.toHaveBeenCalled();

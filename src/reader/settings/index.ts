@@ -19,6 +19,7 @@ import {
 } from '../languages/profiles';
 import { SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
+import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -721,16 +722,17 @@ function normalizeLanguageProfileSettings(
             profile
             && typeof profile === 'object'
             && 'schemaVersion' in profile
-            && profile.schemaVersion === 1
+            && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion)
         ));
     const normalized = normalizeLanguageProfiles(
         value?.languageProfiles,
         value?.activeLanguageProfileId,
         {
-            // Existing Japanese UI users are not necessarily native Japanese
-            // speakers. Preserve their UI choice but default the new learner
-            // language independently to English until onboarding asks.
-            learnerLanguage: 'en',
+            // INTERFACE is not OUTPUT: existing Japanese-UI users are not
+            // necessarily native Japanese speakers. Preserve their UI choice
+            // and default the OUTPUT axis independently to English until
+            // onboarding asks.
+            outputLanguage: 'en',
             uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
             parserProvider,
         },
@@ -772,7 +774,7 @@ function languageProfileHasIndependentState(
     profile: ReaderSettings['languageProfiles'][number],
 ): boolean {
     return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID
-        || profile.learnerLanguage !== 'en'
+        || profile.outputLanguage !== 'en'
         || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE
         || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage
         || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider

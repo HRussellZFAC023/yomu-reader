@@ -28,7 +28,7 @@ import {
     unregisterLearningTargetModule,
 } from '../../../src/reader/languages/registry';
 import {
-    activateLanguageProfileForLearner,
+    activateLanguageProfileForOutputLanguage,
     createDefaultLanguageProfile,
     normalizeLanguageProfiles,
 } from '../../../src/reader/languages/profiles';
@@ -111,7 +111,7 @@ describe('a stored learning target survives normalization', () => {
 
     it('carries the target into a profile created for a new definition language', () => {
         const korean = { ...createDefaultLanguageProfile(), targetLanguage: 'ko' };
-        const activated = activateLanguageProfileForLearner([korean], korean.id, 'fr');
+        const activated = activateLanguageProfileForOutputLanguage([korean], korean.id, 'fr');
 
         expect(activated.created).toBe(true);
         // Choosing French definitions is not a decision about what is studied.

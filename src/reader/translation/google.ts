@@ -16,7 +16,15 @@ interface GoogleTranslateResponse {
 
 export interface TranslateTextOptions {
     sourceLanguage: string;
-    targetLanguage: string;
+    /**
+     * The OUTPUT axis: the language the translation comes back in.
+     *
+     * Deliberately not called `targetLanguage`. That name means the language
+     * being *studied* everywhere else in the reader, and the collision is what
+     * let the popover pass its INTERFACE locale in here — an English-UI Korean
+     * speaker got English example translations with no way to ask otherwise.
+     */
+    outputLanguage: string;
     timeoutMs?: number;
     includeDictionaryData?: boolean;
 }
@@ -80,11 +88,11 @@ export function googleTranslationUrl(text: string, options: TranslateTextOptions
     const sourceProviderLanguage = sourceLanguage === 'auto'
         ? 'auto'
         : requiredGoogleTranslationLanguage(sourceLanguage);
-    const targetLanguage = requiredGoogleTranslationLanguage(options.targetLanguage);
+    const outputLanguage = requiredGoogleTranslationLanguage(options.outputLanguage);
     const params = new URLSearchParams({
         client: 'gtx',
         sl: sourceProviderLanguage,
-        tl: targetLanguage,
+        tl: outputLanguage,
         dt: 't',
         dj: '1',
         q: text,
@@ -97,10 +105,10 @@ export async function translateText(text: string, options: TranslateTextOptions)
     const original = text.trim();
     if (!original) return '';
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
-    const targetLanguage = normalizeTranslationLanguage(options.targetLanguage);
-    if (sourceLanguage !== 'auto' && sourceLanguage.toLowerCase() === targetLanguage.toLowerCase()) return original;
+    const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
+    if (sourceLanguage !== 'auto' && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
 
-    const cacheKey = `${sourceLanguage}:${targetLanguage}:${original}`;
+    const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
     const cached = translationCache.get(cacheKey);
     if (cached !== undefined) return cached;
     const active = translationInFlight.get(cacheKey);
@@ -109,7 +117,7 @@ export async function translateText(text: string, options: TranslateTextOptions)
     const request = performTranslation(original, {
         ...options,
         sourceLanguage,
-        targetLanguage,
+        outputLanguage,
     });
     translationInFlight.set(cacheKey, request);
     void request.finally(() => {
@@ -130,7 +138,7 @@ async function performTranslation(text: string, options: TranslateTextOptions): 
     const url = googleTranslationUrl(text, options);
     const done = log.time('Translate text', {
         sourceLanguage: options.sourceLanguage,
-        targetLanguage: options.targetLanguage,
+        outputLanguage: options.outputLanguage,
         textLength: text.length,
     });
     try {
@@ -145,7 +153,7 @@ async function performTranslation(text: string, options: TranslateTextOptions): 
         }) as GoogleTranslateResponse;
         const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
         if (!translated) throw new Error('No translation returned.');
-        translationCache.set(`${options.sourceLanguage}:${options.targetLanguage}:${text}`, translated);
+        translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text}`, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
         return translated;
     } finally {

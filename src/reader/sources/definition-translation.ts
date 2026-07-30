@@ -33,9 +33,9 @@ export async function installDefinitionTranslationBehaviors(root: ParentNode, se
     const profile = resolveLanguageProfile(settings);
     if (!profile.definitionTranslationProviderIds.length) return;
     const enabled = new Set(profile.definitionTranslationProviderIds);
-    const learnerLanguage = profile.learnerLanguage;
+    const outputLanguage = profile.outputLanguage;
     const sources = definitionTranslationSources(root);
-    await Promise.all(sources.map(source => translateDefinitionSource(source, enabled, learnerLanguage)));
+    await Promise.all(sources.map(source => translateDefinitionSource(source, enabled, outputLanguage)));
 }
 
 interface DefinitionTranslationSource {
@@ -67,10 +67,10 @@ function definitionTranslationSources(root: ParentNode): DefinitionTranslationSo
 async function translateDefinitionSource(
     source: DefinitionTranslationSource,
     enabled: ReadonlySet<string>,
-    learnerLanguage: string,
+    outputLanguage: string,
 ): Promise<void> {
     if (!enabled.has(source.sourceId)) return;
-    if (sameLanguage(source.sourceLanguage, learnerLanguage)) return;
+    if (sameLanguage(source.sourceLanguage, outputLanguage)) return;
     const originalText = source.element.dataset.definitionTranslationPayload?.trim()
         || normalizedDefinitionText(source.element);
     if (!originalText) return;
@@ -82,13 +82,13 @@ async function translateDefinitionSource(
         for (const chunk of chunks) {
             translatedChunks.push(await translateText(chunk, {
                 sourceLanguage: source.sourceLanguage,
-                targetLanguage: learnerLanguage,
+                outputLanguage,
             }));
         }
         if (!source.element.isConnected && !source.element.ownerDocument.documentElement.contains(source.element)) return;
         const translated = translatedChunks.filter(Boolean).join('\n\n').trim();
         if (!translated) throw new Error('No definition translation returned.');
-        renderTranslatedDefinition(source, learnerLanguage, translated);
+        renderTranslatedDefinition(source, outputLanguage, translated);
         source.element.dataset.definitionTranslationState = 'ready';
     } catch (error) {
         log.warn('Automatic definition translation failed; keeping the original definition visible.', error);
@@ -98,21 +98,21 @@ async function translateDefinitionSource(
 
 function renderTranslatedDefinition(
     source: DefinitionTranslationSource,
-    learnerLanguage: string,
+    outputLanguage: string,
     translated: string,
 ): void {
     const document = source.element.ownerDocument;
     const translation = document.createElement('div');
     translation.className = 'jpdb-reader-definition-translation';
-    translation.lang = learnerLanguage;
-    translation.dir = definitionTextDirection(learnerLanguage);
+    translation.lang = outputLanguage;
+    translation.dir = definitionTextDirection(outputLanguage);
     translation.dataset.definitionTranslation = source.sourceId;
     setInnerHtml(translation, escapeHtml(translated).replaceAll('\n', '<br>'));
 
     const original = document.createElement('details');
     original.className = 'jpdb-reader-definition-original';
     const summary = document.createElement('summary');
-    summary.textContent = originalDefinitionLabel(learnerLanguage, source.sourceLanguage);
+    summary.textContent = originalDefinitionLabel(outputLanguage, source.sourceLanguage);
     const body = document.createElement('div');
     body.className = 'jpdb-reader-definition-original-body';
     source.element.before(translation, original);
@@ -139,12 +139,12 @@ function splitTranslationText(text: string): string[] {
     return chunks;
 }
 
-function originalDefinitionLabel(learnerLanguage: string, sourceLanguage: string): string {
-    const locale = resolveLearnerLanguage(learnerLanguage);
+function originalDefinitionLabel(outputLanguage: string, sourceLanguage: string): string {
+    const locale = resolveLearnerLanguage(outputLanguage);
     const template = LOCALE_CATALOGS[locale.id].messages.originalDefinitionLabel;
     const language = sourceLanguage === 'auto'
         ? 'source'
-        : new Intl.DisplayNames([learnerLanguage], { type: 'language' }).of(sourceLanguage) ?? sourceLanguage;
+        : new Intl.DisplayNames([outputLanguage], { type: 'language' }).of(sourceLanguage) ?? sourceLanguage;
     return template.replace('{language}', language);
 }
 

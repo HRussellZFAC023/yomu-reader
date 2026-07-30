@@ -133,7 +133,7 @@ describe('offline dictionary setup', () => {
         const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
-            languageProfiles: [{ ...profile, learnerLanguage: 'de' }],
+            languageProfiles: [{ ...profile, outputLanguage: 'de' }],
             localDictionariesEnabled: false,
         };
         const german = preselected('de');
@@ -181,7 +181,7 @@ describe('offline dictionary setup', () => {
         const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
-            languageProfiles: [{ ...profile, learnerLanguage: 'ko' }],
+            languageProfiles: [{ ...profile, outputLanguage: 'ko' }],
             localDictionariesEnabled: false,
         };
         const harness = setupHarness({}, settings);
@@ -210,7 +210,7 @@ describe('offline dictionary setup', () => {
         const korean = {
             ...base,
             id: 'korean-ja',
-            learnerLanguage: 'ko',
+            outputLanguage: 'ko',
         };
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -244,7 +244,7 @@ describe('offline dictionary setup', () => {
         const korean = {
             ...base,
             id: 'korean-ja',
-            learnerLanguage: 'ko',
+            outputLanguage: 'ko',
         };
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,

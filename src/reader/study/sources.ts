@@ -15,7 +15,7 @@ import {
     type GrammarHint,
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import { resolvedLearnerLanguage } from '../languages';
+import { outputLanguageOf } from '../languages';
 
 const log = Logger.scope('StudySources');
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
@@ -100,7 +100,7 @@ export class StudySourceController {
         }
         const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
         if (settings.studyTranslationEnabled && translation) {
-            preloadJapaneseSentenceTranslation(sentence, resolvedLearnerLanguage(settings));
+            preloadJapaneseSentenceTranslation(sentence, outputLanguageOf(settings));
             // Same async-empty rule as grammar: an untranslatable sentence
             // hides the whole section instead of leaving a header shell.
             void this.cachedTranslationContent(sentence).then(result => {
@@ -211,7 +211,7 @@ export class StudySourceController {
         // "Translating..." forever and the empty-translation hide never ran.
         // Parse now runs only when there is a translation to enrich, and its
         // tokens are handed back as a promise applied without blocking.
-        const translated = await translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()));
+        const translated = await translateJapaneseSentence(sentence, outputLanguageOf(this.settings()));
         const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve<JPDBToken[]>([]);
         return { tokens, translated };
     }
@@ -247,7 +247,7 @@ export class StudySourceController {
     }
 
     private studyCacheKey(sentence: string): string {
-        return `${this.settings().interfaceLanguage}\u0001${resolvedLearnerLanguage(this.settings())}\u0001${sentence.trim()}`;
+        return `${this.settings().interfaceLanguage}\u0001${outputLanguageOf(this.settings())}\u0001${sentence.trim()}`;
     }
 
     private applyTranslation(

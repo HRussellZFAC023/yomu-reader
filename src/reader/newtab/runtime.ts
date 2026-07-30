@@ -138,6 +138,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
+import { outputLanguageOf } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
@@ -2364,7 +2365,8 @@ export class NewTabRuntime {
         void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
         if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
-            language: this.settings.interfaceLanguage,
+            interfaceLanguage: this.settings.interfaceLanguage,
+            outputLanguage: outputLanguageOf(this.settings),
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: candidate => candidate.isConnected,

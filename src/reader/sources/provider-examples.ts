@@ -30,9 +30,21 @@ export interface ProviderExampleView {
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
 export interface ProviderExampleBehaviorOptions {
-    language: InterfaceLanguage;
+    /**
+     * INTERFACE: what "Reveal translation" and the section header say. This is
+     * chrome, and it is not where the sentence gets translated to.
+     */
+    interfaceLanguage: InterfaceLanguage;
+    /**
+     * OUTPUT: what the example sentence is translated into.
+     *
+     * These were one field until U105, so a Korean speaker running Yomu in
+     * English was handed English example translations and could not ask for
+     * Korean ones without also translating every button into Korean.
+     */
+    outputLanguage: string;
     blurTranslations: boolean;
-    translate: (sentence: string, language: InterfaceLanguage) => Promise<string>;
+    translate: (sentence: string, outputLanguage: string) => Promise<string>;
     isCurrentRoot?: (root: HTMLElement) => boolean;
 }
 
@@ -41,6 +53,7 @@ export function renderProviderExamples(
     sourceId: string,
     collection: ProviderCollection<ProviderExampleView>,
     sourceAttributes: SourceAttributes,
+    /** INTERFACE: labels only. Example text and translations carry their own languages. */
     language: InterfaceLanguage,
 ): string {
     const availability = collection.availability;
@@ -111,9 +124,13 @@ function hydrateProviderTranslation(root: HTMLElement, translation: HTMLElement,
     const sentence = translation.dataset.providerTranslationSentence?.trim() ?? '';
     if (!sentence) return;
     translation.dataset.providerTranslationLoading = 'true';
-    void options.translate(sentence, options.language).then(translated => {
+    void options.translate(sentence, options.outputLanguage).then(translated => {
         if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
         translation.textContent = translated.trim();
+        // The translation is in the OUTPUT language while the sentence around it
+        // is in the TARGET language, so it has to say so or a screen reader and
+        // a bidi run both get it wrong.
+        translation.lang = options.outputLanguage;
         translation.hidden = false;
         delete translation.dataset.providerTranslationPending;
         delete translation.dataset.providerTranslationSentence;

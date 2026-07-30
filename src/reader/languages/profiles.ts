@@ -6,6 +6,7 @@ import {
     slice1LanguageIdForTag,
 } from './roster';
 import {
+    isSupportedLanguageProfileSchemaVersion,
     LANGUAGE_PROFILE_SCHEMA_VERSION,
     type LanguageTag,
     type LanguageProfile,
@@ -20,10 +21,34 @@ const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = new Set<ParserProvider>(['local', 'jiten', 'jpdb', 'auto']);
 
 export interface LanguageProfileDefaults {
+    /** OUTPUT axis default. `learnerLanguage` is the revision-1 alias. */
+    outputLanguage?: unknown;
     learnerLanguage?: unknown;
     uiLocale?: unknown;
     parserProvider?: unknown;
     targetLanguage?: unknown;
+}
+
+/**
+ * Reads the OUTPUT axis off a record written by either profile revision.
+ *
+ * The stamped revision decides which field is authoritative, not a fixed
+ * preference order. That matters on the downgrade path: a build that only knows
+ * revision 1 rewrites `learnerLanguage` and re-stamps `schemaVersion: 1`,
+ * leaving a now-stale `outputLanguage` beside it. Preferring the canonical name
+ * unconditionally would silently discard the choice that older build recorded.
+ *
+ * Revision 2 writes both names and keeps them equal, so they only disagree when
+ * one of the two versions of Yomu has been behind the other.
+ */
+function readOutputLanguageField(source: {
+    schemaVersion?: unknown;
+    outputLanguage?: unknown;
+    learnerLanguage?: unknown;
+}): unknown {
+    return source.schemaVersion === 1
+        ? source.learnerLanguage ?? source.outputLanguage
+        : source.outputLanguage ?? source.learnerLanguage;
 }
 
 export interface NormalizedLanguageProfiles {
@@ -49,10 +74,10 @@ export function createDefaultLanguageProfile(defaults: LanguageProfileDefaults =
     return {
         schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
         id: DEFAULT_LANGUAGE_PROFILE_ID,
-        learnerLanguage: normalizeSlice1LearnerLanguage(
-            defaults.learnerLanguage,
+        ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+            readOutputLanguageField(defaults),
             DEFAULT_SLICE1_LEARNER_LANGUAGE,
-        ),
+        )),
         targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
         uiLocale: normalizeUiLocale(defaults.uiLocale, 'en'),
         parserProvider: normalizeParserProvider(defaults.parserProvider, 'local'),
@@ -87,6 +112,14 @@ export function normalizeLanguageProfiles(
     };
 }
 
+/**
+ * The one place that writes the OUTPUT axis, so the canonical field and the
+ * revision-1 compatibility mirror can never drift apart.
+ */
+function outputLanguageFields(outputLanguage: LanguageTag): Pick<LanguageProfile, 'outputLanguage' | 'learnerLanguage'> {
+    return { outputLanguage, learnerLanguage: outputLanguage };
+}
+
 export function activeLanguageProfile(
     profiles: readonly LanguageProfile[],
     activeProfileId: string,
@@ -95,23 +128,22 @@ export function activeLanguageProfile(
 }
 
 /**
- * Selects the independent profile for a Slice 1 learner language, creating it
- * exactly once when that language has not been used before. Physical
- * dictionaries remain shared browser data, while enabled/order choices and
- * translation consent are copied into the new profile and then evolve
- * independently.
+ * Selects the independent profile for an OUTPUT language, creating it exactly
+ * once when that language has not been used before. Physical dictionaries
+ * remain shared browser data, while enabled/order choices and translation
+ * consent are copied into the new profile and then evolve independently.
  */
-export function activateLanguageProfileForLearner(
+export function activateLanguageProfileForOutputLanguage(
     profiles: readonly LanguageProfile[],
     activeProfileId: string,
-    learnerLanguage: unknown,
+    outputLanguage: unknown,
     initial: NewLanguageProfileValues = {},
 ): ActivatedLanguageProfile {
-    const canonicalLearnerLanguage = normalizeSlice1LearnerLanguage(learnerLanguage);
-    const learnerLanguageId = slice1LanguageIdForTag(canonicalLearnerLanguage)
+    const canonicalOutputLanguage = normalizeSlice1LearnerLanguage(outputLanguage);
+    const outputLanguageId = slice1LanguageIdForTag(canonicalOutputLanguage)
         ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
     const existing = profiles.find(profile =>
-        slice1LanguageIdForTag(profile.learnerLanguage) === learnerLanguageId,
+        slice1LanguageIdForTag(profile.outputLanguage) === outputLanguageId,
     );
     if (existing) {
         return {
@@ -126,10 +158,12 @@ export function activateLanguageProfileForLearner(
     const usedIds = new Set(profiles.map(profile => profile.id));
     const profile: LanguageProfile = {
         ...base,
-        id: uniqueProfileId(`learner-${learnerLanguageId}-ja`, usedIds),
-        learnerLanguage: canonicalLearnerLanguage,
-        // A new learner profile inherits what the person is already studying.
-        // Switching definition language is not a decision about the target.
+        // The ID keeps its revision-1 shape: it is a stored pointer, and
+        // renaming it would orphan every existing profile.
+        id: uniqueProfileId(`learner-${outputLanguageId}-ja`, usedIds),
+        ...outputLanguageFields(canonicalOutputLanguage),
+        // A new output-language profile inherits what the person is already
+        // studying. Switching definition language is not a target decision.
         targetLanguage: normalizeLearningTargetLanguage(initial.targetLanguage ?? base.targetLanguage),
         uiLocale: initial.uiLocale ?? base.uiLocale,
         parserProvider: initial.parserProvider ?? base.parserProvider,
@@ -151,9 +185,9 @@ export function activateLanguageProfileForLearner(
  * Study code independent from settings storage/migration details.
  */
 export function resolveLanguageProfile(value: unknown): LanguageProfile {
-    if (isRecord(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
+    if (isRecord(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
         const normalized = normalizeLanguageProfiles([value], value.id, {
-            learnerLanguage: value.learnerLanguage,
+            outputLanguage: readOutputLanguageField(value),
             uiLocale: value.uiLocale,
             parserProvider: value.parserProvider,
         });
@@ -164,7 +198,7 @@ export function resolveLanguageProfile(value: unknown): LanguageProfile {
         source.languageProfiles,
         source.activeLanguageProfileId,
         {
-            learnerLanguage: source.learnerLanguage,
+            outputLanguage: readOutputLanguageField(source),
             uiLocale: source.interfaceLanguage,
             parserProvider: source.parserProvider,
         },
@@ -173,24 +207,20 @@ export function resolveLanguageProfile(value: unknown): LanguageProfile {
         ?? createDefaultLanguageProfile();
 }
 
-export function resolvedLearnerLanguage(value: unknown): LanguageTag {
-    return resolveLanguageProfile(value).learnerLanguage;
-}
-
 function normalizeLanguageProfile(
     value: unknown,
     index: number,
     defaults: LanguageProfileDefaults,
 ): LanguageProfile | null {
     if (!isRecord(value)) return null;
-    if (value.schemaVersion !== LANGUAGE_PROFILE_SCHEMA_VERSION) return null;
+    if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
     return {
         schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
         id: normalizeProfileId(value.id, index),
-        learnerLanguage: normalizeSlice1LearnerLanguage(
-            value.learnerLanguage,
-            normalizeSlice1LearnerLanguage(defaults.learnerLanguage),
-        ),
+        ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+            readOutputLanguageField(value),
+            normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults)),
+        )),
         // A stored target survives only while core still has a module for it;
         // anything else degrades to the default rather than leaving the reader
         // pointed at a target nothing implements.

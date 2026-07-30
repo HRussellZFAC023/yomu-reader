@@ -24,7 +24,7 @@ describe('generic Google translation transport', () => {
     it('builds a Unicode-safe language-pair request', () => {
         const url = new URL(googleTranslationUrl('「読む」', {
             sourceLanguage: 'ja',
-            targetLanguage: 'ko',
+            outputLanguage: 'ko',
             includeDictionaryData: true,
         }));
         expect(url.hostname).toBe('translate.googleapis.com');
@@ -47,12 +47,12 @@ describe('generic Google translation transport', () => {
         });
         const serboCroatian = new URL(googleTranslationUrl('読む', {
             sourceLanguage: 'ja',
-            targetLanguage: 'sr-Latn',
+            outputLanguage: 'sr-Latn',
         }));
         expect(serboCroatian.searchParams.get('tl')).toBe('bs');
         expect(() => googleTranslationUrl('読む', {
             sourceLanguage: 'ja',
-            targetLanguage: 'grc',
+            outputLanguage: 'grc',
         })).toThrow(/not available for grc/);
     });
 
@@ -80,8 +80,8 @@ describe('generic Google translation transport', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         const requests = [
-            translateText('読む', { sourceLanguage: 'ja', targetLanguage: 'ko' }),
-            translateText('読む', { sourceLanguage: 'ja', targetLanguage: 'ko' }),
+            translateText('読む', { sourceLanguage: 'ja', outputLanguage: 'ko' }),
+            translateText('読む', { sourceLanguage: 'ja', outputLanguage: 'ko' }),
         ];
         await expect(Promise.all(requests)).resolves.toEqual(['읽다', '읽다']);
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -90,8 +90,8 @@ describe('generic Google translation transport', () => {
     it('does not send empty or same-language text', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
-        await expect(translateText('  ', { sourceLanguage: 'ja', targetLanguage: 'ko' })).resolves.toBe('');
-        await expect(translateText('日本語', { sourceLanguage: 'ja', targetLanguage: 'ja' })).resolves.toBe('日本語');
+        await expect(translateText('  ', { sourceLanguage: 'ja', outputLanguage: 'ko' })).resolves.toBe('');
+        await expect(translateText('日本語', { sourceLanguage: 'ja', outputLanguage: 'ja' })).resolves.toBe('日本語');
         expect(fetchMock).not.toHaveBeenCalled();
     });
 });

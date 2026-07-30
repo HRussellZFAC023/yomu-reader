@@ -1,4 +1,21 @@
-export const LANGUAGE_PROFILE_SCHEMA_VERSION = 1 as const;
+export const LANGUAGE_PROFILE_SCHEMA_VERSION = 2 as const;
+
+/**
+ * Every profile revision this build can still read. Revision 1 stored the
+ * OUTPUT axis under the name `learnerLanguage`; revision 2 stores it as
+ * `outputLanguage` and keeps `learnerLanguage` as a written compatibility
+ * mirror for one release so a downgrade does not lose the choice.
+ *
+ * Reading has to accept both, because a persisted profile is user data: a
+ * revision this build refuses is a profile that silently reverts to the
+ * defaults, which is how a target, a definition language, and an installed
+ * dictionary set all disappear at once.
+ */
+export const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2] as const;
+
+export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean {
+    return (SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS as readonly unknown[]).includes(value);
+}
 
 /**
  * Revision of the `LearningTargetModule` contract that this build of core
@@ -45,16 +62,33 @@ export interface LanguageProfileDictionaries {
     order: string[];
 }
 
-export interface LanguageProfileV1 {
+export interface LanguageProfileV2 {
     schemaVersion: typeof LANGUAGE_PROFILE_SCHEMA_VERSION;
     id: string;
     /**
-     * The person's native/definition language. This is independent from the
-     * language Yomu is teaching and from the language used by the interface.
+     * OUTPUT: the language definitions and example translations render in.
+     *
+     * A Korean speaker studying Japanese sets this to Korean and gets Korean
+     * definitions; it says nothing about which language Yomu's own buttons
+     * speak, and nothing about what is being read.
+     */
+    outputLanguage: LanguageTag;
+    /**
+     * @deprecated Revision 1's name for `outputLanguage`. Still written so a
+     * downgrade to a build that only knows revision 1 keeps the choice; read
+     * `outputLanguage` (or `outputLanguageOf`) in new code.
      */
     learnerLanguage: LanguageTag;
-    /** Slice 1 supports Japanese here; the shape is ready for later targets. */
+    /**
+     * TARGET: the language being segmented, deinflected, looked up, pronounced,
+     * OCRed, and mined. Never inferred from the browser locale, the interface
+     * locale, or the definition language.
+     */
     targetLanguage: LanguageTag;
+    /**
+     * INTERFACE: the language Yomu's own controls, settings, errors, and
+     * onboarding speak. `auto` means "follow the browser".
+     */
     uiLocale: LocalePreference;
     parserProvider: ParserProvider;
     dictionaries: LanguageProfileDictionaries;
@@ -65,7 +99,26 @@ export interface LanguageProfileV1 {
     definitionTranslationProviderIds: string[];
 }
 
-export type LanguageProfile = LanguageProfileV1;
+export type LanguageProfile = LanguageProfileV2;
+
+/**
+ * The three language axes, resolved and separately addressable.
+ *
+ * They are three answers to three different questions, and no code may derive
+ * one from another:
+ *
+ *   TARGET    what am I reading?      -> parsing, morphology, audio, OCR, mining
+ *   OUTPUT    what do I understand?   -> definitions, example translations
+ *   INTERFACE what does Yomu speak?   -> buttons, settings, errors, onboarding
+ *
+ * The case that names the rule: a Korean speaker studying Japanese wants
+ * Japanese parsing, Korean definitions, and — very possibly — an English UI.
+ */
+export interface LanguageSelection {
+    targetLanguage: LanguageTag;
+    outputLanguage: LanguageTag;
+    interfaceLanguage: LocalePreference;
+}
 
 export type TextDirection = 'ltr' | 'rtl';
 

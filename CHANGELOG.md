@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.40] - 2026-07-30
+
+### Changed
+
+- The language you are studying, the language your definitions come out in, and the language Yomu's own buttons speak are now three separate choices. Ask for Korean definitions and you get Korean definitions, including on example sentences, while the interface stays in whatever language you picked for it. Your current settings carry over exactly as they were.
+
 ## [1.8.39] - 2026-07-30
 
 ### Changed

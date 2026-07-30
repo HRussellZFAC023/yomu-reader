@@ -33,7 +33,8 @@ describe('provider example translations', () => {
         const translation = root.querySelector<HTMLElement>('[data-provider-example-translation]')!;
 
         installProviderExampleBehaviors(root, {
-            language: 'en',
+            interfaceLanguage: 'en',
+            outputLanguage: 'en',
             blurTranslations: true,
             translate: vi.fn(),
         });
@@ -51,7 +52,8 @@ describe('provider example translations', () => {
         const translate = vi.fn(async () => 'I review every day.');
 
         installProviderExampleBehaviors(root, {
-            language: 'en',
+            interfaceLanguage: 'en',
+            outputLanguage: 'en',
             blurTranslations: true,
             translate,
         });
@@ -69,7 +71,8 @@ describe('provider example translations', () => {
         const translation = root.querySelector<HTMLElement>('[data-provider-example-translation]')!;
 
         installProviderExampleBehaviors(root, {
-            language: 'en',
+            interfaceLanguage: 'en',
+            outputLanguage: 'en',
             blurTranslations: false,
             translate: async () => 'I review every day.',
         });

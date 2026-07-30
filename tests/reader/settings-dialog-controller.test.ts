@@ -1879,7 +1879,7 @@ describe('settings dialog dictionary imports', () => {
         const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
-            languageProfiles: [{ ...baseProfile, learnerLanguage: 'ko' }],
+            languageProfiles: [{ ...baseProfile, outputLanguage: 'ko' }],
             activeLanguageProfileId: baseProfile.id,
         };
         const summary = vi.fn().mockResolvedValue({
@@ -1973,7 +1973,7 @@ describe('settings dialog dictionary imports', () => {
         const recommendation = recommendedDictionariesForLearnerLanguage('ko')[0]!;
         const profile = {
             ...DEFAULT_SETTINGS.languageProfiles[0]!,
-            learnerLanguage: 'ko',
+            outputLanguage: 'ko',
             dictionaries: {
                 installed: ['Existing Korean dictionary'],
                 enabled: ['Existing Korean dictionary'],

@@ -17,7 +17,7 @@ interface TranslateSubtitleCueOptions {
 export async function translateSubtitleCues(
     cues: SubtitleCue[],
     sourceLanguage: string,
-    targetLanguage: string,
+    outputLanguage: string,
     options: TranslateSubtitleCueOptions = {},
 ): Promise<SubtitleCue[]> {
     if (!cues.length) return [];
@@ -31,7 +31,7 @@ export async function translateSubtitleCues(
     for (let index = 0; index < batches.length; index += 1) {
         if (index > 0) await waitForTranslationTurn();
         const batch = batches[index] ?? [];
-        const results = await translateBatch(batch, sourceLanguage, targetLanguage);
+        const results = await translateBatch(batch, sourceLanguage, outputLanguage);
         translated.push(...results);
     }
     return cues.map((cue, index) => ({
@@ -60,13 +60,13 @@ function batchTexts(texts: string[], size: number, encodedCharBudget: number): s
     return batches;
 }
 
-async function translateBatch(texts: string[], sourceLanguage: string, targetLanguage: string): Promise<string[]> {
+async function translateBatch(texts: string[], sourceLanguage: string, outputLanguage: string): Promise<string[]> {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log.time('Translate subtitle batch', { count: texts.length });
     try {
         const result = await translateText(joined, {
             sourceLanguage,
-            targetLanguage,
+            outputLanguage,
             timeoutMs: TRANSLATION_TIMEOUT_MS,
         });
         const lines = result.split(TRANSLATION_SEPARATOR);

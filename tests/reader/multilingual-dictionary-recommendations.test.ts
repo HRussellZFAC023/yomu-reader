@@ -99,7 +99,7 @@ function settingsForLearnerLanguage(learnerLanguage: string) {
     return normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
         interfaceLanguage: 'en',
-        languageProfiles: [{ ...profile, learnerLanguage }],
+        languageProfiles: [{ ...profile, outputLanguage: learnerLanguage }],
         activeLanguageProfileId: profile.id,
     });
 }

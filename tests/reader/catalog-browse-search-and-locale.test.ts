@@ -200,7 +200,7 @@ function renderedForm(learnerLanguage: string): HTMLFormElement {
         normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             interfaceLanguage: 'en',
-            languageProfiles: [{ ...profile, learnerLanguage }],
+            languageProfiles: [{ ...profile, outputLanguage: learnerLanguage }],
             activeLanguageProfileId: profile.id,
         }),
         'https://jpdb.io/settings',

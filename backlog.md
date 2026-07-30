@@ -31,10 +31,11 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 learner's first ten minutes.
 
 0. **P0 — THE 1.9.0 GATE (owner ruling 2026-07-30):** `D43` full UI localisation **including the explicit
-   RTL decision**, `U105` the target/output/interface tiers, `U46` non-Japanese example sources, plus the
-   `A37.3` U79 DOM gating and `A37.4` Burmese leftovers. A37's active-profile pointer lookup and
-   capability-bound hero shipped in v1.8.38 and are proven. **The owner declined cutting 1.9.0 early**, so
-   the Chrome and Firefox stores stay on 1.8.2 by choice until this ships.
+   RTL decision** and `U46` non-Japanese example sources. **`U105` landed 2026-07-30** (target ≠ output ≠
+   interface as three persisted axes, with the revision-1 → revision-2 profile migration), and it closed
+   the `A37.3` DOM-gating and `A37.4` Burmese leftovers with re-measured evidence. A37's active-profile
+   pointer lookup and capability-bound hero shipped in v1.8.38 and are proven. **The owner declined
+   cutting 1.9.0 early**, so the Chrome and Firefox stores stay on 1.8.2 by choice until this ships.
 0a. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
    ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
    definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
@@ -65,9 +66,9 @@ overlap) · **`U44`/`U97` language-aware card identity (`eb1271571`)** — the 1
 
 **STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply, `U44`/`U97` card identity, and A37's target
 picker, raw pointer lookup, honest homepage claim, and `U79` DOM gating are complete. What remains is
-classifying/migrating the other `U61` Japanese-only seams, then `U105`/`D43`/`U46` per the plan in
-`scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices). Until 1.9.0 ships, the Chrome
-and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
+classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per the plan in
+`scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices; slices 0 and 1, `U105`, landed
+2026-07-30). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
 
 - [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
       Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
@@ -564,11 +565,33 @@ homepage now advertises the gap 34 times instead of 9.
       Reader-owned roots now carry `data-language`; the shared language-family mechanism physically
       detaches unsupported nodes, discovers dynamically inserted nodes, and restores the same nodes for
       Japanese.
+      **CLOSED 2026-07-30, re-measured on the real settings form** (`syncLanguageFamilyDom` over
+      `renderSettingsTestForm(DEFAULT_SETTINGS)`, four targets in sequence):
+      `[ja] jp-only-nodes=11 furiganaMode=PRESENT reading-annotation=PRESENT pitch-colouring=PRESENT pitch-legend=PRESENT provider-pills=PRESENT`
+      · `[ko]`/`[es]`/`[ar]` each `jp-only-nodes=0` with all five **ABSENT**
+      · back to `[ja]`, `jp-only-nodes=11` and all five PRESENT again, the *same* node objects
+      (`10-target-language-gating.test.ts` compares node identity, not just presence).
+      Also newly pinned: `language-tiers.test.ts` asserts, for **every registered target module**, that
+      `jp-only` membership equals that module's `reading-annotation` capability. The gating was a
+      hardcoded language list; it is now a list that fails CI the moment it disagrees with the
+      capability it is supposed to represent, so a future target that gains readings cannot silently
+      render no furigana controls.
 - [x] **A37.4 — FIXED: Burmese (`my`) has zero dictionary entries but is not a picker target.**
       A picker entry that resolves to nothing is the A11 defect class (a state the learner cannot tell
       from broken), so it must be sourced or absent from the roster.
       Burmese is not in `LEARNING_TARGET_ROSTER`, and the published-pages audit now fails if any
       lookup-capable picker target has zero published dictionary supply.
+      **CLOSED 2026-07-30 — taken off the roster, not sourced, and it was never on it.** Re-measured:
+      `my` appears in **zero** of `config/multilingual/languages.json` (32 ids), `LEARNER_LANGUAGE_IDS`,
+      `LEARNING_TARGET_ROSTER` (33), the 34 catalogue headword languages, and the 34 catalogue definition
+      languages. Its only remaining mentions are two ICU-segmentation comments and one segmentation test
+      that checks Burmese *text* splits into more than one token — a segmenter fact, not a picker entry.
+      The decision is therefore **off the roster**: sourcing Burmese dictionary data is not on the 1.9.0
+      path, and shipping the picker entry without it is the A11 defect class. Every roster language now
+      has headword supply (measured: `ar 31 · da 31 · de 63 · el 61 · en 63 · es 62 · fa 31 · fi 30 ·
+      fr 63 · grc 29 · hu 31 · id 37 · it 62 · ja 145 · km 29 · ko 63 · la 31 · lo 29 · mn 29 · nl 63 ·
+      pl 61 · pt 62 · ro 31 · ru 62 · sh 23 · sq 31 · sv 31 · th 60 · tl 30 · tr 62 · vi 62 · yue 36 ·
+      zh 99`, plus `lzh 4` which is supply only) — the "roster language with zero supply" set is empty.
 
 **A37 no longer blocks 1.9.0.** Proven with real browser evidence: ja, ko, es, ar and el each pressed on a
 raw unannotated Wikipedia heading (`rawReaderWords: 0`, so the text was not pre-annotated) opened a popover
@@ -585,12 +608,32 @@ The remaining gate, precisely:
 - **`D43`** full UI localisation for every target, **including an explicit RTL decision** for Arabic and
   Farsi — in scope with named work, or excluded with a defined behaviour when someone picks Arabic. The
   ticket forbids discovering RTL late.
-- **`U105`** the three tiers kept apart: target language ≠ definition/output language ≠ interface language.
+- ~~**`U105`**~~ **DONE 2026-07-30.** The three axes are separately persisted, migrated and consumed;
+  `target=ja, output=ko, interface=en` is a passing regression in
+  `tests/reader/languages/language-tiers.test.ts`.
 - **`U46`** example-sentence and media sources for the other targets, with the targets that have **no**
   usable source named so the affordance degrades visibly rather than silently.
-- Plus the two A37 leftovers: `A37.3` U79 DOM gating and `A37.4` Burmese (`my`) having no dictionary supply.
+- ~~`A37.3` / `A37.4`~~ **both closed and re-verified 2026-07-30** with the evidence recorded above.
 
 Plan of record for all three: `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices).
+
+**ROSTER COUNT, MEASURED 2026-07-30 — this settles the contradiction the older tickets carry.** The
+numbers are four different axes and every earlier count mixed at least two of them:
+
+| Axis | Count | Source of truth |
+|---|---:|---|
+| Configured output/interface roster | **32** | `config/multilingual/languages.json`, `LEARNER_LANGUAGE_IDS` — contains neither `ja` nor `my` |
+| Target picker entries | **33** | `LEARNING_TARGET_ROSTER` = `ja` + the 32 |
+| Registered target modules | **33** | `ja` + `ko` + 31 generic roster modules (the roster minus `ko`) |
+| Catalogue headword languages | **34** | the 33 picker targets + `lzh` (Literary Chinese), which is dictionary *supply*, not a picker target |
+| Catalogue definition languages | **34** | includes `sl` (1 entry), also supply and not on the roster |
+
+So "34 study languages" was the supply count, "33-language roster" was the picker, and "the other 31"
+was the roster minus `ja` and `ko`. **No configured language is unaccounted for.**
+`tests/reader/languages/language-tiers.test.ts` asserts every `LEARNING_TARGET_ROSTER` entry has a
+registered module, and `tests/reader/docs-published-pages.test.ts` asserts every lookup-capable picker
+target has published dictionary supply — so the next `my` fails a gate instead of shipping a picker entry
+that resolves to nothing.
 
 ### A35 — UNDOCUMENTED WORK FOUND BY SWEEP 2026-07-29
 
@@ -1496,10 +1539,25 @@ The measured picture, all re-verified this pass:
 - [x] **U44 / U97 — language-aware card identity shipped in `eb1271571`.** The four-slot key includes
       target language while eliding `ja`, so existing Japanese identities remain byte-identical and
       existing E2EE data needs no migration.
-- [ ] **U105 — three-tier language model: target ≠ output ≠ interface.** sagamsil does not need Yomu
-      translated into Korean; he needs **definitions rendered** in Korean (U15). Conflating the tiers
-      makes the 32-language goal look 3× larger than it is. Record the real per-target cost too: not a
-      dictionary but **morphology plus a named-entity gazetteer**.
+- [x] **U105 — FIXED: the three tiers are three separately addressable axes.** sagamsil does not need
+      Yomu translated into Korean; he needs **definitions rendered** in Korean (U15), and that now works
+      without touching the interface locale. TARGET (what is read) lives in `profile.targetLanguage`,
+      OUTPUT (what definitions and example translations render in) in `profile.outputLanguage`, INTERFACE
+      (what Yomu's own chrome says) in `profile.uiLocale`, read through
+      `src/reader/languages/selection.ts` (`targetLanguageOf` / `outputLanguageOf` /
+      `interfaceLanguageOf` / `resolveLanguageSelection`). Profile schema revision 2 renames revision 1's
+      `learnerLanguage` to `outputLanguage` and keeps writing the old name for one release; the *stamped*
+      revision decides which field is authoritative, so a downgrade to a revision-1 build does not lose
+      the choice on the way back up. The live conflation was example translation: the popover and the new
+      tab handed `settings.interfaceLanguage` to a machine-translation call, so an English-UI Korean
+      speaker got English example translations with no way to ask for Korean ones. `translateText`'s
+      destination option is now `outputLanguage`, not `targetLanguage` — that name collision is what let
+      an interface locale be passed as a translation destination in the first place.
+      **Correction to this ticket's own prose:** "morphology plus a named-entity gazetteer" is not the
+      per-target cost in this codebase. There is no gazetteer field, adapter, capability or registry on
+      `LearningTargetModule`; Japanese named entities arrive as dictionary data (JMnedict). The measured
+      cost is registered modules, persistence/migration, language-bearing card identity,
+      dictionary/capability gating, CSS/DOM gating, and source adapters — see the plan of record.
 - [ ] **D43 — full UI localisation for every target language** (owner's explicit decision, overriding
       U105's scoping — **both** are in scope, do not quietly drop one). Today `interfaceLanguage` is a
       two-way en/ja switch. Plan before starting: `app/i18n.ts` is a hand-maintained flat map already

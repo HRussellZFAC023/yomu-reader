@@ -20,7 +20,7 @@ function koreanSettings(providerIds: string[]) {
         ...DEFAULT_SETTINGS,
         languageProfiles: [{
             ...DEFAULT_SETTINGS.languageProfiles[0]!,
-            learnerLanguage: 'ko',
+            outputLanguage: 'ko',
             definitionTranslationProviderIds: providerIds,
         }],
     };
@@ -129,7 +129,7 @@ describe('definition translation enhancement', () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
 
-        for (const [dictionary, learnerLanguage] of [
+        for (const [dictionary, outputLanguage] of [
             ['[JA-TL] Test', 'fil'],
             ['[JA-SH] Test', 'sr-Latn'],
         ] as const) {
@@ -142,7 +142,7 @@ describe('definition translation enhancement', () => {
                     ...DEFAULT_SETTINGS,
                     languageProfiles: [{
                         ...DEFAULT_SETTINGS.languageProfiles[0]!,
-                        learnerLanguage,
+                        outputLanguage,
                         definitionTranslationProviderIds: [dictionary],
                     }],
                 },

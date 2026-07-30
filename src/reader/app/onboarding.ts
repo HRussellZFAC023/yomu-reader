@@ -7,7 +7,7 @@ import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
 import {
-    activateLanguageProfileForLearner,
+    activateLanguageProfileForOutputLanguage,
     activeLanguageProfile,
     activeLearningTargetLanguage,
     canonicalTagForSlice1Language,
@@ -648,7 +648,7 @@ function learnerLanguageOptionLabel(language: {
 
 function onboardingLearnerLanguage(settings: ReaderSettings): LearnerLanguageId {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const saved = slice1LanguageIdForTag(profile?.learnerLanguage);
+    const saved = slice1LanguageIdForTag(profile?.outputLanguage);
     if (saved && saved !== 'en') return saved;
 
     const browserLanguages = typeof navigator === 'undefined'
@@ -673,7 +673,7 @@ function updateActiveOnboardingLanguageProfile(
     learnerLanguage: LearnerLanguageId,
     interfaceLanguage: InterfaceLanguage,
 ): Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'> {
-    const activated = activateLanguageProfileForLearner(
+    const activated = activateLanguageProfileForOutputLanguage(
         settings.languageProfiles,
         settings.activeLanguageProfileId,
         canonicalTagForSlice1Language(learnerLanguage),
@@ -687,6 +687,7 @@ function updateActiveOnboardingLanguageProfile(
         languageProfiles: activated.profiles.map(profile => profile.id === activated.activeProfileId
         ? {
             ...profile,
+            outputLanguage: canonicalTagForSlice1Language(learnerLanguage),
             learnerLanguage: canonicalTagForSlice1Language(learnerLanguage),
             // Onboarding decides the definition language, never the target.
             // Re-stamping a constant here would silently revert a profile that

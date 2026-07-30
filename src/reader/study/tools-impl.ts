@@ -276,22 +276,27 @@ export function isTranslatableJapaneseSentence(sentence: string): boolean {
     return japanese / dense >= 0.15;
 }
 
-export async function translateJapaneseSentence(sentence: string, language = 'en'): Promise<string> {
+/**
+ * `outputLanguage` is the OUTPUT axis — where the sentence lands — never the
+ * interface locale. Callers resolve it with `outputLanguageOf(settings)`.
+ */
+export async function translateJapaneseSentence(sentence: string, outputLanguage = 'en'): Promise<string> {
     const trimmed = sentence.trim();
     if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return '';
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
-    const targetLanguage = translationTargetLanguage(language);
     return translateText(requestSentence, {
         sourceLanguage: 'ja',
-        targetLanguage,
+        outputLanguage: sentenceOutputLanguage(outputLanguage),
         timeoutMs: TRANSLATION_TIMEOUT_MS,
         includeDictionaryData: true,
     });
 }
 
-function translationTargetLanguage(language: InterfaceLanguage | string): string {
-    // The source is Japanese; Japanese UI is immersion chrome, not a translation target.
-    return language === 'auto' || language === 'ja' ? 'en' : language;
+function sentenceOutputLanguage(outputLanguage: string): string {
+    // The source is Japanese, so Japanese output is not a translation, and
+    // `auto` is an interface-locale value that never meant an output language.
+    // Both fall back to English rather than round-tripping the sentence.
+    return outputLanguage === 'auto' || outputLanguage === 'ja' ? 'en' : outputLanguage;
 }
 
 function normalizeSentenceForTranslationRequest(sentence: string): string {

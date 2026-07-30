@@ -9,7 +9,7 @@ import type { InterfaceLanguage } from '../app/types';
 
 const log = Logger.scope('StudyRender');
 
-export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean; translationLanguage?: string } = {}): Promise<void> {
+export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean; outputLanguage?: string } = {}): Promise<void> {
     const panel = button.closest('.jpdb-reader-study-tools')?.querySelector<HTMLElement>('[data-study-panel]');
     if (!panel || !sentence) return;
     panel.hidden = false;
@@ -17,7 +17,7 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     const done = log.time('studyTool', { action, sentenceLength: sentence.length });
     if (action === 'study-translate') {
         try {
-            const translated = await translateJapaneseSentence(sentence, options.translationLanguage ?? language);
+            const translated = await translateJapaneseSentence(sentence, options.outputLanguage ?? 'en');
             if (!translated) {
                 panel.hidden = true;
                 panel.textContent = '';

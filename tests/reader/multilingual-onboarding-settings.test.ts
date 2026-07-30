@@ -95,7 +95,7 @@ describe('Slice 1 multilingual onboarding and settings', () => {
                 {
                     ...baseProfile,
                     id: 'korean-ja',
-                    learnerLanguage: 'ko',
+                    outputLanguage: 'ko',
                     parserProvider: 'local',
                     dictionaries: {
                         installed: ['Korean terms', 'French terms'],
@@ -106,7 +106,7 @@ describe('Slice 1 multilingual onboarding and settings', () => {
                 {
                     ...baseProfile,
                     id: 'french-ja',
-                    learnerLanguage: 'fr',
+                    outputLanguage: 'fr',
                     parserProvider: 'jpdb',
                     dictionaries: {
                         installed: ['Korean terms', 'French terms'],
@@ -216,8 +216,8 @@ function multilingualSettings(learnerLanguage: string): ReaderSettings {
             { name: 'JMdict (en)', alias: '', enabled: true, priority: 1, type: 'terms' },
         ],
         languageProfiles: [
-            { ...baseProfile, id: 'primary', learnerLanguage },
-            { ...baseProfile, id: 'secondary', learnerLanguage: 'de' },
+            { ...baseProfile, id: 'primary', outputLanguage: learnerLanguage },
+            { ...baseProfile, id: 'secondary', outputLanguage: 'de' },
         ],
         activeLanguageProfileId: 'primary',
     });

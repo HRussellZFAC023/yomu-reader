@@ -5,8 +5,8 @@ import {
     createDefaultLanguageProfile,
     normalizeLanguageProfiles,
     resolveLanguageProfile,
-    resolvedLearnerLanguage,
 } from '../../../src/reader/languages/profiles';
+import { outputLanguageOf } from '../../../src/reader/languages/selection';
 import { normalizeSlice1LearnerLanguage } from '../../../src/reader/languages/roster';
 
 describe('language profile normalization', () => {
@@ -16,8 +16,9 @@ describe('language profile normalization', () => {
             uiLocale: 'ko_KR',
             parserProvider: 'local',
         })).toEqual({
-            schemaVersion: 1,
+            schemaVersion: 2,
             id: 'default-ja',
+            outputLanguage: 'ko-KR',
             learnerLanguage: 'ko-KR',
             targetLanguage: 'ja',
             uiLocale: 'ko-KR',
@@ -57,6 +58,7 @@ describe('language profile normalization', () => {
         expect(normalized.activeProfileId).toBe('work-2');
         expect(normalized.profiles.map(profile => profile.id)).toEqual(['work', 'work-2']);
         expect(normalized.profiles[0]).toMatchObject({
+            outputLanguage: 'pt-BR',
             learnerLanguage: 'pt-BR',
             targetLanguage: 'en',
             uiLocale: 'pt-BR',
@@ -72,7 +74,7 @@ describe('language profile normalization', () => {
 
     it('drops unsupported profile versions and repairs an invalid active ID', () => {
         const normalized = normalizeLanguageProfiles([
-            { schemaVersion: 2, id: 'future', learnerLanguage: 'ko' },
+            { schemaVersion: 3, id: 'future', outputLanguage: 'ko' },
             null,
         ], 'missing', {
             uiLocale: 'ja',
@@ -100,7 +102,7 @@ describe('language profile normalization', () => {
     it('exposes the active learner language without leaking settings storage details', () => {
         const profiles = [
             { ...createDefaultLanguageProfile(), id: 'english' },
-            { ...createDefaultLanguageProfile(), id: 'korean', learnerLanguage: 'ko-KR' },
+            { ...createDefaultLanguageProfile(), id: 'korean', outputLanguage: 'ko-KR', learnerLanguage: 'ko-KR' },
         ];
         const settingsShape = {
             languageProfiles: profiles,
@@ -110,9 +112,9 @@ describe('language profile normalization', () => {
         };
 
         expect(resolveLanguageProfile(settingsShape).id).toBe('korean');
-        expect(resolvedLearnerLanguage(settingsShape)).toBe('ko-KR');
-        expect(resolvedLearnerLanguage(profiles[0])).toBe('en');
-        expect(resolvedLearnerLanguage(null)).toBe('en');
+        expect(outputLanguageOf(settingsShape)).toBe('ko-KR');
+        expect(outputLanguageOf(profiles[0])).toBe('en');
+        expect(outputLanguageOf(null)).toBe('en');
     });
 
     it('canonicalizes every Serbo-Croatian alias to the same Latin-script runtime identity', () => {

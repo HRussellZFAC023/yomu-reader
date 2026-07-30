@@ -86,7 +86,7 @@ describe('multilingual dictionary supply', () => {
             normalizeReaderSettings({
                 ...DEFAULT_SETTINGS,
                 interfaceLanguage: 'en',
-                languageProfiles: [{ ...profile, learnerLanguage: 'es' }],
+                languageProfiles: [{ ...profile, outputLanguage: 'es' }],
                 activeLanguageProfileId: profile.id,
             }),
             'https://jpdb.io/settings',

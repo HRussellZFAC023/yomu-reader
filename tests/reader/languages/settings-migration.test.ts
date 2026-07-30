@@ -8,8 +8,9 @@ describe('Reader settings language-profile migration', () => {
         expect(DEFAULT_SETTINGS.activeLanguageProfileId).toBe('default-ja');
         expect(DEFAULT_SETTINGS.languageProfiles).toEqual([
             expect.objectContaining({
-                schemaVersion: 1,
+                schemaVersion: 2,
                 id: 'default-ja',
+                outputLanguage: 'en',
                 learnerLanguage: 'en',
                 targetLanguage: 'ja',
                 uiLocale: 'en',
@@ -28,6 +29,7 @@ describe('Reader settings language-profile migration', () => {
         expect(settings.parserProvider).toBe('jpdb');
         expect(settings.languageProfiles).toEqual([
             expect.objectContaining({
+                outputLanguage: 'en',
                 learnerLanguage: 'en',
                 targetLanguage: 'ja',
                 uiLocale: 'ja',
@@ -87,6 +89,8 @@ describe('Reader settings language-profile migration', () => {
         const settings = normalizeReaderSettings(raw);
         expect(settings.activeLanguageProfileId).toBe('korean-ja');
         expect(settings.languageProfiles[0]).toMatchObject({
+            schemaVersion: 2,
+            outputLanguage: 'ko-KR',
             learnerLanguage: 'ko-KR',
             targetLanguage: 'en',
             uiLocale: 'ja',

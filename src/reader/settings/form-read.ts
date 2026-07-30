@@ -6,7 +6,7 @@ import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
-    activateLanguageProfileForLearner,
+    activateLanguageProfileForOutputLanguage,
     activeLanguageProfile,
     canonicalTagForLearningTarget,
     canonicalTagForSlice1Language,
@@ -202,11 +202,15 @@ function readLanguageProfileFormSettings(
         };
     }
 
-    const fallbackLearnerLanguage = slice1LanguageIdForTag(active.learnerLanguage) ?? 'en';
-    const learnerLanguage = readLearnerLanguage(data, fallbackLearnerLanguage);
-    const learnerLanguageTag = learnerLanguage === fallbackLearnerLanguage
-        ? active.learnerLanguage
-        : canonicalTagForSlice1Language(learnerLanguage);
+    // OUTPUT axis. The control is still named `learnerLanguage` in the form,
+    // because a form field name is part of the rendered contract the dialog
+    // controller and its tests already speak; the persisted axis is
+    // `outputLanguage`.
+    const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? 'en';
+    const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
+    const outputLanguageTag = outputLanguage === fallbackOutputLanguage
+        ? active.outputLanguage
+        : canonicalTagForSlice1Language(outputLanguage);
     const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? 'ja';
     const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
     const targetLanguage = canonicalTagForLearningTarget(targetLanguageId);
@@ -220,11 +224,11 @@ function readLanguageProfileFormSettings(
         : [...active.definitionTranslationProviderIds];
     const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
 
-    if (learnerLanguage !== fallbackLearnerLanguage) {
-        const activated = activateLanguageProfileForLearner(
+    if (outputLanguage !== fallbackOutputLanguage) {
+        const activated = activateLanguageProfileForOutputLanguage(
             current.languageProfiles,
             current.activeLanguageProfileId,
-            learnerLanguageTag,
+            outputLanguageTag,
             {
                 uiLocale: interfaceLanguage,
                 parserProvider,
@@ -245,7 +249,8 @@ function readLanguageProfileFormSettings(
                 ...profile,
                 // Keep an existing supported script/region variant when the
                 // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
-                learnerLanguage: learnerLanguageTag,
+                outputLanguage: outputLanguageTag,
+                learnerLanguage: outputLanguageTag,
                 targetLanguage,
                 uiLocale: interfaceLanguage,
                 parserProvider,
@@ -268,7 +273,7 @@ function languageProfileDictionariesFromPreferences(
     };
 }
 
-function readLearnerLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
+function readOutputLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
     const value = String(data.get('learnerLanguage') ?? '');
     return isLearnerLanguageId(value) ? value : fallback;
 }

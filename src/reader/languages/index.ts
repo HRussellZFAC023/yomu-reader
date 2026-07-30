@@ -2,6 +2,7 @@ export * from './types';
 export * from './locale';
 export * from './roster';
 export * from './profiles';
+export * from './selection';
 export * from './module';
 export * from './japanese';
 export * from './korean';

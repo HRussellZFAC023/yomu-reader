@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.39
+// @version 1.8.40
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.6ba794b0568a.user.js#sha256=a6eUsFaKjXLuIvqwBdlzOSFRTXmW4xOf+5B2BboITH4=
+// @require https://yomureader.com/greasyfork/yomu-anki.e3a039cb9859.user.js#sha256=46A5y5hZgOB12xkVYJ+M/5hrId3p5eOf43EBH6WQh0Y=
 // @require https://yomureader.com/greasyfork/yomu-audio.ae5d8a749a86.user.js#sha256=rl2KdJqGsedvTVdJPPNbFwC9AD/z/prWvpbHn0cNIsQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.ad44ae2c433d.user.js#sha256=rUSuLEM9tKLr1JNmJU9h37IqkA61/uHU2rtR+HjL7lM=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.e60ab500d05e.user.js#sha256=5gq1ANBeAX1JyqKRyeDO2YYlH37sy0E+tVU4ncOyp/w=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.da3bc7bc4739.user.js#sha256=2jvHvEc5IoSMDb2Zuf1oLUxHelTAlcbXQhkn7AWChUc=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.0363b0c44775.user.js#sha256=A2OwxEd1rKApMbtrmovkWJ2/US1LOwr4qTmhWZJlTts=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.48fdbfe22365.user.js#sha256=SP2/4iNlfqVPUaV8Z9L7XE3N2J5/B1b0KlFQCmtPHw0=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.c783fcbc0010.user.js#sha256=x4P8vAAQzSBD4vD6zOUtf8T3x0sY/yj/RNbMWbFQ5XE=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.33482acca749.user.js#sha256=M0gqzKdJl6vdYKCjir0OcJ+09LuVUsicWkoc19g+6P4=
-// @require https://yomureader.com/greasyfork/yomu-jiten.aa96372b99d9.user.js#sha256=qpY3K5nZWAL6mFs4/xfDhDIqUGU7KZY2iQfDYPyJjTM=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.568cd7cb8417.user.js#sha256=VozXy4QXC1TwYi0HGvFfQcN6QOSrPK9qHRbIqd0URgQ=
-// @require https://yomureader.com/greasyfork/yomu-video.ddd33b4ca4ee.user.js#sha256=3dM7TKTuVFkESOgC9KpHtNNUyF4Pnyy427ulWcNQirc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.fc831f0dc90f.user.js#sha256=/IMfDckPCZy+akqOjPMS2gW+F866VYuFT+nLcr91mRw=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.526235c6c79d.user.js#sha256=UmI1xsed0kD+WoJls/nIMIyeb/ypAjTv1uLvA/knVww=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.9b014248e077.user.js#sha256=mwFCSOB3uvWUE42Cn6pYGwePpaeaIyg9omC+ogCXBk4=
+// @require https://yomureader.com/greasyfork/yomu-jiten.848916d66970.user.js#sha256=hIkW1mlw8xXq5ahRhxZol1YbxWDBzKAmlCLVkaqLmRc=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.0db014d1d3a8.user.js#sha256=DbAU0dOoKpq/xrw7mSUbAdnPchVR7360oOHskbx63aE=
+// @require https://yomureader.com/greasyfork/yomu-video.8f6783aff800.user.js#sha256=j2eDr/gAnaDt1+iRbC2s8FcRuDvW5qIWNOF2wwWqMIU=
 // @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1559,7 +1559,11 @@ function icuWordSegments(text, locale) {
   }
   return segments;
 }
-const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
+const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+function isSupportedLanguageProfileSchemaVersion(value) {
+  return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+}
 const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
 const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
@@ -6371,14 +6375,17 @@ function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
 const PARSER_PROVIDERS = new Set(["local", "jiten", "jpdb", "auto"]);
+function readOutputLanguageField(source) {
+  return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
+}
 function createDefaultLanguageProfile(defaults = {}) {
   return {
   schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
   id: DEFAULT_LANGUAGE_PROFILE_ID,
-  learnerLanguage: normalizeSlice1LearnerLanguage(
-    defaults.learnerLanguage,
+  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+    readOutputLanguageField(defaults),
     DEFAULT_SLICE1_LEARNER_LANGUAGE
-  ),
+  )),
   targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
   uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
   parserProvider: normalizeParserProvider$1(defaults.parserProvider, "local"),
@@ -6405,13 +6412,16 @@ function normalizeLanguageProfiles(value, activeProfileId, defaults = {}) {
   activeProfileId: active.id
   };
 }
+function outputLanguageFields(outputLanguage) {
+  return { outputLanguage, learnerLanguage: outputLanguage };
+}
 function activeLanguageProfile(profiles, activeProfileId) {
   return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
 }
 function resolveLanguageProfile(value) {
-  if (isRecord$1(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
+  if (isRecord$1(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
   const normalized2 = normalizeLanguageProfiles([value], value.id, {
-    learnerLanguage: value.learnerLanguage,
+    outputLanguage: readOutputLanguageField(value),
     uiLocale: value.uiLocale,
     parserProvider: value.parserProvider
   });
@@ -6422,26 +6432,23 @@ function resolveLanguageProfile(value) {
   source.languageProfiles,
   source.activeLanguageProfileId,
   {
-    learnerLanguage: source.learnerLanguage,
+    outputLanguage: readOutputLanguageField(source),
     uiLocale: source.interfaceLanguage,
     parserProvider: source.parserProvider
   }
   );
   return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
 }
-function resolvedLearnerLanguage(value) {
-  return resolveLanguageProfile(value).learnerLanguage;
-}
 function normalizeLanguageProfile(value, index, defaults) {
   if (!isRecord$1(value)) return null;
-  if (value.schemaVersion !== LANGUAGE_PROFILE_SCHEMA_VERSION) return null;
+  if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
   return {
   schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
   id: normalizeProfileId(value.id, index),
-  learnerLanguage: normalizeSlice1LearnerLanguage(
-    value.learnerLanguage,
-    normalizeSlice1LearnerLanguage(defaults.learnerLanguage)
-  ),
+  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+    readOutputLanguageField(value),
+    normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
+  )),
   targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
   uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
   parserProvider: normalizeParserProvider$1(value.parserProvider, normalizeParserProvider$1(defaults.parserProvider, "local")),
@@ -6503,6 +6510,9 @@ function normalizeStringIds(value) {
 }
 function isRecord$1(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function outputLanguageOf(value) {
+  return resolveLanguageProfile(value).outputLanguage;
 }
 function adoptLearningTargetFromSettings(value) {
   return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
@@ -7680,12 +7690,12 @@ function normalizeParserProvider(value) {
   return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
 }
 function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences) {
-  const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && profile.schemaVersion === 1);
+  const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion));
   const normalized = normalizeLanguageProfiles(
   value?.languageProfiles,
   value?.activeLanguageProfileId,
   {
-    learnerLanguage: "en",
+    outputLanguage: "en",
     uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
     parserProvider
   }
@@ -7715,7 +7725,7 @@ function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPrefe
   };
 }
 function languageProfileHasIndependentState(profile) {
-  return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.learnerLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
+  return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
 }
 function languageProfileDictionariesFromPreferences(preferences) {
   const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
@@ -16872,7 +16882,7 @@ class CardActionController {
   const settings = this.options.getSettings();
   await renderStudyToolResult(button, action, sentence, void 0, settings.interfaceLanguage, {
     audioEnabled: settings.audioEnabled,
-    translationLanguage: resolvedLearnerLanguage(settings)
+    outputLanguage: outputLanguageOf(settings)
   });
   void this.reparsePopoverJapanese(button);
   return false;
@@ -26436,9 +26446,10 @@ function hydrateProviderTranslation(root, translation, options) {
   const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
   if (!sentence) return;
   translation.dataset.providerTranslationLoading = "true";
-  void options.translate(sentence, options.language).then((translated) => {
+  void options.translate(sentence, options.outputLanguage).then((translated) => {
   if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
   translation.textContent = translated.trim();
+  translation.lang = options.outputLanguage;
   translation.hidden = false;
   delete translation.dataset.providerTranslationPending;
   delete translation.dataset.providerTranslationSentence;
@@ -31538,8 +31549,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.39"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.39"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.40"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.40"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -31682,7 +31693,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.39"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.40"}`;
   } catch {
   return null;
   }
@@ -38573,7 +38584,8 @@ class ReaderApp {
   if (!this.isCurrentPopoverRoot(popover)) return;
   void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
   installProviderExampleBehaviors(popover, {
-    language: this.settings.interfaceLanguage,
+    interfaceLanguage: this.settings.interfaceLanguage,
+    outputLanguage: outputLanguageOf(this.settings),
     blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
     translate: translateJapaneseSentence,
     isCurrentRoot: (root) => this.isCurrentPopoverRoot(root)

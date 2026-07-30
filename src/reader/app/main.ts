@@ -284,6 +284,7 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { translateJapaneseSentence } from '../study/tools';
 import { activeLearningTarget } from '../languages/active';
+import { outputLanguageOf } from '../languages/selection';
 import { syncLanguageFamilyDom } from '../settings/language-gating';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
@@ -8264,7 +8265,8 @@ export class ReaderApp {
         if (!this.isCurrentPopoverRoot(popover)) return;
         void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
         installProviderExampleBehaviors(popover, {
-            language: this.settings.interfaceLanguage,
+            interfaceLanguage: this.settings.interfaceLanguage,
+            outputLanguage: outputLanguageOf(this.settings),
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
             translate: translateJapaneseSentence,
             isCurrentRoot: root => this.isCurrentPopoverRoot(root),

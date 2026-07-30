@@ -129,6 +129,9 @@ function settingsFor(targetLanguage) {
         onboardingSeen: true,
         interfaceLanguage: 'en',
         languageProfiles: [{
+            // Deliberately revision 1: this smoke also proves that a profile
+            // written before the U105 tier split still loads, with its
+            // `learnerLanguage` read as the OUTPUT axis.
             schemaVersion: 1,
             id: 'a37-proof',
             learnerLanguage: 'en',

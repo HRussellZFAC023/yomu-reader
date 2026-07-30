@@ -170,5 +170,5 @@ function activeLearnerLanguage(
     settings: ReaderSettings,
 ): Parameters<typeof recommendedDictionariesForLearnerLanguage>[0] {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.learnerLanguage) ?? 'en';
+    return slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en';
 }

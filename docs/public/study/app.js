@@ -9075,7 +9075,11 @@ ${spelling}`);
     }
     return segments;
   }
-  const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
+  const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+  const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+  function isSupportedLanguageProfileSchemaVersion(value) {
+    return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+  }
   const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 5;
   const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [5];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
@@ -11540,14 +11544,17 @@ ${spelling}`);
   const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
   const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
   const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
+  function readOutputLanguageField(source) {
+    return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
+  }
   function createDefaultLanguageProfile(defaults = {}) {
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
       id: DEFAULT_LANGUAGE_PROFILE_ID,
-      learnerLanguage: normalizeSlice1LearnerLanguage(
-        defaults.learnerLanguage,
+      ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+        readOutputLanguageField(defaults),
         DEFAULT_SLICE1_LEARNER_LANGUAGE
-      ),
+      )),
       targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
       uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
       parserProvider: normalizeParserProvider$1(defaults.parserProvider, "local"),
@@ -11574,14 +11581,17 @@ ${spelling}`);
       activeProfileId: active.id
     };
   }
+  function outputLanguageFields(outputLanguage) {
+    return { outputLanguage, learnerLanguage: outputLanguage };
+  }
   function activeLanguageProfile(profiles, activeProfileId) {
     return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
   }
-  function activateLanguageProfileForLearner(profiles, activeProfileId, learnerLanguage2, initial = {}) {
-    const canonicalLearnerLanguage = normalizeSlice1LearnerLanguage(learnerLanguage2);
-    const learnerLanguageId = slice1LanguageIdForTag(canonicalLearnerLanguage) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+  function activateLanguageProfileForOutputLanguage(profiles, activeProfileId, outputLanguage, initial = {}) {
+    const canonicalOutputLanguage = normalizeSlice1LearnerLanguage(outputLanguage);
+    const outputLanguageId = slice1LanguageIdForTag(canonicalOutputLanguage) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
     const existing = profiles.find(
-      (profile2) => slice1LanguageIdForTag(profile2.learnerLanguage) === learnerLanguageId
+      (profile2) => slice1LanguageIdForTag(profile2.outputLanguage) === outputLanguageId
     );
     if (existing) {
       return {
@@ -11594,10 +11604,12 @@ ${spelling}`);
     const usedIds = new Set(profiles.map((profile2) => profile2.id));
     const profile = {
       ...base,
-      id: uniqueProfileId(`learner-${learnerLanguageId}-ja`, usedIds),
-      learnerLanguage: canonicalLearnerLanguage,
-      // A new learner profile inherits what the person is already studying.
-      // Switching definition language is not a decision about the target.
+      // The ID keeps its revision-1 shape: it is a stored pointer, and
+      // renaming it would orphan every existing profile.
+      id: uniqueProfileId(`learner-${outputLanguageId}-ja`, usedIds),
+      ...outputLanguageFields(canonicalOutputLanguage),
+      // A new output-language profile inherits what the person is already
+      // studying. Switching definition language is not a target decision.
       targetLanguage: normalizeLearningTargetLanguage(initial.targetLanguage ?? base.targetLanguage),
       uiLocale: initial.uiLocale ?? base.uiLocale,
       parserProvider: initial.parserProvider ?? base.parserProvider,
@@ -11613,9 +11625,9 @@ ${spelling}`);
     };
   }
   function resolveLanguageProfile(value) {
-    if (isRecord$5(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
+    if (isRecord$5(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
       const normalized2 = normalizeLanguageProfiles([value], value.id, {
-        learnerLanguage: value.learnerLanguage,
+        outputLanguage: readOutputLanguageField(value),
         uiLocale: value.uiLocale,
         parserProvider: value.parserProvider
       });
@@ -11626,26 +11638,23 @@ ${spelling}`);
       source.languageProfiles,
       source.activeLanguageProfileId,
       {
-        learnerLanguage: source.learnerLanguage,
+        outputLanguage: readOutputLanguageField(source),
         uiLocale: source.interfaceLanguage,
         parserProvider: source.parserProvider
       }
     );
     return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
   }
-  function resolvedLearnerLanguage(value) {
-    return resolveLanguageProfile(value).learnerLanguage;
-  }
   function normalizeLanguageProfile(value, index, defaults) {
     if (!isRecord$5(value)) return null;
-    if (value.schemaVersion !== LANGUAGE_PROFILE_SCHEMA_VERSION) return null;
+    if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
       id: normalizeProfileId(value.id, index),
-      learnerLanguage: normalizeSlice1LearnerLanguage(
-        value.learnerLanguage,
-        normalizeSlice1LearnerLanguage(defaults.learnerLanguage)
-      ),
+      ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+        readOutputLanguageField(value),
+        normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
+      )),
       // A stored target survives only while core still has a module for it;
       // anything else degrades to the default rather than leaving the reader
       // pointed at a target nothing implements.
@@ -11717,6 +11726,9 @@ ${spelling}`);
   }
   function isRecord$5(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function outputLanguageOf(value) {
+    return resolveLanguageProfile(value).outputLanguage;
   }
   function targetOcrLanguageTag(configured) {
     return configured?.trim() || activeLearningTarget().ocr.defaultLanguage;
@@ -13274,15 +13286,16 @@ ${spelling}`);
     return mergeSettings(value);
   }
   function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences) {
-    const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && profile.schemaVersion === 1);
+    const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion));
     const normalized = normalizeLanguageProfiles(
       value?.languageProfiles,
       value?.activeLanguageProfileId,
       {
-        // Existing Japanese UI users are not necessarily native Japanese
-        // speakers. Preserve their UI choice but default the new learner
-        // language independently to English until onboarding asks.
-        learnerLanguage: "en",
+        // INTERFACE is not OUTPUT: existing Japanese-UI users are not
+        // necessarily native Japanese speakers. Preserve their UI choice
+        // and default the OUTPUT axis independently to English until
+        // onboarding asks.
+        outputLanguage: "en",
         uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
         parserProvider
       }
@@ -13312,7 +13325,7 @@ ${spelling}`);
     };
   }
   function languageProfileHasIndependentState(profile) {
-    return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.learnerLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
+    return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
   }
   function languageProfileDictionariesFromPreferences$1(preferences) {
     const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
@@ -30273,9 +30286,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
     if (!sentence) return;
     translation.dataset.providerTranslationLoading = "true";
-    void options.translate(sentence, options.language).then((translated) => {
+    void options.translate(sentence, options.outputLanguage).then((translated) => {
       if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
       translation.textContent = translated.trim();
+      translation.lang = options.outputLanguage;
       translation.hidden = false;
       delete translation.dataset.providerTranslationPending;
       delete translation.dataset.providerTranslationSentence;
@@ -44869,11 +44883,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function googleTranslationUrl(text2, options) {
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
     const sourceProviderLanguage = sourceLanguage === "auto" ? "auto" : requiredGoogleTranslationLanguage(sourceLanguage);
-    const targetLanguage2 = requiredGoogleTranslationLanguage(options.targetLanguage);
+    const outputLanguage = requiredGoogleTranslationLanguage(options.outputLanguage);
     const params = new URLSearchParams({
       client: "gtx",
       sl: sourceProviderLanguage,
-      tl: targetLanguage2,
+      tl: outputLanguage,
       dt: "t",
       dj: "1",
       q: text2
@@ -44885,9 +44899,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const original = text2.trim();
     if (!original) return "";
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
-    const targetLanguage2 = normalizeTranslationLanguage(options.targetLanguage);
-    if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === targetLanguage2.toLowerCase()) return original;
-    const cacheKey = `${sourceLanguage}:${targetLanguage2}:${original}`;
+    const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
+    if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
+    const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
     const cached = translationCache.get(cacheKey);
     if (cached !== void 0) return cached;
     const active = translationInFlight.get(cacheKey);
@@ -44895,7 +44909,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const request = performTranslation(original, {
       ...options,
       sourceLanguage,
-      targetLanguage: targetLanguage2
+      outputLanguage
     });
     translationInFlight.set(cacheKey, request);
     void request.finally(() => {
@@ -44914,7 +44928,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const url = googleTranslationUrl(text2, options);
     const done = log$n.time("Translate text", {
       sourceLanguage: options.sourceLanguage,
-      targetLanguage: options.targetLanguage,
+      outputLanguage: options.outputLanguage,
       textLength: text2.length
     });
     try {
@@ -44929,7 +44943,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
       const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
       if (!translated) throw new Error("No translation returned.");
-      translationCache.set(`${options.sourceLanguage}:${options.targetLanguage}:${text2}`, translated);
+      translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
       pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
       return translated;
     } finally {
@@ -45078,20 +45092,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const dense = trimmed.replace(/\s+/g, "").length;
     return japanese / dense >= 0.15;
   }
-  async function translateJapaneseSentence$1(sentence, language2 = "en") {
+  async function translateJapaneseSentence$1(sentence, outputLanguage = "en") {
     const trimmed = sentence.trim();
     if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return "";
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
-    const targetLanguage2 = translationTargetLanguage(language2);
     return translateText(requestSentence, {
       sourceLanguage: "ja",
-      targetLanguage: targetLanguage2,
+      outputLanguage: sentenceOutputLanguage(outputLanguage),
       timeoutMs: TRANSLATION_TIMEOUT_MS$1,
       includeDictionaryData: true
     });
   }
-  function translationTargetLanguage(language2) {
-    return language2 === "auto" || language2 === "ja" ? "en" : language2;
+  function sentenceOutputLanguage(outputLanguage) {
+    return outputLanguage === "auto" || outputLanguage === "ja" ? "en" : outputLanguage;
   }
   function normalizeSentenceForTranslationRequest(sentence) {
     return sentence.replace(/[「『]/g, '"').replace(/[」』]/g, '"');
@@ -45455,7 +45468,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const done = log$m.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
-        const translated = await translateJapaneseSentence$1(sentence, options.translationLanguage ?? language2);
+        const translated = await translateJapaneseSentence$1(sentence, options.outputLanguage ?? "en");
         if (!translated) {
           panel.hidden = true;
           panel.textContent = "";
@@ -45691,7 +45704,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       const translation = popover.querySelector("[data-study-translation]");
       if (settings.studyTranslationEnabled && translation) {
-        preloadJapaneseSentenceTranslation(sentence, resolvedLearnerLanguage(settings));
+        preloadJapaneseSentenceTranslation(sentence, outputLanguageOf(settings));
         void this.cachedTranslationContent(sentence).then((result) => {
           if (!result.translated && translation.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation.hidden = true;
         }).catch(() => void 0);
@@ -45779,7 +45792,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     async loadTranslationContent(sentence) {
-      const translated = await translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()));
+      const translated = await translateJapaneseSentence(sentence, outputLanguageOf(this.settings()));
       const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
       return { tokens, translated };
     }
@@ -45808,7 +45821,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return promise;
     }
     studyCacheKey(sentence) {
-      return `${this.settings().interfaceLanguage}${resolvedLearnerLanguage(this.settings())}${sentence.trim()}`;
+      return `${this.settings().interfaceLanguage}${outputLanguageOf(this.settings())}${sentence.trim()}`;
     }
     applyTranslation(popover, sentence, container, translation) {
       if (!translation.translated) {
@@ -54076,7 +54089,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.39".trim() ? "1.8.39".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.40".trim() ? "1.8.40".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -92014,9 +92027,9 @@ ${spelling}`);
         activeLanguageProfileId: current.activeLanguageProfileId
       };
     }
-    const fallbackLearnerLanguage = slice1LanguageIdForTag(active.learnerLanguage) ?? "en";
-    const learnerLanguage2 = readLearnerLanguage(data, fallbackLearnerLanguage);
-    const learnerLanguageTag = learnerLanguage2 === fallbackLearnerLanguage ? active.learnerLanguage : canonicalTagForSlice1Language(learnerLanguage2);
+    const fallbackOutputLanguage = slice1LanguageIdForTag(active.outputLanguage) ?? "en";
+    const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
+    const outputLanguageTag = outputLanguage === fallbackOutputLanguage ? active.outputLanguage : canonicalTagForSlice1Language(outputLanguage);
     const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? "ja";
     const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
     const targetLanguage2 = canonicalTagForLearningTarget(targetLanguageId);
@@ -92027,11 +92040,11 @@ ${spelling}`);
     );
     const definitionTranslationProviderIds = data.has("definitionTranslationControlsPresent") ? normalizedStringIds(data.getAll("definitionTranslationProviderIds")) : [...active.definitionTranslationProviderIds];
     const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-    if (learnerLanguage2 !== fallbackLearnerLanguage) {
-      const activated = activateLanguageProfileForLearner(
+    if (outputLanguage !== fallbackOutputLanguage) {
+      const activated = activateLanguageProfileForOutputLanguage(
         current.languageProfiles,
         current.activeLanguageProfileId,
-        learnerLanguageTag,
+        outputLanguageTag,
         {
           uiLocale: interfaceLanguage,
           parserProvider,
@@ -92050,7 +92063,8 @@ ${spelling}`);
         ...profile,
         // Keep an existing supported script/region variant when the
         // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
-        learnerLanguage: learnerLanguageTag,
+        outputLanguage: outputLanguageTag,
+        learnerLanguage: outputLanguageTag,
         targetLanguage: targetLanguage2,
         uiLocale: interfaceLanguage,
         parserProvider,
@@ -92068,7 +92082,7 @@ ${spelling}`);
       order: ordered.map((preference) => preference.name)
     };
   }
-  function readLearnerLanguage(data, fallback) {
+  function readOutputLanguage(data, fallback) {
     const value = String(data.get("learnerLanguage") ?? "");
     return isLearnerLanguageId(value) ? value : fallback;
   }
@@ -94790,7 +94804,7 @@ ${spelling}`);
   }
   function activeLearnerLanguageId(settings) {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.learnerLanguage) ?? "en";
+    return slice1LanguageIdForTag(profile?.outputLanguage) ?? "en";
   }
   function activeTargetLanguageId(settings) {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
@@ -102199,7 +102213,7 @@ ${spelling}`);
   }
   function onboardingLearnerLanguage(settings) {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    const saved = slice1LanguageIdForTag(profile?.learnerLanguage);
+    const saved = slice1LanguageIdForTag(profile?.outputLanguage);
     if (saved && saved !== "en") return saved;
     const browserLanguages = typeof navigator === "undefined" ? [] : [...navigator.languages ?? [], navigator.language];
     for (const browserLanguage of browserLanguages) {
@@ -102212,7 +102226,7 @@ ${spelling}`);
     return value && isLearnerLanguageId(value) ? value : fallback;
   }
   function updateActiveOnboardingLanguageProfile(settings, learnerLanguage2, interfaceLanguage) {
-    const activated = activateLanguageProfileForLearner(
+    const activated = activateLanguageProfileForOutputLanguage(
       settings.languageProfiles,
       settings.activeLanguageProfileId,
       canonicalTagForSlice1Language(learnerLanguage2),
@@ -102225,6 +102239,7 @@ ${spelling}`);
       activeLanguageProfileId: activated.activeProfileId,
       languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
         ...profile,
+        outputLanguage: canonicalTagForSlice1Language(learnerLanguage2),
         learnerLanguage: canonicalTagForSlice1Language(learnerLanguage2),
         // Onboarding decides the definition language, never the target.
         // Re-stamping a constant here would silently revert a profile that
@@ -102429,7 +102444,7 @@ ${spelling}`);
   }
   function activeLearnerLanguage(settings) {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.learnerLanguage) ?? "en";
+    return slice1LanguageIdForTag(profile?.outputLanguage) ?? "en";
   }
   const log$c = Logger.scope("DictionaryReplication");
   const REPLICATION_STATE_KEY = "yomu-dictionary-replication-state";
@@ -102936,9 +102951,9 @@ ${reading}`);
     const profile = resolveLanguageProfile(settings);
     if (!profile.definitionTranslationProviderIds.length) return;
     const enabled = new Set(profile.definitionTranslationProviderIds);
-    const learnerLanguage2 = profile.learnerLanguage;
+    const outputLanguage = profile.outputLanguage;
     const sources = definitionTranslationSources(root);
-    await Promise.all(sources.map((source) => translateDefinitionSource(source, enabled, learnerLanguage2)));
+    await Promise.all(sources.map((source) => translateDefinitionSource(source, enabled, outputLanguage)));
   }
   function definitionTranslationSources(root) {
     return Array.from(root.querySelectorAll(DEFINITION_TRANSLATION_TEXT_SELECTOR)).flatMap((element2) => {
@@ -102957,9 +102972,9 @@ ${reading}`);
       return sourceId && sourceLanguage ? [{ element: element2, sourceId, sourceLanguage }] : [];
     });
   }
-  async function translateDefinitionSource(source, enabled, learnerLanguage2) {
+  async function translateDefinitionSource(source, enabled, outputLanguage) {
     if (!enabled.has(source.sourceId)) return;
-    if (sameLanguage(source.sourceLanguage, learnerLanguage2)) return;
+    if (sameLanguage(source.sourceLanguage, outputLanguage)) return;
     const originalText = source.element.dataset.definitionTranslationPayload?.trim() || normalizedDefinitionText(source.element);
     if (!originalText) return;
     source.element.dataset.definitionTranslationState = "loading";
@@ -102969,31 +102984,31 @@ ${reading}`);
       for (const chunk of chunks2) {
         translatedChunks.push(await translateText(chunk, {
           sourceLanguage: source.sourceLanguage,
-          targetLanguage: learnerLanguage2
+          outputLanguage
         }));
       }
       if (!source.element.isConnected && !source.element.ownerDocument.documentElement.contains(source.element)) return;
       const translated = translatedChunks.filter(Boolean).join("\n\n").trim();
       if (!translated) throw new Error("No definition translation returned.");
-      renderTranslatedDefinition(source, learnerLanguage2, translated);
+      renderTranslatedDefinition(source, outputLanguage, translated);
       source.element.dataset.definitionTranslationState = "ready";
     } catch (error) {
       log$b.warn("Automatic definition translation failed; keeping the original definition visible.", error);
       source.element.dataset.definitionTranslationState = "error";
     }
   }
-  function renderTranslatedDefinition(source, learnerLanguage2, translated) {
+  function renderTranslatedDefinition(source, outputLanguage, translated) {
     const document2 = source.element.ownerDocument;
     const translation = document2.createElement("div");
     translation.className = "jpdb-reader-definition-translation";
-    translation.lang = learnerLanguage2;
-    translation.dir = definitionTextDirection(learnerLanguage2);
+    translation.lang = outputLanguage;
+    translation.dir = definitionTextDirection(outputLanguage);
     translation.dataset.definitionTranslation = source.sourceId;
     setInnerHtml(translation, escapeHtml$2(translated).replaceAll("\n", "<br>"));
     const original = document2.createElement("details");
     original.className = "jpdb-reader-definition-original";
     const summary = document2.createElement("summary");
-    summary.textContent = originalDefinitionLabel(learnerLanguage2, source.sourceLanguage);
+    summary.textContent = originalDefinitionLabel(outputLanguage, source.sourceLanguage);
     const body = document2.createElement("div");
     body.className = "jpdb-reader-definition-original-body";
     source.element.before(translation, original);
@@ -103017,10 +103032,10 @@ ${reading}`);
     if (remaining) chunks2.push(remaining);
     return chunks2;
   }
-  function originalDefinitionLabel(learnerLanguage2, sourceLanguage) {
-    const locale = resolveLearnerLanguage(learnerLanguage2);
+  function originalDefinitionLabel(outputLanguage, sourceLanguage) {
+    const locale = resolveLearnerLanguage(outputLanguage);
     const template = LOCALE_CATALOGS[locale.id].messages.originalDefinitionLabel;
-    const language2 = sourceLanguage === "auto" ? "source" : new Intl.DisplayNames([learnerLanguage2], { type: "language" }).of(sourceLanguage) ?? sourceLanguage;
+    const language2 = sourceLanguage === "auto" ? "source" : new Intl.DisplayNames([outputLanguage], { type: "language" }).of(sourceLanguage) ?? sourceLanguage;
     return template.replace("{language}", language2);
   }
   function definitionTextDirection(language2) {
@@ -106499,7 +106514,7 @@ ${reading}`);
   const TRANSLATION_TIMEOUT_MS = 8e3;
   const TRANSLATION_SEPARATOR = "\n";
   const log$a = Logger.scope("SubtitleTranslate");
-  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage2, options = {}) {
+  async function translateSubtitleCues(cues, sourceLanguage, outputLanguage, options = {}) {
     if (!cues.length) return [];
     const texts = cues.map((cue) => cue.text.trim());
     const batches = batchTexts(
@@ -106511,7 +106526,7 @@ ${reading}`);
     for (let index = 0; index < batches.length; index += 1) {
       if (index > 0) await waitForTranslationTurn();
       const batch = batches[index] ?? [];
-      const results = await translateBatch(batch, sourceLanguage, targetLanguage2);
+      const results = await translateBatch(batch, sourceLanguage, outputLanguage);
       translated.push(...results);
     }
     return cues.map((cue, index) => ({
@@ -106537,13 +106552,13 @@ ${reading}`);
     if (current.length) batches.push(current);
     return batches;
   }
-  async function translateBatch(texts, sourceLanguage, targetLanguage2) {
+  async function translateBatch(texts, sourceLanguage, outputLanguage) {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log$a.time("Translate subtitle batch", { count: texts.length });
     try {
       const result = await translateText(joined, {
         sourceLanguage,
-        targetLanguage: targetLanguage2,
+        outputLanguage,
         timeoutMs: TRANSLATION_TIMEOUT_MS
       });
       const lines = result.split(TRANSLATION_SEPARATOR);
@@ -120588,7 +120603,7 @@ ${reading}`);
       const settings = this.options.getSettings();
       await renderStudyToolResult(button2, action, sentence, void 0, settings.interfaceLanguage, {
         audioEnabled: settings.audioEnabled,
-        translationLanguage: resolvedLearnerLanguage(settings)
+        outputLanguage: outputLanguageOf(settings)
       });
       void this.reparsePopoverJapanese(button2);
       return false;
@@ -144073,7 +144088,8 @@ ${rank.detail}` : baseTitle;
       void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
       if (!this.parser.canParse()) return;
       installProviderExampleBehaviors(root, {
-        language: this.settings.interfaceLanguage,
+        interfaceLanguage: this.settings.interfaceLanguage,
+        outputLanguage: outputLanguageOf(this.settings),
         blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
         translate: translateJapaneseSentence,
         isCurrentRoot: (candidate) => candidate.isConnected

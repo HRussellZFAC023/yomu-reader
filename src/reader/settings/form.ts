@@ -122,7 +122,7 @@ function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSett
 
 export function activeLearnerLanguageId(settings: ReaderSettings): LearnerLanguageId {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.learnerLanguage) ?? 'en';
+    return slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en';
 }
 
 export function activeTargetLanguageId(settings: ReaderSettings): LearningTargetRosterId {
