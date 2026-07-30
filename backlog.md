@@ -30,7 +30,9 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
-0. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
+0. **P0 — THE 1.9.0 GATE:** A37.1 the pointer lookup is Japanese-only so 33 of 34 pickable targets are
+   dead ends · A37.2 the hero advertises all 34 · A37.3 U79 gating · A37.4 Burmese has no dictionaries.
+0a. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
    ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
    definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
    A35.2 mined-deck writes fail silently at roughly 4,700 cards · A35.3 the undelivered-code alert can
@@ -475,6 +477,83 @@ Owner: *"we recieved £10 from kofi and £5 from patreon only the £5 is showing
 - [ ] **A34.6 — backfill the rejected £10.** Ko-fi does not resend a 422'd webhook, so the money stays
       invisible until a row is inserted. Audit for other rejected donations at the same time. `wrangler d1`
       defaults to LOCAL — `--remote` or it is a no-op.
+
+### A38 — saveSettings has a silent skip, and the puck's furigana fields may not survive a reload
+
+Found 2026-07-30 while adding a store-level assertion to the puck power-cycle test. Probed the actual
+stored bytes after a full cycle (hide furigana, pause, resume) and the store held
+`furiganaMode: "off"` with `puckFuriganaModeBeforeHide: "all"` — the state from an **earlier** save in the
+same run — while the in-memory object correctly held `furiganaMode: "all"` and an empty marker. So later
+writes went nowhere, and every existing assertion passed because they all read the instance's own object.
+
+- [ ] **A38.1 — `saveSettings` can skip a write and tell nobody.** `src/reader/settings/index.ts:2101` is
+      `if (settingsResetInProgress) { log.warn('Skipped save during reset'); return; }`. A `log.warn` is not
+      a signal a caller can act on: the function resolves successfully, so the UI confirms a setting that
+      was never written. This is the same class the A35.2/A35.3 work just fixed elsewhere (a swallowed write
+      reported as success), and it is the one remaining instance. Make it reject, or return a result the
+      caller checks, and make the reset window as narrow as the reset actually needs.
+- [ ] **A38.2 — VERIFY whether the puck's resume really persists its furigana fields in a real browser.**
+      The unit harness could not separate the silent skip above from the module state that
+      `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts` shares across its 53 cases, so this is
+      unproven either way and must not be closed from a test run. Reproduce by hand: hide furigana with the
+      puck, pause, resume, reload, and check whether furigana comes back. `annotationsPaused` itself IS
+      persisted correctly (asserted against the store, and the owner-reported toggle bug was fixed in
+      1.8.37 by `aa944d9f8`); this is specifically about the three fields the resume branch stages
+      (`puckFuriganaModeBeforeHide`, `showFurigana`, `furiganaMode`).
+- [ ] **A38.3 — that test file shares module state across 53 cases.** It is why a store-level assertion
+      cannot be trusted there, and it is the same fragility class as `youtube-filter.test.ts`, which fails 8
+      tests standalone on `origin/main` and only passes inside the sharded suite. Both need per-case
+      isolation before store-level assertions mean anything.
+
+### A37 — THE REAL 1.9.0 GATE: you can pick 34 study languages and look up words in exactly one
+
+Measured on `origin/main` at `c14b947a9` (1.8.37) on 2026-07-30, after the dictionary and picker work
+landed. Three of the four multilingual pieces are genuinely done; the fourth was never started, and the
+homepage now advertises the gap 34 times instead of 9.
+
+**Done and verified:**
+- **T4 dictionary supply.** `config/dictionaries/published/v1/catalog.json` went from **221 entries across
+  10 headword languages to 1,637 across 34**. Every roster language has entries except **`my`
+  (Burmese), which still has zero**.
+- **U44/U97 language-aware card identity** (`eb1271571`): a 4-slot key that elides `ja`, so existing
+  Japanese keys stay byte-identical and no E2EE migration is needed.
+- **U61 the target picker**: `src/reader/settings/form.ts:162` now renders a real
+  `<select name="targetLanguage">` over `LEARNING_TARGET_ROSTER`, replacing the hidden input.
+
+**Not done, and it is the one that matters:**
+
+- [ ] **A37.1 — CRITICAL: the pointer lookup is hardcoded to Japanese script, so every non-Japanese target
+      is a dead end.** `src/reader/lookup/pointer-text-lookup.ts:4` builds
+      `JAPANESE_RUN_RE` from kana, kanji-like ranges and the prolonged sound mark, and gates **six**
+      decisions on it (`:231`, `:259`, `:349`, `:375`, `:379`). A learner who picks Spanish, Korean, Arabic
+      or Greek in the new picker, on a page in that language, presses a word and **nothing opens** — the
+      lookup returns null before any dictionary is consulted. The dictionaries for those languages now
+      exist, and the picker now sets the target, so this single regex is what stands between the product and
+      the claim it makes.
+      The machinery to fix it is already in the tree and unused by this path:
+      `src/reader/languages/icu-segmentation.ts`, `korean.ts`, `japanese.ts`, `morphology.ts` and
+      `roster-targets.ts`, with `Intl.Segmenter` already wired in `languages/module.ts`. So the fix is to
+      ask the ACTIVE language profile whether a character belongs to a word in its script, instead of
+      testing Japanese. Do it as a language-profile capability, never a per-language branch in the lookup.
+      Test: for each of ja, ko, es, ar, el, pressing a word on a page in that language opens the popover;
+      and Japanese behaviour is byte-identical to today, which is the non-negotiable.
+- [ ] **A37.2 — CRITICAL: the homepage hero now names ~34 study targets and A37.1 means one works.**
+      Live at 2026-07-30 the rotator cycles 日本語, Shqip, Ἑλληνιστί, العربية, 粵語, 中文（简体）, Dansk,
+      Nederlands, English, Suomi, Français, Deutsch, Ελληνικά, Magyar, Bahasa Indonesia, Italiano and more.
+      A35.5 asked for the hero to be driven by what the product supports; it is now driven by the
+      dictionary roster, which is the wrong axis while lookups are Japanese-only. Either land A37.1 first,
+      or drive the rotator from languages whose lookup path actually resolves. The audit guard A35.5 asked
+      for must assert against the LOOKUP capability, not the catalogue.
+- [ ] **A37.3 — U79 CSS gating never landed.** `data-language` appears **zero** times in
+      `src/reader/app/main.ts`. For a target with no reading annotation the furigana controls, the
+      `furiganaMode` row, pitch colouring, the pitch legend and the provider pills must be ABSENT from the
+      DOM rather than greyed out, and must return when the target is Japanese again.
+- [ ] **A37.4 — Burmese (`my`) has zero dictionary entries** while the other 33 roster languages have some.
+      Either source it or take it off the roster; a picker entry that resolves to nothing is the A11 defect
+      class (a state the learner cannot tell from broken).
+
+**Until A37.1 and A37.2 are true, 1.9.0 must not ship**, because the minor tag is what publishes to the
+Chrome and Firefox stores (`A27.3`) and it would ship the claim without the capability.
 
 ### A35 — UNDOCUMENTED WORK FOUND BY SWEEP 2026-07-29
 

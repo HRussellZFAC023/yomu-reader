@@ -324,7 +324,10 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('hosted app has no GM bridge');
         }));
-        await saveSettings({ ...beforeToggle, annotationsPaused: false });
+        // A rejected shared write is now reported rather than swallowed, so the
+        // save throws while still leaving the origin-local recovery copy behind.
+        await expect(saveSettings({ ...beforeToggle, annotationsPaused: false }))
+            .rejects.toThrow(/GM storage write failed/);
         expect(store.get('jpdb-popup-reader-settings')).toEqual({ annotationsPaused: true });
 
         // Reload with the shared store readable again: the choice must survive
