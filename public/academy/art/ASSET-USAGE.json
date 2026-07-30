@@ -16682,7 +16682,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "bd11135c27fdefe8c0498ceecd0a643ac237bc4653600ad3b742d769e3deeb11"
+          "sha256": "1ea16ee5d4b7aad9162978e3b88f7774995f4ad67cfe5ccb770cf814e10dd317"
         }
       ],
       "status": "bound-and-schema-validated"

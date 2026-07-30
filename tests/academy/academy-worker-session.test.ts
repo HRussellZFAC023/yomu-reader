@@ -168,8 +168,8 @@ describe('Academy Worker sessions', () => {
             expect(await linked.json()).toEqual({ state: 'linked' });
 
             academy.db.rows(
-                'UPDATE sessions SET expires_at = ? WHERE account_id = ? RETURNING public_id',
-                now - 1, accountId,
+                'UPDATE sessions SET created_at = ?, expires_at = ? WHERE account_id = ? RETURNING public_id',
+                now - 10_000, now - 1, accountId,
             );
             const resumable = await dispatch(academy.env, statusRequest(cookie));
             expect(resumable.status).toBe(200);

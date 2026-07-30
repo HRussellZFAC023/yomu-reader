@@ -256,8 +256,8 @@ describe('Academy runtime asset ledger', () => {
             runtimeHome: ['location:japan-centre', 'activity:gift-counter'],
             sourceSha256: 'f5568175c3e6511e703d60dc50907bfc91a4b93d845f3adc64c8a6f8709dadfd',
             deliveries: [
-                { path: ACADEMY_ASSETS.locations.japanCentre.wide, sha256: '10d578d43f4df93e8fd8ec42f89dc2d747b88333cf3d03b1bad604ad12add493' },
-                { path: ACADEMY_ASSETS.locations.japanCentre.mobile, sha256: 'e83c8f8689197b395956f9dc127b2d3f80a4d780441d992aa25840c53909dba2' },
+                { path: ACADEMY_ASSETS.locations.japanCentre.wide, sha256: '23b4628c6e49d30a451a9cbf2f9f3b238d3c9c1274fcec9831fd0e25f90d81df' },
+                { path: ACADEMY_ASSETS.locations.japanCentre.mobile, sha256: '6ac942b9be7b3b0d8de0ec12ddb179fe9ac983d2c89562caac65db6678ad64dd' },
             ],
             status: expect.stringContaining('no-cast-likeness'),
         });

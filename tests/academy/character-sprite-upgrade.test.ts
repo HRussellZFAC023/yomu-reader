@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import sharp from 'sharp';
 import { ACADEMY_ASSETS } from '../../src/academy/assets';
 
 const UPGRADE_GALLERIES = {
@@ -10,14 +11,15 @@ const UPGRADE_GALLERIES = {
 const UPGRADE_PATHS = Object.values(UPGRADE_GALLERIES).flatMap(gallery => Object.values(gallery));
 
 describe('Academy living-paper character upgrade', () => {
-    it('ships unique transparent, portrait-scale performances for each upgraded character', () => {
+    it('ships unique transparent, portrait-scale performances for each upgraded character', async () => {
         expect(new Set(UPGRADE_PATHS).size).toBe(UPGRADE_PATHS.length);
         for (const assetPath of UPGRADE_PATHS) {
-            const png = fs.readFileSync(path.resolve('public', assetPath.slice(1)));
-            expect(png.subarray(0, 8).toString('hex'), assetPath).toBe('89504e470d0a1a0a');
-            expect(png.readUInt32BE(16), assetPath).toBe(1536);
-            expect(png.readUInt32BE(20), assetPath).toBe(2048);
-            expect(png[25], `${assetPath} must carry an alpha channel`).toBe(6);
+            expect(assetPath.endsWith('.webp'), assetPath).toBe(true);
+            const metadata = await sharp(path.resolve('public', assetPath.slice(1))).metadata();
+            expect(metadata.format, assetPath).toBe('webp');
+            expect(metadata.width, assetPath).toBe(1536);
+            expect(metadata.height, assetPath).toBe(2048);
+            expect(metadata.hasAlpha, `${assetPath} must carry an alpha channel`).toBe(true);
         }
     });
 
