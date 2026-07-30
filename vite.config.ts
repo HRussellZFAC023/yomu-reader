@@ -41,6 +41,9 @@ const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 const userscriptConnect = [
     'api.jiten.moe',
     'api.tatoeba.org',
+    // Sentence audio is served from the site host, not the API host, so a
+    // userscript could not fetch a clip with only api.tatoeba.org allowed.
+    'tatoeba.org',
     'jpdb.io',
     'api.wanikani.com',
     'lens.google.com',

@@ -230,7 +230,7 @@ describe('U46 Tatoeba record normalisation', () => {
             kind: 'audio',
             // A sentence reading, never relabelled as word audio.
             scope: 'sentence',
-            url: 'https://api.tatoeba.org/v1/audio/987383/file',
+            url: 'https://tatoeba.org/audio/download/987383',
             licence: { id: 'CC BY 4.0', commercialUse: true, derivatives: true },
             attribution: 'TonySpeaks (Tatoeba)',
             recordUrl: 'https://tatoeba.org/user/profile/TonySpeaks',

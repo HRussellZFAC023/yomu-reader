@@ -106,7 +106,7 @@ describe('U46 the four degradation states each render visibly and distinctly', (
     it('plays and credits an openly licensed recording, and marks audio as per-item', async () => {
         const element = await loadedSpanishRow(TATOEBA_THAI_PAYLOAD, 'th');
         const button = element.querySelector<HTMLElement>('[data-action="play-example-audio"]');
-        expect(button?.dataset.exampleAudioUrl).toBe('https://api.tatoeba.org/v1/audio/987383/file');
+        expect(button?.dataset.exampleAudioUrl).toBe('https://tatoeba.org/audio/download/987383');
         expect(element.dataset.exampleComponents).toBe('text,audio');
         expect(reasons(element)).not.toContain('no-licensed-audio');
         expect(element.textContent).toContain('Audio plays where the recording is openly licensed.');

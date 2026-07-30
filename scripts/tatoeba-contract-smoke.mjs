@@ -79,6 +79,24 @@ for (const testCase of CASES) {
     notes.push(`${testCase.id} (${testCase.code}): ${rows.length} rows, audio licences ${audioLicences.length ? audioLicences.join(', ') : 'none on this page'}`);
 }
 
+// Fetch one real clip. The adapter builds its audio URL itself because the live
+// API returns no download_url, so a contract check that never fetches audio let
+// a 404 host ship as a working play button on every audio-bearing target
+// (api.tatoeba.org/v1/audio/<id>/file answers 404 with JSON). Assert the media
+// type, not just the status: a 200 of HTML is exactly how this failed before.
+const AUDIO_PROBE_URL = 'https://tatoeba.org/audio/download/1';
+try {
+    const audio = await fetch(AUDIO_PROBE_URL, { redirect: 'follow', headers: { 'user-agent': USER_AGENT } });
+    const type = audio.headers.get('content-type') ?? '(none)';
+    if (!audio.ok || !type.startsWith('audio/')) {
+        failures.push(`audio ${AUDIO_PROBE_URL} answered ${audio.status} ${type}, expected 200 audio/*`);
+    } else {
+        notes.push(`audio download: ${audio.status} ${type}`);
+    }
+} catch (error) {
+    failures.push(`audio ${AUDIO_PROBE_URL} could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+}
+
 notes.forEach(note => console.log(`[tatoeba-contract] ${note}`));
 if (failures.length) {
     console.error(`[tatoeba-contract] FAIL: ${failures.length} contract break(s).`);

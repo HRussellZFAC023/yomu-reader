@@ -171,21 +171,29 @@ function installExampleSourceControls(root: HTMLElement, options: TargetExampleL
         if (trigger.dataset.action === 'play-example-audio') {
             event.preventDefault();
             const url = trigger.dataset.exampleAudioUrl ?? '';
-            if (url) playExampleAudio(url, options);
+            if (url) playExampleAudio(url, options, trigger);
         }
     });
     // Blur reveal is the shared provider behaviour, not a second copy of it.
     installProviderTranslationReveal(root);
 }
 
-function playExampleAudio(url: string, options: TargetExampleLoadOptions): void {
+function playExampleAudio(url: string, options: TargetExampleLoadOptions, trigger?: HTMLElement): void {
     if (options.playAudio) {
         options.playAudio(url);
         return;
     }
     if (typeof Audio !== 'function') return;
     const audio = new Audio(url);
-    void audio.play().catch(() => undefined);
+    // A swallowed rejection made a dead clip look exactly like a working one:
+    // the learner presses play, nothing happens, and nothing says why. Report it
+    // on the control instead, which is the same rule the availability states
+    // follow — an absent component must be visible, never silent.
+    void audio.play().catch(() => {
+        if (!trigger) return;
+        trigger.dataset.yomuAudioFailed = 'true';
+        trigger.setAttribute('aria-disabled', 'true');
+    });
 }
 
 function isAbortError(error: unknown): boolean {

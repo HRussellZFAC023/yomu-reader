@@ -125729,6 +125729,7 @@ ${component.reading}`;
   const TATOEBA_EXAMPLE_SOURCE_ID = "tatoeba";
   const TATOEBA_API_BASE = "https://api.tatoeba.org/v1/sentences";
   const TATOEBA_SENTENCE_URL = "https://tatoeba.org/en/sentences/show";
+  const TATOEBA_AUDIO_URL = "https://tatoeba.org/audio/download";
   const DEFAULT_RESULT_LIMIT = 8;
   const MAX_RESULT_LIMIT = 20;
   const RATE_LIMIT_INITIAL_BACKOFF_MS = 3e4;
@@ -125927,7 +125928,12 @@ ${component.reading}`;
         kind: "audio",
         // Never `term`: this file is a reading of the whole sentence.
         scope: "sentence",
-        url: text(record2.download_url) || `https://api.tatoeba.org/v1/audio/${id}/file`,
+        // Measured 2026-07-30: the old fallback, api.tatoeba.org/v1/audio/<id>/file,
+        // answers 404 with a JSON body, so every sentence whose API record
+        // omits download_url promised playback that could not happen — on all
+        // 20 audio-bearing targets, in both shipped languages.
+        // tatoeba.org/audio/download/<id> answers 200 with audio/mpeg.
+        url: text(record2.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
         licence: decision.licence,
         attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
         // The attribution link the contributor asked for, not a homepage.

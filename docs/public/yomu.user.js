@@ -26,6 +26,7 @@
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
+// @connect tatoeba.org
 // @connect jpdb.io
 // @connect api.wanikani.com
 // @connect lens.google.com
@@ -27384,6 +27385,7 @@ function tatoebaTranslationCode(outputLanguage) {
 const TATOEBA_EXAMPLE_SOURCE_ID = "tatoeba";
 const TATOEBA_API_BASE = "https://api.tatoeba.org/v1/sentences";
 const TATOEBA_SENTENCE_URL = "https://tatoeba.org/en/sentences/show";
+const TATOEBA_AUDIO_URL = "https://tatoeba.org/audio/download";
 const DEFAULT_RESULT_LIMIT = 8;
 const MAX_RESULT_LIMIT = 20;
 const RATE_LIMIT_INITIAL_BACKOFF_MS = 3e4;
@@ -27566,7 +27568,7 @@ function licensedAudio(raw, withheldMedia, coverage) {
   assets.push({
     kind: "audio",
     scope: "sentence",
-    url: text(record.download_url) || `https://api.tatoeba.org/v1/audio/${id}/file`,
+    url: text(record.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
     licence: decision.licence,
     attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
     recordUrl: text(record.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
@@ -27717,19 +27719,23 @@ function installExampleSourceControls(root, options) {
   if (trigger.dataset.action === "play-example-audio") {
     event.preventDefault();
     const url = trigger.dataset.exampleAudioUrl ?? "";
-    if (url) playExampleAudio(url, options);
+    if (url) playExampleAudio(url, options, trigger);
   }
   });
   installProviderTranslationReveal(root);
 }
-function playExampleAudio(url, options) {
+function playExampleAudio(url, options, trigger) {
   if (options.playAudio) {
   options.playAudio(url);
   return;
   }
   if (typeof Audio !== "function") return;
   const audio = new Audio(url);
-  void audio.play().catch(() => void 0);
+  void audio.play().catch(() => {
+  if (!trigger) return;
+  trigger.dataset.yomuAudioFailed = "true";
+  trigger.setAttribute("aria-disabled", "true");
+  });
 }
 function isAbortError(error) {
   return error instanceof Error && error.name === "AbortError";
