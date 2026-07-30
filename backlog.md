@@ -1353,6 +1353,48 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 ---
 
+- [ ] **A42 — MEASURED 2026-07-30: multilingual support is a Japanese system plus a 32-language reading
+      tool with a Japanese skin, and the capability matrix describes neither.** Full audit, with every
+      number reproducible, in `docs/dev/multilingual-parity-audit-2026-07-30.md` (22 adversarial agents,
+      each finding challenged in both directions; several priors were REFUTED). The headline facts:
+      - **Only 3 of the 18 capability flags have any read site in production code**, and none of the three
+        gates a feature: `morphology` (`languages/morphology.ts:39`) has zero callers, `ocr`
+        (`languages/resolve.ts:42`) only scopes a settings migration, and `term-lookup`
+        (`config/docs/product-claims.ts:34`) is build-time and licenses the homepage claim. Sixteen flags
+        change nothing a learner can see, so the matrix neither documents reality nor protects anyone
+        from it. Roster is **33** targets, not 32; Burmese is absent entirely, which moots A37.4.
+      - **PRIOR REFUTED:** the catalogue does NOT have zero non-CJK entries. It ships **1,637 published
+        entries across 34 headword languages**, ~2.07 GB — all of it unreachable on the happy path
+        because `DICTIONARY_CATALOG_TARGET_LANGUAGE = 'ja'` is an `as const` literal and all 32
+        recommendation manifests are `<learner>-ja.json`. This is a routing bug, not a supply gap.
+      - **There is no target choice at install at all:** `app/onboarding.ts:160` renders the target as a
+        read-only `<output>` containing the literal `'日本語 — Japanese'`.
+      - **Three Japanese-only features are default-ON for every target and actively hostile:** the YouTube
+        filter hides the learner's own language as `non-japanese`; `preferJapaneseSiteLanguage` spoofs
+        navigator language, Intl locale, timezone `Asia/Tokyo`, Date offset AND geolocation on every URL;
+        TTS overrides a correct `utterance.lang` with a Japanese voice (22 of 33 locales have a real OS
+        voice, so the voice filter is the defect, not the flag).
+      - **Lookup silently misses words the dictionary has.** NFKC decomposes THAI/LAO SARA AM on the query
+        path while the importer stores headwords verbatim, so every ำ/ຳ word is unfindable; there is no
+        case folding anywhere, so `"Paella"`→0 and `"paella"`→1 and every sentence-initial or capitalised
+        word fails. Measured with correct lemmas installed: th 1/8, ru 1/7, ar 1/6, ko 3/7, de 4/7, es 4/9.
+      - **Some features work BETTER than declared:** Tatoeba examples for all 32 with the best degradation
+        copy in the product; ICU segmentation and OCR for all 33; a genuinely language-agnostic SRS store
+        and SM-2 scheduler; and zh/yue/ko get pinyin/jyutping ruby that was never declared — though
+        unconfigurably, since the furigana block is detached as `jp-only`.
+      - **470 non-Japanese IPA dictionaries ship, shelved under a UI heading reading "Pitch dictionaries",
+        and no code path consumes IPA** (`collectPitchPatterns` requires `entry.mode === 'pitch'`).
+      **The load-bearing false promise:** the shipped homepage h1 rotates "A complete system for learning"
+      through all 33 languages with **no hedge anywhere on the page**, while the target picker
+      (`settings/form.ts:255-261`) offers 33 plain options with no readiness signal — 20 lines below an
+      interface-locale picker (`:204-208`) that does the right thing and whose own docblock states the
+      rule: shown, named, and DISABLED with the reason, never silently answered in English.
+      **The audit's 6-point gate for honestly claiming multilingual support, and the exact wording changes
+      that scope the claim without engineering, are in §5 of the document.** Dispatched from it: w9 (the
+      unconditional romaji→kana rewrite of every typed answer + missing `dir` on RTL inputs), w10 (the
+      three hostile defaults), w11 (NFKC/case-folding/candidate ladder), w12 (target choice at onboarding
+      + target-keyed dictionary routing + a readiness field the docs gate actually reads).
+
 #### Dropped in triage
 
 | Raw finding | Why it is not in A35 |
