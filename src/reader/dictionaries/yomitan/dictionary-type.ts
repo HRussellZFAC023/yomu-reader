@@ -24,34 +24,24 @@ export function isEntryStoreName(value: string): value is EntryStoreName {
     return value === 'terms' || value === 'kanji' || value === 'termMeta' || value === 'kanjiMeta';
 }
 
-export function dictionaryCountsFromSummary(summary: Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>): Record<string, number> {
+export function dictionaryCountsFromSummary(
+    summary: Pick<ImportSummary, 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta'>,
+    ipa: number,
+): Record<string, number> {
     return {
         terms: summary.terms,
         kanji: summary.kanji,
         termMeta: summary.termMeta,
         kanjiMeta: summary.kanjiMeta,
+        ipa,
     };
 }
 
-export function dictionaryTypeFromCounts(
-    counts: Record<string, unknown> = {},
-    termMetaModes: Iterable<string> = [],
-): YomitanDictionaryInfo['type'] {
-    if (Number(counts.terms ?? 0) <= 0
-        && Number(counts.termMeta ?? 0) > 0
-        && hasOnlyIpaTermMetaMode(termMetaModes)) {
+export function dictionaryTypeFromCounts(counts: Record<string, unknown> = {}): YomitanDictionaryInfo['type'] {
+    if (!counts.terms && counts.termMeta && counts.termMeta === counts.ipa) {
         return 'pronunciation';
     }
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? 'terms';
-}
-
-function hasOnlyIpaTermMetaMode(modes: Iterable<string>): boolean {
-    let found = false;
-    for (const mode of modes) {
-        found = true;
-        if (mode.trim().toLowerCase() !== 'ipa') return false;
-    }
-    return found;
 }
 
 export function hasTermDictionaryRows(info: YomitanDictionaryInfo): boolean {
@@ -113,21 +103,25 @@ export function readerExportSummary(
 
 export function dictionaryTypesFromReaderExport(json: ReaderDictionaryExport): Record<string, YomitanDictionaryInfo['type']> {
     const counts = new Map<string, Record<string, number>>();
-    const termMetaModes = termMetaModesByDictionary(json.termMeta ?? []);
     addDictionaryTypeCounts(counts, readerExportTerms(json), 'terms');
     addDictionaryTypeCounts(counts, json.kanji ?? [], 'kanji');
     addDictionaryTypeCounts(counts, json.termMeta ?? [], 'termMeta');
     addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], 'kanjiMeta');
     return Object.fromEntries([
         ...configuredReaderDictionaryTypes(json),
-        ...observedReaderDictionaryTypes(counts, termMetaModes),
+        ...observedReaderDictionaryTypes(counts),
     ]);
 }
 
-function addDictionaryTypeCounts(counts: Map<string, Record<string, number>>, entries: Array<{ dictionary: string }>, store: EntryStoreName): void {
+function addDictionaryTypeCounts(
+    counts: Map<string, Record<string, number>>,
+    entries: Array<{ dictionary: string; mode?: string }>,
+    store: EntryStoreName,
+): void {
     for (const entry of entries) {
-        const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+        const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0, ipa: 0 };
         item[store]++;
+        if (store === 'termMeta' && entry.mode === 'ipa') item.ipa++;
         counts.set(entry.dictionary, item);
     }
 }
@@ -138,19 +132,8 @@ function configuredReaderDictionaryTypes(json: ReaderDictionaryExport): Array<re
 
 function observedReaderDictionaryTypes(
     counts: Map<string, Record<string, number>>,
-    termMetaModes: Map<string, Set<string>>,
 ): Array<readonly [string, YomitanDictionaryInfo['type']]> {
-    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value, termMetaModes.get(name))] as const);
-}
-
-function termMetaModesByDictionary(entries: YomitanMetaEntry[]): Map<string, Set<string>> {
-    const modes = new Map<string, Set<string>>();
-    for (const entry of entries) {
-        const dictionaryModes = modes.get(entry.dictionary) ?? new Set<string>();
-        dictionaryModes.add(entry.mode);
-        modes.set(entry.dictionary, dictionaryModes);
-    }
-    return modes;
+    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)] as const);
 }
 
 export function isReaderDictionaryExport(value: unknown): value is ReaderDictionaryExport {

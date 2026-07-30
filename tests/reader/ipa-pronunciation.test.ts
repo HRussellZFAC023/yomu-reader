@@ -87,7 +87,7 @@ describe('international IPA metadata', () => {
         const pills = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-ipa-pill'));
         expect(pills.map(pill => pill.textContent)).toEqual(['IPA /ˈɡɾatis/', 'IPA [ˈɡɾa.t̪is]']);
         expect(pills[0]?.getAttribute('data-pronunciation-source')).toBe('local');
-        expect(pills[0]?.getAttribute('aria-label')).toBe('IPA /ˈɡɾatis/ — Pronunciación');
+        expect(pills[0]?.getAttribute('aria-label')).toBe('IPA /ˈɡɾatis/. Pronunciación');
 
         expect(renderWordPills({
             card: spanishCard,
@@ -150,6 +150,15 @@ describe('international IPA metadata', () => {
             'term_meta_bank_1.json': [['読む', 'pitch', { reading: 'よむ', pitches: [{ position: 0 }] }]],
         })], 'japanese-pitch.zip', { type: 'application/zip' }));
         expect(pitchSummary.dictionaryTypes).toEqual({ 'Japanese pitch': 'frequency' });
+
+        const mixedSummary = await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Mixed metadata', format: 3 },
+            'term_meta_bank_1.json': [
+                ['gratis', 'ipa', realShapedIpaData],
+                ['gratis', 'freq', { frequency: 100 }],
+            ],
+        })], 'mixed-metadata.zip', { type: 'application/zip' }));
+        expect(mixedSummary.dictionaryTypes).toEqual({ 'Mixed metadata': 'frequency' });
     });
 
     it('classifies and preserves IPA metadata through Dexie and reader JSON imports', async () => {

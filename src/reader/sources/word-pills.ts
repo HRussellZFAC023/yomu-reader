@@ -42,31 +42,22 @@ export function renderWordPills(options: WordPillRenderOptions): string {
         .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks))
         .filter(Boolean);
     const ankiPill = renderAnkiPill(options, language, query);
-    const pronunciationPills = ipaPronunciationPills(options, context);
+    linkPills.unshift(...extractIpaPronunciations(options.metaEntries ?? [], {
+        expression: context.word,
+        reading: context.reading,
+    })
+        .map(({ ipa, dictionary: name }) => {
+            if (options.settings.dictionaryPreferences.some(preference => preference.name === name && !preference.enabled)) return '';
+            const label = `IPA ${ipa}`;
+            const accessibleLabel = `${label}. ${options.dictionaryLabel(name) || name}`;
+            return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml(name)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${name}`)}" title="${escapeHtml(accessibleLabel)}" aria-label="${escapeHtml(accessibleLabel)}">${escapeHtml(label)}</span>`;
+        }));
     const configuredFrequencyIds = new Set(enabledLinks.filter(link => isFrequencyLookupPill(link)).map(link => link.id));
     const leftoverFrequencyPills = Array.from(frequencyPills)
         .filter(([id]) => !configuredFrequencyIds.has(id))
         .map(([, html]) => html);
-    const pills = [...pronunciationPills, ...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
+    const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
     return pills.length ? `<div class="jpdb-reader-word-pills">${pills.join('')}</div>` : '';
-}
-
-function ipaPronunciationPills(options: WordPillRenderOptions, context: WordPillContext): string[] {
-    return extractIpaPronunciations(options.metaEntries ?? [], {
-        expression: context.word,
-        reading: context.reading,
-    })
-        .filter(pronunciation => localMetadataDictionaryEnabled(options.settings, pronunciation.dictionary))
-        .map(pronunciation => {
-            const dictionary = options.dictionaryLabel(pronunciation.dictionary) || pronunciation.dictionary;
-            const label = `IPA ${pronunciation.ipa}`;
-            const accessibleLabel = `${label} — ${dictionary}`;
-            return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml(pronunciation.dictionary)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${pronunciation.dictionary}`)}" title="${escapeHtml(accessibleLabel)}" aria-label="${escapeHtml(accessibleLabel)}">${escapeHtml(label)}</span>`;
-        });
-}
-
-function localMetadataDictionaryEnabled(settings: ReaderSettings, dictionary: string): boolean {
-    return settings.dictionaryPreferences.find(preference => preference.name === dictionary)?.enabled ?? true;
 }
 
 export function renderSelectionLookupPills(selected: string, settings: ReaderSettings): string {

@@ -1,4 +1,4 @@
-import { uiText, type UiCopyKey } from './i18n';
+import { uiText } from './i18n';
 import type { InterfaceLanguage } from './types';
 import {
     LEARNING_TARGET_ROSTER,
@@ -6,19 +6,13 @@ import {
     type LearningTargetRosterEntry,
     type LearningTargetRosterId,
     type StudyTargetReadiness,
-} from '../languages';
+} from '../languages/roster';
 
-const READINESS_LABEL_KEYS = {
-    full: 'studyTargetReadinessFull',
-    'reading-only': 'studyTargetReadinessReadingOnly',
-    planned: 'studyTargetReadinessPlanned',
-} as const satisfies Record<StudyTargetReadiness, UiCopyKey>;
-
-const READINESS_REASON_KEYS = {
-    full: 'studyTargetReadinessFullReason',
-    'reading-only': 'studyTargetReadinessReadingOnlyReason',
-    planned: 'studyTargetReadinessPlannedReason',
-} as const satisfies Record<StudyTargetReadiness, UiCopyKey>;
+const READINESS_COPY_SUFFIX = {
+    full: 'Full',
+    'reading-only': 'ReadingOnly',
+    planned: 'Planned',
+} as const satisfies Record<StudyTargetReadiness, string>;
 
 export const STUDY_TARGET_READINESS_ATTRIBUTE = 'data-study-target-readiness';
 
@@ -38,15 +32,17 @@ export function studyTargetOptions(
 ): readonly StudyTargetOption[] {
     return targets.map(target => {
         const readiness = target.studyTargetReadiness;
-        const name = languageOptionLabel(target);
-        const readinessLabel = uiText(language, READINESS_LABEL_KEYS[readiness]);
+        const name = target.nativeName === target.englishName
+            ? target.nativeName
+            : `${target.nativeName} — ${target.englishName}`;
+        const readinessKey = `studyTargetReadiness${READINESS_COPY_SUFFIX[readiness]}` as const;
         return {
             id: target.id,
             runtimeLocale: target.runtimeLocale,
             direction: target.direction,
-            label: `${name} · ${readinessLabel}`,
+            label: `${name} · ${uiText(language, readinessKey)}`,
             readiness,
-            reason: uiText(language, READINESS_REASON_KEYS[readiness]),
+            reason: uiText(language, `${readinessKey}Reason` as const),
             disabled: readiness === 'planned',
         };
     });
@@ -74,10 +70,4 @@ export function populateStudyTargetSelect(
 
 export function isSelectableStudyTarget(id: LearningTargetRosterId): boolean {
     return learningTargetRosterEntry(id).studyTargetReadiness !== 'planned';
-}
-
-function languageOptionLabel(language: Pick<LearningTargetRosterEntry, 'nativeName' | 'englishName'>): string {
-    return language.nativeName === language.englishName
-        ? language.nativeName
-        : `${language.nativeName} — ${language.englishName}`;
 }

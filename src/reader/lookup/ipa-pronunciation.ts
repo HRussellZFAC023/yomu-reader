@@ -10,71 +10,37 @@ export interface IpaPronunciationMatch {
     reading?: string;
 }
 
-/**
- * Reads the Yomitan IPA metadata shape used by the published Wiktionary
- * pronunciation dictionaries:
- *
- *   ["gratis", "ipa", {
- *     "reading": "gratis",
- *     "transcriptions": [{ "ipa": "/ˈɡɾatis/" }]
- *   }]
- *
- * Expression and reading checks happen before extracting payloads so metadata
- * for a different homograph/reading cannot leak into the current lookup.
- */
+type IpaPayload = { reading?: unknown; transcriptions?: unknown };
+
+// Yomitan IPA rows: [expression, "ipa", { reading, transcriptions: [{ ipa }] }].
 export function extractIpaPronunciations(
     entries: readonly YomitanMetaEntry[],
     match: IpaPronunciationMatch,
 ): IpaPronunciation[] {
-    const lookupForms = normalizedLookupForms(match);
-    if (!lookupForms.size) return [];
-
-    const pronunciations: IpaPronunciation[] = [];
-    const seenIpa = new Set<string>();
+    const forms = [match.expression, match.reading ?? ''].map(normalizeLookupForm);
+    const result: IpaPronunciation[] = [];
+    const seen = new Set<string>();
     for (const entry of entries) {
-        if (entry.mode.trim().toLowerCase() !== 'ipa') continue;
-        if (!matchesLookupForm(entry.expression, lookupForms)) continue;
-        const data = ipaDataRecord(entry.data);
-        if (!data || !matchesLookupForm(data.reading, lookupForms, true)) continue;
-        for (const transcription of ipaTranscriptions(data.transcriptions)) {
-            if (seenIpa.has(transcription)) continue;
-            seenIpa.add(transcription);
-            pronunciations.push({ ipa: transcription, dictionary: entry.dictionary });
+        const data = entry.data as IpaPayload;
+        if (entry.mode !== 'ipa'
+            || !forms.includes(normalizeLookupForm(entry.expression ?? ''))
+            || !data
+            || typeof data !== 'object'
+            || !Array.isArray(data.transcriptions)) continue;
+        if (data.reading
+            && (typeof data.reading !== 'string' || !forms.includes(normalizeLookupForm(data.reading)))) continue;
+        for (const transcription of data.transcriptions) {
+            const value = transcription == null ? undefined : (transcription as { ipa?: unknown }).ipa;
+            if (typeof value !== 'string') continue;
+            const ipa = value.trim();
+            if (!ipa || seen.has(ipa)) continue;
+            seen.add(ipa);
+            result.push({ ipa, dictionary: entry.dictionary });
         }
     }
-    return pronunciations;
-}
-
-function normalizedLookupForms(match: IpaPronunciationMatch): Set<string> {
-    return new Set([match.expression, match.reading]
-        .filter((value): value is string => typeof value === 'string')
-        .map(normalizeLookupForm)
-        .filter(Boolean));
+    return result;
 }
 
 function normalizeLookupForm(value: string): string {
     return value.normalize('NFKC').trim().toLowerCase();
-}
-
-function matchesLookupForm(value: unknown, lookupForms: Set<string>, optional = false): boolean {
-    if (value === undefined || value === null || value === '') return optional;
-    if (typeof value !== 'string' || !value.trim()) return false;
-    return lookupForms.has(normalizeLookupForm(value));
-}
-
-function ipaDataRecord(value: unknown): { reading?: unknown; transcriptions?: unknown } | null {
-    return value && typeof value === 'object' && !Array.isArray(value)
-        ? value as { reading?: unknown; transcriptions?: unknown }
-        : null;
-}
-
-function ipaTranscriptions(value: unknown): string[] {
-    if (!Array.isArray(value)) return [];
-    return value
-        .map(item => item && typeof item === 'object' && !Array.isArray(item)
-            ? (item as { ipa?: unknown }).ipa
-            : undefined)
-        .filter((ipa): ipa is string => typeof ipa === 'string')
-        .map(ipa => ipa.trim())
-        .filter(Boolean);
 }

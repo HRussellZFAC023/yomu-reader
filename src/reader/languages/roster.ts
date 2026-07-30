@@ -40,44 +40,27 @@ const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
 });
 
 /**
- * A product decision, not a capability inference. Every target is named here so
- * adding a roster row requires an explicit learner-facing readiness decision.
+ * A product decision, not a capability inference. Every non-Japanese target is
+ * named exactly once here, and the erased type checks make a new roster ID fail
+ * the build until it receives an explicit readiness decision.
  */
-export const STUDY_TARGET_READINESS_BY_ID = Object.freeze({
-    ja: 'full',
-    sq: 'reading-only',
-    grc: 'reading-only',
-    ar: 'reading-only',
-    yue: 'reading-only',
-    zh: 'reading-only',
-    da: 'reading-only',
-    nl: 'reading-only',
-    en: 'reading-only',
-    fi: 'reading-only',
-    fr: 'reading-only',
-    de: 'reading-only',
-    el: 'reading-only',
-    hu: 'reading-only',
-    id: 'reading-only',
-    it: 'reading-only',
-    km: 'reading-only',
-    ko: 'reading-only',
-    lo: 'reading-only',
-    la: 'reading-only',
-    mn: 'reading-only',
-    fa: 'reading-only',
-    pl: 'reading-only',
-    pt: 'reading-only',
-    ro: 'reading-only',
-    ru: 'reading-only',
-    sh: 'reading-only',
-    es: 'reading-only',
-    sv: 'reading-only',
-    tl: 'reading-only',
-    th: 'reading-only',
-    tr: 'reading-only',
-    vi: 'reading-only',
-} satisfies Readonly<Record<LearningTargetRosterId, StudyTargetReadiness>>);
+const READING_ONLY_STUDY_TARGET_ID_LIST =
+    'sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi' as const;
+
+type SpaceSeparatedStudyTargetIds<Value extends string> =
+    Value extends `${infer Head} ${infer Tail}`
+        ? Head | SpaceSeparatedStudyTargetIds<Tail>
+        : Value;
+type ExplicitNonFullStudyTargetId =
+    SpaceSeparatedStudyTargetIds<typeof READING_ONLY_STUDY_TARGET_ID_LIST>;
+type AssertNoStudyTargets<T extends never> = T;
+/** @internal Compile-time proof that readiness decisions are exhaustive and disjoint. */
+export type StudyTargetReadinessDecisionAudit = AssertNoStudyTargets<
+    Exclude<LearnerLanguageId, ExplicitNonFullStudyTargetId>
+    | Exclude<ExplicitNonFullStudyTargetId, LearnerLanguageId>
+>;
+
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(' ');
 
 /**
  * The target picker is Japanese plus the frozen 32-language catalogue roster.
@@ -88,16 +71,14 @@ export const LEARNING_TARGET_ROSTER: readonly LearningTargetRosterEntry[] = Obje
     JAPANESE_TARGET_ROSTER_ENTRY,
     ...LEARNER_LANGUAGES.map(language => Object.freeze({
         ...language,
-        studyTargetReadiness: STUDY_TARGET_READINESS_BY_ID[language.id],
+        studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id)
+            ? 'reading-only'
+            : 'planned',
     })),
 ]);
 
-const LEARNING_TARGET_BY_ID = new Map<LearningTargetRosterId, LearningTargetRosterEntry>(
-    LEARNING_TARGET_ROSTER.map(language => [language.id, language]),
-);
-
 export function learningTargetRosterEntry(id: LearningTargetRosterId): LearningTargetRosterEntry {
-    const target = LEARNING_TARGET_BY_ID.get(id);
+    const target = LEARNING_TARGET_ROSTER.find(language => language.id === id);
     if (!target) throw new Error(`Unknown learning target: ${id}`);
     return target;
 }
@@ -106,16 +87,8 @@ export function studyTargetReadinessMeets(
     actual: StudyTargetReadiness,
     claimed: Exclude<StudyTargetReadiness, 'planned'>,
 ): boolean {
-    if (claimed === 'reading-only') return actual === 'full' || actual === 'reading-only';
-    return actual === 'full';
+    return actual === 'full' || actual === claimed;
 }
-
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map<string, Slice1LearnerLanguageId>(
-    LEARNER_LANGUAGES.map(language => [
-        languageSubtag(language.runtimeLocale) ?? language.id,
-        language.id,
-    ]),
-);
 
 export const SLICE1_LEARNER_LANGUAGE_TAGS: readonly LanguageTag[] = Object.freeze(
     LEARNER_LANGUAGES.map(language => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale),
@@ -153,7 +126,8 @@ export function slice1LanguageIdForTag(value: unknown): Slice1LearnerLanguageId 
     const base = languageSubtag(canonical);
     if (!base) return null;
     if (base === 'sr' || base === 'hr' || base === 'bs') return 'sh';
-    return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+    if (base === 'fil') return 'tl';
+    return isLearnerLanguageId(base) ? base : null;
 }
 
 /**

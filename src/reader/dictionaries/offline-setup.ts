@@ -66,11 +66,12 @@ interface OfflineDictionarySetupPlan {
 
 export async function installOfflineParsingDictionaries(options: OfflineDictionarySetupOptions): Promise<OfflineDictionarySetupResult> {
     const result: OfflineDictionarySetupResult = { installed: [], skipped: [], failed: [] };
-    const languages = activeOfflineDictionaryLanguages(options.getSettings());
+    const settings = options.getSettings();
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     const plan = await offlineDictionarySetupPlan(
         options.dictionaries,
-        languages.learnerLanguage,
-        languages.targetLanguage,
+        slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en',
+        learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja',
         result,
     );
     if (plan.installed.length) {
@@ -108,14 +109,12 @@ async function offlineDictionarySetupPlan(
     targetLanguage: LearningTargetRosterId,
     result: OfflineDictionarySetupResult,
 ): Promise<OfflineDictionarySetupPlan> {
-    const targets = [
-        ...recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
-            .filter(dictionary => dictionary.selectedByDefault !== false),
-        ...(targetLanguage === 'ja'
-            ? [findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)]
-            : []),
-    ]
-        .filter((dictionary): dictionary is RecommendedDictionary => Boolean(dictionary?.downloadUrl));
+    const targets = recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage)
+        .filter(dictionary => dictionary.selectedByDefault !== false && Boolean(dictionary.downloadUrl));
+    const pitch = targetLanguage === 'ja'
+        ? findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)
+        : undefined;
+    if (pitch?.downloadUrl) targets.push(pitch);
     const installedDictionaries = await store.summary()
         .then(summary => summary.dictionaries)
         .catch(() => []);
@@ -171,14 +170,4 @@ function canonicalDownloadUrl(value: string): string {
     } catch {
         return value.trim();
     }
-}
-
-function activeOfflineDictionaryLanguages(
-    settings: ReaderSettings,
-): { learnerLanguage: Slice1LearnerLanguage; targetLanguage: LearningTargetRosterId } {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return {
-        learnerLanguage: slice1LanguageIdForTag(profile?.outputLanguage) ?? 'en',
-        targetLanguage: learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja',
-    };
 }

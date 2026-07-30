@@ -93,7 +93,6 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
         const publishedRoot = resolve(process.cwd(), 'config/dictionaries/published/v1/recommendations');
         await Promise.all(
             SLICE1_TARGET_LANGUAGES
-                .filter(targetLanguage => targetLanguage !== 'ja')
                 .flatMap(targetLanguage => SLICE1_LEARNER_LANGUAGES.map(async learnerLanguage => {
                     const manifest = parseDictionaryRecommendationManifest(JSON.parse(
                         await readFile(resolve(publishedRoot, `${learnerLanguage}-${targetLanguage}.json`), 'utf8'),

@@ -326,27 +326,16 @@ export class OnboardingController {
             const selected = learnerLanguageById(learnerLanguage);
             log.info('Onboarding learner language changed', {
                 learnerLanguage,
-                targetLanguage: selectedOnboardingTargetLanguage(
-                    this.targetLanguageSelect?.value,
-                    onboardingTargetLanguage(this.options.getSettings()),
-                ),
+                targetLanguage: this.targetLanguageSelect?.value,
             });
             this.learnerLanguageSelect?.setAttribute('lang', selected.runtimeLocale);
             this.learnerLanguageSelect?.setAttribute('dir', selected.direction);
         });
         this.targetLanguageSelect.addEventListener('change', () => {
-            const targetLanguage = selectedOnboardingTargetLanguage(
-                this.targetLanguageSelect?.value,
-                onboardingTargetLanguage(this.options.getSettings()),
-            );
             const selected = this.targetLanguageSelect?.selectedOptions[0];
-            log.info('Onboarding target language changed', {
-                targetLanguage,
-                readiness: selected?.dataset.studyTargetReadiness,
-            });
             if (selected) {
-                this.targetLanguageSelect?.setAttribute('lang', selected.lang);
-                this.targetLanguageSelect?.setAttribute('dir', selected.dir);
+                this.targetLanguageSelect!.lang = selected.lang;
+                this.targetLanguageSelect!.dir = selected.dir;
             }
         });
         this.panel.addEventListener('click', event => {
@@ -730,12 +719,14 @@ function updateActiveOnboardingLanguageProfile(
     targetLanguage: LearningTargetRosterId,
     interfaceLanguage: InterfaceLanguage,
 ): Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'> {
+    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage);
+    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage);
     const activated = activateLanguageProfileForOutputLanguage(
         settings.languageProfiles,
         settings.activeLanguageProfileId,
-        canonicalTagForSlice1Language(learnerLanguage),
+        learnerLanguageTag,
         {
-            targetLanguage: canonicalTagForLearningTarget(targetLanguage),
+            targetLanguage: targetLanguageTag,
             uiLocale: interfaceLanguage,
             parserProvider: settings.parserProvider,
         },
@@ -745,9 +736,9 @@ function updateActiveOnboardingLanguageProfile(
         languageProfiles: activated.profiles.map(profile => profile.id === activated.activeProfileId
         ? {
             ...profile,
-            outputLanguage: canonicalTagForSlice1Language(learnerLanguage),
-            learnerLanguage: canonicalTagForSlice1Language(learnerLanguage),
-            targetLanguage: canonicalTagForLearningTarget(targetLanguage),
+            outputLanguage: learnerLanguageTag,
+            learnerLanguage: learnerLanguageTag,
+            targetLanguage: targetLanguageTag,
             uiLocale: interfaceLanguage,
             parserProvider: settings.parserProvider,
         }
