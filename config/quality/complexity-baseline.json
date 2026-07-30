@@ -35,7 +35,7 @@
         "src/academy/domain/lesson-zero-sound-session.ts:transitionLessonZeroSoundSession": 31,
         "src/academy/domain/lesson-zero-vowel-session.ts:lessonZeroVowelSessionSnapshotShapeIsValid": 46,
         "src/academy/domain/lesson-zero-vowel-writing-session.ts:lessonZeroVowelWritingSessionSnapshotShapeIsValid": 48,
-        "src/academy/domain/sprite-batch-manifest.ts:validateNextCoverageBatch": 43,
+        "src/academy/domain/sprite-batch-manifest.ts:validateNextCoverageBatch": 44,
         "src/academy/minigames/bank-listening-cloze/index.ts:validate": 34,
         "src/academy/minigames/class-activity-simulator/index.ts:validateClassActivitySimulator": 71,
         "src/academy/minigames/commute-comparison-log/index.ts:validate": 33,
