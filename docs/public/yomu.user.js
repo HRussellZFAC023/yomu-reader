@@ -17,7 +17,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.61be7e991211.user.js#sha256=Yb5+mRIRT3dJi9MdOAyiGrFq+XrQc8bvBUMa2b4iGa8=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.d8d6f606f4b5.user.js#sha256=2Nb2BvS1+G50MFBmqgGEKHTVihoBFaSBrU/Z0wuA0dI=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.20c21c90966d.user.js#sha256=IMIckJZtUf8xw707R6viTdqGANLSWqZtc4II5Ss7MIk=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.f1477f31241e.user.js#sha256=8Ud/MSQeQ8MS86Qy+YCcmVZK3z8mk5i3stZqMj+6kbI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.4b2ba26dd460.user.js#sha256=SyuibdRgrkS2myxWKURULn+n5chDiUKuOzdW7/Yad0Q=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.ed6b45c9432f.user.js#sha256=7WtFyUMvuEA1xzVY8duui6nFuDi6FveJiOqfe9roLYw=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.aceb45703e50.user.js#sha256=rOtFcD5QckB1Rek1eZzpeU8ERavVDw776zxd2Pr+sSo=
 // @require https://yomureader.com/greasyfork/yomu-jiten.7ce70ea082b1.user.js#sha256=fOcOoIKxaefc/Yi7s2UZPGEn0pJ7xdvoJ02KFQcLNMQ=
@@ -5524,7 +5524,7 @@ const DOCS_ORIGIN = "https://yomureader.com";
 const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
 const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
 const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
-const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
 const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";

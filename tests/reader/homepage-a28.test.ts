@@ -36,8 +36,8 @@ describe('A28 homepage contract', () => {
     });
 
     it('links the three retained proof bands to their hosted apps', () => {
-        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/index.html">Read</a>');
-        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/index.html">Watch</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/pdf-reader/">Read</a>');
+        expect(homepage).toContain('<a class="yomu-band-action" href="/video-player/">Watch</a>');
         expect(homepage).toContain('<a class="yomu-band-action" href="/study/">Study</a>');
     });
 

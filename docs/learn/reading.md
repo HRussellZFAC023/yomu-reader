@@ -43,7 +43,7 @@ Press a kanji in the headword. The drilldown can show on and kun readings, strok
 
 ## Open a PDF without installing anything
 
-The [PDF reader](/pdf-reader/index.html) opens a PDF from your computer and gives its text layer the same popup. Scanned pages can use OCR once you turn image reading on. The file stays on your device.
+The [PDF reader](/pdf-reader/) opens a PDF from your computer and gives its text layer the same popup. Scanned pages can use OCR once you turn image reading on. The file stays on your device.
 
 Browser-supported text, PDF text, furigana and dictionary lookup are different doors into the same room. Pick the one your book needs.
 

@@ -1204,8 +1204,8 @@
   };
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
   const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
-  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
+  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
+  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
@@ -129582,8 +129582,8 @@ ${newTabCardReading(card)}`;
     { text: "Help", ja: "ヘルプ", link: "/support" }
   ]);
   const OVERFLOW_NAV = Object.freeze([
-    { text: "Video Player", ja: "動画プレイヤー", link: "/video-player/index.html", hostedHref: "/video-player/index.html", target: "_self" },
-    { text: "PDF Reader", ja: "PDFリーダー", link: "/pdf-reader/index.html", hostedHref: "/pdf-reader/index.html", target: "_self" },
+    { text: "Video Player", ja: "動画プレイヤー", link: "/video-player/", hostedHref: "/video-player/", target: "_self" },
+    { text: "PDF Reader", ja: "PDFリーダー", link: "/pdf-reader/", hostedHref: "/pdf-reader/", target: "_self" },
     { text: "Stats", ja: "統計", link: "/study/?mode=stats", target: "_self" },
     { text: "API", ja: "API", link: "/api/", target: "_self" },
     { text: "Local Audio", ja: "ローカル音声", link: "/local-audio" },

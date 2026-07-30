@@ -58,7 +58,7 @@ Check that Yomu is allowed on that site — in your browser's extensions menu, o
 
 ### Which sites does it work on?
 
-Any page with Japanese text on it. On top of that, YouTube gets its own subtitle reader with the video, image-based manga readers work through picture reading, and there is a [PDF reader](/pdf-reader/index.html) and a [video player](/video-player/index.html) for your own files.
+Any page with Japanese text on it. On top of that, YouTube gets its own subtitle reader with the video, image-based manga readers work through picture reading, and there is a [PDF reader](/pdf-reader/) and a [video player](/video-player/) for your own files.
 
 ### How does it read manga and pictures?
 

@@ -2,11 +2,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+    hostedAppSitemapRoutes,
     internalDocsExcludeGlobs,
     isInternalDocPath,
     navigationRoutes,
     sitemapItemsForRoutes,
     sitemapRouteKey,
+    withHostedAppSitemapItems,
 } from '../../config/docs/published-pages';
 import {
     heroStudyLanguages,
@@ -334,5 +336,116 @@ describe('sitemap filtering', () => {
             { url: 'privacy/' },
             { url: 'tools/' },
         ]);
+    });
+
+    // The hosted apps are static files in docs/public, so VitePress never routes
+    // them and `transformItems` never sees them: all three were missing from the
+    // live sitemap (20 <loc> entries, measured 2026-07-30) while being indexable
+    // 200 pages the home page leads with.
+    it('adds the hosted app surfaces the sitemap can never discover', () => {
+        expect(withHostedAppSitemapItems([{ url: 'faq' }], url => ({ url }))).toEqual([
+            { url: 'faq' },
+            { url: 'study/' },
+            { url: 'video-player/' },
+            { url: 'pdf-reader/' },
+        ]);
+    });
+
+    it('does not duplicate a hosted route that VitePress already published', () => {
+        const items = [{ url: 'study' }];
+        expect(withHostedAppSitemapItems(items, url => ({ url }))).toEqual([
+            { url: 'study' },
+            { url: 'video-player/' },
+            { url: 'pdf-reader/' },
+        ]);
+    });
+
+    // Both URL shapes serve, but the index.html form declares the directory form
+    // canonical. Linking it told crawlers every internal path was a duplicate.
+    it('links hosted apps at the URL they declare canonical, never index.html', () => {
+        const linkSources = [
+            'docs/index.md',
+            'docs/faq.md',
+            'docs/support.md',
+            'docs/learn/index.md',
+            'docs/learn/reading.md',
+            'docs/learn/watching.md',
+            'docs/learn/reference.md',
+            'docs/public/manifest.webmanifest',
+        ];
+        for (const file of linkSources) {
+            expect(readProjectFile(file), `${file} links a self-declared duplicate`)
+                .not.toMatch(/(?:pdf-reader|video-player)\/index\.html/);
+        }
+    });
+
+    it('keeps academy out of the sitemap while it cannot be played', () => {
+        expect(hostedAppSitemapRoutes).not.toContain('academy/');
+    });
+});
+
+// Each hosted shell is hand-maintained HTML rather than a VitePress page, so
+// transformHead's per-page metadata never reaches them and they drift one at a
+// time. Measured 2026-07-30: /study/ and /video-player/ carried the full set,
+// /pdf-reader/ was missing its description and both twitter text fields, and
+// /academy/ — the link supporters are sent — had no canonical and no social
+// metadata at all, so it unfurled as a bare URL. Parity, not four fixes.
+describe('hosted app shell metadata', () => {
+    // academy is read from its template: docs/public/academy/index.html is
+    // generated from this by scripts/sync-academy.cjs, so the template is where
+    // a fix has to land to survive the next sync.
+    const SHELL_SOURCES = [
+        'docs/public/study/index.html',
+        'docs/public/video-player/index.html',
+        'docs/public/pdf-reader/index.html',
+        'public/academy/index.html',
+    ] as const;
+    const REQUIRED_PROPERTIES = ['og:type', 'og:site_name', 'og:title', 'og:description', 'og:url', 'og:image'] as const;
+    const REQUIRED_NAMES = ['description', 'twitter:card', 'twitter:title', 'twitter:description', 'twitter:image'] as const;
+
+    function metaContent(source: string, attribute: 'name' | 'property', key: string): string | undefined {
+        const pattern = new RegExp(`<meta\\s+${attribute}=["']${key.replace(':', '\\:')}["']\\s+content=["']([^"']*)["']`, 'i');
+        return source.match(pattern)?.[1];
+    }
+
+    for (const shell of SHELL_SOURCES) {
+        it(`${shell} declares a canonical URL and the full social set`, () => {
+            const source = readProjectFile(shell);
+            expect(source, 'no canonical URL').toMatch(/<link\s+rel=["']canonical["']\s+href=["']https:\/\/yomureader\.com\//i);
+            for (const key of REQUIRED_PROPERTIES) {
+                expect(metaContent(source, 'property', key), `${key} is missing or empty`).toBeTruthy();
+            }
+            for (const key of REQUIRED_NAMES) {
+                expect(metaContent(source, 'name', key), `${key} is missing or empty`).toBeTruthy();
+            }
+        });
+
+        // /pdf-reader/ shipped <title>Yomu PDF</title> against og:title "Yomu PDF
+        // Reader", so the tab and the shared card disagreed about the product name.
+        it(`${shell} uses one title in the tab, the card and the tweet`, () => {
+            const source = readProjectFile(shell);
+            const title = source.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim();
+            expect(title, 'no <title>').toBeTruthy();
+            expect(metaContent(source, 'property', 'og:title')).toBe(title);
+            expect(metaContent(source, 'name', 'twitter:title')).toBe(title);
+        });
+    }
+
+    // Requested unconditionally by browsers and unfurlers whatever <link
+    // rel="icon"> says. It 404ed and served an 11,989-byte HTML error page.
+    it('serves a real multi-size favicon.ico at the root', () => {
+        const ico = readFileSync(path.join(ROOT, 'docs/public/favicon.ico'));
+        expect(ico.readUInt16LE(0), 'not an ICO: reserved field').toBe(0);
+        expect(ico.readUInt16LE(2), 'not an ICO: type field').toBe(1);
+        expect(ico.readUInt16LE(4), 'expected the 16px and 32px entries').toBe(2);
+        // Each directory entry must point at a payload inside the file, or the
+        // icon parses as valid and renders blank.
+        for (let index = 0; index < 2; index += 1) {
+            const entry = 6 + index * 16;
+            const length = ico.readUInt32LE(entry + 8);
+            const offset = ico.readUInt32LE(entry + 12);
+            expect(length).toBeGreaterThan(0);
+            expect(offset + length).toBeLessThanOrEqual(ico.length);
+        }
     });
 });

@@ -26,8 +26,8 @@ Academy is the planned course from first sounds to N1. It is in development and 
 Study, the video player, the PDF reader and the live OCR panel all run here with nothing installed.
 
 - [Open Study](/study/)
-- [Open the video player](/video-player/index.html)
-- [Open the PDF reader](/pdf-reader/index.html)
+- [Open the video player](/video-player/)
+- [Open the PDF reader](/pdf-reader/)
 - [Press a word in the live OCR panel](/#yomu-live-ocr)
 
 When you want the dictionary on every page you visit, the add-on takes about a minute on Chrome or Firefox. Safari, iPhone and iPad use the userscript and take a couple of minutes.

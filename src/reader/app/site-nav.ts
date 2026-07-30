@@ -75,8 +75,8 @@ export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
  * simply are not daily: tools you open occasionally, reference, and policy.
  */
 export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Video Player', ja: '動画プレイヤー', link: '/video-player/index.html', hostedHref: '/video-player/index.html', target: '_self' },
-    { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/index.html', hostedHref: '/pdf-reader/index.html', target: '_self' },
+    { text: 'Video Player', ja: '動画プレイヤー', link: '/video-player/', hostedHref: '/video-player/', target: '_self' },
+    { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', hostedHref: '/pdf-reader/', target: '_self' },
     { text: 'Stats', ja: '統計', link: '/study/?mode=stats', target: '_self' },
     { text: 'API', ja: 'API', link: '/api/', target: '_self' },
     { text: 'Local Audio', ja: 'ローカル音声', link: '/local-audio' },

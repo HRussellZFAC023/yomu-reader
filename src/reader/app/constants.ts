@@ -27,8 +27,8 @@ export type ExtensionStoreBrowser = keyof typeof EXTENSION_STORE_URLS;
 /** Canonical hosted Study route. `/newtab/` remains a compatibility route. */
 export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
 export const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
-export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-export const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
+export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
+export const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
 export const SUPPORT_COPY = 'よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.';
 export const SUPPORT_COPY_EXTRA = 'Donations are optional and help cover development, devices, services, maintenance, and API costs.';
 const NADESHIKO_URL = 'https://nadeshiko.co/';

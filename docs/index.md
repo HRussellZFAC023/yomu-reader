@@ -58,7 +58,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <p class="yomu-band-kicker">Read</p>
     <h2 id="yomu-band-pages">Look up a word. Keep your place.</h2>
     <p class="yomu-band-lead">Furigana sits above the kanji and the lookup answers from dictionaries on your device. Open a PDF here, scanned pages included, or take the same reader to any web page.</p>
-    <a class="yomu-band-action" href="/pdf-reader/index.html">Read</a>
+    <a class="yomu-band-action" href="/pdf-reader/">Read</a>
   </div>
   <figure class="yomu-band-frame" data-yomu-ocr="ignore">
     <img src="/home/wikipedia.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Japanese Wikipedia with furigana above the kanji, coloured underlines on every word, and the よむ popover open." />
@@ -72,7 +72,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <p class="yomu-band-kicker">Watch</p>
     <h2 id="yomu-band-video">Pause on one line.</h2>
     <p class="yomu-band-lead">Press a word in the subtitle, hear it, save the sentence and carry on. Yomu draws over the player already on the site. The hosted player opens your own video and subtitle files too.</p>
-    <a class="yomu-band-action" href="/video-player/index.html">Watch</a>
+    <a class="yomu-band-action" href="/video-player/">Watch</a>
     <figure class="yomu-band-player" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
       <video class="yomu-band-video" controls playsinline preload="none" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
         <source src="/media/yomu-peppa-shopping.webm" type="video/webm" />
@@ -136,8 +136,8 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <h2 id="yomu-no-install-title">Everything here runs in this tab, with nothing installed</h2>
     <div class="yomu-no-install-links">
       <a href="/study/"><strong>Study</strong><span>Open a review card.</span></a>
-      <a href="/video-player/index.html"><strong>Watch</strong><span>Open a video and subtitles.</span></a>
-      <a href="/pdf-reader/index.html"><strong>Read</strong><span>Open a PDF.</span></a>
+      <a href="/video-player/"><strong>Watch</strong><span>Open a video and subtitles.</span></a>
+      <a href="/pdf-reader/"><strong>Read</strong><span>Open a PDF.</span></a>
       <a href="#yomu-live-ocr"><strong>OCR</strong><span>Press a word in the panel.</span></a>
     </div>
   </div>

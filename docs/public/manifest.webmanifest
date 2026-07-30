@@ -41,7 +41,7 @@
     {
       "name": "Video Player",
       "short_name": "Video",
-      "url": "/video-player/index.html",
+      "url": "/video-player/",
       "icons": [{ "src": "/favicon-32x32.png", "sizes": "32x32", "type": "image/png" }]
     },
     {

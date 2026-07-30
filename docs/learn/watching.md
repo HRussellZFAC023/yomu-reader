@@ -30,7 +30,7 @@ When the feed is still empty, the starter guide offers about 100 channels sorted
 
 ## Open your own files
 
-The [video player](/video-player/index.html) runs on the site with nothing installed. Open or drop a browser-supported video and its `.srt`, `.vtt`, `.ass` or `.ssa` subtitle files. The files stay on your device. Browser codec support decides which video formats will play.
+The [video player](/video-player/) runs on the site with nothing installed. Open or drop a browser-supported video and its `.srt`, `.vtt`, `.ass` or `.ssa` subtitle files. The files stay on your device. Browser codec support decides which video formats will play.
 
 The player uses the same subtitle line, transcript, second track, Shadow tab and shortcuts. Jimaku search helps you find subtitles you are entitled to use.
 

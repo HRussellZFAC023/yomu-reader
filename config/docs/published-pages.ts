@@ -117,3 +117,29 @@ export function sitemapItemsForRoutes<Item extends { url: string }>(
 ): Item[] {
     return items.filter(item => routes.has(sitemapRouteKey(item.url)));
 }
+
+// The hosted apps are copied out of docs/public rather than routed by VitePress,
+// so `transformItems` never receives them and no amount of filtering could ever
+// have let them through. Measured on the live site 2026-07-30: 20 <loc> entries,
+// none of these three. They are the install-free way to use Yomu and the home
+// page leads with all three, so they are exactly what should be indexed.
+//
+// `/academy/` is deliberately absent. It is just as indexable and just as
+// linked, but nobody can currently play it, and scripts/submit-indexnow.mjs
+// pushes every sitemap URL straight to search engines. Add it here once it
+// works — a sitemap is a claim that a URL is worth landing on.
+export const hostedAppSitemapRoutes = ['study/', 'video-player/', 'pdf-reader/'] as const;
+
+/**
+ * Appends the hosted app surfaces to a filtered sitemap. `make` builds one item
+ * so this stays free of VitePress's item shape; anything already present (a real
+ * page at the same route) wins and is not duplicated.
+ */
+export function withHostedAppSitemapItems<Item extends { url: string }>(
+    items: readonly Item[],
+    make: (url: string) => Item,
+): Item[] {
+    const present = new Set(items.map(item => sitemapRouteKey(item.url)));
+    const missing = hostedAppSitemapRoutes.filter(route => !present.has(sitemapRouteKey(route)));
+    return [...items, ...missing.map(make)];
+}

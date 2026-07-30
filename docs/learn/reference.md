@@ -15,8 +15,8 @@ The learning path explains when a setting helps. The generated [Settings referen
 These run on the Yomu site:
 
 - [Study](/study/) reviews local and connected cards and works offline after its first load.
-- [Video Player](/video-player/index.html) opens local video and subtitle files.
-- [PDF Reader](/pdf-reader/index.html) opens text PDFs and scanned PDFs with OCR enabled.
+- [Video Player](/video-player/) opens local video and subtitle files.
+- [PDF Reader](/pdf-reader/) opens text PDFs and scanned PDFs with OCR enabled.
 - [Live OCR](/#yomu-live-ocr) makes the words in the homepage panel pressable.
 
 Yomu Gaming is a separate desktop download. Academy is in development and open by invitation.
