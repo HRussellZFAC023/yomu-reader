@@ -567,7 +567,7 @@ stored bytes after a full cycle (hide furigana, pause, resume) and the store hel
 same run — while the in-memory object correctly held `furiganaMode: "all"` and an empty marker. So later
 writes went nowhere, and every existing assertion passed because they all read the instance's own object.
 
-- [x] **A38.1 — `saveSettings` can skip a write and tell nobody.** Fixed for 1.8.46. `src/reader/settings/index.ts:2101` was
+- [x] **A38.1 — `saveSettings` can skip a write and tell nobody.** Fixed for 1.8.47. `src/reader/settings/index.ts:2101` was
       `if (settingsResetInProgress) { log.warn('Skipped save during reset'); return; }`. A `log.warn` is not
       a signal a caller can act on: the function resolves successfully, so the UI confirms a setting that
       was never written. This is the same class the A35.2/A35.3 work just fixed elsewhere (a swallowed write
