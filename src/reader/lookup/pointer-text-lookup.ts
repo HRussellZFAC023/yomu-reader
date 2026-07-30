@@ -1,9 +1,6 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
-import { activeLearningTarget } from '../languages/active';
-import {
-    lookupSegmentPrefixesForLanguage,
-    lookupSubsegmentSweepForLanguage,
-} from '../languages/lookup-policies';
+import { activeLearningTarget } from '../languages/target-runtime';
+import type { LearningTargetModule } from '../languages/types';
 import {
     hasTargetPointerWord,
     targetPointerWordAt,
@@ -168,8 +165,8 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
         const term = text.slice(run.start, run.end).trim();
         return term ? [{ term, start: run.start, end: run.end }] : [];
     }
-    if (lookupSubsegmentSweepForLanguage(target.language) === 'suffix-strips') {
-        return pointerSuffixStrippedCandidates(text, run, target.language);
+    if (target.lookupSubsegments) {
+        return pointerSuffixStrippedCandidates(text, run, target);
     }
     const candidates: PointerTextSpanCandidate[] = [];
     pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
@@ -190,11 +187,11 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
 function pointerSuffixStrippedCandidates(
     text: string,
     run: TargetPointerWord,
-    language: string,
+    target: LearningTargetModule,
 ): PointerTextSpanCandidate[] {
     const runText = text.slice(run.start, run.end);
     const relativeOffset = run.offset - run.start;
-    return lookupSegmentPrefixesForLanguage(language, runText, JPDB_POINTER_CANDIDATE_MAX_LENGTH)
+    return target.lookupSubsegments!(runText, JPDB_POINTER_CANDIDATE_MAX_LENGTH)
         .filter(term => relativeOffset < term.length)
         .map(term => ({ term, start: run.start, end: run.start + term.length }));
 }

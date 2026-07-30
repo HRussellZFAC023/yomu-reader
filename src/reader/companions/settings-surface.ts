@@ -1,3 +1,4 @@
+import './learning-targets';
 import { SettingsDialogController } from '../settings/dialog-controller';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { OnboardingController } from '../app/onboarding';

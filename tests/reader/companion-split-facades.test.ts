@@ -245,6 +245,25 @@ describe('Greasy Fork split manifest', () => {
             .toEqual([`https://yomureader.com/greasyfork/${runtime!.fileName}`]);
     });
 
+    it('registers the shared learning-target runtime on aggregate and hosted companion paths', () => {
+        const buildRegistry = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/register-build-companions.ts'),
+            'utf8',
+        );
+        const settingsSurface = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/settings-surface.ts'),
+            'utf8',
+        );
+        expect(buildRegistry).toContain("import './settings-surface';");
+        expect(settingsSurface).toContain("import './learning-targets';");
+    });
+
+    it('aliases the core learning-target runtime to the companion facade', () => {
+        expect(viteConfigSource).toContain("alias['./target-runtime'] = targetRuntimeCompanion;");
+        expect(viteConfigSource).toContain("alias['../languages/target-runtime'] = targetRuntimeCompanion;");
+        expect(viteConfigSource).toContain("alias['../../languages/target-runtime'] = targetRuntimeCompanion;");
+    });
+
     it('removes only the generated IIFE wrapper indent from the injected runtime', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();

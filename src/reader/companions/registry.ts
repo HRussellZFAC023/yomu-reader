@@ -94,8 +94,17 @@ type ImmersionContextFromElementFn = typeof import('../study/mining-context').im
 type PageMiningContextFn = typeof import('../study/mining-context').pageMiningContext;
 type ContextLabelFn = typeof import('../study/mining-context').contextLabel;
 type StudySourceControllerClass = typeof import('../study/sources').StudySourceController;
+type LearningTargetRuntime = Pick<
+    typeof import('../languages/target-runtime'),
+    | 'activeLearningTarget'
+    | 'activeLearningTargetLanguage'
+    | 'adoptLearningTargetLanguage'
+    | 'normalizeLearningTargetLanguage'
+    | 'registeredLearningTargetModules'
+>;
 
 interface YomuCompanionRegistry {
+    learningTargets?: LearningTargetRuntime;
     annotations?: {
         clearProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadings;
         clearProjectedReadingsWithin: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadingsWithin;
@@ -359,6 +368,10 @@ export function yomuNormalizeOcrRenderedText(): NormalizeOcrRenderedTextFn | und
 
 export function yomuLocalDictionaries(): NonNullable<YomuCompanionRegistry['localDictionaries']> | undefined {
     return yomuCompanions().localDictionaries;
+}
+
+export function yomuLearningTargetRuntime(): YomuCompanionRegistry['learningTargets'] | undefined {
+    return yomuCompanions().learningTargets;
 }
 
 export function yomuI18nCompanion(): YomuCompanionRegistry['i18n'] | undefined {

@@ -1,5 +1,5 @@
 import { sentenceAroundRange } from '../dom/index';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { pointerTextRunAt } from './pointer-text-lookup';
 import type { JPDBCard, JPDBToken } from '../app/types';
 import { HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';

@@ -284,11 +284,7 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
-import { activeLearningTarget } from '../languages/active';
-import {
-    lookupSegmentPrefixesForLanguage,
-    lookupSubsegmentSweepForLanguage,
-} from '../languages/lookup-policies';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
@@ -6116,13 +6112,14 @@ export class ReaderApp {
         run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
         pointerRange: { start: number; end: number },
     ): Promise<LocalPointerTextEntryMatch | undefined> {
-        if (activeLearningTarget().lookupStartsAtSegmentBoundary) {
+        const target = activeLearningTarget();
+        if (target.lookupStartsAtSegmentBoundary) {
             const surface = text.slice(pointerRange.start, pointerRange.end);
             const entry = await this.lookupSingleLocalSurface(surface);
             return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : undefined;
         }
-        if (lookupSubsegmentSweepForLanguage(activeLearningTarget().language) === 'suffix-strips') {
-            return await this.lookupSuffixStrippedLocalEntry(text, run);
+        if (target.lookupSubsegments) {
+            return await this.lookupSuffixStrippedLocalEntry(target, text, run);
         }
         if (isOverbroadLocalPointerRange(run, pointerRange)) {
             return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
@@ -6136,13 +6133,13 @@ export class ReaderApp {
     }
 
     private async lookupSuffixStrippedLocalEntry(
+        target: ReturnType<typeof activeLearningTarget>,
         text: string,
         run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
     ): Promise<LocalPointerTextEntryMatch | undefined> {
-        const target = activeLearningTarget();
         const runText = text.slice(run.start, run.end);
         const relativeOffset = run.offset - run.start;
-        for (const surface of lookupSegmentPrefixesForLanguage(target.language, runText, 18)) {
+        for (const surface of target.lookupSubsegments!(runText, 18)) {
             if (relativeOffset >= surface.length) continue;
             const entry = await this.lookupSingleLocalSurface(surface);
             if (entry) return { entry, start: run.start, end: run.start + surface.length };
@@ -6227,7 +6224,7 @@ export class ReaderApp {
         const target = activeLearningTarget();
         if (
             target.lookupStartsAtSegmentBoundary
-            || lookupSubsegmentSweepForLanguage(target.language) === 'suffix-strips'
+            || target.lookupSubsegments
         ) return false;
         const fallbackLength = range.end - range.start;
         const candidateLength = candidate.end - candidate.start;

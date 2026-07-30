@@ -1,4 +1,5 @@
 import { createLearningTargetModule } from './module';
+import { koreanLookupSubsegments } from './lookup-policies';
 import type { LearningTargetModule } from './types';
 
 /**
@@ -40,5 +41,6 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
     // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
     lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
     detectsText: HAS_HANGUL,
 });

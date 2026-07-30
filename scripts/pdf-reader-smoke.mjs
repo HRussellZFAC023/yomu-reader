@@ -351,6 +351,24 @@ function pdfSmokeSettings(baseUrl) {
     };
 }
 
+function pdfSmokeSettingsForTarget(baseUrl, targetLanguage) {
+    return {
+        ...pdfSmokeSettings(baseUrl),
+        activeLanguageProfileId: 'pdf-smoke',
+        languageProfiles: [{
+            schemaVersion: 2,
+            id: 'pdf-smoke',
+            outputLanguage: 'en',
+            learnerLanguage: 'en',
+            targetLanguage,
+            uiLocale: 'en',
+            parserProvider: 'local',
+            dictionaries: { installed: [], enabled: [], order: [] },
+            definitionTranslationProviderIds: [],
+        }],
+    };
+}
+
 async function openInReader(browser, baseUrl, pdfBytes, fileName, settings = pdfSmokeSettings(baseUrl)) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -509,6 +527,7 @@ async function readState(page) {
             ocrLineVisuals: visibleLines.slice(0, 4),
             pageTotal: document.querySelector('[data-page-total]')?.textContent ?? '',
             runtimeLoaded: Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')),
+            learningTargetLanguage: window.__yomuCompanions?.learningTargets?.activeLearningTargetLanguage?.() ?? '',
             enhancedWords: document.querySelectorAll('.jpdb-reader-word, .textLayer ruby').length,
             statusText: document.querySelector('[data-status]')?.textContent ?? '',
         };
@@ -701,6 +720,22 @@ async function run() {
         const scannedPdf = imageOnlyPdfBytes();
         const scannedTwoPagePdf = multiPageImageOnlyPdfBytes();
         const imageBackedOcrPdf = imageBackedOcrPdfBytes();
+
+        // The hosted reader loads focused companions rather than the aggregate
+        // @require. Prove core adopts its setting through the same target
+        // singleton that the standalone settings companion exposes.
+        {
+            const settings = pdfSmokeSettingsForTarget(server.origin, 'ko');
+            const { page } = await openInReader(browser, server.origin, textPdf, 'target-runtime.pdf', settings);
+            const state = await readState(page);
+            report.learningTargetRuntime = {
+                runtimeLoaded: state.runtimeLoaded,
+                language: state.learningTargetLanguage,
+            };
+            assert(state.runtimeLoaded, 'standalone companions did not boot the よむ runtime', state);
+            assert(state.learningTargetLanguage === 'ko', 'standalone core and companion target state diverged', state);
+            await page.close();
+        }
 
         // --- 1) text PDF: canvas + selectable Japanese text layer + runtime ---
         {

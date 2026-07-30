@@ -1,14 +1,10 @@
-import { activeLearningTarget } from '../../languages/active';
+import { activeLearningTarget } from '../../languages/target-runtime';
 import {
     genericLookupTextVariants,
     normalizeGenericLookupText,
     normalizeImportedLookupMeta,
     normalizeImportedLookupTerm,
 } from '../../languages/lookup-normalization';
-import {
-    lookupSegmentPrefixesForLanguage,
-    lookupSubsegmentSweepForLanguage,
-} from '../../languages/lookup-policies';
 import type { LanguageTextSegment, LearningTargetModule } from '../../languages/types';
 import {
     isSearchableTargetSurface,
@@ -555,7 +551,7 @@ export class YomitanDictionaryStore {
             }
             return candidates;
         }
-        if (lookupSubsegmentSweepForLanguage(target.language) === 'suffix-strips') {
+        if (target.lookupSubsegments) {
             this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
             return candidates;
         }
@@ -576,11 +572,7 @@ export class YomitanDictionaryStore {
     ): void {
         for (const segment of this.segmentedSource(source, target)) {
             if (segment.start < from || segment.start >= to) continue;
-            for (const surface of lookupSegmentPrefixesForLanguage(
-                target.language,
-                segment.text,
-                TERM_MATCH_MAX_SURFACE_CHARS,
-            )) {
+            for (const surface of target.lookupSubsegments!(segment.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
                 if (!isSearchableTargetSurface(surface, target)) continue;
                 this.addTargetTermCandidates(target, surface, segment.start, candidates);
             }

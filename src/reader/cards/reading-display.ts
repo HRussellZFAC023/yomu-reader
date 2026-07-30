@@ -1,5 +1,5 @@
 import { escapeHtml, renderKanjiNavigationText, renderRuby, shouldRenderRuby } from '../dom/index';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { HeadwordComponentPitchSegment } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';

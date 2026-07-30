@@ -47,10 +47,11 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 6 added target-owned typed-answer input and comparison
-        // behaviour, keeping Japanese IME rules out of shared Study machinery.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(6);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(true);
+        // Revision 7 added a target-owned bounded subsegment lookup strategy,
+        // keeping Korean particle rules out of shared lookup machinery.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(7);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(7)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(3)).toBe(false);
@@ -169,6 +170,8 @@ describe('a second target needs registration and nothing else', () => {
         expect(KOREAN_LEARNING_TARGET.isLookupableText('日本語')).toBe(false);
         expect(KOREAN_LEARNING_TARGET.segment('나는 책을 읽는다').map(s => s.text))
             .toEqual(['나는', '책을', '읽는다']);
+        expect(KOREAN_LEARNING_TARGET.lookupSubsegments?.('학생이', 18))
+            .toEqual(['학생이', '학생']);
         expect(KOREAN_LEARNING_TARGET.lookupCandidates('읽는다'))
             .toEqual([{ term: '읽는다', rules: [], reasons: [], depth: 0 }]);
     });

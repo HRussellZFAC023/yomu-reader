@@ -1,8 +1,6 @@
 import type { LearnerLanguageId } from '../locales';
 import type { LookupRewrite } from './lookup-candidates';
 
-export type LookupSubsegmentSweep = 'all' | 'suffix-strips';
-
 const KOREAN_SEGMENT_SUFFIXES = [
     '에게서',
     '이라고',
@@ -95,23 +93,17 @@ export function lookupRewritesForTarget(target: LearnerLanguageId): readonly Loo
 }
 
 /**
- * A false boundary flag widens lookup, but the target still owns how far.
  * Korean lemmas begin at the written eojeol boundary, so only prefixes proven
- * by its small particle table are defensible; Japanese keeps its established
- * all-position sweep.
+ * by this small particle table are defensible. The Korean target exposes this
+ * bounded strategy through its module contract; shared lookup code does not
+ * branch on the language tag.
  */
-export function lookupSubsegmentSweepForLanguage(language: string): LookupSubsegmentSweep {
-    return language.toLowerCase().split('-')[0] === 'ko' ? 'suffix-strips' : 'all';
-}
-
-export function lookupSegmentPrefixesForLanguage(
-    language: string,
+export function koreanLookupSubsegments(
     segment: string,
     maxLength: number,
 ): readonly string[] {
     const candidates = new Set<string>();
     if (segment.length <= maxLength) candidates.add(segment);
-    if (lookupSubsegmentSweepForLanguage(language) !== 'suffix-strips') return [...candidates];
     for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
         if (!segment.endsWith(suffix)) continue;
         const stem = segment.slice(0, -suffix.length);

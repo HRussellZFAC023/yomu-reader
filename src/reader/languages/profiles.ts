@@ -1,5 +1,5 @@
 import { canonicalLanguageTag } from './locale';
-import { normalizeLearningTargetLanguage } from './registry';
+import { normalizeLearningTargetLanguage } from './target-runtime';
 import {
     DEFAULT_SLICE1_LEARNER_LANGUAGE,
     normalizeSlice1LearnerLanguage,

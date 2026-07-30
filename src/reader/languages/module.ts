@@ -48,6 +48,8 @@ export interface LearningTargetSpec {
      * engine sweep every position instead.
      */
     lookupStartsAtSegmentBoundary?: boolean;
+    /** Target-owned bounded surfaces inside one segment, when safer than a full sweep. */
+    lookupSubsegments?: (segment: string, maxLength: number) => readonly string[];
     /** Detection: a script pattern, or a full predicate for richer rules. */
     detectsText?: RegExp | ((text: string) => boolean);
     normalizeText?: (text: string) => string;
@@ -125,6 +127,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         }),
 
         lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+        ...(spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {}),
 
         normalizeText,
         isLookupableText(text: string): boolean {
