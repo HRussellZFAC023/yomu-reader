@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
+import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
     ReaderApp,
@@ -776,6 +780,38 @@ describe('reader helpers', () => {
             await expect(internals.lookupLocalEntryAtOffset(sentence, 6)).resolves.toBeUndefined();
             expect(lookup).not.toHaveBeenCalledWith('きなものを', 'きなものを', 1, expect.anything());
         } finally {
+            app.destroy();
+        }
+    });
+
+    it('uses the target candidate ladder for raw local pointer lookup', async () => {
+        const app = new ReaderApp();
+        const entry: YomitanTermEntry = {
+            expression: 'paella',
+            reading: 'paella',
+            rules: 'n',
+            glossary: ['paella'],
+            dictionary: 'Local Spanish',
+        };
+        const lookup = vi.fn(async (surface: string) => surface === 'paella' ? [entry] : []);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookup: typeof lookup };
+            lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        internals.dictionaries = { lookup };
+        setActiveLearningTargetLanguage('es');
+
+        try {
+            await expect(internals.lookupLocalEntryAtOffset('Paellas', 2)).resolves.toEqual({
+                entry,
+                start: 0,
+                end: 7,
+            });
+            expect(lookup.mock.calls.map(([surface]) => surface)).toEqual(['Paellas', 'paellas', 'paella']);
+        } finally {
+            resetActiveLearningTargetLanguage();
             app.destroy();
         }
     });

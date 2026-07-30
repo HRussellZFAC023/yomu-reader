@@ -1,4 +1,8 @@
 import { splitTags } from './row-coerce';
+import {
+    normalizeGenericLookupText,
+    normalizeImportedLookupMeta,
+} from '../../languages/lookup-normalization';
 import type { YomitanTermEntry, YomitanKanjiEntry, YomitanMetaEntry } from './types';
 import type { ZipArchive } from './zip';
 
@@ -53,9 +57,11 @@ export function normalizeZipTermRow(row: unknown, dictionary: string): YomitanTe
     if (!Array.isArray(row)) return null;
     const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
     if (typeof expression !== 'string') return null;
+    const normalizedExpression = normalizeGenericLookupText(expression);
+    if (!normalizedExpression) return null;
     return {
-        expression,
-        reading: zipTermReading(reading, expression),
+        expression: normalizedExpression,
+        reading: normalizeGenericLookupText(zipTermReading(reading, expression)),
         definitionTags: zipStringField(definitionTags),
         rules: zipStringField(rules),
         score: zipNumberField(score, 0),
@@ -105,7 +111,9 @@ export function normalizeZipKanjiRow(row: unknown, dictionary: string, version: 
 export function normalizeZipTermMetaRow(row: unknown, dictionary: string): YomitanMetaEntry | null {
     if (!Array.isArray(row)) return null;
     const [expression, mode, data] = row;
-    return typeof expression === 'string' && typeof mode === 'string' ? { expression, mode, data, dictionary } : null;
+    return typeof expression === 'string' && typeof mode === 'string'
+        ? normalizeImportedLookupMeta({ expression, mode, data, dictionary })
+        : null;
 }
 
 export function normalizeZipKanjiMetaRow(row: unknown, dictionary: string): YomitanMetaEntry | null {

@@ -1,4 +1,8 @@
 import { splitTags } from './row-coerce';
+import {
+    normalizeGenericLookupText,
+    normalizeImportedLookupMeta,
+} from '../../languages/lookup-normalization';
 import type {
     YomitanTermEntry,
     YomitanKanjiEntry,
@@ -10,9 +14,11 @@ export function normalizeDexieTermRow(row: unknown): YomitanTermEntry | null {
     const record = dexieRowRecord<YomitanTermEntry>(row);
     if (!record) return null;
     if (typeof record.expression !== 'string' || typeof record.dictionary !== 'string') return null;
+    const expression = normalizeGenericLookupText(record.expression);
+    if (!expression) return null;
     return {
-        expression: record.expression,
-        reading: dexieStringField(record, 'reading', record.expression),
+        expression,
+        reading: normalizeGenericLookupText(dexieStringField(record, 'reading', record.expression)),
         definitionTags: dexieStringField(record, 'definitionTags'),
         rules: dexieStringField(record, 'rules'),
         score: dexieNumberField(record, 'score', 0),
@@ -69,7 +75,12 @@ function dexieStringList(value: unknown): string[] {
 export function normalizeDexieTermMetaRow(row: unknown): YomitanMetaEntry | null {
     const record = dexieTermMetaRecord(row);
     return record
-        ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary }
+        ? normalizeImportedLookupMeta({
+            expression: record.expression,
+            mode: record.mode,
+            data: record.data,
+            dictionary: record.dictionary,
+        })
         : null;
 }
 

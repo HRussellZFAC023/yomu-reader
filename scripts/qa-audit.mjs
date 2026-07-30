@@ -1665,7 +1665,7 @@ function htmlEscape(value) {
 async function seedLocalKanjiDictionaries(page) {
     await page.evaluate(async () => {
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 const tx = request.transaction;
@@ -2316,7 +2316,7 @@ async function newTabDictionaryFallbackDebugSnapshot() {
 
     function newTabDictionaryDbSummary() {
         return new Promise(resolve => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onerror = () => resolve({ error: request.error?.message ?? 'open failed' });
             request.onsuccess = () => resolveNewTabDictionaryDb(request.result, resolve);
         });

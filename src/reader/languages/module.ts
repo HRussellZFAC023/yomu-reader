@@ -1,4 +1,6 @@
 import { icuWordSegments } from './icu-segmentation';
+import { boundedLookupCandidates, type LookupRewrite } from './lookup-candidates';
+import { normalizeGenericLookupText } from './lookup-normalization';
 import { canonicalLanguageTag, languageSubtag, localeDirection } from './locale';
 import {
     LEARNING_TARGET_CAPABILITY_IDS,
@@ -52,6 +54,8 @@ export interface LearningTargetSpec {
     segment?: (text: string) => readonly LanguageTextSegment[];
     pointerWordSegments?: (text: string) => readonly LanguageTextSegment[];
     lookupCandidates?: (text: string) => readonly LanguageLookupCandidate[];
+    /** Declarative, bounded affix rewrites used by the generic candidate ladder. */
+    lookupRewrites?: readonly LookupRewrite[];
     compareLookupCandidates?: (a: LanguageLookupCandidate, b: LanguageLookupCandidate) => number;
     matchesLookupCandidateRules?: (entryRules: string | undefined, candidateRules: readonly string[]) => boolean;
     normalizeReading?: (spelling: string, reading?: string) => string;
@@ -129,7 +133,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         segment,
         pointerWordSegments: spec.pointerWordSegments ?? segment,
         lookupCandidates: spec.lookupCandidates
-            ?? ((text: string) => defaultLookupCandidates(normalizeText(text))),
+            ?? ((text: string) => boundedLookupCandidates(text, language, normalizeText, spec.lookupRewrites ?? [])),
         compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
         matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
         normalizeReading: spec.normalizeReading ?? defaultNormalizeReading,
@@ -158,7 +162,7 @@ function detectorFor(value: LearningTargetSpec['detectsText']): (text: string) =
 }
 
 function defaultNormalizeText(text: string): string {
-    return text.normalize('NFKC').replace(/\s+/gu, ' ').trim();
+    return normalizeGenericLookupText(text);
 }
 
 /**
@@ -191,11 +195,6 @@ function whitespaceSegments(text: string): readonly LanguageTextSegment[] {
         match = pattern.exec(text);
     }
     return segments;
-}
-
-/** No morphology: the surface form is the only candidate, at depth 0. */
-function defaultLookupCandidates(term: string): readonly LanguageLookupCandidate[] {
-    return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
 }
 
 /**

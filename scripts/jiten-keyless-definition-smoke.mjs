@@ -398,7 +398,7 @@ async function seedJitendexDictionary(page) {
             deleteRequest.onblocked = () => resolve();
         });
         const db = await new Promise((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onupgradeneeded = () => {
                 const db = request.result;
                 const tx = request.transaction;
