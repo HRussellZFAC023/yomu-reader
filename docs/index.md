@@ -43,73 +43,12 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </figure>
 </section>
 
-<main class="yomu-story">
-  <section class="yomu-paper yomu-founder" aria-labelledby="yomu-founder-title">
-    <p class="yomu-eyebrow">A note from the person who made it</p>
-    <h2 id="yomu-founder-title">I built the thing I needed.</h2>
-    <p>When I started Japanese, I was overwhelmed by the pile of tools I was supposed to understand before I could read anything. I spent a long time studying how to study. Then I built what I wished had existed: one place to read, watch, save words and come back to them. You should not have to repeat that homework.</p>
-  </section>
-
-  <section class="yomu-paper yomu-method" aria-labelledby="yomu-input-title">
-    <div>
-      <p class="yomu-eyebrow">Comprehensible input</p>
-      <h2 id="yomu-input-title">Read things you can nearly understand.</h2>
-      <p>You pick up a language by understanding things said in it. When a sentence is mostly words you already know plus one you do not, the sentence itself teaches you the new word. Read and listen to Japanese you can nearly follow, in volume, and the gaps start to close.</p>
-    </div>
-    <div class="yomu-paper-note">
-      <h3 id="yomu-scene-title">Keep the whole scene.</h3>
-      <p>Each word you save can carry a real example: a sentence from an actual show, with the audio of the line and a screenshot of the scene. The dictionary gives you the meaning. The clip shows you the moment it was used. When the word comes back in review, the scene comes back with it.</p>
-    </div>
-  </section>
-
-  <section class="yomu-compare" aria-label="How Yomu differs">
-    <article class="yomu-paper">
-      <p class="yomu-eyebrow">A plain comparison</p>
-      <h2>Better than Migaku</h2>
-      <p>Yomu is free, and that includes Anki export and mobile. Install is one click from the Chrome or Firefox store, with no account before your first lookup. On a phone it runs in the browser you already have. Add any Yomitan dictionary, keep your RTK keywords, or study vocab only. Subtitles draw over the site's own player; switching Yomu off hands the page back untouched.</p>
-    </article>
-    <article class="yomu-paper">
-      <p class="yomu-eyebrow">You choose what happens next</p>
-      <h2>Better than Duolingo</h2>
-      <p>You pick the words, straight from the shows and manga you were already going to watch and read. Review sentences are the ones you found each word in, so practice sounds like real Japanese rather than a course script. There is no path and no energy meter. Study when you want, as much as you want. Mark a word known once and it stops turning up.</p>
-    </article>
-  </section>
-
-  <section class="yomu-paper yomu-bring" aria-labelledby="yomu-bring-title">
-    <p class="yomu-eyebrow">Your collection</p>
-    <h2 id="yomu-bring-title">Bring your own words.</h2>
-    <p>Already using Anki, jpdb, jiten or Bunpro? Keep using it. Yomu saves words there and shows what each one already knows. Migaku support is coming soon.</p>
-    <p>Or keep the words in Yomu. Its own deck uses the same SM-2 scheduling family Anki was built on, then carries the context with it: the sentence, grammar, pronunciation and handwriting practice.</p>
-  </section>
-
-  <section class="yomu-paper yomu-approach" aria-labelledby="yomu-approach-title">
-    <div>
-      <p class="yomu-eyebrow">A way to use it</p>
-      <h2 id="yomu-approach-title">Build a core. Then read a lot.</h2>
-      <p>Your daily reviews wait in Study, and streaks record the days you return. The most common 2,000 words do most of the work: in everyday text, roughly four words out of five are drawn from them, and casual speech leans on them even more. That gives you a useful base. It does not give you fluency.</p>
-    </div>
-    <div class="yomu-approach-grid">
-      <article>
-        <h3>What tadoku means.</h3>
-        <p>Tadoku is extensive reading: lots of easy Japanese, read for the story rather than the study. It suits learners who can follow an easy story and want to read more without stopping at every line. The usual advice is to skip words you do not know so the story keeps moving.</p>
-      </article>
-      <article>
-        <h3>Give the skip a memory.</h3>
-        <p>With Yomu, press the unknown word, keep reading, and return to it after you finish. You get the volume that makes tadoku work without losing every useful word forever.</p>
-      </article>
-      <article>
-        <h3>Use the machinery you grew up with.</h3>
-        <p>Most of your first language arrived through thousands of encounters where the meaning was obvious. That machinery still works in adults. You can also do what a child cannot: notice a pattern, check a word, and go straight back to the page.</p>
-      </article>
-    </div>
-  </section>
-
-  <section class="yomu-discord" aria-labelledby="yomu-discord-title">
-    <p class="yomu-eyebrow">People learning together</p>
-    <h2 id="yomu-discord-title">Come and say hello.</h2>
-    <p>Discord is where users compare setups, report rough edges and help shape what comes next. Bring a question or a screenshot. Do not be shy.</p>
-    <a href="https://discord.gg/jD6NPURewD">Join the Yomu Discord</a>
-  </section>
+<main class="yomu-story" aria-labelledby="yomu-letter-title">
+  <article class="yomu-letter">
+    <h2 id="yomu-letter-title">I studied how to study Japanese for far too long before I read anything</h2>
+    <p>The tools were scattered and each one wanted a different setup, so I built the one I wanted instead: read, watch, press a word, keep it, come back to it. Nothing to wire together.</p>
+    <p class="yomu-letter-sign">Henry, who makes Yomu</p>
+  </article>
 </main>
 
 <section class="yomu-band yomu-reveal" id="read" data-bleed="right" aria-labelledby="yomu-band-pages">
@@ -118,7 +57,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Read</p>
     <h2 id="yomu-band-pages">Look up a word. Keep your place.</h2>
-    <p class="yomu-band-lead">Furigana sits above the kanji. The underline colours teach pitch accent while you read: blue stays flat, pink falls early, and amber falls later. Open a PDF here, including a scanned one with OCR, or take the same reader to a web page.</p>
+    <p class="yomu-band-lead">Furigana sits above the kanji and the lookup answers from dictionaries on your device. Open a PDF here, scanned pages included, or take the same reader to any web page.</p>
     <a class="yomu-band-action" href="/pdf-reader/index.html">Read</a>
   </div>
   <figure class="yomu-band-frame" data-yomu-ocr="ignore">
@@ -147,7 +86,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </figure>
 </section>
 
-<section class="yomu-band yomu-band-keep yomu-reveal" id="study" data-bleed="right" aria-labelledby="yomu-band-keep">
+<section class="yomu-band yomu-reveal" id="study" data-bleed="right" aria-labelledby="yomu-band-keep">
   <img class="yomu-band-ground" src="/home/ground-keep.webp" width="1400" height="788" alt="" aria-hidden="true" loading="lazy" decoding="async" data-yomu-ocr="ignore" />
   <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">記</p>
   <div class="yomu-band-copy">
@@ -163,33 +102,38 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </figure>
 </section>
 
+<section class="yomu-fits" aria-labelledby="yomu-fits-title">
+  <h2 id="yomu-fits-title">It fits the deck you already review in</h2>
+  <ul class="yomu-fits-list">
+    <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows. Migaku is next.</li>
+    <li><strong>Or keep the words in Yomu.</strong> Its deck schedules on SM-2 and carries the sentence, the audio and the picture with each word.</li>
+    <li><strong>Coming from Migaku or Duolingo?</strong> <a href="/faq#how-yomu-compares-with-migaku-and-duolingo">The plain comparison, item by item</a></li>
+  </ul>
+</section>
+
 <section class="yomu-band yomu-band-concept yomu-reveal" id="gaming" data-bleed="left" aria-labelledby="yomu-band-gaming">
   <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">遊</p>
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Yomu Gaming</p>
     <h2 id="yomu-band-gaming">Press one shortcut in a PC game.</h2>
-    <p class="yomu-band-lead">The desktop app captures the whole screen or a region you choose, reads the Japanese with OCR, and opens the result as words you can press and save. It is a separate download for Windows, macOS, Linux and Steam Deck.</p>
+    <p class="yomu-band-lead">The desktop app reads the Japanese on screen with OCR and hands it back as words you can press. Separate download for Windows, macOS, Linux and Steam Deck.</p>
     <a class="yomu-band-action" href="/learn/manga-and-games#read-a-game-frame">See Yomu Gaming</a>
   </div>
-  <div class="yomu-concept-note" aria-hidden="true"><span>capture</span><span>read</span><span>keep</span></div>
 </section>
 
-<section class="yomu-band yomu-band-concept yomu-band-academy yomu-reveal" id="academy" data-bleed="right" aria-labelledby="yomu-band-academy">
+<section class="yomu-band yomu-band-concept yomu-reveal" id="academy" data-bleed="right" aria-labelledby="yomu-band-academy">
   <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">学</p>
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Coming</p>
-    <h2 id="yomu-band-academy">The Academy awaits.</h2>
-    <p class="yomu-band-lead">Academy is a story-driven Japanese course from the first sounds to N1. Lessons happen through places, conversations and things you do, with Yomu's reading and review system underneath. It is open by invitation while it is built.</p>
+    <p class="yomu-band-kicker">Academy</p>
+    <h2 id="yomu-band-academy">Academy opens by invitation while it is built</h2>
+    <p class="yomu-band-lead">A story-driven course from the first sounds to N1, taught through places and conversations, with Yomu's reading and review underneath.</p>
     <a class="yomu-band-action" href="/academy/">Visit the Academy</a>
   </div>
-  <div class="yomu-concept-note yomu-academy-note" aria-hidden="true"><span>from first sounds</span><span>to N1</span></div>
 </section>
 
 <section class="yomu-no-install" id="try-ocr" aria-labelledby="yomu-no-install-title">
   <div class="yomu-no-install-copy">
-    <p class="yomu-eyebrow">Use Yomu on this site</p>
-    <h2 id="yomu-no-install-title">Four things you can use right now.</h2>
-    <p>Study, the video player, the PDF reader and the live OCR panel all run here with nothing installed.</p>
+    <h2 id="yomu-no-install-title">Everything here runs in this tab, with nothing installed</h2>
     <div class="yomu-no-install-links">
       <a href="/study/"><strong>Study</strong><span>Open a review card.</span></a>
       <a href="/video-player/index.html"><strong>Watch</strong><span>Open a video and subtitles.</span></a>
@@ -208,7 +152,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
     <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
-    <p class="yomu-band-lead">Install Yomu, open something you wanted to read anyway, and press a word.</p>
+    <p class="yomu-install-lead">Install Yomu, open something you wanted to read anyway, and press a word.</p>
     <div class="yomu-install-steps" role="list" aria-label="Install steps">
       <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#install-yomu" aria-label="Add よむ to your browser"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Install</span></a></div>
       <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#press-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Read</span></a></div>
@@ -220,21 +164,16 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
       <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
-    <details class="yomu-install-fallback">
-      <summary>Did the userscript download instead?</summary>
-      <p>Some managers save the file. Copy this URL and choose <strong>install from URL</strong> in your manager:</p>
-      <p><code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code></p>
-      <p>Tampermonkey: <em>Utilities → Install from URL</em>. Violentmonkey: <em>+ → Install from URL</em>. ScriptCat: <em>Script list → Create → Install from URL</em>, or drag the downloaded file onto the ScriptCat tab.</p>
-    </details>
+    <p class="yomu-install-note">If the userscript downloads instead of installing, <a href="/learn/week-one#install-yomu">your manager needs it from the URL</a></p>
   </div>
 </section>
 
-<section class="yomu-next" aria-labelledby="yomu-next-title">
-  <h2 id="yomu-next-title">Already installed?</h2>
-  <div class="yomu-link-grid yomu-next-grid">
-    <a class="yomu-link-card" href="/study/" target="_self"><strong>Study</strong><span>Review the words you saved.</span></a>
-    <a class="yomu-link-card" href="/video-player/index.html" target="_self"><strong>Watch</strong><span>Open a video with Japanese subtitles.</span></a>
-    <a class="yomu-link-card" href="/pdf-reader/index.html"><strong>Read</strong><span>Read PDFs with the same popup reader.</span></a>
-  </div>
+<section class="yomu-discord" aria-labelledby="yomu-discord-title">
+  <h2 id="yomu-discord-title">Come and say hello.</h2>
+  <p>Discord is where users compare setups, report rough edges and help shape what comes next. Bring a question or a screenshot. Do not be shy.</p>
+  <a href="https://discord.gg/jD6NPURewD">Join the Yomu Discord</a>
+</section>
+
+<section class="yomu-next" aria-label="More from Yomu">
   <p class="yomu-next-row"><a href="/learn/">Learning path</a><a href="/faq">FAQ</a><a href="/academy/" target="_self">Academy</a><a href="/learn/manga-and-games#read-manga">Manga OCR</a><a href="/learn/manga-and-games#read-a-game-frame">Games</a><a href="/support">Support</a></p>
 </section>

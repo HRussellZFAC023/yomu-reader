@@ -331,6 +331,15 @@ export default defineConfig({
         // hydrated bundle re-applies the chosen accent. Placed after the
         // theme-color meta so the snippet can repoint it too.
         ['script', {}, hostedAppearanceBootSnippet('docs')],
+        // Marks the theme as RESOLVED by script. The homepage palette is driven
+        // by tokens declared twice: under `.dark` (authoritative whenever the
+        // boot above has run) and under `prefers-color-scheme: dark` gated on
+        // the absence of this marker, so a visitor with no JavaScript still gets
+        // the night palette from the OS while an explicit "light" choice on a
+        // dark machine can never be overridden by the media query. VitePress
+        // only ever adds `dark`, so this is the only signal CSS has that a
+        // preference was actually decided rather than merely inherited.
+        ['script', {}, "(()=>{try{document.documentElement.classList.add('yomu-theme-resolved');}catch{}})();"],
         // Stamps the install route on <html> while the head is still parsing, so
         // the fold's one button is already the right store for this browser when
         // it first paints. Without it the page still works: the markup carries

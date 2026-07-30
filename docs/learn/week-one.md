@@ -24,6 +24,8 @@ Safari, iPhone and iPad use the free Userscripts app:
 
 Other browsers can use Tampermonkey or another userscript manager. If the link downloads a JavaScript file, open the manager and choose Install from URL with `https://yomureader.com/yomu.user.js`.
 
+Where that option lives depends on the manager. Tampermonkey keeps it under Utilities → Install from URL. Violentmonkey uses + → Install from URL. ScriptCat uses Script list → Create → Install from URL, and will also accept the downloaded file dragged onto its tab.
+
 ## Press your first word
 
 Open [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) or a [Tadoku free book](https://tadoku.org/japanese/free-books-en/). Press a Japanese word.

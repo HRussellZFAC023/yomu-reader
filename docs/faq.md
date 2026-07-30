@@ -18,6 +18,12 @@ A reader that turns what you already read into Japanese study.
 - **Hundreds of dictionaries.** Install what you want from the built-in catalogue; installed dictionaries answer on your device.
 - **Free, no account.** Everything above works without signing up for anything.
 
+### How Yomu compares with Migaku and Duolingo
+
+Against Migaku: Yomu is free, and that includes Anki export and mobile. Install is one click from the Chrome or Firefox store, with no account before your first lookup. On a phone it runs in the browser you already have. Add any Yomitan dictionary, keep your RTK keywords, or study vocabulary only. Subtitles draw over the site's own player, and switching Yomu off hands the page back untouched. Migaku import is in development.
+
+Against Duolingo: you pick the words, straight from the shows and manga you were already going to watch and read. Review sentences are the ones you found each word in, so practice sounds like real Japanese rather than a course script. There is no path and no energy meter. Study when you want, as much as you want. Mark a word known once and it stops turning up.
+
 ## Getting started
 
 ### Do I need an account?

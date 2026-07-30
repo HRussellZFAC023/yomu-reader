@@ -51,9 +51,13 @@ describe('interface language resolution', () => {
     });
 
     it('keeps hosted homepage link cards covered by Japanese docs copy', () => {
+        // The homepage carried two identical link grids (the no-install block and
+        // a trailing "Already installed?" grid). The duplicate is gone; the
+        // surviving one sits beside the live OCR panel, and its label/blurb pairs
+        // are what a Japanese reader still has to be shown.
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const homeSource = readFileSync('docs/index.md', 'utf8');
-        const nextSteps = between(homeSource, '<div class="yomu-link-grid yomu-next-grid">', '</div>');
+        const nextSteps = between(homeSource, '<div class="yomu-no-install-links">', '</div>');
         const cardCopy = [...nextSteps.matchAll(/<(?:strong|span)>(.*?)<\/(?:strong|span)>/g)]
             .map(match => decodeMarkdownHtml(match[1].trim()))
             .filter(Boolean);
