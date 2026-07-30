@@ -4036,9 +4036,6 @@ function activeLearningTarget() {
   cachedForRegistryRevision = revision2;
   return cachedTarget;
 }
-function activeLearningTargetLanguage() {
-  return activeLearningTarget().language;
-}
 function isTargetLanguageText(text2) {
   return activeLearningTarget().isLookupableText(text2);
 }
@@ -5988,18 +5985,23 @@ const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   nativeName: "日本語",
   defaultScript: "Jpan",
   scripts: Object.freeze(["Jpan"]),
-  direction: "ltr"
+  direction: "ltr",
+  studyTargetReadiness: "full"
 });
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 const LEARNING_TARGET_ROSTER = Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES
+  ...LEARNER_LANGUAGES.map((language2) => Object.freeze({
+  ...language2,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
+  }))
 ]);
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
-  LEARNER_LANGUAGES.map((language2) => [
-  languageSubtag(language2.runtimeLocale) ?? language2.id,
-  language2.id
-  ])
-);
+function learningTargetRosterEntry(id) {
+  const target = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id);
+  if (!target) throw new Error(`Unknown learning target: ${id}`);
+  return target;
+}
 Object.freeze(
   LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
 );
@@ -6028,7 +6030,8 @@ function slice1LanguageIdForTag(value) {
   const base = languageSubtag(canonical);
   if (!base) return null;
   if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
 }
 function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
   if (typeof value === "string") {
@@ -6237,9 +6240,6 @@ function isTargetDefaultOcrLanguageTag(value) {
 }
 function targetAudioTemplateLanguageToken() {
   return activeLearningTarget().audio.templateLanguageToken;
-}
-function targetContentLocale() {
-  return activeLearningTarget().typography.contentLocale;
 }
 function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
   return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
@@ -6873,7 +6873,13 @@ const COPY = {
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
-  onboardingInstallOfflineDictionaries: "Download Japanese definitions, names, kanji, frequency, and pitch (35.1 MiB)",
+  onboardingInstallOfflineDictionaries: "Download starter dictionaries for this language",
+  studyTargetReadinessFull: "Full Yomu support",
+  studyTargetReadinessReadingOnly: "Reading and lookup",
+  studyTargetReadinessPlanned: "Planned",
+  studyTargetReadinessFullReason: "Reading, lookup, study, and mining are ready.",
+  studyTargetReadinessReadingOnlyReason: "Reading and lookup are ready.",
+  studyTargetReadinessPlannedReason: "Support is planned.",
   onboardingHoverShortcut: "Lookup hover modifier",
   manualPageScanShortcut: "Manual page scan shortcut",
   onboardingAddApiKey: "Add API key",
@@ -7468,7 +7474,7 @@ const COPY = {
   exportSettings: "Export settings JSON",
   importDictionaries: "Import dictionaries",
   exportDictionaries: "Export dictionaries",
-  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pitch, and frequency dictionaries add definitions, accents, and badges.",
+  dictionaryImportHelp: "Import a Yomitan ZIP, settings export, or backup. Term, pronunciation (IPA), Japanese pitch, and frequency dictionaries add definitions, pronunciations, pitch accents, and badges.",
   lookupPills: "Lookup pills",
   lookupPillsHelp: "External links and frequency badges in one order. Local frequency dictionaries replace matching live Jiten/JPDB badges. Tokens: {query}, {word}, {reading}.",
   parserProvider: "Parsing source",
@@ -7490,6 +7496,7 @@ const COPY = {
   termDictionaries: "Term dictionaries",
   kanjiDictionaries: "Kanji dictionaries",
   pitchDictionaries: "Pitch dictionaries",
+  pronunciationDictionaries: "Pronunciation dictionaries",
   frequencyDictionaries: "Frequency dictionaries",
   nameDictionaries: "Name dictionaries",
   grammarDictionaries: "Grammar dictionaries",
@@ -7501,7 +7508,7 @@ const COPY = {
   mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
   mirroredDictionarySearch: "Search dictionaries",
   mirroredDictionarySearchNoResults: "No dictionaries match your search.",
-  mirroredDictionaryOtherLanguage: "These dictionaries are not for reading Japanese.",
+  mirroredDictionaryLanguageNote: "Dictionaries for reading {language}.",
   install: "Install",
   installing: "Installing",
   queued: "Queued",
@@ -7537,7 +7544,7 @@ const COPY = {
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
   dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
   dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
-  dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pitch and frequency dictionaries add accents and badges, not normal definition text.",
+  dictionaryInstallQueueHelp: "Install a term dictionary first for definitions. Pronunciation (IPA), Japanese pitch, and frequency dictionaries add pronunciations, pitch accents, and badges, not normal definition text.",
   dictionaryInstallQueued: "{dictionary} queued.",
   dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
   dictionaryImportQueueStatus: "{count} install{plural} running.",
@@ -8159,7 +8166,13 @@ onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
-onboardingInstallOfflineDictionaries	日本語の語義・固有名詞・漢字・頻度・ピッチ辞書をダウンロード（35.1 MiB）
+onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
+studyTargetReadinessFull	よむの全機能
+studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessPlanned	準備中
+studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
+studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。
 onboardingHoverShortcut	ホバー検索の修飾キー
@@ -8259,7 +8272,7 @@ dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
 dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
 dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
-dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。ピッチ/頻度辞書はアクセントやバッジを追加しますが、通常の定義文は追加しません。
+dictionaryInstallQueueHelp	まず定義用の語句辞書をインストールしてください。発音（IPA）/日本語ピッチ/頻度辞書は発音、ピッチアクセント、バッジを追加しますが、通常の定義文は追加しません。
 dictionaryInstallQueued	{dictionary}待機中。
 dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
 dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
@@ -9204,7 +9217,7 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/ピッチ/頻度辞書で定義、アクセント、バッジを追加します。
+dictionaryImportHelp	Yomitan ZIP、設定エクスポート、バックアップを読み込みます。語句/発音（IPA）/日本語ピッチ/頻度辞書で定義、発音、ピッチアクセント、バッジを追加します。
 lookupPills	検索ピル
 parserProvider	解析ソース
 parserProviderLocal	ローカル辞書（オフライン）
@@ -9224,6 +9237,7 @@ recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
+pronunciationDictionaries	発音辞書
 frequencyDictionaries	頻度辞書
 nameDictionaries	固有名詞辞書
 grammarDictionaries	文法辞書
@@ -9235,7 +9249,7 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
-mirroredDictionaryOtherLanguage	日本語を読むための辞書ではありません。
+mirroredDictionaryLanguageNote	{language}を読むための辞書です。
 install	インストール
 installing	インストール中
 queued	待機中
@@ -11007,11 +11021,12 @@ function defaultDictionaryPreference(name, type, priority) {
   };
 }
 function normalizeDictionaryType(value, name = "") {
-  if (value === "terms" || value === "kanji" || value === "frequency" || value === "metadata") return value;
+  if (value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata") return value;
   return inferDictionaryTypeFromName(name);
 }
 function inferDictionaryTypeFromName(name) {
   const normalized = name.toLowerCase();
+  if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return "pronunciation";
   if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return "frequency";
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
@@ -47851,346 +47866,14 @@ const runtimeCatalogJson = {
   objectsBaseUrl,
   entries
 };
-const schemaVersion$w = 1;
-const catalogRevision$v = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$v = "ar";
-const targetLanguage$v = "ja";
-const strategy$v = "native-first";
-const readiness$v = "ready";
-const blockers$v = [];
-const dictionaries$v = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const arRecommendations = {
-  schemaVersion: schemaVersion$w,
-  catalogRevision: catalogRevision$v,
-  learnerLanguage: learnerLanguage$v,
-  targetLanguage: targetLanguage$v,
-  strategy: strategy$v,
-  readiness: readiness$v,
-  blockers: blockers$v,
-  dictionaries: dictionaries$v
-};
-const schemaVersion$v = 1;
-const catalogRevision$u = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$u = "da";
-const targetLanguage$u = "ja";
-const strategy$u = "native-first";
-const readiness$u = "ready";
-const blockers$u = [];
-const dictionaries$u = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const daRecommendations = {
-  schemaVersion: schemaVersion$v,
-  catalogRevision: catalogRevision$u,
-  learnerLanguage: learnerLanguage$u,
-  targetLanguage: targetLanguage$u,
-  strategy: strategy$u,
-  readiness: readiness$u,
-  blockers: blockers$u,
-  dictionaries: dictionaries$u
-};
-const schemaVersion$u = 1;
-const catalogRevision$t = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$t = "de";
-const targetLanguage$t = "ja";
-const strategy$t = "native-first";
-const readiness$t = "ready";
-const blockers$t = [];
-const dictionaries$t = [
-  {
-  dictionaryId: "jmdict-de",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "de",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const deRecommendations = {
-  schemaVersion: schemaVersion$u,
-  catalogRevision: catalogRevision$t,
-  learnerLanguage: learnerLanguage$t,
-  targetLanguage: targetLanguage$t,
-  strategy: strategy$t,
-  readiness: readiness$t,
-  blockers: blockers$t,
-  dictionaries: dictionaries$t
-};
-const schemaVersion$t = 1;
-const catalogRevision$s = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$s = "el";
-const targetLanguage$s = "ja";
-const strategy$s = "native-first";
-const readiness$s = "ready";
-const blockers$s = [];
-const dictionaries$s = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const elRecommendations = {
-  schemaVersion: schemaVersion$t,
-  catalogRevision: catalogRevision$s,
-  learnerLanguage: learnerLanguage$s,
-  targetLanguage: targetLanguage$s,
-  strategy: strategy$s,
-  readiness: readiness$s,
-  blockers: blockers$s,
-  dictionaries: dictionaries$s
-};
-const schemaVersion$s = 1;
-const catalogRevision$r = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$r = "en";
-const targetLanguage$r = "ja";
-const strategy$r = "native-first";
-const readiness$r = "ready";
-const blockers$r = [];
-const dictionaries$r = [
+const schemaVersion$1 = 1;
+const catalogRevision = "2026-07-23.574961e8.wty-95a9151c1beb";
+const learnerLanguage = "en";
+const targetLanguage$1 = "ja";
+const strategy = "native-first";
+const readiness = "ready";
+const blockers = [];
+const dictionaries = [
   {
   dictionaryId: "jmdict-en",
   role: "primary-terms",
@@ -48257,2258 +47940,136 @@ const dictionaries$r = [
   }
 ];
 const enRecommendations = {
-  schemaVersion: schemaVersion$s,
-  catalogRevision: catalogRevision$r,
-  learnerLanguage: learnerLanguage$r,
-  targetLanguage: targetLanguage$r,
-  strategy: strategy$r,
-  readiness: readiness$r,
-  blockers: blockers$r,
-  dictionaries: dictionaries$r
-};
-const schemaVersion$r = 1;
-const catalogRevision$q = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$q = "es";
-const targetLanguage$q = "ja";
-const strategy$q = "native-first";
-const readiness$q = "ready";
-const blockers$q = [];
-const dictionaries$q = [
-  {
-  dictionaryId: "jmdict-es",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "es",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-es",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "es",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const esRecommendations = {
-  schemaVersion: schemaVersion$r,
-  catalogRevision: catalogRevision$q,
-  learnerLanguage: learnerLanguage$q,
-  targetLanguage: targetLanguage$q,
-  strategy: strategy$q,
-  readiness: readiness$q,
-  blockers: blockers$q,
-  dictionaries: dictionaries$q
-};
-const schemaVersion$q = 1;
-const catalogRevision$p = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$p = "fa";
-const targetLanguage$p = "ja";
-const strategy$p = "native-first";
-const readiness$p = "ready";
-const blockers$p = [];
-const dictionaries$p = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const faRecommendations = {
-  schemaVersion: schemaVersion$q,
-  catalogRevision: catalogRevision$p,
-  learnerLanguage: learnerLanguage$p,
-  targetLanguage: targetLanguage$p,
-  strategy: strategy$p,
-  readiness: readiness$p,
-  blockers: blockers$p,
-  dictionaries: dictionaries$p
-};
-const schemaVersion$p = 1;
-const catalogRevision$o = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$o = "fi";
-const targetLanguage$o = "ja";
-const strategy$o = "native-first";
-const readiness$o = "ready";
-const blockers$o = [];
-const dictionaries$o = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const fiRecommendations = {
-  schemaVersion: schemaVersion$p,
-  catalogRevision: catalogRevision$o,
-  learnerLanguage: learnerLanguage$o,
-  targetLanguage: targetLanguage$o,
-  strategy: strategy$o,
-  readiness: readiness$o,
-  blockers: blockers$o,
-  dictionaries: dictionaries$o
-};
-const schemaVersion$o = 1;
-const catalogRevision$n = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$n = "fr";
-const targetLanguage$n = "ja";
-const strategy$n = "native-first";
-const readiness$n = "ready";
-const blockers$n = [];
-const dictionaries$n = [
-  {
-  dictionaryId: "jmdict-fr",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "fr",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-fr",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "fr",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const frRecommendations = {
-  schemaVersion: schemaVersion$o,
-  catalogRevision: catalogRevision$n,
-  learnerLanguage: learnerLanguage$n,
-  targetLanguage: targetLanguage$n,
-  strategy: strategy$n,
-  readiness: readiness$n,
-  blockers: blockers$n,
-  dictionaries: dictionaries$n
-};
-const schemaVersion$n = 1;
-const catalogRevision$m = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$m = "grc";
-const targetLanguage$m = "ja";
-const strategy$m = "native-first";
-const readiness$m = "ready";
-const blockers$m = [];
-const dictionaries$m = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  }
-];
-const grcRecommendations = {
-  schemaVersion: schemaVersion$n,
-  catalogRevision: catalogRevision$m,
-  learnerLanguage: learnerLanguage$m,
-  targetLanguage: targetLanguage$m,
-  strategy: strategy$m,
-  readiness: readiness$m,
-  blockers: blockers$m,
-  dictionaries: dictionaries$m
-};
-const schemaVersion$m = 1;
-const catalogRevision$l = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$l = "hu";
-const targetLanguage$l = "ja";
-const strategy$l = "native-first";
-const readiness$l = "ready";
-const blockers$l = [];
-const dictionaries$l = [
-  {
-  dictionaryId: "jmdict-hu",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "hu",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const huRecommendations = {
-  schemaVersion: schemaVersion$m,
-  catalogRevision: catalogRevision$l,
-  learnerLanguage: learnerLanguage$l,
-  targetLanguage: targetLanguage$l,
-  strategy: strategy$l,
-  readiness: readiness$l,
-  blockers: blockers$l,
-  dictionaries: dictionaries$l
-};
-const schemaVersion$l = 1;
-const catalogRevision$k = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$k = "id";
-const targetLanguage$k = "ja";
-const strategy$k = "native-first";
-const readiness$k = "ready";
-const blockers$k = [];
-const dictionaries$k = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const idRecommendations = {
-  schemaVersion: schemaVersion$l,
-  catalogRevision: catalogRevision$k,
-  learnerLanguage: learnerLanguage$k,
-  targetLanguage: targetLanguage$k,
-  strategy: strategy$k,
-  readiness: readiness$k,
-  blockers: blockers$k,
-  dictionaries: dictionaries$k
-};
-const schemaVersion$k = 1;
-const catalogRevision$j = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$j = "it";
-const targetLanguage$j = "ja";
-const strategy$j = "native-first";
-const readiness$j = "ready";
-const blockers$j = [];
-const dictionaries$j = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const itRecommendations = {
-  schemaVersion: schemaVersion$k,
-  catalogRevision: catalogRevision$j,
-  learnerLanguage: learnerLanguage$j,
-  targetLanguage: targetLanguage$j,
-  strategy: strategy$j,
-  readiness: readiness$j,
-  blockers: blockers$j,
-  dictionaries: dictionaries$j
-};
-const schemaVersion$j = 1;
-const catalogRevision$i = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$i = "km";
-const targetLanguage$i = "ja";
-const strategy$i = "native-first";
-const readiness$i = "ready";
-const blockers$i = [];
-const dictionaries$i = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const kmRecommendations = {
-  schemaVersion: schemaVersion$j,
-  catalogRevision: catalogRevision$i,
-  learnerLanguage: learnerLanguage$i,
-  targetLanguage: targetLanguage$i,
-  strategy: strategy$i,
-  readiness: readiness$i,
-  blockers: blockers$i,
-  dictionaries: dictionaries$i
-};
-const schemaVersion$i = 1;
-const catalogRevision$h = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$h = "ko";
-const targetLanguage$h = "ja";
-const strategy$h = "native-first";
-const readiness$h = "ready";
-const blockers$h = [];
-const dictionaries$h = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const koRecommendations = {
-  schemaVersion: schemaVersion$i,
-  catalogRevision: catalogRevision$h,
-  learnerLanguage: learnerLanguage$h,
-  targetLanguage: targetLanguage$h,
-  strategy: strategy$h,
-  readiness: readiness$h,
-  blockers: blockers$h,
-  dictionaries: dictionaries$h
-};
-const schemaVersion$h = 1;
-const catalogRevision$g = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$g = "la";
-const targetLanguage$g = "ja";
-const strategy$g = "native-first";
-const readiness$g = "ready";
-const blockers$g = [];
-const dictionaries$g = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const laRecommendations = {
-  schemaVersion: schemaVersion$h,
-  catalogRevision: catalogRevision$g,
-  learnerLanguage: learnerLanguage$g,
-  targetLanguage: targetLanguage$g,
-  strategy: strategy$g,
-  readiness: readiness$g,
-  blockers: blockers$g,
-  dictionaries: dictionaries$g
-};
-const schemaVersion$g = 1;
-const catalogRevision$f = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$f = "lo";
-const targetLanguage$f = "ja";
-const strategy$f = "native-first";
-const readiness$f = "ready";
-const blockers$f = [];
-const dictionaries$f = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const loRecommendations = {
-  schemaVersion: schemaVersion$g,
-  catalogRevision: catalogRevision$f,
-  learnerLanguage: learnerLanguage$f,
-  targetLanguage: targetLanguage$f,
-  strategy: strategy$f,
-  readiness: readiness$f,
-  blockers: blockers$f,
-  dictionaries: dictionaries$f
-};
-const schemaVersion$f = 1;
-const catalogRevision$e = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$e = "mn";
-const targetLanguage$e = "ja";
-const strategy$e = "native-first";
-const readiness$e = "ready";
-const blockers$e = [];
-const dictionaries$e = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const mnRecommendations = {
-  schemaVersion: schemaVersion$f,
-  catalogRevision: catalogRevision$e,
-  learnerLanguage: learnerLanguage$e,
-  targetLanguage: targetLanguage$e,
-  strategy: strategy$e,
-  readiness: readiness$e,
-  blockers: blockers$e,
-  dictionaries: dictionaries$e
-};
-const schemaVersion$e = 1;
-const catalogRevision$d = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$d = "nl";
-const targetLanguage$d = "ja";
-const strategy$d = "native-first";
-const readiness$d = "ready";
-const blockers$d = [];
-const dictionaries$d = [
-  {
-  dictionaryId: "jmdict-nl",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "nl",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const nlRecommendations = {
-  schemaVersion: schemaVersion$e,
-  catalogRevision: catalogRevision$d,
-  learnerLanguage: learnerLanguage$d,
-  targetLanguage: targetLanguage$d,
-  strategy: strategy$d,
-  readiness: readiness$d,
-  blockers: blockers$d,
-  dictionaries: dictionaries$d
-};
-const schemaVersion$d = 1;
-const catalogRevision$c = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$c = "pl";
-const targetLanguage$c = "ja";
-const strategy$c = "native-first";
-const readiness$c = "ready";
-const blockers$c = [];
-const dictionaries$c = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const plRecommendations = {
-  schemaVersion: schemaVersion$d,
-  catalogRevision: catalogRevision$c,
-  learnerLanguage: learnerLanguage$c,
-  targetLanguage: targetLanguage$c,
-  strategy: strategy$c,
-  readiness: readiness$c,
-  blockers: blockers$c,
-  dictionaries: dictionaries$c
-};
-const schemaVersion$c = 1;
-const catalogRevision$b = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$b = "pt";
-const targetLanguage$b = "ja";
-const strategy$b = "native-first";
-const readiness$b = "ready";
-const blockers$b = [];
-const dictionaries$b = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-pt",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "pt",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const ptRecommendations = {
-  schemaVersion: schemaVersion$c,
-  catalogRevision: catalogRevision$b,
-  learnerLanguage: learnerLanguage$b,
-  targetLanguage: targetLanguage$b,
-  strategy: strategy$b,
-  readiness: readiness$b,
-  blockers: blockers$b,
-  dictionaries: dictionaries$b
-};
-const schemaVersion$b = 1;
-const catalogRevision$a = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$a = "ro";
-const targetLanguage$a = "ja";
-const strategy$a = "native-first";
-const readiness$a = "ready";
-const blockers$a = [];
-const dictionaries$a = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const roRecommendations = {
-  schemaVersion: schemaVersion$b,
-  catalogRevision: catalogRevision$a,
-  learnerLanguage: learnerLanguage$a,
-  targetLanguage: targetLanguage$a,
-  strategy: strategy$a,
-  readiness: readiness$a,
-  blockers: blockers$a,
-  dictionaries: dictionaries$a
-};
-const schemaVersion$a = 1;
-const catalogRevision$9 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$9 = "ru";
-const targetLanguage$9 = "ja";
-const strategy$9 = "native-first";
-const readiness$9 = "ready";
-const blockers$9 = [];
-const dictionaries$9 = [
-  {
-  dictionaryId: "jmdict-ru",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "ru",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const ruRecommendations = {
-  schemaVersion: schemaVersion$a,
-  catalogRevision: catalogRevision$9,
-  learnerLanguage: learnerLanguage$9,
-  targetLanguage: targetLanguage$9,
-  strategy: strategy$9,
-  readiness: readiness$9,
-  blockers: blockers$9,
-  dictionaries: dictionaries$9
-};
-const schemaVersion$9 = 1;
-const catalogRevision$8 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$8 = "sh";
-const targetLanguage$8 = "ja";
-const strategy$8 = "native-first";
-const readiness$8 = "ready";
-const blockers$8 = [];
-const dictionaries$8 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const shRecommendations = {
-  schemaVersion: schemaVersion$9,
-  catalogRevision: catalogRevision$8,
-  learnerLanguage: learnerLanguage$8,
-  targetLanguage: targetLanguage$8,
-  strategy: strategy$8,
-  readiness: readiness$8,
-  blockers: blockers$8,
-  dictionaries: dictionaries$8
-};
-const schemaVersion$8 = 1;
-const catalogRevision$7 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$7 = "sq";
-const targetLanguage$7 = "ja";
-const strategy$7 = "native-first";
-const readiness$7 = "ready";
-const blockers$7 = [];
-const dictionaries$7 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const sqRecommendations = {
-  schemaVersion: schemaVersion$8,
-  catalogRevision: catalogRevision$7,
-  learnerLanguage: learnerLanguage$7,
-  targetLanguage: targetLanguage$7,
-  strategy: strategy$7,
-  readiness: readiness$7,
-  blockers: blockers$7,
-  dictionaries: dictionaries$7
-};
-const schemaVersion$7 = 1;
-const catalogRevision$6 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$6 = "sv";
-const targetLanguage$6 = "ja";
-const strategy$6 = "native-first";
-const readiness$6 = "ready";
-const blockers$6 = [];
-const dictionaries$6 = [
-  {
-  dictionaryId: "jmdict-sv",
-  role: "primary-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "sv",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const svRecommendations = {
-  schemaVersion: schemaVersion$7,
-  catalogRevision: catalogRevision$6,
-  learnerLanguage: learnerLanguage$6,
-  targetLanguage: targetLanguage$6,
-  strategy: strategy$6,
-  readiness: readiness$6,
-  blockers: blockers$6,
-  dictionaries: dictionaries$6
-};
-const schemaVersion$6 = 1;
-const catalogRevision$5 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$5 = "th";
-const targetLanguage$5 = "ja";
-const strategy$5 = "native-first";
-const readiness$5 = "ready";
-const blockers$5 = [];
-const dictionaries$5 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const thRecommendations = {
-  schemaVersion: schemaVersion$6,
-  catalogRevision: catalogRevision$5,
-  learnerLanguage: learnerLanguage$5,
-  targetLanguage: targetLanguage$5,
-  strategy: strategy$5,
-  readiness: readiness$5,
-  blockers: blockers$5,
-  dictionaries: dictionaries$5
-};
-const schemaVersion$5 = 1;
-const catalogRevision$4 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$4 = "tl";
-const targetLanguage$4 = "ja";
-const strategy$4 = "native-first";
-const readiness$4 = "ready";
-const blockers$4 = [];
-const dictionaries$4 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const tlRecommendations = {
-  schemaVersion: schemaVersion$5,
-  catalogRevision: catalogRevision$4,
-  learnerLanguage: learnerLanguage$4,
-  targetLanguage: targetLanguage$4,
-  strategy: strategy$4,
-  readiness: readiness$4,
-  blockers: blockers$4,
-  dictionaries: dictionaries$4
-};
-const schemaVersion$4 = 1;
-const catalogRevision$3 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$3 = "tr";
-const targetLanguage$3 = "ja";
-const strategy$3 = "native-first";
-const readiness$3 = "ready";
-const blockers$3 = [];
-const dictionaries$3 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const trRecommendations = {
-  schemaVersion: schemaVersion$4,
-  catalogRevision: catalogRevision$3,
-  learnerLanguage: learnerLanguage$3,
-  targetLanguage: targetLanguage$3,
-  strategy: strategy$3,
-  readiness: readiness$3,
-  blockers: blockers$3,
-  dictionaries: dictionaries$3
-};
-const schemaVersion$3 = 1;
-const catalogRevision$2 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$2 = "vi";
-const targetLanguage$2 = "ja";
-const strategy$2 = "native-first";
-const readiness$2 = "ready";
-const blockers$2 = [];
-const dictionaries$2 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const viRecommendations = {
-  schemaVersion: schemaVersion$3,
-  catalogRevision: catalogRevision$2,
-  learnerLanguage: learnerLanguage$2,
-  targetLanguage: targetLanguage$2,
-  strategy: strategy$2,
-  readiness: readiness$2,
-  blockers: blockers$2,
-  dictionaries: dictionaries$2
-};
-const schemaVersion$2 = 1;
-const catalogRevision$1 = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage$1 = "yue";
-const targetLanguage$1 = "ja";
-const strategy$1 = "native-first";
-const readiness$1 = "ready";
-const blockers$1 = [];
-const dictionaries$1 = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const yueRecommendations = {
-  schemaVersion: schemaVersion$2,
-  catalogRevision: catalogRevision$1,
-  learnerLanguage: learnerLanguage$1,
-  targetLanguage: targetLanguage$1,
-  strategy: strategy$1,
-  readiness: readiness$1,
-  blockers: blockers$1,
-  dictionaries: dictionaries$1
-};
-const schemaVersion$1 = 1;
-const catalogRevision = "2026-07-23.574961e8.wty-95a9151c1beb";
-const learnerLanguage = "zh";
-const targetLanguage = "ja";
-const strategy = "native-first";
-const readiness = "ready";
-const blockers = [];
-const dictionaries = [
-  {
-  dictionaryId: "jmdict-en",
-  role: "fallback-terms",
-  priority: 10,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "jmnedict",
-  role: "names",
-  priority: 20,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "kanjidic-en",
-  role: "kanji",
-  priority: 30,
-  selectedByDefault: true,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
-  role: "monolingual",
-  priority: 40,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
-  role: "grammar",
-  priority: 50,
-  selectedByDefault: false,
-  definitionLanguage: "en",
-  translationMode: "offer"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
-  role: "frequency",
-  priority: 60,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
-  role: "pronunciation",
-  priority: 70,
-  selectedByDefault: true,
-  definitionLanguage: "ja",
-  translationMode: "off"
-  },
-  {
-  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
-  role: "examples",
-  priority: 80,
-  selectedByDefault: false,
-  definitionLanguage: "ja",
-  translationMode: "offer"
-  }
-];
-const zhRecommendations = {
   schemaVersion: schemaVersion$1,
   catalogRevision,
   learnerLanguage,
-  targetLanguage,
+  targetLanguage: targetLanguage$1,
   strategy,
   readiness,
   blockers,
   dictionaries
 };
+function pruneOldestCacheEntries(cache, limit) {
+  while (cache.size > limit) {
+  const oldest = cache.keys().next();
+  if (oldest.done) break;
+  cache.delete(oldest.value);
+  }
+}
+const DEFAULT_TIMEOUT_MS = 8e3;
+const TRANSLATION_CACHE_LIMIT = 320;
+const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+const log$c = Logger.scope("GoogleTranslation");
+const translationCache = /* @__PURE__ */ new Map();
+const translationInFlight = /* @__PURE__ */ new Map();
+function normalizeTranslationLanguage(language2, options = {}) {
+  const trimmed = language2.trim();
+  if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
+  if (!trimmed) throw new Error("Translation language is required.");
+  try {
+  return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
+  } catch {
+  throw new Error(`Invalid translation language: ${language2}`);
+  }
+}
+function googleTranslationLanguageCapability(language2) {
+  const logicalLanguage = normalizeTranslationLanguage(language2);
+  const locale = new Intl.Locale(logicalLanguage);
+  if (locale.language === "grc") {
+  return {
+    logicalLanguage,
+    providerLanguage: null,
+    supported: false
+  };
+  }
+  if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
+  return {
+    logicalLanguage,
+    // Google ignores sr-Latn and returns Cyrillic. Bosnian is the
+    // closest supported Serbo-Croatian standard with guaranteed Latin
+    // output; the logical profile remains sr-Latn everywhere else.
+    providerLanguage: "bs",
+    supported: true
+  };
+  }
+  return {
+  logicalLanguage,
+  providerLanguage: logicalLanguage,
+  supported: true
+  };
+}
+function googleTranslationUrl(text2, options) {
+  const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
+  const sourceProviderLanguage = sourceLanguage === "auto" ? "auto" : requiredGoogleTranslationLanguage(sourceLanguage);
+  const outputLanguage = requiredGoogleTranslationLanguage(options.outputLanguage);
+  const params = new URLSearchParams({
+  client: "gtx",
+  sl: sourceProviderLanguage,
+  tl: outputLanguage,
+  dt: "t",
+  dj: "1",
+  q: text2
+  });
+  if (options.includeDictionaryData) params.append("dt", "bd");
+  return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
+}
+async function translateText(text2, options) {
+  const original = text2.trim();
+  if (!original) return "";
+  const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
+  const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
+  if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
+  const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
+  const cached = translationCache.get(cacheKey);
+  if (cached !== void 0) return cached;
+  const active = translationInFlight.get(cacheKey);
+  if (active) return active;
+  const request = performTranslation(original, {
+  ...options,
+  sourceLanguage,
+  outputLanguage
+  });
+  translationInFlight.set(cacheKey, request);
+  void request.finally(() => {
+  if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
+  }).catch(() => void 0);
+  return request;
+}
+function requiredGoogleTranslationLanguage(language2) {
+  const capability = googleTranslationLanguageCapability(language2);
+  if (!capability.supported || !capability.providerLanguage) {
+  throw new Error(`Automatic translation is not available for ${capability.logicalLanguage}.`);
+  }
+  return capability.providerLanguage;
+}
+async function performTranslation(text2, options) {
+  const url = googleTranslationUrl(text2, options);
+  const done = log$c.time("Translate text", {
+  sourceLanguage: options.sourceLanguage,
+  outputLanguage: options.outputLanguage,
+  textLength: text2.length
+  });
+  try {
+  const json = await requestJson(url, {
+    timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    allowDirectCrossOrigin: true,
+    allowConfiguredProxy: false,
+    allowPublicProxies: false,
+    preferFetch: true,
+    failureLabel: "Translation request",
+    timeoutLabel: "Translation timed out."
+  });
+  const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
+  if (!translated) throw new Error("No translation returned.");
+  translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
+  pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
+  return translated;
+  } finally {
+  done();
+  }
+}
 const DICTIONARY_CATALOG_SCHEMA_VERSION = 1;
-const DICTIONARY_CATALOG_TARGET_LANGUAGE = "ja";
+const DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE = "ja";
 const SLICE1_LEARNER_LANGUAGES = [
   "sq",
   "grc",
@@ -50543,8 +48104,15 @@ const SLICE1_LEARNER_LANGUAGES = [
   "tr",
   "vi"
 ];
+const SLICE1_TARGET_LANGUAGES = [
+  DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
+  ...SLICE1_LEARNER_LANGUAGES
+];
 function isSlice1LearnerLanguage(value) {
   return SLICE1_LEARNER_LANGUAGES.includes(value);
+}
+function isSlice1TargetLanguage(value) {
+  return SLICE1_TARGET_LANGUAGES.includes(value);
 }
 const LANGUAGE_TAG_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 const RECOMMENDATION_ROLES = /* @__PURE__ */ new Set([
@@ -50568,7 +48136,7 @@ function parseDictionaryRecommendationManifest(input2) {
   const root = record(input2, "$");
   schemaVersion(root.schemaVersion, "$.schemaVersion");
   const learnerLanguage2 = language(root.learnerLanguage, "$.learnerLanguage");
-  literal(root.targetLanguage, DICTIONARY_CATALOG_TARGET_LANGUAGE, "$.targetLanguage");
+  const recommendationTargetLanguage = targetLanguage(root.targetLanguage, "$.targetLanguage");
   literal(root.strategy, "native-first", "$.strategy");
   const readiness2 = oneOf(root.readiness, ["ready", "blocked"], "$.readiness");
   const blockers2 = stringArray$1(root.blockers, "$.blockers");
@@ -50585,7 +48153,7 @@ function parseDictionaryRecommendationManifest(input2) {
   schemaVersion: DICTIONARY_CATALOG_SCHEMA_VERSION,
   catalogRevision: text$1(root.catalogRevision, "$.catalogRevision"),
   learnerLanguage: learnerLanguage2,
-  targetLanguage: DICTIONARY_CATALOG_TARGET_LANGUAGE,
+  targetLanguage: recommendationTargetLanguage,
   strategy: "native-first",
   readiness: readiness2,
   blockers: blockers2,
@@ -50593,10 +48161,17 @@ function parseDictionaryRecommendationManifest(input2) {
   };
 }
 function assertRecommendationReferencesCatalog(recommendation, catalog) {
-  const ids = new Set(catalog.entries.map((entry) => entry.id));
+  const entries2 = new Map(catalog.entries.map((entry) => [entry.id, entry]));
   for (const entry of recommendation.dictionaries) {
-  if (!ids.has(entry.dictionaryId)) {
+  const catalogEntry = entries2.get(entry.dictionaryId);
+  if (!catalogEntry) {
     fail("$.dictionaries", `references unknown dictionary "${entry.dictionaryId}"`);
+  }
+  if (!catalogEntry.headwordLanguages.includes(recommendation.targetLanguage)) {
+    fail(
+      "$.dictionaries",
+      `dictionary "${entry.dictionaryId}" does not cover target language "${recommendation.targetLanguage}"`
+    );
   }
   }
   if (recommendation.catalogRevision !== catalog.revision) {
@@ -50622,6 +48197,11 @@ function schemaVersion(value, path) {
 function language(value, path) {
   const tag = text$1(value, path);
   if (!isSlice1LearnerLanguage(tag)) fail(path, "is not in the frozen 32-language roster");
+  return tag;
+}
+function targetLanguage(value, path) {
+  const tag = text$1(value, path);
+  if (!isSlice1TargetLanguage(tag)) fail(path, "is not in the frozen 33-target roster");
   return tag;
 }
 function languageTag(value, path) {
@@ -50672,53 +48252,48 @@ function assertUnique(values, path, label) {
 function fail(path, message) {
   throw new DictionaryManifestError(path, message);
 }
-const RECOMMENDATION_JSON_BY_LANGUAGE = {
-  sq: sqRecommendations,
-  grc: grcRecommendations,
-  ar: arRecommendations,
-  yue: yueRecommendations,
-  zh: zhRecommendations,
-  da: daRecommendations,
-  nl: nlRecommendations,
-  en: enRecommendations,
-  fi: fiRecommendations,
-  fr: frRecommendations,
-  de: deRecommendations,
-  el: elRecommendations,
-  hu: huRecommendations,
-  id: idRecommendations,
-  it: itRecommendations,
-  km: kmRecommendations,
-  ko: koRecommendations,
-  lo: loRecommendations,
-  la: laRecommendations,
-  mn: mnRecommendations,
-  fa: faRecommendations,
-  pl: plRecommendations,
-  pt: ptRecommendations,
-  ro: roRecommendations,
-  ru: ruRecommendations,
-  sh: shRecommendations,
-  es: esRecommendations,
-  sv: svRecommendations,
-  tl: tlRecommendations,
-  th: thRecommendations,
-  tr: trRecommendations,
-  vi: viRecommendations
-};
 const FROZEN_DICTIONARY_CATALOG = runtimeDictionaryCatalog(runtimeCatalogJson);
+const JAPANESE_RECOMMENDATION_TEMPLATE = parseDictionaryRecommendationManifest(enRecommendations);
 const FROZEN_DICTIONARY_RECOMMENDATIONS = Object.freeze(
   Object.fromEntries(
   SLICE1_LEARNER_LANGUAGES.map((language2) => {
-    const manifest = parseDictionaryRecommendationManifest(RECOMMENDATION_JSON_BY_LANGUAGE[language2]);
-    if (manifest.learnerLanguage !== language2) {
-      throw new Error(`Dictionary recommendation manifest ${language2}-ja declares ${manifest.learnerLanguage}.`);
-    }
+    const manifest = japaneseRecommendationManifest(language2);
     assertRecommendationReferencesCatalog(manifest, FROZEN_DICTIONARY_CATALOG);
     return [language2, manifest];
   })
   )
 );
+function japaneseRecommendationManifest(learnerLanguage2) {
+  return {
+  ...JAPANESE_RECOMMENDATION_TEMPLATE,
+  learnerLanguage: learnerLanguage2,
+  dictionaries: JAPANESE_RECOMMENDATION_TEMPLATE.dictionaries.map(
+    (recommendation) => japaneseRecommendation(recommendation, learnerLanguage2)
+  )
+  };
+}
+function japaneseRecommendation(template, learnerLanguage2) {
+  const family = template.role === "primary-terms" ? "jmdict" : template.role === "kanji" ? "kanjidic" : null;
+  const candidateId = family ? `${family}-${learnerLanguage2}` : template.dictionaryId;
+  const candidate = publishedCatalogEntry(candidateId) ?? publishedCatalogEntry(template.dictionaryId);
+  if (!candidate) {
+  throw new Error(`Japanese recommendation "${template.dictionaryId}" is missing from the catalogue.`);
+  }
+  const definitionLanguage = candidate.definitionLanguages[0] ?? "en";
+  const translationMode = template.role === "frequency" || template.role === "pronunciation" || definitionLanguage === learnerLanguage2 || !googleTranslationLanguageCapability(learnerLanguage2).supported ? "off" : "offer";
+  return {
+  ...template,
+  dictionaryId: candidate.id,
+  role: family === "jmdict" ? definitionLanguage === learnerLanguage2 ? "primary-terms" : "fallback-terms" : template.role,
+  definitionLanguage,
+  translationMode
+  };
+}
+function publishedCatalogEntry(id) {
+  return FROZEN_DICTIONARY_CATALOG.entries.find(
+  (entry) => entry.id === id && entry.distribution.state === "published"
+  );
+}
 function runtimeDictionaryCatalog(input2) {
   const compact = input2;
   if (!compact || typeof compact.revision !== "string" || !Array.isArray(compact.entries)) {
@@ -50809,7 +48384,7 @@ const UI_CATEGORY_BY_CATALOG_CATEGORY = {
   grammar: "terms",
   kanji: "kanji",
   frequency: "frequency",
-  pronunciation: "pitch",
+  pronunciation: "pronunciation",
   examples: "terms",
   thesaurus: "terms",
   encyclopedia: "terms",
@@ -50818,16 +48393,17 @@ const UI_CATEGORY_BY_CATALOG_CATEGORY = {
 function catalogBrowseCardId(headwordLanguage, catalogDictionaryId) {
   return `mirror-${headwordLanguage}-${catalogDictionaryId}`;
 }
-function catalogBrowseDictionaries(catalog = FROZEN_DICTIONARY_CATALOG) {
-  return catalog === FROZEN_DICTIONARY_CATALOG ? FROZEN_CATALOG_BROWSE_DICTIONARIES : catalogBrowseShelves(catalog).flatMap((shelf) => shelf.dictionaries);
+function catalogBrowseDictionaries(catalog = FROZEN_DICTIONARY_CATALOG, targetLanguage2 = catalog.targetLanguage) {
+  return catalog === FROZEN_DICTIONARY_CATALOG && targetLanguage2 === catalog.targetLanguage ? FROZEN_CATALOG_BROWSE_DICTIONARIES : catalogBrowseShelves(catalog, targetLanguage2).flatMap((shelf) => shelf.dictionaries);
 }
 function catalogBrowseLanguageSections(options = {}, catalog = FROZEN_DICTIONARY_CATALOG) {
-  return catalogBrowseShelves(catalog).flatMap((shelf) => {
+  const targetLanguage2 = options.targetLanguage ?? catalog.targetLanguage;
+  return catalogBrowseShelves(catalog, targetLanguage2).flatMap((shelf) => {
   const groups = groupShelfByCategory(shelf, options);
   if (!groups.length) return [];
   return [{
     headwordLanguage: shelf.language,
-    isTargetLanguage: shelf.language === catalog.targetLanguage,
+    isTargetLanguage: shelf.language === targetLanguage2,
     groups
   }];
   });
@@ -50861,8 +48437,10 @@ function formatDictionaryBytes(bytes, locale = "en") {
   const [value, unit] = gigabytes >= 1 ? [gigabytes, "GB"] : megabytes >= 1 ? [megabytes, "MB"] : [bytes / 1024, "KB"];
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
 }
-function catalogBrowseShelves(catalog) {
-  return catalog === FROZEN_DICTIONARY_CATALOG ? FROZEN_CATALOG_BROWSE_SHELVES : buildCatalogBrowseShelves(catalog);
+function catalogBrowseShelves(catalog, targetLanguage2 = catalog.targetLanguage) {
+  const shelves = catalog === FROZEN_DICTIONARY_CATALOG ? FROZEN_CATALOG_BROWSE_SHELVES : buildCatalogBrowseShelves(catalog);
+  if (targetLanguage2 === catalog.targetLanguage) return shelves;
+  return Object.freeze([...shelves].sort(compareCatalogBrowseShelves(targetLanguage2)));
 }
 function groupShelfByCategory(shelf, options) {
   const excluded = options.excludeCatalogIds;
@@ -50895,11 +48473,15 @@ function buildCatalogBrowseShelves(catalog) {
     dedupeByPublishedObject(entries2).map((entry) => browseCard(catalog, language2, entry)).sort(compareForLearnerLanguage(void 0, language2))
   )
   }));
-  const target = catalog.targetLanguage;
-  return Object.freeze(shelves.sort((left, right) => {
-  if (left.language === target !== (right.language === target)) return left.language === target ? -1 : 1;
+  return Object.freeze(shelves.sort(compareCatalogBrowseShelves(catalog.targetLanguage)));
+}
+function compareCatalogBrowseShelves(targetLanguage2) {
+  return (left, right) => {
+  if (left.language === targetLanguage2 !== (right.language === targetLanguage2)) {
+    return left.language === targetLanguage2 ? -1 : 1;
+  }
   return right.dictionaries.length - left.dictionaries.length || left.language.localeCompare(right.language, "en");
-  }));
+  };
 }
 function dedupeByPublishedObject(entries2) {
   const preferred = /* @__PURE__ */ new Map();
@@ -50977,108 +48559,31 @@ const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONAR
 const FROZEN_CATALOG_BROWSE_DICTIONARIES = Object.freeze(
   FROZEN_CATALOG_BROWSE_SHELVES.flatMap((shelf) => shelf.dictionaries)
 );
-const CATALOG_INSTALLED_DICTIONARY_IDENTITIES = Object.freeze({
-  "jmdict-de": "jmdict (german)",
-  "jmdict-en": "jmdict",
-  "jmdict-es": "jmdict (spanish)",
-  "jmdict-fr": "jmdict (french)",
-  "jmdict-hu": "jmdict (hungarian)",
-  "jmdict-nl": "jmdict (dutch)",
-  "jmdict-ru": "jmdict (russian)",
-  "jmdict-sv": "jmdict (swedish)",
-  jmnedict: "jmnedict",
-  "kanjidic-en": "kanjidic",
-  "kanjidic-es": "kanjidic (spanish)",
-  "kanjidic-fr": "kanjidic (french)",
-  "kanjidic-pt": "kanjidic (portuguese)"
-});
 const RECOMMENDED_JAPANESE_DICTIONARIES = [
-  {
-  id: "jitendex",
-  category: "terms",
-  name: "Jitendex",
-  descriptionKey: "recommendedJitendex",
-  downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
-  },
-  {
-  id: "jmdict",
-  category: "terms",
-  name: "JMdict",
-  descriptionKey: "recommendedJmdict",
-  downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
-  },
-  {
-  id: "jmnedict",
-  category: "terms",
-  name: "JMnedict",
-  descriptionKey: "recommendedJmnedict",
-  downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
-  },
-  {
-  id: "wty-ja-ja",
-  category: "terms",
-  name: "WTY JA-JA",
-  descriptionKey: "recommendedWtyJapaneseJapanese",
-  downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"
-  },
-  {
-  id: "pixiv-light",
-  category: "terms",
-  name: "Pixiv Light",
-  descriptionKey: "recommendedPixivLight",
-  downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
-  },
-  {
-  id: "kanjidic",
-  category: "kanji",
-  name: "KANJIDIC",
-  descriptionKey: "recommendedKanjidic",
-  downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
-  },
-  {
-  id: "jpdb-kanji",
-  category: "kanji",
-  name: "JPDB Kanji",
-  descriptionKey: "recommendedJpdbKanji",
-  downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
-  },
-  {
-  id: "kanjium-pitch",
-  category: "pitch",
-  name: "Kanjium pitch accents",
-  descriptionKey: "recommendedKanjiumPitch",
-  downloadUrl: "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"
-  },
-  {
-  id: "jpdbv2-kana",
-  category: "frequency",
-  name: "JPDBv2㋕",
-  descriptionKey: "recommendedJpdbv2Kana",
-  downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
-  },
-  {
-  id: "jiten",
-  category: "frequency",
-  name: "Jiten",
-  descriptionKey: "recommendedJiten",
-  downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
-  },
-  {
-  id: "bccwj",
-  category: "frequency",
-  name: "BCCWJ",
-  descriptionKey: "recommendedBccwj",
-  downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-  }
-];
+  ["jitendex", "terms", "Jitendex", "recommendedJitendex", "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"],
+  ["jmdict", "terms", "JMdict", "recommendedJmdict", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"],
+  ["jmnedict", "terms", "JMnedict", "recommendedJmnedict", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"],
+  ["wty-ja-ja", "terms", "WTY JA-JA", "recommendedWtyJapaneseJapanese", "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"],
+  ["pixiv-light", "terms", "Pixiv Light", "recommendedPixivLight", "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"],
+  ["kanjidic", "kanji", "KANJIDIC", "recommendedKanjidic", "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"],
+  ["jpdb-kanji", "kanji", "JPDB Kanji", "recommendedJpdbKanji", "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"],
+  ["kanjium-pitch", "pitch", "Kanjium pitch accents", "recommendedKanjiumPitch", "https://raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip"],
+  ["jpdbv2-kana", "frequency", "JPDBv2㋕", "recommendedJpdbv2Kana", "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"],
+  ["jiten", "frequency", "Jiten", "recommendedJiten", "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"],
+  ["bccwj", "frequency", "BCCWJ", "recommendedBccwj", "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"]
+].map(
+  ([id, category, name, descriptionKey, downloadUrl]) => ({ id, category, name, descriptionKey, downloadUrl })
+);
+const CATALOG_ENTRY_BY_ID = new Map(
+  FROZEN_DICTIONARY_CATALOG.entries.map((entry) => [entry.id, entry])
+);
 const CATALOG_RECOMMENDATIONS_BY_LANGUAGE = Object.freeze(
   Object.fromEntries(
   SLICE1_LEARNER_LANGUAGES.map((language2) => [
     language2,
     Object.freeze(
-      recommendedDictionariesFromCatalog(
-        FROZEN_DICTIONARY_CATALOG,
-        FROZEN_DICTIONARY_RECOMMENDATIONS[language2]
+      FROZEN_DICTIONARY_RECOMMENDATIONS[language2].dictionaries.map(
+        (recommendation) => recommendedDictionaryFromCatalog(language2, "ja", recommendation)
       )
     )
   ])
@@ -51087,17 +48592,21 @@ const CATALOG_RECOMMENDATIONS_BY_LANGUAGE = Object.freeze(
 const CATALOG_RECOMMENDATIONS_BY_ID = new Map(
   Object.values(CATALOG_RECOMMENDATIONS_BY_LANGUAGE).flat().map((dictionary) => [dictionary.id, dictionary])
 );
-const expectedCatalogRecommendationCount = Object.values(
-  CATALOG_RECOMMENDATIONS_BY_LANGUAGE
-).reduce((total, dictionaries2) => total + dictionaries2.length, 0);
-if (CATALOG_RECOMMENDATIONS_BY_ID.size !== expectedCatalogRecommendationCount) {
-  throw new Error("Frozen dictionary recommendations must have globally unique card IDs.");
-}
-function catalogRecommendedDictionaryId(learnerLanguage2, dictionaryId) {
-  return `catalog-${learnerLanguage2}-ja-${dictionaryId}`;
+function catalogRecommendedDictionaryId(learnerLanguage2, targetLanguage2, dictionaryId) {
+  return `catalog-${learnerLanguage2}-${targetLanguage2}-${dictionaryId}`;
 }
 function recommendedDictionariesForLearnerLanguage(learnerLanguage2) {
   return CATALOG_RECOMMENDATIONS_BY_LANGUAGE[learnerLanguage2];
+}
+function recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2) {
+  if (targetLanguage2 === "ja") return recommendedDictionariesForLearnerLanguage(learnerLanguage2);
+  const key = `${learnerLanguage2}-${targetLanguage2}`;
+  const cached = TARGET_RECOMMENDATIONS_BY_PAIR.get(key);
+  if (cached) return cached;
+  const recommendations = Object.freeze(targetRecommendations(learnerLanguage2, targetLanguage2));
+  TARGET_RECOMMENDATIONS_BY_PAIR.set(key, recommendations);
+  recommendations.forEach((dictionary) => CATALOG_RECOMMENDATIONS_BY_ID.set(dictionary.id, dictionary));
+  return recommendations;
 }
 function recommendedDictionaryInstalledIdentity(dictionary) {
   return dictionary.installedDictionaryIdentity ?? yomitanDictionaryIdentity(dictionary.name);
@@ -51118,52 +48627,95 @@ function recommendedDictionaryImportOptions(dictionary) {
 function isMirrorServedDownload(downloadUrl) {
   return Boolean(downloadUrl?.startsWith(FROZEN_DICTIONARY_CATALOG.objectsBaseUrl));
 }
-function recommendedDictionariesFromCatalog(catalog, manifest) {
-  assertRecommendationReferencesCatalog(manifest, catalog);
-  const entryById = new Map(catalog.entries.map((entry) => [entry.id, entry]));
-  return manifest.dictionaries.map((recommendation) => {
-  const entry = entryById.get(recommendation.dictionaryId);
+function recommendedDictionaryFromCatalog(learnerLanguage2, targetLanguage2, recommendation) {
+  const entry = CATALOG_ENTRY_BY_ID.get(recommendation.dictionaryId);
   if (!entry) throw new Error(`Recommended dictionary "${recommendation.dictionaryId}" is missing from the catalogue.`);
-  const download = dictionaryEntryDownload(entry, catalog.objectsBaseUrl);
+  const download = dictionaryEntryDownload(entry, FROZEN_DICTIONARY_CATALOG.objectsBaseUrl);
   return {
-    id: catalogRecommendedDictionaryId(manifest.learnerLanguage, entry.id),
-    category: recommendedDictionaryCategory(recommendation),
-    name: entry.title,
-    description: catalogRecommendationDescription(manifest.learnerLanguage, recommendation),
-    ...download ? {
-      downloadUrl: download.url,
-      ...download.sha256 === void 0 ? {} : { sha256: download.sha256 },
-      ...download.bytes === void 0 ? {} : { bytes: download.bytes }
-    } : {},
-    ...entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {},
-    origin: "catalog",
-    learnerLanguage: manifest.learnerLanguage,
-    headwordLanguage: entry.headwordLanguages[0],
-    catalogDictionaryId: entry.id,
-    role: recommendation.role,
-    selectedByDefault: recommendation.selectedByDefault,
-    definitionLanguage: recommendation.definitionLanguage,
-    translationMode: recommendation.translationMode,
-    installedDictionaryIdentity: CATALOG_INSTALLED_DICTIONARY_IDENTITIES[entry.id] ?? yomitanDictionaryIdentity(entry.installedTitle ?? entry.title)
+  id: catalogRecommendedDictionaryId(learnerLanguage2, targetLanguage2, entry.id),
+  category: recommendedDictionaryCategory(recommendation),
+  name: entry.title,
+  description: catalogRecommendationDescription(learnerLanguage2, recommendation),
+  ...download && {
+    downloadUrl: download.url,
+    sha256: download.sha256,
+    bytes: download.bytes
+  },
+  ...entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {},
+  origin: "catalog",
+  learnerLanguage: learnerLanguage2,
+  targetLanguage: targetLanguage2,
+  headwordLanguage: targetLanguage2,
+  catalogDictionaryId: entry.id,
+  role: recommendation.role,
+  selectedByDefault: recommendation.selectedByDefault,
+  definitionLanguage: recommendation.definitionLanguage,
+  translationMode: recommendation.translationMode,
+  installedDictionaryIdentity: catalogInstalledDictionaryIdentity(entry)
   };
-  });
 }
-function catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2) {
+function catalogInstalledDictionaryIdentity(entry) {
+  if (entry.id === "jmnedict") return entry.id;
+  const jmdict = /^(jmdict|kanjidic)-([a-z]+)$/.exec(entry.id);
+  if (jmdict) {
+  const [, family, language2] = jmdict;
+  return language2 === "en" ? family : yomitanDictionaryIdentity(`${family} (${learnerLanguageById(language2).englishName})`);
+  }
+  return yomitanDictionaryIdentity(entry.installedTitle ?? entry.title);
+}
+const TARGET_RECOMMENDATIONS_BY_PAIR = /* @__PURE__ */ new Map();
+function targetRecommendations(learnerLanguage2, targetLanguage2) {
+  const terms = targetTermsRecommendation(learnerLanguage2, targetLanguage2);
+  if (!terms) throw new Error(`Published dictionary catalog has no term dictionary for target ${targetLanguage2}.`);
+  const pronunciationLanguage = [learnerLanguage2, targetLanguage2, "en"].find(
+  (definitionLanguage) => CATALOG_ENTRY_BY_ID.get(`wty-${targetLanguage2}-${definitionLanguage}-ipa`)?.distribution.state === "published"
+  );
+  const pronunciation = pronunciationLanguage ? {
+  dictionaryId: `wty-${targetLanguage2}-${pronunciationLanguage}-ipa`,
+  role: "pronunciation",
+  priority: 20,
+  selectedByDefault: true,
+  definitionLanguage: pronunciationLanguage,
+  translationMode: "off"
+  } : void 0;
+  return [terms, ...pronunciation ? [pronunciation] : []].map((recommendation) => recommendedDictionaryFromCatalog(learnerLanguage2, targetLanguage2, recommendation));
+}
+function targetTermsRecommendation(learnerLanguage2, targetLanguage2) {
+  const preferredDefinitions = [learnerLanguage2, targetLanguage2, "en"];
+  const candidates = FROZEN_DICTIONARY_CATALOG.entries.filter(
+  (entry2) => entry2.distribution.state === "published" && entry2.headwordLanguages.includes(targetLanguage2) && entry2.categories.includes("terms")
+  ).map((entry2) => {
+  const definitionLanguage2 = preferredDefinitions.find(
+    (language2) => entry2.definitionLanguages.includes(language2)
+  ) ?? entry2.definitionLanguages[0] ?? "en";
+  const definitionRank = preferredDefinitions.indexOf(definitionLanguage2);
+  const canonicalId = `wty-${targetLanguage2}-${definitionLanguage2}`;
+  const shapeRank = entry2.id === canonicalId ? 0 : entry2.id.includes("-gloss") ? 2 : 1;
+  return { entry: entry2, definitionLanguage: definitionLanguage2, rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank };
+  }).sort((left, right) => left.rank - right.rank || left.entry.id.localeCompare(right.entry.id, "en"))[0];
+  if (!candidates) return void 0;
+  const { entry, definitionLanguage } = candidates;
+  return {
+  dictionaryId: entry.id,
+  role: definitionLanguage === learnerLanguage2 ? "primary-terms" : "fallback-terms",
+  priority: 10,
+  selectedByDefault: true,
+  definitionLanguage,
+  translationMode: definitionLanguage === learnerLanguage2 || learnerLanguage2 === "grc" ? "off" : "offer"
+  };
+}
+function catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targetLanguage2 = "ja") {
   return catalogBrowseLanguageSections({
   learnerLanguage: learnerLanguage2,
-  excludeCatalogIds: recommendedCatalogIds(learnerLanguage2)
+  targetLanguage: targetLanguage2,
+  excludeCatalogIds: recommendedCatalogIds(learnerLanguage2, targetLanguage2)
   });
 }
-function recommendedCatalogIds(learnerLanguage2) {
-  const cached = RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.get(learnerLanguage2);
-  if (cached) return cached;
-  const ids = new Set(
-  recommendedDictionariesForLearnerLanguage(learnerLanguage2).map((dictionary) => dictionary.catalogDictionaryId).filter((id) => Boolean(id))
+function recommendedCatalogIds(learnerLanguage2, targetLanguage2) {
+  return new Set(
+  recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2).map((dictionary) => dictionary.catalogDictionaryId).filter((id) => Boolean(id))
   );
-  RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.set(learnerLanguage2, ids);
-  return ids;
 }
-const RECOMMENDED_CATALOG_IDS_BY_LANGUAGE = /* @__PURE__ */ new Map();
 const CATALOG_BROWSE_BY_ID = new Map(
   catalogBrowseDictionaries().map((dictionary) => [dictionary.id, dictionary])
 );
@@ -51173,7 +48725,7 @@ function findRecommendedDictionary(id) {
 function recommendedDictionaryCategory(recommendation) {
   if (recommendation.role === "kanji") return "kanji";
   if (recommendation.role === "frequency") return "frequency";
-  if (recommendation.role === "pronunciation") return "pitch";
+  if (recommendation.role === "pronunciation") return "pronunciation";
   return "terms";
 }
 function catalogRecommendationDescription(learnerLanguage2, recommendation) {
@@ -52315,7 +49867,7 @@ function readDictionaryPreferences$1(data, current, reader) {
   })).filter((item) => item.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function readDictionaryType(value) {
-  return value === "kanji" || value === "frequency" || value === "metadata" ? value : "terms";
+  return value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata" ? value : "terms";
 }
 function readAudioSources(data) {
   const get = (key) => String(data.get(key) ?? "");
@@ -54341,256 +51893,256 @@ const CATALOG_BROWSE_COPY_SOURCE = {
   summary: "{count} fjalorë të tjerë · gjithsej {size}",
   searchLabel: "Kërko fjalorë",
   noResults: "Asnjë fjalor nuk përputhet me kërkimin.",
-  otherLanguageNote: "Këta fjalorë nuk janë për leximin e japonishtes.",
-  categories: ["Fjalorë fjalësh", "Fjalorë emrash", "Fjalorë gramatikorë", "Fjalorë kanxhish", "Fjalorë frekuence", "Fjalorë theksi", "Fjalorë me fjali shembull", "Fjalorë sinonimish", "Enciklopedi", "Fjalorë ndihmës"]
+  languageNote: "Fjalorë për të lexuar në {language}.",
+  categories: ["Fjalorë fjalësh", "Fjalorë emrash", "Fjalorë gramatikorë", "Fjalorë kanxhish", "Fjalorë frekuence", "Fjalorë shqiptimi", "Fjalorë me fjali shembull", "Fjalorë sinonimish", "Enciklopedi", "Fjalorë ndihmës"]
   },
   grc: {
   title: "Πάντα τὰ λεξικὰ τοῦ ταμιείου",
   summary: "Ἕτερα λεξικά: {count} · σύμπαν {size}",
   searchLabel: "Ζήτει λεξικά",
   noResults: "Οὐδὲν λεξικὸν εὑρέθη.",
-  otherLanguageNote: "Ταῦτα τὰ λεξικὰ οὐ πρὸς τὴν Ἰαπωνικὴν ἀνάγνωσίν ἐστιν.",
-  categories: ["Λεξικὰ λέξεων", "Λεξικὰ ὀνομάτων", "Λεξικὰ γραμματικῆς", "Λεξικὰ κανζί", "Λεξικὰ συχνότητος", "Λεξικὰ τόνου", "Λεξικὰ παραδειγμάτων", "Λεξικὰ συνωνύμων", "Ἐγκυκλοπαίδειαι", "Λεξικὰ βοηθητικά"]
+  languageNote: "Λεξικὰ πρὸς τὸ {language} ἀναγιγνώσκειν.",
+  categories: ["Λεξικὰ λέξεων", "Λεξικὰ ὀνομάτων", "Λεξικὰ γραμματικῆς", "Λεξικὰ κανζί", "Λεξικὰ συχνότητος", "Λεξικὰ προφορᾶς", "Λεξικὰ παραδειγμάτων", "Λεξικὰ συνωνύμων", "Ἐγκυκλοπαίδειαι", "Λεξικὰ βοηθητικά"]
   },
   ar: {
   title: "كل القواميس المستضافة",
   summary: "قواميس أخرى: ⁨{count}⁩ · الإجمالي ⁨{size}⁩",
   searchLabel: "ابحث في القواميس",
   noResults: "لا توجد قواميس مطابقة لبحثك.",
-  otherLanguageNote: "هذه القواميس ليست لقراءة اليابانية.",
-  categories: ["قواميس المفردات", "قواميس أسماء الأعلام", "قواميس القواعد", "قواميس الكانجي", "قواميس التكرار", "قواميس النبر", "قواميس الجمل التوضيحية", "معاجم المترادفات", "الموسوعات", "قواميس مساعدة"]
+  languageNote: "قواميس لقراءة ⁨{language}⁩.",
+  categories: ["قواميس المفردات", "قواميس أسماء الأعلام", "قواميس القواعد", "قواميس الكانجي", "قواميس التكرار", "قواميس النطق", "قواميس الجمل التوضيحية", "معاجم المترادفات", "الموسوعات", "قواميس مساعدة"]
   },
   yue: {
   title: "所有鏡像字典",
   summary: "仲有 {count} 本字典 · 合共 {size}",
   searchLabel: "搜尋字典",
   noResults: "搵唔到符合嘅字典。",
-  otherLanguageNote: "呢啲字典唔係用嚟讀日文嘅。",
-  categories: ["詞語字典", "專名字典", "文法字典", "漢字字典", "詞頻字典", "聲調字典", "例句字典", "同義詞字典", "百科全書", "輔助字典"]
+  languageNote: "用嚟閱讀{language}嘅字典。",
+  categories: ["詞語字典", "專名字典", "文法字典", "漢字字典", "詞頻字典", "發音字典", "例句字典", "同義詞字典", "百科全書", "輔助字典"]
   },
   zh: {
   title: "全部镜像词典",
   summary: "另有 {count} 部词典 · 共 {size}",
   searchLabel: "搜索词典",
   noResults: "没有匹配的词典。",
-  otherLanguageNote: "这些词典不是用来阅读日语的。",
-  categories: ["词语词典", "专名词典", "语法词典", "汉字词典", "词频词典", "音调词典", "例句词典", "同义词词典", "百科全书", "辅助词典"]
+  languageNote: "用于阅读{language}的词典。",
+  categories: ["词语词典", "专名词典", "语法词典", "汉字词典", "词频词典", "发音词典", "例句词典", "同义词词典", "百科全书", "辅助词典"]
   },
   da: {
   title: "Alle spejlede ordbøger",
   summary: "{count} flere ordbøger · {size} i alt",
   searchLabel: "Søg i ordbøger",
   noResults: "Ingen ordbøger matcher din søgning.",
-  otherLanguageNote: "Disse ordbøger er ikke til at læse japansk.",
-  categories: ["Ordbøger", "Navneordbøger", "Grammatikordbøger", "Kanji-ordbøger", "Frekvensordbøger", "Tonegangsordbøger", "Eksempelsætningsordbøger", "Synonymordbøger", "Encyklopædier", "Hjælpeordbøger"]
+  languageNote: "Ordbøger til at læse {language}.",
+  categories: ["Ordbøger", "Navneordbøger", "Grammatikordbøger", "Kanji-ordbøger", "Frekvensordbøger", "Udtaleordbøger", "Eksempelsætningsordbøger", "Synonymordbøger", "Encyklopædier", "Hjælpeordbøger"]
   },
   nl: {
   title: "Alle gespiegelde woordenboeken",
   summary: "{count} extra woordenboeken · {size} in totaal",
   searchLabel: "Woordenboeken zoeken",
   noResults: "Geen woordenboeken gevonden voor je zoekopdracht.",
-  otherLanguageNote: "Deze woordenboeken zijn niet bedoeld om Japans te lezen.",
-  categories: ["Woordenboeken", "Namenwoordenboeken", "Grammaticawoordenboeken", "Kanjiwoordenboeken", "Frequentiewoordenboeken", "Toonhoogtewoordenboeken", "Voorbeeldzinwoordenboeken", "Synoniemenwoordenboeken", "Encyclopedieën", "Hulpwoordenboeken"]
+  languageNote: "Woordenboeken om {language} te lezen.",
+  categories: ["Woordenboeken", "Namenwoordenboeken", "Grammaticawoordenboeken", "Kanjiwoordenboeken", "Frequentiewoordenboeken", "Uitspraakwoordenboeken", "Voorbeeldzinwoordenboeken", "Synoniemenwoordenboeken", "Encyclopedieën", "Hulpwoordenboeken"]
   },
   en: {
   title: "All mirrored dictionaries",
   summary: "{count} more dictionaries · {size} total",
   searchLabel: "Search dictionaries",
   noResults: "No dictionaries match your search.",
-  otherLanguageNote: "These dictionaries are not for reading Japanese.",
-  categories: ["Term dictionaries", "Name dictionaries", "Grammar dictionaries", "Kanji dictionaries", "Frequency dictionaries", "Pitch dictionaries", "Example sentence dictionaries", "Thesauruses", "Encyclopedias", "Utility dictionaries"]
+  languageNote: "Dictionaries for reading {language}.",
+  categories: ["Term dictionaries", "Name dictionaries", "Grammar dictionaries", "Kanji dictionaries", "Frequency dictionaries", "Pronunciation dictionaries", "Example sentence dictionaries", "Thesauruses", "Encyclopedias", "Utility dictionaries"]
   },
   fi: {
   title: "Kaikki peilatut sanakirjat",
   summary: "{count} sanakirjaa lisää · yhteensä {size}",
   searchLabel: "Hae sanakirjoja",
   noResults: "Hakua vastaavia sanakirjoja ei löytynyt.",
-  otherLanguageNote: "Nämä sanakirjat eivät ole japanin lukemiseen.",
-  categories: ["Sanakirjat", "Nimisanakirjat", "Kielioppisanakirjat", "Kanji-sanakirjat", "Yleisyyssanakirjat", "Sävelkulkusanakirjat", "Esimerkkilausesanakirjat", "Synonyymisanakirjat", "Tietosanakirjat", "Apusanakirjat"]
+  languageNote: "Sanakirjoja kielen {language} lukemiseen.",
+  categories: ["Sanakirjat", "Nimisanakirjat", "Kielioppisanakirjat", "Kanji-sanakirjat", "Yleisyyssanakirjat", "Ääntämissanakirjat", "Esimerkkilausesanakirjat", "Synonyymisanakirjat", "Tietosanakirjat", "Apusanakirjat"]
   },
   fr: {
   title: "Tous les dictionnaires hébergés",
   summary: "{count} dictionnaires de plus · {size} au total",
   searchLabel: "Rechercher des dictionnaires",
   noResults: "Aucun dictionnaire ne correspond à votre recherche.",
-  otherLanguageNote: "Ces dictionnaires ne servent pas à lire le japonais.",
-  categories: ["Dictionnaires de mots", "Dictionnaires de noms propres", "Dictionnaires de grammaire", "Dictionnaires de kanji", "Dictionnaires de fréquence", "Dictionnaires d’accent tonique", "Dictionnaires de phrases d’exemple", "Dictionnaires de synonymes", "Encyclopédies", "Dictionnaires utilitaires"]
+  languageNote: "Dictionnaires pour lire en {language}.",
+  categories: ["Dictionnaires de mots", "Dictionnaires de noms propres", "Dictionnaires de grammaire", "Dictionnaires de kanji", "Dictionnaires de fréquence", "Dictionnaires de prononciation", "Dictionnaires de phrases d’exemple", "Dictionnaires de synonymes", "Encyclopédies", "Dictionnaires utilitaires"]
   },
   de: {
   title: "Alle gespiegelten Wörterbücher",
   summary: "{count} weitere Wörterbücher · {size} insgesamt",
   searchLabel: "Wörterbücher durchsuchen",
   noResults: "Keine Wörterbücher passen zu deiner Suche.",
-  otherLanguageNote: "Diese Wörterbücher sind nicht zum Lesen von Japanisch gedacht.",
-  categories: ["Wortwörterbücher", "Namenswörterbücher", "Grammatikwörterbücher", "Kanji-Wörterbücher", "Häufigkeitswörterbücher", "Tonhöhenwörterbücher", "Beispielsatzwörterbücher", "Synonymwörterbücher", "Enzyklopädien", "Hilfswörterbücher"]
+  languageNote: "Wörterbücher zum Lesen auf {language}.",
+  categories: ["Wortwörterbücher", "Namenswörterbücher", "Grammatikwörterbücher", "Kanji-Wörterbücher", "Häufigkeitswörterbücher", "Aussprachewörterbücher", "Beispielsatzwörterbücher", "Synonymwörterbücher", "Enzyklopädien", "Hilfswörterbücher"]
   },
   el: {
   title: "Όλα τα φιλοξενούμενα λεξικά",
   summary: "{count} επιπλέον λεξικά · {size} συνολικά",
   searchLabel: "Αναζήτηση λεξικών",
   noResults: "Κανένα λεξικό δεν ταιριάζει με την αναζήτησή σας.",
-  otherLanguageNote: "Αυτά τα λεξικά δεν είναι για την ανάγνωση των ιαπωνικών.",
-  categories: ["Λεξικά λέξεων", "Λεξικά κύριων ονομάτων", "Λεξικά γραμματικής", "Λεξικά κανζί", "Λεξικά συχνότητας", "Λεξικά τονισμού", "Λεξικά παραδειγμάτων", "Λεξικά συνωνύμων", "Εγκυκλοπαίδειες", "Βοηθητικά λεξικά"]
+  languageNote: "Λεξικά για ανάγνωση στα {language}.",
+  categories: ["Λεξικά λέξεων", "Λεξικά κύριων ονομάτων", "Λεξικά γραμματικής", "Λεξικά κανζί", "Λεξικά συχνότητας", "Λεξικά προφοράς", "Λεξικά παραδειγμάτων", "Λεξικά συνωνύμων", "Εγκυκλοπαίδειες", "Βοηθητικά λεξικά"]
   },
   hu: {
   title: "Az összes tükrözött szótár",
   summary: "További szótárak: {count} · összesen {size}",
   searchLabel: "Szótárak keresése",
   noResults: "Nincs a keresésnek megfelelő szótár.",
-  otherLanguageNote: "Ezek a szótárak nem a japán olvasásához valók.",
-  categories: ["Szótárak", "Névszótárak", "Nyelvtani szótárak", "Kandzsiszótárak", "Gyakorisági szótárak", "Hangsúlyszótárak", "Példamondat-szótárak", "Szinonimaszótárak", "Lexikonok", "Segédszótárak"]
+  languageNote: "{language} nyelvű szövegek olvasásához készült szótárak.",
+  categories: ["Szótárak", "Névszótárak", "Nyelvtani szótárak", "Kandzsiszótárak", "Gyakorisági szótárak", "Kiejtési szótárak", "Példamondat-szótárak", "Szinonimaszótárak", "Lexikonok", "Segédszótárak"]
   },
   id: {
   title: "Semua kamus yang dicerminkan",
   summary: "{count} kamus lainnya · total {size}",
   searchLabel: "Cari kamus",
   noResults: "Tidak ada kamus yang cocok dengan pencarian Anda.",
-  otherLanguageNote: "Kamus-kamus ini bukan untuk membaca bahasa Jepang.",
-  categories: ["Kamus kata", "Kamus nama diri", "Kamus tata bahasa", "Kamus kanji", "Kamus frekuensi", "Kamus aksen nada", "Kamus kalimat contoh", "Tesaurus", "Ensiklopedia", "Kamus pendukung"]
+  languageNote: "Kamus untuk membaca dalam {language}.",
+  categories: ["Kamus kata", "Kamus nama diri", "Kamus tata bahasa", "Kamus kanji", "Kamus frekuensi", "Kamus pelafalan", "Kamus kalimat contoh", "Tesaurus", "Ensiklopedia", "Kamus pendukung"]
   },
   it: {
   title: "Tutti i dizionari ospitati",
   summary: "Altri {count} dizionari · {size} in totale",
   searchLabel: "Cerca dizionari",
   noResults: "Nessun dizionario corrisponde alla ricerca.",
-  otherLanguageNote: "Questi dizionari non servono a leggere il giapponese.",
-  categories: ["Dizionari di parole", "Dizionari di nomi propri", "Dizionari di grammatica", "Dizionari di kanji", "Dizionari di frequenza", "Dizionari di accento tonale", "Dizionari di frasi di esempio", "Dizionari dei sinonimi", "Enciclopedie", "Dizionari di utilità"]
+  languageNote: "Dizionari per leggere in {language}.",
+  categories: ["Dizionari di parole", "Dizionari di nomi propri", "Dizionari di grammatica", "Dizionari di kanji", "Dizionari di frequenza", "Dizionari di pronuncia", "Dizionari di frasi di esempio", "Dizionari dei sinonimi", "Enciclopedie", "Dizionari di utilità"]
   },
   km: {
   title: "វចនានុក្រមទាំងអស់ដែលបានចម្លង",
   summary: "វចនានុក្រមផ្សេងទៀត៖ {count} · សរុប {size}",
   searchLabel: "ស្វែងរកវចនានុក្រម",
   noResults: "រកមិនឃើញវចនានុក្រមដែលត្រូវនឹងការស្វែងរកទេ។",
-  otherLanguageNote: "វចនានុក្រមទាំងនេះមិនមែនសម្រាប់អានភាសាជប៉ុនទេ។",
-  categories: ["វចនានុក្រមពាក្យ", "វចនានុក្រមឈ្មោះ", "វចនានុក្រមវេយ្យាករណ៍", "វចនានុក្រមកានជិ", "វចនានុក្រមប្រេកង់", "វចនានុក្រមសំឡេងកម្ពស់", "វចនានុក្រមឧទាហរណ៍ប្រយោគ", "វចនានុក្រមពាក្យដូច", "សព្វវចនាធិប្បាយ", "វចនានុក្រមជំនួយ"]
+  languageNote: "វចនានុក្រមសម្រាប់អានភាសា{language}។",
+  categories: ["វចនានុក្រមពាក្យ", "វចនានុក្រមឈ្មោះ", "វចនានុក្រមវេយ្យាករណ៍", "វចនានុក្រមកានជិ", "វចនានុក្រមប្រេកង់", "វចនានុក្រមការបញ្ចេញសំឡេង", "វចនានុក្រមឧទាហរណ៍ប្រយោគ", "វចនានុក្រមពាក្យដូច", "សព្វវចនាធិប្បាយ", "វចនានុក្រមជំនួយ"]
   },
   ko: {
   title: "미러링된 모든 사전",
   summary: "사전 {count}개 더 · 총 {size}",
   searchLabel: "사전 검색",
   noResults: "검색과 일치하는 사전이 없습니다.",
-  otherLanguageNote: "이 사전들은 일본어를 읽기 위한 것이 아닙니다.",
-  categories: ["어휘 사전", "고유명사 사전", "문법 사전", "한자 사전", "빈도 사전", "악센트 사전", "예문 사전", "유의어 사전", "백과사전", "보조 사전"]
+  languageNote: "{language} 읽기용 사전입니다.",
+  categories: ["어휘 사전", "고유명사 사전", "문법 사전", "한자 사전", "빈도 사전", "발음 사전", "예문 사전", "유의어 사전", "백과사전", "보조 사전"]
   },
   lo: {
   title: "ວັດຈະນານຸກົມທັງໝົດທີ່ເກັບໄວ້",
   summary: "ວັດຈະນານຸກົມອື່ນ {count} ຫົວ · ລວມ {size}",
   searchLabel: "ຄົ້ນຫາວັດຈະນານຸກົມ",
   noResults: "ບໍ່ພົບວັດຈະນານຸກົມທີ່ກົງກັບການຄົ້ນຫາ.",
-  otherLanguageNote: "ວັດຈະນານຸກົມເຫຼົ່ານີ້ບໍ່ແມ່ນສຳລັບການອ່ານພາສາຍີ່ປຸ່ນ.",
-  categories: ["ວັດຈະນານຸກົມຄຳສັບ", "ວັດຈະນານຸກົມຊື່ສະເພາະ", "ວັດຈະນານຸກົມໄວຍາກອນ", "ວັດຈະນານຸກົມຄັນຈິ", "ວັດຈະນານຸກົມຄວາມຖີ່", "ວັດຈະນານຸກົມສຽງສູງຕ່ຳ", "ວັດຈະນານຸກົມປະໂຫຍກຕົວຢ່າງ", "ວັດຈະນານຸກົມຄຳຄ້າຍ", "ສາລານຸກົມ", "ວັດຈະນານຸກົມຊ່ວຍ"]
+  languageNote: "ວັດຈະນານຸກົມສຳລັບອ່ານພາສາ{language}.",
+  categories: ["ວັດຈະນານຸກົມຄຳສັບ", "ວັດຈະນານຸກົມຊື່ສະເພາະ", "ວັດຈະນານຸກົມໄວຍາກອນ", "ວັດຈະນານຸກົມຄັນຈິ", "ວັດຈະນານຸກົມຄວາມຖີ່", "ວັດຈະນານຸກົມການອອກສຽງ", "ວັດຈະນານຸກົມປະໂຫຍກຕົວຢ່າງ", "ວັດຈະນານຸກົມຄຳຄ້າຍ", "ສາລານຸກົມ", "ວັດຈະນານຸກົມຊ່ວຍ"]
   },
   la: {
   title: "Omnia dictionaria in promptuario",
   summary: "Dictionaria alia: {count} · summa {size}",
   searchLabel: "Dictionaria quaerere",
   noResults: "Nulla dictionaria quaesitis respondent.",
-  otherLanguageNote: "Haec dictionaria non sunt ad Iaponicam legendam.",
-  categories: ["Dictionaria verborum", "Dictionaria nominum", "Dictionaria grammatica", "Dictionaria kanji", "Dictionaria frequentiae", "Dictionaria accentus", "Dictionaria exemplorum", "Dictionaria synonymorum", "Encyclopaediae", "Dictionaria auxiliaria"]
+  languageNote: "Dictionaria ad {language} legendam.",
+  categories: ["Dictionaria verborum", "Dictionaria nominum", "Dictionaria grammatica", "Dictionaria kanji", "Dictionaria frequentiae", "Dictionaria pronuntiationis", "Dictionaria exemplorum", "Dictionaria synonymorum", "Encyclopaediae", "Dictionaria auxiliaria"]
   },
   mn: {
   title: "Толгой хуулбарласан бүх толь бичиг",
   summary: "Бусад толь бичиг: {count} · нийт {size}",
   searchLabel: "Толь бичиг хайх",
   noResults: "Хайлтад тохирох толь бичиг олдсонгүй.",
-  otherLanguageNote: "Эдгээр толь бичиг япон хэл унших зориулалтгүй.",
-  categories: ["Үгийн толь", "Нэрийн толь", "Хэл зүйн толь", "Ханзны толь", "Давтамжийн толь", "Өргөлтийн толь", "Жишээ өгүүлбэрийн толь", "Ойролцоо утгын толь", "Нэвтэрхий толь", "Туслах толь"]
+  languageNote: "{language} хэлээр унших толь бичгүүд.",
+  categories: ["Үгийн толь", "Нэрийн толь", "Хэл зүйн толь", "Ханзны толь", "Давтамжийн толь", "Дуудлагын толь", "Жишээ өгүүлбэрийн толь", "Ойролцоо утгын толь", "Нэвтэрхий толь", "Туслах толь"]
   },
   fa: {
   title: "همهٔ واژه‌نامه‌های میزبانی‌شده",
   summary: "واژه‌نامه‌های دیگر: ⁨{count}⁩ · مجموع ⁨{size}⁩",
   searchLabel: "جست‌وجوی واژه‌نامه‌ها",
   noResults: "هیچ واژه‌نامه‌ای با جست‌وجوی شما مطابقت ندارد.",
-  otherLanguageNote: "این واژه‌نامه‌ها برای خواندن ژاپنی نیستند.",
-  categories: ["واژه‌نامه‌های واژگان", "واژه‌نامه‌های اسامی خاص", "واژه‌نامه‌های دستور زبان", "واژه‌نامه‌های کانجی", "واژه‌نامه‌های بسامد", "واژه‌نامه‌های آهنگ واژه", "واژه‌نامه‌های جمله‌های نمونه", "واژه‌نامه‌های هم‌معنا", "دانشنامه‌ها", "واژه‌نامه‌های کمکی"]
+  languageNote: "واژه‌نامه‌هایی برای خواندن ⁨{language}⁩.",
+  categories: ["واژه‌نامه‌های واژگان", "واژه‌نامه‌های اسامی خاص", "واژه‌نامه‌های دستور زبان", "واژه‌نامه‌های کانجی", "واژه‌نامه‌های بسامد", "واژه‌نامه‌های تلفظ", "واژه‌نامه‌های جمله‌های نمونه", "واژه‌نامه‌های هم‌معنا", "دانشنامه‌ها", "واژه‌نامه‌های کمکی"]
   },
   pl: {
   title: "Wszystkie kopiowane słowniki",
   summary: "Więcej słowników: {count} · łącznie {size}",
   searchLabel: "Szukaj słowników",
   noResults: "Żaden słownik nie pasuje do wyszukiwania.",
-  otherLanguageNote: "Te słowniki nie służą do czytania po japońsku.",
-  categories: ["Słowniki wyrazów", "Słowniki nazw własnych", "Słowniki gramatyczne", "Słowniki kanji", "Słowniki frekwencyjne", "Słowniki akcentu tonicznego", "Słowniki zdań przykładowych", "Słowniki synonimów", "Encyklopedie", "Słowniki pomocnicze"]
+  languageNote: "Słowniki do czytania w języku {language}.",
+  categories: ["Słowniki wyrazów", "Słowniki nazw własnych", "Słowniki gramatyczne", "Słowniki kanji", "Słowniki frekwencyjne", "Słowniki wymowy", "Słowniki zdań przykładowych", "Słowniki synonimów", "Encyklopedie", "Słowniki pomocnicze"]
   },
   pt: {
   title: "Todos os dicionários espelhados",
   summary: "Mais {count} dicionários · {size} no total",
   searchLabel: "Pesquisar dicionários",
   noResults: "Nenhum dicionário corresponde à sua pesquisa.",
-  otherLanguageNote: "Estes dicionários não servem para ler japonês.",
-  categories: ["Dicionários de palavras", "Dicionários de nomes próprios", "Dicionários de gramática", "Dicionários de kanji", "Dicionários de frequência", "Dicionários de acento tonal", "Dicionários de frases de exemplo", "Dicionários de sinónimos", "Enciclopédias", "Dicionários utilitários"]
+  languageNote: "Dicionários para ler em {language}.",
+  categories: ["Dicionários de palavras", "Dicionários de nomes próprios", "Dicionários de gramática", "Dicionários de kanji", "Dicionários de frequência", "Dicionários de pronúncia", "Dicionários de frases de exemplo", "Dicionários de sinónimos", "Enciclopédias", "Dicionários utilitários"]
   },
   ro: {
   title: "Toate dicționarele găzduite",
   summary: "Încă {count} dicționare · {size} în total",
   searchLabel: "Caută dicționare",
   noResults: "Niciun dicționar nu corespunde căutării.",
-  otherLanguageNote: "Aceste dicționare nu sunt pentru citirea japonezei.",
-  categories: ["Dicționare de cuvinte", "Dicționare de nume proprii", "Dicționare de gramatică", "Dicționare de kanji", "Dicționare de frecvență", "Dicționare de accent tonal", "Dicționare de propoziții exemplu", "Dicționare de sinonime", "Enciclopedii", "Dicționare auxiliare"]
+  languageNote: "Dicționare pentru lectură în {language}.",
+  categories: ["Dicționare de cuvinte", "Dicționare de nume proprii", "Dicționare de gramatică", "Dicționare de kanji", "Dicționare de frecvență", "Dicționare de pronunție", "Dicționare de propoziții exemplu", "Dicționare de sinonime", "Enciclopedii", "Dicționare auxiliare"]
   },
   ru: {
   title: "Все зеркалируемые словари",
   summary: "Ещё словарей: {count} · всего {size}",
   searchLabel: "Поиск словарей",
   noResults: "Ни один словарь не соответствует запросу.",
-  otherLanguageNote: "Эти словари не предназначены для чтения на японском.",
-  categories: ["Словари слов", "Словари имён собственных", "Грамматические словари", "Словари кандзи", "Частотные словари", "Словари тонального ударения", "Словари примеров", "Словари синонимов", "Энциклопедии", "Вспомогательные словари"]
+  languageNote: "Словари для чтения на языке {language}.",
+  categories: ["Словари слов", "Словари имён собственных", "Грамматические словари", "Словари кандзи", "Частотные словари", "Словари произношения", "Словари примеров", "Словари синонимов", "Энциклопедии", "Вспомогательные словари"]
   },
   sh: {
   title: "Svi preslikani rečnici",
   summary: "Još rečnika: {count} · ukupno {size}",
   searchLabel: "Pretraži rečnike",
   noResults: "Nijedan rečnik ne odgovara pretrazi.",
-  otherLanguageNote: "Ovi rečnici nisu za čitanje japanskog.",
-  categories: ["Rečnici reči", "Rečnici vlastitih imena", "Gramatički rečnici", "Rečnici kandžija", "Frekvencijski rečnici", "Rečnici tonskog akcenta", "Rečnici primera rečenica", "Rečnici sinonima", "Enciklopedije", "Pomoćni rečnici"]
+  languageNote: "Rečnici za čitanje jezika {language}.",
+  categories: ["Rečnici reči", "Rečnici vlastitih imena", "Gramatički rečnici", "Rečnici kandžija", "Frekvencijski rečnici", "Rečnici izgovora", "Rečnici primera rečenica", "Rečnici sinonima", "Enciklopedije", "Pomoćni rečnici"]
   },
   es: {
   title: "Todos los diccionarios alojados",
   summary: "{count} diccionarios más · {size} en total",
   searchLabel: "Buscar diccionarios",
   noResults: "Ningún diccionario coincide con tu búsqueda.",
-  otherLanguageNote: "Estos diccionarios no sirven para leer japonés.",
-  categories: ["Diccionarios de palabras", "Diccionarios de nombres propios", "Diccionarios de gramática", "Diccionarios de kanji", "Diccionarios de frecuencia", "Diccionarios de acento tonal", "Diccionarios de oraciones de ejemplo", "Diccionarios de sinónimos", "Enciclopedias", "Diccionarios auxiliares"]
+  languageNote: "Diccionarios para leer en {language}.",
+  categories: ["Diccionarios de palabras", "Diccionarios de nombres propios", "Diccionarios de gramática", "Diccionarios de kanji", "Diccionarios de frecuencia", "Diccionarios de pronunciación", "Diccionarios de oraciones de ejemplo", "Diccionarios de sinónimos", "Enciclopedias", "Diccionarios auxiliares"]
   },
   sv: {
   title: "Alla speglade ordböcker",
   summary: "{count} ordböcker till · {size} totalt",
   searchLabel: "Sök ordböcker",
   noResults: "Inga ordböcker matchar din sökning.",
-  otherLanguageNote: "De här ordböckerna är inte till för att läsa japanska.",
-  categories: ["Ordböcker", "Namnordböcker", "Grammatikordböcker", "Kanjiordböcker", "Frekvensordböcker", "Tonaccentordböcker", "Exempelmeningsordböcker", "Synonymordböcker", "Uppslagsverk", "Hjälpordböcker"]
+  languageNote: "Ordböcker för att läsa på {language}.",
+  categories: ["Ordböcker", "Namnordböcker", "Grammatikordböcker", "Kanjiordböcker", "Frekvensordböcker", "Uttalsordböcker", "Exempelmeningsordböcker", "Synonymordböcker", "Uppslagsverk", "Hjälpordböcker"]
   },
   tl: {
   title: "Lahat ng naka-mirror na diksyunaryo",
   summary: "{count} pang diksyunaryo · {size} sa kabuuan",
   searchLabel: "Maghanap ng diksyunaryo",
   noResults: "Walang diksyunaryong tumutugma sa paghahanap.",
-  otherLanguageNote: "Hindi para sa pagbasa ng Hapon ang mga diksyunaryong ito.",
-  categories: ["Diksyunaryo ng salita", "Diksyunaryo ng pangngalang pantangi", "Diksyunaryo ng gramatika", "Diksyunaryo ng kanji", "Diksyunaryo ng dalas", "Diksyunaryo ng tono", "Diksyunaryo ng halimbawang pangungusap", "Diksyunaryo ng kasingkahulugan", "Ensiklopedya", "Pantulong na diksyunaryo"]
+  languageNote: "Mga diksyunaryo para sa pagbasa ng {language}.",
+  categories: ["Diksyunaryo ng salita", "Diksyunaryo ng pangngalang pantangi", "Diksyunaryo ng gramatika", "Diksyunaryo ng kanji", "Diksyunaryo ng dalas", "Diksyunaryo ng pagbigkas", "Diksyunaryo ng halimbawang pangungusap", "Diksyunaryo ng kasingkahulugan", "Ensiklopedya", "Pantulong na diksyunaryo"]
   },
   th: {
   title: "พจนานุกรมทั้งหมดที่มิเรอร์ไว้",
   summary: "พจนานุกรมอีก {count} เล่ม · รวม {size}",
   searchLabel: "ค้นหาพจนานุกรม",
   noResults: "ไม่พบพจนานุกรมที่ตรงกับการค้นหา",
-  otherLanguageNote: "พจนานุกรมเหล่านี้ไม่ได้ใช้สำหรับอ่านภาษาญี่ปุ่น",
-  categories: ["พจนานุกรมคำศัพท์", "พจนานุกรมวิสามานยนาม", "พจนานุกรมไวยากรณ์", "พจนานุกรมคันจิ", "พจนานุกรมความถี่", "พจนานุกรมระดับเสียง", "พจนานุกรมประโยคตัวอย่าง", "พจนานุกรมคำพ้องความหมาย", "สารานุกรม", "พจนานุกรมเสริม"]
+  languageNote: "พจนานุกรมสำหรับอ่านภาษา{language}",
+  categories: ["พจนานุกรมคำศัพท์", "พจนานุกรมวิสามานยนาม", "พจนานุกรมไวยากรณ์", "พจนานุกรมคันจิ", "พจนานุกรมความถี่", "พจนานุกรมการออกเสียง", "พจนานุกรมประโยคตัวอย่าง", "พจนานุกรมคำพ้องความหมาย", "สารานุกรม", "พจนานุกรมเสริม"]
   },
   tr: {
   title: "Yansılanan tüm sözlükler",
   summary: "{count} sözlük daha · toplam {size}",
   searchLabel: "Sözlüklerde ara",
   noResults: "Aramanızla eşleşen sözlük yok.",
-  otherLanguageNote: "Bu sözlükler Japonca okumak için değildir.",
-  categories: ["Sözcük sözlükleri", "Özel ad sözlükleri", "Dil bilgisi sözlükleri", "Kanji sözlükleri", "Sıklık sözlükleri", "Vurgu sözlükleri", "Örnek cümle sözlükleri", "Eş anlamlı sözlükler", "Ansiklopediler", "Yardımcı sözlükler"]
+  languageNote: "{language} okumak için sözlükler.",
+  categories: ["Sözcük sözlükleri", "Özel ad sözlükleri", "Dil bilgisi sözlükleri", "Kanji sözlükleri", "Sıklık sözlükleri", "Telaffuz sözlükleri", "Örnek cümle sözlükleri", "Eş anlamlı sözlükler", "Ansiklopediler", "Yardımcı sözlükler"]
   },
   vi: {
   title: "Tất cả từ điển được lưu trữ",
   summary: "Thêm {count} từ điển · tổng {size}",
   searchLabel: "Tìm từ điển",
   noResults: "Không có từ điển nào khớp với tìm kiếm.",
-  otherLanguageNote: "Những từ điển này không dùng để đọc tiếng Nhật.",
-  categories: ["Từ điển từ vựng", "Từ điển danh từ riêng", "Từ điển ngữ pháp", "Từ điển kanji", "Từ điển tần suất", "Từ điển trọng âm", "Từ điển câu ví dụ", "Từ điển đồng nghĩa", "Bách khoa toàn thư", "Từ điển hỗ trợ"]
+  languageNote: "Từ điển để đọc {language}.",
+  categories: ["Từ điển từ vựng", "Từ điển danh từ riêng", "Từ điển ngữ pháp", "Từ điển kanji", "Từ điển tần suất", "Từ điển phát âm", "Từ điển câu ví dụ", "Từ điển đồng nghĩa", "Bách khoa toàn thư", "Từ điển hỗ trợ"]
   }
 };
 const CATALOG_BROWSE_COPY = Object.freeze(
@@ -54601,13 +52153,19 @@ const CATALOG_BROWSE_COPY = Object.freeze(
 function catalogBrowseCopy(language2) {
   return CATALOG_BROWSE_COPY[language2] ?? CATALOG_BROWSE_COPY.en;
 }
+function catalogBrowseLanguageNote(copy, languageName) {
+  return copy.languageNote.replaceAll("{language}", languageName);
+}
 function freezeCopy(source) {
+  if (source.languageNote.split("{language}").length !== 2) {
+  throw new Error('Catalogue browse language note must contain one "{language}" placeholder.');
+  }
   return Object.freeze({
   title: source.title,
   summary: source.summary,
   searchLabel: source.searchLabel,
   noResults: source.noResults,
-  otherLanguageNote: source.otherLanguageNote,
+  languageNote: source.languageNote,
   categories: Object.freeze(
     Object.fromEntries(
       CATALOG_BROWSE_CATEGORY_ORDER.map((category, index) => {
@@ -54932,124 +52490,49 @@ function dictionaryLanguageCode(value) {
   if (code === "cn") return "zh";
   return code;
 }
-function pruneOldestCacheEntries(cache, limit) {
-  while (cache.size > limit) {
-  const oldest = cache.keys().next();
-  if (oldest.done) break;
-  cache.delete(oldest.value);
-  }
-}
-const DEFAULT_TIMEOUT_MS = 8e3;
-const TRANSLATION_CACHE_LIMIT = 320;
-const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
-const log$c = Logger.scope("GoogleTranslation");
-const translationCache = /* @__PURE__ */ new Map();
-const translationInFlight = /* @__PURE__ */ new Map();
-function normalizeTranslationLanguage(language2, options = {}) {
-  const trimmed = language2.trim();
-  if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
-  if (!trimmed) throw new Error("Translation language is required.");
-  try {
-  return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
-  } catch {
-  throw new Error(`Invalid translation language: ${language2}`);
-  }
-}
-function googleTranslationLanguageCapability(language2) {
-  const logicalLanguage = normalizeTranslationLanguage(language2);
-  const locale = new Intl.Locale(logicalLanguage);
-  if (locale.language === "grc") {
+const READINESS_LABEL_KEYS = {
+  full: "studyTargetReadinessFull",
+  "reading-only": "studyTargetReadinessReadingOnly",
+  planned: "studyTargetReadinessPlanned"
+};
+const READINESS_REASON_KEYS = {
+  full: "studyTargetReadinessFullReason",
+  "reading-only": "studyTargetReadinessReadingOnlyReason",
+  planned: "studyTargetReadinessPlannedReason"
+};
+const STUDY_TARGET_READINESS_ATTRIBUTE = "data-study-target-readiness";
+function studyTargetOptions(language2, targets2 = LEARNING_TARGET_ROSTER) {
+  return targets2.map((target) => {
+  const readiness2 = target.studyTargetReadiness;
+  const name = target.nativeName === target.englishName ? target.nativeName : `${target.nativeName} — ${target.englishName}`;
   return {
-    logicalLanguage,
-    providerLanguage: null,
-    supported: false
+    id: target.id,
+    runtimeLocale: target.runtimeLocale,
+    direction: target.direction,
+    label: `${name} · ${uiText(language2, READINESS_LABEL_KEYS[readiness2])}`,
+    readiness: readiness2,
+    reason: uiText(language2, READINESS_REASON_KEYS[readiness2]),
+    disabled: readiness2 === "planned"
   };
-  }
-  if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
-  return {
-    logicalLanguage,
-    // Google ignores sr-Latn and returns Cyrillic. Bosnian is the
-    // closest supported Serbo-Croatian standard with guaranteed Latin
-    // output; the logical profile remains sr-Latn everywhere else.
-    providerLanguage: "bs",
-    supported: true
-  };
-  }
-  return {
-  logicalLanguage,
-  providerLanguage: logicalLanguage,
-  supported: true
-  };
-}
-function googleTranslationUrl(text2, options) {
-  const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
-  const sourceProviderLanguage = sourceLanguage === "auto" ? "auto" : requiredGoogleTranslationLanguage(sourceLanguage);
-  const outputLanguage = requiredGoogleTranslationLanguage(options.outputLanguage);
-  const params = new URLSearchParams({
-  client: "gtx",
-  sl: sourceProviderLanguage,
-  tl: outputLanguage,
-  dt: "t",
-  dj: "1",
-  q: text2
   });
-  if (options.includeDictionaryData) params.append("dt", "bd");
-  return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
 }
-async function translateText(text2, options) {
-  const original = text2.trim();
-  if (!original) return "";
-  const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
-  const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
-  if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
-  const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-  const cached = translationCache.get(cacheKey);
-  if (cached !== void 0) return cached;
-  const active = translationInFlight.get(cacheKey);
-  if (active) return active;
-  const request = performTranslation(original, {
-  ...options,
-  sourceLanguage,
-  outputLanguage
-  });
-  translationInFlight.set(cacheKey, request);
-  void request.finally(() => {
-  if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
-  }).catch(() => void 0);
-  return request;
+function populateStudyTargetSelect(select2, language2, selected) {
+  select2.replaceChildren(...studyTargetOptions(language2).map((item) => {
+  const option = document.createElement("option");
+  option.value = item.id;
+  option.lang = item.runtimeLocale;
+  option.dir = item.direction;
+  option.textContent = item.label;
+  option.title = item.reason;
+  option.disabled = item.disabled;
+  option.setAttribute(STUDY_TARGET_READINESS_ATTRIBUTE, item.readiness);
+  option.setAttribute("aria-label", `${item.label}. ${item.reason}`);
+  option.selected = item.id === selected;
+  return option;
+  }));
 }
-function requiredGoogleTranslationLanguage(language2) {
-  const capability = googleTranslationLanguageCapability(language2);
-  if (!capability.supported || !capability.providerLanguage) {
-  throw new Error(`Automatic translation is not available for ${capability.logicalLanguage}.`);
-  }
-  return capability.providerLanguage;
-}
-async function performTranslation(text2, options) {
-  const url = googleTranslationUrl(text2, options);
-  const done = log$c.time("Translate text", {
-  sourceLanguage: options.sourceLanguage,
-  outputLanguage: options.outputLanguage,
-  textLength: text2.length
-  });
-  try {
-  const json = await requestJson(url, {
-    timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    allowDirectCrossOrigin: true,
-    allowConfiguredProxy: false,
-    allowPublicProxies: false,
-    preferFetch: true,
-    failureLabel: "Translation request",
-    timeoutLabel: "Translation timed out."
-  });
-  const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
-  if (!translated) throw new Error("No translation returned.");
-  translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
-  pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-  return translated;
-  } finally {
-  done();
-  }
+function isSelectableStudyTarget(id) {
+  return learningTargetRosterEntry(id).studyTargetReadiness !== "planned";
 }
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
 const DEFAULT_JITEN_SETTINGS_URL = "https://jiten.moe/settings";
@@ -55102,6 +52585,11 @@ function languageOptionLabel(language2) {
 function renderLanguageOptions(languages2, selected) {
   return languages2.map((item) => `
         <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? "selected" : ""}>${escapeHtml(languageOptionLabel(item))}</option>
+    `).join("");
+}
+function renderStudyTargetOptions(language2, selected) {
+  return studyTargetOptions(language2).map((item) => `
+        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ""} ${item.id === selected ? "selected" : ""}>${escapeHtml(item.label)}</option>
     `).join("");
 }
 const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = "data-interface-locale-blocked";
@@ -55164,7 +52652,7 @@ function renderLanguageProfileControls(settings) {
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage2)}
+                                ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage2)}
                             </select>
                         </label>
                         ${renderInterfaceLocaleSelect(settings)}
@@ -56135,7 +53623,7 @@ function renderDictionariesSettingsPanel(settings, includeCatalogBrowse) {
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse)}
+                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse, activeTargetLanguageId(settings))}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language2, "backupMovedHelp")}</div>
@@ -56354,6 +53842,11 @@ function syncLanguageProfileControls(form, language2) {
   const value = key ? copyValues[key] : void 0;
   if (value !== void 0) element2.replaceChildren(value);
   });
+  const targetSelect = form.querySelector('select[name="targetLanguage"]');
+  const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
+  if (targetSelect && selectedTarget) {
+  setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget));
+  }
   const learnerSelect = form.querySelector('select[name="learnerLanguage"]');
   const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? learnerSelect.value : "en";
   const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
@@ -56947,6 +54440,7 @@ function localizeRecommendedDictionaryGroups(form, text2) {
   terms: text2("termDictionaries"),
   kanji: text2("kanjiDictionaries"),
   pitch: text2("pitchDictionaries"),
+  pronunciation: text2("pronunciationDictionaries"),
   frequency: text2("frequencyDictionaries")
   };
   form.querySelectorAll("[data-recommended-category]").forEach((title) => {
@@ -56977,8 +54471,11 @@ function localizeCatalogBrowseSection(form, text2) {
   section.querySelectorAll("[data-catalog-browse-language]").forEach((shelf) => {
   const language2 = shelf.dataset.catalogBrowseLanguage;
   if (!language2) return;
-  shelf.querySelector("[data-catalog-browse-language-title]")?.replaceChildren(headwordLanguageName(language2, locale));
-  shelf.querySelector("[data-catalog-browse-language-note]")?.replaceChildren(copy?.otherLanguageNote ?? text2("mirroredDictionaryOtherLanguage"));
+  const languageName = headwordLanguageName(language2, locale);
+  shelf.querySelector("[data-catalog-browse-language-title]")?.replaceChildren(languageName);
+  shelf.querySelector("[data-catalog-browse-language-note]")?.replaceChildren(
+    copy ? catalogBrowseLanguageNote(copy, languageName) : formatUiText(interfaceLanguage, "mirroredDictionaryLanguageNote", { language: languageName })
+  );
   });
   let count = 0;
   let bytes = 0;
@@ -57755,29 +55252,35 @@ function installedFrequencyDictionaryPreferences(settings, installed) {
   const installedFrequencyNames = new Set(installed.filter((dictionary) => dictionary.type === "frequency").map((dictionary) => dictionary.title));
   return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency" && installedFrequencyNames.has(preference.name));
 }
-function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", includeCatalogBrowse = true) {
+function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", includeCatalogBrowse = true, targetLanguage2 = "ja") {
   const groups = [
   ["terms", "Term dictionaries"],
   ["kanji", "Kanji dictionaries"],
   ["pitch", "Pitch dictionaries"],
+  ["pronunciation", "Pronunciation dictionaries"],
   ["frequency", "Frequency dictionaries"]
   ];
-  const catalogRecommendations = recommendedDictionariesForLearnerLanguage(learnerLanguage2);
+  const catalogRecommendations = recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2);
   return `
-        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage2)}
-        <div class="jpdb-reader-recommended-title">Recommended dictionaries</div>
-        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText("en", "dictionaryInstallQueueHelp")}</div>
-        ${groups.map(([category, label]) => {
-      const dictionaries2 = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
-      if (!dictionaries2.length) return "";
-      return `
-            <div class="jpdb-reader-recommended-group">
-                <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml(label)}</div>
-                ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-            </div>
-        `;
-    }).join("")}
-        ${includeCatalogBrowse ? renderCatalogBrowseSection(catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2), installed, learnerLanguage2) : ""}
+        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage2, targetLanguage2)}
+        ${targetLanguage2 === "ja" ? `
+    <div class="jpdb-reader-recommended-title">Recommended Japanese dictionaries</div>
+    <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText("en", "dictionaryInstallQueueHelp")}</div>
+    ${groups.map(([category, label]) => {
+  const dictionaries2 = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
+  if (!dictionaries2.length) return "";
+  return `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml(label)}</div>
+                    ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                </div>
+            `;
+  }).join("")}` : ""}
+        ${includeCatalogBrowse ? renderCatalogBrowseSection(
+      catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targetLanguage2),
+      installed,
+      learnerLanguage2
+    ) : ""}
     `;
 }
 function renderCatalogBrowseSection(sections, installed, learnerLanguageId) {
@@ -57809,7 +55312,7 @@ function renderCatalogBrowseLanguage(section, copy, locale, installed) {
   return `
         <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language2)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language2))}"${section.isTargetLanguage ? " data-catalog-browse-language-target" : ""}>
             <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language2, locale))}</div>
-            ${section.isTargetLanguage ? "" : `<div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(copy.otherLanguageNote)}</div>`}
+            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language2, locale)))}</div>
             ${section.groups.map((group) => `
                 <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
                     <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
@@ -57825,7 +55328,7 @@ const CATALOG_BROWSE_CATEGORY_TEXT_KEYS = {
   grammar: "grammarDictionaries",
   kanji: "kanjiDictionaries",
   frequency: "frequencyDictionaries",
-  pronunciation: "pitchDictionaries",
+  pronunciation: "pronunciationDictionaries",
   examples: "exampleDictionaries",
   thesaurus: "thesaurusDictionaries",
   encyclopedia: "encyclopediaDictionaries",
@@ -57834,15 +55337,16 @@ const CATALOG_BROWSE_CATEGORY_TEXT_KEYS = {
 function catalogBrowseSummaryText(template, locale, count, bytes) {
   return template.replaceAll("{count}", localizedNumber(count, locale)).replaceAll("{size}", formatDictionaryBytes(bytes, locale));
 }
-function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId) {
+function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId, targetLanguage2) {
   if (!dictionaries2.length) return "";
   const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
   const messages = LOCALE_CATALOGS[learnerLanguageId].messages;
+  const title = targetLanguage2 === "ja" ? messages.recommendedDictionariesTitle : headwordLanguageName(targetLanguage2, learnerLanguage2.runtimeLocale);
   const size = completeDictionarySeedSize(dictionaries2, learnerLanguage2.runtimeLocale);
   const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries2.length, size, learnerLanguage2.runtimeLocale);
   return `
-        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" lang="${escapeHtml(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
-            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(messages.recommendedDictionariesTitle)}</div>
+        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml(targetLanguage2)}" lang="${escapeHtml(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
+            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(title)}</div>
             <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml(countAndSize)}</div>
             ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
         </section>
@@ -57854,7 +55358,7 @@ function renderRecommendedDictionary(dictionary, installed) {
                 ${alreadyInstalled ? "Update" : "Install"}
             </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
   const description = dictionary.description ?? (dictionary.descriptionKey ? uiText("en", dictionary.descriptionKey) : "");
-  const catalogAttributes = dictionary.origin === "catalog" ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? "")}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? "")}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? "")}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? "")}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? "")}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ""}` : "";
+  const catalogAttributes = dictionary.origin === "catalog" ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? "")}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? "")}" data-target-language="${escapeHtml(dictionary.targetLanguage ?? "")}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? "")}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? "")}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? "")}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ""}` : "";
   return `
         <div class="jpdb-reader-recommended-item"${catalogAttributes}>
             <div>
@@ -59018,15 +56522,19 @@ ${scopedInner}
   function isEntryStoreName(value) {
     return value === "terms" || value === "kanji" || value === "termMeta" || value === "kanjiMeta";
   }
-  function dictionaryCountsFromSummary(summary) {
+  function dictionaryCountsFromSummary(summary, ipa) {
     return {
       terms: summary.terms,
       kanji: summary.kanji,
       termMeta: summary.termMeta,
-      kanjiMeta: summary.kanjiMeta
+      kanjiMeta: summary.kanjiMeta,
+      ipa
     };
   }
   function dictionaryTypeFromCounts(counts = {}) {
+    if (!counts.terms && counts.termMeta && counts.termMeta === counts.ipa) {
+      return "pronunciation";
+    }
     return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
   }
   function hasTermDictionaryRows(info) {
@@ -59053,7 +56561,7 @@ ${scopedInner}
     ]);
   }
   function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
-    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
+    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: dictionaryTypes[info.title] ?? info.type })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
   }
   function readerExportSummary(json, terms, dictionaryNames, dictionaryTypes) {
     const kanji = json.kanji ?? [];
@@ -59082,8 +56590,9 @@ ${scopedInner}
   }
   function addDictionaryTypeCounts(counts, entries2, store) {
     for (const entry of entries2) {
-      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0, ipa: 0 };
       item[store]++;
+      if (store === "termMeta" && entry.mode === "ipa") item.ipa++;
       counts.set(entry.dictionary, item);
     }
   }
@@ -59719,7 +57228,7 @@ ${scopedInner}
     return typeof record2.alias === "string" && record2.alias ? record2.alias : fallback;
   }
   function dictionaryInfoType(value) {
-    return value === "terms" || value === "kanji" || value === "frequency" || value === "metadata" ? value : void 0;
+    return value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata" ? value : void 0;
   }
   function stringField(value) {
     return typeof value === "string" ? value : void 0;
@@ -60664,6 +58173,7 @@ ${entry.reading}`;
       const db = await this.db();
       const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
       const summary = { dictionaries: [dictionary], replacedDictionaries, dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      let ipaRows = 0;
       let clearedTermIndexesForImport = false;
       let importedTerms = false;
       const importBank = async (pattern, label, store, normalize) => {
@@ -60697,6 +58207,7 @@ ${entry.reading}`;
           for (const row of rows) {
             const entry = normalize(row);
             if (!entry) continue;
+            if (store === "termMeta" && entry.mode === "ipa") ipaRows++;
             if (store === "terms") await inlineStructuredImageDataUrls(zip, entry.glossary);
             pending2.push(entry);
             summary[label]++;
@@ -60716,7 +58227,7 @@ ${entry.reading}`;
       await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
       if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
       if (importedTerms) await this.clearDerivedTermIndexes(db);
-      info.counts = dictionaryCountsFromSummary(summary);
+      info.counts = dictionaryCountsFromSummary(summary, ipaRows);
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
@@ -60800,8 +58311,11 @@ ${entry.reading}`;
         const dictionary = entry.dictionary;
         if (typeof dictionary === "string") {
           dictionaries2.add(dictionary);
-          const counts = dictionaryCounts.get(dictionary) ?? {};
+          const counts = dictionaryCounts.get(dictionary) ?? { ipa: 0 };
           counts[store] = (counts[store] ?? 0) + 1;
+          if (store === "termMeta" && entry.mode === "ipa") {
+            counts.ipa++;
+          }
           dictionaryCounts.set(dictionary, counts);
         }
         if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {
@@ -63759,11 +61273,16 @@ ${glossaryKey}`;
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
-  function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2) {
+  function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
-    if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries, learnerLanguage2));
+    if (elements.recommended) {
+      setInnerHtml(
+        elements.recommended,
+        renderRecommendedDictionaries(summary.dictionaries, learnerLanguage2, true, targetLanguage2)
+      );
+    }
   }
   function selectedLearnerLanguage$1(form, settings) {
     const value = form.querySelector('select[name="learnerLanguage"]')?.value;
@@ -64148,7 +61667,7 @@ ${glossaryKey}`;
         this.renderLookupPillsForTarget(form, value);
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         void this.refreshTargetDictionaryAvailability(form, value);
-        if (value === "ja") void this.refreshDictionaryStatus(form);
+        void this.refreshDictionaryStatus(form);
       });
       this.bindAppearancePresets(form, applyThemePreview);
       form.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
@@ -64789,7 +62308,8 @@ ${glossaryKey}`;
         elements,
         summary,
         this.settings,
-        selectedLearnerLanguage$1(form, this.settings)
+        selectedLearnerLanguage$1(form, this.settings),
+        selectedTargetLanguage(form, this.settings)
       );
       localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       installCatalogBrowseFilter(form);
@@ -65811,6 +63331,7 @@ ${glossaryKey}`;
     backdrop;
     languageSelect;
     learnerLanguageSelect;
+    targetLanguageSelect;
     themeSwitch;
     accentColorInput;
     pendingAccentPreviewColor;
@@ -65889,7 +63410,7 @@ ${glossaryKey}`;
         this.learnerLanguageSelect?.append(option);
       });
       learnerLanguage2.append(learnerLanguageText, this.learnerLanguageSelect);
-      const targetLanguage2 = document.createElement("div");
+      const targetLanguage2 = document.createElement("label");
       targetLanguage2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language";
       const targetLanguageText = element(
         "span",
@@ -65897,10 +63418,15 @@ ${glossaryKey}`;
         onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage
       );
       targetLanguageText.dataset.onboardingMultilingualCopy = "targetLanguage";
-      const targetLanguageValue = element("output", "", "日本語 — Japanese");
-      targetLanguageValue.lang = targetContentLocale();
-      targetLanguageValue.dataset.onboardingTargetLanguage = SLICE1_TARGET_LANGUAGE;
-      targetLanguage2.append(targetLanguageText, targetLanguageValue);
+      this.targetLanguageSelect = document.createElement("select");
+      this.targetLanguageSelect.name = "targetLanguage";
+      this.targetLanguageSelect.setAttribute("autocomplete", "language");
+      populateStudyTargetSelect(
+        this.targetLanguageSelect,
+        this.options.getSettings().interfaceLanguage,
+        onboardingTargetLanguage(this.options.getSettings())
+      );
+      targetLanguage2.append(targetLanguageText, this.targetLanguageSelect);
       const language2 = document.createElement("label");
       language2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language";
       const languageText = element("span", "", uiText(this.options.getSettings().interfaceLanguage, "onboardingLanguage"));
@@ -66048,10 +63574,17 @@ ${glossaryKey}`;
         const selected = learnerLanguageById(learnerLanguage22);
         log$3.info("Onboarding learner language changed", {
           learnerLanguage: learnerLanguage22,
-          targetLanguage: activeLearningTargetLanguage()
+          targetLanguage: this.targetLanguageSelect?.value
         });
         this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
         this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
+      });
+      this.targetLanguageSelect.addEventListener("change", () => {
+        const selected = this.targetLanguageSelect?.selectedOptions[0];
+        if (selected) {
+          this.targetLanguageSelect.lang = selected.lang;
+          this.targetLanguageSelect.dir = selected.dir;
+        }
       });
       this.panel.addEventListener("click", (event) => {
         this.handleWordLookup(event);
@@ -66131,6 +63664,16 @@ ${glossaryKey}`;
         const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
         if (option) option.textContent = text2;
       });
+      if (this.targetLanguageSelect) {
+        populateStudyTargetSelect(
+          this.targetLanguageSelect,
+          language2,
+          selectedOnboardingTargetLanguage(
+            this.targetLanguageSelect.value,
+            onboardingTargetLanguage(this.options.getSettings())
+          )
+        );
+      }
       const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
       features.forEach((feature, index) => {
         const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
@@ -66178,9 +63721,14 @@ ${glossaryKey}`;
         this.learnerLanguageSelect?.value,
         onboardingLearnerLanguage(current)
       );
+      const targetLanguage2 = selectedOnboardingTargetLanguage(
+        this.targetLanguageSelect?.value,
+        onboardingTargetLanguage(current)
+      );
       const languageProfileSelection = updateActiveOnboardingLanguageProfile(
         current,
         learnerLanguage2,
+        targetLanguage2,
         interfaceLanguage
       );
       return {
@@ -66217,6 +63765,7 @@ ${glossaryKey}`;
       this.backdrop = void 0;
       this.languageSelect = void 0;
       this.learnerLanguageSelect = void 0;
+      this.targetLanguageSelect = void 0;
       this.themeSwitch = void 0;
       this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
@@ -66348,12 +63897,23 @@ ${glossaryKey}`;
   function selectedLearnerLanguage(value, fallback) {
     return value && isLearnerLanguageId(value) ? value : fallback;
   }
-  function updateActiveOnboardingLanguageProfile(settings, learnerLanguage2, interfaceLanguage) {
+  function onboardingTargetLanguage(settings) {
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
+  }
+  function selectedOnboardingTargetLanguage(value, fallback) {
+    const selected = learningTargetRosterIdForTag(value);
+    return selected && isSelectableStudyTarget(selected) ? selected : fallback;
+  }
+  function updateActiveOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
+    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage2);
+    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage2);
     const activated = activateLanguageProfileForOutputLanguage(
       settings.languageProfiles,
       settings.activeLanguageProfileId,
-      canonicalTagForSlice1Language(learnerLanguage2),
+      learnerLanguageTag,
       {
+        targetLanguage: targetLanguageTag,
         uiLocale: interfaceLanguage,
         parserProvider: settings.parserProvider
       }
@@ -66362,12 +63922,9 @@ ${glossaryKey}`;
       activeLanguageProfileId: activated.activeProfileId,
       languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
         ...profile,
-        outputLanguage: canonicalTagForSlice1Language(learnerLanguage2),
-        learnerLanguage: canonicalTagForSlice1Language(learnerLanguage2),
-        // Onboarding decides the definition language, never the target.
-        // Re-stamping a constant here would silently revert a profile that
-        // already selected a different registered target.
-        targetLanguage: normalizeLearningTargetLanguage(profile.targetLanguage),
+        outputLanguage: learnerLanguageTag,
+        learnerLanguage: learnerLanguageTag,
+        targetLanguage: targetLanguageTag,
         uiLocale: interfaceLanguage,
         parserProvider: settings.parserProvider
       } : profile)
@@ -66488,10 +64045,12 @@ ${glossaryKey}`;
   const OFFLINE_PITCH_DICTIONARY_ID = "kanjium-pitch";
   async function installOfflineParsingDictionaries(options) {
     const result = { installed: [], skipped: [], failed: [] };
-    const learnerLanguage2 = activeLearnerLanguage(options.getSettings());
+    const settings = options.getSettings();
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     const plan = await offlineDictionarySetupPlan(
       options.dictionaries,
-      learnerLanguage2,
+      slice1LanguageIdForTag(profile?.outputLanguage) ?? "en",
+      learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja",
       result
     );
     if (plan.installed.length) {
@@ -66501,15 +64060,15 @@ ${glossaryKey}`;
       try {
         const importOptions = recommendedDictionaryImportOptions(target);
         const summary = importOptions ? await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress, importOptions) : await options.dictionaries.importFromUrl(target.downloadUrl, void 0, options.onProgress);
-        const settings = options.getSettings();
+        const settings2 = options.getSettings();
         const dictionaryPreferences = mergeDictionaryPreferences(
-          settings.dictionaryPreferences,
+          settings2.dictionaryPreferences,
           summary.dictionaries,
           summary.dictionaryTypes ?? {},
           summary.replacedDictionaries ?? []
         );
         await options.applySettings(captureActiveLanguageProfileDictionaries(
-          { ...settings, localDictionariesEnabled: true },
+          { ...settings2, localDictionariesEnabled: true },
           dictionaryPreferences
         ));
         result.installed.push(target.name);
@@ -66520,11 +64079,10 @@ ${glossaryKey}`;
     }
     return result;
   }
-  async function offlineDictionarySetupPlan(store, learnerLanguage2, result) {
-    const targets2 = [
-      ...recommendedDictionariesForLearnerLanguage(learnerLanguage2).filter((dictionary) => dictionary.selectedByDefault !== false),
-      findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID)
-    ].filter((dictionary) => Boolean(dictionary?.downloadUrl));
+  async function offlineDictionarySetupPlan(store, learnerLanguage2, targetLanguage2, result) {
+    const targets2 = recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2).filter((dictionary) => dictionary.selectedByDefault !== false && Boolean(dictionary.downloadUrl));
+    const pitch = targetLanguage2 === "ja" ? findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID) : void 0;
+    if (pitch?.downloadUrl) targets2.push(pitch);
     const installedDictionaries = await store.summary().then((summary) => summary.dictionaries).catch(() => []);
     const missing = [];
     const installed = [];
@@ -66564,10 +64122,6 @@ ${glossaryKey}`;
     } catch {
       return value.trim();
     }
-  }
-  function activeLearnerLanguage(settings) {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return slice1LanguageIdForTag(profile?.outputLanguage) ?? "en";
   }
   const log$1 = Logger.scope("DictionaryReplication");
   const REPLICATION_STATE_KEY = "yomu-dictionary-replication-state";

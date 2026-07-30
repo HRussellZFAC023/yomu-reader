@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.dec15df098e2.user.js#sha256=3sFd8JjiDnrI6M8Jbnx9+CtaRSpfeihU/uzRAV8jKYg=
+// @require https://yomureader.com/greasyfork/yomu-runtime.4bdb0f3cf911.user.js#sha256=S9sPPPkRke7YpanXyOzpkVv4YUtNenwqxwQnI4zrnVQ=
 // @resource yomuCss  https://yomureader.com/yomu.7476cc632b3a.css#sha256=dHbMYys6M7vAktSg7Hj0czUqdj4QJmlZMAANu3W7+LE=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -7126,18 +7126,18 @@ const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   nativeName: "日本語",
   defaultScript: "Jpan",
   scripts: Object.freeze(["Jpan"]),
-  direction: "ltr"
+  direction: "ltr",
+  studyTargetReadiness: "full"
 });
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES
+  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+  ...language,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  }))
 ]);
-const RUNTIME_BASE_TO_CATALOGUE_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [
-  languageSubtag(language.runtimeLocale) ?? language.id,
-  language.id
-  ])
-);
 Object.freeze(
   LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
 );
@@ -7160,7 +7160,8 @@ function slice1LanguageIdForTag(value) {
   const base = languageSubtag(canonical);
   if (!base) return null;
   if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  return RUNTIME_BASE_TO_CATALOGUE_ID.get(base) ?? null;
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
 }
 function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
   if (typeof value === "string") {
@@ -8849,11 +8850,12 @@ function isSafeLookupUrlTemplate(value) {
   }
 }
 function normalizeDictionaryType(value, name = "") {
-  if (value === "terms" || value === "kanji" || value === "frequency" || value === "metadata") return value;
+  if (value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata") return value;
   return inferDictionaryTypeFromName(name);
 }
 function inferDictionaryTypeFromName(name) {
   const normalized = name.toLowerCase();
+  if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return "pronunciation";
   if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return "frequency";
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
@@ -31160,6 +31162,28 @@ function renderModalNavigation(options) {
     </div>
   `;
 }
+function extractIpaPronunciations(entries2, match) {
+  const forms = [match.expression, match.reading ?? ""].map(normalizeLookupForm);
+  const result = [];
+  const seen = new Set();
+  for (const entry of entries2) {
+  const data = entry.data;
+  if (entry.mode !== "ipa" || !forms.includes(normalizeLookupForm(entry.expression ?? "")) || !data || typeof data !== "object" || !Array.isArray(data.transcriptions)) continue;
+  if (data.reading && (typeof data.reading !== "string" || !forms.includes(normalizeLookupForm(data.reading)))) continue;
+  for (const transcription of data.transcriptions) {
+    const value = transcription == null ? void 0 : transcription.ipa;
+    if (typeof value !== "string") continue;
+    const ipa = value.trim();
+    if (!ipa || seen.has(ipa)) continue;
+    seen.add(ipa);
+    result.push({ ipa, dictionary: entry.dictionary });
+  }
+  }
+  return result;
+}
+function normalizeLookupForm(value) {
+  return value.normalize("NFKC").trim().toLowerCase();
+}
 function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
   const query = context.query;
@@ -31168,6 +31192,15 @@ function renderWordPills(options) {
   const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
   const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
   const ankiPill = renderAnkiPill(options, language, query);
+  linkPills.unshift(...extractIpaPronunciations(options.metaEntries ?? [], {
+  expression: context.word,
+  reading: context.reading
+  }).map(({ ipa, dictionary: name }) => {
+  if (options.settings.dictionaryPreferences.some((preference) => preference.name === name && !preference.enabled)) return "";
+  const label = `IPA ${ipa}`;
+  const accessibleLabel = `${label}. ${options.dictionaryLabel(name) || name}`;
+  return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml$1(name)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${name}`)}" title="${escapeHtml$1(accessibleLabel)}" aria-label="${escapeHtml$1(accessibleLabel)}">${escapeHtml$1(label)}</span>`;
+  }));
   const configuredFrequencyIds = new Set(enabledLinks.filter((link) => isFrequencyLookupPill(link)).map((link) => link.id));
   const leftoverFrequencyPills = Array.from(frequencyPills).filter(([id]) => !configuredFrequencyIds.has(id)).map(([, html]) => html);
   const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);

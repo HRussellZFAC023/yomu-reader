@@ -8,11 +8,17 @@ import {
     type StudyTargetReadiness,
 } from '../languages/roster';
 
-const READINESS_COPY_SUFFIX = {
-    full: 'Full',
-    'reading-only': 'ReadingOnly',
-    planned: 'Planned',
-} as const satisfies Record<StudyTargetReadiness, string>;
+const READINESS_LABEL_KEYS = {
+    full: 'studyTargetReadinessFull',
+    'reading-only': 'studyTargetReadinessReadingOnly',
+    planned: 'studyTargetReadinessPlanned',
+} as const satisfies Record<StudyTargetReadiness, Parameters<typeof uiText>[1]>;
+
+const READINESS_REASON_KEYS = {
+    full: 'studyTargetReadinessFullReason',
+    'reading-only': 'studyTargetReadinessReadingOnlyReason',
+    planned: 'studyTargetReadinessPlannedReason',
+} as const satisfies Record<StudyTargetReadiness, Parameters<typeof uiText>[1]>;
 
 export const STUDY_TARGET_READINESS_ATTRIBUTE = 'data-study-target-readiness';
 
@@ -35,14 +41,13 @@ export function studyTargetOptions(
         const name = target.nativeName === target.englishName
             ? target.nativeName
             : `${target.nativeName} — ${target.englishName}`;
-        const readinessKey = `studyTargetReadiness${READINESS_COPY_SUFFIX[readiness]}` as const;
         return {
             id: target.id,
             runtimeLocale: target.runtimeLocale,
             direction: target.direction,
-            label: `${name} · ${uiText(language, readinessKey)}`,
+            label: `${name} · ${uiText(language, READINESS_LABEL_KEYS[readiness])}`,
             readiness,
-            reason: uiText(language, `${readinessKey}Reason` as const),
+            reason: uiText(language, READINESS_REASON_KEYS[readiness]),
             disabled: readiness === 'planned',
         };
     });

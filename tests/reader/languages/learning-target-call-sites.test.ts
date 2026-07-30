@@ -63,15 +63,23 @@ function activateAdHocTarget(language: string, overrides: Parameters<typeof adHo
 }
 
 // ---------------------------------------------------------------------------
-// app/onboarding.ts — typography.contentLocale on the rendered target word
+// app/onboarding.ts — typography.contentLocale on the selected target option
 // ---------------------------------------------------------------------------
 
-describe('onboarding target-language output', () => {
+describe('onboarding target-language picker', () => {
     it('stamps lang= from the active target typography, not a Japanese literal', async () => {
         const target = activateAdHocTarget('sv');
         expect(target.typography.contentLocale).toBe('sv');
 
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            onboardingSeen: false,
+            interfaceLanguage: 'en',
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
+                ...profile,
+                targetLanguage: 'sv',
+            })),
+        };
         const controller = new OnboardingController({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
@@ -81,9 +89,11 @@ describe('onboarding target-language output', () => {
 
         await expect(controller.showIfNeeded()).resolves.toBe(true);
 
-        const output = document.querySelector<HTMLElement>('[data-onboarding-target-language]');
-        expect(output).not.toBeNull();
-        expect(output!.lang).toBe('sv');
+        const picker = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
+        const selected = picker?.selectedOptions[0];
+        expect(picker).not.toBeNull();
+        expect(selected?.value).toBe('sv');
+        expect(selected?.lang).toBe('sv');
     });
 });
 
