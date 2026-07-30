@@ -30,8 +30,9 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
-0. **P0 — THE 1.9.0 GATE:** A37.1 the pointer lookup is Japanese-only so 33 of 34 pickable targets are
-   dead ends · A37.2 the hero advertises all 34 · A37.3 U79 gating · A37.4 Burmese has no dictionaries.
+0. **P0 — THE 1.9.0 GATE:** A37's active-profile pointer lookup, capability-bound hero, U79 DOM
+   gating, and no-empty-picker-target audit shipped in v1.8.38. The remaining multilingual gate is the
+   other U61 seams, then U105/D43/U46.
 0a. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
    ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
    definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
@@ -523,9 +524,9 @@ homepage now advertises the gap 34 times instead of 9.
 
 **Fixed in v1.8.38:**
 
-- [x] **A37.1 — CRITICAL: the pointer lookup was hardcoded to Japanese script, so every non-Japanese target
-      is a dead end.** `src/reader/lookup/pointer-text-lookup.ts:4` builds
-      `JAPANESE_RUN_RE` from kana, kanji-like ranges and the prolonged sound mark, and gates **six**
+- [x] **A37.1 — FIXED: the pointer lookup was hardcoded to Japanese script, so every non-Japanese target
+      was a dead end.** At `c14b947a9`, `src/reader/lookup/pointer-text-lookup.ts:4` built
+      `JAPANESE_RUN_RE` from kana, kanji-like ranges and the prolonged sound mark, and gated **six**
       decisions on it (`:231`, `:259`, `:349`, `:375`, `:379`). A learner who picks Spanish, Korean, Arabic
       or Greek in the new picker, on a page in that language, presses a word and **nothing opens** — the
       lookup returns null before any dictionary is consulted. The dictionaries for those languages now
@@ -545,8 +546,8 @@ homepage now advertises the gap 34 times instead of 9.
       Japanese, Korean, Spanish, Arabic, and Greek Wikipedia pages; all five open a popover. The Japanese
       boundary/caret output is also compared byte-for-byte with the old algorithm across every offset in
       the regression corpus.
-- [x] **A37.2 — CRITICAL: the homepage hero now names ~34 study targets and A37.1 means one works.**
-      Live at 2026-07-30 the rotator cycles 日本語, Shqip, Ἑλληνιστί, العربية, 粵語, 中文（简体）, Dansk,
+- [x] **A37.2 — FIXED: the homepage hero named ~34 study targets while only Japanese lookup worked.**
+      Before v1.8.38 the rotator cycled 日本語, Shqip, Ἑλληνιστί, العربية, 粵語, 中文（简体）, Dansk,
       Nederlands, English, Suomi, Français, Deutsch, Ελληνικά, Magyar, Bahasa Indonesia, Italiano and more.
       A35.5 asked for the hero to be driven by what the product supports; it is now driven by the
       dictionary roster, which is the wrong axis while lookups are Japanese-only. Either land A37.1 first,
@@ -554,16 +555,16 @@ homepage now advertises the gap 34 times instead of 9.
       for must assert against the LOOKUP capability, not the catalogue.
       `heroStudyLanguages()` now reads the `term-lookup` capability, and the published-pages audit asserts
       exact equality between that capability roster and the homepage rotator.
-- [x] **A37.3 — U79 CSS gating never landed.** `data-language` appears **zero** times in
-      `src/reader/app/main.ts`. For a target with no reading annotation the furigana controls, the
+- [x] **A37.3 — FIXED: U79 DOM gating now follows the active target.** At `c14b947a9`,
+      `data-language` appeared **zero** times in `src/reader/app/main.ts`. For a target with no reading annotation the furigana controls, the
       `furiganaMode` row, pitch colouring, the pitch legend and the provider pills must be ABSENT from the
       DOM rather than greyed out, and must return when the target is Japanese again.
       Reader-owned roots now carry `data-language`; the shared language-family mechanism physically
       detaches unsupported nodes, discovers dynamically inserted nodes, and restores the same nodes for
       Japanese.
-- [x] **A37.4 — Burmese (`my`) has zero dictionary entries** while the other 33 roster languages have some.
-      Either source it or take it off the roster; a picker entry that resolves to nothing is the A11 defect
-      class (a state the learner cannot tell from broken).
+- [x] **A37.4 — FIXED: Burmese (`my`) has zero dictionary entries but is not a picker target.**
+      A picker entry that resolves to nothing is the A11 defect class (a state the learner cannot tell
+      from broken), so it must be sourced or absent from the roster.
       Burmese is not in `LEARNING_TARGET_ROSTER`, and the published-pages audit now fails if any
       lookup-capable picker target has zero published dictionary supply.
 
