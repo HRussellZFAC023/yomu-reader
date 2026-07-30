@@ -118,6 +118,7 @@
     "api:build": "node scripts/build-openapi.mjs",
     "docs:build": "npm run api:build && npm run docs:settings-reference:check && node scripts/check-public-docs.mjs && vitepress build docs",
     "manual:settings-persistence": "node scripts/manual/settings-persistence-smoke.mjs",
+    "manual:multilingual-lookup-coverage": "vite-node scripts/manual/multilingual-lookup-coverage.ts",
     "manual:subtitles-e2e": "node scripts/manual/subtitle-player-e2e.mjs",
     "favicons:generate": "node scripts/generate-favicons.mjs",
     "fallow": "fallow",
