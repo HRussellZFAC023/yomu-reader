@@ -603,7 +603,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         const card = newTabTestCard({ spelling: '漢字', reading: 'かんじ', sentence: '漢字です。' });
         const internals = runtime as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+            showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void>;
         };
 
         try {
@@ -619,12 +619,21 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
                 uchisenEnabled: false,
             };
 
-            await internals.showKanjiLookupCard(card, '漢', '漢字です。');
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.textContent = '漢';
+            document.body.append(trigger);
+            trigger.focus();
+
+            await internals.showKanjiLookupCard(card, '漢', '漢字です。', trigger);
             const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
             popover.style.setProperty('--jpdb-reader-sheet-height', '620px');
 
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
-            expect(popover.getAttribute('aria-modal')).toBe('false');
+            expect(popover.getAttribute('aria-modal')).toBe('true');
+            expect(popover.getAttribute('role')).toBe('dialog');
+            expect(document.activeElement).toBe(popover);
+            expect(trigger.getAttribute('aria-hidden')).toBe('true');
             expect(popover.querySelector<HTMLButtonElement>('[data-action="word-back"]')?.title).toBe('Back to word: 漢字');
 
             popover.insertAdjacentHTML('beforeend', '<button type="button" data-action="kanji" data-kanji="字">字</button>');

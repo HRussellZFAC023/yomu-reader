@@ -303304,9 +303304,7 @@ ${component.reading}`;
     const popover = document.createElement("div");
     popover.className = "jpdb-reader-popover";
     popover.dataset.jpdbReaderRoot = "true";
-    popover.setAttribute("role", "dialog");
     popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
-    popover.setAttribute("aria-modal", "true");
     popover.tabIndex = -1;
     if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
     else popover.style.width = `${settings.popoverWidth}px`;
@@ -324431,6 +324429,61 @@ ${entry2.url}`),
   }
   function isJitenBulkAction(action2) {
     return action2 === "jiten-mining" || action2 === "jiten-suspend" || action2 === "jiten-forget";
+  }
+  const FOCUSABLE_SELECTOR = 'button,input,select,textarea,a[href],summary,audio[controls],video[controls],[contenteditable],[tabindex]:not([tabindex^="-"])';
+  class LookupModalAccessibility {
+    dialog;
+    returnTo;
+    hidden = [];
+    activate(root, trigger) {
+      const active = document.activeElement;
+      const restoreTarget = this.returnTo?.isConnected ? this.returnTo : trigger?.isConnected ? trigger : active instanceof HTMLElement && !root.contains(active) ? active : void 0;
+      this.release(true);
+      this.dialog = root;
+      root.setAttribute("role", "dialog");
+      root.setAttribute("aria-modal", "true");
+      this.returnTo = restoreTarget;
+      this.hidden = hideBackground(root);
+      root.addEventListener("keydown", this.handleKeydown);
+    }
+    release(preserveRestoreTarget = false) {
+      this.dialog?.removeEventListener("keydown", this.handleKeydown);
+      this.dialog = void 0;
+      for (const [element2, ariaHidden] of this.hidden) {
+        if (ariaHidden === null) element2.removeAttribute("aria-hidden");
+        else element2.setAttribute("aria-hidden", ariaHidden);
+      }
+      this.hidden = [];
+      if (preserveRestoreTarget) return false;
+      const restoreTarget = this.returnTo?.isConnected ? this.returnTo : void 0;
+      this.returnTo = void 0;
+      restoreTarget?.focus({ preventScroll: true });
+      return Boolean(restoreTarget);
+    }
+    handleKeydown = (event) => {
+      if (event.key !== "Tab" || event.isComposing || !this.dialog) return;
+      const focusable = Array.from(this.dialog.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element2) => !element2.closest("[hidden]") && !element2.closest('[aria-hidden="true"]') && element2.tabIndex >= 0).sort((left, right) => (left.tabIndex || Infinity) - (right.tabIndex || Infinity));
+      const destination = event.shiftKey ? focusable.at(-1) : focusable[0];
+      const edge = event.shiftKey ? focusable[0] : focusable.at(-1);
+      if (document.activeElement !== edge && document.activeElement !== this.dialog && this.dialog.contains(document.activeElement)) return;
+      event.preventDefault();
+      (destination ?? this.dialog).focus();
+    };
+  }
+  function hideBackground(root) {
+    const hidden = [];
+    let branch = root;
+    while (branch.parentElement) {
+      const parent = branch.parentElement;
+      for (const sibling of Array.from(parent.children)) {
+        if (!(sibling instanceof HTMLElement) || sibling === branch) continue;
+        hidden.push([sibling, sibling.getAttribute("aria-hidden")]);
+        sibling.setAttribute("aria-hidden", "true");
+      }
+      if (parent === document.body) break;
+      branch = parent;
+    }
+    return hidden;
   }
   class PopupNavigationController {
     constructor(hasActiveKanjiPopover) {
@@ -369020,15 +369073,6 @@ ${entry2.url}`),
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
-  const SETTINGS_FOCUSABLE_SELECTOR = [
-    "button:not([disabled])",
-    "input:not([disabled])",
-    "select:not([disabled])",
-    "textarea:not([disabled])",
-    "a[href]",
-    "summary",
-    '[tabindex]:not([tabindex="-1"])'
-  ].join(",");
   const SETTINGS_FOCUS_SCROLL_SELECTOR = [
     'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
     "select",
@@ -369357,8 +369401,7 @@ ${entry2.url}`),
     pendingDictionaryOperations = 0;
     recommendedDictionaryOperations = /* @__PURE__ */ new Map();
     currentForm;
-    previouslyFocusedElement;
-    modalSiblingState;
+    modal = new LookupModalAccessibility();
     saveRequestId = 0;
     ankiConnectionProbeId = 0;
     jpdbConnectionProbeId = 0;
@@ -369373,7 +369416,7 @@ ${entry2.url}`),
     settingsJapaneseParseRefreshTimer;
     open(panel) {
       log$2.info("Opening settings", { panel: panel ?? "default" });
-      this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
+      const trigger = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
       const form2 = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form2);
@@ -369386,7 +369429,7 @@ ${entry2.url}`),
       syncLanguageFamilyDom(form2, activeTargetLanguageId(this.settings));
       this.currentForm = form2;
       this.dependencies.mountDialog(backdrop, form2);
-      this.hideBackgroundForModal(backdrop);
+      this.modal.activate(form2, trigger);
       installSettingsDrawerHandle(form2, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
       this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
       this.syncRecommendedDictionaryInstallControls(form2);
@@ -369500,10 +369543,6 @@ ${entry2.url}`),
         event.stopPropagation();
         this.dismissSettings();
       });
-      form2.addEventListener("keydown", (event) => {
-        if (event.key !== "Tab" || event.isComposing) return;
-        this.trapFocus(form2, event);
-      });
     }
     dismissSettings() {
       if (this.settingsJapaneseParseRefreshFrame !== void 0) {
@@ -369514,35 +369553,9 @@ ${entry2.url}`),
         window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
         this.settingsJapaneseParseRefreshTimer = void 0;
       }
-      const restoreTarget = this.previouslyFocusedElement;
-      this.previouslyFocusedElement = void 0;
+      this.modal.release();
       this.currentForm = void 0;
-      this.restoreBackgroundFromModal();
       this.dependencies.dismiss();
-      if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
-    }
-    hideBackgroundForModal(backdrop) {
-      this.restoreBackgroundFromModal();
-      const dialogRoot = backdrop.isConnected ? backdrop : this.currentForm;
-      const directRoot = dialogRoot?.parentElement === document.body ? dialogRoot : this.currentForm?.parentElement;
-      if (!directRoot) return;
-      this.modalSiblingState = Array.from(document.body.children).filter((element2) => element2 instanceof HTMLElement && element2 !== directRoot && !element2.contains(this.currentForm ?? null)).map((element2) => {
-        const state = {
-          element: element2,
-          ariaHidden: element2.getAttribute("aria-hidden"),
-          inert: element2.inert
-        };
-        element2.setAttribute("aria-hidden", "true");
-        return state;
-      });
-    }
-    restoreBackgroundFromModal() {
-      this.modalSiblingState?.forEach(({ element: element2, ariaHidden, inert }) => {
-        if (ariaHidden === null) element2.removeAttribute("aria-hidden");
-        else element2.setAttribute("aria-hidden", ariaHidden);
-        element2.inert = inert;
-      });
-      this.modalSiblingState = void 0;
     }
     /**
      * Clear the `aria-hidden` the modal placed on background siblings.
@@ -369555,25 +369568,7 @@ ${entry2.url}`),
      */
     releaseModalBackground() {
       if (!this.currentForm?.isConnected) this.currentForm = void 0;
-      this.restoreBackgroundFromModal();
-    }
-    trapFocus(form2, event) {
-      const focusable = Array.from(form2.querySelectorAll(SETTINGS_FOCUSABLE_SELECTOR)).filter((element2) => !element2.closest("[hidden]") && element2.getAttribute("aria-hidden") !== "true");
-      if (!focusable.length) {
-        event.preventDefault();
-        form2.focus();
-        return;
-      }
-      const first2 = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first2 || active === form2)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first2.focus();
-      }
+      this.modal.release();
     }
     bindSettingsSearch(form2) {
       const input2 = form2.querySelector("[data-settings-search]");
@@ -373042,6 +373037,7 @@ ${rank2.detail}` : baseTitle;
     activeLookupBackdrop;
     activeLookupAnchor;
     activeLookupHandlerController;
+    lookupModal = new LookupModalAccessibility();
     lookupRenderRequest = 0;
     parseContentCache = /* @__PURE__ */ new Map();
     lastAutoAudioKey = "";
@@ -373534,6 +373530,7 @@ ${rank2.detail}` : baseTitle;
     }
     dismiss() {
       const hadSettingsDialog = Boolean(this.activeDialog?.classList.contains("jpdb-reader-settings"));
+      this.lookupModal.release();
       this.activeDialog?.remove();
       this.activeBackdrop?.remove();
       this.activeLookupPopover?.remove();
@@ -374461,12 +374458,12 @@ ${rank2.detail}` : baseTitle;
     mountLookupPopover(popover, anchor2, options = {}) {
       this.activeLookupHandlerController?.abort();
       this.activeLookupHandlerController = void 0;
+      this.lookupModal.release(Boolean(this.activeLookupPopover?.isConnected));
       this.activeLookupPopover?.remove();
       this.activeLookupBackdrop?.remove();
       const stackOverSettings = Boolean(options.stackOverSettings && this.activeDialog?.classList.contains("jpdb-reader-settings") && this.activeDialog.isConnected);
       if (stackOverSettings) forceReaderPopoverSurface(popover, this.settings);
       const useBackdrop = !stackOverSettings && !popover.classList.contains("jpdb-reader-sheet");
-      popover.setAttribute("aria-modal", String(useBackdrop));
       if (useBackdrop) {
         const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
         document.body.append(backdrop, popover);
@@ -374477,6 +374474,8 @@ ${rank2.detail}` : baseTitle;
       }
       this.activeLookupPopover = popover;
       this.activeLookupAnchor = anchor2;
+      this.lookupModal.activate(popover, anchor2);
+      popover.focus({ preventScroll: true });
       this.installLookupPopoverBodyStabilizers(popover);
       this.dictionarySourceState.installTracking(popover);
       if (popover.classList.contains("jpdb-reader-sheet")) {
@@ -374492,6 +374491,7 @@ ${rank2.detail}` : baseTitle;
       requestAnimationFrame(() => this.repositionLookupPopover());
     }
     dismissLookupPopover() {
+      this.lookupModal.release();
       this.activeLookupPopover?.remove();
       this.activeLookupBackdrop?.remove();
       this.activeLookupHandlerController?.abort();

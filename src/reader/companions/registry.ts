@@ -1,5 +1,7 @@
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
+export type LookupModalAccessibilityClass = typeof import('../popup/modal-accessibility-impl').LookupModalAccessibility;
+export type LookupModalAccessibilityInstance = InstanceType<LookupModalAccessibilityClass>;
 export type OnboardingControllerClass = typeof import('../app/onboarding').OnboardingController;
 type InstallOfflineParsingDictionariesFn = typeof import('../dictionaries/offline-setup').installOfflineParsingDictionaries;
 type InstallDefinitionTranslationBehaviorsFn = typeof import('../sources/definition-translation').installDefinitionTranslationBehaviors;
@@ -183,6 +185,7 @@ interface YomuCompanionRegistry {
     };
     settings?: {
         SettingsDialogController: SettingsDialogControllerClass;
+        LookupModalAccessibility?: LookupModalAccessibilityClass;
         OnboardingController: OnboardingControllerClass;
         // Multilingual catalogues and locale copy are intentionally owned by
         // the settings companion so they do not enter the size-limited core.

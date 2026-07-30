@@ -1,4 +1,5 @@
 import { SettingsDialogController } from '../settings/dialog-controller';
+import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { OnboardingController } from '../app/onboarding';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
@@ -22,6 +23,7 @@ import { registerYomuCompanion } from './registry';
 
 registerYomuCompanion('settings', {
     SettingsDialogController,
+    LookupModalAccessibility,
     OnboardingController,
     installOfflineParsingDictionaries,
     installDefinitionTranslationBehaviors,

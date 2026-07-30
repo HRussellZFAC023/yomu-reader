@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.47
+// @version 1.8.48
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.c1e59a8fc3a7.user.js#sha256=weWaj8OnFLxBLFdDwoBey2v8PSp8fC+RLbcRfzCX2R8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.eaf541e8bd0c.user.js#sha256=6vVB6L0MA+8gB4lY8QIg3FHxUCgxiLUlUeydp58tYu4=
 // @resource yomuCss  https://yomureader.com/yomu.93a84fd2a360.css#sha256=k6hP0qNgcK3wi85JdtHQDSmJmfV0pDI/asaaZ3l51K4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -31805,9 +31805,7 @@ function createReaderPopover(appName, settings, trigger = "modal") {
   const popover = document.createElement("div");
   popover.className = "jpdb-reader-popover";
   popover.dataset.jpdbReaderRoot = "true";
-  popover.setAttribute("role", "dialog");
   popover.setAttribute("aria-label", uiText(settings.interfaceLanguage, "lookupDialog") || `${appName} lookup`);
-  popover.setAttribute("aria-modal", "true");
   popover.tabIndex = -1;
   if (shouldUseSheet(settings, trigger)) popover.classList.add("jpdb-reader-sheet");
   else popover.style.width = `${settings.popoverWidth}px`;
@@ -34047,8 +34045,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.47"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.47"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.48"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.48"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34191,7 +34189,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.47"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.48"}`;
   } catch {
   return null;
   }
@@ -35624,6 +35622,7 @@ class ReaderApp {
   }
   activePopover;
   activeBackdrop;
+  lookupModal = new (yomuSettingsSurfaceCompanion()).LookupModalAccessibility();
   lastCard;
   lastCardSentence;
   lastAnkiLookup;
@@ -36125,7 +36124,6 @@ class ReaderApp {
   this.settings.youtubeImmersionEnabled = enabled;
   this.youtube.refresh();
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "youtubeToggleToastOn" : "youtubeToggleToastOff"));
-  log.info("YouTube immersion filter toggled", { enabled });
   try {
     await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeImmersionEnabled"] });
   } catch (error) {
@@ -36139,7 +36137,6 @@ class ReaderApp {
   this.settings.youtubeShowFilterNotice = visible;
   await saveSettings(this.settings);
   this.youtube.refresh();
-  log.info("YouTube filter notice changed", { visible });
   }
   async togglePreferredJapaneseSiteLanguage() {
   await this.setPreferredJapaneseSiteLanguage(!this.settings.preferJapaneseSiteLanguage);
@@ -36158,13 +36155,11 @@ class ReaderApp {
     throw error;
   }
   this.applyPreferredJapaneseSiteLanguage(this.settings, !enabled);
-  log.info("Preferred Japanese site language toggled", { enabled });
   }
   async setYoutubeChannelRecommendationsVisible(visible) {
   this.settings.youtubeShowChannelRecommendations = visible;
   await saveSettings(this.settings);
   this.youtube.refresh();
-  log.info("YouTube channel recommendations changed", { visible });
   }
   async setInterfaceLanguage(language) {
   if (this.settings.interfaceLanguage === language) return;
@@ -36177,7 +36172,6 @@ class ReaderApp {
   this.ocr.refresh();
   this.youtube.refresh();
   this.scheduleLanguageChangeScan();
-  log.info("Interface language changed", { language });
   }
   clearHostedPageReaderWords() {
   if (!isYomuHostedAppUrl(location.href)) return;
@@ -36902,7 +36896,6 @@ class ReaderApp {
     throw error;
   }
   if (!changed) return;
-  log.info("Annotations paused toggled", { paused });
   this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
   }
   applyAnnotationsPausedState() {
@@ -36923,7 +36916,6 @@ class ReaderApp {
   }
   scanPageNow() {
   if (this.settings.annotationsPaused) return;
-  log.info("On-demand scan");
   void this.pageScanner.scanVisiblePage({ silent: false });
   }
   isAutoPlayAudioEnabled() {
@@ -36934,7 +36926,6 @@ class ReaderApp {
   this.settings.autoPlayAudio = !enabled;
   if (!enabled && this.settings.audioAutoPlayMode === "off") this.settings.audioAutoPlayMode = "all";
   await saveSettings(this.settings);
-  log.info("Auto-play audio toggled", { enabled: !enabled });
   this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
   }
   isFuriganaEnabled() {
@@ -36971,21 +36962,18 @@ class ReaderApp {
   if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
     this.scheduleAutoScan(0, { force: true });
   }
-  log.info("Furigana mode set from puck", { mode });
   }
   async cycleOcrMode() {
   const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
   applyOcrInteractionMode(this.settings, nextMode);
   await saveSettings(this.settings, { explicitUserChoiceKeys: ["ocrEnabled", "ocrAutoScanImages"] });
   this.ocr.refreshForModeChange();
-  log.info("OCR mode changed", { mode: nextMode });
   this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
   }
   openStudyPage() {
   const opened = window.open(NEW_TAB_PAGE_URL, "_blank");
   if (opened) opened.opener = null;
   else location.href = NEW_TAB_PAGE_URL;
-  log.info("Study page opened", { url: NEW_TAB_PAGE_URL });
   }
   clearAllAnnotations() {
   clearProjectedReadingsWithin(document);
@@ -37075,6 +37063,7 @@ class ReaderApp {
   this.nativeTitleGuard.restore();
   this.floatingButton.destroy();
   this.settingsDialog?.releaseModalBackground();
+  this.lookupModal.release();
   this.activePopover?.remove();
   this.activeBackdrop?.remove();
   this.removeJpdbPageEnhancements();
@@ -37849,7 +37838,6 @@ class ReaderApp {
   }
   if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
     event.preventDefault();
-    log.info("Shortcut opened settings");
     this.showSettings();
     return true;
   }
@@ -37868,7 +37856,6 @@ class ReaderApp {
   }
   if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
     event.preventDefault();
-    log.info("Shortcut triggered image scan");
     void this.ocr.scanVisible();
     return true;
   }
@@ -37891,7 +37878,6 @@ class ReaderApp {
     explicitUserChoiceKeys: ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"]
   });
   this.subtitles.refresh();
-  log.info("Shortcut toggled subtitle overlay", { visible: this.settings.subtitleOverlayVisible });
   this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? "subtitleOverlayEnabled" : "subtitleOverlayHidden"));
   }
   async massReviewVisibleJitenWords() {
@@ -37908,7 +37894,6 @@ class ReaderApp {
   try {
     const count = await this.jiten.batchReviewCards(cards, "okay");
     this.toast(uiText(this.settings.interfaceLanguage, "massReviewDone").replace("{count}", String(count)));
-    log.info("Mass-reviewed visible Jiten words", { count });
     void this.refreshMassReviewedWordStates(cards);
   } catch (error) {
     log.warn("Mass review failed", error);
@@ -38044,6 +38029,8 @@ class ReaderApp {
   this.cancelPendingHoverLookup();
   this.cancelHoverClose();
   this.pinActiveHoverPopoverForPendingModalLookup();
+  this.lookupModal.activate(this.activePopover, this.activePopoverAnchor);
+  this.activePopover.focus({ preventScroll: true });
   }
   pinActiveHoverPopoverForPendingModalLookup() {
   if (this.activePopoverMode !== "hover" || !this.activePopover) return;
@@ -42521,11 +42508,9 @@ class ReaderApp {
     const shouldRefresh = await this.cardActions.perform(action, button, card, sentence, this.cardActionContext(anchor));
     if (shouldRefresh && action === "grade") {
       this.dismissAfterReview();
-      log.info("Card action completed", { action, term: card.spelling });
       return;
     }
     if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: "preserve", preservePosition: true });
-    log.info("Card action completed", { action, term: card.spelling });
   } catch (error) {
     log.warn("Card action failed", { action, term: card.spelling }, error);
     this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, "actionFailed"));
@@ -42663,7 +42648,8 @@ class ReaderApp {
       preserveNavigation: true,
       preserveHoverGeneration: state.mode === "hover",
       preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
-      preserveOcrLookupState: true
+      preserveOcrLookupState: true,
+      preserveLookupModalSession: state.assistiveModal
     });
   }
   this.appendMountedPopover(popover, state);
@@ -42674,6 +42660,7 @@ class ReaderApp {
   }
   popoverMountState(anchor, options) {
   const mode = options.mode ?? "modal";
+  const assistiveModal = mode === "modal" && options.focusOnMount !== false;
   const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : this.createLanguageAwareBackdrop(() => {
     this.dismiss();
   });
@@ -42682,7 +42669,7 @@ class ReaderApp {
   const previousPopoverRect = options.preservePosition && this.activePopover ? this.popoverOverlayRect(this.activePopover) : void 0;
   const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
   const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
-  return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+  return { mode, assistiveModal, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
   }
   createLanguageAwareBackdrop(onDismiss) {
   const backdrop = createReaderBackdrop(onDismiss);
@@ -42730,10 +42717,8 @@ class ReaderApp {
   this.activeBackdrop = void 0;
   }
   appendMountedPopover(popover, state) {
-  const useBackdrop = Boolean(state.backdrop);
   const mountParent = state.mountParent ?? document.body;
   applyOverlayPageScale(popover);
-  popover.setAttribute("aria-modal", String(useBackdrop));
   if (state.backdrop) mountParent.append(state.backdrop, popover);
   else mountParent.append(popover);
   }
@@ -42747,6 +42732,9 @@ class ReaderApp {
   this.activeHoverWord = state.mode === "hover" && !options.pointerTextLookup ? state.resolvedAnchor : void 0;
   this.activeHoverLookupKey = state.mode === "hover" ? options.hoverLookupKey ?? "" : "";
   this.activePointerTextLookup = state.mode === "hover" ? options.pointerTextLookup : void 0;
+  if (state.assistiveModal) {
+    this.lookupModal.activate(popover, state.resolvedAnchor);
+  }
   this.retainOcrLookupLineForAnchor(state.resolvedAnchor, { preserveExisting: preserveOcrLookupLine });
   this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
   popover.classList.toggle("jpdb-reader-sheet-sticky", this.isStickyMountedSheet(popover, state));
@@ -42923,6 +42911,7 @@ class ReaderApp {
     return;
   }
   const hadSettingsDialog = Boolean(this.activePopover?.classList.contains("jpdb-reader-settings"));
+  this.lookupModal.release(options.preserveLookupModalSession);
   this.prepareActivePopoverDismiss(options);
   if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
   this.restoreSettingsPreviewState();
@@ -42942,6 +42931,7 @@ class ReaderApp {
   return Boolean(this.stackedSettingsDialog && this.activePopover && this.activePopover !== this.stackedSettingsDialog.form);
   }
   dismissStackedLookupOverSettings(options) {
+  const restoredLookupFocus = this.lookupModal.release(options.preserveLookupModalSession);
   this.prepareActivePopoverDismiss(options);
   if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
   this.nativeTitleGuard.restore();
@@ -42953,7 +42943,7 @@ class ReaderApp {
   if (stack?.form.isConnected) {
     this.activePopover = stack.form;
     this.activeBackdrop = stack.backdrop;
-    stack.form.focus();
+    if (!restoredLookupFocus) stack.form.focus();
   }
   this.stackedSettingsDialog = void 0;
   if (!options.preserveNavigation) {

@@ -188,13 +188,13 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
         }
     });
 
-    it('keeps hosted sticky bottom-sheet lookup modeless until explicitly closed', async () => {
+    it('keeps hosted sticky bottom-sheet lookup assistively modal without a visual backdrop', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
         const runtime = new NewTabRuntime();
         const card = newTabTestCard({ spelling: '大切', reading: 'たいせつ', sentence: '大切です。' });
         const internals = runtime as unknown as {
             settings: typeof DEFAULT_SETTINGS;
-            showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+            showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void>;
         };
 
         try {
@@ -211,18 +211,29 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 uchisenEnabled: false,
             };
 
-            await internals.showKanjiLookupCard(card, '切', '大切です。');
+            const trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.textContent = '切';
+            document.body.append(trigger);
+            trigger.focus();
+
+            await internals.showKanjiLookupCard(card, '切', '大切です。', trigger);
             const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
             const closeButton = popover.querySelector<HTMLButtonElement>('[data-jpdb-reader-sheet-close="true"]');
 
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
-            expect(popover.getAttribute('aria-modal')).toBe('false');
+            expect(popover.getAttribute('aria-modal')).toBe('true');
+            expect(popover.getAttribute('role')).toBe('dialog');
+            expect(document.activeElement).toBe(popover);
+            expect(trigger.getAttribute('aria-hidden')).toBe('true');
             expect(popover.classList.contains('jpdb-reader-sheet-sticky')).toBe(true);
             expect(closeButton?.title).toBe('Close drawer');
 
             closeButton?.click();
 
             expect(document.querySelector('.jpdb-reader-popover')).toBeNull();
+            expect(trigger.getAttribute('aria-hidden')).toBeNull();
+            expect(document.activeElement).toBe(trigger);
         } finally {
             runtime.destroy();
             restoreCanvas();
@@ -342,7 +353,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
 
     it('stacks hosted new-tab lookups over settings without adding a second modal backdrop', () => {
         const runtime = new NewTabRuntime();
-        const { lookup, settingsForm, settingsBackdrop, internals } = mountStackedNewTabLookup(runtime);
+        const { lookup, settingsForm, settingsBackdrop, anchor, internals } = mountStackedNewTabLookup(runtime);
 
         try {
             expectStackedLookupOverSettings({
@@ -352,10 +363,16 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 activeLookup: internals.activeLookupPopover,
                 activeBackdrop: internals.activeLookupBackdrop,
             });
+            expect(settingsForm.getAttribute('aria-hidden')).toBe('true');
+            expect(settingsBackdrop.getAttribute('aria-hidden')).toBe('true');
+            expect(document.activeElement).toBe(lookup);
 
             internals.dismissLookupPopover();
 
             expect(lookup.isConnected).toBe(false);
+            expect(settingsForm.getAttribute('aria-hidden')).toBeNull();
+            expect(settingsBackdrop.getAttribute('aria-hidden')).toBeNull();
+            expect(document.activeElement).toBe(anchor);
             expectSettingsDialogStillMounted({
                 settingsForm,
                 settingsBackdrop,

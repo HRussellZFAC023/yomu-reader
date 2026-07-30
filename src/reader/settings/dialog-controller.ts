@@ -17,6 +17,7 @@ import {
     type RecommendedDictionary,
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
+import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { changedAutomationProtectedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
@@ -164,7 +165,6 @@ function isSettingsCommandWord(word: HTMLElement): boolean {
 }
 
 type RecommendedDictionaryInstallState = 'queued' | 'installing';
-type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>;
 type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
 type AnkiConnectionAction = 'test-anki' | 'prepare-anki' | 'update-anki-model';
 type AnkiStatusTone = 'pending' | 'success' | 'error';
@@ -192,15 +192,6 @@ const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
-const SETTINGS_FOCUSABLE_SELECTOR = [
-    'button:not([disabled])',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    'a[href]',
-    'summary',
-    '[tabindex]:not([tabindex="-1"])',
-].join(',');
 const SETTINGS_FOCUS_SCROLL_SELECTOR = [
     'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
     'select',
@@ -628,8 +619,7 @@ export class SettingsDialogController {
     private pendingDictionaryOperations = 0;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
     private currentForm?: HTMLFormElement;
-    private previouslyFocusedElement?: HTMLElement;
-    private modalSiblingState?: ModalSiblingState;
+    private readonly modal = new LookupModalAccessibility();
     private saveRequestId = 0;
     private ankiConnectionProbeId = 0;
     private jpdbConnectionProbeId = 0;
@@ -649,7 +639,7 @@ export class SettingsDialogController {
 
     open(panel?: string): void {
         log.info('Opening settings', { panel: panel ?? 'default' });
-        this.previouslyFocusedElement = document.activeElement instanceof HTMLElement
+        const trigger = document.activeElement instanceof HTMLElement
             && !document.activeElement.closest('.jpdb-reader-settings')
             ? document.activeElement
             : undefined;
@@ -665,7 +655,7 @@ export class SettingsDialogController {
         syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
         this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
-        this.hideBackgroundForModal(backdrop);
+        this.modal.activate(form, trigger);
         installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'), () => this.dismissSettings());
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         this.syncRecommendedDictionaryInstallControls(form);
@@ -813,10 +803,6 @@ export class SettingsDialogController {
             event.stopPropagation();
             this.dismissSettings();
         });
-        form.addEventListener('keydown', event => {
-            if (event.key !== 'Tab' || event.isComposing) return;
-            this.trapFocus(form, event);
-        });
     }
 
     private dismissSettings(): void {
@@ -828,41 +814,9 @@ export class SettingsDialogController {
             window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
             this.settingsJapaneseParseRefreshTimer = undefined;
         }
-        const restoreTarget = this.previouslyFocusedElement;
-        this.previouslyFocusedElement = undefined;
+        this.modal.release();
         this.currentForm = undefined;
-        this.restoreBackgroundFromModal();
         this.dependencies.dismiss();
-        if (restoreTarget?.isConnected) restoreTarget.focus({ preventScroll: true });
-    }
-
-    private hideBackgroundForModal(backdrop: HTMLElement): void {
-        this.restoreBackgroundFromModal();
-        const dialogRoot = backdrop.isConnected ? backdrop : this.currentForm;
-        const directRoot = dialogRoot?.parentElement === document.body ? dialogRoot : this.currentForm?.parentElement;
-        if (!directRoot) return;
-        this.modalSiblingState = Array.from(document.body.children)
-            .filter((element): element is HTMLElement => element instanceof HTMLElement && element !== directRoot && !element.contains(this.currentForm ?? null))
-            .map(element => {
-                const state = {
-                    element,
-                    ariaHidden: element.getAttribute('aria-hidden'),
-                    inert: element.inert,
-                };
-                // The backdrop and focus trap isolate the modal; toggling inert
-                // on arbitrary host-page roots can be a long task on large SPAs.
-                element.setAttribute('aria-hidden', 'true');
-                return state;
-            });
-    }
-
-    private restoreBackgroundFromModal(): void {
-        this.modalSiblingState?.forEach(({ element, ariaHidden, inert }) => {
-            if (ariaHidden === null) element.removeAttribute('aria-hidden');
-            else element.setAttribute('aria-hidden', ariaHidden);
-            element.inert = inert;
-        });
-        this.modalSiblingState = undefined;
     }
 
     /**
@@ -876,27 +830,7 @@ export class SettingsDialogController {
      */
     releaseModalBackground(): void {
         if (!this.currentForm?.isConnected) this.currentForm = undefined;
-        this.restoreBackgroundFromModal();
-    }
-
-    private trapFocus(form: HTMLFormElement, event: KeyboardEvent): void {
-        const focusable = Array.from(form.querySelectorAll<HTMLElement>(SETTINGS_FOCUSABLE_SELECTOR))
-            .filter(element => !element.closest('[hidden]') && element.getAttribute('aria-hidden') !== 'true');
-        if (!focusable.length) {
-            event.preventDefault();
-            form.focus();
-            return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        const active = document.activeElement;
-        if (event.shiftKey && (active === first || active === form)) {
-            event.preventDefault();
-            last.focus();
-        } else if (!event.shiftKey && active === last) {
-            event.preventDefault();
-            first.focus();
-        }
+        this.modal.release();
     }
 
     private bindSettingsSearch(form: HTMLFormElement): void {

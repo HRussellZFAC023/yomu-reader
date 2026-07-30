@@ -429,6 +429,7 @@ type ReaderLifecycleSurface = {
 };
 type ActivePopoverDismissOptions = DismissOptions & {
     preserveOcrLookupState?: boolean;
+    preserveLookupModalSession?: boolean;
 };
 // Gesture events a host viewer (e.g. BookWalker/NFBR) uses to turn the page; Yomu
 // swallows them when they land on its own overlay/popover so a text tap looks up
@@ -1029,6 +1030,7 @@ export class ReaderApp {
     }
     private activePopover?: HTMLElement;
     private activeBackdrop?: HTMLElement;
+    private readonly lookupModal = new (yomuSettingsSurfaceCompanion()!.LookupModalAccessibility!)();
     private lastCard?: JPDBCard;
     private lastCardSentence?: string;
     private lastAnkiLookup?: AnkiLookupResult;
@@ -1653,7 +1655,6 @@ export class ReaderApp {
         // must not feel dead while the filter is busy (2026-07-11 report).
         this.youtube.refresh();
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'youtubeToggleToastOn' : 'youtubeToggleToastOff'));
-        log.info('YouTube immersion filter toggled', { enabled });
         try {
             await saveSettings(this.settings, { explicitUserChoiceKeys: ['youtubeImmersionEnabled'] });
         } catch (error) {
@@ -1668,7 +1669,6 @@ export class ReaderApp {
         this.settings.youtubeShowFilterNotice = visible;
         await saveSettings(this.settings);
         this.youtube.refresh();
-        log.info('YouTube filter notice changed', { visible });
     }
 
     private async togglePreferredJapaneseSiteLanguage(): Promise<void> {
@@ -1692,14 +1692,12 @@ export class ReaderApp {
             throw error;
         }
         this.applyPreferredJapaneseSiteLanguage(this.settings, !enabled);
-        log.info('Preferred Japanese site language toggled', { enabled });
     }
 
     private async setYoutubeChannelRecommendationsVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowChannelRecommendations = visible;
         await saveSettings(this.settings);
         this.youtube.refresh();
-        log.info('YouTube channel recommendations changed', { visible });
     }
 
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
@@ -1713,7 +1711,6 @@ export class ReaderApp {
         this.ocr.refresh();
         this.youtube.refresh();
         this.scheduleLanguageChangeScan();
-        log.info('Interface language changed', { language });
     }
 
     private clearHostedPageReaderWords(): void {
@@ -2649,7 +2646,6 @@ export class ReaderApp {
             throw error;
         }
         if (!changed) return;
-        log.info('Annotations paused toggled', { paused });
         this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
     }
 
@@ -2683,7 +2679,6 @@ export class ReaderApp {
 
     private scanPageNow(): void {
         if (this.settings.annotationsPaused) return;
-        log.info('On-demand scan');
         void this.pageScanner.scanVisiblePage({ silent: false });
     }
 
@@ -2698,7 +2693,6 @@ export class ReaderApp {
         // settings normalization forces autoPlayAudio back to false.
         if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
         await saveSettings(this.settings);
-        log.info('Auto-play audio toggled', { enabled: !enabled });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
     }
 
@@ -2755,7 +2749,6 @@ export class ReaderApp {
         if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
             this.scheduleAutoScan(0, { force: true });
         }
-        log.info('Furigana mode set from puck', { mode });
     }
 
     private async cycleOcrMode(): Promise<void> {
@@ -2763,7 +2756,6 @@ export class ReaderApp {
         applyOcrInteractionMode(this.settings, nextMode);
         await saveSettings(this.settings, { explicitUserChoiceKeys: ['ocrEnabled', 'ocrAutoScanImages'] });
         this.ocr.refreshForModeChange();
-        log.info('OCR mode changed', { mode: nextMode });
         this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
     }
 
@@ -2771,7 +2763,6 @@ export class ReaderApp {
         const opened = window.open(NEW_TAB_PAGE_URL, '_blank');
         if (opened) opened.opener = null;
         else location.href = NEW_TAB_PAGE_URL;
-        log.info('Study page opened', { url: NEW_TAB_PAGE_URL });
     }
 
     private clearAllAnnotations(): void {
@@ -2871,6 +2862,7 @@ export class ReaderApp {
         // If we tear down (e.g. a re-boot) while settings is open, release the
         // aria-hidden/inert it placed on the page so the next instance isn't inert.
         this.settingsDialog?.releaseModalBackground();
+        this.lookupModal.release();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();
         this.removeJpdbPageEnhancements();
@@ -3993,7 +3985,6 @@ export class ReaderApp {
         }
         if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
             event.preventDefault();
-            log.info('Shortcut opened settings');
             this.showSettings();
             return true;
         }
@@ -4012,7 +4003,6 @@ export class ReaderApp {
         }
         if (matchesShortcut(event, this.settings.shortcuts.scanImages)) {
             event.preventDefault();
-            log.info('Shortcut triggered image scan');
             void this.ocr.scanVisible();
             return true;
         }
@@ -4037,7 +4027,6 @@ export class ReaderApp {
             explicitUserChoiceKeys: ['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen'],
         });
         this.subtitles.refresh();
-        log.info('Shortcut toggled subtitle overlay', { visible: this.settings.subtitleOverlayVisible });
         this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? 'subtitleOverlayEnabled' : 'subtitleOverlayHidden'));
     }
 
@@ -4058,7 +4047,6 @@ export class ReaderApp {
         try {
             const count = await this.jiten.batchReviewCards(cards, 'okay');
             this.toast(uiText(this.settings.interfaceLanguage, 'massReviewDone').replace('{count}', String(count)));
-            log.info('Mass-reviewed visible Jiten words', { count });
             void this.refreshMassReviewedWordStates(cards);
         } catch (error) {
             log.warn('Mass review failed', error);
@@ -4237,6 +4225,8 @@ export class ReaderApp {
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
         this.pinActiveHoverPopoverForPendingModalLookup();
+        this.lookupModal.activate(this.activePopover, this.activePopoverAnchor);
+        this.activePopover.focus({ preventScroll: true });
     }
 
     private pinActiveHoverPopoverForPendingModalLookup(): void {
@@ -10100,11 +10090,9 @@ export class ReaderApp {
             const shouldRefresh = await this.cardActions.perform(action, button, card, sentence, this.cardActionContext(anchor));
             if (shouldRefresh && action === 'grade') {
                 this.dismissAfterReview();
-                log.info('Card action completed', { action, term: card.spelling });
                 return;
             }
             if (shouldRefresh) await this.showCard(card, sentence, anchor, { autoPlay: false, trigger, navigation: 'preserve', preservePosition: true });
-            log.info('Card action completed', { action, term: card.spelling });
         } catch (error) {
             log.warn('Card action failed', { action, term: card.spelling }, error);
             this.toast(error instanceof Error ? error.message : uiText(this.settings.interfaceLanguage, 'actionFailed'));
@@ -10272,6 +10260,7 @@ export class ReaderApp {
                 preserveHoverGeneration: state.mode === 'hover',
                 preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
                 preserveOcrLookupState: true,
+                preserveLookupModalSession: state.assistiveModal,
             });
         }
         this.appendMountedPopover(popover, state);
@@ -10283,6 +10272,7 @@ export class ReaderApp {
 
     private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
         const mode = options.mode ?? 'modal';
+        const assistiveModal = mode === 'modal' && options.focusOnMount !== false;
         const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
             ? undefined
             : this.createLanguageAwareBackdrop(() => {
@@ -10295,7 +10285,7 @@ export class ReaderApp {
             : undefined;
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
         const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
-        return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+        return { mode, assistiveModal, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
     }
 
     private createLanguageAwareBackdrop(onDismiss: () => void): HTMLElement {
@@ -10377,10 +10367,8 @@ export class ReaderApp {
     }
 
     private appendMountedPopover(popover: HTMLElement, state: PopoverMountState): void {
-        const useBackdrop = Boolean(state.backdrop);
         const mountParent = state.mountParent ?? document.body;
         applyOverlayPageScale(popover);
-        popover.setAttribute('aria-modal', String(useBackdrop));
         if (state.backdrop) mountParent.append(state.backdrop, popover);
         else mountParent.append(popover);
     }
@@ -10400,6 +10388,9 @@ export class ReaderApp {
         this.activeHoverWord = state.mode === 'hover' && !options.pointerTextLookup ? state.resolvedAnchor : undefined;
         this.activeHoverLookupKey = state.mode === 'hover' ? options.hoverLookupKey ?? '' : '';
         this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
+        if (state.assistiveModal) {
+            this.lookupModal.activate(popover, state.resolvedAnchor);
+        }
         // A lookup sheet can cover its OCR source line and steal CSS :hover.
         // Hold a transient visibility lease without changing manual pin state.
         this.retainOcrLookupLineForAnchor(state.resolvedAnchor, { preserveExisting: preserveOcrLookupLine });
@@ -10622,6 +10613,7 @@ export class ReaderApp {
             return;
         }
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
+        this.lookupModal.release(options.preserveLookupModalSession);
         this.prepareActivePopoverDismiss(options);
         if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
         this.restoreSettingsPreviewState();
@@ -10647,6 +10639,7 @@ export class ReaderApp {
     }
 
     private dismissStackedLookupOverSettings(options: ActivePopoverDismissOptions): void {
+        const restoredLookupFocus = this.lookupModal.release(options.preserveLookupModalSession);
         this.prepareActivePopoverDismiss(options);
         if (!options.preserveOcrLookupState) this.releaseOwnedModalOcrPin();
         this.nativeTitleGuard.restore();
@@ -10658,7 +10651,7 @@ export class ReaderApp {
         if (stack?.form.isConnected) {
             this.activePopover = stack.form;
             this.activeBackdrop = stack.backdrop;
-            stack.form.focus();
+            if (!restoredLookupFocus) stack.form.focus();
         }
         this.stackedSettingsDialog = undefined;
         if (!options.preserveNavigation) {

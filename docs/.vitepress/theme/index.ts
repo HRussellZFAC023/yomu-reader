@@ -614,6 +614,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Lookup pills now include the twelve Linguee language pairs that returned word results in Chrome. German Linguee and YouGlish will return when their routes show word results.": "検索ピルには、Chromeで単語の結果を返したLingueeの12組の言語ペアが含まれるようになりました。ドイツ語版LingueeとYouGlishは、それぞれの経路で単語の結果が表示されるようになった時点で戻ります。",
     "Arabic, Khmer, Lao and Thai now open native dictionaries: Maajim, Khmer Dictionary, Lao Dictionary and Longdo. Their query paths preserve diacritics.": "アラビア語、クメール語、ラオ語、タイ語で、それぞれMaajim、Khmer Dictionary、Lao Dictionary、Longdoという母語辞書が開くようになりました。検索語のパスではダイアクリティカルマークが保持されます。",
     "Vietnamese Settings labels Tra tu Soha as a plaintext HTTP link before it opens.": "ベトナム語の設定では、Tra tu Sohaを開く前に、プレーンテキストHTTPリンクであることを表示するようになりました。",
+    "Hover lookups no longer announce themselves as modal dialogs. Clicked lookups keep keyboard focus inside, hide the page from screen readers while open, and return focus to the word after Escape.": "ホバー検索はモーダルダイアログとして読み上げられなくなりました。クリックで開いた検索では、開いている間はキーボードフォーカスが検索内に保たれ、スクリーンリーダーからページ本文が隠されます。Escapeで閉じるとフォーカスは調べた単語に戻ります。",
     // Homepage (docs/index.md): A28 fold, learning story, proof bands,
     // no-install apps, install band, footer nav.
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',

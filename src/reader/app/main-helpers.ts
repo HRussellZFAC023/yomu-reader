@@ -531,6 +531,7 @@ export interface DismissOptions {
 
 export interface PopoverMountState {
     mode: 'modal' | 'hover';
+    assistiveModal: boolean;
     backdrop?: HTMLElement;
     mountParent?: HTMLElement;
     resolvedAnchor?: HTMLElement;

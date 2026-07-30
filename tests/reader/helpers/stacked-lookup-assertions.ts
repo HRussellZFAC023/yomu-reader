@@ -16,7 +16,7 @@ export function expectStackedLookupOverSettings({
     expect(settingsForm.isConnected).toBe(true);
     expect(settingsBackdrop.isConnected).toBe(true);
     expect(lookup.isConnected).toBe(true);
-    expect(lookup.getAttribute('aria-modal')).toBe('false');
+    expect(lookup.getAttribute('aria-modal')).toBe('true');
     expect(lookup.classList.contains('jpdb-reader-sheet')).toBe(false);
     expect(lookup.querySelector('.jpdb-reader-sheet-handle')).toBeNull();
     expect(document.querySelectorAll('.jpdb-reader-backdrop')).toHaveLength(1);

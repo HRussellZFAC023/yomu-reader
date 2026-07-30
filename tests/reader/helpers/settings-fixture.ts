@@ -17,8 +17,11 @@ export function stackedSettingsFixtureDom() {
     settingsForm.className = 'jpdb-reader-settings';
     settingsForm.dataset.jpdbReaderRoot = 'true';
     const settingsBackdrop = createReaderBackdrop(() => undefined);
-    const anchor = document.createElement('span');
+    const anchor = document.createElement('button');
+    anchor.type = 'button';
     anchor.textContent = '設定';
-    document.body.append(settingsBackdrop, settingsForm, anchor);
+    settingsForm.append(anchor);
+    document.body.append(settingsBackdrop, settingsForm);
+    anchor.focus();
     return { settings, settingsForm, settingsBackdrop, anchor };
 }

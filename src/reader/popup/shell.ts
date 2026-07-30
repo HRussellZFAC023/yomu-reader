@@ -81,9 +81,7 @@ export function createReaderPopover(appName: string, settings: ReaderSettings, t
     const popover = document.createElement('div');
     popover.className = 'jpdb-reader-popover';
     popover.dataset.jpdbReaderRoot = 'true';
-    popover.setAttribute('role', 'dialog');
     popover.setAttribute('aria-label', uiText(settings.interfaceLanguage, 'lookupDialog') || `${appName} lookup`);
-    popover.setAttribute('aria-modal', 'true');
     popover.tabIndex = -1;
     if (shouldUseSheet(settings, trigger)) popover.classList.add('jpdb-reader-sheet');
     else popover.style.width = `${settings.popoverWidth}px`;

@@ -1126,6 +1126,8 @@ describe('reader helpers', () => {
             const popover = createReaderPopover('よむ', settings, 'hover');
             expect(popover.classList.contains('jpdb-reader-sheet')).toBe(false);
             expect(popover.style.width).toBe(`${settings.popoverWidth}px`);
+            expect(popover.getAttribute('role')).toBeNull();
+            expect(popover.getAttribute('aria-modal')).toBeNull();
         });
     });
 
@@ -1182,7 +1184,7 @@ describe('reader helpers', () => {
             modal.innerHTML = '<div class="jpdb-reader-popover-body"><div class="jpdb-reader-sheet-handle"></div></div>';
             internals.mountPopover(modal, undefined, { mode: 'modal' });
 
-            expect(modal.getAttribute('aria-modal')).toBe('false');
+            expect(modal.getAttribute('aria-modal')).toBe('true');
             expect(modal.classList.contains('jpdb-reader-sheet-sticky')).toBe(true);
             expect(modal.querySelector('[data-jpdb-reader-sheet-close="true"]')).not.toBeNull();
 
@@ -1323,7 +1325,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('can mount click popovers without dimming the page', () => {
+    it('keeps click popovers modal even when visual page dimming is off', () => {
         const app = new ReaderApp();
         const settings = {
             ...DEFAULT_SETTINGS,
@@ -1341,11 +1343,110 @@ describe('reader helpers', () => {
         });
 
         try {
+            const page = document.createElement('main');
+            const anchor = document.createElement('button');
+            anchor.textContent = '本文';
+            page.append(anchor);
+            document.body.append(page);
             const popover = createReaderPopover('よむ', settings);
-            internals.mountPopover(popover, undefined, { mode: 'modal' });
+            internals.mountPopover(popover, anchor, { mode: 'modal' });
 
-            expect(popover.getAttribute('aria-modal')).toBe('false');
+            expect(popover.getAttribute('role')).toBe('dialog');
+            expect(popover.getAttribute('aria-modal')).toBe('true');
+            expect(page.getAttribute('aria-hidden')).toBe('true');
             expect(document.querySelector('.jpdb-reader-backdrop')).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('traps modal lookup tab order and restores the trigger after Escape', () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupMode: 'popover' as const,
+            popoverBackdropEnabled: false,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+            handleDocumentKeydown(event: KeyboardEvent): void;
+        };
+        internals.settings = settings;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+
+        try {
+            const page = document.createElement('main');
+            const trigger = document.createElement('button');
+            trigger.textContent = '調べる';
+            page.append(trigger);
+            document.body.append(page);
+
+            const popover = createReaderPopover('よむ', settings);
+            popover.innerHTML = `
+                <button id="plain" type="button">Plain</button>
+                <button id="second" type="button" tabindex="2">Second</button>
+                <input id="first" tabindex="1">
+            `;
+            const first = popover.querySelector<HTMLElement>('#first')!;
+            const last = popover.querySelector<HTMLElement>('#plain')!;
+            internals.mountPopover(popover, trigger, { mode: 'modal' });
+
+            expect(document.activeElement).toBe(popover);
+            expect(page.getAttribute('aria-hidden')).toBe('true');
+
+            popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+            expect(document.activeElement).toBe(first);
+
+            last.focus();
+            last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+            expect(document.activeElement).toBe(first);
+
+            first.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+            expect(document.activeElement).toBe(last);
+
+            internals.handleDocumentKeydown(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+
+            expect(popover.isConnected).toBe(false);
+            expect(page.getAttribute('aria-hidden')).toBeNull();
+            expect(document.activeElement).toBe(trigger);
+        } finally {
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('mounts hover lookups as passive content without modal semantics', () => {
+        const app = new ReaderApp();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'popover' as const };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; focusOnMount?: boolean }): void;
+        };
+        internals.settings = settings;
+        vi.stubGlobal('ResizeObserver', class {
+            observe(): void {}
+            disconnect(): void {}
+        });
+
+        try {
+            const page = document.createElement('main');
+            const anchor = document.createElement('span');
+            page.append(anchor);
+            document.body.append(page);
+            const popover = createReaderPopover('よむ', settings);
+
+            internals.mountPopover(popover, anchor, { mode: 'hover', focusOnMount: false });
+
+            expect(popover.getAttribute('role')).toBeNull();
+            expect(popover.getAttribute('aria-modal')).toBeNull();
+            expect(page.getAttribute('aria-hidden')).toBeNull();
         } finally {
             vi.unstubAllGlobals();
             app.destroy();
@@ -1376,6 +1477,9 @@ describe('reader helpers', () => {
 
             expect(focus).not.toHaveBeenCalled();
             expect(document.activeElement).toBe(pageButton);
+            expect(popover.getAttribute('role')).toBeNull();
+            expect(popover.getAttribute('aria-modal')).toBeNull();
+            expect(pageButton.getAttribute('aria-hidden')).toBeNull();
         } finally {
             app.destroy();
             document.body.replaceChildren();

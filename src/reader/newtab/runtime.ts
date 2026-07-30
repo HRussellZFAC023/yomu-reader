@@ -79,6 +79,7 @@ import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import type { StudySessionClock } from './session-clock';
+import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import {
@@ -378,6 +379,7 @@ export class NewTabRuntime {
     private activeLookupBackdrop?: HTMLElement;
     private activeLookupAnchor?: HTMLElement;
     private activeLookupHandlerController?: AbortController;
+    private readonly lookupModal = new LookupModalAccessibility();
     private lookupRenderRequest = 0;
     private parseContentCache = new Map<string, { expiresAt: number; promise: Promise<JPDBToken[][]> }>();
     private lastAutoAudioKey = '';
@@ -909,6 +911,7 @@ export class NewTabRuntime {
 
     private dismiss(): void {
         const hadSettingsDialog = Boolean(this.activeDialog?.classList.contains('jpdb-reader-settings'));
+        this.lookupModal.release();
         this.activeDialog?.remove();
         this.activeBackdrop?.remove();
         this.activeLookupPopover?.remove();
@@ -2000,12 +2003,12 @@ export class NewTabRuntime {
     private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): void {
         this.activeLookupHandlerController?.abort();
         this.activeLookupHandlerController = undefined;
+        this.lookupModal.release(Boolean(this.activeLookupPopover?.isConnected));
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
         const stackOverSettings = Boolean(options.stackOverSettings && this.activeDialog?.classList.contains('jpdb-reader-settings') && this.activeDialog.isConnected);
         if (stackOverSettings) forceReaderPopoverSurface(popover, this.settings);
         const useBackdrop = !stackOverSettings && !popover.classList.contains('jpdb-reader-sheet');
-        popover.setAttribute('aria-modal', String(useBackdrop));
         if (useBackdrop) {
             const backdrop = createReaderBackdrop(() => this.dismissLookupPopover());
             document.body.append(backdrop, popover);
@@ -2016,6 +2019,8 @@ export class NewTabRuntime {
         }
         this.activeLookupPopover = popover;
         this.activeLookupAnchor = anchor;
+        this.lookupModal.activate(popover, anchor);
+        popover.focus({ preventScroll: true });
         this.installLookupPopoverBodyStabilizers(popover);
         this.dictionarySourceState.installTracking(popover);
         if (popover.classList.contains('jpdb-reader-sheet')) {
@@ -2032,6 +2037,7 @@ export class NewTabRuntime {
     }
 
     private dismissLookupPopover(): void {
+        this.lookupModal.release();
         this.activeLookupPopover?.remove();
         this.activeLookupBackdrop?.remove();
         this.activeLookupHandlerController?.abort();

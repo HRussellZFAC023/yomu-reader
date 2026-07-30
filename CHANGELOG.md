@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.48] - 2026-07-30
+
+### Fixed
+
+- Hover lookups no longer announce themselves as modal dialogs. Clicked lookups keep keyboard focus inside, hide the page from screen readers while open, and return focus to the word after Escape.
+
 ## [1.8.47] - 2026-07-30
 
 ### Fixed
