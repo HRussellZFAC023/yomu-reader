@@ -4,15 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
-import {
-    RELEASE_RETENTION_COUNT,
-    SUPPORTED_RELEASE_REFS,
-    contentAddressedRetentionManifest,
-    contentAddressedRetentionReport,
-    isShallowRepository,
-    pinnedArtifactPaths,
-    retentionManifestIsCurrent,
-} from '../../scripts/lib/content-addressed-retention.mjs';
+import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionManifest, contentAddressedRetentionReport, isShallowRepository, pinnedArtifactPaths, retentionManifestIsCurrent } from '../../scripts/lib/content-addressed-retention.mjs';
 
 const repositories: string[] = [];
 
