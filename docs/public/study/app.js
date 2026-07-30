@@ -129582,8 +129582,8 @@ ${newTabCardReading(card)}`;
     { text: "Help", ja: "ヘルプ", link: "/support" }
   ]);
   const OVERFLOW_NAV = Object.freeze([
-    { text: "Video Player", ja: "動画プレイヤー", link: "/video-player/", hostedHref: "/video-player/", target: "_self" },
-    { text: "PDF Reader", ja: "PDFリーダー", link: "/pdf-reader/", hostedHref: "/pdf-reader/", target: "_self" },
+    { text: "Video Player", ja: "動画プレイヤー", link: "/video-player/", target: "_self" },
+    { text: "PDF Reader", ja: "PDFリーダー", link: "/pdf-reader/", target: "_self" },
     { text: "Stats", ja: "統計", link: "/study/?mode=stats", target: "_self" },
     { text: "API", ja: "API", link: "/api/", target: "_self" },
     { text: "Local Audio", ja: "ローカル音声", link: "/local-audio" },
@@ -129602,7 +129602,7 @@ ${newTabCardReading(card)}`;
     return siteNavRoutes().map((route) => ({
       text: route.text,
       ja: route.ja,
-      href: `${base}${(route.hostedHref ?? route.link).replace(/^\//, "")}`,
+      href: `${base}${route.link.replace(/^\//, "")}`,
       ...route.target ? { target: route.target } : {}
     }));
   }

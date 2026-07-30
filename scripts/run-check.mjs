@@ -132,7 +132,10 @@ const lanes = [
         // The complexity ratchet only holds if something runs it. It was reachable
         // only through `npm run qa`, which no workflow invoked and which could not
         // pass anyway (51 functions over the threshold, exit 1), so nothing had
-        // held the line. Baselined and on the gate now: new debt fails here.
+        // held the line. Now baselined per function in
+        // config/quality/complexity-baseline.json and enforced here: a new
+        // offender fails, and so does a recorded one getting worse, which a
+        // count-only baseline could not see.
         stage('complexity-ratchet', 'node scripts/complexity-audit.mjs'),
     ),
     lane(testStage('test:ci', 'npm run -s test:ci')),

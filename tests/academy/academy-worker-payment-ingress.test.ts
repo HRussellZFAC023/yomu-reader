@@ -12,6 +12,7 @@ import type { Env } from '../../workers/yomu-academy/src/env';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 import paymentEntrypoint from '../../workers/yomu-academy/src/payment-entrypoint';
 import type { ExecutionContext } from '../../workers/yomu-academy/src/cf';
+import { SERVICE_VERSION } from '../../workers/shared/service-revision';
 
 const now = 1_770_000_000_000;
 const ingressToken = 'private-service-binding-token';
@@ -90,7 +91,13 @@ describe('Academy canonical payment ingress', () => {
             expect(health.status).toBe(200);
             expect(await health.json()).toEqual({
                 ok: true,
+                service: 'yomu-academy',
+                status: 'ok',
                 apiBase: 'https://yomureader.com/academy/api',
+                // The scheduled production probe reads this block to say which
+                // build is live; `version` is the repository version the bundle
+                // was built from.
+                revision: { version: SERVICE_VERSION, deploymentId: null, deployedAt: null },
                 artifactProof: 'cloudflare-version-modules-v1',
                 workerVersionId: null,
             });

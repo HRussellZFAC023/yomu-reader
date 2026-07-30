@@ -199,6 +199,9 @@ const readerFixtureHtml = `<!doctype html>
 const FEEDBACK_TEXT_ROUTES = new Map([
     ['/', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
     ['/reader-fixture.html', { body: readerFixtureHtml, contentType: 'text/html; charset=utf-8' }],
+    // Both shapes, because the hosted site serves both and the site nav links
+    // the directory form.
+    ['/video-player/', { bodyPath: VIDEO_PLAYER_PATH, contentType: 'text/html; charset=utf-8' }],
     ['/video-player/index.html', { bodyPath: VIDEO_PLAYER_PATH, contentType: 'text/html; charset=utf-8' }],
 ]);
 

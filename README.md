@@ -28,7 +28,7 @@
   <a href="https://yomureader.com/learn/">Learning path</a> ·
   <a href="https://yomureader.com/learn/reference">Feature map</a> ·
   <a href="https://yomureader.com/learn/manga-and-games#read-a-game-frame">Yomu Gaming</a> ·
-  <a href="https://yomureader.com/video-player/index.html">Video reader</a> ·
+  <a href="https://yomureader.com/video-player/">Video reader</a> ·
   <a href="https://yomureader.com/study/">Study app</a> ·
   <a href="https://yomureader.com/academy/">Academy</a> ·
   <a href="https://discord.gg/jD6NPURewD">Discord</a>
@@ -91,7 +91,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 ## Hosted Apps
 
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
-- [Video reader](https://yomureader.com/video-player/index.html) for local video files and subtitles.
+- [Video reader](https://yomureader.com/video-player/) for local video files and subtitles.
 - [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
 - [Yomu app](https://yomureader.com/study/) for an installable offline-first review queue, local dictionary and card Library, combined Stats, and Connections for Anki, Bunpro, Jiten, JPDB, and WaniKani. The local source is called **Academy**, and JPDB appears only after its key is configured. On iPhone/iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/learn/manga-and-games#read-a-game-frame) for first-party PC game capture and lookup.

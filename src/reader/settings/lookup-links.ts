@@ -33,7 +33,7 @@ import type { DictionaryLookupLink } from '../app/types';
 /** What a site actually hands the learner. Claimed only where it was measured. */
 export type LookupLinkComponent = 'definition' | 'sentences' | 'audio' | 'images';
 
-export const LOOKUP_LINK_COMPONENTS: readonly LookupLinkComponent[] = Object.freeze([
+const LOOKUP_LINK_COMPONENTS: readonly LookupLinkComponent[] = Object.freeze([
     'definition', 'sentences', 'audio', 'images',
 ]);
 

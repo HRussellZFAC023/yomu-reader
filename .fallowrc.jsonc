@@ -80,7 +80,6 @@
     "scripts/manual/asmr-one-annotation-probe.mjs",
     "scripts/manual/reader-css-presence-probe.mjs",
     "scripts/qa-audit.mjs",
-    "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",
     "scripts/dev-gaming-app.mjs",
     "scripts/gaming-app-smoke.mjs",
@@ -125,12 +124,7 @@
     // Extension builds substitute these catalogue loaders through Vite aliases.
     // They are real browser entry seams, but no static import names them.
     "src/reader/dictionaries/catalog/runtime-catalog-extension-content.ts",
-    "src/reader/dictionaries/catalog/runtime-catalog-extension-page.ts",
-    // Deliberately parked seams (headers document the wiring plan): story
-    // voice-line resolution awaits a public cached-line worker endpoint, and
-    // the overflow-destination contract awaits the world-screen overflow menu.
-    "src/academy/audio/voice-lines.ts",
-    "src/academy/routing/overflow-destinations.ts"
+    "src/reader/dictionaries/catalog/runtime-catalog-extension-page.ts"
   ],
   "usedClassMembers": [
     // AudioDirector consumes BrowserMediaBus through this interface, so static

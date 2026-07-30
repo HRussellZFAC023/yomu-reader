@@ -1,11 +1,26 @@
 #!/usr/bin/env node
+// Cyclomatic complexity, held by a ratchet rather than a wish.
+//
+// The audit is the last stage of `npm run qa`, which README.md and AGENTS.md
+// both advertise as the quality command. It failed with 51 functions over the
+// threshold of 30, so `qa` could not pass, no workflow ran it, and nothing held
+// the line: a gate that cannot pass is not a gate.
+//
+// config/quality/complexity-baseline.json records exactly the functions that are
+// over the threshold today, with the complexity each one has. The audit fails
+// when a function appears that is not in the baseline, when a recorded function
+// gets worse, and when a recorded entry no longer matches what the tree measures
+// — so the list can only shrink, and it shrinks in the commit that does the
+// work. Regenerate with `node scripts/complexity-audit.mjs --update-baseline`.
 import ts from 'typescript';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const THRESHOLD = Number(process.env.YOMU_COMPLEXITY_MAX || 30);
+const BASELINE_FILE = path.join(ROOT, 'config', 'quality', 'complexity-baseline.json');
+const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 const TARGETS = [
     path.join(ROOT, 'src'),
     path.join(ROOT, 'scripts'),
@@ -69,35 +84,61 @@ for (const result of results.slice(0, 25)) {
     console.log(`${String(result.complexity).padStart(3)}  ${path.relative(ROOT, result.file)}:${result.line}  ${result.name}`);
 }
 
-// A ratchet, not a wish. At the threshold of 30 this exited 1 with 51 offenders
-// and a worst case of 112, so `npm run qa` — advertised in README.md and named in
-// AGENTS.md — could not pass, no workflow ran it, and nothing had held the line
-// for a long time. A gate that always fails is read as noise and stops being a
-// gate at all.
-//
-// So existing debt is baselined and only GROWTH fails: no new function over the
-// threshold, and no function worse than today's worst. Both numbers are measured,
-// and both may only be lowered. Lower them whenever a refactor earns it.
-const BASELINE_OFFENDERS = Number(process.env.YOMU_COMPLEXITY_BASELINE_COUNT || 51);
-const BASELINE_WORST = Number(process.env.YOMU_COMPLEXITY_BASELINE_WORST || 112);
-const worst = offenders.length ? Math.max(...offenders.map(result => result.complexity)) : 0;
+// One entry per over-threshold function, keyed by path and name rather than by
+// line so that editing anything above a function does not move its entry.
+const measured = new Map();
+for (const result of offenders) {
+    const key = `${path.relative(ROOT, result.file).split(path.sep).join('/')}:${result.name}`;
+    measured.set(key, Math.max(measured.get(key) ?? 0, result.complexity));
+}
 
-if (offenders.length) {
-    console.error(`\nFunctions over threshold (${offenders.length}, baseline ${BASELINE_OFFENDERS}; worst ${worst}, baseline ${BASELINE_WORST}):`);
-    for (const result of offenders) {
-        console.error(`${result.complexity} > ${THRESHOLD}  ${path.relative(ROOT, result.file)}:${result.line}  ${result.name}`);
+if (UPDATE_BASELINE) {
+    await writeBaseline(measured);
+    console.log(`Recorded ${measured.size} function(s) over ${THRESHOLD} in ${path.relative(ROOT, BASELINE_FILE)}.`);
+} else {
+    const baseline = await readBaseline();
+    const failures = baselineFailures(baseline, measured);
+    console.log(`\nBaseline: ${Object.keys(baseline).length} function(s) over ${THRESHOLD}; measured ${measured.size}.`);
+    if (failures.length) {
+        console.error('\nComplexity baseline broken:');
+        for (const failure of failures) console.error(`  ${failure}`);
+        console.error('\nSplit the function, or re-record with: node scripts/complexity-audit.mjs --update-baseline');
+        process.exitCode = 1;
     }
 }
 
-if (offenders.length > BASELINE_OFFENDERS) {
-    console.error(`\nFAIL: ${offenders.length} functions over ${THRESHOLD}, up from the ${BASELINE_OFFENDERS} baselined. Simplify the new one rather than raising the baseline.`);
-    process.exitCode = 1;
-} else if (worst > BASELINE_WORST) {
-    console.error(`\nFAIL: worst complexity ${worst} exceeds the ${BASELINE_WORST} baselined.`);
-    process.exitCode = 1;
-} else if (offenders.length < BASELINE_OFFENDERS || worst < BASELINE_WORST) {
-    // Say so loudly: an unlowered baseline is how a ratchet quietly stops ratcheting.
-    console.log(`\nBaseline can be tightened: ${offenders.length} offenders (baseline ${BASELINE_OFFENDERS}), worst ${worst} (baseline ${BASELINE_WORST}). Lower them in this file.`);
+/** Every way the tree can disagree with the recorded baseline. */
+function baselineFailures(baseline, measuredComplexity) {
+    const failures = [];
+    for (const [key, complexity] of measuredComplexity) {
+        const recorded = baseline[key];
+        if (recorded === undefined) failures.push(`${key} is ${complexity} > ${THRESHOLD} and is not in the baseline`);
+        else if (complexity > recorded) failures.push(`${key} rose from ${recorded} to ${complexity}`);
+        else if (complexity < recorded) {
+            failures.push(`${key} improved from ${recorded} to ${complexity} — record it so the baseline cannot drift back up`);
+        }
+    }
+    for (const key of Object.keys(baseline)) {
+        if (!measuredComplexity.has(key)) {
+            failures.push(`${key} is in the baseline but is no longer over ${THRESHOLD} — remove the entry`);
+        }
+    }
+    return failures;
+}
+
+async function readBaseline() {
+    const source = await readFile(BASELINE_FILE, 'utf8');
+    const parsed = JSON.parse(source);
+    if (parsed.threshold !== THRESHOLD) {
+        throw new Error(`Baseline records threshold ${parsed.threshold}, audit is running at ${THRESHOLD}.`);
+    }
+    return parsed.functions;
+}
+
+async function writeBaseline(measuredComplexity) {
+    const functions = Object.fromEntries([...measuredComplexity].sort(([a], [b]) => a.localeCompare(b)));
+    const document = { threshold: THRESHOLD, functions };
+    await writeFile(BASELINE_FILE, `${JSON.stringify(document, null, 4)}\n`);
 }
 
 async function listTypeScriptFiles(dir) {

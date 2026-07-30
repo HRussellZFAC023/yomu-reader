@@ -33,7 +33,7 @@ describe('hosted overflow menus', () => {
             if (route.text !== 'Study') {
                 expect(hostedLinks).toContainEqual(expect.objectContaining({
                     text: route.text,
-                    href: route.hostedHref ?? route.link,
+                    href: route.link,
                 }));
             }
         }

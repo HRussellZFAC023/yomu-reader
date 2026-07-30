@@ -6,6 +6,9 @@ import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
+
+const { FAVICON_ICO_SOURCES, faviconIcoBytes } = createRequire(import.meta.url)('./lib/favicon-ico.cjs');
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const svg = readFileSync(join(root, 'public/yomu-icon.svg'), 'utf8');
@@ -35,6 +38,7 @@ const targets = [
 ];
 
 const browser = await chromium.launch();
+const rendered = new Map();
 try {
     for (const { size, name, outDirs, maskable } of targets) {
         const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
@@ -54,9 +58,16 @@ try {
             clip: { x: 0, y: 0, width: size, height: size },
         });
         for (const dir of outDirs) writeFileSync(join(root, dir, name), buffer);
+        rendered.set(name, buffer);
         await page.close();
         console.log(`✓ ${name} ${size}x${size} → ${outDirs.join(', ')} (${buffer.length}B)`);
     }
 } finally {
     await browser.close();
 }
+
+// The root .ico every browser and unfurler asks for without being told to.
+const icoOutDirs = ['public', 'docs/public'];
+const ico = faviconIcoBytes(FAVICON_ICO_SOURCES.map(name => rendered.get(name)));
+for (const dir of icoOutDirs) writeFileSync(join(root, dir, 'favicon.ico'), ico);
+console.log(`✓ favicon.ico ${FAVICON_ICO_SOURCES.join(' + ')} → ${icoOutDirs.join(', ')} (${ico.length}B)`);

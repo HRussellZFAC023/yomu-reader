@@ -424,7 +424,7 @@ function verifyStorePackage(entries, target) {
         .filter(([file]) => file === 'popup.html' || file === 'popup.js')
         .map(([, bytes]) => new TextDecoder().decode(bytes))
         .join('\n');
-    if (popupSource.includes('video-player/index.html')) {
+    if (popupSource.includes('video-player/')) {
         throw new Error(`${target} store popup references a video-player page that is not packaged.`);
     }
     if (target === 'safari' && /\^file:/.test(popupSource)) {

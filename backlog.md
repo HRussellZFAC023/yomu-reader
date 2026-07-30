@@ -1103,7 +1103,23 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       the Safari and iPad furigana and mirror-geometry regressions this repo keeps rediscovering. Do:
       require every *requested* engine to have run, stop classifying `install-deps` messages as a missing
       executable, and print the engine list in the pass line.
-- [ ] **A35.18 — HIGH: no production monitoring, and no health payload names a revision.** Deployment is
+- [x] **A35.18 — CLOSED 2026-07-30: a scheduled probe watches all five Workers, and every health payload
+      now names the build that answered.** `.github/workflows/production-health.yml` runs
+      `scripts/production-health-check.mjs` every 30 minutes and on demand, installing nothing so a
+      lockfile or registry problem can never be why the monitor goes quiet. A non-200, a non-JSON body,
+      or a `disabled`/`unconfigured`/`error` status fails the run, each endpoint retried three times.
+      Build drift is reported and never failed on, because deploys are manual. All five payloads carry a
+      `revision` block from `workers/shared/service-revision.ts` (`version` from package.json at build
+      time, so it compares to main with no Cloudflare API call, plus `deploymentId`/`deployedAt` from the
+      `version_metadata` binding; both `null` rather than omitted when the binding is absent).
+      `tests/workers/production-health.test.ts` fails when a Worker has no probe, when a probe names a
+      host its own wrangler config does not route, and when no scheduled workflow invokes the probe.
+      DEPLOYED AND VERIFIED LIVE 2026-07-30 17:0x — all five moved from `version=unstamped` to
+      `version=1.8.43` with real `deployed=` timestamps. Also re-verified in the same pass: the R2 edge
+      cache still goes `x-yomu-edge-cache: miss` → `hit` with `cf-cache-status: HIT`, and an
+      `objects/sha256/` key still serves `max-age=31536000, immutable`. Note for future probes: the
+      dictionaries Worker deliberately excludes HEAD from the Cache API, so `curl -sI` cannot show the
+      miss→hit pair — use body-discarded GETs. **Original finding:** Deployment is
       manual by design: `grep -rn 'wrangler' .github/` returns nothing, no package.json script deploys,
       and `workers/yomu-dictionaries/README.md:12-13` states "Provisioning and publication remain explicit
       operator actions." All wrangler configs set `observability.enabled: true`, which is log retention;
@@ -1233,9 +1249,25 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Both numbers are measured, may only be lowered, and the script says so out loud when a refactor earns
       a tighter baseline (an unlowered baseline is how a ratchet quietly stops ratcheting). Verified: exit 0
       at the baseline, exit 1 when the baseline is nudged to 50. It now runs as its own `complexity-ratchet`
-      stage in `check:release`, because a gate nothing invokes is not a gate. **Still open in this ticket:**
-      the dead-code suppression list has rotted, and `qa-audit.mjs` / `docs-a11y-audit.mjs` remain
-      unexercised by CI. Original finding: **the documented quality command cannot pass, and the dead-code
+      stage in `check:release`, because a gate nothing invokes is not a gate.
+      **UPDATED 2026-07-30 — the count-only baseline is replaced and the dead-code half is closed.** The
+      ratchet is now per function (`config/quality/complexity-baseline.json`), which closes a hole the
+      scalar version could not see: one function improving while another regressed left the count and the
+      worst case unchanged. It fails on a new offender, on a recorded one getting worse, and on a recorded
+      entry that no longer matches the tree, so the list can only shrink. Mutation-checked: lowering one
+      recorded entry by 1 fails with `scripts/academy-account-lifecycle-live-proof.mjs:main rose from 41
+      to 42`, and exit 0 on restore. Re-record with `--update-baseline`.
+      Dead code: `src/academy/routing/overflow-destinations.ts` (18 lines, never imported) is deleted, and
+      three rotted `.fallowrc.jsonc` suppressions are gone — one naming
+      `scripts/bookwalker-canvas-probe.mjs`, a file that no longer exists (fallow ignores a missing entry
+      silently), and `src/academy/audio/voice-lines.ts` parked as a not-yet-wired seam while five modules
+      imported it normally. `tests/reader/dead-code-config.test.ts` now checks the suppression list
+      against the tree, so the one file whose rot was invisible by construction can no longer rot.
+      `LOOKUP_LINK_COMPONENTS` is no longer exported (used only in its own file) — that was the U46 delta
+      in the red Fallow CI run. `tests/reader/documented-commands.test.ts` fails when README/AGENTS/CONTEXT
+      name an `npm run` script that no package.json defines; it caught AGENTS.md naming `npm run qa:live`
+      for months after the script was deleted (the real name is `manual:jpdb-live`).
+      **Still open:** `qa-audit.mjs` and `docs-a11y-audit.mjs` remain unexercised by CI. Original finding: **the documented quality command cannot pass, and the dead-code
       suppression list has
       rotted.** Two halves of the same problem: gates that read as if they hold.
       - `package.json:129` `qa` = `npm run check && npm run smoke:p0 && node scripts/qa-audit.mjs && node
@@ -1279,7 +1311,27 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **Polish**
 
-- [ ] **A35.26 — technical SEO gaps on the four surfaces A6 never checked.** A6 (backlog:82-84) closed
+- [x] **A35.26 — CLOSED 2026-07-30: all five gaps fixed, guarded as shell parity, and verified live.**
+      The three working hosted apps are in `sitemap.xml` (20 `<loc>` entries before, 23 after) — they are
+      static files in `docs/public`, so VitePress never routed them and `transformItems` never received
+      them, meaning no filter change could ever have let them through. Every internal link, docs page,
+      README entry and the PWA shortcut now use the URL each shell declares canonical, and the redundant
+      `hostedHref` nav field is gone along with the stale comment claiming the bare route 404s — the false
+      belief that caused the bug. The Academy shell gained canonical + the full og/twitter set, the PDF
+      shell's `<title>` now agrees with its `og:title` and it has the two missing twitter fields plus a
+      meta description, and `/favicon.ico` is a real two-entry ICO built by `scripts/lib/favicon-ico.cjs`
+      from the PNGs that were already the source of truth, so the contract test can recompute the bytes.
+      `tests/reader/technical-seo.test.ts` holds it as parity across all four shells and sweeps README and
+      `src/reader/app/constants.ts` and the nav definition, which is how it caught a README link the
+      first sweep missed. VERIFIED LIVE after deploy: `/favicon.ico` 200 `image/vnd.microsoft.icon` 2,482
+      bytes (was the 11,989-byte HTML 404 page), the sitemap carries the three, and `/academy/` serves
+      canonical + og:title + twitter:title.
+      **OWNER DECISION OPEN (one line to reverse):** `/academy/` is deliberately held OUT of the sitemap.
+      It is equally indexable and equally linked, but nobody can currently play it and
+      `scripts/submit-indexnow.mjs` pushes every sitemap URL straight to search engines, so listing it
+      would advertise a dead end. It still carries full social metadata, so a shared link unfurls
+      correctly — only search submission is withheld. Add `'academy/'` to `hostedAppSitemapRoutes` once
+      it is playable. **Original finding:** A6 (backlog:82-84) closed
       technical SEO on the evidence that all sitemap URLs return 200, which only examined what is in the
       sitemap. Measured 2026-07-29 on the live site:
       - `sitemap.xml` has **24 `<loc>` entries and none of `/study/`, `/video-player/`, `/pdf-reader/`,

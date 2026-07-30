@@ -21,11 +21,12 @@
  * docs/.vitepress/shared/nav.ts re-exports this file so the docs build's own
  * import path is unchanged.
  *
- * Route shapes differ deliberately. VitePress rewrites clean `link` values, but
- * the hosted shells are static HTML served outside the router, so their entries
- * need the explicit `index.html` (a bare `/pdf-reader/` 404s on the published
- * site). `hostedHref` keeps that distinction honest instead of leaving it to
- * memory.
+ * Every route is one URL shape on every surface: the directory form each hosted
+ * shell declares as its `rel="canonical"`. The shells used to be linked as
+ * `/pdf-reader/index.html` on the theory that the bare route 404s, so the site
+ * pointed every link and the PWA shortcut at a URL that calls itself a
+ * duplicate. Measured 2026-07-30: `/pdf-reader/`, `/video-player/`, `/study/`
+ * and `/academy/` all return 200 with the same bytes as their `index.html`.
  *
  * Every entry carries its Japanese label. The PDF Reader and Video Player
  * stamp it as `data-nav-ja`, then their `applyInterfaceLanguage` loops update
@@ -45,8 +46,6 @@ export interface NavRoute {
     ja: string;
     /** VitePress-style route, used by the docs nav. */
     link: string;
-    /** Explicit file route for the hosted shells; defaults to `link`. */
-    hostedHref?: string;
     /** Hosted app routes are same-tab navigations, not docs links. */
     target?: '_self';
 }
@@ -75,8 +74,8 @@ export const PRIMARY_NAV: readonly NavRoute[] = Object.freeze([
  * simply are not daily: tools you open occasionally, reference, and policy.
  */
 export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
-    { text: 'Video Player', ja: '動画プレイヤー', link: '/video-player/', hostedHref: '/video-player/', target: '_self' },
-    { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', hostedHref: '/pdf-reader/', target: '_self' },
+    { text: 'Video Player', ja: '動画プレイヤー', link: '/video-player/', target: '_self' },
+    { text: 'PDF Reader', ja: 'PDFリーダー', link: '/pdf-reader/', target: '_self' },
     { text: 'Stats', ja: '統計', link: '/study/?mode=stats', target: '_self' },
     { text: 'API', ja: 'API', link: '/api/', target: '_self' },
     { text: 'Local Audio', ja: 'ローカル音声', link: '/local-audio' },
@@ -132,7 +131,7 @@ export function hostedOverflowLinks(): { text: string; href: string; target?: '_
         .filter(route => route.text !== 'Study')
         .map(route => ({
             text: route.text,
-            href: route.hostedHref ?? route.link,
+            href: route.link,
             ...(route.target ? { target: route.target } : {}),
         }));
 }
@@ -156,7 +155,7 @@ export function hostedShellNavRoutes(base: string): HostedShellNavLink[] {
     return siteNavRoutes().map(route => ({
         text: route.text,
         ja: route.ja,
-        href: `${base}${(route.hostedHref ?? route.link).replace(/^\//, '')}`,
+        href: `${base}${route.link.replace(/^\//, '')}`,
         ...(route.target ? { target: route.target } : {}),
     }));
 }
