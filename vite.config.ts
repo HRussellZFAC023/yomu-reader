@@ -40,6 +40,7 @@ const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // prompting for every signed BookWalker page image in Firefox.
 const userscriptConnect = [
     'api.jiten.moe',
+    'api.tatoeba.org',
     'jpdb.io',
     'api.wanikani.com',
     'lens.google.com',

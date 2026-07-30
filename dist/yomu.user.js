@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.40
+// @version 1.8.41
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,19 +12,20 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.e3a039cb9859.user.js#sha256=46A5y5hZgOB12xkVYJ+M/5hrId3p5eOf43EBH6WQh0Y=
-// @require https://yomureader.com/greasyfork/yomu-audio.ae5d8a749a86.user.js#sha256=rl2KdJqGsedvTVdJPPNbFwC9AD/z/prWvpbHn0cNIsQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.da3bc7bc4739.user.js#sha256=2jvHvEc5IoSMDb2Zuf1oLUxHelTAlcbXQhkn7AWChUc=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.0363b0c44775.user.js#sha256=A2OwxEd1rKApMbtrmovkWJ2/US1LOwr4qTmhWZJlTts=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.facd53045eea.user.js#sha256=+s1TBF7qNBpX1umVPiXBxl+owfc7XhTcLXB3KhT15Zo=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fc831f0dc90f.user.js#sha256=/IMfDckPCZy+akqOjPMS2gW+F866VYuFT+nLcr91mRw=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.526235c6c79d.user.js#sha256=UmI1xsed0kD+WoJls/nIMIyeb/ypAjTv1uLvA/knVww=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.9b014248e077.user.js#sha256=mwFCSOB3uvWUE42Cn6pYGwePpaeaIyg9omC+ogCXBk4=
-// @require https://yomureader.com/greasyfork/yomu-jiten.848916d66970.user.js#sha256=hIkW1mlw8xXq5ahRhxZol1YbxWDBzKAmlCLVkaqLmRc=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.0db014d1d3a8.user.js#sha256=DbAU0dOoKpq/xrw7mSUbAdnPchVR7360oOHskbx63aE=
-// @require https://yomureader.com/greasyfork/yomu-video.8f6783aff800.user.js#sha256=j2eDr/gAnaDt1+iRbC2s8FcRuDvW5qIWNOF2wwWqMIU=
-// @resource yomuCss  https://yomureader.com/yomu.ea1f28208a04.css#sha256=6h8oIIoE54bda3q6fclI01N/KR3MU2AorEGhd/Jsyoo=
+// @require https://yomureader.com/greasyfork/yomu-anki.0b278d34d3c4.user.js#sha256=CyeNNNPEftIXB2b8rDYO0Eg6UOOrQ61owcMg7A77/1Q=
+// @require https://yomureader.com/greasyfork/yomu-audio.72e342498739.user.js#sha256=cuNCSYc5xRMNpr53Oka8wxPgNonqCvteu9ayiusvyRE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.485c6636e4e8.user.js#sha256=SFxmNuToLOzRfBU7KC8uEYLkLNw6qrboDI0qRCFwGHU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.553b2468dbe3.user.js#sha256=VTskaNvjljKvXxgCyh0JtgpHO7O3sKIZI4fD+cq0mcA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.90dbed5553fd.user.js#sha256=kNvtVVP9s4qB10UrCLECGrO89DWTb8FyakRJY9VppV8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.6b97f059a0d4.user.js#sha256=a5fwWaDUwQt37aE/zDEo/kKPFOrwFCuhSVVzo6bEU00=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.1fd34ea5124e.user.js#sha256=H9NOpRJOhMJmwC9QUr7FJQM0sHPKRcMYzAc360lSIRw=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.ef1bc3a4e2d4.user.js#sha256=7xvDpOLUHiaY6QaKepA9JD8U4qHBwGeyfgR8G9h9nXs=
+// @require https://yomureader.com/greasyfork/yomu-jiten.61f31b43def3.user.js#sha256=YfMbQ97zo+OH+auNpPaOKF8x3kWBKklsNqboPimZ+58=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.c646350a9f2b.user.js#sha256=xkY1Cp8rnCWZhRuDjdII+HeizdRcovVGYXm40gKzhV4=
+// @require https://yomureader.com/greasyfork/yomu-video.b576ed083c29.user.js#sha256=tXbtCDwp1RD/FtTfvhF2ldUPwu7oxxtVuJMRq/4C/sw=
+// @resource yomuCss  https://yomureader.com/yomu.abb1c23193c7.css#sha256=q7HCMZPHqdu+AnU7ncDJXDSkyMjKLPtuuI/i04Mn9vg=
 // @connect api.jiten.moe
+// @connect api.tatoeba.org
 // @connect jpdb.io
 // @connect api.wanikani.com
 // @connect lens.google.com
@@ -1138,11 +1139,11 @@ const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
 const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
-function normalizeFallbackTerm(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, 80);
+function normalizeFallbackTerm(text2) {
+  return text2.replace(/\s+/g, " ").trim().slice(0, 80);
 }
-function bareFallbackCardFromText(text) {
-  const spelling = normalizeFallbackTerm(text);
+function bareFallbackCardFromText(text2) {
+  const spelling = normalizeFallbackTerm(text2);
   const id = -stablePositiveHashId(`fallback
 ${spelling}`);
   const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
@@ -1165,27 +1166,27 @@ ${spelling}`);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
-function segmentJapaneseText(text) {
+function segmentJapaneseText(text2) {
   const segmenter = japaneseWordSegmenter();
   if (!segmenter) {
-  return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+  return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
     const start = match.index ?? 0;
-    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
+    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
   });
   }
-  return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+  return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
   const start = match.index ?? 0;
-  return segmentJapaneseRun(match[0], start, segmenter, text);
+  return segmentJapaneseRun(match[0], start, segmenter, text2);
   });
 }
-function segmentJapaneseRun(text, offset, segmenter, sourceText) {
-  const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
+function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
+  const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
   surface: segment.segment,
   start: offset + segment.index,
   end: offset + segment.index + segment.segment.length
   }));
-  if (segments.at(-1)?.end !== offset + text.length) {
-  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
+  if (segments.at(-1)?.end !== offset + text2.length) {
+  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
   }
   return finalizeJapaneseRunSegments(segments, sourceText);
 }
@@ -1485,20 +1486,20 @@ function intlSegmenter() {
   const candidate = Intl.Segmenter;
   return typeof candidate === "function" ? candidate : null;
 }
-function fallbackJapaneseRunSegment(text, offset) {
-  const surface = text.trim();
+function fallbackJapaneseRunSegment(text2, offset) {
+  const surface = text2.trim();
   if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-  const start = offset + text.indexOf(surface);
+  const start = offset + text2.indexOf(surface);
   return [{ surface, start, end: start + surface.length }];
 }
-function fallbackLookupTermsForText(text) {
-  const source = normalizeFallbackTerm(text);
+function fallbackLookupTermsForText(text2) {
+  const source = normalizeFallbackTerm(text2);
   if (!source) return [];
   const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
   return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
 }
-function fallbackDictionaryLookupTermsForText(text) {
-  const terms = fallbackLookupTermsForText(text);
+function fallbackDictionaryLookupTermsForText(text2) {
+  const terms = fallbackLookupTermsForText(text2);
   return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
 }
 function fallbackLookupTermsForCard(card) {
@@ -1545,11 +1546,11 @@ function wordSegmenter(locale) {
   SEGMENTER_BY_LOCALE.set(locale, segmenter);
   return segmenter;
 }
-function icuWordSegments(text, locale) {
+function icuWordSegments(text2, locale) {
   const segmenter = wordSegmenter(locale);
   if (!segmenter) return null;
   const segments = [];
-  for (const segment of segmenter.segment(text)) {
+  for (const segment of segmenter.segment(text2)) {
   if (!segment.isWordLike) continue;
   segments.push({
     text: segment.segment,
@@ -1602,7 +1603,7 @@ function createLearningTargetModule(spec) {
   const direction = spec.direction ?? localeDirection(language);
   const detects = detectorFor(spec.detectsText);
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
-  const segment = spec.segment ?? ((text) => defaultSegment(text, language));
+  const segment = spec.segment ?? ((text2) => defaultSegment(text2, language));
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
@@ -1637,12 +1638,12 @@ function createLearningTargetModule(spec) {
   }),
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   normalizeText,
-  isLookupableText(text) {
-    return Boolean(text) && detects(text);
+  isLookupableText(text2) {
+    return Boolean(text2) && detects(text2);
   },
   segment,
   pointerWordSegments: spec.pointerWordSegments ?? segment,
-  lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
+  lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
   compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
@@ -1660,22 +1661,22 @@ function maximizedLocaleTag(language) {
 }
 function detectorFor(value) {
   if (typeof value === "function") return value;
-  if (value instanceof RegExp) return (text) => value.test(text);
+  if (value instanceof RegExp) return (text2) => value.test(text2);
   return () => false;
 }
-function defaultNormalizeText(text) {
-  return text.normalize("NFKC").replace(/\s+/gu, " ").trim();
+function defaultNormalizeText(text2) {
+  return text2.normalize("NFKC").replace(/\s+/gu, " ").trim();
 }
-function defaultSegment(text, language) {
-  return icuWordSegments(text, language) ?? whitespaceSegments(text);
+function defaultSegment(text2, language) {
+  return icuWordSegments(text2, language) ?? whitespaceSegments(text2);
 }
-function whitespaceSegments(text) {
+function whitespaceSegments(text2) {
   const segments = [];
   const pattern = /\S+/gu;
-  let match = pattern.exec(text);
+  let match = pattern.exec(text2);
   while (match) {
   segments.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-  match = pattern.exec(text);
+  match = pattern.exec(text2);
   }
   return segments;
 }
@@ -1748,8 +1749,8 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   detectsText: HAS_JAPANESE,
   normalizeText: normalizeJapaneseTargetText,
   lookupStartsAtSegmentBoundary: false,
-  segment(text) {
-  return segmentJapaneseText(text).map((segment) => ({
+  segment(text2) {
+  return segmentJapaneseText(text2).map((segment) => ({
     text: segment.surface,
     start: segment.start,
     end: segment.end
@@ -1763,11 +1764,11 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   return normalizedJapaneseCardReading(spelling, reading);
   }
 });
-function normalizeJapaneseTargetText(text) {
-  return normalizeFallbackTerm(text.normalize("NFKC"));
+function normalizeJapaneseTargetText(text2) {
+  return normalizeFallbackTerm(text2.normalize("NFKC"));
 }
-function japanesePointerWordSegments(text) {
-  return [...text.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
+function japanesePointerWordSegments(text2) {
+  return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
   text: match[0],
   start: match.index,
   end: match.index + match[0].length
@@ -2703,19 +2704,19 @@ function adoptLearningTargetLanguage(value) {
   const fallback = defaultLearningTargetModule();
   return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
 }
-function isTargetLanguageText(text) {
-  return activeLearningTarget().isLookupableText(text);
+function isTargetLanguageText(text2) {
+  return activeLearningTarget().isLookupableText(text2);
 }
-function segmentTargetLanguageText(text) {
-  return activeLearningTarget().segment(text);
+function segmentTargetLanguageText(text2) {
+  return activeLearningTarget().segment(text2);
 }
-function targetPointerWordSegments(text) {
-  return activeLearningTarget().pointerWordSegments(text);
+function targetPointerWordSegments(text2) {
+  return activeLearningTarget().pointerWordSegments(text2);
 }
-function targetPointerWordAt(text, offset) {
-  if (!text.length) return null;
-  let index = Math.min(Math.max(offset, 0), text.length - 1);
-  const segments = targetPointerWordSegments(text);
+function targetPointerWordAt(text2, offset) {
+  if (!text2.length) return null;
+  let index = Math.min(Math.max(offset, 0), text2.length - 1);
+  const segments = targetPointerWordSegments(text2);
   let segment = segments.find((item) => item.start <= index && index < item.end);
   if (!segment && index > 0) {
   segment = segments.find((item) => item.start <= index - 1 && index - 1 < item.end);
@@ -2723,8 +2724,8 @@ function targetPointerWordAt(text, offset) {
   }
   return segment ? { start: segment.start, end: segment.end, offset: index } : null;
 }
-function hasTargetPointerWord(text) {
-  return Boolean(text) && targetPointerWordSegments(text).length > 0;
+function hasTargetPointerWord(text2) {
+  return Boolean(text2) && targetPointerWordSegments(text2).length > 0;
 }
 const CORE_COLOR_TOKENS = {
   black: "#000000",
@@ -3016,10 +3017,10 @@ function isExplicitControlLink(link) {
 function linkHasControlMedia(link) {
   return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
 }
-function linkHasControlShape(link, text) {
+function linkHasControlShape(link, text2) {
   const style = safeComputedStyle(link);
   const rect = link.getBoundingClientRect();
-  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text) && hasControlLinkWidth(rect);
+  return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
 }
 function hasControlLinkStyle(style) {
   return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
@@ -3033,8 +3034,8 @@ function hasVisibleControlLinkBox(style) {
 function hasVisibleBorderSide(style, width) {
   return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
 }
-function hasShortControlLinkText(link, text) {
-  return compactLength(text) <= 16 && compactLength(link.textContent ?? "") <= 40;
+function hasShortControlLinkText(link, text2) {
+  return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
 }
 function hasControlLinkWidth(rect) {
   return rect.width > 0 && rect.width < 360;
@@ -3060,8 +3061,8 @@ function isPassiveInteractionElement(element) {
   return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
 }
 function isCompactPassiveInteractionElement(element) {
-  const text = element.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!text || text.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
   return element.childElementCount <= 4;
 }
 function isCompactPassiveChromeElement(element) {
@@ -3107,8 +3108,8 @@ function compactVisualLabelElement(parent) {
   let current = parent;
   for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
   if (!UI_CLASS_RE.test(elementClassName(current))) continue;
-  const text = compactInteractiveChromeText(current);
-  if (!isCompactInteractiveChromeText(text)) continue;
+  const text2 = compactInteractiveChromeText(current);
+  if (!isCompactInteractiveChromeText(text2)) continue;
   if (hasCompactInteractiveChromeGeometry(current)) return current;
   const rect = current.getBoundingClientRect();
   if (chromeContext && rect.width === 0 && rect.height === 0) return current;
@@ -3121,8 +3122,8 @@ function compactMetadataChromeElement(parent) {
   for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
   const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
   if (!explicit || isConversationTextClass(current)) continue;
-  const text = current.textContent?.replace(/\s+/g, "").trim() ?? "";
-  if (!isCompactInteractiveChromeText(text)) continue;
+  const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+  if (!isCompactInteractiveChromeText(text2)) continue;
   const rect = current.getBoundingClientRect();
   if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
   }
@@ -3153,10 +3154,10 @@ function passiveChromeAccessibleLabel(element) {
 function compactInteractiveChromeElement(parent) {
   const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
   if (!chrome) return null;
-  const text = compactInteractiveChromeText(chrome);
-  if (!isCompactInteractiveChromeText(text)) return null;
+  const text2 = compactInteractiveChromeText(chrome);
+  if (!isCompactInteractiveChromeText(text2)) return null;
   if (safeElementMatches$1(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-  return isCompactInteractiveChromeLink(chrome, parent, text) ? chrome : null;
+  return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
   }
   return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
 }
@@ -3166,8 +3167,8 @@ function compactInteractiveChromeText(element) {
 function compactPassiveChromeElement(parent) {
   if (isReadableProseContext(parent)) return null;
   if (!isCompactInteractiveChromeContext(parent)) return null;
-  const text = compactInteractiveChromeText(parent);
-  if (!isCompactInteractiveChromeText(text)) return null;
+  const text2 = compactInteractiveChromeText(parent);
+  if (!isCompactInteractiveChromeText(text2)) return null;
   return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
 }
 function compactPassiveInteractionRubyElement(parent) {
@@ -3183,14 +3184,14 @@ function compactPassiveInteractionRubyElement(parent) {
   if (isCompactInteractiveChromeContext(interaction)) return interaction;
   return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
 }
-function isCompactInteractiveChromeText(text) {
-  const length = compactLength(text);
-  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text);
+function isCompactInteractiveChromeText(text2) {
+  const length = compactLength(text2);
+  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text2);
 }
-function isCompactInteractiveChromeLink(link, parent, text) {
+function isCompactInteractiveChromeLink(link, parent, text2) {
   if (isLikelyProseLink(link, parent)) return false;
   if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text);
+  const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
   return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
 }
 function isCompactInteractiveChromeControl(control, parent) {
@@ -3334,9 +3335,9 @@ function interactivePassiveControl(element) {
 const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
 function siblingOwnedInteractiveControl(element) {
   if (!(element instanceof HTMLElement)) return null;
-  const text = element.textContent?.replace(/\s+/g, "").trim() ?? "";
+  const text2 = element.textContent?.replace(/\s+/g, "").trim() ?? "";
   const chromeContext = isCompactInteractiveChromeContext(element);
-  if (!isCompactInteractiveChromeText(text) || isReadableProseContext(element) && !chromeContext) return null;
+  if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element) && !chromeContext) return null;
   let current = element.parentElement;
   for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
   if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
@@ -3371,11 +3372,11 @@ function isLinkedCardMetadataElement(link, textElement) {
   ].every(Boolean);
 }
 function isCompactMetadataElement(element) {
-  const text = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  const text2 = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element.getBoundingClientRect().height;
   return [
-  isTargetLanguageText(text),
-  compactLength(text) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+  isTargetLanguageText(text2),
+  compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
   height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
   ].every(Boolean);
 }
@@ -4312,18 +4313,18 @@ function readerWordSurfaceText(element) {
   return surface || element.getAttribute("data-surface") || "";
 }
 function readerWordChildSurfaceText(element) {
-  let text = "";
+  let text2 = "";
   element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
-    text += node.textContent ?? "";
+    text2 += node.textContent ?? "";
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const child = node;
   if (isSurfaceIgnoredElement$1(child)) return;
-  text += readerWordChildSurfaceText(child);
+  text2 += readerWordChildSurfaceText(child);
   });
-  return text;
+  return text2;
 }
 function isReaderWordElement(element) {
   return element instanceof HTMLElement && element.classList.contains("jpdb-reader-word");
@@ -4409,9 +4410,9 @@ function isReadableAncestorCandidate(element) {
 }
 function readableAncestorSentence(element, target, surface, cleanFallback) {
   if (!canReadSentenceContextFrom(element)) return "";
-  const text = readableSurfaceText(element);
+  const text2 = readableSurfaceText(element);
   const range = readableSurfaceRange(element, target);
-  const sentence = range ? sentenceAroundRange(text, range.start, range.end, cleanFallback) : sentenceAroundSurface(text, surface, cleanFallback);
+  const sentence = range ? sentenceAroundRange(text2, range.start, range.end, cleanFallback) : sentenceAroundSurface(text2, surface, cleanFallback);
   return isUsefulContextSentence(sentence, cleanFallback, surface) ? sentence : "";
 }
 function fallbackReadableSentence(cleanFallback, surface) {
@@ -4421,12 +4422,12 @@ function canReadSentenceContextFrom(element) {
   return !element.closest(READER_ROOT_SELECTOR$3) || Boolean(element.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
 }
 function sentenceAroundSurface(value, surface = "", fallback = "") {
-  const text = cleanReadableSentence(value);
-  if (!isJapaneseSentenceContext(text)) return "";
-  const search = sentenceSearchText(text, surface, fallback);
-  const index = sentenceSearchIndex(text, search);
-  if (index < 0) return clampContextText(text);
-  const hardBounded = hardBoundedSentence(text, index, search.length);
+  const text2 = cleanReadableSentence(value);
+  if (!isJapaneseSentenceContext(text2)) return "";
+  const search = sentenceSearchText(text2, surface, fallback);
+  const index = sentenceSearchIndex(text2, search);
+  if (index < 0) return clampContextText(text2);
+  const hardBounded = hardBoundedSentence(text2, index, search.length);
   const hardClean = trimSoftSentenceBoundary(hardBounded, search);
   if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
   return clampLongSentence(hardClean, search);
@@ -4453,26 +4454,26 @@ function normalizedSentenceRange(length, start, end) {
   const safeEnd = Math.max(safeStart + 1, Math.min(length, Math.ceil(end)));
   return { start: safeStart, end: safeEnd };
 }
-function sentenceSearchIndex(text, search) {
+function sentenceSearchIndex(text2, search) {
   if (!search) return 0;
-  return text.indexOf(search);
+  return text2.indexOf(search);
 }
-function isJapaneseSentenceContext(text) {
-  return Boolean(text && isTargetLanguageText(text));
+function isJapaneseSentenceContext(text2) {
+  return Boolean(text2 && isTargetLanguageText(text2));
 }
-function sentenceSearchText(text, surface, fallback) {
+function sentenceSearchText(text2, surface, fallback) {
   const cleanSurface = cleanReadableSentence(surface);
   const cleanFallback = cleanReadableSentence(fallback);
-  if (textIncludesSearch(text, cleanSurface)) return cleanSurface;
-  if (textIncludesSearch(text, cleanFallback)) return cleanFallback;
+  if (textIncludesSearch(text2, cleanSurface)) return cleanSurface;
+  if (textIncludesSearch(text2, cleanFallback)) return cleanFallback;
   return "";
 }
-function textIncludesSearch(text, search) {
+function textIncludesSearch(text2, search) {
   if (!search) return false;
-  return text.includes(search);
+  return text2.includes(search);
 }
-function clampContextText(text) {
-  return text.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text : text.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+function clampContextText(text2) {
+  return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
 }
 function isUsefulContextSentence(sentence, fallback, surface) {
   if (!isJapaneseContextSentence(sentence)) return false;
@@ -4497,11 +4498,11 @@ function readableSurfaceText(node) {
 }
 function readableElementSurfaceText(element) {
   if (isIgnoredReadableElement(element)) return "";
-  let text = "";
+  let text2 = "";
   element.childNodes.forEach((child) => {
-  text += readableSurfaceText(child);
+  text2 += readableSurfaceText(child);
   });
-  return text;
+  return text2;
 }
 function readableSurfaceRange(root, target) {
   let offset = 0;
@@ -4509,9 +4510,9 @@ function readableSurfaceRange(root, target) {
   const visit = (node) => {
   if (range) return;
   if (node === target) {
-    const text = readableSurfaceText(node);
-    range = { start: offset, end: offset + text.length };
-    offset += text.length;
+    const text2 = readableSurfaceText(node);
+    range = { start: offset, end: offset + text2.length };
+    offset += text2.length;
     return;
   }
   if (node.nodeType === Node.TEXT_NODE) {
@@ -4543,30 +4544,30 @@ const SPACE_AFTER_JAPANESE_PUNCTUATION_RE = new RegExp(
 function cleanReadableSentence(value) {
   return value.replace(/\s+/g, " ").replace(SPACE_BEFORE_JAPANESE_PUNCTUATION_RE, "$1$2").replace(SPACE_AFTER_JAPANESE_PUNCTUATION_RE, "$1$2").trim();
 }
-function hardBoundedSentence(text, index, length) {
-  const start = sentenceStartIndex(text, index);
-  const end = sentenceEndIndex(text, index + length);
-  return text.slice(start, end).trim();
+function hardBoundedSentence(text2, index, length) {
+  const start = sentenceStartIndex(text2, index);
+  const end = sentenceEndIndex(text2, index + length);
+  return text2.slice(start, end).trim();
 }
-function hardBoundedSentenceRange(text, start, end) {
-  const sentenceStart = sentenceStartIndex(text, start);
-  const sentenceEnd = sentenceEndIndex(text, end);
+function hardBoundedSentenceRange(text2, start, end) {
+  const sentenceStart = sentenceStartIndex(text2, start);
+  const sentenceEnd = sentenceEndIndex(text2, end);
   return {
-  text: text.slice(sentenceStart, sentenceEnd),
+  text: text2.slice(sentenceStart, sentenceEnd),
   start: sentenceStart
   };
 }
-function sentenceStartIndex(text, index) {
+function sentenceStartIndex(text2, index) {
   for (let i = index - 1; i >= 0; i--) {
-  if (/[。！？!?]/u.test(text[i] ?? "")) return i + 1;
+  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
   }
   return 0;
 }
-function sentenceEndIndex(text, index) {
-  for (let i = index; i < text.length; i++) {
-  if (/[。！？!?]/u.test(text[i] ?? "")) return i + 1;
+function sentenceEndIndex(text2, index) {
+  for (let i = index; i < text2.length; i++) {
+  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
   }
-  return text.length;
+  return text2.length;
 }
 function trimSoftSentenceBoundary(sentence, surface) {
   const clean = sentence.trim();
@@ -4595,23 +4596,23 @@ function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
   if (!trimmed || trimmed === clean) return false;
   return clean.length > 48 || /[。！？!?]/u.test(omitted);
 }
-function softBoundaryStart(text, index) {
+function softBoundaryStart(text2, index) {
   for (let i = index - 1; i >= 0; i--) {
-  if (isStrongWhitespaceBoundary(text, i)) return i + 1;
+  if (isStrongWhitespaceBoundary(text2, i)) return i + 1;
   }
   return 0;
 }
-function softBoundaryEnd(text, index) {
-  for (let i = index; i < text.length; i++) {
-  if (isStrongWhitespaceBoundary(text, i)) return i;
+function softBoundaryEnd(text2, index) {
+  for (let i = index; i < text2.length; i++) {
+  if (isStrongWhitespaceBoundary(text2, i)) return i;
   }
-  return text.length;
+  return text2.length;
 }
-function isStrongWhitespaceBoundary(text, index) {
-  const char = text[index] ?? "";
+function isStrongWhitespaceBoundary(text2, index) {
+  const char = text2[index] ?? "";
   if (!/\s/u.test(char)) return false;
-  const before = text.slice(Math.max(0, index - 24), index);
-  const after = text.slice(index + 1, Math.min(text.length, index + 25));
+  const before = text2.slice(Math.max(0, index - 24), index);
+  const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
   return isTargetLanguageText(before) && isTargetLanguageText(after);
 }
 function clampLongSentence(sentence, surface) {
@@ -6419,7 +6420,7 @@ function activeLanguageProfile(profiles, activeProfileId) {
   return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
 }
 function resolveLanguageProfile(value) {
-  if (isRecord$1(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+  if (isRecord$2(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
   const normalized2 = normalizeLanguageProfiles([value], value.id, {
     outputLanguage: readOutputLanguageField(value),
     uiLocale: value.uiLocale,
@@ -6427,7 +6428,7 @@ function resolveLanguageProfile(value) {
   });
   return normalized2.profiles[0];
   }
-  const source = isRecord$1(value) ? value : {};
+  const source = isRecord$2(value) ? value : {};
   const normalized = normalizeLanguageProfiles(
   source.languageProfiles,
   source.activeLanguageProfileId,
@@ -6440,7 +6441,7 @@ function resolveLanguageProfile(value) {
   return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
 }
 function normalizeLanguageProfile(value, index, defaults) {
-  if (!isRecord$1(value)) return null;
+  if (!isRecord$2(value)) return null;
   if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
   return {
   schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -6474,7 +6475,7 @@ function normalizeParserProvider$1(value, fallback) {
   return PARSER_PROVIDERS.has(value) ? value : fallback;
 }
 function normalizeProfileDictionaries(value) {
-  if (!isRecord$1(value)) return emptyProfileDictionaries();
+  if (!isRecord$2(value)) return emptyProfileDictionaries();
   const enabled = normalizeStringIds(value.enabled);
   const order = normalizeStringIds(value.order);
   const installed = normalizeStringIds([
@@ -6508,8 +6509,11 @@ function normalizeStringIds(value) {
   }
   return result;
 }
-function isRecord$1(value) {
+function isRecord$2(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function targetLanguageOf(value) {
+  return resolveLanguageProfile(value).targetLanguage;
 }
 function outputLanguageOf(value) {
   return resolveLanguageProfile(value).outputLanguage;
@@ -6522,8 +6526,8 @@ function isTargetDefaultOcrLanguageTag(value) {
   if (!tag) return false;
   return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
 }
-function targetLookupCandidates(text) {
-  return activeLearningTarget().lookupCandidates(text);
+function targetLookupCandidates(text2) {
+  return activeLearningTarget().lookupCandidates(text2);
 }
 const CARD_STATE_LABEL_KEYS = {
   new: "stateNew",
@@ -6575,7 +6579,7 @@ function fallbackUiText(key) {
 }
 function formatTemplate(template, values) {
   return Object.entries(values).reduce(
-  (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+  (text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
   template
   );
 }
@@ -8955,8 +8959,8 @@ function controlSelectionRange(control) {
   return null;
   }
 }
-function normalizedSelectedText(text) {
-  return text.replace(/\s+/g, " ").trim();
+function normalizedSelectedText(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
 function collectVisibleTextTargets(limit = 40) {
   return collectTextTargetsIn(document.body, limit, true);
@@ -9044,8 +9048,8 @@ function isAnnotatableChipControl(blocked) {
   if (blocked.matches('[role="combobox"]') && !isNonEditableListboxTrigger(blocked)) return false;
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
   if (isComposerActionControl(control)) return false;
-  const text = control.textContent?.replace(/\s+/g, "").trim() ?? "";
-  return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && isTargetLanguageText(text);
+  const text2 = control.textContent?.replace(/\s+/g, "").trim() ?? "";
+  return text2.length > 0 && text2.length <= CONTROL_LABEL_TEXT_LIMIT && isTargetLanguageText(text2);
 }
 function isComposerActionControl(control) {
   return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
@@ -9071,31 +9075,31 @@ function textTargetWalker(root, visibleOnly, options) {
   });
 }
 function textTargetFilterResult(node, visibleOnly, options) {
-  const text = nodeTextContent(node).trim();
-  if (!isCandidateScanText(text)) return NodeFilter.FILTER_REJECT;
+  const text2 = nodeTextContent(node).trim();
+  if (!isCandidateScanText(text2)) return NodeFilter.FILTER_REJECT;
   const parent = node.parentElement;
   if (!parent) return NodeFilter.FILTER_REJECT;
-  return textTargetParentFilterResult(parent, text, visibleOnly, options);
+  return textTargetParentFilterResult(parent, text2, visibleOnly, options);
 }
-function isCandidateScanText(text) {
-  if (text.length < 2) return false;
-  return isTargetLanguageText(text);
+function isCandidateScanText(text2) {
+  if (text2.length < 2) return false;
+  return isTargetLanguageText(text2);
 }
-function textTargetParentFilterResult(parent, text, visibleOnly, options) {
-  if (shouldRejectTextTargetParent(parent, text, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
+function textTargetParentFilterResult(parent, text2, visibleOnly, options) {
+  if (shouldRejectTextTargetParent(parent, text2, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
   if (shouldSkipTextTargetParent(parent)) return NodeFilter.FILTER_SKIP;
   return NodeFilter.FILTER_ACCEPT;
 }
-function shouldRejectTextTargetParent(parent, text, visibleOnly, options) {
+function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
   const genericControl = parent.closest(GENERIC_CONTROL_TEXT_SKIP_SELECTOR);
-  if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text)) return true;
+  if (!options.includeFormChrome && genericControl && !isCompactControlDescendantTextTarget(parent, text2)) return true;
   const blocked = parent.closest(SKIP_SELECTOR);
   if (blocked && !isAnnotatableChipControl(blocked) && !isVisibleAriaHiddenJapanese(parent, blocked)) return true;
   if (isInsideExcludedReaderRoot(parent, options)) return true;
   return shouldRejectTextTargetPresentation(parent, visibleOnly);
 }
-function isCompactControlDescendantTextTarget(parent, text) {
-  if (!isCompactInteractiveChromeText(text.replace(/\s+/g, ""))) return false;
+function isCompactControlDescendantTextTarget(parent, text2) {
+  if (!isCompactInteractiveChromeText(text2.replace(/\s+/g, ""))) return false;
   return Boolean(compactInteractiveChromeElement(parent) ?? compactPassiveChromeElement(parent));
 }
 function isInsideExcludedReaderRoot(parent, options) {
@@ -9123,21 +9127,21 @@ function textTargetFromAcceptedNode(node) {
   if (!parent) return null;
   let decoration = classifyDecoration(parent);
   if (decoration === "skip") return null;
-  const text = nodeTextContent(node).trim();
-  if (decoration !== "interactive-passive" && (isFragileUiText(parent, text) || isShortCenteredDisplayHeading(parent, text))) {
+  const text2 = nodeTextContent(node).trim();
+  if (decoration !== "interactive-passive" && (isFragileUiText(parent, text2) || isShortCenteredDisplayHeading(parent, text2))) {
   decoration = "interactive-passive";
   }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
   return {
   node,
-  text,
+  text: text2,
   parent,
   hasNativeRuby: Boolean(parent.closest("ruby")),
   decoration,
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
-  layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
+  layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
   passiveInteraction
   };
 }
@@ -9172,10 +9176,10 @@ function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, o
 }
 function formControlTextTarget(control, visibleOnly, options) {
   if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
-  const text = collectableFormControlLookupText(control, options);
-  if (!text) return null;
+  const text2 = collectableFormControlLookupText(control, options);
+  if (!text2) return null;
   return {
-  text,
+  text: text2,
   parent: control,
   fragments: [],
   parserId: options.parserId,
@@ -9209,8 +9213,8 @@ function isUnlookupableFormControl(control) {
   return ["hidden", "password", "file", "image"].includes(control.type.toLowerCase());
 }
 function collectableFormControlLookupText(control, options = {}) {
-  const text = formControlLookupText(control, options);
-  return isCollectableControlText(text) ? text : "";
+  const text2 = formControlLookupText(control, options);
+  return isCollectableControlText(text2) ? text2 : "";
 }
 function formControlLookupText(control, options = {}) {
   const parts = [];
@@ -9226,34 +9230,34 @@ function formControlLookupText(control, options = {}) {
 function selectLookupText(select, mode) {
   const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
   if (mode === "selected") return selectedText.join(" / ");
-  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text) => isTargetLanguageText(text));
+  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text2) => isTargetLanguageText(text2));
   const compactOptionList = compactSelectOptionListText(optionTextList);
   return compactOptionList || selectedText.join(" / ") || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(" / ");
 }
 function compactSelectOptionListText(options) {
   if (options.length < 2 || options.length > FORM_CONTROL_SELECT_OPTION_LIMIT) return "";
-  const text = options.join(" / ");
-  return compactLength(text) <= FORM_CONTROL_TEXT_MAX_LENGTH ? text : "";
+  const text2 = options.join(" / ");
+  return compactLength(text2) <= FORM_CONTROL_TEXT_MAX_LENGTH ? text2 : "";
 }
 function optionText(option) {
   return normalizedControlText(option.label || option.textContent || "");
 }
-function pushUniqueControlText(parts, text) {
-  const normalized = normalizedControlText(text);
+function pushUniqueControlText(parts, text2) {
+  const normalized = normalizedControlText(text2);
   if (!normalized || !isTargetLanguageText(normalized) || parts.includes(normalized)) return;
   parts.push(normalized);
 }
 function uniqueControlTexts(texts) {
   const result = [];
-  texts.forEach((text) => pushUniqueControlText(result, text));
+  texts.forEach((text2) => pushUniqueControlText(result, text2));
   return result;
 }
-function normalizedControlText(text) {
-  return text.replace(/\s+/g, " ").trim();
+function normalizedControlText(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
-function isCollectableControlText(text) {
-  const compact2 = compactLength(text);
-  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && isTargetLanguageText(text);
+function isCollectableControlText(text2) {
+  const compact2 = compactLength(text2);
+  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && isTargetLanguageText(text2);
 }
 function fragmentText(items) {
   return items.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
@@ -9269,17 +9273,17 @@ function flushFragmentTextTarget(state) {
 }
 function fragmentTextTargetFrom(fragments, options) {
   const trimmedFragments = trimTextFragments(fragments);
-  const text = fragmentText(trimmedFragments);
-  if (!isCollectableFragmentText(text, trimmedFragments, options)) return null;
+  const text2 = fragmentText(trimmedFragments);
+  if (!isCollectableFragmentText(text2, trimmedFragments, options)) return null;
   const parent = trimmedFragments[0]?.node.parentElement;
   if (!parent) return null;
-  if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
+  if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
   const decoration = fragmentTargetDecoration(parent, trimmedFragments);
   if (decoration === "skip") return null;
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
   return {
-  text,
+  text: text2,
   parent,
   fragments: trimmedFragments,
   decoration,
@@ -9314,13 +9318,13 @@ function fragmentTargetDecoration(parent, fragments) {
   }
   return parentDecoration;
 }
-function isCollectableFragmentText(text, fragments, options) {
-  if (!isTargetLanguageText(text)) return false;
-  if (compactFragmentTextLength(text) >= (options.minLength ?? 2)) return true;
+function isCollectableFragmentText(text2, fragments, options) {
+  if (!isTargetLanguageText(text2)) return false;
+  if (compactFragmentTextLength(text2) >= (options.minLength ?? 2)) return true;
   return fragments.some((fragment) => fragment.hasNativeRuby);
 }
-function compactFragmentTextLength(text) {
-  return text.replace(/\s+/g, "").length;
+function compactFragmentTextLength(text2) {
+  return text2.replace(/\s+/g, "").length;
 }
 function visitFragmentNode(node, state, hasNativeRuby = false, isRoot = false) {
   if (fragmentCollectionComplete(state)) return;
@@ -9332,20 +9336,20 @@ function visitFragmentNode(node, state, hasNativeRuby = false, isRoot = false) {
   visitFragmentElement(node, state, hasNativeRuby, isRoot);
 }
 function collectFragmentTextNode(node, state, hasNativeRuby) {
-  const text = node.textContent ?? "";
-  if (shouldIgnoreFragmentTextNode(text, state.options)) return;
+  const text2 = node.textContent ?? "";
+  if (shouldIgnoreFragmentTextNode(text2, state.options)) return;
   const parent = node.parentElement;
-  if (text) state.fragments.push({
+  if (text2) state.fragments.push({
   node,
   start: 0,
-  end: text.length,
+  end: text2.length,
   hasNativeRuby,
   layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
   passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state.options) : false
   });
 }
-function shouldIgnoreFragmentTextNode(text, options) {
-  return Boolean(options.mergeBlockFragments && !text.trim());
+function shouldIgnoreFragmentTextNode(text2, options) {
+  return Boolean(options.mergeBlockFragments && !text2.trim());
 }
 function visitFragmentElement(element, state, hasNativeRuby, isRoot) {
   if (shouldIgnoreFragmentElement(element, state.options, isRoot)) return;
@@ -9432,9 +9436,9 @@ function textWalkerHasJapaneseWithinBudget(walker, budget) {
   if (budget.inspectedCharacters >= budget.limit) return false;
   let node;
   while (node = walker.nextNode()) {
-  const text = nodeTextContent(node);
+  const text2 = nodeTextContent(node);
   const remaining = budget.limit - budget.inspectedCharacters;
-  const sampled = text.slice(0, remaining);
+  const sampled = text2.slice(0, remaining);
   budget.inspectedCharacters += sampled.length;
   if (isTargetLanguageText(sampled)) return true;
   if (budget.inspectedCharacters >= budget.limit) return false;
@@ -9545,16 +9549,16 @@ function hasVisibleTextMirror(element) {
   return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
 }
 function shouldSkipFragmentTextPresentation(element, options) {
-  const text = element.textContent?.trim() ?? "";
-  if (shouldSkipFragmentHeading(element, text, options)) return true;
-  if (shouldSkipFragmentUiText(element, text, options)) return true;
+  const text2 = element.textContent?.trim() ?? "";
+  if (shouldSkipFragmentHeading(element, text2, options)) return true;
+  if (shouldSkipFragmentUiText(element, text2, options)) return true;
   return isReaderRenderedTextBlock(element);
 }
-function shouldSkipFragmentHeading(element, text, options) {
-  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text && isShortCenteredDisplayHeading(element, text));
+function shouldSkipFragmentHeading(element, text2, options) {
+  return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element, text2));
 }
-function shouldSkipFragmentUiText(element, text, options) {
-  return Boolean(!options.allowUiText && text && isFragileUiText(element, text));
+function shouldSkipFragmentUiText(element, text2, options) {
+  return Boolean(!options.allowUiText && text2 && isFragileUiText(element, text2));
 }
 function isBlockFragmentElement(element, options) {
   return !options.mergeBlockFragments && isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
@@ -9777,23 +9781,23 @@ function isCurrentFragmentScanTarget(target) {
   if (!target.parent.isConnected) return false;
   if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
   if (!target.fragments.length) return Boolean(target.nonDestructive && isTargetLanguageText(target.text));
-  const text = target.fragments.map((fragment) => {
+  const text2 = target.fragments.map((fragment) => {
   if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
   return fragment.node.data.slice(fragment.start, fragment.end);
   });
-  return text.every((value) => value !== null) && text.join("") === target.text;
+  return text2.every((value) => value !== null) && text2.join("") === target.text;
 }
 const REPAINT_LOOP_THRESHOLD = 4;
 const REPAINT_LOOP_WINDOW_MS = 3e3;
 const loopingScanHosts = new WeakSet();
 const scanHostRepaintLog = new WeakMap();
-function scanHostIsRepaintLooping(host, text) {
+function scanHostIsRepaintLooping(host, text2) {
   if (loopingScanHosts.has(host)) return true;
   const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
   const previous = scanHostRepaintLog.get(host);
-  const times = (previous && previous.text === text ? previous.times : []).filter((time) => now - time < REPAINT_LOOP_WINDOW_MS);
+  const times = (previous && previous.text === text2 ? previous.times : []).filter((time) => now - time < REPAINT_LOOP_WINDOW_MS);
   times.push(now);
-  scanHostRepaintLog.set(host, { text, times });
+  scanHostRepaintLog.set(host, { text: text2, times });
   if (times.length < REPAINT_LOOP_THRESHOLD) return false;
   loopingScanHosts.add(host);
   return true;
@@ -9883,13 +9887,13 @@ function targetRequiresReactiveLeafMirrors(target) {
 function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
   const indexed = indexTextFragments(target.fragments);
   for (const run of reactiveLeafRuns(indexed)) {
-  const text = target.text.slice(run.globalStart, run.globalEnd);
+  const text2 = target.text.slice(run.globalStart, run.globalEnd);
   const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
-  if (!runTokens.length || !isTargetLanguageText(text)) continue;
+  if (!runTokens.length || !isTargetLanguageText(text2)) continue;
   const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
   const leafTarget = {
     ...target,
-    text,
+    text: text2,
     parent: run.parent,
     fragments: run.fragments.map((fragment) => ({
       node: fragment.node,
@@ -9974,8 +9978,8 @@ function applyTokensToTextNode(target, tokens, settings) {
   applyTokensToNonDestructiveScanTarget({ ...target, insideShadowDOM: true }, tokens, settings);
   return;
   }
-  const text = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text);
+  const text2 = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text2);
   if (!safeTokens.length) return;
   const fragment = renderTokenizedTextFragment(target, safeTokens, settings);
   registerDestructivePaintTextNodes(fragment);
@@ -9995,7 +9999,7 @@ function renderTokenizedTextFragment(target, tokens, settings) {
   });
   return wrapDirectFlexGridTextRun(fragment, target.parent);
 }
-function renderTokenizedScanText(text, tokens, settings, target) {
+function renderTokenizedScanText(text2, tokens, settings, target) {
   const fragment = document.createDocumentFragment();
   const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby, !target.mirrorRender, target.decoration);
   const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
@@ -10003,13 +10007,13 @@ function renderTokenizedScanText(text, tokens, settings, target) {
   let offset = 0;
   const tokenPlans = tokens.map((token) => ({
   token,
-  tokenWithSentence: tokenWithReadableSentence(token, text, token.sentence)
+  tokenWithSentence: tokenWithReadableSentence(token, text2, token.sentence)
   }));
   const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map((plan) => plan.tokenWithSentence));
   for (const plan of tokenPlans) {
   const { token, tokenWithSentence } = plan;
-  appendPlainTextBeforeToken(fragment, text, offset, token.start, true);
-  fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
+  appendPlainTextBeforeToken(fragment, text2, offset, token.start, true);
+  fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
     allowRuby: !target.hasNativeRuby && (!suppressRuby || (target.detachedReadings ?? true)),
     detachedReadings: target.detachedReadings ?? suppressRuby,
     kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -10021,7 +10025,7 @@ function renderTokenizedScanText(text, tokens, settings, target) {
   }));
   offset = token.end;
   }
-  appendPlainTextBeforeToken(fragment, text, offset, text.length);
+  appendPlainTextBeforeToken(fragment, text2, offset, text2.length);
   return fragment;
 }
 function nonDestructiveHostRenderPlan(host, target, tokens) {
@@ -10331,9 +10335,9 @@ function shiftTokenOffsets(token, delta) {
 }
 function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
-  const text = plan.text;
+  const text2 = plan.text;
   const safeTokens = plan.tokens;
-  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text, safeTokens, plan.whitespaceJoints);
+  const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
   const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const { clipRow, detachedReadings } = textMirrorClipMode(
@@ -10345,7 +10349,7 @@ function nonDestructiveMirrorRenderContext(host, target, tokens, settings) {
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const whitespaceJointsKey = (plan.whitespaceJoints ?? []).join(",");
   return {
-  text,
+  text: text2,
   safeTokens,
   renderPlan,
   renderSettings,
@@ -10407,11 +10411,11 @@ function indexMirrorWordsByRange(existing) {
   ]));
   return indexed.size === words.length ? indexed : null;
 }
-function matchMirrorWordRange(wordsByRange, token, text) {
+function matchMirrorWordRange(wordsByRange, token, text2) {
   const key = mirrorRangeKey(token.start, token.end);
   const word = wordsByRange.get(key);
   const sameRange = word && Number(word.dataset.tokenStart) === token.start && Number(word.dataset.tokenEnd) === token.end;
-  const sameSurface = word?.dataset.surface === text.slice(token.start, token.end);
+  const sameSurface = word?.dataset.surface === text2.slice(token.start, token.end);
   return word && sameRange && sameSurface ? { key, word, token } : null;
 }
 function mirrorRangeKey(start, end) {
@@ -11102,48 +11106,48 @@ function constrainMirrorToClampBox(mirror, clipRow) {
   if (height > 0) mirror.style.setProperty("max-height", `${height}px`);
   mirror.style.setProperty("overflow", "hidden");
 }
-function whitespaceCollapsedNonDestructiveRender(text, tokens, whitespaceJoints) {
-  if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text)) return { text, tokens };
-  const { normalized, offsets } = collapseWhitespaceWithOffsets(text, whitespaceJoints);
-  if (normalized === text) return { text, tokens };
+function whitespaceCollapsedNonDestructiveRender(text2, tokens, whitespaceJoints) {
+  if (!whitespaceJoints?.length && !/\s{2,}|\r|\n/u.test(text2)) return { text: text2, tokens };
+  const { normalized, offsets } = collapseWhitespaceWithOffsets(text2, whitespaceJoints);
+  if (normalized === text2) return { text: text2, tokens };
   return {
   text: normalized,
   tokens: tokens.map((token) => remapTokenOffsets(token, offsets, normalized))
   };
 }
-function collapseWhitespaceWithOffsets(text, whitespaceJoints = []) {
-  const offsets = new Array(text.length + 1);
+function collapseWhitespaceWithOffsets(text2, whitespaceJoints = []) {
+  const offsets = new Array(text2.length + 1);
   const joints = new Set(whitespaceJoints);
   let normalized = "";
   let index = 0;
-  while (index < text.length) {
-  if (/\s/u.test(text[index] ?? "")) {
+  while (index < text2.length) {
+  if (/\s/u.test(text2[index] ?? "")) {
     const start = index;
     let touchesJoint = joints.has(start);
-    while (index < text.length && /\s/u.test(text[index] ?? "")) {
+    while (index < text2.length && /\s/u.test(text2[index] ?? "")) {
       index += 1;
       if (joints.has(index)) touchesJoint = true;
     }
     const mapped = normalized.length;
-    if (normalized.length > 0 && index < text.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text.codePointAt(index) ?? 0)))) {
+    if (normalized.length > 0 && index < text2.length && !touchesJoint && !(isCjkChar(lastFullChar(normalized)) && isCjkChar(String.fromCodePoint(text2.codePointAt(index) ?? 0)))) {
       normalized += " ";
     }
     for (let offset = start; offset < index; offset += 1) offsets[offset] = mapped;
     continue;
   }
   offsets[index] = normalized.length;
-  normalized += text[index];
+  normalized += text2[index];
   index += 1;
   }
-  offsets[text.length] = normalized.length;
+  offsets[text2.length] = normalized.length;
   return { normalized, offsets };
 }
 function isCjkChar(char) {
   return Boolean(char) && /[　-ヿ㐀-鿿豈-﫿！-ﾟ\u{20000}-\u{3FFFF}]/u.test(char ?? "");
 }
-function lastFullChar(text) {
-  if (!text) return void 0;
-  const chars = Array.from(text.slice(-2));
+function lastFullChar(text2) {
+  if (!text2) return void 0;
+  const chars = Array.from(text2.slice(-2));
   return chars[chars.length - 1];
 }
 function remapTokenOffsets(token, offsets, sentence) {
@@ -11189,11 +11193,11 @@ function currentTextMirror(host) {
   if (direct) return direct;
   return ownedTextMirrors(host)[0] ?? null;
 }
-function textMirrorAlreadyRenders(host, text) {
+function textMirrorAlreadyRenders(host, text2) {
   const mirror = currentTextMirror(host);
   if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
   const source = mirror.dataset.sourceText ?? "";
-  const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text);
+  const renders = normalizedMirrorHostText(source) === normalizedMirrorHostText(text2);
   if (renders && mirror.style.getPropertyValue("visibility") === "hidden") {
   syncTextMirrorVisibilityToPage(host, mirror);
   }
@@ -11257,25 +11261,25 @@ const controlTextMirrorHosts = new WeakMap();
 function applyTokensToControlTextMirrorTarget(target, tokens, settings) {
   const host = target.parent;
   if (!host.isConnected) return;
-  const text = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text);
-  const placeholderOverlay = isPlaceholderControlTextMirror(host, text);
+  const text2 = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text2);
+  const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
   const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby, false);
   const detachedReadings = suppressRuby && !placeholderOverlay;
   const renderSettings = furiganaSettingsForTarget(settings, host);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby, detachedReadings);
   const existing = currentControlTextMirror(host);
-  if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
+  if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) return;
   removeControlTextMirror(host);
   if (!safeTokens.length) return;
   const mirror = document.createElement("span");
   mirror.className = "jpdb-reader-control-text-mirror";
   mirror.dataset.jpdbReaderControlTextMirror = "true";
   mirror.dataset.jpdbReaderControlMirrorKind = placeholderOverlay ? "placeholder" : "inline";
-  mirror.dataset.sourceText = text;
+  mirror.dataset.sourceText = text2;
   mirror.dataset.renderSignature = signature;
   const state = styleControlTextMirror(mirror, host, placeholderOverlay);
-  mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
+  mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
   parent: host,
   hasNativeRuby: false,
   decoration: target.decoration,
@@ -11302,13 +11306,13 @@ function canvasFallbackRenderContext(target, tokens, settings) {
   if (!(canvas instanceof HTMLCanvasElement) || !canvas.isConnected) return null;
   const host = canvas.parentElement;
   if (!host) return null;
-  const text = target.text;
-  const safeTokens = nonOverlappingTokens(tokens, text);
+  const text2 = target.text;
+  const safeTokens = nonOverlappingTokens(tokens, text2);
   const nativeCanvas = canvas.parentElement?.classList.contains("lesson-canvas-clipper") ?? false;
   const suppressRuby = [nativeCanvas, Boolean(target.suppressRuby)].includes(true);
   const renderSettings = furiganaSettingsForTarget(settings, canvas);
   const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
-  return { canvas, host, text, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
+  return { canvas, host, text: text2, safeTokens, nativeCanvas, suppressRuby, renderSettings, signature };
 }
 function applyTokensToCanvasFallbackTarget(target, tokens, settings) {
   const context = canvasFallbackRenderContext(target, tokens, settings);
@@ -11396,10 +11400,10 @@ function removeCanvasFallbackTextLayer(canvas) {
   }
   canvasFallbackTextLayers.delete(canvas);
 }
-function isPlaceholderControlTextMirror(host, text) {
+function isPlaceholderControlTextMirror(host, text2) {
   if (!(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return false;
   if (host.value.trim()) return false;
-  return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text);
+  return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text2);
 }
 function styleControlTextMirror(mirror, host, placeholderOverlay) {
   const style = safeComputedStyle(host);
@@ -11791,7 +11795,7 @@ function nodeIsReaderMirrorNode(node) {
   return node instanceof Element && Boolean(node.closest?.(READER_TEXT_MIRROR_SELECTOR));
 }
 function nativeTextMirrorHostText(host) {
-  let text = "";
+  let text2 = "";
   const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
   acceptNode(node) {
     const parent = node.parentElement;
@@ -11799,13 +11803,13 @@ function nativeTextMirrorHostText(host) {
     return NodeFilter.FILTER_ACCEPT;
   }
   });
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? "";
-  if (isTargetLanguageText(text)) return text;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
+  if (isTargetLanguageText(text2)) return text2;
   const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
-  return isTargetLanguageText(labelledText) ? labelledText : text;
+  return isTargetLanguageText(labelledText) ? labelledText : text2;
 }
-function normalizedMirrorHostText(text) {
-  return text.replace(/\s+/g, " ").trim();
+function normalizedMirrorHostText(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
 function removeTextMirror(host) {
   const state = textMirrorHosts.get(host);
@@ -11948,9 +11952,9 @@ function canvasForFallbackTextLayer(layer) {
   if (!host) return null;
   return Array.from(host.querySelectorAll("canvas")).find((canvas) => canvasFallbackTextLayers.get(canvas)?.layer === layer) ?? null;
 }
-function appendPlainTextBeforeToken(fragment, text, start, end, followedByToken = false) {
+function appendPlainTextBeforeToken(fragment, text2, start, end, followedByToken = false) {
   if (end <= start) return;
-  const slice = text.slice(start, end);
+  const slice = text2.slice(start, end);
   const digits = followedByToken ? TRAILING_DIGITS_RE.exec(slice)?.[0] : void 0;
   if (!digits) {
   fragment.append(document.createTextNode(slice));
@@ -11964,13 +11968,13 @@ function appendPlainTextBeforeToken(fragment, text, start, end, followedByToken 
   fragment.append(bind);
 }
 function markRenderedScanTarget(target) {
-  const text = normalizedRenderedHostText(target.text);
-  if (!text || !isTargetLanguageText(text) || !target.parent.isConnected) return;
+  const text2 = normalizedRenderedHostText(target.text);
+  if (!text2 || !isTargetLanguageText(text2) || !target.parent.isConnected) return;
   const previous = renderedScanHosts.get(target.parent);
   const now = Date.now();
-  const keepBackoff = previous && previous.text === text && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
+  const keepBackoff = previous && previous.text === text2 && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
   renderedScanHosts.set(target.parent, {
-  text,
+  text: text2,
   markedAt: now,
   lastRejectedAt: keepBackoff ? previous.lastRejectedAt : void 0,
   rejectionCount: keepBackoff ? previous.rejectionCount : void 0
@@ -12046,8 +12050,8 @@ function restoredHostTextMatches(element, previousText, addedNodes) {
 function textMatchesRenderedHost(candidate, previousText) {
   return Boolean(candidate && previousText && (candidate.includes(previousText) || previousText.includes(candidate)));
 }
-function normalizedRenderedHostText(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
+function normalizedRenderedHostText(text2) {
+  return text2.replace(/\s+/g, " ").trim().slice(0, RENDERED_SCAN_HOST_MAX_TEXT);
 }
 function normalizedRenderedHostSurfaceText(element) {
   return normalizedRenderedHostText(readerWordSurfaceText(element) || element.textContent || "");
@@ -12088,16 +12092,16 @@ function renderedWordLooksDamaged(word) {
   return hasFuri && (!hasBase || !surface);
 }
 function readerWordDomSurfaceText(element) {
-  let text = "";
+  let text2 = "";
   element.childNodes.forEach((node) => {
   if (node.nodeType === Node.TEXT_NODE) {
-    text += node.textContent ?? "";
+    text2 += node.textContent ?? "";
     return;
   }
   if (!(node instanceof Element) || node.matches("rt,rp")) return;
-  text += readerWordDomSurfaceText(node);
+  text2 += readerWordDomSurfaceText(node);
   });
-  return text;
+  return text2;
 }
 function mutationTargetElement(target) {
   if (target.nodeType === Node.ELEMENT_NODE) return target;
@@ -12171,14 +12175,14 @@ function groupSingleFragmentTokenPlans(plans) {
 function replaceSingleFragmentTokenNode(target, fragment, plans, settings, miningInsightKeys) {
   if (!fragment.node.parentNode || !plans.length) return;
   const replacement = document.createDocumentFragment();
-  const text = fragment.node.data;
+  const text2 = fragment.node.data;
   let offset = fragment.start;
   for (const plan of plans) {
-  appendPlainTextBeforeToken(replacement, text, offset, plan.localStart, true);
+  appendPlainTextBeforeToken(replacement, text2, offset, plan.localStart, true);
   replacement.append(renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys));
   offset = plan.localEnd;
   }
-  appendPlainTextBeforeToken(replacement, text, offset, fragment.end);
+  appendPlainTextBeforeToken(replacement, text2, offset, fragment.end);
   replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
 }
 function wrapDirectFlexGridTextRun(replacement, parent) {
@@ -12475,8 +12479,8 @@ function insertMultiFragmentToken(range, surface, token, settings, options = {})
   shell.append(range.extractContents());
   range.insertNode(shell);
 }
-function tokenWithReadableSentence(token, text, fallback) {
-  const sentence = sentenceAroundRange(text, token.start, token.end, fallback) || fallback || token.sentence;
+function tokenWithReadableSentence(token, text2, fallback) {
+  const sentence = sentenceAroundRange(text2, token.start, token.end, fallback) || fallback || token.sentence;
   return sentence === token.sentence ? token : { ...token, sentence };
 }
 function indexTextFragments(fragments) {
@@ -12518,19 +12522,19 @@ function leadingEdgeFragmentBoundary(fragments, offset) {
   const fragment = fragments[0];
   return fragment && offset === fragment.globalStart ? { fragment, localOffset: fragment.start } : null;
 }
-function nonOverlappingTokens(tokens, text) {
+function nonOverlappingTokens(tokens, text2) {
   const safe = [];
   let offset = 0;
   for (const token of tokens) {
-  if (!isSafeTokenSpan(token, offset, text)) continue;
+  if (!isSafeTokenSpan(token, offset, text2)) continue;
   safe.push(token);
   offset = token.end;
   }
   return safe;
 }
-function isSafeTokenSpan(token, offset, text) {
-  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text.length) return false;
-  return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
+function isSafeTokenSpan(token, offset, text2) {
+  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+  return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
 }
 function miningInsightTokenKeys(tokens) {
   const sentences = new Map();
@@ -12961,12 +12965,12 @@ function findRubyKanaAnchorPlan(base, reading, runs, index, readingOffset, ancho
   }
   return null;
 }
-function readingRunOccurrences(reading, text, offset) {
+function readingRunOccurrences(reading, text2, offset) {
   const occurrences = [];
-  let index = reading.indexOf(text, offset);
+  let index = reading.indexOf(text2, offset);
   while (index >= 0) {
   occurrences.push(index);
-  index = reading.indexOf(text, index + 1);
+  index = reading.indexOf(text2, index + 1);
   }
   return occurrences;
 }
@@ -13045,33 +13049,33 @@ function isBlockLikeDisplay(display) {
 }
 const INLINE_DISPLAY_VALUES = new Set(["inline", "contents", "inline-block", "inline-flex", "inline-grid"]);
 const BLOCK_LIKE_DISPLAY_VALUES = new Set(["block", "flow-root", "grid", "list-item", "table", "table-row", "table-cell"]);
-function isFragileUiText(element, text) {
-  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
-  return isFragileUiContext(element, text);
+function isFragileUiText(element, text2) {
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
+  return isFragileUiContext(element, text2);
 }
-function isGeometryFragileText(element, text) {
-  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
-  const metrics = fragileTextMetrics(element, text);
+function isGeometryFragileText(element, text2) {
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
+  const metrics = fragileTextMetrics(element, text2);
   if (fragileByTypography(element, metrics.style, metrics.compactLength, metrics.fontSize, metrics.lineHeight, metrics.prose)) return true;
-  if (fragileByCompactLayout(text, metrics.style, metrics.rect)) return true;
-  if (isInsideMediaTextLink(element, text)) return true;
-  return fragileByInlineControl(text, metrics.style, metrics.rect);
+  if (fragileByCompactLayout(text2, metrics.style, metrics.rect)) return true;
+  if (isInsideMediaTextLink(element, text2)) return true;
+  return fragileByInlineControl(text2, metrics.style, metrics.rect);
 }
-function isShortCenteredDisplayHeading(element, text) {
+function isShortCenteredDisplayHeading(element, text2) {
   const heading = closestDisplayHeading(element);
   if (!heading) return false;
   const style = safeComputedStyle(heading);
-  const headingText = heading.textContent?.trim() || text;
-  if (isReadablePrimaryDisplayHeadingText(element, text)) return false;
+  const headingText = heading.textContent?.trim() || text2;
+  if (isReadablePrimaryDisplayHeadingText(element, text2)) return false;
   return style.textAlign === "center" && compactLength(headingText) <= 40;
 }
 function closestDisplayHeading(element) {
   return DISPLAY_HEADING_RE.test(element.tagName) ? element : element.closest(DISPLAY_HEADING_SELECTOR);
 }
-function isReadablePrimaryDisplayHeadingText(element, text) {
+function isReadablePrimaryDisplayHeadingText(element, text2) {
   const heading = closestDisplayHeading(element);
   if (!heading || heading.tagName !== "H1") return false;
-  if (compactLength(text) < 4) return false;
+  if (compactLength(text2) < 4) return false;
   return isReadablePrimaryDisplayHeadingElement(heading);
 }
 function isReadablePrimaryDisplayHeadingElement(element) {
@@ -13080,35 +13084,35 @@ function isReadablePrimaryDisplayHeadingElement(element) {
   if (heading.closest('header, nav, footer, aside, [role="banner"], [role="navigation"], [role="contentinfo"], [role="complementary"]')) return false;
   return Boolean(heading.closest('main, [role="main"]'));
 }
-function isFragileUiContext(element, text) {
-  if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text)) return true;
-  if (text.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
-  return isInsideControlLikeLink(element, text);
+function isFragileUiContext(element, text2) {
+  if (UI_CLASS_RE.test(String(element.className)) && !isReadableProseUiClassText(element, text2)) return true;
+  if (text2.length <= 4 && ancestorClassLooksLikeUi(element)) return true;
+  return isInsideControlLikeLink(element, text2);
 }
-function isReadableProseUiClassText(element, text) {
-  if (compactLength(text) < 8) return false;
+function isReadableProseUiClassText(element, text2) {
+  if (compactLength(text2) < 8) return false;
   return isLikelyProseElement(element) && Boolean(element.closest('article, main, [role="main"]'));
 }
-function fragileTextMetrics(element, text) {
+function fragileTextMetrics(element, text2) {
   const style = safeComputedStyle(element);
   const rect = element.getBoundingClientRect();
-  const compactLength2 = Array.from(text.replace(/\s+/g, "")).length;
+  const compactLength2 = Array.from(text2.replace(/\s+/g, "")).length;
   const fontSize = cssPixels(style.fontSize);
   const lineHeight = cssPixels(style.lineHeight) || fontSize * 1.25;
   return { style, rect, compactLength: compactLength2, fontSize, lineHeight, prose: isLikelyProseElement(element) };
 }
-function fragileByCompactLayout(text, style, rect) {
-  if (!hasCompactLayoutShape(text, rect)) return false;
+function fragileByCompactLayout(text2, style, rect) {
+  if (!hasCompactLayoutShape(text2, rect)) return false;
   return hasCompactLayoutAlignment(style);
 }
-function hasCompactLayoutShape(text, rect) {
-  return rect.width > 0 && text.length <= 12 && rect.width < 180;
+function hasCompactLayoutShape(text2, rect) {
+  return rect.width > 0 && text2.length <= 12 && rect.width < 180;
 }
 function hasCompactLayoutAlignment(style) {
   return style.textAlign === "center" || style.whiteSpace !== "normal";
 }
-function fragileByInlineControl(text, style, rect) {
-  return text.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
+function fragileByInlineControl(text2, style, rect) {
+  return text2.length <= 6 && hasUiBox(style) && hasInlineControlShape(style.display) && rect.width < 180;
 }
 function fragileByTypography(element, style, compactLength2, fontSize, lineHeight, prose) {
   const centered = style.textAlign === "center";
@@ -13143,17 +13147,17 @@ function ancestorClassLooksLikeUi(element) {
   }
   return false;
 }
-function isInsideControlLikeLink(element, text) {
+function isInsideControlLikeLink(element, text2) {
   const link = element.closest("a[href]");
   if (!link) return false;
   if (isLikelyProseLink(link, element)) return false;
-  const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text) <= 2;
-  return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text)].some(Boolean);
+  const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text2) <= 2;
+  return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text2)].some(Boolean);
 }
-function isInsideMediaTextLink(element, text) {
+function isInsideMediaTextLink(element, text2) {
   const link = element.closest("a[href]");
   if (!link || isLikelyProseLink(link, element)) return false;
-  return linkHasControlMedia(link) && compactLength(text) > 2;
+  return linkHasControlMedia(link) && compactLength(text2) > 2;
 }
 const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
 const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
@@ -14390,16 +14394,16 @@ function isEditableEventContext(event) {
   const path = typeof event.composedPath === "function" ? event.composedPath() : [];
   return path.some((node) => node instanceof Element && isEditableElement(node));
 }
-async function copyText(text) {
+async function copyText(text2) {
   if (navigator.clipboard?.writeText) {
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(text2);
     return;
   } catch {
   }
   }
   const textarea = document.createElement("textarea");
-  textarea.value = text;
+  textarea.value = text2;
   textarea.style.position = "fixed";
   textarea.style.opacity = "0";
   document.body.append(textarea);
@@ -15047,11 +15051,11 @@ function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
   language
   };
 }
-function isRecord(value) {
+function isRecord$1(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function normalizeStoredYomuSrsDeck(value) {
-  if (!isRecord(value) || value.version !== 1 || !isRecord(value.cards)) return { version: 1, cards: {} };
+  if (!isRecord$1(value) || value.version !== 1 || !isRecord$1(value.cards)) return { version: 1, cards: {} };
   const cards = {};
   for (const candidate of Object.values(value.cards)) {
   const normalized = normalizeStoredCard(candidate);
@@ -15059,7 +15063,7 @@ function normalizeStoredYomuSrsDeck(value) {
   cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
   }
   const tombstones = {};
-  if (isRecord(value.tombstones)) {
+  if (isRecord$1(value.tombstones)) {
   for (const [id, timestamp] of Object.entries(value.tombstones)) {
     if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
     const card = cards[id];
@@ -15201,7 +15205,7 @@ function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
   return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
 }
 function normalizeStoredCard(value) {
-  if (!isRecord(value) || typeof value.expression !== "string") return null;
+  if (!isRecord$1(value) || typeof value.expression !== "string") return null;
   let identity;
   try {
   identity = canonicalStudyCardIdentity(
@@ -15271,10 +15275,10 @@ function normalizeProvenance(value, addedAt) {
   };
 }
 function normalizeProvenanceRecord(value, fallbackAt) {
-  if (!isRecord(value)) return {};
+  if (!isRecord$1(value)) return {};
   const result = {};
   for (const candidate of Object.values(value)) {
-  if (!isRecord(candidate)) continue;
+  if (!isRecord$1(candidate)) continue;
   try {
     const normalized = normalizeProvenance({
       id: String(candidate.id ?? ""),
@@ -17615,10 +17619,10 @@ function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNaviga
   if (classified.some(({ segment, pitchClass }) => segment.pitch && !pitchClass)) return "";
   return classified.map(({ segment, pitchClass }) => {
   if (!segment.pitch) return renderKanjiNavigationText(segment.text, kanjiNavigation);
-  const { text, reading } = segment.pitch;
+  const { text: text2, reading } = segment.pitch;
   const content = renderCardSpellingWithFurigana({
     ...card,
-    spelling: text,
+    spelling: text2,
     reading,
     wordWithReading: null
   }, settings, kanjiNavigation);
@@ -18118,12 +18122,12 @@ function formatLookupUrl(template, values) {
 const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
 const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
 const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
-function splitLearnerGlossaryText(text) {
-  const withoutExamples = learnerGlossaryWithoutExamples(text);
+function splitLearnerGlossaryText(text2) {
+  const withoutExamples = learnerGlossaryWithoutExamples(text2);
   return withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map((item) => item.trim()).filter(Boolean);
 }
-function learnerGlossaryWithoutExamples(text) {
-  const normalized = text.replace(/\s+/g, " ").trim();
+function learnerGlossaryWithoutExamples(text2) {
+  const normalized = text2.replace(/\s+/g, " ").trim();
   if (!normalized) return "";
   return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
 }
@@ -18131,33 +18135,33 @@ function summarizeLearnerGlossaryTexts(texts, limit = 3) {
   const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
   return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
 }
-function cleanLearnerGlossaryText(text) {
-  let clean = text.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
+function cleanLearnerGlossaryText(text2) {
+  let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
   clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
   if (!clean || HAS_JAPANESE.test(clean) || looksLikeGrammarTag(clean)) return "";
   return clean;
 }
-function cutBeforeExampleText(text) {
-  const japaneseIndex = text.search(HAS_JAPANESE);
-  const sentenceIndex = text.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
+function cutBeforeExampleText(text2) {
+  const japaneseIndex = text2.search(HAS_JAPANESE);
+  const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
   const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
   const cutoff = indexes.length ? Math.min(...indexes) : -1;
-  return cutoff >= 0 ? text.slice(0, cutoff) : text;
+  return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
 }
-function trimLearnerMeaning(text, maxLength = 56) {
-  if (text.length <= maxLength) return text;
-  const truncated = text.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
-  return truncated || text.slice(0, maxLength).trim();
+function trimLearnerMeaning(text2, maxLength = 56) {
+  if (text2.length <= maxLength) return text2;
+  const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
+  return truncated || text2.slice(0, maxLength).trim();
 }
-function humanizeTerseGlosses(text) {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (words.length < 2 || words.length > 4) return text;
-  if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text;
+function humanizeTerseGlosses(text2) {
+  const words = text2.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return text2;
+  if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
   if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
-  return text;
+  return text2;
 }
-function looksLikeGrammarTag(text) {
-  return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text);
+function looksLikeGrammarTag(text2) {
+  return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
 }
 function extractFrequency(value) {
   const rank = frequencyRank$1(value);
@@ -18573,7 +18577,7 @@ function glossaryValueToProfileText(value, options) {
   if (Array.isArray(value)) {
   return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
   }
-  return isRecord(value) ? glossaryRecordToText(value, options) : "";
+  return isRecord$1(value) ? glossaryRecordToText(value, options) : "";
 }
 function primitiveGlossaryText(value) {
   if (value == null) return "";
@@ -18667,7 +18671,7 @@ function renderGlossaryValue(value, context) {
   if (value == null) return "";
   if (isStructuredPrimitive(value)) return escapeHtml(String(value));
   if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord(value)) return "";
+  if (!isRecord$1(value)) return "";
   return renderGlossaryRecord(value, context);
 }
 function isStructuredPrimitive(value) {
@@ -19200,9 +19204,9 @@ function hasAdditionalLocalDictionaryText(entry) {
   const summary = summarizeLearnerGlossary(entry);
   return entry.glossary.some((item) => {
   if (hasRichStructuredGlossary(item)) return true;
-  const text = glossaryToText(item).replace(/\s+/g, " ").trim();
-  if (!text || text === summary) return false;
-  return HAS_JAPANESE.test(text);
+  const text2 = glossaryToText(item).replace(/\s+/g, " ").trim();
+  if (!text2 || text2 === summary) return false;
+  return HAS_JAPANESE.test(text2);
   });
 }
 function renderFrequencyPill(entry, dictionaryLabel) {
@@ -19457,17 +19461,21 @@ function recordHeaders(headers) {
   if (Array.isArray(headers)) return Object.fromEntries(headers);
   return headers;
 }
+async function requestJson(url, options = {}) {
+  const value = await requestHttp(url, { ...options, responseType: "json" });
+  return value;
+}
 Logger.scope("KanjiOrigin");
 const KANJI_RE = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
 const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
 function cleanText(value) {
   return value.replace(/\s+/g, " ").trim();
 }
-function firstReviewGlyph(text) {
-  const direct = text.match(KANJI_RE);
+function firstReviewGlyph(text2) {
+  const direct = text2.match(KANJI_RE);
   if (direct) return direct[0];
   try {
-  return decodeURIComponent(text).match(KANJI_RE)?.[0] ?? null;
+  return decodeURIComponent(text2).match(KANJI_RE)?.[0] ?? null;
   } catch {
   return null;
   }
@@ -19653,21 +19661,21 @@ function alignExpressionComponentSegments(card, components, componentPitches, mo
   for (const component of components) {
   skipConnectives(component);
   if (!matchesAt(spellingChars, spellingCursor, component.text) || !matchesAt(readingChars, readingCursor, component.reading)) return null;
-  const text = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
+  const text2 = spellingChars.slice(spellingCursor, spellingCursor + Array.from(component.text).length).join("");
   spellingCursor += Array.from(component.text).length;
   readingCursor += Array.from(component.reading).length;
   const pitch = componentPitches.find((candidate) => candidate.text === component.text && candidate.reading === component.reading);
   if (pitch) {
-    segments.push({ text, pitch });
+    segments.push({ text: text2, pitch });
     continue;
   }
   if (isConnectiveKanaOnly(component)) {
     hadSkippedConnective = true;
-    segments.push({ text, pitch: null });
+    segments.push({ text: text2, pitch: null });
     continue;
   }
   if (mode === "permissive") {
-    segments.push({ text, pitch: null });
+    segments.push({ text: text2, pitch: null });
     continue;
   }
   return null;
@@ -20306,28 +20314,28 @@ function expressionComponentPitchClass(component, componentPitches) {
   return match ? getPitchClass([match.pitch], match.reading) : "";
 }
 function renderExpressionComponentTerm(component, pitchClass) {
-  const text = component.text.trim();
+  const text2 = component.text.trim();
   const reading = component.reading.trim();
   const classes = [
   "jpdb-reader-word",
   "jpdb-reader-passive-word",
   "jpdb-reader-expression-component-term",
   "jpdb-reader-jpdb-used-in-term",
-  reading && reading !== text ? "jpdb-reader-has-furi" : "",
+  reading && reading !== text2 ? "jpdb-reader-has-furi" : "",
   pitchClass ? `jpdb-pitch-${pitchClass}` : "jpdb-pitch-unknown"
   ].filter(Boolean).join(" ");
   const pitchAttribute = pitchClass || "unknown";
   const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
-  const content = reading && reading !== text ? renderRuby(text, expressionComponentRubyToken(text, reading, pitchClass)) : escapeHtml$1(text);
-  return `<span class="${classes}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text)}" data-expression="${escapeHtml$1(text)}"${readingAttribute} tabindex="-1">${content}</span>`;
+  const content = reading && reading !== text2 ? renderRuby(text2, expressionComponentRubyToken(text2, reading, pitchClass)) : escapeHtml$1(text2);
+  return `<span class="${classes}" data-jpdb-reader-passive="true" data-pitch-class="${escapeHtml$1(pitchAttribute)}" data-sentence="${escapeHtml$1(text2)}" data-expression="${escapeHtml$1(text2)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
-function expressionComponentRubyToken(text, reading, pitchClass) {
+function expressionComponentRubyToken(text2, reading, pitchClass) {
   return {
   card: {
     vid: 0,
     sid: 0,
     rid: 0,
-    spelling: text,
+    spelling: text2,
     reading,
     frequencyRank: null,
     partOfSpeech: [],
@@ -20337,11 +20345,11 @@ function expressionComponentRubyToken(text, reading, pitchClass) {
     wordWithReading: null
   },
   start: 0,
-  end: text.length,
-  length: text.length,
+  end: text2.length,
+  length: text2.length,
   rubies: [],
   pitchClass,
-  sentence: text
+  sentence: text2
   };
 }
 function renderProviderToggle(nextProvider, language, content = "") {
@@ -20432,7 +20440,7 @@ function pruneExpiringMapEntries(cache, limit, now = Date.now()) {
   cache.delete(oldest);
   }
 }
-function isAbortError(error) {
+function isAbortError$2(error) {
   return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
 class PromiseLruCache {
@@ -21295,11 +21303,11 @@ function jitenPayloadRecord(value) {
 }
 function normalizeJitenVocabularyReading(value) {
   if (!isJsonRecord(value)) return null;
-  const text = firstRecordString(value, ["text"]);
+  const text2 = firstRecordString(value, ["text"]);
   const readingIndex = finiteJitenInteger(value.readingIndex);
-  if (!text || readingIndex === void 0) return null;
+  if (!text2 || readingIndex === void 0) return null;
   return {
-  text,
+  text: text2,
   readingIndex,
   frequencyRank: nullableFiniteInteger(value.frequencyRank),
   usedInMediaAmount: nullableFiniteInteger(value.usedInMediaAmount)
@@ -21346,11 +21354,11 @@ function normalizeJitenVocabularyExamples(value) {
 }
 function normalizeJitenVocabularyExample(value) {
   if (!isJsonRecord(value)) return null;
-  const text = firstRecordString(value, ["text"]);
-  if (!text) return null;
+  const text2 = firstRecordString(value, ["text"]);
+  if (!text2) return null;
   return {
   sentenceId: finiteJitenInteger(value.sentenceId) ?? 0,
-  text,
+  text: text2,
   wordPosition: finiteJitenInteger(value.wordPosition) ?? -1,
   wordLength: finiteJitenInteger(value.wordLength) ?? 0,
   difficulty: nullableFiniteNumber(value.difficulty),
@@ -21394,8 +21402,8 @@ function normalizeJitenKanjiGroupingTags(value) {
   };
 }
 function jitenKanjiGroupingTag(value, keys) {
-  const text = firstRecordString(value, keys);
-  if (text) return text;
+  const text2 = firstRecordString(value, keys);
+  if (text2) return text2;
   const number = firstRecordFiniteNumber(value, keys);
   return number === null ? null : String(number);
 }
@@ -21427,11 +21435,11 @@ function jitenTokenTextSpan(paragraph, token, card) {
   const utf8 = utf8ByteRangeToUtf16Range(paragraph, token.start, token.end);
   return bestJitenTextSpan(paragraph, card.spelling, [raw, utf8]) ?? raw;
 }
-function bestJitenTextSpan(text, expectedSurface, candidates) {
+function bestJitenTextSpan(text2, expectedSurface, candidates) {
   let best = null;
   for (const span of candidates) {
-  if (span.start < 0 || span.end <= span.start || span.end > text.length) continue;
-  const surface = text.slice(span.start, span.end);
+  if (span.start < 0 || span.end <= span.start || span.end > text2.length) continue;
+  const surface = text2.slice(span.start, span.end);
   let score = 1;
   if (surface === expectedSurface) score += 100;
   else if (expectedSurface && (expectedSurface.startsWith(surface) || surface.startsWith(expectedSurface))) score += 20;
@@ -21440,23 +21448,23 @@ function bestJitenTextSpan(text, expectedSurface, candidates) {
   }
   return best?.span ?? null;
 }
-function utf8ByteRangeToUtf16Range(text, start, end) {
-  const utf16Start = utf16OffsetForUtf8ByteOffset(text, start);
-  const utf16End = utf16OffsetForUtf8ByteOffset(text, end);
+function utf8ByteRangeToUtf16Range(text2, start, end) {
+  const utf16Start = utf16OffsetForUtf8ByteOffset(text2, start);
+  const utf16End = utf16OffsetForUtf8ByteOffset(text2, end);
   return { start: utf16Start, end: utf16End, length: utf16End - utf16Start };
 }
-function utf16OffsetForUtf8ByteOffset(text, byteOffset) {
+function utf16OffsetForUtf8ByteOffset(text2, byteOffset) {
   if (byteOffset <= 0) return 0;
   let bytes = 0;
   let offset = 0;
-  for (const char of text) {
+  for (const char of text2) {
   if (bytes >= byteOffset) return offset;
   const nextBytes = bytes + utf8ByteLength(char);
   if (nextBytes > byteOffset) return offset;
   bytes = nextBytes;
   offset += char.length;
   }
-  return text.length;
+  return text2.length;
 }
 function utf8ByteLength(char) {
   const point = char.codePointAt(0) ?? 0;
@@ -21480,11 +21488,11 @@ function extractJitenRubiesFromAnnotated(input) {
   while ((match = regex.exec(input)) !== null) {
   const prefix = match[1] ?? "";
   const base = match[2] ?? "";
-  const text = match[3] ?? "";
+  const text2 = match[3] ?? "";
   currentOffset += prefix.length;
   const start = currentOffset;
   const length = base.length;
-  rubies.push({ text, start, end: start + length, length });
+  rubies.push({ text: text2, start, end: start + length, length });
   currentOffset += length;
   }
   return rubies;
@@ -21524,13 +21532,13 @@ function addJitenSentenceInfo(paragraphs, tokens) {
   });
   });
 }
-function splitJitenJapaneseTextIntoSentences(text) {
-  const sentences = text.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
+function splitJitenJapaneseTextIntoSentences(text2) {
+  const sentences = text2.match(/.*?[。！？」』](?=\s?|$)|「.*?」|『.*?』/g) || [];
   return sentences.length ? sentences.map((sentence) => sentence.trim()).filter(Boolean).filter((sentence) => !/^[」』]$/.test(sentence)).map((sentence) => {
   if (/「.*?」|『.*?』/.test(sentence)) return sentence;
   const trimmed = sentence.replace(/(^「|『)|(」|』$)/, "");
   return /[。！？]$/.test(trimmed) ? trimmed : `${trimmed}。`;
-  }) : [text];
+  }) : [text2];
 }
 function arrayOfStrings(value) {
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
@@ -21810,15 +21818,15 @@ async function fetchWithTimeout(fetchImpl, url, init, timeoutMs) {
   try {
   return await fetchImpl(url, { ...init, signal: controller.signal });
   } catch (error) {
-  if (isAbortError(error)) throw new JitenApiError("Jiten request timed out.");
+  if (isAbortError$2(error)) throw new JitenApiError("Jiten request timed out.");
   throw error;
   } finally {
   globalThis.clearTimeout(timeoutId);
   }
 }
 async function parseJitenResponse(response, authenticated) {
-  const text = await response.text();
-  const json = parseJson(text);
+  const text2 = await response.text();
+  const json = parseJson(text2);
   const errorMessage = jitenApplicationErrorMessage(json);
   const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
   if (errorMessage) {
@@ -21846,10 +21854,10 @@ function statusFromMessage(message) {
   const match = /\((\d{3})\)/.exec(message);
   return match ? Number(match[1]) : void 0;
 }
-function parseJson(text) {
-  if (!text) return void 0;
+function parseJson(text2) {
+  if (!text2) return void 0;
   try {
-  return JSON.parse(text);
+  return JSON.parse(text2);
   } catch {
   return void 0;
   }
@@ -22015,7 +22023,7 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
 const JAPANESE_CHAR_COUNT_RE = new RegExp(`[${KANA}${KANJI}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]`, "gu");
 function japaneseBatchCharCount(paragraphs) {
-  return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
+  return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
 const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(`^[${KANA}${KANJI}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]+$`, "u");
 const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`[${KANJI}${ITERATION_MARK}]`, "u");
@@ -22088,10 +22096,10 @@ class ReaderParser {
   }
   async parseWithPreferredSource(paragraphs, options, settings) {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
-    return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
+    return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
   }
   if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
-    return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
+    return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
   }
   if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
     const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
@@ -22160,7 +22168,7 @@ class ReaderParser {
     const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
     if (publicJitenResult) return publicJitenResult;
   }
-  return Promise.all(paragraphs.map((text) => this.parseLocalOrSegmentedText(text, options)));
+  return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
   }
   async tryParseWithPublicJiten(paragraphs, options) {
   if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
@@ -22225,8 +22233,8 @@ ${entry.reading}`);
   this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
   return card;
   }
-  fallbackCardFromText(text) {
-  const card = bareFallbackCardFromText(text);
+  fallbackCardFromText(text2) {
+  const card = bareFallbackCardFromText(text2);
   this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
   return card;
   }
@@ -22236,45 +22244,45 @@ ${entry.reading}`);
   canUseParseFallback(options) {
   return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
   }
-  async parseLocalOrSegmentedText(text, options) {
+  async parseLocalOrSegmentedText(text2, options) {
   const settings = this.dependencies.getSettings();
-  const key = localParseCacheKey(text, options, settings);
+  const key = localParseCacheKey(text2, options, settings);
   const cached = this.localParseCache.get(key);
   if (cached) {
     this.localParseCache.delete(key);
     this.localParseCache.set(key, cached);
     return cached;
   }
-  const promise = this.parseLocalOrSegmentedTextUncached(text, options).catch((error) => {
+  const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
     if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
     throw error;
   });
   this.rememberLocalParseCacheEntry(key, promise);
   return promise;
   }
-  async parseLocalOrSegmentedTextUncached(text, options) {
+  async parseLocalOrSegmentedTextUncached(text2, options) {
   try {
     return await withTimeout(
-      this.resolveLocalOrSegmentedText(text, options),
+      this.resolveLocalOrSegmentedText(text2, options),
       LOCAL_PARSE_TIMEOUT_MS,
       () => new Error("Local parse timed out.")
     );
   } catch (error) {
-    log$5.warn("Local parse timed out; using segmented fallback", { length: text.length }, error);
-    return this.localParseTimeoutFallback(text, options);
+    log$5.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+    return this.localParseTimeoutFallback(text2, options);
   }
   }
-  async resolveLocalOrSegmentedText(text, options) {
+  async resolveLocalOrSegmentedText(text2, options) {
   if (this.canUseLocalDictionaryFallback()) {
-    const tokens = await this.parseLocalDictionaryText(text, options);
+    const tokens = await this.parseLocalDictionaryText(text2, options);
     if (tokens.length) {
-      return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text, tokens) : tokens;
+      return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
     }
   }
-  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
   }
-  localParseTimeoutFallback(text, options) {
-  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+  localParseTimeoutFallback(text2, options) {
+  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
   }
   rememberLocalParseCacheEntry(key, promise) {
   this.localParseCache.set(key, promise);
@@ -22284,17 +22292,17 @@ ${entry.reading}`);
     this.localParseCache.delete(oldest);
   }
   }
-  async parseLocalDictionaryText(text, options) {
+  async parseLocalDictionaryText(text2, options) {
   const { dictionaries, getSettings } = this.dependencies;
   if (!await this.hasLocalTermDictionaries()) return [];
   const settings = getSettings();
-  const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
-    log$5.warn("Local dictionary parse failed", { length: text.length }, error);
+  const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
+    log$5.warn("Local dictionary parse failed", { length: text2.length }, error);
     return [];
   });
-  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text, match, options));
+  return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
   }
-  async localTokenFromMatch(text, match, options) {
+  async localTokenFromMatch(text2, match, options) {
   const card = this.localCardFromEntry(match.entry);
   const reading = card.reading && card.reading !== match.surface ? card.reading : "";
   const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
@@ -22311,7 +22319,7 @@ ${entry.reading}`);
     length: match.end - match.start,
     rubies,
     pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
-    sentence: text
+    sentence: text2
   };
   }
   async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
@@ -22320,13 +22328,13 @@ ${entry.reading}`);
   if (!candidates.some((items) => items.length)) return parsed;
   if (!await this.hasLocalTermDictionaries(true)) return parsed;
   const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-    const text = paragraphs[paragraphIndex] ?? "";
+    const text2 = paragraphs[paragraphIndex] ?? "";
     const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
       const relative = await this.exactLocalBoundaryMatch(candidate);
       if (!relative) return null;
       const match = offsetTermMatch(relative, candidate.start);
-      if (!exactMatchSafelyCrossesRemoteBoundary(text, match, tokens)) return null;
-      return this.localTokenFromMatch(text, match, options);
+      if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
+      return this.localTokenFromMatch(text2, match, options);
     }));
     return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
   }));
@@ -22369,8 +22377,8 @@ ${entry.reading}`);
   });
   return this.localTermDictionaryAvailability;
   }
-  parseSegmentedText(text) {
-  return segmentTargetLanguageText(text).map((segment) => {
+  parseSegmentedText(text2) {
+  return segmentTargetLanguageText(text2).map((segment) => {
     const card = this.fallbackCardFromText(segment.text);
     return {
       card,
@@ -22379,31 +22387,31 @@ ${entry.reading}`);
       length: segment.end - segment.start,
       rubies: [],
       pitchClass: "",
-      sentence: text
+      sentence: text2
     };
   });
   }
   async withSegmentedFallbackGaps(paragraphs, parsed, options) {
   const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
   if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
-  return Promise.all(paragraphs.map(async (text, index) => {
+  return Promise.all(paragraphs.map(async (text2, index) => {
     const tokens = parsed[index] ?? [];
     if (options.allowSegmentedFallback !== true) return tokens;
-    const withLocal = await this.fillGapsWithLocalDictionaryTokens(text, tokens, options);
-    return this.fillSegmentedFallbackGaps(text, withLocal);
+    const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
+    return this.fillSegmentedFallbackGaps(text2, withLocal);
   }));
   }
-  async fillGapsWithLocalDictionaryTokens(text, tokens, options) {
+  async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
   if (!this.canUseLocalDictionaryFallback()) return tokens;
   if (!await this.hasLocalTermDictionaries()) return tokens;
-  const localTokens = await this.parseLocalDictionaryText(text, options).catch(() => []);
+  const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
   const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap$1(local.start, local.end, token.start, token.end)));
   return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
   }
-  fillSegmentedFallbackGaps(text, tokens) {
-  tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text);
-  const fallbackTokens = this.parseSegmentedText(text);
-  const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
+  fillSegmentedFallbackGaps(text2, tokens) {
+  tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text2);
+  const fallbackTokens = this.parseSegmentedText(text2);
+  const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
   const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
   const replacements = [
     ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
@@ -22498,8 +22506,8 @@ ${entry.reading}`);
   if (!token.rubies.length || token.card.spelling !== surface) return;
   const word = Array.from(token.card.spelling);
   for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
-    const { text, start, length } = token.rubies[index];
-    word.splice(start - token.start + length, 0, `[${text}]`);
+    const { text: text2, start, length } = token.rubies[index];
+    word.splice(start - token.start + length, 0, `[${text2}]`);
   }
   token.card.wordWithReading = word.join("");
   }
@@ -22523,23 +22531,23 @@ ${entry.reading}`);
   this.rememberLocalPitchCacheEntry(key, promise);
   return firstLocalPitchPattern$1(await promise);
   }
-  withNormalizedMetricTokens(text, tokens) {
-  if (!text.includes("回視聴")) return tokens;
+  withNormalizedMetricTokens(text2, tokens) {
+  if (!text2.includes("回視聴")) return tokens;
   const replacements = [];
   const replacementRanges = [];
-  for (const match of text.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
+  for (const match of text2.matchAll(YOUTUBE_VIEW_METRIC_RE)) {
     const start = match.index ?? -1;
     if (start < 0) continue;
     const end = start + match[0].length;
     const overlapping = tokens.filter((token) => rangesOverlap$1(start, end, token.start, token.end));
     const alreadyCovered = overlapping.some((token) => token.start >= start + 1 && token.end <= end && token.card.spelling === "視聴");
-    const hasBrokenMetricToken = overlapping.some((token) => text.slice(token.start, token.end) === "回視");
+    const hasBrokenMetricToken = overlapping.some((token) => text2.slice(token.start, token.end) === "回視");
     if (alreadyCovered && !hasBrokenMetricToken) continue;
     if (!hasBrokenMetricToken && overlapping.length > 0) continue;
     replacementRanges.push({ start, end });
     replacements.push(
-      this.metricToken(text, "回", "かい", start, start + 1),
-      this.metricToken(text, "視聴", "しちょう", start + 1, end)
+      this.metricToken(text2, "回", "かい", start, start + 1),
+      this.metricToken(text2, "視聴", "しちょう", start + 1, end)
     );
   }
   if (!replacements.length) return tokens;
@@ -22625,12 +22633,12 @@ function localPitchCacheKey(card, settings) {
   }))
   });
 }
-function boundaryEvidenceCandidates(text, tokens) {
+function boundaryEvidenceCandidates(text2, tokens) {
   const sorted = [...tokens].sort(compareTokensByOffset);
   const candidates = [];
   const seen = new Set();
   for (let index = 1; index < sorted.length; index += 1) {
-  const candidate = boundaryEvidenceCandidate(text, sorted[index - 1], sorted[index]);
+  const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
   if (!candidate) continue;
   const key = `${candidate.start}:${candidate.surface}`;
   if (seen.has(key)) continue;
@@ -22640,17 +22648,17 @@ function boundaryEvidenceCandidates(text, tokens) {
   }
   return candidates;
 }
-function boundaryEvidenceCandidate(text, first, second) {
+function boundaryEvidenceCandidate(text2, first, second) {
   if (first.end !== second.start) return null;
   if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
-  const left = text.slice(first.end - 1, first.end);
-  const right = text.slice(second.start, second.start + 1);
+  const left = text2.slice(first.end - 1, first.end);
+  const right = text2.slice(second.start, second.start + 1);
   if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-  const firstSurface = text.slice(first.start, first.end);
-  const secondSurface = text.slice(second.start, second.end);
+  const firstSurface = text2.slice(first.start, first.end);
+  const secondSurface = text2.slice(second.start, second.end);
   if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
   return {
-  surface: text.slice(first.start, second.end),
+  surface: text2.slice(first.start, second.end),
   start: first.start,
   boundary: first.end - first.start
   };
@@ -22679,12 +22687,12 @@ function offsetTermMatch(match, offset) {
   end: match.end + offset
   };
 }
-function exactMatchSafelyCrossesRemoteBoundary(text, match, tokens) {
+function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
   const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
   if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
   return overlapping.every((token) => {
-  const prefix = text.slice(token.start, Math.min(token.end, match.start));
-  const suffix = text.slice(Math.max(token.start, match.end), token.end);
+  const prefix = text2.slice(token.start, Math.min(token.end, match.start));
+  const suffix = text2.slice(Math.max(token.start, match.end), token.end);
   return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
   });
 }
@@ -22712,10 +22720,10 @@ function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
   }))
   });
 }
-function localParseCacheKey(text, options, settings) {
+function localParseCacheKey(text2, options, settings) {
   const localDictionariesEnabled = settings.localDictionariesEnabled;
   return JSON.stringify({
-  text,
+  text: text2,
   localDictionariesEnabled,
   allowSegmentedFallback: options.allowSegmentedFallback === true,
   includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
@@ -22726,16 +22734,16 @@ function localParseCacheKey(text, options, settings) {
   })) : []
   });
 }
-function fallbackLookupTermAtOffset(text, offset) {
-  const range = fallbackLookupRangeAtOffset(text, offset);
-  if (range) return normalizeFallbackTerm(text.slice(range.start, range.end));
-  return normalizeFallbackTerm(text);
+function fallbackLookupTermAtOffset(text2, offset) {
+  const range = fallbackLookupRangeAtOffset(text2, offset);
+  if (range) return normalizeFallbackTerm(text2.slice(range.start, range.end));
+  return normalizeFallbackTerm(text2);
 }
-function fallbackLookupRangeAtOffset(text, offset) {
-  const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
-  const segment = segmentTargetLanguageText(text).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
+function fallbackLookupRangeAtOffset(text2, offset) {
+  const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text2.length - 1)));
+  const segment = segmentTargetLanguageText(text2).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
   if (segment) return { start: segment.start, end: segment.end };
-  for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
+  for (const match of text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
   const start = match.index ?? 0;
   const end = start + match[0].length;
   if (offsetInsideFallbackMatch(start, end, clampedOffset)) {
@@ -22761,35 +22769,35 @@ function preferInflectedFallback(fallback, tokens) {
 function isBroadPublic(token) {
   return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
 }
-function fallbackRepairTokens(text, fallbackTokens, tokens) {
+function fallbackRepairTokens(text2, fallbackTokens, tokens) {
   const repaired = new Set();
   for (const fallback of fallbackTokens) {
-  const group = fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens);
+  const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
   group?.forEach((token) => repaired.add(token));
   }
   return [...repaired].sort(compareTokensByOffset);
 }
-function fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens) {
-  if (!rangeHasUncoveredJapaneseText(text, fallback.start, fallback.end, tokens)) return null;
+function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
+  if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
   const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
   if (!overlapping.length) return null;
   const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
   const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
   if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-  return fallbackTokensCoveringRange(text, fallbackTokens, start, end);
+  return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
 }
-function rangeHasUncoveredJapaneseText(text, start, end, tokens) {
+function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
   for (let index = start; index < end; index += 1) {
-  if (!JAPANESE_CHARACTER_RE.test(text[index] ?? "")) continue;
+  if (!JAPANESE_CHARACTER_RE.test(text2[index] ?? "")) continue;
   if (!tokens.some((token) => token.start <= index && index < token.end)) return true;
   }
   return false;
 }
-function fallbackTokensCoveringRange(text, fallbackTokens, start, end) {
+function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
   const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
   if (!group.length) return null;
   group.sort(compareTokensByOffset);
-  return rangeHasUncoveredJapaneseText(text, start, end, group) ? null : group;
+  return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
 }
 function compareTokensByOffset(a, b) {
   return a.start - b.start || b.length - a.length;
@@ -22849,8 +22857,8 @@ function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
   return ranks;
 }
 function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-  const text = frequency.trim();
-  const match = /([\d,]+)/.exec(text);
+  const text2 = frequency.trim();
+  const match = /([\d,]+)/.exec(text2);
   const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
   if (!Number.isInteger(rank) || rank <= 0) return null;
   return {
@@ -22859,7 +22867,7 @@ function jpdbKanjiFrequencyEvidence(kanji, frequency) {
   spelling: kanji,
   reading: kanji,
   source: "kanji",
-  display: /^top\b/i.test(text) ? text : void 0
+  display: /^top\b/i.test(text2) ? text2 : void 0
   };
 }
 function cardFrequencyRanks(card, isJpdbBackedCard) {
@@ -23560,10 +23568,10 @@ ${component.reading}`;
 }
 function jitenExpressionComponent(word) {
   const annotated = word.readingFurigana.trim();
-  const text = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling(annotated) || cleanJitenAnnotatedSpelling(word.reading)).trim();
-  if (!text) return null;
-  const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text).trim();
-  return { text, reading };
+  const text2 = (word.matchSurface.trim() || cleanJitenAnnotatedSpelling(annotated) || cleanJitenAnnotatedSpelling(word.reading)).trim();
+  if (!text2) return null;
+  const reading = (jitenAnnotatedReading(annotated) || word.reading.trim() || text2).trim();
+  return { text: text2, reading };
 }
 function cleanJitenAnnotatedSpelling(value) {
   return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
@@ -23862,7 +23870,7 @@ function isRubyAnnotation(element) {
   return element.tagName === "RT" || element.tagName === "RP";
 }
 function rubyReadingText(element, fallback, rtText = defaultRubyText) {
-  let text = "";
+  let text2 = "";
   let base = "";
   element.childNodes.forEach((child) => {
   if (child.nodeType === Node.TEXT_NODE) {
@@ -23872,14 +23880,14 @@ function rubyReadingText(element, fallback, rtText = defaultRubyText) {
   if (child.nodeType !== Node.ELEMENT_NODE) return;
   const childElement = child;
   if (childElement.tagName === "RT") {
-    text += rtText(childElement, base);
+    text2 += rtText(childElement, base);
     base = "";
     return;
   }
   if (childElement.tagName === "RP") return;
   base += fallback(childElement);
   });
-  return text + base || fallback(element);
+  return text2 + base || fallback(element);
 }
 function defaultRubyText(element, base) {
   return element.textContent || base;
@@ -24305,11 +24313,11 @@ function uniqueLookupValues(values) {
   const seen = new Set();
   const result = [];
   for (const value of values) {
-  const text = cleanText(value ?? "");
-  const key = text.replace(/\s+/g, "").toLowerCase();
-  if (!text || seen.has(key)) continue;
+  const text2 = cleanText(value ?? "");
+  const key = text2.replace(/\s+/g, "").toLowerCase();
+  if (!text2 || seen.has(key)) continue;
   seen.add(key);
-  result.push(text);
+  result.push(text2);
   }
   return result;
 }
@@ -25531,10 +25539,10 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
   for (const root of roots) {
   if (!siteScanHasRoom(context)) break;
   if (context.targets.some((target) => target.parent === root)) continue;
-  const text = syntheticYouTubeElementText(root);
-  if (!text || !isTargetLanguageText(text)) continue;
+  const text2 = syntheticYouTubeElementText(root);
+  if (!text2 || !isTargetLanguageText(text2)) continue;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
-    text,
+    text: text2,
     parent: root,
     fragments: [],
     layoutSensitive: true
@@ -25543,21 +25551,21 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
 }
 function syntheticYouTubeElementText(root) {
   if (root.matches("ytd-watch-info-text")) return syntheticYouTubeWatchInfoText(root);
-  for (const text of [
+  for (const text2 of [
   root.getAttribute("aria-label"),
   root.getAttribute("title"),
   root.innerText,
   root.textContent
   ]) {
-  const normalized = text?.replace(/\s+/g, " ").trim();
+  const normalized = text2?.replace(/\s+/g, " ").trim();
   if (normalized && isTargetLanguageText(normalized)) return normalized;
   }
   return "";
 }
 function syntheticYouTubeWatchInfoText(root) {
-  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text2) => Boolean(text2));
-  const text = parts.join(" • ");
-  if (isTargetLanguageText(text)) return text;
+  const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text22) => Boolean(text22));
+  const text2 = parts.join(" • ");
+  if (isTargetLanguageText(text2)) return text2;
   for (const attribute of ["aria-label", "title"]) {
   const fallback = normalizedAttributeText(root, attribute);
   if (fallback && isTargetLanguageText(fallback)) return fallback;
@@ -25588,10 +25596,10 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
   }
 }
 function collectCanvasFallbackTextTarget(profile, canvas, context) {
-  const text = canvasFallbackText(canvas);
-  if (!text || !isTargetLanguageText(text)) return false;
+  const text2 = canvasFallbackText(canvas);
+  if (!text2 || !isTargetLanguageText(text2)) return false;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
-  text,
+  text: text2,
   parent: canvas,
   fragments: [],
   layoutSensitive: true,
@@ -25689,15 +25697,15 @@ function shouldSuppressSiteScanRuby(profile, target) {
 function isBookWalkerReaderPassiveChromeTarget(parent) {
   return Boolean(parent.closest(PASSIVE_INTERACTION_ROOTS) || parent.closest(BOOKWALKER_READER_SETTINGS_SELECTOR));
 }
-function isJpdbReviewPromptTarget(parent, text) {
+function isJpdbReviewPromptTarget(parent, text2) {
   if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
-  if (compactTextLength(text) > 18) return false;
+  if (compactTextLength(text2) > 18) return false;
   const prompt = parent.closest(".review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling");
   if (!prompt) return false;
   return !parent.closest(".subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit");
 }
-function isJitenStudyPromptTarget(parent, text) {
-  if (!isJitenStudyPath() || compactTextLength(text) > 18) return false;
+function isJitenStudyPromptTarget(parent, text2) {
+  if (!isJitenStudyPath() || compactTextLength(text2) > 18) return false;
   const prompt = parent.closest('[lang="ja"]');
   if (!prompt || !prompt.classList.contains("font-noto-sans")) return false;
   if (!hasPromptTextSizeClass(prompt)) return false;
@@ -25711,8 +25719,8 @@ function hasPromptTextSizeClass(element) {
   (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
   );
 }
-function compactTextLength(text) {
-  return text.replace(/\s+/g, "").length;
+function compactTextLength(text2) {
+  return text2.replace(/\s+/g, "").length;
 }
 function plainScanTarget(target) {
   return {
@@ -26084,13 +26092,13 @@ function appendResidualVisibleTarget(targets, seen, target) {
   for (const fragments of unseenFragmentRuns(target, seen)) {
   const parent = fragments[0]?.node.parentElement;
   if (!parent) continue;
-  const text = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
-  if (!isTargetLanguageText(text)) continue;
+  const text2 = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
+  if (!isTargetLanguageText(text2)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
   appendAdmittedFragmentTarget(targets, seen, {
     ...target,
-    text,
+    text: text2,
     parent,
     fragments,
     decoration,
@@ -26144,8 +26152,8 @@ function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
   return true;
 }
 function isResidualReaderParticleTarget(target) {
-  const text = target.text.replace(/\s+/g, "");
-  return /^[のはをがにでへもとやかねよな]$/u.test(text) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
+  const text2 = target.text.replace(/\s+/g, "");
+  return /^[のはをがにでへもとやかねよな]$/u.test(text2) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
 }
 function isResidualJpdbAlternateSpellingTarget(target) {
   const spelling = target.parent.closest(".subsection-spelling.with-furigana");
@@ -26160,9 +26168,9 @@ function textNodesForFragmentTarget(target) {
 }
 function isUsefulGenericProseRoot(root) {
   if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
-  const text = compactRootText(root);
-  if (text.length < 12) return false;
-  return isTargetLanguageText(text);
+  const text2 = compactRootText(root);
+  if (text2.length < 12) return false;
+  return isTargetLanguageText(text2);
 }
 function isUsefulSafeUiChromeRoot(root) {
   return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
@@ -26173,8 +26181,8 @@ function isUsefulSafeFormChromeRoot(root) {
 function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
   if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
   if (!isVisibleSafeUiChromeRoot(root)) return false;
-  const text = compactRootText(root);
-  return isTargetLanguageText(text) && text.length >= minLength && text.length <= maxLength;
+  const text2 = compactRootText(root);
+  return isTargetLanguageText(text2) && text2.length >= minLength && text2.length <= maxLength;
 }
 function compactRootText(root) {
   return root.textContent?.replace(/\s+/g, "").trim() ?? "";
@@ -26267,6 +26275,669 @@ const CompanionBackedWanikaniSourceController = class {
   }
 };
 const renderWanikaniDefinitionMount = (card, settings, sourceAttributes) => yomuWanikaniCompanion()?.renderWanikaniDefinitionMount(card, settings, sourceAttributes) ?? "";
+function noComponent(reason) {
+  return { availability: "none", reason };
+}
+function unsupportedCapabilities() {
+  return {
+  supported: false,
+  reason: "unsupported-target",
+  text: noComponent("unsupported-target"),
+  audio: noComponent("unsupported-target"),
+  image: noComponent("unsupported-target"),
+  corpus: "limited"
+  };
+}
+const IMMERSION_KIT_EXAMPLE_SOURCE_ID = "immersion-kit";
+function immersionKitCapabilitiesFor(targetLanguage) {
+  const base = targetLanguage.trim().toLowerCase().split(/[-_]/u)[0];
+  if (base !== "ja") return unsupportedCapabilities();
+  return {
+  supported: true,
+  text: { availability: "available", scope: "sentence" },
+  audio: { availability: "available", scope: "sentence" },
+  image: { availability: "available", scope: "sentence" },
+  corpus: "ample"
+  };
+}
+function installProviderExampleBehaviors(root, options) {
+  installProviderTranslationReveal(root);
+  const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
+  if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
+  translations.filter((translation) => translation.dataset.providerTranslationPending === "true").forEach((translation) => hydrateProviderTranslation(root, translation, options));
+}
+function installProviderTranslationReveal(root) {
+  if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
+  root.dataset.providerExampleBehaviorsInstalled = "true";
+  root.addEventListener("click", (event) => {
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (translation && root.contains(translation)) revealProviderTranslation(translation);
+  });
+  root.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const translation = event.target?.closest("[data-provider-example-translation]");
+  if (!translation || !root.contains(translation)) return;
+  event.preventDefault();
+  revealProviderTranslation(translation);
+  });
+}
+function hydrateProviderTranslation(root, translation, options) {
+  if (translation.dataset.providerTranslationLoading === "true") return;
+  const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
+  if (!sentence) return;
+  translation.dataset.providerTranslationLoading = "true";
+  void options.translate(sentence, options.outputLanguage).then((translated) => {
+  if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
+  translation.textContent = translated.trim();
+  translation.lang = options.outputLanguage;
+  translation.hidden = false;
+  delete translation.dataset.providerTranslationPending;
+  delete translation.dataset.providerTranslationSentence;
+  }).catch(() => void 0).finally(() => {
+  delete translation.dataset.providerTranslationLoading;
+  });
+}
+function isCurrentProviderRoot(root, options) {
+  return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
+}
+function revealProviderTranslation(translation) {
+  delete translation.dataset.providerTranslationBlurred;
+  translation.removeAttribute("role");
+  translation.removeAttribute("tabindex");
+  translation.removeAttribute("aria-label");
+}
+function exampleSourceStateKey(sourceId) {
+  return `definition-source:${sourceId}:examples`;
+}
+function renderExampleSourceRow(options) {
+  const { collection, capabilities } = options;
+  const availability = collection.availability;
+  const status = statusChip(options);
+  const components = componentAttribute(capabilities);
+  const open = availability === "loaded";
+  return `
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-example-source-card"
+        data-example-source="${escapeHtml$1(options.sourceId)}"
+        data-availability="${availability}"
+        data-example-components="${escapeHtml$1(components)}"
+        data-example-target="${escapeHtml$1(options.targetLanguage)}"
+        ${options.sourceAttributes(exampleSourceStateKey(options.sourceId), open)}>
+        <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
+            <span class="jpdb-reader-example-source">${escapeHtml$1(options.sourceName)}</span>
+            <span class="jpdb-reader-source-status jpdb-reader-example-count" data-example-status>${escapeHtml$1(status)}</span>
+        </summary>
+        <div class="jpdb-reader-local-glossary">
+            ${renderRowBody(options)}
+        </div>
+    </details>
+  `;
+}
+function renderRowBody(options) {
+  const { collection } = options;
+  switch (collection.availability) {
+  case "unsupported":
+    return reasonBlock(options, "unsupported-target");
+  case "empty":
+    return [
+      reasonBlock(options, "no-results"),
+      options.capabilities.corpus === "limited" ? reasonBlock(options, "limited-corpus") : ""
+    ].join("");
+  case "unavailable":
+    return `${reasonBlock(options, collection.reason)}
+            <button class="jpdb-reader-btn" type="button" data-action="retry-example-source" data-example-source-id="${escapeHtml$1(options.sourceId)}">${escapeHtml$1(uiText(options.interfaceLanguage, "exampleSourceRetry"))}</button>`;
+  case "loaded":
+    return `
+            <ul class="jpdb-reader-jpdb-examples">${collection.items.map((record) => renderExampleRecord(record, options)).join("")}</ul>
+            ${mediaNotices(options, collection)}
+        `;
+  }
+}
+function statusChip(options) {
+  const { collection, interfaceLanguage } = options;
+  switch (collection.availability) {
+  case "loaded":
+    return String(collection.items.length);
+  case "empty":
+    return uiText(interfaceLanguage, "exampleSourceEmptyShort");
+  case "unsupported":
+    return uiText(interfaceLanguage, "exampleSourceUnsupportedShort");
+  case "unavailable":
+    return uiText(interfaceLanguage, "exampleSourceFailedShort");
+  }
+}
+function mediaNotices(options, collection) {
+  const notices = [];
+  const audio = options.capabilities.audio;
+  const playable = collection.items.some((record) => record.audio?.length);
+  if (audio.availability === "none") {
+  notices.push(reasonBlock(options, "no-sentence-audio-source"));
+  } else if (!playable) {
+  notices.push(reasonBlock(options, "no-licensed-audio"));
+  } else if (audio.availability === "per-item") {
+  notices.push(helpBlock("audio-per-item", uiText(options.interfaceLanguage, "exampleSourceAudioPerItem")));
+  }
+  if (options.capabilities.image.availability === "none") notices.push(reasonBlock(options, "no-image-source"));
+  return notices.join("");
+}
+function componentAttribute(capabilities) {
+  return ["text", "audio", "image"].filter((component) => capabilities[component].availability !== "none").join(",");
+}
+function reasonBlock(options, reason) {
+  return helpBlock(reason, reasonText(options, reason));
+}
+function helpBlock(reason, message) {
+  return `<p class="jpdb-reader-help" data-example-reason="${escapeHtml$1(reason)}">${escapeHtml$1(message)}</p>`;
+}
+function reasonText(options, reason) {
+  const language = options.interfaceLanguage;
+  switch (reason) {
+  case "unsupported-target":
+    return formatUiText(language, "exampleSourceUnsupported", {
+      language: languageName(options.targetLanguage, language)
+    });
+  case "limited-corpus":
+    return uiText(language, "exampleSourceLimitedCorpus");
+  case "no-results":
+    return uiText(language, "exampleSourceEmpty");
+  case "no-licensed-audio":
+    return uiText(language, "exampleSourceNoLicensedAudio");
+  case "no-sentence-audio-source":
+    return formatUiText(language, "exampleSourceNoSentenceAudio", {
+      language: languageName(options.targetLanguage, language)
+    });
+  case "no-image-source":
+    return uiText(language, "exampleSourceNoImage");
+  case "no-human-translation":
+    return formatUiText(language, "exampleSourceNoTranslation", {
+      language: languageName(options.outputLanguage, language)
+    });
+  case "auth":
+  case "network":
+  case "schema":
+    return uiText(language, "exampleSourceFailed");
+  }
+}
+function languageName(tag, interfaceLanguage) {
+  const locale = resolveUiLanguage(interfaceLanguage);
+  try {
+  return new Intl.DisplayNames([locale], { type: "language" }).of(tag) ?? tag;
+  } catch {
+  return tag;
+  }
+}
+function renderExampleRecord(record, options) {
+  const audio = record.audio?.[0];
+  return `
+    <li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml$1(record.id)}">
+        <div class="jpdb-reader-jpdb-example-row${audio ? " has-audio" : ""}">
+            ${audio ? renderAudioButton(audio.url, options.interfaceLanguage) : ""}
+            <div class="jpdb-reader-jpdb-example-text">
+                <div class="jpdb-reader-example-sentence" lang="${escapeHtml$1(record.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml$1(record.text.value)}</div>
+                ${renderTranslation(record, options)}
+                ${renderProvenance(record, options)}
+            </div>
+        </div>
+    </li>
+  `;
+}
+function renderTranslation(record, options) {
+  if (!record.translation) return reasonBlock(options, "no-human-translation");
+  const blurred = options.blurTranslations ?? false;
+  return `<div class="jpdb-reader-example-translation"
+    lang="${escapeHtml$1(record.translation.language)}"
+    dir="auto"
+    data-provider-example-translation
+    data-translation-provenance="${escapeHtml$1(record.translation.provenance)}"
+    ${blurred ? 'data-provider-translation-blurred="true" role="button" tabindex="0" aria-label="' + escapeHtml$1(uiText(options.interfaceLanguage, "revealTranslation")) + '"' : ""}
+    >${escapeHtml$1(record.translation.value)}</div>`;
+}
+function renderProvenance(record, options) {
+  const marks = [];
+  if (record.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
+  if (record.translation && record.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
+  const audioCredit = record.audio?.[0];
+  return `<div class="jpdb-reader-example-provenance" data-example-provenance>
+    <a href="${escapeHtml$1(record.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml$1(record.source.attribution)}</a>
+    <span data-example-licence>${escapeHtml$1(record.source.licence)}</span>
+    ${audioCredit ? `<span data-example-audio-licence>${escapeHtml$1(`${audioCredit.attribution} · ${audioCredit.licence.id}`)}</span>` : ""}
+    ${marks.map((mark) => `<span data-example-translation-mark>${escapeHtml$1(mark)}</span>`).join("")}
+  </div>`;
+}
+function renderAudioButton(url, interfaceLanguage) {
+  const label = uiText(interfaceLanguage, "exampleSourcePlayAudio");
+  return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="play-example-audio" data-example-audio-url="${escapeHtml$1(url)}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${speakerIcon()}</button>`;
+}
+const ALLOWED_LICENCE_FAMILIES = new Map([
+  ["cc0", "https://creativecommons.org/publicdomain/zero/1.0/"],
+  ["by", "https://creativecommons.org/licenses/by/4.0/"],
+  ["by-fr", "https://creativecommons.org/licenses/by/2.0/fr/"],
+  ["by-sa", "https://creativecommons.org/licenses/by-sa/4.0/"],
+  ["public-domain", ""]
+]);
+function decideMediaLicence(raw) {
+  const stated = typeof raw === "string" ? raw.trim() : "";
+  if (!stated) return { allowed: false, withheld: "missing-licence" };
+  const family = licenceFamily(stated);
+  const url = ALLOWED_LICENCE_FAMILIES.get(family);
+  if (url !== void 0) {
+  return { allowed: true, licence: { id: stated, commercialUse: true, derivatives: true, ...url ? { url } : {} } };
+  }
+  if (family.split("-").includes("nd")) return { allowed: false, withheld: "no-derivatives" };
+  if (family.split("-").includes("nc")) return { allowed: false, withheld: "non-commercial" };
+  return { allowed: false, withheld: "unknown-licence" };
+}
+function licenceFamily(value) {
+  return value.toLowerCase().replace(/creative\s+commons/gu, "cc").split(/[^a-z0-9]+/u).filter((part) => part && part !== "cc" && !/^\d/u.test(part)).join("-");
+}
+const TATOEBA_COVERAGE = Object.freeze({
+  sq: { codes: ["sqi"], sentenceAudioRows: 0, limitedCorpus: true },
+  grc: { codes: ["grc"], sentenceAudioRows: 0, limitedCorpus: true },
+  ar: { codes: ["ara"], sentenceAudioRows: 483 },
+  yue: { codes: ["yue"], sentenceAudioRows: 1784 },
+  zh: { codes: ["cmn"], sentenceAudioRows: 5827 },
+  da: { codes: ["dan"], sentenceAudioRows: 0 },
+  nl: { codes: ["nld"], sentenceAudioRows: 9038 },
+  en: { codes: ["eng"], sentenceAudioRows: 849774 },
+  fi: { codes: ["fin"], sentenceAudioRows: 4253 },
+  fr: { codes: ["fra"], sentenceAudioRows: 9833 },
+  de: { codes: ["deu"], sentenceAudioRows: 32938 },
+  el: { codes: ["ell"], sentenceAudioRows: 0 },
+  hu: { codes: ["hun"], sentenceAudioRows: 6914 },
+  id: { codes: ["ind"], sentenceAudioRows: 1754 },
+  it: { codes: ["ita"], sentenceAudioRows: 1591 },
+  km: { codes: ["khm"], sentenceAudioRows: 0, limitedCorpus: true },
+  ko: { codes: ["kor"], sentenceAudioRows: 0 },
+  lo: { codes: ["lao"], sentenceAudioRows: 0, limitedCorpus: true },
+  la: { codes: ["lat"], sentenceAudioRows: 1064, audioIsReconstruction: true },
+  mn: { codes: ["mon"], sentenceAudioRows: 0, limitedCorpus: true },
+  fa: { codes: ["pes"], sentenceAudioRows: 0 },
+  pl: { codes: ["pol"], sentenceAudioRows: 5618 },
+  pt: { codes: ["por"], sentenceAudioRows: 20957 },
+  ro: { codes: ["ron"], sentenceAudioRows: 52 },
+  ru: { codes: ["rus"], sentenceAudioRows: 10652 },
+  sh: { codes: ["srp", "hrv", "bos"], sentenceAudioRows: 0 },
+  es: { codes: ["spa"], sentenceAudioRows: 119430 },
+  sv: { codes: ["swe"], sentenceAudioRows: 206 },
+  tl: { codes: ["tgl"], sentenceAudioRows: 0 },
+  th: { codes: ["tha"], sentenceAudioRows: 722 },
+  tr: { codes: ["tur"], sentenceAudioRows: 1141 },
+  vi: { codes: ["vie"], sentenceAudioRows: 0 }
+});
+const TRANSLATION_ONLY_CODES = Object.freeze({
+  ja: "jpn",
+  he: "heb",
+  uk: "ukr",
+  cs: "ces",
+  nb: "nob",
+  no: "nob",
+  hi: "hin",
+  bn: "ben",
+  ta: "tam",
+  ur: "urd"
+});
+function tatoebaTranslationCode(outputLanguage) {
+  const base = outputLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
+  if (!base) return null;
+  const configured = TATOEBA_COVERAGE[base];
+  if (configured) return configured.codes[0] ?? null;
+  return TRANSLATION_ONLY_CODES[base] ?? null;
+}
+const TATOEBA_EXAMPLE_SOURCE_ID = "tatoeba";
+const TATOEBA_API_BASE = "https://api.tatoeba.org/v1/sentences";
+const TATOEBA_SENTENCE_URL = "https://tatoeba.org/en/sentences/show";
+const DEFAULT_RESULT_LIMIT = 8;
+const MAX_RESULT_LIMIT = 20;
+const RATE_LIMIT_INITIAL_BACKOFF_MS = 3e4;
+const RATE_LIMIT_MAX_BACKOFF_MS = 10 * 6e4;
+function createTatoebaExampleSource(options = {}) {
+  const now = options.now ?? (() => Date.now());
+  let rateLimitedUntil = 0;
+  let backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
+  const fetchJson = options.fetchJson ?? ((url, signal) => requestJson(url, {
+  signal,
+  proxyUrl: options.proxyUrl,
+  timeoutMs: options.timeoutMs,
+  failureLabel: "Tatoeba examples",
+  anonymous: true
+  }));
+  return {
+  id: TATOEBA_EXAMPLE_SOURCE_ID,
+  name: "Tatoeba",
+  supports: (targetLanguage) => tatoebaCapabilitiesFor(targetLanguage),
+  async search(request) {
+    const coverage = coverageFor(request.targetLanguage);
+    const term = request.term.trim();
+    if (!coverage || !term) return { availability: "unsupported", items: [] };
+    if (now() < rateLimitedUntil) return { availability: "unavailable", items: [], reason: "network" };
+    const limit = boundedLimit(request.limit);
+    const urls = coverage.entry.codes.map((code) => searchUrl({
+      code,
+      term,
+      outputLanguage: request.outputLanguage,
+      limit,
+      requestAudio: options.requestAudio ?? true
+    }));
+    const responses = await Promise.all(urls.map((url) => resolveResponse(url, request.signal, fetchJson)));
+    const failure = responses.find((response) => response.kind === "failure");
+    const payloads = responses.filter((response) => response.kind === "payload");
+    if (failure && !payloads.length) {
+      if (failure.reason === "rate-limit") {
+        rateLimitedUntil = now() + backoffMs;
+        backoffMs = Math.min(backoffMs * 2, RATE_LIMIT_MAX_BACKOFF_MS);
+        return { availability: "unavailable", items: [], reason: "network" };
+      }
+      return { availability: "unavailable", items: [], reason: failure.reason };
+    }
+    if (!failure) backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
+    const withheldMedia = [];
+    const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row) => toExampleRecord(row, coverage, request.outputLanguage, withheldMedia)).filter((record) => Boolean(record)).slice(0, limit);
+    if (!items.length) return { availability: "empty", items: [] };
+    return withheldMedia.length ? { availability: "loaded", items, withheldMedia } : { availability: "loaded", items };
+  }
+  };
+}
+function tatoebaCapabilitiesFor(targetLanguage) {
+  const coverage = coverageFor(targetLanguage);
+  if (!coverage) return unsupportedCapabilities();
+  const { entry } = coverage;
+  const hasSentenceAudio = entry.sentenceAudioRows > 0;
+  return {
+  supported: true,
+  text: {
+    availability: "available",
+    scope: "sentence",
+    ...entry.limitedCorpus ? { reason: "limited-corpus" } : {}
+  },
+  audio: hasSentenceAudio ? { availability: "per-item", scope: "sentence", reason: "no-licensed-audio" } : { availability: "none", scope: "sentence", reason: "no-sentence-audio-source" },
+  image: noComponent("no-image-source"),
+  corpus: entry.limitedCorpus ? "limited" : "ample",
+  sentenceAudioRows: entry.sentenceAudioRows
+  };
+}
+function coverageFor(targetLanguage) {
+  const base = targetLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
+  const id = TATOEBA_LANGUAGE_ALIASES[base] ?? base;
+  const entry = TATOEBA_COVERAGE[id];
+  return entry ? { id, entry } : null;
+}
+const TATOEBA_LANGUAGE_ALIASES = Object.freeze({
+  fil: "tl",
+  sr: "sh",
+  hr: "sh",
+  bs: "sh",
+  cmn: "zh",
+  pes: "fa",
+  prs: "fa",
+  nan: "zh"
+});
+function boundedLimit(limit) {
+  if (typeof limit !== "number" || !Number.isFinite(limit)) return DEFAULT_RESULT_LIMIT;
+  return Math.max(1, Math.min(MAX_RESULT_LIMIT, Math.trunc(limit)));
+}
+function searchUrl(params) {
+  const query = new URLSearchParams({
+  lang: params.code,
+  q: `"${params.term}"`,
+  sort: "relevance",
+  limit: String(params.limit)
+  });
+  const translation = tatoebaTranslationCode(params.outputLanguage);
+  if (translation) query.set("trans:lang", translation);
+  if (params.requestAudio) query.set("include", "audios");
+  return `${TATOEBA_API_BASE}?${query.toString()}`;
+}
+async function resolveResponse(url, signal, fetchJson) {
+  try {
+  const payload = await fetchJson(url, signal);
+  if (!isRecord(payload)) return { kind: "failure", reason: "schema" };
+  if (!Array.isArray(payload.data)) return { kind: "failure", reason: "schema" };
+  return { kind: "payload", payload };
+  } catch (error) {
+  if (isAbortError$1(error)) throw error;
+  return { kind: "failure", reason: failureReason(error) };
+  }
+}
+function failureReason(error) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/\b429\b|too many requests/iu.test(message)) return "rate-limit";
+  if (/\b40[13]\b|unauthori[sz]ed|forbidden/iu.test(message)) return "auth";
+  if (/\bjson\b|unexpected token|schema/iu.test(message)) return "schema";
+  return "network";
+}
+function sentenceRows(payload) {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) return [];
+  return payload.data.filter(isRecord);
+}
+function toExampleRecord(row, coverage, outputLanguage, withheldMedia) {
+  const value = text(row.text);
+  const id = text(row.id);
+  if (!value || !id) return null;
+  const sentenceLicence = text(row.license) || "CC BY 2.0 FR";
+  const owner = text(row.owner);
+  const audio = licensedAudio(row.audios, withheldMedia, coverage);
+  return {
+  id: `${TATOEBA_EXAMPLE_SOURCE_ID}:${id}`,
+  text: {
+    value,
+    language: text(row.lang) || coverage.entry.codes[0] || coverage.id,
+    ...text(row.script) ? { script: text(row.script) } : {}
+  },
+  ...translationOf(row, outputLanguage) ?? {},
+  ...audio.length ? { audio } : {},
+  source: {
+    name: "Tatoeba",
+    url: `${TATOEBA_SENTENCE_URL}/${id}`,
+    licence: sentenceLicence,
+    attribution: owner ? `Tatoeba — ${owner}` : "Tatoeba"
+  },
+  quality: {
+    reviewed: row.is_unapproved !== true,
+    nativeSpeaker: coverage.entry.audioIsReconstruction ? false : Boolean(owner),
+    ...coverage.entry.audioIsReconstruction ? { warnings: ["reconstructed-pronunciation"] } : {}
+  }
+  };
+}
+function translationOf(row, outputLanguage) {
+  const wanted = tatoebaTranslationCode(outputLanguage);
+  const candidates = Array.isArray(row.translations) ? row.translations.filter(isRecord) : [];
+  const matches = candidates.filter((candidate) => text(candidate.text) && (!wanted || text(candidate.lang) === wanted));
+  const chosen = matches.find((candidate) => candidate.is_direct === true) ?? matches[0];
+  if (!chosen) return null;
+  return {
+  translation: {
+    value: text(chosen.text),
+    language: text(chosen.lang) || wanted || outputLanguage,
+    provenance: "source",
+    direct: chosen.is_direct === true
+  }
+  };
+}
+function licensedAudio(raw, withheldMedia, coverage) {
+  if (!Array.isArray(raw)) return [];
+  const assets = [];
+  raw.filter(isRecord).forEach((record) => {
+  const id = text(record.id);
+  const decision = decideMediaLicence(record.license);
+  if (!decision.allowed) {
+    withheldMedia.push({ kind: "audio", licence: text(record.license) || "", reason: decision.withheld });
+    return;
+  }
+  if (!id) return;
+  const author = text(record.author);
+  assets.push({
+    kind: "audio",
+    scope: "sentence",
+    url: text(record.download_url) || `https://api.tatoeba.org/v1/audio/${id}/file`,
+    licence: decision.licence,
+    attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
+    recordUrl: text(record.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
+  });
+  });
+  return assets;
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function text(value) {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+function isAbortError$1(error) {
+  return error instanceof Error && error.name === "AbortError";
+}
+const ADAPTERS = new Map();
+function registerExampleSource(adapter) {
+  ADAPTERS.set(adapter.id, adapter);
+  return adapter;
+}
+function registeredExampleSources() {
+  return [...ADAPTERS.values()];
+}
+function exampleSourcesForTarget(targetLanguage) {
+  return registeredExampleSources().filter((adapter) => adapter.supports(targetLanguage).supported);
+}
+function declaredExampleCapabilities(targetLanguage) {
+  return [
+  { sourceId: IMMERSION_KIT_EXAMPLE_SOURCE_ID, sourceName: "Immersion Kit", capabilities: immersionKitCapabilitiesFor(targetLanguage) },
+  { sourceId: TATOEBA_EXAMPLE_SOURCE_ID, sourceName: "Tatoeba", capabilities: tatoebaCapabilitiesFor(targetLanguage) }
+  ];
+}
+registerExampleSource(createTatoebaExampleSource());
+const DEFAULT_EXAMPLE_LIMIT = 8;
+function renderTargetExampleSourceMounts(settings, sourceAttributes) {
+  const targetLanguage = targetLanguageOf(settings);
+  const outputLanguage = outputLanguageOf(settings);
+  return declaredExampleCapabilities(targetLanguage).map((row) => {
+  if (!row.capabilities.supported) {
+    return renderExampleSourceRow({
+      sourceId: row.sourceId,
+      sourceName: row.sourceName,
+      interfaceLanguage: settings.interfaceLanguage,
+      targetLanguage,
+      outputLanguage,
+      capabilities: row.capabilities,
+      collection: { availability: "unsupported", items: [] },
+      sourceAttributes
+    });
+  }
+  return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-example-source-card"
+            data-example-source="${escapeHtml$1(row.sourceId)}"
+            data-availability="pending"
+            data-example-target="${escapeHtml$1(targetLanguage)}"
+            ${sourceAttributes(exampleSourceStateKey(row.sourceId), false)}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
+                <span class="jpdb-reader-example-source">${escapeHtml$1(row.sourceName)}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                <p class="jpdb-reader-help">${escapeHtml$1(uiText(settings.interfaceLanguage, "loadingExamples"))}</p>
+            </div>
+        </details>
+    `;
+  }).join("");
+}
+const ROOT_ABORT_CONTROLLERS = new WeakMap();
+function installTargetExampleSources(root, options) {
+  const targetLanguage = targetLanguageOf(options.settings);
+  const adapters = options.adapters ?? exampleSourcesForTarget(targetLanguage);
+  if (!adapters.length) return;
+  installExampleSourceControls(root, options);
+  adapters.forEach((adapter) => {
+  const controller = replaceSourceController(root, adapter.id);
+  void loadOneSource(root, adapter, options, controller);
+  });
+}
+function abortPendingTargetExampleSources(root, sourceId) {
+  const controllers = ROOT_ABORT_CONTROLLERS.get(root);
+  if (!controllers) return;
+  if (sourceId === void 0) {
+  controllers.forEach((controller) => controller.abort());
+  ROOT_ABORT_CONTROLLERS.delete(root);
+  return;
+  }
+  controllers.get(sourceId)?.abort();
+  controllers.delete(sourceId);
+}
+function replaceSourceController(root, sourceId) {
+  abortPendingTargetExampleSources(root, sourceId);
+  const controllers = ROOT_ABORT_CONTROLLERS.get(root) ?? new Map();
+  const controller = new AbortController();
+  controllers.set(sourceId, controller);
+  ROOT_ABORT_CONTROLLERS.set(root, controllers);
+  return controller;
+}
+async function loadOneSource(root, adapter, options, controller) {
+  const targetLanguage = targetLanguageOf(options.settings);
+  const outputLanguage = outputLanguageOf(options.settings);
+  let collection;
+  try {
+  collection = await adapter.search({
+    term: options.term,
+    targetLanguage,
+    outputLanguage,
+    signal: controller.signal,
+    limit: exampleLimit(options.settings)
+  });
+  } catch (error) {
+  if (controller.signal.aborted || isAbortError(error)) return;
+  collection = { availability: "unavailable", items: [], reason: "network" };
+  }
+  if (controller.signal.aborted) return;
+  if (options.isCurrentRoot && !options.isCurrentRoot(root)) return;
+  const card = root.querySelector(`[data-example-source="${cssEscape(adapter.id)}"]`);
+  if (!card?.isConnected) return;
+  card.outerHTML = renderExampleSourceRow({
+  sourceId: adapter.id,
+  sourceName: adapter.name,
+  interfaceLanguage: options.settings.interfaceLanguage,
+  targetLanguage,
+  outputLanguage,
+  capabilities: adapter.supports(targetLanguage),
+  collection,
+  sourceAttributes: options.sourceAttributes,
+  blurTranslations: options.settings.immersionKitRevealTranslationOnClick
+  });
+}
+function exampleLimit(settings) {
+  return settings.immersionKitLimitEnabled && settings.immersionKitLimit > 0 ? settings.immersionKitLimit : DEFAULT_EXAMPLE_LIMIT;
+}
+function installExampleSourceControls(root, options) {
+  if (root.dataset.yomuExampleSourceControls === "true") return;
+  root.dataset.yomuExampleSourceControls = "true";
+  root.addEventListener("click", (event) => {
+  const trigger = event.target?.closest("[data-action]");
+  if (!trigger || !root.contains(trigger)) return;
+  if (trigger.dataset.action === "retry-example-source") {
+    event.preventDefault();
+    const sourceId = trigger.dataset.exampleSourceId ?? "";
+    const adapters = (options.adapters ?? exampleSourcesForTarget(targetLanguageOf(options.settings))).filter((adapter) => adapter.id === sourceId);
+    if (adapters.length) installTargetExampleSources(root, { ...options, adapters });
+    return;
+  }
+  if (trigger.dataset.action === "play-example-audio") {
+    event.preventDefault();
+    const url = trigger.dataset.exampleAudioUrl ?? "";
+    if (url) playExampleAudio(url, options);
+  }
+  });
+  installProviderTranslationReveal(root);
+}
+function playExampleAudio(url, options) {
+  if (options.playAudio) {
+  options.playAudio(url);
+  return;
+  }
+  if (typeof Audio !== "function") return;
+  const audio = new Audio(url);
+  void audio.play().catch(() => void 0);
+}
+function isAbortError(error) {
+  return error instanceof Error && error.name === "AbortError";
+}
+function cssEscape(value) {
+  return value.replace(/["\\]/gu, "\\$&");
+}
 const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeBunproSource", "includeStudySources", "includeImmersionSource"];
 const CORE_DEFINITION_SOURCE_RENDERERS = {
   [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
@@ -26291,6 +26962,9 @@ function renderDictionarySetupNudge(language) {
 }
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled) return "";
+  if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
+  return renderTargetExampleSourceMounts(settings, sourceAttributes);
+  }
   const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
   return `
     <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
@@ -26419,52 +27093,6 @@ function renderLocalDefinitionDictionarySources(context, params) {
 }
 function renderImmersionSource(params) {
   return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
-}
-function installProviderExampleBehaviors(root, options) {
-  installProviderTranslationReveal(root);
-  const translations = Array.from(root.querySelectorAll("[data-provider-example-translation]"));
-  if (!options.blurTranslations) translations.forEach(revealProviderTranslation);
-  translations.filter((translation) => translation.dataset.providerTranslationPending === "true").forEach((translation) => hydrateProviderTranslation(root, translation, options));
-}
-function installProviderTranslationReveal(root) {
-  if (root.dataset.providerExampleBehaviorsInstalled === "true") return;
-  root.dataset.providerExampleBehaviorsInstalled = "true";
-  root.addEventListener("click", (event) => {
-  const translation = event.target?.closest("[data-provider-example-translation]");
-  if (translation && root.contains(translation)) revealProviderTranslation(translation);
-  });
-  root.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const translation = event.target?.closest("[data-provider-example-translation]");
-  if (!translation || !root.contains(translation)) return;
-  event.preventDefault();
-  revealProviderTranslation(translation);
-  });
-}
-function hydrateProviderTranslation(root, translation, options) {
-  if (translation.dataset.providerTranslationLoading === "true") return;
-  const sentence = translation.dataset.providerTranslationSentence?.trim() ?? "";
-  if (!sentence) return;
-  translation.dataset.providerTranslationLoading = "true";
-  void options.translate(sentence, options.outputLanguage).then((translated) => {
-  if (!translated.trim() || !translation.isConnected || !isCurrentProviderRoot(root, options)) return;
-  translation.textContent = translated.trim();
-  translation.lang = options.outputLanguage;
-  translation.hidden = false;
-  delete translation.dataset.providerTranslationPending;
-  delete translation.dataset.providerTranslationSentence;
-  }).catch(() => void 0).finally(() => {
-  delete translation.dataset.providerTranslationLoading;
-  });
-}
-function isCurrentProviderRoot(root, options) {
-  return options.isCurrentRoot ? options.isCurrentRoot(root) : root.isConnected;
-}
-function revealProviderTranslation(translation) {
-  delete translation.dataset.providerTranslationBlurred;
-  translation.removeAttribute("role");
-  translation.removeAttribute("tabindex");
-  translation.removeAttribute("aria-label");
 }
 const COMMON_PARTICLES = new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
 function normalizeImmersionSearchQuery(value) {
@@ -27392,14 +28020,14 @@ function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpa
 }
 const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, "u");
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
-function normalizedLookupText(text) {
-  return text.replace(/\s+/g, " ").trim();
+function normalizedLookupText(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
-function isLookupableTargetLanguageText(text) {
-  return activeLearningTarget().isLookupableText(text);
+function isLookupableTargetLanguageText(text2) {
+  return activeLearningTarget().isLookupableText(text2);
 }
-function lookupCandidateSentence(text, start = 0, end = text.length) {
-  const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
+function lookupCandidateSentence(text2, start = 0, end = text2.length) {
+  const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText(text2);
   return isLookupableTargetLanguageText(sentence) ? sentence : "";
 }
 function pointerTokenAtOffset(tokens, offset) {
@@ -27435,15 +28063,15 @@ function shouldPreferTokenSentence(nearest, tokenSentence) {
   if (!compactLookupText(nearest).includes(compactLookupText(tokenSentence))) return true;
   return looksLikeNoisyRenderedContext(nearest);
 }
-function compactLookupText(text) {
-  return normalizedLookupText(text).replace(/\s+/g, "");
+function compactLookupText(text2) {
+  return normalizedLookupText(text2).replace(/\s+/g, "");
 }
-function looksLikeNoisyRenderedContext(text) {
-  const timecodes = text.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
+function looksLikeNoisyRenderedContext(text2) {
+  const timecodes = text2.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
   if (timecodes >= 2) return true;
-  const digitish = text.match(/[0-9０-９:：]/g)?.length ?? 0;
-  if (digitish >= 12 && digitish / Math.max(1, Array.from(text).length) > 0.12) return true;
-  return /動画全編を視聴|watch full video|view full video/i.test(text);
+  const digitish = text2.match(/[0-9０-９:：]/g)?.length ?? 0;
+  if (digitish >= 12 && digitish / Math.max(1, Array.from(text2).length) > 0.12) return true;
+  return /動画全編を視聴|watch full video|view full video/i.test(text2);
 }
 function pitchEnrichmentPriority(token) {
   return token.card.source === "fallback" ? 0 : 1;
@@ -27578,16 +28206,16 @@ function caretTextPositionFromPoint(x, y) {
   return null;
 }
 const pointerTextRunAt = targetPointerWordAt;
-function jpdbPointerLookupCandidates(text, offset) {
+function jpdbPointerLookupCandidates(text2, offset) {
   const target = activeLearningTarget();
-  const run = pointerTextRunAt(text, offset);
+  const run = pointerTextRunAt(text2, offset);
   if (!run) return [];
   if (target.lookupStartsAtSegmentBoundary) {
-  const term = text.slice(run.start, run.end).trim();
+  const term = text2.slice(run.start, run.end).trim();
   return term ? [{ term, start: run.start, end: run.end }] : [];
   }
   const candidates = [];
-  pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
+  pushPointerCandidate(candidates, pointerBoundaryCandidate(text2, run));
   const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
   const maxEnd = Math.min(run.end, run.offset + JPDB_POINTER_CANDIDATE_MAX_LENGTH);
   const maxLength = Math.min(JPDB_POINTER_CANDIDATE_MAX_LENGTH, maxEnd - minStart);
@@ -27595,21 +28223,21 @@ function jpdbPointerLookupCandidates(text, offset) {
   const firstStart = Math.max(minStart, run.offset - length + 1);
   const lastStart = Math.min(run.offset, maxEnd - length);
   for (let start = firstStart; start <= lastStart; start++) {
-    pushPointerCandidate(candidates, pointerCandidate(text, start, start + length));
+    pushPointerCandidate(candidates, pointerCandidate(text2, start, start + length));
     if (candidates.length >= JPDB_POINTER_CANDIDATE_LIMIT) return candidates;
   }
   }
   return candidates;
 }
-function pointerBoundaryCandidate(text, run) {
+function pointerBoundaryCandidate(text2, run) {
   const relativeOffset = run.offset - run.start;
-  const runText = text.slice(run.start, run.end);
+  const runText = text2.slice(run.start, run.end);
   const boundaries = pointerBoundarySegments(runText);
   let start = 0;
   let end = runText.length;
   for (const boundary of boundaries) {
   if (relativeOffset >= boundary.start && relativeOffset < boundary.end) {
-    return pointerCandidate(text, run.start + boundary.start, run.start + boundary.end);
+    return pointerCandidate(text2, run.start + boundary.start, run.start + boundary.end);
   }
   if (boundary.end <= relativeOffset) start = boundary.end;
   if (boundary.start > relativeOffset) {
@@ -27617,29 +28245,29 @@ function pointerBoundaryCandidate(text, run) {
     break;
   }
   }
-  return pointerCandidate(text, run.start + start, run.start + end);
+  return pointerCandidate(text2, run.start + start, run.start + end);
 }
-function pointerBoundarySegments(text) {
+function pointerBoundarySegments(text2) {
   const boundaries = [];
-  for (let index = 0; index < text.length; ) {
-  const boundary = boundarySegmentAt(text, index);
+  for (let index = 0; index < text2.length; ) {
+  const boundary = boundarySegmentAt(text2, index);
   if (!boundary) {
     index++;
     continue;
   }
-  if (index > 0 && index + boundary.length < text.length) {
+  if (index > 0 && index + boundary.length < text2.length) {
     boundaries.push({ start: index, end: index + boundary.length });
   }
   index += boundary.length;
   }
   return boundaries;
 }
-function boundarySegmentAt(text, index) {
-  return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => text.startsWith(segment, index)) ?? "";
+function boundarySegmentAt(text2, index) {
+  return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => text2.startsWith(segment, index)) ?? "";
 }
-function pointerCandidate(text, start, end) {
+function pointerCandidate(text2, start, end) {
   if (end <= start) return null;
-  const term = text.slice(start, end).trim();
+  const term = text2.slice(start, end).trim();
   if (!isUsefulPointerCandidateTerm(term)) return null;
   return { term, start, end };
 }
@@ -27665,8 +28293,8 @@ function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
   const contextual = pointerTextLookupContext(node, characterOffset, parent);
   return contextual ?? local;
 }
-function isLowValuePointerText(text, parent) {
-  const compact2 = text.replace(/\s+/g, "");
+function isLowValuePointerText(text2, parent) {
+  const compact2 = text2.replace(/\s+/g, "");
   if (!compact2) return true;
   if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
   const parts = compact2.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
@@ -27683,19 +28311,19 @@ function pointerTextLookupContext(node, characterOffset, anchor) {
   if (!lookup || lookup.end - lookup.start <= localPointerWordLength(node.data, characterOffset)) return null;
   return isLowValuePointerText(lookup.text, root) ? null : lookup;
 }
-function pointerTextLookupForText(anchor, text, offset) {
-  const run = pointerTextRunAt(text, offset);
-  if (!run || isLowValuePointerText(text, anchor)) return null;
+function pointerTextLookupForText(anchor, text2, offset) {
+  const run = pointerTextRunAt(text2, offset);
+  if (!run || isLowValuePointerText(text2, anchor)) return null;
   return {
-  text,
+  text: text2,
   offset: run.offset,
   start: run.start,
   end: run.end,
   anchor
   };
 }
-function localPointerWordLength(text, offset) {
-  const run = pointerTextRunAt(text, offset);
+function localPointerWordLength(text2, offset) {
+  const run = pointerTextRunAt(text2, offset);
   return run ? run.end - run.start : 0;
 }
 function pointerTextContextRoot(anchor) {
@@ -27716,21 +28344,21 @@ function pointerTextInlineContextRoot(anchor) {
   return null;
 }
 function isPointerTextInlineContextCandidate(element, localTextLength) {
-  const text = element.textContent ?? "";
-  return text.length > localTextLength && text.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && hasTargetPointerWord(text) && isPointerTextParentEligible(element);
+  const text2 = element.textContent ?? "";
+  return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && hasTargetPointerWord(text2) && isPointerTextParentEligible(element);
 }
 function readablePointerTextContext(root, target) {
-  let text = "";
+  let text2 = "";
   let rangeStart = -1;
   let rangeEnd = -1;
   const visit = (node) => {
   if (node.nodeType === Node.TEXT_NODE) {
     const value = node.textContent ?? "";
     if (node === target) {
-      rangeStart = text.length;
-      rangeEnd = text.length + value.length;
+      rangeStart = text2.length;
+      rangeEnd = text2.length + value.length;
     }
-    text += value;
+    text2 += value;
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -27739,10 +28367,10 @@ function readablePointerTextContext(root, target) {
   element.childNodes.forEach(visit);
   };
   visit(root);
-  if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text)) return null;
-  const leadingWhitespace = text.match(/^\s*/u)?.[0].length ?? 0;
-  const trailingWhitespace = text.match(/\s*$/u)?.[0].length ?? 0;
-  const trimmedText2 = text.slice(leadingWhitespace, text.length - trailingWhitespace);
+  if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text2)) return null;
+  const leadingWhitespace = text2.match(/^\s*/u)?.[0].length ?? 0;
+  const trailingWhitespace = text2.match(/\s*$/u)?.[0].length ?? 0;
+  const trimmedText2 = text2.slice(leadingWhitespace, text2.length - trailingWhitespace);
   if (!trimmedText2 || !hasTargetPointerWord(trimmedText2)) return null;
   return {
   text: trimmedText2,
@@ -28450,11 +29078,11 @@ function kanaRunRenderedWordsForSurface(anchor, surface) {
   for (let prev = anchor.previousElementSibling; isRenderedWordElement(prev); prev = prev.previousElementSibling) run.unshift(prev);
   for (let next = anchor.nextElementSibling; isRenderedWordElement(next); next = next.nextElementSibling) run.push(next);
   for (let start = 0; start < run.length; start += 1) {
-  let text = "";
+  let text2 = "";
   for (let end = start; end < run.length; end += 1) {
-    text += renderedWordSurfaceText(run[end]);
-    if (text.length > surface.length) break;
-    if (text === surface) {
+    text2 += renderedWordSurfaceText(run[end]);
+    if (text2.length > surface.length) break;
+    if (text2 === surface) {
       const window2 = run.slice(start, end + 1);
       if (window2.includes(anchor)) return window2;
       break;
@@ -28984,14 +29612,14 @@ function renderTokenSentenceWord(token, surface, settings) {
   const readingAttr = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
   return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml$1(surface)}" data-expression="${escapeHtml$1(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml$1(pitchClass || "unknown")}">${content}</button>`;
 }
-function createTextLookupDisplayContext(text, options, state) {
-  const selected = normalizedLookupText(text);
+function createTextLookupDisplayContext(text2, options, state) {
+  const selected = normalizedLookupText(text2);
   if (!isLookupableTargetLanguageText(selected)) return null;
   const trigger = options.trigger ?? state.defaultTrigger;
   const navigation = options.navigation ?? "reset";
   return {
   selected,
-  displaySelected: options.displaySelected ?? text,
+  displaySelected: options.displaySelected ?? text2,
   anchor: options.anchor ?? connectedElement(state.activePopoverAnchor),
   trigger,
   navigation,
@@ -29883,11 +30511,11 @@ function injectMokuroToggleNote(root) {
   }
 }
 function elementOwnText(el) {
-  let text = "";
+  let text2 = "";
   el.childNodes.forEach((node) => {
-  if (node.nodeType === 3) text += node.textContent ?? "";
+  if (node.nodeType === 3) text2 += node.textContent ?? "";
   });
-  return text.trim();
+  return text2.trim();
 }
 function findMokuroOcrToggleInputs(root) {
   const inputs = [];
@@ -30213,12 +30841,12 @@ function textNodeMayContainJapanese(node, budget) {
   return true;
   }
   budget.inspectedTextNodes += 1;
-  const text = node.textContent ?? "";
+  const text2 = node.textContent ?? "";
   const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
-  const sampledText = text.slice(0, remainingLength);
+  const sampledText = text2.slice(0, remainingLength);
   budget.inspectedTextLength += sampledText.length;
   if (isTargetLanguageText(sampledText)) return true;
-  if (sampledText.length < text.length) {
+  if (sampledText.length < text2.length) {
   budget.textBudgetExhausted = true;
   return true;
   }
@@ -31549,8 +32177,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.40"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.40"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.41"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.41"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -31693,7 +32321,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.40"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.41"}`;
   } catch {
   return null;
   }
@@ -31769,10 +32397,10 @@ function normalizeAnnotation(value) {
 }
 function exactJapaneseSurface(value) {
   if (typeof value !== "string") return "";
-  const text = value.normalize("NFC").trim();
+  const text2 = value.normalize("NFC").trim();
   const forbiddenControls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
-  if (!text || text.length > 80 || forbiddenControls.test(text)) return "";
-  return text;
+  if (!text2 || text2.length > 80 || forbiddenControls.test(text2)) return "";
+  return text2;
 }
 function normalizePitch(value, reading) {
   if (!value || typeof value !== "object") return void 0;
@@ -31784,24 +32412,24 @@ function normalizePitch(value, reading) {
 }
 function normalizedJapaneseText(value, allowLayoutWhitespace = false) {
   if (typeof value !== "string") return "";
-  const text = value.normalize("NFKC").trim();
+  const text2 = value.normalize("NFKC").trim();
   const forbiddenControls = allowLayoutWhitespace ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u : /[\u0000-\u001f\u007f]/u;
-  if (!text || text.length > 80 || forbiddenControls.test(text)) return "";
-  return text;
+  if (!text2 || text2.length > 80 || forbiddenControls.test(text2)) return "";
+  return text2;
 }
 function isKanaReading(value) {
   return KANA_ONLY_RUN_RE.test(value);
 }
-function authoredVocabularyReplacements(text, annotations, parsedTokens) {
+function authoredVocabularyReplacements(text2, annotations, parsedTokens) {
   const replacements = [];
   for (const annotation of annotations) {
-  let start = text.indexOf(annotation.surface);
+  let start = text2.indexOf(annotation.surface);
   while (start >= 0) {
     const end = start + annotation.surface.length;
     if (!replacements.some((token) => rangesOverlap(token, { start, end }))) {
-      replacements.push(authoredVocabularyToken(annotation, start, end, text, parsedTokens));
+      replacements.push(authoredVocabularyToken(annotation, start, end, text2, parsedTokens));
     }
-    start = text.indexOf(annotation.surface, end);
+    start = text2.indexOf(annotation.surface, end);
   }
   }
   return replacements;
@@ -32395,10 +33023,10 @@ function chunkLongScanTarget(target, settings) {
 }
 function textTargetChunk(target, start, end) {
   if (end <= start) return null;
-  const text = target.node.data.slice(start, end);
-  if (!text) return null;
+  const text2 = target.node.data.slice(start, end);
+  if (!text2) return null;
   return {
-  text,
+  text: text2,
   parent: target.parent,
   fragments: [{
     node: target.node,
@@ -32444,19 +33072,19 @@ function fragmentRange(fragments, start, end) {
   }
   return result;
 }
-function nextChunkEnd(text, start, chunkSize) {
-  const hardEnd = Math.min(text.length, start + chunkSize);
-  if (hardEnd >= text.length) return text.length;
-  if (text.length - hardEnd < VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL) return text.length;
-  return chunkBoundaryBefore(text, start, hardEnd, chunkSize) ?? hardEnd;
+function nextChunkEnd(text2, start, chunkSize) {
+  const hardEnd = Math.min(text2.length, start + chunkSize);
+  if (hardEnd >= text2.length) return text2.length;
+  if (text2.length - hardEnd < VISIBLE_SCAN_TARGET_TEXT_CHUNK_MIN_TAIL) return text2.length;
+  return chunkBoundaryBefore(text2, start, hardEnd, chunkSize) ?? hardEnd;
 }
-function chunkBoundaryBefore(text, start, hardEnd, chunkSize) {
+function chunkBoundaryBefore(text2, start, hardEnd, chunkSize) {
   const softStart = Math.max(start + Math.floor(chunkSize * 0.6), start + 1);
   for (let index = hardEnd; index > softStart; index -= 1) {
-  if (/[。！？!?]/u.test(text[index - 1] ?? "")) return index;
+  if (/[。！？!?]/u.test(text2[index - 1] ?? "")) return index;
   }
   for (let index = hardEnd; index > softStart; index -= 1) {
-  if (/[、，,\n\r\s]/u.test(text[index - 1] ?? "")) return index;
+  if (/[、，,\n\r\s]/u.test(text2[index - 1] ?? "")) return index;
   }
   return null;
 }
@@ -32654,8 +33282,8 @@ ${span.end}`;
   return true;
   });
 }
-function pointerSpanForResolvedCard(text, offset, span, card) {
-  const surface = normalizedLookupText(text.slice(span.start, span.end));
+function pointerSpanForResolvedCard(text2, offset, span, card) {
+  const surface = normalizedLookupText(text2.slice(span.start, span.end));
   if (!surface) return span;
   const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))].sort((first, second) => second.length - first.length);
   for (const value of values) {
@@ -33265,7 +33893,7 @@ class ReaderApp {
     },
     showSettings: (panel) => this.showSettings(panel),
     parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
-    lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
+    lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
     installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
     onComplete: (settings) => this.completePreferredJapaneseSiteLanguageSave(settings),
     onPersistenceFailed: (settings) => this.failPreferredJapaneseSiteLanguageSave(settings)
@@ -33276,7 +33904,7 @@ class ReaderApp {
   if (!Controller) return this.missingCompanionSurface("Video companion", "subtitles");
   return new Controller({
     getSettings: () => this.settings,
-    parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
+    parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     beforeRenderTokens: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
     afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
@@ -33315,14 +33943,14 @@ class ReaderApp {
   }
   return new Controller({
     getSettings: () => this.settings,
-    parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
+    parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
     parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
     onToast: (message) => this.toast(message),
     shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
     shouldScanInlineImages: () => true,
     enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
     enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
-    fallbackCardFromText: (text) => this.parser.fallbackCardFromText(text)
+    fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
   });
   }
   missingCompanionSurface(label, key) {
@@ -34251,6 +34879,7 @@ class ReaderApp {
   }
   removeJpdbPageAddonRoot(root) {
   this.immersionPopover?.abortPendingRequests(root);
+  abortPendingTargetExampleSources(root);
   root.remove();
   }
   installJpdbKanjiPageEnhancement(generation) {
@@ -34493,8 +35122,8 @@ class ReaderApp {
   releaseRubyRoomGrowth(document);
   document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
     if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
-      const text = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
-      el.replaceWith(text);
+      const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
+      el.replaceWith(text2);
     } else {
       el.remove();
     }
@@ -36531,8 +37160,8 @@ class ReaderApp {
   isParserBackedLookupCard(card) {
   return this.isJpdbBackedCard(card) || card.source === "jiten";
   }
-  async lookupText(text, sentence = text, options = {}) {
-  const context = this.textLookupDisplayContext(text, options);
+  async lookupText(text2, sentence = text2, options = {}) {
+  const context = this.textLookupDisplayContext(text2, options);
   if (!context) return;
   const done = log.time("lookupText", { length: context.selected.length, trigger: context.trigger });
   try {
@@ -36545,8 +37174,8 @@ class ReaderApp {
     done();
   }
   }
-  textLookupDisplayContext(text, options) {
-  return createTextLookupDisplayContext(text, options, this.textLookupDisplayState());
+  textLookupDisplayContext(text2, options) {
+  return createTextLookupDisplayContext(text2, options, this.textLookupDisplayState());
   }
   activeTextLookupTrigger() {
   return this.activePopoverMode === "hover" ? "hover" : "modal";
@@ -36921,12 +37550,12 @@ class ReaderApp {
     userGesture: options.userGesture
   });
   }
-  async lookupLocalEntryAtOffset(text, offset) {
+  async lookupLocalEntryAtOffset(text2, offset) {
   if (!this.settings.localDictionariesEnabled) return void 0;
-  const run = pointerTextRunAt(text, offset);
+  const run = pointerTextRunAt(text2, offset);
   if (!run) return void 0;
-  const pointerRange = fallbackLookupRangeAtOffset(text, run.offset) ?? { start: run.start, end: run.end };
-  return await this.lookupLocalEntryInRun(text, run, pointerRange);
+  const pointerRange = fallbackLookupRangeAtOffset(text2, run.offset) ?? { start: run.start, end: run.end };
+  return await this.lookupLocalEntryInRun(text2, run, pointerRange);
   }
   isCurrentRenderedWordHover(word, hoverLookupKey, hoverLookupGeneration) {
   if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
@@ -36953,43 +37582,43 @@ class ReaderApp {
   hasPendingDifferentHoverLookup(hoverLookupKey) {
   return Boolean(this.hoverPendingLookupKey && this.hoverPendingLookupKey !== hoverLookupKey || this.hoverLookupInFlightKey && this.hoverLookupInFlightKey !== hoverLookupKey);
   }
-  async lookupLocalEntryInRun(text, run, pointerRange) {
+  async lookupLocalEntryInRun(text2, run, pointerRange) {
   if (activeLearningTarget().lookupStartsAtSegmentBoundary) {
-    const surface = text.slice(pointerRange.start, pointerRange.end);
+    const surface = text2.slice(pointerRange.start, pointerRange.end);
     const entry = await this.lookupSingleLocalSurface(surface);
     return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : void 0;
   }
   if (isOverbroadLocalPointerRange(run, pointerRange)) {
-    return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
+    return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange, { preferShorter: true });
   }
-  const exactSurface = text.slice(pointerRange.start, pointerRange.end);
+  const exactSurface = text2.slice(pointerRange.start, pointerRange.end);
   const exactEntry = await this.lookupSingleLocalSurface(exactSurface);
   if (exactEntry) return { entry: exactEntry, start: pointerRange.start, end: pointerRange.end };
   if (!canExpandLocalPointerRange(exactSurface)) return void 0;
-  return await this.lookupContainingLocalEntryInRun(text, run, pointerRange);
+  return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange);
   }
-  async lookupContainingLocalEntryInRun(text, run, pointerRange, options = {}) {
+  async lookupContainingLocalEntryInRun(text2, run, pointerRange, options = {}) {
   const minStart = Math.max(run.start, run.offset - 8);
   const maxEnd = Math.min(run.end, Math.max(pointerRange.end, run.offset + 18));
-  if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd);
+  if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd);
   for (let start = Math.min(pointerRange.start, run.offset); start >= minStart; start--) {
     const longestEnd = Math.min(maxEnd, start + 18);
     for (let end = longestEnd; end > run.offset; end--) {
-      const surface = text.slice(start, end);
+      const surface = text2.slice(start, end);
       const entry = await this.lookupSingleLocalSurface(surface);
       if (entry) return { entry, start, end };
     }
   }
   return void 0;
   }
-  async lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd) {
+  async lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd) {
   const maxLength = Math.min(18, maxEnd - minStart);
   for (let length = 2; length <= maxLength; length++) {
     const firstStart = Math.max(minStart, run.offset - length + 1);
     const lastStart = Math.min(run.offset, maxEnd - length);
     for (let start = lastStart; start >= firstStart; start--) {
       const end = start + length;
-      const surface = text.slice(start, end);
+      const surface = text2.slice(start, end);
       const entry = await this.lookupSingleLocalSurface(surface);
       if (entry) return { entry, start, end };
     }
@@ -37670,7 +38299,17 @@ class ReaderApp {
   if (instantLocalEntries?.length) void this.parsePopoverJapanese(popover);
   }
   installLazyImmersionExamples(popover, card, options = {}) {
-  if (this.settings.immersionKitEnabled) this.immersionPopover?.installLazyLoad(popover, card, options);
+  if (!this.settings.immersionKitEnabled) return;
+  if (!immersionKitCapabilitiesFor(targetLanguageOf(this.settings)).supported) {
+    installTargetExampleSources(popover, {
+      settings: this.settings,
+      term: card.spelling,
+      sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+      isCurrentRoot: (root) => this.isCurrentPopoverRoot(root)
+    });
+    return;
+  }
+  this.immersionPopover?.installLazyLoad(popover, card, options);
   }
   renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor) {
   if (mounted.instantLocalEntries !== null) return;
@@ -38811,9 +39450,9 @@ class ReaderApp {
   void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
   }
   queueSubtitleParsedHtmlRefresh(sentence) {
-  const text = sentence?.trim();
-  if (!text || this.isDestroyed) return;
-  this.pendingSubtitleRebakeTexts.add(text);
+  const text2 = sentence?.trim();
+  if (!text2 || this.isDestroyed) return;
+  this.pendingSubtitleRebakeTexts.add(text2);
   if (this.subtitleRebakeTimer !== void 0) return;
   this.subtitleRebakeTimer = window.setTimeout(() => {
     this.subtitleRebakeTimer = void 0;
@@ -40102,7 +40741,7 @@ class ReaderApp {
     applyTheme: (settings) => this.applyTheme(settings),
     applyAccentColor: (color) => this.applyAccentColor(color),
     applyWordColors: (settings) => this.applyWordColors(settings),
-    lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
+    lookupText: (text2, sentence, anchor) => this.lookupText(text2, sentence || text2, { anchor, stackOverSettings: true }),
     parseSettingsJapanese: (form) => this.parseSettingsJapanese(form),
     installFab: () => this.installFab(),
     refreshDictionaryStyles: () => this.refreshDictionaryStyles(),
@@ -40778,8 +41417,8 @@ function embeddedFrameHasVideo() {
   return Boolean(document.querySelector("video"));
 }
 function embeddedFrameHasJapaneseText() {
-  const text = document.body?.textContent ?? document.documentElement?.textContent ?? "";
-  return isTargetLanguageText(text.slice(0, 2e5));
+  const text2 = document.body?.textContent ?? document.documentElement?.textContent ?? "";
+  return isTargetLanguageText(text2.slice(0, 2e5));
 }
 let embeddedFrameEligibilityObserver;
 function watchEmbeddedFrameForEligibleContent() {

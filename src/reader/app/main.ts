@@ -284,7 +284,9 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { translateJapaneseSentence } from '../study/tools';
 import { activeLearningTarget } from '../languages/active';
-import { outputLanguageOf } from '../languages/selection';
+import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
+import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
+import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
 import { syncLanguageFamilyDom } from '../settings/language-gating';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
@@ -2461,6 +2463,7 @@ export class ReaderApp {
 
     private removeJpdbPageAddonRoot(root: HTMLElement): void {
         this.immersionPopover?.abortPendingRequests(root);
+        abortPendingTargetExampleSources(root);
         root.remove();
     }
 
@@ -7138,7 +7141,20 @@ export class ReaderApp {
     }
 
     private installLazyImmersionExamples(popover: HTMLElement, card: JPDBCard, options: ImmersionSearchOptions = {}): void {
-        if (this.settings.immersionKitEnabled) this.immersionPopover?.installLazyLoad(popover, card, options);
+        if (!this.settings.immersionKitEnabled) return;
+        // Japanese keeps the ImmersionKit controller exactly as it is. Any other
+        // TARGET has its own registered example sources, which the shared loader
+        // fills; ImmersionKit's own row already rendered its refusal.
+        if (!immersionKitCapabilitiesFor(targetLanguageOf(this.settings)).supported) {
+            installTargetExampleSources(popover, {
+                settings: this.settings,
+                term: card.spelling,
+                sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+                isCurrentRoot: root => this.isCurrentPopoverRoot(root),
+            });
+            return;
+        }
+        this.immersionPopover?.installLazyLoad(popover, card, options);
     }
 
     private renderDeferredCardLocalEntries(

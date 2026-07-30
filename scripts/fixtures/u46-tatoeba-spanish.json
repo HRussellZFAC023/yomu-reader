@@ -1,0 +1,64 @@
+{
+ "data": [
+  {
+   "id": 13227432,
+   "text": "¡Agua!",
+   "lang": "spa",
+   "script": null,
+   "license": "CC BY 2.0 FR",
+   "owner": "jan_Junipa",
+   "is_unapproved": false,
+   "audios": [],
+   "translations": [
+    {
+     "id": 10733816,
+     "text": "Water!",
+     "lang": "eng",
+     "script": null,
+     "license": "CC BY 2.0 FR",
+     "owner": "frzzl",
+     "is_unapproved": false,
+     "is_direct": true,
+     "audios": []
+    }
+   ]
+  },
+  {
+   "id": 6711501,
+   "text": "El agua se evapora.",
+   "lang": "spa",
+   "script": null,
+   "license": "CC BY 2.0 FR",
+   "owner": "arh",
+   "is_unapproved": false,
+   "audios": [
+    {
+     "id": 430190,
+     "created": "2018-03-04T06:10:17+00:00",
+     "author": "arh",
+     "license": "CC BY-NC-ND 3.0",
+     "attribution_url": "https://tatoeba.org/user/profile/arh",
+     "download_url": "https://api.tatoeba.org/v1/audio/430190/file",
+     "modified": "2018-03-04T06:10:17+00:00"
+    }
+   ],
+   "translations": [
+    {
+     "id": 10861348,
+     "text": "Water evaporates.",
+     "lang": "eng",
+     "script": null,
+     "license": "CC BY 2.0 FR",
+     "owner": "Amastan",
+     "is_unapproved": false,
+     "is_direct": false,
+     "audios": []
+    }
+   ]
+  }
+ ],
+ "paging": {
+  "total": 1617,
+  "has_next": true
+ }
+}

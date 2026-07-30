@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.41] - 2026-07-30
+
+### Added
+
+- Example sentences now work in the language you are studying, not only Japanese. Pick Spanish, Korean, Arabic, Greek, Lao or any other study language and the popup fetches real sentences from Tatoeba, with the translation in the language you chose for definitions, and a credit link to the sentence and its licence.
+- Sentence audio plays where the recording is openly licensed, and the card says so when it is not. Japanese keeps Immersion Kit exactly as before, with its clips and frames.
+
+### Changed
+
+- An example source with nothing to show now tells you which of those it is. "No examples for this word yet", "this source has no Spanish sentences", "this corpus is small", "these sentences came without openly licensed audio" and "examples did not load" each read differently, and the last one offers a retry. Before, all five looked the same: an empty space.
+
 ## [1.8.40] - 2026-07-30
 
 ### Changed

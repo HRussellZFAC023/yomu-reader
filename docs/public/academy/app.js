@@ -53,7 +53,7 @@
   }
   function parseAcademyAccountView(value) {
     const record2 = object$1(value, "Academy account");
-    const identity2 = classIdentity(text$r(record2.displayName, "displayName"), discriminatorFromTag(text$r(record2.displayTag, "displayTag")));
+    const identity2 = classIdentity(text$s(record2.displayName, "displayName"), discriminatorFromTag(text$s(record2.displayTag, "displayTag")));
     if (identity2.label !== record2.displayTag) throw new TypeError("Academy displayTag is invalid.");
     return {
       accountId: uuid(record2.accountId, "accountId"),
@@ -116,7 +116,7 @@
   }
   function parseAcademyPairingTicket(value) {
     const record2 = object$1(value, "Academy pairing ticket");
-    const code = text$r(record2.code, "code");
+    const code = text$s(record2.code, "code");
     if (!/^[023456789A-HJ-KM-NP-Z]{4}(?:-[023456789A-HJ-KM-NP-Z]{4}){4}$/u.test(code)) {
       throw new TypeError("Academy pairing code is invalid.");
     }
@@ -180,7 +180,7 @@
     const record2 = object$1(value, "Academy class");
     return {
       classId: classId(record2.classId),
-      name: text$r(record2.name, "name"),
+      name: text$s(record2.name, "name"),
       role: role$1(record2.role),
       boardHidden: boolean$1(record2.boardHidden, "boardHidden")
     };
@@ -207,7 +207,7 @@
     }
     return {
       id: id2,
-      meaning: text$r(record2.meaning, "metric.meaning"),
+      meaning: text$s(record2.meaning, "metric.meaning"),
       unit,
       window: window2,
       ...startsOn === void 0 ? {} : { startsOn },
@@ -231,7 +231,7 @@
     return value === null ? null : integer$2(value, field2, 0, Number.MAX_SAFE_INTEGER);
   }
   function isoDay(value, field2) {
-    const day = text$r(value, field2);
+    const day = text$s(value, field2);
     const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(day);
     const at = match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : Number.NaN;
     if (!match || Number.isNaN(at) || new Date(at).toISOString().slice(0, 10) !== day) {
@@ -244,7 +244,7 @@
     return value;
   }
   function validDisplayTag(value) {
-    const tag = text$r(value, "displayTag");
+    const tag = text$s(value, "displayTag");
     const split = /^(.*)#(\d{6})$/u.exec(tag);
     if (!split) throw new TypeError("displayTag is invalid.");
     const identity2 = classIdentity(split[1] ?? "", split[2] ?? "");
@@ -264,7 +264,7 @@
     if (!Array.isArray(value)) throw new TypeError(`${field2} must be an array.`);
     return value;
   }
-  function text$r(value, field2) {
+  function text$s(value, field2) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${field2} must be text.`);
     return value;
   }
@@ -550,7 +550,7 @@
       const body = await this.json("/academy/api/account/devices");
       if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
       return body.devices.map((value) => {
-        if (!isRecord$f(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
+        if (!isRecord$g(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
           throw new Error("Reader device list was malformed.");
         }
         return value;
@@ -641,7 +641,7 @@
           });
           if (!response.ok) throw await responseError$1(response);
           const body = await response.json();
-          if (!isRecord$f(body)) throw new Error("Academy export response was malformed.");
+          if (!isRecord$g(body)) throw new Error("Academy export response was malformed.");
           const page = parseAcademyExportBundle(body);
           if (!wroteHeader) {
             const {
@@ -1178,7 +1178,7 @@
   function parseAcademyExportBundle(value) {
     const eventPage = parseAcademySyncPage(value.eventPage);
     const readerSrsEventPage = value.readerSrsEventPage === void 0 ? { events: [], nextCursor: 0, hasMore: false } : parseAcademySyncPage(value.readerSrsEventPage);
-    const eventRecord = isRecord$f(value.eventPage) ? value.eventPage : {};
+    const eventRecord = isRecord$g(value.eventPage) ? value.eventPage : {};
     const exportCursor = eventRecord.exportCursor;
     const hasMore = eventPage.hasMore || readerSrsEventPage.hasMore;
     if (hasMore) {
@@ -1207,7 +1207,7 @@
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
       const account = parsed.account === void 0 ? void 0 : parseStoredAccountView(parsed.account);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$f(parsed.envelopes) || !isRecord$f(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$g(parsed.envelopes) || !isRecord$g(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1225,7 +1225,7 @@
     }
   }
   function parseStoredAccountView(value) {
-    if (!isRecord$f(value) || !isRecord$f(value.identity)) throw new TypeError("Stored Academy account is malformed.");
+    if (!isRecord$g(value) || !isRecord$g(value.identity)) throw new TypeError("Stored Academy account is malformed.");
     const parsed = parseAcademyAccountView({
       accountId: value.accountId,
       displayName: value.identity.displayName,
@@ -1244,7 +1244,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$f(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$g(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1256,7 +1256,7 @@
       return -1;
     }
   }
-  function isRecord$f(value) {
+  function isRecord$g(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1447,7 +1447,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$e(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$f(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1465,7 +1465,7 @@
     }
     return 0;
   }
-  function isRecord$e(value) {
+  function isRecord$f(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1700,7 +1700,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$d(value) || !isRecord$d(value.volumes)) return cloneDefaults();
+      if (!isRecord$e(value) || !isRecord$e(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1732,7 +1732,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$d(value) {
+  function isRecord$e(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2638,7 +2638,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$c(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$d(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2705,7 +2705,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$c(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$d(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2723,7 +2723,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$c(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$d(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2756,12 +2756,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$c(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$d(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$c(value) {
+  function isRecord$d(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique$2(values, label) {
@@ -3086,7 +3086,7 @@
     return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
   }
   function parseLearningVoiceCatalog(value, options = {}) {
-    if (!isRecord$b(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$b(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$b(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+    if (!isRecord$c(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$c(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$c(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid learning voice playback catalog.");
     }
     const assetLineIds = /* @__PURE__ */ new Set();
@@ -3360,19 +3360,19 @@
     });
   }
   function isLearningVoiceEntry(value) {
-    if (!isRecord$b(value) || !isRecord$b(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    if (!isRecord$c(value) || !isRecord$c(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && (value.modelLicense === "ACML-1.0" || value.modelLicense === "CC-BY-SA-4.0") && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
-    return isRecord$b(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+    return isRecord$c(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
   }
   function isLearningVoiceQualityApproval(value) {
-    return isRecord$b(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+    return isRecord$c(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
   }
   function isLearningVoiceAcceptancePolicy(value) {
-    return isRecord$b(value) && Object.keys(value).sort().join(",") === [
+    return isRecord$c(value) && Object.keys(value).sort().join(",") === [
       "acceptedBy",
       "blanketCharacterErrorRateAllowed",
       "criticalMorphemeNumeralParticleMismatch",
@@ -3382,18 +3382,18 @@
     ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
   }
   function isLearningVoiceBinding(value) {
-    if (!isRecord$b(value) || !isRecord$b(value.accessibleReplayLabel)) return false;
+    if (!isRecord$c(value) || !isRecord$c(value.accessibleReplayLabel)) return false;
     const labels = value.accessibleReplayLabel;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
   }
   function isLearningVoiceReview(value) {
-    if (!isRecord$b(value) || !isRecord$b(value.naturalness) || !isRecord$b(value.accent) || !isRecord$b(value.pause) || !isRecord$b(value.listening)) return false;
+    if (!isRecord$c(value) || !isRecord$c(value.naturalness) || !isRecord$c(value.accent) || !isRecord$c(value.pause) || !isRecord$c(value.listening)) return false;
     const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
     if (!common) return false;
     return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
   }
   function isLearningVoiceMoraOverride(value) {
-    if (!isRecord$b(value)) return false;
+    if (!isRecord$c(value)) return false;
     const keys = Object.keys(value);
     return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
   }
@@ -3403,7 +3403,7 @@
   function isConfinedLearningUrl(value) {
     return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
   }
-  function isRecord$b(value) {
+  function isRecord$c(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function deepFreeze(value) {
@@ -3411,7 +3411,7 @@
       value.forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
-    if (isRecord$b(value)) {
+    if (isRecord$c(value)) {
       Object.values(value).forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
@@ -3823,7 +3823,7 @@
     const lesson = object(value, "grounded lesson");
     if (lesson.schemaVersion !== 1) fail$5("Grounded lesson must use schemaVersion 1.");
     id$1B(lesson.lessonId, "lessonId");
-    text$q(lesson.contentRevision, "contentRevision");
+    text$r(lesson.contentRevision, "contentRevision");
     const overview = object(lesson.overview, "overview");
     const allBlockers = validateProofSet(overview.proofs, "overview", true);
     const activities = list(lesson.activities, "activities");
@@ -3903,12 +3903,12 @@
     }
     if (value.kind !== "authored") fail$5(`${label} must use source or authored input.`);
     ids(value.authoredInputIds, `${label}.authoredInputIds`);
-    text$q(value.revision, `${label}.revision`);
+    text$r(value.revision, `${label}.revision`);
     id$1B(value.authorId, `${label}.authorId`);
-    text$q(value.rationale, `${label}.rationale`);
+    text$r(value.rationale, `${label}.rationale`);
     const review2 = object(value.languageReview, `${label}.languageReview`);
     id$1B(review2.reviewerId, `${label}.languageReview.reviewerId`);
-    text$q(review2.revision, `${label}.languageReview.revision`);
+    text$r(review2.revision, `${label}.languageReview.revision`);
     if (review2.register !== "reviewed" || review2.naturalness !== "reviewed") {
       fail$5(`${label} needs reviewed register and naturalness.`);
     }
@@ -3920,14 +3920,14 @@
       const item2 = object(document2, `${label}.document`);
       id$1B(item2.id, `${label}.document.id`);
       sha$1(item2.sha256, `${label}.document.sha256`);
-      text$q(item2.extractionRevision, `${label}.document.extractionRevision`);
+      text$r(item2.extractionRevision, `${label}.document.extractionRevision`);
     }
   }
   function validateCurriculum(value, label) {
     ids(value.conceptIds, `${label}.conceptIds`);
     ids(value.outcomeIds, `${label}.outcomeIds`);
     const prerequisites2 = object(value.prerequisites, `${label}.prerequisites`);
-    if (prerequisites2.kind === "entry") text$q(prerequisites2.reason, `${label}.prerequisites.reason`);
+    if (prerequisites2.kind === "entry") text$r(prerequisites2.reason, `${label}.prerequisites.reason`);
     else if (prerequisites2.kind === "resolved") {
       ids(prerequisites2.conceptIds, `${label}.prerequisites.conceptIds`);
       validateDefinitionRef(prerequisites2.resolution, `${label}.prerequisites.resolution`);
@@ -3961,7 +3961,7 @@
     const binding = object(value.auditBinding, `${label}.auditBinding`);
     id$1B(binding.surfaceId, `${label}.auditBinding.surfaceId`);
     validateDefinitionRef(binding.renderer, `${label}.auditBinding.renderer`);
-    text$q(binding.contentRevision, `${label}.auditBinding.contentRevision`);
+    text$r(binding.contentRevision, `${label}.auditBinding.contentRevision`);
     const preCommit = object(value.learnerFacingPreCommit, `${label}.learnerFacingPreCommit`);
     for (const key2 of ["translations", "transcripts", "modelAnswers", "acceptedAnswers"]) {
       if (preCommit[key2] !== "absent") fail$5(`${label}.${key2} must be absent before commitment.`);
@@ -3969,11 +3969,11 @@
     if (!["after-commit", "after-first-attempt"].includes(value.revealPolicy)) fail$5(`${label} has an unsafe reveal policy.`);
   }
   function validateMedia$1(value, label) {
-    if (value.state === "not-required") text$q(value.reason, `${label}.reason`);
+    if (value.state === "not-required") text$r(value.reason, `${label}.reason`);
     else if (value.state === "ready") {
       if (!["source", "authored"].includes(value.provenance)) fail$5(`${label} has invalid media provenance.`);
       ids(value.assetIds, `${label}.assetIds`);
-      text$q(value.revision, `${label}.revision`);
+      text$r(value.revision, `${label}.revision`);
       if (!["ready", "not-applicable"].includes(value.transcript)) fail$5(`${label} needs a transcript status.`);
     } else fail$5(`${label} needs an explicit media status.`);
   }
@@ -3998,8 +3998,8 @@
     for (const item2 of items) {
       id$1B(item2.seedId, `${label}.reviewItem.seedId`);
       id$1B(item2.conceptId, `${label}.reviewItem.conceptId`);
-      const expression = text$q(item2.expressionKey, `${label}.expressionKey`);
-      const reading = text$q(item2.readingKey, `${label}.readingKey`);
+      const expression = text$r(item2.expressionKey, `${label}.expressionKey`);
+      const reading = text$r(item2.readingKey, `${label}.readingKey`);
       if (/^[a-z][a-z0-9-]*:/u.test(expression) || /^[a-z][a-z0-9-]*:/u.test(reading)) {
         fail$5(`${label} needs canonical expression and reading keys, not opaque ids.`);
       }
@@ -4036,7 +4036,7 @@
     if (!MODALITIES.includes(value.primaryEvidenceModality)) fail$5(`${label} needs a primary evidence modality.`);
     const alternative = object(value.inputAlternative, `${label}.inputAlternative`);
     if (alternative.kind === "not-required") {
-      text$q(alternative.reason, `${label}.inputAlternative.reason`);
+      text$r(alternative.reason, `${label}.inputAlternative.reason`);
       if (["handwriting", "speech"].includes(value.primaryEvidenceModality)) {
         fail$5(`${label} needs a construct-preserving ${value.primaryEvidenceModality} alternative.`);
       }
@@ -4045,7 +4045,7 @@
       if (alternative.modality !== value.primaryEvidenceModality || alternative.preservesLearningConstruct !== true) {
         fail$5(`${label} input alternative must preserve the same learning construct.`);
       }
-      text$q(alternative.rationale, `${label}.inputAlternative.rationale`);
+      text$r(alternative.rationale, `${label}.inputAlternative.rationale`);
     } else fail$5(`${label} needs an input alternative status.`);
   }
   function validateProductionSequence(sequence, activities, label) {
@@ -4087,7 +4087,7 @@
     const ref = object(value, label);
     id$1B(ref.id, `${label}.id`);
     if (!["academy-content", "activity-plugin"].includes(ref.registry)) fail$5(`${label} needs a resolvable registry.`);
-    text$q(ref.revision, `${label}.revision`);
+    text$r(ref.revision, `${label}.revision`);
     sha$1(ref.sha256, `${label}.sha256`);
   }
   function validateNodeStatus(status2, declared, found, label) {
@@ -4111,16 +4111,16 @@
     return value;
   }
   function id$1B(value, label) {
-    const result2 = text$q(value, label);
+    const result2 = text$r(value, label);
     if (!/^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+$/u.test(result2)) fail$5(`${label} must be a stable namespaced id.`);
     return result2;
   }
   function sha$1(value, label) {
-    const result2 = text$q(value, label);
+    const result2 = text$r(value, label);
     if (!/^[a-f0-9]{64}$/u.test(result2)) fail$5(`${label} must be a SHA-256.`);
     return result2;
   }
-  function text$q(value, label) {
+  function text$r(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$5(`${label} must be non-empty.`);
     return value.trim();
   }
@@ -4208,13 +4208,13 @@
   function validateBaseModel(model2) {
     const issues2 = [];
     if (!model2 || typeof model2 !== "object") return [{ path: "", message: "Activity model is required." }];
-    if (!text$p(model2.id)) issues2.push({ path: "id", message: "A stable id is required." });
-    if (!text$p(model2.kind)) issues2.push({ path: "kind", message: "A plugin kind is required." });
-    if (!text$p(model2.responseKind)) issues2.push({ path: "responseKind", message: "A response kind is required." });
+    if (!text$q(model2.id)) issues2.push({ path: "id", message: "A stable id is required." });
+    if (!text$q(model2.kind)) issues2.push({ path: "kind", message: "A plugin kind is required." });
+    if (!text$q(model2.responseKind)) issues2.push({ path: "responseKind", message: "A response kind is required." });
     if (!Array.isArray(model2.conceptIds) || !model2.conceptIds.length) {
       issues2.push({ path: "conceptIds", message: "At least one Concept is required." });
     }
-    if (!text$p(model2.prompt?.en) || !text$p(model2.prompt?.ja)) {
+    if (!text$q(model2.prompt?.en) || !text$q(model2.prompt?.ja)) {
       issues2.push({ path: "prompt", message: "English and Japanese prompt text are required." });
     }
     if (model2.answerSupport) issues2.push(...validateAnswerSupportContract(model2.answerSupport).map((issue) => ({
@@ -4244,10 +4244,10 @@
       throw new TypeError("Grade score must be between 0 and 1.");
     }
     const feedback2 = result2.feedback;
-    if (!text$p(feedback2?.explanation?.en) || !text$p(feedback2?.explanation?.ja)) {
+    if (!text$q(feedback2?.explanation?.en) || !text$q(feedback2?.explanation?.ja)) {
       throw new TypeError("Grade feedback needs an English and Japanese explanation.");
     }
-    if (result2.outcome === "lapse" && (!text$p(feedback2.repairPrompt?.en) || !text$p(feedback2.repairPrompt?.ja) || !text$p(feedback2.nearbyExample?.en) || !text$p(feedback2.nearbyExample?.ja))) {
+    if (result2.outcome === "lapse" && (!text$q(feedback2.repairPrompt?.en) || !text$q(feedback2.repairPrompt?.ja) || !text$q(feedback2.nearbyExample?.en) || !text$q(feedback2.nearbyExample?.ja))) {
       throw new TypeError("A lapse must include a bilingual repair prompt and nearby example.");
     }
     return {
@@ -4281,11 +4281,11 @@
     };
   }
   function requireText$3(value, label) {
-    const normalized2 = text$p(value);
+    const normalized2 = text$q(value);
     if (!normalized2) throw new TypeError(`${label} must be non-empty.`);
     return normalized2;
   }
-  function text$p(value) {
+  function text$q(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function unique$l(values) {
@@ -4294,7 +4294,7 @@
   function parseAuthoredWeekPackage(value) {
     const root = record$18(value, "package");
     if (root.schema !== "yomu-academy.week.v1") fail$4("package.schema", "must be yomu-academy.week.v1");
-    const id2 = text$o(root.id, "package.id");
+    const id2 = text$p(root.id, "package.id");
     const sourceItemIds = /* @__PURE__ */ new Set();
     const rawComponents = array$17(root.components, "package.components");
     const components2 = rawComponents.map((candidate2, index) => {
@@ -4302,7 +4302,7 @@
       const path = `package.components[${index}]`;
       const exercises = component.exercises === void 0 ? void 0 : array$17(component.exercises, `${path}.exercises`);
       return {
-        type: text$o(component.type, `${path}.type`),
+        type: text$p(component.type, `${path}.type`),
         order: finiteNumber$3(component.order, `${path}.order`),
         teachingSupport: parseTeachingSupport(component, path),
         ...exercises ? { exercises } : {},
@@ -4504,20 +4504,20 @@
   function parseSourceVocabularySheet(component, path, sourceItemIds) {
     const provenance2 = record$18(component.provenance, `${path}.provenance`);
     const payloadSha256 = sha256(provenance2.payloadSha256, `${path}.provenance.payloadSha256`);
-    const sourceTitle = text$o(provenance2.title, `${path}.provenance.title`);
+    const sourceTitle = text$p(provenance2.title, `${path}.provenance.title`);
     let previousPage = 0;
     let previousRow = 0;
     const items = array$17(component.items, `${path}.items`).map((candidate2, index) => {
       const itemPath = `${path}.items[${index}]`;
       const item2 = record$18(candidate2, itemPath);
       const source2 = record$18(item2.source, `${itemPath}.source`);
-      const itemId = text$o(source2.itemId, `${itemPath}.source.itemId`);
+      const itemId = text$p(source2.itemId, `${itemPath}.source.itemId`);
       if (sourceItemIds.has(itemId)) fail$4(`${itemPath}.source.itemId`, "must be unique in the package");
       sourceItemIds.add(itemId);
       if (sha256(source2.payloadSha256, `${itemPath}.source.payloadSha256`) !== payloadSha256) {
         fail$4(`${itemPath}.source.payloadSha256`, "must match the component payload SHA-256");
       }
-      if (text$o(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
+      if (text$p(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
         fail$4(`${itemPath}.source.title`, "must match the component source title");
       }
       const locus = record$18(source2.locus, `${itemPath}.source.locus`);
@@ -4534,23 +4534,23 @@
         fail$4(`${itemPath}.source.answerVisibility`, "must be after-attempt");
       }
       return {
-        ja: text$o(item2.ja, `${itemPath}.ja`),
-        reading: text$o(item2.reading, `${itemPath}.reading`),
-        en: text$o(item2.en, `${itemPath}.en`),
+        ja: text$p(item2.ja, `${itemPath}.ja`),
+        reading: text$p(item2.reading, `${itemPath}.reading`),
+        en: text$p(item2.en, `${itemPath}.en`),
         source: {
           itemId,
           payloadSha256,
           title: sourceTitle,
           locus: { page, row: row2 },
           exact: {
-            words: text$o(exact2.words, `${itemPath}.source.exact.words`),
+            words: text$p(exact2.words, `${itemPath}.source.exact.words`),
             pronunciation: nullableText$6(exact2.pronunciation, `${itemPath}.source.exact.pronunciation`),
             meaning: nullableText$6(exact2.meaning, `${itemPath}.source.exact.meaning`)
           },
           fieldProvenance: {
-            words: text$o(fieldProvenance.words, `${itemPath}.source.fieldProvenance.words`),
-            reading: text$o(fieldProvenance.reading, `${itemPath}.source.fieldProvenance.reading`),
-            meaning: text$o(fieldProvenance.meaning, `${itemPath}.source.fieldProvenance.meaning`)
+            words: text$p(fieldProvenance.words, `${itemPath}.source.fieldProvenance.words`),
+            reading: text$p(fieldProvenance.reading, `${itemPath}.source.fieldProvenance.reading`),
+            meaning: text$p(fieldProvenance.meaning, `${itemPath}.source.fieldProvenance.meaning`)
           },
           answerVisibility: "after-attempt"
         }
@@ -4558,11 +4558,11 @@
     });
     if (!items.length) fail$4(`${path}.items`, "must contain at least one source row");
     return {
-      componentId: text$o(component.id, `${path}.id`),
+      componentId: text$p(component.id, `${path}.id`),
       title: localized$q(component.title, `${path}.title`),
       sourceInstructions: localized$q(component.sourceInstructions ?? component.title, `${path}.sourceInstructions`),
       provenance: {
-        sourceId: text$o(provenance2.sourceId, `${path}.provenance.sourceId`),
+        sourceId: text$p(provenance2.sourceId, `${path}.provenance.sourceId`),
         payloadSha256,
         title: sourceTitle
       },
@@ -4580,17 +4580,17 @@
       const option2 = record$18(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$4(`${path}.options[${index}].correct`, "must be boolean");
       return {
-        id: text$o(option2.id, `${path}.options[${index}].id`),
+        id: text$p(option2.id, `${path}.options[${index}].id`),
         label: localized$q(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
     return {
-      id: text$o(exercise.id, `${path}.id`),
+      id: text$p(exercise.id, `${path}.id`),
       kind: "choice",
       prompt: localized$q(exercise.prompt, `${path}.prompt`),
-      explanation: text$o(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$o(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$p(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$p(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       options
@@ -4607,18 +4607,18 @@
       const option2 = record$18(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$4(`${path}.options[${index}].correct`, "must be boolean");
       return {
-        id: text$o(option2.id, `${path}.options[${index}].id`),
+        id: text$p(option2.id, `${path}.options[${index}].id`),
         label: localized$q(option2.label, `${path}.options[${index}].label`),
         correct: option2.correct
       };
     });
     if (!options.some((option2) => option2.correct)) fail$4(`${path}.options`, "must contain at least one correct option");
     return {
-      id: text$o(exercise.id, `${path}.id`),
+      id: text$p(exercise.id, `${path}.id`),
       kind: "multi-choice",
       prompt: localized$q(exercise.prompt, `${path}.prompt`),
-      explanation: text$o(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$o(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$p(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$p(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       options
@@ -4630,17 +4630,17 @@
     if (!isLocalized(exercise.prompt)) return void 0;
     if (exercise.autoGraded !== true) fail$4(`${path}.autoGraded`, "must be true");
     const answer2 = record$18(exercise.answer, `${path}.answer`);
-    const alternatives = answer2.alternatives === void 0 ? [] : array$17(answer2.alternatives, `${path}.answer.alternatives`).map((candidate2, index) => text$o(candidate2, `${path}.answer.alternatives[${index}]`));
+    const alternatives = answer2.alternatives === void 0 ? [] : array$17(answer2.alternatives, `${path}.answer.alternatives`).map((candidate2, index) => text$p(candidate2, `${path}.answer.alternatives[${index}]`));
     return {
-      id: text$o(exercise.id, `${path}.id`),
+      id: text$p(exercise.id, `${path}.id`),
       kind: "exact",
       prompt: localized$q(exercise.prompt, `${path}.prompt`),
-      explanation: text$o(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$o(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$p(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$p(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) },
       autoGraded: true,
       answer: {
-        primary: text$o(answer2.primary, `${path}.answer.primary`),
+        primary: text$p(answer2.primary, `${path}.answer.primary`),
         alternatives
       }
     };
@@ -4658,7 +4658,7 @@
     const blanks = array$17(exercise.blanks, `${path}.blanks`).map((candidate2, index) => {
       const blankPath = `${path}.blanks[${index}]`;
       const blank = record$18(candidate2, blankPath);
-      const id2 = text$o(blank.id, `${blankPath}.id`);
+      const id2 = text$p(blank.id, `${blankPath}.id`);
       if (ids2.has(id2)) fail$4(`${blankPath}.id`, "is a duplicate cloze blank id");
       ids2.add(id2);
       return { id: id2, answer: parseExactAnswer(blank.answer, `${blankPath}.answer`, wrongAnswers) };
@@ -4667,7 +4667,7 @@
     return {
       ...exerciseIdentity(exercise, path),
       kind: "cloze",
-      japanese: text$o(exercise.japanese, `${path}.japanese`),
+      japanese: text$p(exercise.japanese, `${path}.japanese`),
       autoGraded: true,
       blanks
     };
@@ -4747,21 +4747,21 @@
       pluginTarget: "academy-sequence",
       sourceItemsExact,
       values,
-      ...exercise.workedExampleExact === void 0 ? {} : { workedExampleExact: text$o(exercise.workedExampleExact, `${path}.workedExampleExact`) }
+      ...exercise.workedExampleExact === void 0 ? {} : { workedExampleExact: text$p(exercise.workedExampleExact, `${path}.workedExampleExact`) }
     };
   }
   function exerciseIdentity(exercise, path) {
     return {
-      id: text$o(exercise.id, `${path}.id`),
+      id: text$p(exercise.id, `${path}.id`),
       prompt: localized$q(exercise.prompt, `${path}.prompt`),
-      explanation: text$o(exercise.explanation, `${path}.explanation`),
-      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$o(exercise.reviewTag, `${path}.reviewTag`) },
+      explanation: text$p(exercise.explanation, `${path}.explanation`),
+      ...exercise.reviewTag === void 0 ? {} : { reviewTag: text$p(exercise.reviewTag, `${path}.reviewTag`) },
       ...exercise.phase === void 0 ? {} : { phase: exercisePhase(exercise.phase, `${path}.phase`) }
     };
   }
   function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
     const answer2 = record$18(value, path);
-    const primary = text$o(answer2.primary, `${path}.primary`);
+    const primary = text$p(answer2.primary, `${path}.primary`);
     const alternatives = answer2.alternatives === void 0 ? [] : stringArray$8(answer2.alternatives, `${path}.alternatives`);
     return {
       primary,
@@ -4772,14 +4772,14 @@
     if (value === void 0) return /* @__PURE__ */ new Set();
     return new Set(array$17(value, path).map((candidate2, index) => {
       const item2 = record$18(candidate2, `${path}[${index}]`);
-      return normalizeAnswer(text$o(item2.trigger, `${path}[${index}].trigger`));
+      return normalizeAnswer(text$p(item2.trigger, `${path}[${index}].trigger`));
     }));
   }
   function normalizeAnswer(value) {
     return value.normalize("NFKC").replace(/[\s。、！？!?]/gu, "").toLocaleLowerCase("ja");
   }
   function stringArray$8(value, path) {
-    return array$17(value, path).map((candidate2, index) => text$o(candidate2, `${path}[${index}]`));
+    return array$17(value, path).map((candidate2, index) => text$p(candidate2, `${path}[${index}]`));
   }
   function assertAfterAttemptVisibility(value, path) {
     if (value !== void 0 && value !== "after-attempt") fail$4(path, "must be after-attempt");
@@ -4798,16 +4798,16 @@
   function parseAudio$1(value, path) {
     const audio2 = record$18(value, path);
     return {
-      assetId: text$o(audio2.assetId, `${path}.assetId`),
-      locator: text$o(audio2.locator, `${path}.locator`),
+      assetId: text$p(audio2.assetId, `${path}.assetId`),
+      locator: text$p(audio2.locator, `${path}.locator`),
       durationSeconds: finiteNumber$3(audio2.durationSeconds, `${path}.durationSeconds`),
-      script: text$o(audio2.script, `${path}.script`)
+      script: text$p(audio2.script, `${path}.script`)
     };
   }
   function localized$q(value, path) {
     const item2 = record$18(value, path);
-    const en = nonEmptyText$1(item2.en) ?? text$o(item2.ja, `${path}.ja`);
-    const ja = nonEmptyText$1(item2.ja) ?? text$o(item2.en, `${path}.en`);
+    const en = nonEmptyText$1(item2.en) ?? text$p(item2.ja, `${path}.ja`);
+    const ja = nonEmptyText$1(item2.ja) ?? text$p(item2.en, `${path}.en`);
     return { en, ja };
   }
   function nonEmptyText$1(value) {
@@ -4821,7 +4821,7 @@
     if (!Array.isArray(value)) fail$4(path, "must be an array");
     return value;
   }
-  function text$o(value, path) {
+  function text$p(value, path) {
     if (typeof value !== "string" || !value.trim()) fail$4(path, "must be non-empty text");
     return value;
   }
@@ -4830,7 +4830,7 @@
     return value;
   }
   function exercisePhase(value, path) {
-    const phase = text$o(value, path);
+    const phase = text$p(value, path);
     if ([
       "context",
       "instruction",
@@ -4849,10 +4849,10 @@
   }
   function nullableText$6(value, path) {
     if (value === null) return null;
-    return text$o(value, path);
+    return text$p(value, path);
   }
   function sha256(value, path) {
-    const digest2 = text$o(value, path);
+    const digest2 = text$p(value, path);
     if (!/^[a-f0-9]{64}$/u.test(digest2)) fail$4(path, "must be a SHA-256 digest");
     return digest2;
   }
@@ -7898,7 +7898,7 @@
   const SHA256$2 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$a(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$b(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$2);
@@ -7929,7 +7929,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$2(value) {
-    if (!isRecord$a(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$b(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$7(value.provenance, `${locator}.provenance`);
@@ -7950,7 +7950,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$a(value.source) || !isRecord$a(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$b(value.source) || !isRecord$b(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -7981,7 +7981,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$a(value) || value.mode !== "packaged-static") {
+    if (!isRecord$b(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -8017,7 +8017,7 @@
     if (!Number.isInteger(result2)) throw new TypeError(`${label} must be an integer.`);
     return result2;
   }
-  function isRecord$a(value) {
+  function isRecord$b(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const SHA256$1 = /^[a-f0-9]{64}$/;
@@ -8031,7 +8031,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$9(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$a(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry$1(entry2, `entries[${index}]`));
@@ -8040,15 +8040,15 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry$1(value, owner) {
-    if (!isRecord$9(value) || !isRecord$9(value.source) || !isRecord$9(value.verification) || !isRecord$9(value.learnerContract) || !isRecord$9(value.delivery)) {
+    if (!isRecord$a(value) || !isRecord$a(value.source) || !isRecord$a(value.verification) || !isRecord$a(value.learnerContract) || !isRecord$a(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
-    const packageId = text$n(value.packageId, `${owner}.packageId`);
-    const sourceQuestionId2 = text$n(value.sourceQuestionId, `${owner}.sourceQuestionId`);
-    const locator = text$n(value.locator, `${owner}.locator`);
-    const audioSha256 = text$n(value.source.audioSha256, `${owner}.source.audioSha256`);
-    const taskEvidenceSha256 = text$n(value.verification.taskEvidenceSha256, `${owner}.verification.taskEvidenceSha256`);
-    const supportEvidenceSha256 = text$n(value.verification.supportEvidenceSha256, `${owner}.verification.supportEvidenceSha256`);
+    const packageId = text$o(value.packageId, `${owner}.packageId`);
+    const sourceQuestionId2 = text$o(value.sourceQuestionId, `${owner}.sourceQuestionId`);
+    const locator = text$o(value.locator, `${owner}.locator`);
+    const audioSha256 = text$o(value.source.audioSha256, `${owner}.source.audioSha256`);
+    const taskEvidenceSha256 = text$o(value.verification.taskEvidenceSha256, `${owner}.verification.taskEvidenceSha256`);
+    const supportEvidenceSha256 = text$o(value.verification.supportEvidenceSha256, `${owner}.verification.supportEvidenceSha256`);
     if (value.source.corpus !== "soya" && value.source.corpus !== "moodle" && value.source.corpus !== "minna" || !SHA256$1.test(audioSha256)) {
       throw new TypeError(`Listening task binding ${owner} has invalid source evidence.`);
     }
@@ -8066,22 +8066,22 @@
       grading: "deterministic"
     };
     if (value.delivery.status === "packaged-static") {
-      const url = text$n(value.delivery.url, `${owner}.delivery.url`);
+      const url = text$o(value.delivery.url, `${owner}.delivery.url`);
       return {
         packageId,
         sourceQuestionId: sourceQuestionId2,
         locator,
         source: {
           corpus: value.source.corpus,
-          questionId: text$n(value.source.questionId, `${owner}.source.questionId`),
-          questionMapRef: text$n(value.source.questionMapRef, `${owner}.source.questionMapRef`),
+          questionId: text$o(value.source.questionId, `${owner}.source.questionId`),
+          questionMapRef: text$o(value.source.questionMapRef, `${owner}.source.questionMapRef`),
           audioSha256
         },
         verification: {
           taskEvidenceSha256,
           supportEvidenceSha256,
           answerGate: "after-attempt",
-          method: text$n(value.verification.method, `${owner}.verification.method`)
+          method: text$o(value.verification.method, `${owner}.verification.method`)
         },
         learnerContract,
         delivery: { status: "packaged-static", url }
@@ -8096,25 +8096,25 @@
       locator,
       source: {
         corpus: value.source.corpus,
-        questionId: text$n(value.source.questionId, `${owner}.source.questionId`),
-        questionMapRef: text$n(value.source.questionMapRef, `${owner}.source.questionMapRef`),
+        questionId: text$o(value.source.questionId, `${owner}.source.questionId`),
+        questionMapRef: text$o(value.source.questionMapRef, `${owner}.source.questionMapRef`),
         audioSha256
       },
       verification: {
         taskEvidenceSha256,
         supportEvidenceSha256,
         answerGate: "after-attempt",
-        method: text$n(value.verification.method, `${owner}.verification.method`)
+        method: text$o(value.verification.method, `${owner}.verification.method`)
       },
       learnerContract,
       delivery: { status: "source-verified-awaiting-packaging" }
     };
   }
-  function text$n(value, label) {
+  function text$o(value, label) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$9(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -8434,35 +8434,35 @@
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
       issues2.push({ path: "answerSupport", message: "Source vocabulary recall requires the assessed answer-support contract." });
     }
-    if (!text$m(model2.sourceQuestionId) || model2.sourceQuestionId !== model2.provenance?.sourceQuestionId) {
+    if (!text$n(model2.sourceQuestionId) || model2.sourceQuestionId !== model2.provenance?.sourceQuestionId) {
       issues2.push({ path: "sourceQuestionId", message: "The exact source item id must be preserved." });
     }
-    if (!text$m(model2.provenance?.componentId) || !text$m(model2.provenance?.sourceId)) {
+    if (!text$n(model2.provenance?.componentId) || !text$n(model2.provenance?.sourceId)) {
       issues2.push({ path: "provenance", message: "Source component and document ids are required." });
     }
     if (!/^[a-f0-9]{64}$/u.test(model2.provenance?.payloadSha256 ?? "")) {
       issues2.push({ path: "provenance.payloadSha256", message: "A source payload SHA-256 is required." });
     }
-    if (!text$m(model2.provenance?.sourceTitle)) {
+    if (!text$n(model2.provenance?.sourceTitle)) {
       issues2.push({ path: "provenance.sourceTitle", message: "The source title is required." });
     }
     if (!positiveInteger$8(model2.provenance?.locus?.page) || !positiveInteger$8(model2.provenance?.locus?.row)) {
       issues2.push({ path: "provenance.locus", message: "Positive source page and row numbers are required." });
     }
-    if (!text$m(model2.payload?.exact?.words)) {
+    if (!text$n(model2.payload?.exact?.words)) {
       issues2.push({ path: "payload.exact.words", message: "Exact source words are required." });
     }
     for (const field2 of ["pronunciation", "meaning"]) {
       const value = model2.payload?.exact?.[field2];
-      if (value !== null && !text$m(value)) {
+      if (value !== null && !text$n(value)) {
         issues2.push({ path: `payload.exact.${field2}`, message: "An exact source cell must be text or null." });
       }
     }
     for (const field2 of ["words", "reading", "meaning"]) {
-      if (!text$m(model2.payload?.support?.[field2])) {
+      if (!text$n(model2.payload?.support?.[field2])) {
         issues2.push({ path: `payload.support.${field2}`, message: "A non-empty learner support field is required." });
       }
-      if (!text$m(model2.payload?.fieldProvenance?.[field2])) {
+      if (!text$n(model2.payload?.fieldProvenance?.[field2])) {
         issues2.push({ path: `payload.fieldProvenance.${field2}`, message: "Field provenance is required." });
       }
     }
@@ -8643,7 +8643,7 @@
   function positiveInteger$8(value) {
     return Number.isInteger(value) && Number(value) > 0;
   }
-  function text$m(value) {
+  function text$n(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const GRAMMAR_PATTERN_DATA = String.raw`
@@ -10144,7 +10144,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const definition2 = record$17(value, "classroom-expression session");
     if (definition2.schemaVersion !== 1) fail$3("Classroom-expression session must use schemaVersion 1.");
     if (definition2.id !== "session:lesson-zero-classroom-expressions") fail$3("Classroom-expression session has the wrong id.");
-    text$l(definition2.contentVersion, "contentVersion");
+    text$m(definition2.contentVersion, "contentVersion");
     if (definition2.responseKind !== "constructed-japanese" || definition2.inputMode !== "ime") {
       fail$3("Classroom expressions require constructed Japanese entered with an IME.");
     }
@@ -10176,7 +10176,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const expressions2 = array$16(definition2.expressions, "expressions");
     if (expressions2.length !== 14) fail$3("Classroom-expression session must preserve all fourteen expressions.");
     const expressionById2 = uniqueIndex$1(expressions2, "expression");
-    const sourceIds = expressions2.map((expression) => text$l(expression.sourceQuestionId, `${expression.id} sourceQuestionId`));
+    const sourceIds = expressions2.map((expression) => text$m(expression.sourceQuestionId, `${expression.id} sourceQuestionId`));
     exactList$1([...sourceIds].sort(), [...LESSON_ZERO_CLASSROOM_EXPRESSION_SOURCE_IDS].sort(), "sourceQuestionIds");
     const assigned = phases2.flatMap((phase) => phase.expressionIds);
     exactList$1(assigned, expressions2.map((expression) => expression.id), "phase expression order");
@@ -10216,13 +10216,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateTeachingBlock(block) {
-    text$l(block.conceptId, `teaching block ${block.id} conceptId`);
+    text$m(block.conceptId, `teaching block ${block.id} conceptId`);
     nonEmpty$5(block.expressionIds, `teaching block ${block.id} expressionIds`);
     localized$o(block.explanation, `teaching block ${block.id} explanation`);
     const example = record$17(block.workedExample, `teaching block ${block.id} workedExample`);
     localized$o(example.context, `teaching block ${block.id} workedExample.context`);
-    const japanese2 = text$l(example.japanese, `teaching block ${block.id} workedExample.japanese`);
-    text$l(example.reading, `teaching block ${block.id} workedExample.reading`);
+    const japanese2 = text$m(example.japanese, `teaching block ${block.id} workedExample.japanese`);
+    text$m(example.reading, `teaching block ${block.id} workedExample.reading`);
     localized$o(example.meaning, `teaching block ${block.id} workedExample.meaning`);
     if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(japanese2)) {
       fail$3(`Teaching block ${block.id} needs a Japanese worked example.`);
@@ -10241,13 +10241,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     nonEmpty$5(expression.conceptIds, `expression ${expression.id} conceptIds`);
     nonEmpty$5(expression.probes, `expression ${expression.id} probes`);
     for (const probe of expression.probes) {
-      text$l(probe.id, `expression ${expression.id} probe id`);
+      text$m(probe.id, `expression ${expression.id} probe id`);
       if (probeIds.has(probe.id)) fail$3(`Duplicate probe id: ${probe.id}`);
       probeIds.add(probe.id);
       localized$o(probe.prompt, `probe ${probe.id} prompt`);
       nonEmpty$5(probe.acceptedAnswers, `probe ${probe.id} acceptedAnswers`);
       const accepted = probe.acceptedAnswers.map((answer2, answerIndex) => {
-        const candidate2 = text$l(answer2, `probe ${probe.id} acceptedAnswers.${answerIndex}`);
+        const candidate2 = text$m(answer2, `probe ${probe.id} acceptedAnswers.${answerIndex}`);
         if (!/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(candidate2)) {
           fail$3(`Probe ${probe.id} has a non-Japanese answer.`);
         }
@@ -10258,7 +10258,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (accepted.some((answer2) => normalized$1(probe.prompt.en).includes(answer2) || normalized$1(probe.prompt.ja).includes(answer2))) {
         fail$3(`Probe ${probe.id} exposes an accepted answer before commitment.`);
       }
-      text$l(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
+      text$m(probe.repair.errorTag, `probe ${probe.id} repair.errorTag`);
       localized$o(probe.repair.contrast, `probe ${probe.id} repair.contrast`);
       localized$o(probe.repair.retryPrompt, `probe ${probe.id} repair.retryPrompt`);
       localized$o(probe.repair.nearbyExample, `probe ${probe.id} repair.nearbyExample`);
@@ -10300,7 +10300,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueIndex$1(values, label) {
     const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
-      text$l(value.id, `${label}.id`);
+      text$m(value.id, `${label}.id`);
       if (result2.has(value.id)) fail$3(`Duplicate ${label} id: ${value.id}`);
       result2.set(value.id, value);
     }
@@ -10313,8 +10313,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function localized$o(value, label) {
     const candidate2 = record$17(value, label);
-    text$l(candidate2.en, `${label}.en`);
-    text$l(candidate2.ja, `${label}.ja`);
+    text$m(candidate2.en, `${label}.en`);
+    text$m(candidate2.ja, `${label}.ja`);
   }
   function nonEmpty$5(values, label) {
     if (!Array.isArray(values) || !values.length) fail$3(`${label} must not be empty.`);
@@ -10327,7 +10327,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$3(`${label} must be an object.`);
     return value;
   }
-  function text$l(value, label) {
+  function text$m(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$3(`${label} must be non-empty.`);
     return value.trim();
   }
@@ -12889,7 +12889,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validateOverviewMaterialBlocker(material);
   }
   function validateOverviewMaterialIdentity(material, materialIds) {
-    text$k(material.id, "lesson.overview.material.id");
+    text$l(material.id, "lesson.overview.material.id");
     if (materialIds.has(material.id)) fail$2(`Lesson 0 overview repeats material ${material.id}.`);
     materialIds.add(material.id);
     localized$n(material.title, `lesson.overview material ${material.id}`);
@@ -12922,7 +12922,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLessonIdentity(lesson) {
     if (lesson.id !== "lesson:foundation-00") fail$2("Lesson 0 has the wrong lesson id.");
-    text$k(lesson.contentVersion, "lesson.contentVersion");
+    text$l(lesson.contentVersion, "lesson.contentVersion");
     if (lesson.levelBand !== "foundation") fail$2("Lesson 0 must use the foundation band.");
     if (lesson.estimatedMinutes.minimum !== 60 || lesson.estimatedMinutes.maximum !== 90) {
       fail$2("Lesson 0 must retain the authored 60–90 minute scope.");
@@ -13000,14 +13000,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateScriptLines(script) {
     const lineIds = /* @__PURE__ */ new Set();
     for (const line2 of script.lines) {
-      text$k(line2.id, `script ${script.id} line id`);
+      text$l(line2.id, `script ${script.id} line id`);
       if (lineIds.has(line2.id)) fail$2(`Script ${script.id} repeats line id ${line2.id}.`);
       lineIds.add(line2.id);
       if (!isAcademyCastMemberId(line2.speakerId)) fail$2(`Script ${script.id} invents cast id ${line2.speakerId}.`);
-      text$k(line2.japanese, `script ${script.id} Japanese line`);
-      text$k(line2.reading, `script ${script.id} reading line`);
-      text$k(line2.english, `script ${script.id} English line`);
-      if (line2.audioAssetId !== void 0) text$k(line2.audioAssetId, `script ${script.id} line audio id`);
+      text$l(line2.japanese, `script ${script.id} Japanese line`);
+      text$l(line2.reading, `script ${script.id} reading line`);
+      text$l(line2.english, `script ${script.id} English line`);
+      if (line2.audioAssetId !== void 0) text$l(line2.audioAssetId, `script ${script.id} line audio id`);
     }
     return lineIds;
   }
@@ -13042,7 +13042,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function validateScriptLearnerTurn(script, turn2, learnerTurnIds, lineIds) {
-    text$k(turn2.id, `script ${script.id} learner turn id`);
+    text$l(turn2.id, `script ${script.id} learner turn id`);
     if (learnerTurnIds.has(turn2.id)) fail$2(`Script ${script.id} repeats learner turn id ${turn2.id}.`);
     learnerTurnIds.add(turn2.id);
     if (!lineIds.has(turn2.afterLineId)) {
@@ -13204,7 +13204,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (mission2.locationId !== expected.locationId) fail$2(`${missionId} mission uses the wrong location.`);
       for (const hostId of mission2.hostIds) if (!isAcademyCastMemberId(hostId)) fail$2(`${missionId} mission invents cast id ${hostId}.`);
       if (!activities.has(mission2.openingActivityId) || !activities.has(mission2.transferActivityId)) fail$2(`${missionId} mission references an unknown activity.`);
-      signatures.add(text$k(mission2.signature, `${missionId} mission signature`));
+      signatures.add(text$l(mission2.signature, `${missionId} mission signature`));
       locations.add(mission2.locationId);
       mementos.add(mission2.mementoId);
     }
@@ -13213,7 +13213,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueIndex(values, label) {
     const result2 = /* @__PURE__ */ new Map();
     for (const value of values) {
-      text$k(value.id, `${label}.id`);
+      text$l(value.id, `${label}.id`);
       if (result2.has(value.id)) fail$2(`Duplicate ${label} id: ${value.id}`);
       result2.set(value.id, value);
     }
@@ -13236,14 +13236,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$2(`${label} must be an object.`);
     return value;
   }
-  function text$k(value, label) {
+  function text$l(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$2(`${label} must be non-empty.`);
     return value.trim();
   }
   function localized$n(value, label) {
     const copy2 = record$15(value, label);
-    text$k(copy2.en, `${label}.en`);
-    text$k(copy2.ja, `${label}.ja`);
+    text$l(copy2.en, `${label}.en`);
+    text$l(copy2.ja, `${label}.ja`);
   }
   function hasAssessedSupport(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -20670,10 +20670,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     targets.forEach((target2, index) => {
       const path = `payload.reviewTargets.${index}`;
-      if (!text$j(target2.id) || ids2.has(target2.id)) issues2.push({ path: `${path}.id`, message: "Review ids must be stable and unique." });
+      if (!text$k(target2.id) || ids2.has(target2.id)) issues2.push({ path: `${path}.id`, message: "Review ids must be stable and unique." });
       ids2.add(target2.id);
       if (!conceptIds.includes(target2.conceptId)) issues2.push({ path: `${path}.conceptId`, message: "Review targets must use an activity Concept." });
-      if (!text$j(target2.expression) || !target2.meanings?.every(text$j) || !target2.meanings.length) {
+      if (!text$k(target2.expression) || !target2.meanings?.every(text$k) || !target2.meanings.length) {
         issues2.push({ path, message: "A reviewable expression and meanings are required." });
       }
     });
@@ -20748,11 +20748,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function normalizeJapanese$2(value) {
     return value.normalize("NFKC").replace(/[\s\u3000。、,.!?！？「」『』（）()]/gu, "").toLocaleLowerCase("ja");
   }
-  function text$j(value) {
+  function text$k(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function requireLocalized$1(value, path, issues2) {
-    if (!text$j(value?.en) || !text$j(value?.ja)) issues2.push({ path, message: "Bilingual authored copy is required." });
+    if (!text$k(value?.en) || !text$k(value?.ja)) issues2.push({ path, message: "Bilingual authored copy is required." });
   }
   const N3_N4_SLEEP_BRIDGE_ACTIVITY_KIND = "academy-n3-n4-sleep-bridge";
   const n3N4SleepBridgePlugin = {
@@ -20773,10 +20773,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$9(model2.payload?.sourceSegments, N3_N4_SLEEP_BRIDGE_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The exact reviewed local JLPT source segment is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual bridge teaching points are required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-n4-bridge-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-n4-bridge-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N3/N4 transfer is required." });
     }
     validateQuestions$b(model2, issues2);
@@ -20997,7 +20997,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each activity needs a unique id, three options, and one answer." });
       }
       ids2.add(question2.id);
@@ -21011,7 +21011,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a concept and one assessment error." });
       }
     });
@@ -21245,10 +21245,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$8(model2.payload?.sourceSegments, N3_PET_HOUSING_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The exact reviewed Soya source segment is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual reason, contrast, and frequency teaching points are required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n3-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N3 transfer is required." });
     }
     validateQuestions$a(model2, issues2);
@@ -21465,7 +21465,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, three neutral options, and one answer." });
       }
       ids2.add(question2.id);
@@ -21479,7 +21479,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
     });
@@ -21632,15 +21632,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       issues2.push({ path: "payload.sequence", message: "The package must retain its stable N2 opening-sequence position." });
     }
     const sequence = model2.payload?.sequence;
-    if (!text$j(sequence?.introduces) || !Array.isArray(sequence?.recycles) || sequence.recycles.includes(sequence.introduces) || new Set(sequence.recycles).size !== sequence.recycles.length || !model2.conceptIds.includes(sequence.introduces) || sequence.recycles.some((conceptId) => !model2.conceptIds.includes(conceptId))) {
+    if (!text$k(sequence?.introduces) || !Array.isArray(sequence?.recycles) || sequence.recycles.includes(sequence.introduces) || new Set(sequence.recycles).size !== sequence.recycles.length || !model2.conceptIds.includes(sequence.introduces) || sequence.recycles.some((conceptId) => !model2.conceptIds.includes(conceptId))) {
       issues2.push({ path: "payload.sequence", message: "Exactly one new Concept and distinct recycled Concepts are required." });
     }
     const instruction = model2.payload?.instruction;
-    if (instruction?.authorship !== "original-yomu-authored" || !text$j(instruction.title?.ja) || !text$j(instruction.title?.en) || !instruction.entries?.length || instruction.entries.some((entry2) => !text$j(entry2.japanese) || !text$j(entry2.explanation?.ja) || !text$j(entry2.explanation?.en))) {
+    if (instruction?.authorship !== "original-yomu-authored" || !text$k(instruction.title?.ja) || !text$k(instruction.title?.en) || !instruction.entries?.length || instruction.entries.some((entry2) => !text$k(entry2.japanese) || !text$k(entry2.explanation?.ja) || !text$k(entry2.explanation?.en))) {
       issues2.push({ path: "payload.instruction", message: "Complete original bilingual instruction must precede assessment." });
     }
     const content = model2.payload?.content;
-    if (content?.authorship !== "original-yomu-authored" || !text$j(content.title?.ja) || !text$j(content.title?.en) || !content.paragraphs?.length || content.paragraphs.some((paragraph) => !text$j(paragraph))) {
+    if (content?.authorship !== "original-yomu-authored" || !text$k(content.title?.ja) || !text$k(content.title?.en) || !content.paragraphs?.length || content.paragraphs.some((paragraph) => !text$k(paragraph))) {
       issues2.push({ path: "payload.content", message: "Complete original Yomu practice text is required." });
     }
     if (contract2.sourceDelivery === "reference-only" && model2.payload?.media) {
@@ -21655,7 +21655,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     const errorTags = new Set(model2.payload?.questions?.map((question2) => question2.errorTag) ?? []);
-    if (model2.payload?.reviewTargets?.some((target2) => !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag)))) {
+    if (model2.payload?.reviewTargets?.some((target2) => !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag)))) {
       issues2.push({ path: "payload.reviewTargets", message: "Each review target needs a sentence and declared repair tags." });
     }
     return issues2;
@@ -21670,7 +21670,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     questions.forEach((question2, index) => {
       const path = `payload.questions.${index}`;
-      if (!text$j(question2.id) || !text$j(question2.prompt?.ja) || !text$j(question2.prompt?.en) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || !text$k(question2.prompt?.ja) || !text$k(question2.prompt?.en) || !text$k(question2.errorTag)) {
         issues2.push({ path, message: "Every question needs an id, bilingual prompt, and error tag." });
         return;
       }
@@ -21681,18 +21681,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function validateChoice$1(question2, path, issues2) {
-    if (question2.options.length < 3 || new Set(question2.options.map((option2) => option2.id)).size !== question2.options.length || question2.options.some((option2) => !text$j(option2.id) || !text$j(option2.label?.ja) || !text$j(option2.label?.en)) || !question2.options.some((option2) => option2.id === question2.correctOptionId)) {
+    if (question2.options.length < 3 || new Set(question2.options.map((option2) => option2.id)).size !== question2.options.length || question2.options.some((option2) => !text$k(option2.id) || !text$k(option2.label?.ja) || !text$k(option2.label?.en)) || !question2.options.some((option2) => option2.id === question2.correctOptionId)) {
       issues2.push({ path, message: "Choice questions need distinct bilingual options and one declared answer." });
     }
   }
   function validateOrdering(question2, path, issues2) {
     const actionIds = question2.actions.map((action2) => action2.id);
-    if (actionIds.length < 3 || new Set(actionIds).size !== actionIds.length || question2.actions.some((action2) => !text$j(action2.id) || !text$j(action2.label?.ja) || !text$j(action2.label?.en)) || !isPermutation(question2.presentationOrder, actionIds) || !isPermutation(question2.correctOrder, actionIds) || sameObject$7(question2.presentationOrder, question2.correctOrder)) {
+    if (actionIds.length < 3 || new Set(actionIds).size !== actionIds.length || question2.actions.some((action2) => !text$k(action2.id) || !text$k(action2.label?.ja) || !text$k(action2.label?.en)) || !isPermutation(question2.presentationOrder, actionIds) || !isPermutation(question2.correctOrder, actionIds) || sameObject$7(question2.presentationOrder, question2.correctOrder)) {
       issues2.push({ path, message: "Ordering requires distinct actions and a deterministic presentation order different from the answer." });
     }
   }
   function validateTyped(question2, path, issues2) {
-    if (!text$j(question2.fieldLabel?.ja) || !text$j(question2.fieldLabel?.en) || !question2.acceptedAnswers.length || question2.acceptedAnswers.some((answer2) => !text$j(answer2))) {
+    if (!text$k(question2.fieldLabel?.ja) || !text$k(question2.fieldLabel?.en) || !question2.acceptedAnswers.length || question2.acceptedAnswers.some((answer2) => !text$k(answer2))) {
       issues2.push({ path, message: "Typed questions need a bilingual field label and explicit accepted answers." });
     }
   }
@@ -21982,7 +21982,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$j(answer2?.questionId) || answers.has(answer2.questionId)) {
+      if (!text$k(answer2?.questionId) || answers.has(answer2.questionId)) {
         throw new TypeError("Every N2 opening question needs exactly one answer.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -21992,7 +21992,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           throw new TypeError("Choice answers must use a declared option.");
         }
       } else if (question2.kind === "typed") {
-        if (!("value" in answer2) || !text$j(answer2.value)) throw new TypeError("Typed answers cannot be empty.");
+        if (!("value" in answer2) || !text$k(answer2.value)) throw new TypeError("Typed answers cannot be empty.");
       } else if (!("order" in answer2) || !isPermutation(answer2.order, question2.actions.map((action2) => action2.id))) {
         throw new TypeError("Ordering answers must be one complete action permutation.");
       }
@@ -22868,22 +22868,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$6(model2.provenance, N2_EXTENSIVE_READING_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Soya file and item locus are required." });
     }
-    if (model2.payload?.strategy?.map((item2) => item2.id).join(",") !== "preview,pivots,flow" || model2.payload.strategy.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.instruction.ja) || !text$j(item2.instruction.en))) {
+    if (model2.payload?.strategy?.map((item2) => item2.id).join(",") !== "preview,pivots,flow" || model2.payload.strategy.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.instruction.ja) || !text$k(item2.instruction.en))) {
       issues2.push({ path: "payload.strategy", message: "Preview, pivot tracking, and flow-before-lookup must be taught in order." });
     }
     if (model2.payload?.source?.authorship !== "exact-soya-source-item" || model2.payload.source.timing !== "untimed" || !sameObject$6(model2.payload.source.paragraphs, N2_EXTENSIVE_READING_SOURCE_PARAGRAPHS)) {
       issues2.push({ path: "payload.source", message: "The exact untimed three-paragraph Soya source reading is required." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$j(paragraph))) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$k(paragraph))) {
       issues2.push({ path: "payload.transfer", message: "A complete original two-paragraph N1 transfer is required." });
     }
-    if (model2.payload?.reflection?.authorship !== "learner-authored-ungraded" || !text$j(model2.payload.reflection.label.ja) || !text$j(model2.payload.reflection.label.en) || !text$j(model2.payload.reflection.guidance.ja) || !text$j(model2.payload.reflection.guidance.en)) {
+    if (model2.payload?.reflection?.authorship !== "learner-authored-ungraded" || !text$k(model2.payload.reflection.label.ja) || !text$k(model2.payload.reflection.label.en) || !text$k(model2.payload.reflection.guidance.ja) || !text$k(model2.payload.reflection.guidance.en)) {
       issues2.push({ path: "payload.reflection", message: "The optional ungraded reflection contract is required." });
     }
     validateQuestions$8(model2, issues2);
     validatePassScore(model2.payload?.passScore, issues2);
     validateFeedback(model2.payload?.feedback, issues2);
-    if (model2.payload?.reviewTargets?.length !== 5 || model2.payload.reviewTargets.some((target2) => !text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || !text$j(target2.sentence) || !target2.repairFor.length)) {
+    if (model2.payload?.reviewTargets?.length !== 5 || model2.payload.reviewTargets.some((target2) => !text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || !text$k(target2.sentence) || !target2.repairFor.length)) {
       issues2.push({ path: "payload.reviewTargets", message: "Five complete and related Reader/SRS repair targets are required." });
     }
     return issues2;
@@ -23058,7 +23058,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!response || !Array.isArray(response.answers)) throw new TypeError("Every extensive-reading question needs one answer.");
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$j(answer2?.questionId) || !text$j(answer2?.optionId) || answers.has(answer2.questionId)) {
+      if (!text$k(answer2?.questionId) || !text$k(answer2?.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("Every extensive-reading question needs one unique answer.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -23077,7 +23077,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     const typedQuestions = questions;
-    if (typedQuestions.length !== 5 || typedQuestions.filter((question2) => question2.stage === "source-comprehension").length !== 3 || typedQuestions.filter((question2) => question2.stage === "n1-transfer").length !== 2 || new Set(typedQuestions.map((question2) => question2.id)).size !== 5 || typedQuestions.some((question2) => !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || new Set(question2.options.map((option2) => option2.id)).size !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$j(question2.errorTag))) {
+    if (typedQuestions.length !== 5 || typedQuestions.filter((question2) => question2.stage === "source-comprehension").length !== 3 || typedQuestions.filter((question2) => question2.stage === "n1-transfer").length !== 2 || new Set(typedQuestions.map((question2) => question2.id)).size !== 5 || typedQuestions.some((question2) => !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || new Set(question2.options.map((option2) => option2.id)).size !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$k(question2.errorTag))) {
       issues2.push({ path: "payload.questions", message: "Three source and two transfer questions with unique valid options are required." });
     }
   }
@@ -23289,10 +23289,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$5(model2.provenance, N2_POLICY_SCOPE_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted-library source locus and rights contract are required." });
     }
-    if (model2.payload?.rehearsal?.authorship !== "original-yomu-n2-rehearsal" || model2.payload.rehearsal.paragraphs.length !== 2 || model2.payload.rehearsal.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.rehearsal.playbackText !== model2.payload.rehearsal.paragraphs.join(" ")) {
+    if (model2.payload?.rehearsal?.authorship !== "original-yomu-n2-rehearsal" || model2.payload.rehearsal.paragraphs.length !== 2 || model2.payload.rehearsal.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.rehearsal.playbackText !== model2.payload.rehearsal.paragraphs.join(" ")) {
       issues2.push({ path: "payload.rehearsal", message: "The complete original two-paragraph N2 rehearsal is required." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual scope teaching points are required." });
     }
     validateQuestions$7(model2, issues2);
@@ -23460,7 +23460,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!answer2 || !text$j(answer2.questionId) || !text$j(answer2.optionId) || answers.has(answer2.questionId)) {
+      if (!answer2 || !text$k(answer2.questionId) || !text$k(answer2.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("N2 policy-scope answers must have unique question and option ids.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -23479,7 +23479,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const ids2 = /* @__PURE__ */ new Set();
     for (const [index, question2] of questions.entries()) {
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || !Array.isArray(question2.options) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || !Array.isArray(question2.options) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Questions need unique ids, bilingual prompts, three options, and a valid answer." });
       }
       ids2.add(question2.id);
@@ -23487,7 +23487,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateReviewTargets$5(model2, issues2) {
     const targets = model2.payload.reviewTargets;
-    if (targets.length !== 4 || targets.some((target2) => !text$j(target2.id) || !text$j(target2.conceptId) || !text$j(target2.expression) || !text$j(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
+    if (targets.length !== 4 || targets.some((target2) => !text$k(target2.id) || !text$k(target2.conceptId) || !text$k(target2.expression) || !text$k(target2.sentence) || !Array.isArray(target2.meanings) || target2.meanings.length === 0 || !Array.isArray(target2.repairFor) || target2.repairFor.length === 0)) {
       issues2.push({ path: "payload.reviewTargets", message: "Four complete N2 review targets are required." });
     }
   }
@@ -24281,28 +24281,28 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$4(model2.provenance, N1_OPENING_SEQUENCE_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact pinned mixed source set, rights, and package-local audio state are required." });
     }
-    if (model2.payload.prerequisiteRefresh.length !== 3 || model2.payload.prerequisiteRefresh.some((item2) => !text$j(item2.conceptId) || !text$j(item2.bridge.ja) || !text$j(item2.bridge.en) || !text$j(item2.example) || item2.exampleSource !== "authored" && item2.exampleSource !== "exact-source-tobira")) {
+    if (model2.payload.prerequisiteRefresh.length !== 3 || model2.payload.prerequisiteRefresh.some((item2) => !text$k(item2.conceptId) || !text$k(item2.bridge.ja) || !text$k(item2.bridge.en) || !text$k(item2.example) || item2.exampleSource !== "authored" && item2.exampleSource !== "exact-source-tobira")) {
       issues2.push({ path: "payload.prerequisiteRefresh", message: "Three complete unassessed N2-to-N1 bridges with honest example attribution are required." });
     }
     const sourceBridge = model2.payload.prerequisiteRefresh.find((item2) => item2.exampleSource === "exact-source-tobira");
     if (sourceBridge?.example !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.tobiraBridgeSentence) {
       issues2.push({ path: "payload.prerequisiteRefresh", message: "The exact pinned Tobira bridge sentence is required." });
     }
-    if (model2.payload.reading.sourceAnchor.authorship !== "exact-source-shin-kanzen-reading" || !text$j(model2.payload.reading.sourceAnchor.title.ja) || !text$j(model2.payload.reading.sourceAnchor.title.en) || model2.payload.reading.sourceAnchor.paragraphs.length !== 3 || model2.payload.reading.sourceAnchor.paragraphs.some((paragraph) => !text$j(paragraph)) || !sameObject$4(model2.payload.reading.sourceAnchor.paragraphs, N1_OPENING_SEQUENCE_DELIVERED_SOURCE.readingAnchorParagraphs)) {
+    if (model2.payload.reading.sourceAnchor.authorship !== "exact-source-shin-kanzen-reading" || !text$k(model2.payload.reading.sourceAnchor.title.ja) || !text$k(model2.payload.reading.sourceAnchor.title.en) || model2.payload.reading.sourceAnchor.paragraphs.length !== 3 || model2.payload.reading.sourceAnchor.paragraphs.some((paragraph) => !text$k(paragraph)) || !sameObject$4(model2.payload.reading.sourceAnchor.paragraphs, N1_OPENING_SEQUENCE_DELIVERED_SOURCE.readingAnchorParagraphs)) {
       issues2.push({ path: "payload.reading.sourceAnchor", message: "The exact three-line Shin Kanzen reading source anchor is required." });
     }
-    if (model2.payload.reading.transfer.authorship !== "original-yomu-n1-reading" || !text$j(model2.payload.reading.transfer.title.ja) || !text$j(model2.payload.reading.transfer.title.en) || model2.payload.reading.transfer.paragraphs.length !== 3 || model2.payload.reading.transfer.paragraphs.some((paragraph) => !text$j(paragraph)) || !sameObject$4(model2.payload.reading.transfer.paragraphs, N1_OPENING_SEQUENCE_AUTHORED.readingParagraphs)) {
+    if (model2.payload.reading.transfer.authorship !== "original-yomu-n1-reading" || !text$k(model2.payload.reading.transfer.title.ja) || !text$k(model2.payload.reading.transfer.title.en) || model2.payload.reading.transfer.paragraphs.length !== 3 || model2.payload.reading.transfer.paragraphs.some((paragraph) => !text$k(paragraph)) || !sameObject$4(model2.payload.reading.transfer.paragraphs, N1_OPENING_SEQUENCE_AUTHORED.readingParagraphs)) {
       issues2.push({ path: "payload.reading.transfer", message: "The complete original three-paragraph N1 reading transfer is required." });
     }
-    if (model2.payload.grammar.forms.length !== 3 || model2.payload.grammar.forms.some((item2) => !text$j(item2.id) || !text$j(item2.form) || !text$j(item2.example) || item2.exampleAuthorship !== "exact-source-shin-kanzen-grammar" || !text$j(item2.registerNote.ja) || !text$j(item2.registerNote.en) || !text$j(item2.agentNote.ja) || !text$j(item2.agentNote.en) || !text$j(item2.eventNote.ja) || !text$j(item2.eventNote.en)) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.form), ["〜が早いか", "〜や／〜や否や", "〜なり"]) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.example), N1_OPENING_SEQUENCE_DELIVERED_SOURCE.grammarExamples)) {
+    if (model2.payload.grammar.forms.length !== 3 || model2.payload.grammar.forms.some((item2) => !text$k(item2.id) || !text$k(item2.form) || !text$k(item2.example) || item2.exampleAuthorship !== "exact-source-shin-kanzen-grammar" || !text$k(item2.registerNote.ja) || !text$k(item2.registerNote.en) || !text$k(item2.agentNote.ja) || !text$k(item2.agentNote.en) || !text$k(item2.eventNote.ja) || !text$k(item2.eventNote.en)) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.form), ["〜が早いか", "〜や／〜や否や", "〜なり"]) || !sameObject$4(model2.payload.grammar.forms.map((item2) => item2.example), N1_OPENING_SEQUENCE_DELIVERED_SOURCE.grammarExamples)) {
       issues2.push({ path: "payload.grammar", message: "Three exact Shin Kanzen N1 time-relation forms with register, agent, and event notes are required." });
     }
     const sourceAudio2 = model2.payload.listening.sourceAudio;
     const deliveredAudio = N1_OPENING_SEQUENCE_PROVENANCE.deliveredAudio;
-    if (sourceAudio2.authorship !== "exact-source-somatome-listening" || !text$j(sourceAudio2.title.ja) || !text$j(sourceAudio2.title.en) || sourceAudio2.packageUrl !== deliveredAudio.packageUrl || sourceAudio2.sha256 !== deliveredAudio.sha256 || sourceAudio2.byteLength !== deliveredAudio.byteLength || sourceAudio2.durationSeconds !== deliveredAudio.durationSeconds || sourceAudio2.track !== deliveredAudio.track || sourceAudio2.transcript !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.listeningSourceTranscript || !sameObject$4(sourceAudio2.rationale, N1_OPENING_SEQUENCE_AUTHORED.sourceListeningRationale)) {
+    if (sourceAudio2.authorship !== "exact-source-somatome-listening" || !text$k(sourceAudio2.title.ja) || !text$k(sourceAudio2.title.en) || sourceAudio2.packageUrl !== deliveredAudio.packageUrl || sourceAudio2.sha256 !== deliveredAudio.sha256 || sourceAudio2.byteLength !== deliveredAudio.byteLength || sourceAudio2.durationSeconds !== deliveredAudio.durationSeconds || sourceAudio2.track !== deliveredAudio.track || sourceAudio2.transcript !== N1_OPENING_SEQUENCE_DELIVERED_SOURCE.listeningSourceTranscript || !sameObject$4(sourceAudio2.rationale, N1_OPENING_SEQUENCE_AUTHORED.sourceListeningRationale)) {
       issues2.push({ path: "payload.listening.sourceAudio", message: "Complete exact source-audio metadata, transcript, and rationale are required." });
     }
-    if (model2.payload.listening.transfer.authorship !== "original-yomu-n1-listening" || model2.payload.listening.transfer.script !== N1_OPENING_SEQUENCE_AUTHORED.listeningScript || !text$j(model2.payload.listening.transfer.scenario.ja) || !text$j(model2.payload.listening.transfer.scenario.en)) {
+    if (model2.payload.listening.transfer.authorship !== "original-yomu-n1-listening" || model2.payload.listening.transfer.script !== N1_OPENING_SEQUENCE_AUTHORED.listeningScript || !text$k(model2.payload.listening.transfer.scenario.ja) || !text$k(model2.payload.listening.transfer.scenario.en)) {
       issues2.push({ path: "payload.listening.transfer", message: "A complete original N1 workplace listening transfer update is required." });
     }
     validateProduction$2(model2, issues2);
@@ -24315,11 +24315,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateProduction$2(model2, issues2) {
     const production = model2.payload.production;
-    if (production.authorship !== "learner-authored-deterministically-checked" || !text$j(production.prompt.ja) || !text$j(production.prompt.en) || !text$j(production.guidance.ja) || !text$j(production.guidance.en) || !Number.isInteger(production.minLengthChars) || !Number.isInteger(production.maxLengthChars) || production.minLengthChars <= 0 || production.maxLengthChars <= production.minLengthChars || !production.demandAnchors.length || !production.accessAnchors.length || !production.contrastMarkers.length || !production.provisionalMarkers.length || !production.overclaimTerms.length || !text$j(production.modelAnswer)) {
+    if (production.authorship !== "learner-authored-deterministically-checked" || !text$k(production.prompt.ja) || !text$k(production.prompt.en) || !text$k(production.guidance.ja) || !text$k(production.guidance.en) || !Number.isInteger(production.minLengthChars) || !Number.isInteger(production.maxLengthChars) || production.minLengthChars <= 0 || production.maxLengthChars <= production.minLengthChars || !production.demandAnchors.length || !production.accessAnchors.length || !production.contrastMarkers.length || !production.provisionalMarkers.length || !production.overclaimTerms.length || !text$k(production.modelAnswer)) {
       issues2.push({ path: "payload.production", message: "A complete deterministic production rubric with anchors, markers, and a model answer is required." });
       return;
     }
-    if (production.checks.length !== 4 || PRODUCTION_CHECK_IDS.some((id2) => !production.checks.some((checkDef) => checkDef.id === id2)) || production.checks.some((checkDef) => !text$j(checkDef.errorTag) || !text$j(checkDef.label.ja) || !text$j(checkDef.label.en))) {
+    if (production.checks.length !== 4 || PRODUCTION_CHECK_IDS.some((id2) => !production.checks.some((checkDef) => checkDef.id === id2)) || production.checks.some((checkDef) => !text$k(checkDef.errorTag) || !text$k(checkDef.label.ja) || !text$k(checkDef.label.en))) {
       issues2.push({ path: "payload.production.checks", message: "Exactly the four labelled deterministic production checks are required." });
       return;
     }
@@ -24339,7 +24339,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
       const expectedOptionCount = question2.stimulusRole === "source-listening" ? 4 : 3;
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== expectedOptionCount || optionIds.size !== expectedOptionCount || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag) || question2.options.some((option2) => !text$j(option2.label.ja) || !text$j(option2.label.en)) || question2.stimulusRole === "source-listening" && (!question2.rationale || !text$j(question2.rationale.ja) || !text$j(question2.rationale.en))) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== expectedOptionCount || optionIds.size !== expectedOptionCount || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag) || question2.options.some((option2) => !text$k(option2.label.ja) || !text$k(option2.label.en)) || question2.stimulusRole === "source-listening" && (!question2.rationale || !text$k(question2.rationale.ja) || !text$k(question2.rationale.en))) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, bilingual prompt, correct option count, and one valid answer; the exact source-listening judgment also needs a rationale." });
       }
       ids2.add(question2.id);
@@ -24368,7 +24368,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "floor-listening",
       "floor-production"
     ]);
-    if (model2.payload.reviewTargets.length !== 8 || model2.payload.reviewTargets.some((target2) => !text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)) || target2.attribution !== "yomu-authored" && target2.attribution !== "exact-source")) {
+    if (model2.payload.reviewTargets.length !== 8 || model2.payload.reviewTargets.some((target2) => !text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)) || target2.attribution !== "yomu-authored" && target2.attribution !== "exact-source")) {
       issues2.push({ path: "payload.reviewTargets", message: "Eight complete, honestly attributed, repair-mapped Reader/SRS targets are required." });
     }
   }
@@ -24951,14 +24951,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$3(model2.provenance, N1_SOUND_DISCRIMINATION_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Shin Kanzen listening locus and local-only media state are required." });
     }
-    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.cue) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.cue) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three complete bilingual pre-retrieval teaching cues are required." });
     }
-    if (model2.payload.soundMap.length !== 4 || model2.payload.soundMap.some((pair) => !text$j(pair.id) || !text$j(pair.left) || !text$j(pair.right) || !text$j(pair.focus.ja) || !text$j(pair.focus.en))) {
+    if (model2.payload.soundMap.length !== 4 || model2.payload.soundMap.some((pair) => !text$k(pair.id) || !text$k(pair.left) || !text$k(pair.right) || !text$k(pair.focus.ja) || !text$k(pair.focus.en))) {
       issues2.push({ path: "payload.soundMap", message: "Four complete visual sound pairs are required." });
     }
     validateQuestions$5(model2, issues2);
-    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$j(model2.payload.production.prompt.ja) || !text$j(model2.payload.production.prompt.en) || !text$j(model2.payload.production.guidance.ja) || !text$j(model2.payload.production.guidance.en)) {
+    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$k(model2.payload.production.prompt.ja) || !text$k(model2.payload.production.prompt.en) || !text$k(model2.payload.production.guidance.ja) || !text$k(model2.payload.production.guidance.en)) {
       issues2.push({ path: "payload.production", message: "An explicit ungraded learner noticing note is required." });
     }
     validatePassScore(model2.payload.passScore, issues2);
@@ -25196,7 +25196,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ids2 = /* @__PURE__ */ new Set();
     model2.payload.questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || !text$j(question2.playbackText) || question2.options.length !== 2 || optionIds.size !== 2 || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || !text$k(question2.playbackText) || question2.options.length !== 2 || optionIds.size !== 2 || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each listening judgment needs a unique id, original playback, two options, and one answer." });
       }
       ids2.add(question2.id);
@@ -25204,7 +25204,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateReviewTargets$3(model2, issues2) {
     const tags = new Set(model2.payload.questions.map((question2) => question2.errorTag));
-    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)))) {
+    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag)))) {
       issues2.push({ path: "payload.reviewTargets", message: "Four complete repair-mapped Reader/SRS targets are required." });
     }
   }
@@ -25599,20 +25599,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         path: "provenance",
         message: "The exact permitted-library N1 source locus, rights, and media state are required."
       });
-    if (model2.payload.transfer.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload.transfer.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({
         path: "payload.transfer",
         message: "The complete original two-paragraph N1 transfer is required."
       });
     }
-    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$j(model2.payload.production.prompt.ja) || !text$j(model2.payload.production.prompt.en) || !text$j(model2.payload.production.guidance.ja) || !text$j(model2.payload.production.guidance.en)) {
+    if (model2.payload.production.authorship !== "learner-authored-ungraded" || !text$k(model2.payload.production.prompt.ja) || !text$k(model2.payload.production.prompt.en) || !text$k(model2.payload.production.guidance.ja) || !text$k(model2.payload.production.guidance.en)) {
       issues2.push({
         path: "payload.production",
         message: "An explicit ungraded learner-authored production prompt is required."
       });
     }
     if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some(
-      (item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example)
+      (item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example)
     )) {
       issues2.push({
         path: "payload.teaching",
@@ -25623,7 +25623,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
     if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some(
-      (target2) => !text$j(target2.expression) || !text$j(target2.sentence) || !target2.meanings.length || !target2.repairFor.length
+      (target2) => !text$k(target2.expression) || !text$k(target2.sentence) || !target2.meanings.length || !target2.repairFor.length
     )) {
       issues2.push({
         path: "payload.reviewTargets",
@@ -25872,9 +25872,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some(
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some(
         (option2) => option2.id === question2.correctOptionId
-      ) || !text$j(question2.errorTag)) {
+      ) || !text$k(question2.errorTag)) {
         issues2.push({
           path: `payload.questions.${index}`,
           message: "Questions need unique ids, bilingual prompts, three options, and a valid answer."
@@ -26157,10 +26157,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!sameObject$1(model2.payload?.sourceSegments, ADVANCED_IMMERSION_SOURCE_SEGMENTS)) {
       issues2.push({ path: "payload.sourceSegments", message: "The three exact reviewed Soya source segments are required in source order." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || new Set(model2.payload.teaching.map((item2) => item2.function)).size !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.example) || !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || new Set(model2.payload.teaching.map((item2) => item2.function)).size !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.example) || !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "All three epistemic functions need bilingual pre-assessment teaching." });
     }
-    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
+    if (model2.payload?.transfer?.authorship !== "original-yomu-n1-transfer" || model2.payload.transfer.paragraphs.length !== 2 || model2.payload.transfer.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.transfer.playbackText !== model2.payload.transfer.paragraphs.join(" ")) {
       issues2.push({ path: "payload.transfer", message: "The complete original N1 reading/listening transfer is required." });
     }
     validateQuestions$3(model2, issues2);
@@ -26400,7 +26400,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const optionIds = new Set(question2.options.map(
         (option2) => option2.id
       ));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || optionIds.size !== 3 || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each judgment needs a unique id, three neutral options, and one answer." });
       }
       ids2.add(question2.id);
@@ -26414,7 +26414,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Each target must map to a Concept and one assessment error." });
       }
     });
@@ -29354,14 +29354,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueTrimmedStrings(values) {
     return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$8(value) || value.version !== 1 || !isRecord$8(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$9(value) || value.version !== 1 || !isRecord$9(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
@@ -29369,7 +29369,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
     }
     const tombstones = {};
-    if (isRecord$8(value.tombstones)) {
+    if (isRecord$9(value.tombstones)) {
       for (const [id2, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id2];
@@ -29511,7 +29511,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$8(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$9(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(
@@ -29581,10 +29581,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$8(value)) return {};
+    if (!isRecord$9(value)) return {};
     const result2 = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$8(candidate2)) continue;
+      if (!isRecord$9(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -30161,14 +30161,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!records2 || typeof records2 !== "object") return {};
     const first2 = Object.values(records2).find((value) => value && typeof value === "object");
     if (!first2) return {};
-    const sourceId2 = text$i(first2.sourceId);
-    const activityId = text$i(first2.activityId);
+    const sourceId2 = text$j(first2.sourceId);
+    const activityId = text$j(first2.activityId);
     return {
       ...sourceId2 ? { sourceId: sourceId2 } : {},
       ...activityId ? { lesson: activityId } : {}
     };
   }
-  function text$i(value) {
+  function text$j(value) {
     return typeof value === "string" && value.trim() ? value.trim() : void 0;
   }
   function grade(rating) {
@@ -34659,7 +34659,7 @@ ${spelling}`);
     };
   }
   function resolveLanguageProfile(value) {
-    if (isRecord$7(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+    if (isRecord$8(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
       const normalized22 = normalizeLanguageProfiles([value], value.id, {
         outputLanguage: readOutputLanguageField(value),
         uiLocale: value.uiLocale,
@@ -34667,7 +34667,7 @@ ${spelling}`);
       });
       return normalized22.profiles[0];
     }
-    const source2 = isRecord$7(value) ? value : {};
+    const source2 = isRecord$8(value) ? value : {};
     const normalized2 = normalizeLanguageProfiles(
       source2.languageProfiles,
       source2.activeLanguageProfileId,
@@ -34680,7 +34680,7 @@ ${spelling}`);
     return activeLanguageProfile(normalized2.profiles, normalized2.activeProfileId) ?? createDefaultLanguageProfile();
   }
   function normalizeLanguageProfile(value, index, defaults) {
-    if (!isRecord$7(value)) return null;
+    if (!isRecord$8(value)) return null;
     if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -34717,7 +34717,7 @@ ${spelling}`);
     return PARSER_PROVIDERS.has(value) ? value : fallback;
   }
   function normalizeProfileDictionaries(value) {
-    if (!isRecord$7(value)) return emptyProfileDictionaries();
+    if (!isRecord$8(value)) return emptyProfileDictionaries();
     const enabled = normalizeStringIds(value.enabled);
     const order2 = normalizeStringIds(value.order);
     const installed = normalizeStringIds([
@@ -34758,8 +34758,11 @@ ${spelling}`);
     }
     return result2;
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function targetLanguageOf(value) {
+    return resolveLanguageProfile(value).targetLanguage;
   }
   function outputLanguageOf(value) {
     return resolveLanguageProfile(value).outputLanguage;
@@ -36822,6 +36825,25 @@ ${spelling}`);
       jitenCompositeWords: "Composite words",
       usedInVocabulary: "Used in vocabulary",
       exampleSentences: "Example sentences",
+      // U46: every one of these is a state a learner can reach. They exist
+      // because an example source with nothing to show used to render nothing
+      // at all, so an unsupported language looked exactly like a broken one.
+      exampleSourceEmpty: "No examples for this word yet.",
+      exampleSourceEmptyShort: "None yet",
+      exampleSourceLimitedCorpus: "This corpus is small, so many words have no example yet.",
+      exampleSourceUnsupported: "This source has no {language} sentences.",
+      exampleSourceUnsupportedShort: "Other languages",
+      exampleSourceFailed: "Examples did not load.",
+      exampleSourceFailedShort: "Not loaded",
+      exampleSourceRetry: "Try again",
+      exampleSourceAudioPerItem: "Audio plays where the recording is openly licensed.",
+      exampleSourceNoSentenceAudio: "Open {language} sentence audio is not available yet.",
+      exampleSourceNoLicensedAudio: "These sentences came without openly licensed audio.",
+      exampleSourceNoImage: "Scene images are Japanese only for now.",
+      exampleSourceNoTranslation: "No {language} translation yet.",
+      exampleSourceMachineTranslation: "Machine translation",
+      exampleSourceIndirectTranslation: "Translated via another language",
+      exampleSourcePlayAudio: "Play sentence audio",
       acceptedInputs: "Accepted inputs",
       relatedWords: "Related words",
       bunproUsedInVocab: "Used in",
@@ -37420,6 +37442,22 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+exampleSourceEmpty	この語の例文はまだありません。
+exampleSourceEmptyShort	例文なし
+exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。
+exampleSourceUnsupported	この情報源に{language}の例文はありません。
+exampleSourceUnsupportedShort	他言語のみ
+exampleSourceFailed	例文を読み込めませんでした。
+exampleSourceFailedShort	読み込み失敗
+exampleSourceRetry	もう一度試す
+exampleSourceAudioPerItem	公開ライセンスの録音がある例文では音声を再生できます。
+exampleSourceNoSentenceAudio	{language}の文音声は公開ライセンスのものがまだありません。
+exampleSourceNoLicensedAudio	公開ライセンスの音声が付いていない例文です。
+exampleSourceNoImage	場面画像は今のところ日本語のみです。
+exampleSourceNoTranslation	{language}の訳はまだありません。
+exampleSourceMachineTranslation	機械翻訳
+exampleSourceIndirectTranslation	別の言語を経由した訳
+exampleSourcePlayAudio	例文の音声を再生
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
 bunproUsedInVocab	使われている単語
@@ -47733,23 +47771,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function placementMockProgressShapeIsValid(value) {
-    if (!isRecord$6(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
+    if (!isRecord$7(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
     const draft = value.draft;
-    if (!isRecord$6(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
-    if (!isRecord$6(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
-    if (!isRecord$6(draft.production)) return false;
+    if (!isRecord$7(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
+    if (!isRecord$7(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
+    if (!isRecord$7(draft.production)) return false;
     return productionAttemptIsValid(draft.production.speaking, ["aloud", "typed-alternative"]) && productionAttemptIsValid(draft.production.writing, ["typed", "paper-alternative"]);
   }
   function productionAttemptIsValid(value, modes) {
-    return isRecord$6(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
+    return isRecord$7(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
   }
   function stringRecord(value) {
-    return isRecord$6(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
+    return isRecord$7(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
   }
   function isJlptBand$1(value) {
     return value === "n5" || value === "n4" || value === "n3" || value === "n2" || value === "n1";
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   const ACADEMY_ROUTE_DEFINITIONS = {
@@ -88156,7 +88194,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parseStoryVoicePlaybackCatalog(await response.json());
   }
   function parseStoryVoicePlaybackCatalog(value) {
-    if (!isRecord$5(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
+    if (!isRecord$6(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid story voice playback catalog.");
     }
     const seen = /* @__PURE__ */ new Set();
@@ -88322,10 +88360,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function isPlaybackEntry(value) {
-    if (!isRecord$5(value)) return false;
+    if (!isRecord$6(value)) return false;
     return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && LOCKED_STORY_URL.test(value.url) && value.reviewStatus === "locked";
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return typeof value === "object" && value !== null;
   }
   const SUPPORT_DONATION_URL = "https://support.yomureader.com/donate";
@@ -88395,7 +88433,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       void options.onSubmit(input2.value, lifecycle.signal).then(() => {
         if (!lifecycle.signal.aborted && screen.isConnected) restoreSubmit();
       }).catch((error) => {
-        if (lifecycle.signal.aborted || isAbortError$1(error)) return;
+        if (lifecycle.signal.aborted || isAbortError$2(error)) return;
         const unavailable = error instanceof Error && "code" in error && error.code === "unavailable";
         feedback2.replaceChildren(fieldError(academyText(options.language, unavailable ? "accessUnavailable" : "accessInvalid")));
         restoreSubmit();
@@ -88410,7 +88448,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }, { once: true });
     return screen;
   }
-  function isAbortError$1(error) {
+  function isAbortError$2(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
   const EXACT_SOURCE_CONTRACTS$1 = Object.freeze({
@@ -88463,7 +88501,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!contract2 || model2.provenance?.packageId !== contract2.packageId || model2.provenance.packageOrder !== contract2.packageOrder || model2.provenance.answerVisibility !== "after-attempt" || model2.provenance.moodle?.moduleId !== contract2.moduleId || model2.provenance.moodle.sourceTask !== "recording-embedded-mondai-2" || model2.provenance.moodle.answerKeyBasis !== "reviewed-original-audio-statements-and-dialogues" || audio2?.sourceId !== `moodle:${contract2?.audioSha256}:audio` || audio2.payloadSha256 !== contract2?.audioSha256 || audio2.locator !== contract2?.audioLocator || audio2.url !== contract2?.audioUrl || audio2.durationSeconds !== contract2?.durationSeconds || audio2.label !== contract2?.audioLabel) {
       issues2.push({ path: "provenance.moodle", message: "An exact reviewed Moodle Minna recording and embedded task contract are required." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en)) {
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en)) {
       issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -88475,14 +88513,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       tasks2.forEach((task2, index) => {
         const [id2, statement, mark] = contract2.tasks[index];
         const sourceQuestionId2 = `${contract2.sourcePrefix}:item-${index + 1}`;
-        if (task2.id !== id2 || task2.sourceOrder !== index + 1 || task2.sourceQuestionId !== sourceQuestionId2 || task2.statement !== statement || task2.correctMark !== mark || ids2.has(task2.id) || sourceIds.has(task2.sourceQuestionId) || !model2.conceptIds.includes(task2.conceptId) || !text$j(task2.errorTag) || !text$j(task2.reviewExpression)) {
+        if (task2.id !== id2 || task2.sourceOrder !== index + 1 || task2.sourceQuestionId !== sourceQuestionId2 || task2.statement !== statement || task2.correctMark !== mark || ids2.has(task2.id) || sourceIds.has(task2.sourceQuestionId) || !model2.conceptIds.includes(task2.conceptId) || !text$k(task2.errorTag) || !text$k(task2.reviewExpression)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Each source statement needs its exact order, mark, and evidence identity." });
         }
         ids2.add(task2.id);
         sourceIds.add(task2.sourceQuestionId);
       });
     }
-    if (!contract2 || !Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== contract2.transcriptLineCount || model2.payload.transcript.some((line2) => ![1, 2, 3, 4, 5].includes(line2.item) || !["A", "B", "文"].includes(line2.speaker) || !text$j(line2.text))) {
+    if (!contract2 || !Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== contract2.transcriptLineCount || model2.payload.transcript.some((line2) => ![1, 2, 3, 4, 5].includes(line2.item) || !["A", "B", "文"].includes(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed five-item source transcript is required after an attempt." });
     } else {
       for (const task2 of tasks2 ?? []) {
@@ -90476,7 +90514,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     requireLocalized(payload.passFeedback, "payload.passFeedback", issues2);
     const lapse = payload.lapseFeedback;
-    if (!text$h(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
+    if (!text$i(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
     requireLocalized(lapse?.contrast, "payload.lapseFeedback.contrast", issues2);
     requireLocalized(lapse?.repairPrompt, "payload.lapseFeedback.repairPrompt", issues2);
     requireLocalized(lapse?.nearbyExample, "payload.lapseFeedback.nearbyExample", issues2);
@@ -90485,17 +90523,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!diagnostic.responseIncludesAny?.length || diagnostic.responseIncludesAny.some((fragment2) => !containsJapanese(normalizeJapaneseResponse(fragment2)))) {
         issues2.push({ path: `${path}.responseIncludesAny`, message: "A diagnostic needs one or more Japanese response fragments." });
       }
-      if (!text$h(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
+      if (!text$i(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
       requireLocalized(diagnostic.feedback?.contrast, `${path}.feedback.contrast`, issues2);
       requireLocalized(diagnostic.feedback?.repairPrompt, `${path}.feedback.repairPrompt`, issues2);
       requireLocalized(diagnostic.feedback?.nearbyExample, `${path}.feedback.nearbyExample`, issues2);
     }
-    if (!text$h(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
-    if (!text$h(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$h)) {
+    if (!text$i(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
+    if (!text$i(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$i)) {
       issues2.push({ path: "payload.reviewContent", message: "Reviewable expression and meaning are required." });
     }
     const readingSupport2 = payload.promptReadingSupport;
-    if (readingSupport2 && (!text$h(readingSupport2.reading) || !text$h(readingSupport2.pitch))) {
+    if (readingSupport2 && (!text$i(readingSupport2.reading) || !text$i(readingSupport2.pitch))) {
       issues2.push({ path: "payload.promptReadingSupport", message: "Prompt support needs both a reading and pitch description." });
     }
     const hints2 = payload.hints ?? [];
@@ -90538,7 +90576,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         issues2.push({ path: `payload.hints.${index}`, message: "A tiered hint must not reveal a complete accepted answer." });
       }
     }
-    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$h(value))).filter(Boolean);
+    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$i(value))).filter(Boolean);
     for (const answer2 of normalizedAnswers) {
       if (japanesePreCommit.some((copy2) => copy2.includes(answer2))) {
         issues2.push({ path: "prompt", message: "Pre-commit prompt or reading support must not reveal an accepted answer." });
@@ -90555,22 +90593,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return issues2;
   }
   function hintLeaksAcceptedAnswer(hint2, answers) {
-    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$h(value))).filter(Boolean);
+    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$i(value))).filter(Boolean);
     return [...answers].some((answer2) => surfaces.some((surface) => surface.includes(answer2)));
   }
   function diagnosticFeedback(model2, normalizedResponse) {
     return model2.payload.lapseDiagnostics?.find((diagnostic) => diagnostic.responseIncludesAny.some((fragment2) => normalizedResponse.includes(normalizeJapaneseResponse(fragment2))))?.feedback;
   }
   function requireLocalized(value, path, issues2) {
-    if (!text$h(value?.en) || !text$h(value?.ja)) {
+    if (!text$i(value?.en) || !text$i(value?.ja)) {
       issues2.push({ path, message: "Bilingual authored feedback is required." });
     }
   }
-  function text$h(value) {
+  function text$i(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function normalizeEnglish(value) {
-    return text$h(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
+    return text$i(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
   }
   function containsJapanese(value) {
     return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(value);
@@ -92862,8 +92900,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.dataset.uncovered = String(uncovered);
     prop.setAttribute("aria-label", uncovered ? "The blank Lantern Atlas is uncovered." : "A covered atlas waits on the table.");
     const frame2 = section("academy-atlas-frame");
-    frame2.append(text$g("span", "academy-atlas-title", "LANTERN ATLAS"), text$g("span", "academy-atlas-empty-route", ""));
-    const cloth = text$g("span", "academy-atlas-cloth", "");
+    frame2.append(text$h("span", "academy-atlas-title", "LANTERN ATLAS"), text$h("span", "academy-atlas-empty-route", ""));
+    const cloth = text$h("span", "academy-atlas-cloth", "");
     cloth.setAttribute("aria-hidden", "true");
     prop.append(frame2, cloth);
     return prop;
@@ -92875,11 +92913,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.setAttribute("aria-label", written ? "Five vowel marks now form the first route." : "Five empty sound places wait in a row.");
     const route = section("academy-vowel-route-line");
     VOWELS.forEach((vowel, index) => {
-      const mark = text$g("span", "academy-vowel-route-mark", written ? vowel : String(index + 1));
+      const mark = text$h("span", "academy-vowel-route-mark", written ? vowel : String(index + 1));
       mark.lang = written ? "ja" : "en";
       route.append(mark);
     });
-    prop.append(text$g("p", "academy-prop-label", written ? "あ い う え お" : "Five sounds. One route."), route);
+    prop.append(text$h("p", "academy-prop-label", written ? "あ い う え お" : "Five sounds. One route."), route);
     return prop;
   }
   function classroomHandoutProp(flowerEarned) {
@@ -92887,12 +92925,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.dataset.flowerEarned = String(flowerEarned);
     prop.setAttribute("aria-label", flowerEarned ? "The classroom handout has earned a flower mark." : "A classroom action handout is open.");
     prop.append(
-      text$g("p", "academy-prop-label", "IN CLASS"),
+      text$h("p", "academy-prop-label", "IN CLASS"),
       actionSlip("みて", "look"),
       actionSlip("きいて", "listen"),
       actionSlip("かいて", "write")
     );
-    if (flowerEarned) prop.append(text$g("span", "academy-paper-flower", ""));
+    if (flowerEarned) prop.append(text$h("span", "academy-paper-flower", ""));
     return prop;
   }
   function sentenceDoorProp(resolved) {
@@ -92922,18 +92960,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       endingPlaced ? `Class name card for ${displayName2}: ${cardName} です.` : `Class name card for ${displayName2}. The ending space is empty.`
     );
     const identity2 = section("academy-name-card-identity");
-    const japaneseName = text$g("strong", "academy-name-card-name", cardName);
+    const japaneseName = text$h("strong", "academy-name-card-name", cardName);
     japaneseName.lang = "ja";
     identity2.append(japaneseName);
     if (cardName !== name.usualName) {
-      identity2.append(text$g("span", "academy-name-card-usual", name.usualName));
+      identity2.append(text$h("span", "academy-name-card-usual", name.usualName));
     }
-    const ending = text$g("span", "academy-name-card-desu", endingPlaced ? "です。" : "");
+    const ending = text$h("span", "academy-name-card-desu", endingPlaced ? "です。" : "");
     ending.lang = "ja";
     ending.dataset.placed = String(endingPlaced);
     prop.append(
-      text$g("span", "academy-name-card-pin", ""),
-      text$g("p", "academy-prop-label", language2 === "ja" ? "クラスの名札" : "YOUR NAME CARD"),
+      text$h("span", "academy-name-card-pin", ""),
+      text$h("p", "academy-prop-label", language2 === "ja" ? "クラスの名札" : "YOUR NAME CARD"),
       identity2,
       ending
     );
@@ -92946,7 +92984,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.setAttribute("aria-label", resolved ? "The two voices are matched to Xingyu and Mika." : "Two voices wait for their name labels.");
     prop.append(
       soundNameplate("Xingyu", resolved),
-      text$g("span", "academy-sound-wave", ""),
+      text$h("span", "academy-sound-wave", ""),
       soundNameplate("Mika", resolved)
     );
     return prop;
@@ -92957,7 +92995,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.setAttribute("aria-label", "A folded note has two gaps.");
     const note = section("academy-folded-note");
     note.append(
-      text$g("p", "academy-prop-label", "Sophie / Ruparna"),
+      text$h("p", "academy-prop-label", "Sophie / Ruparna"),
       noteGapLine("これは ソフィー", "名札です。"),
       noteGapLine("ルパルナです。わたし", "日本語を勉強しています。")
     );
@@ -92977,9 +93015,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function noteGapLine(before, after) {
     const line2 = section("academy-note-line");
     line2.append(
-      text$g("span", "academy-note-context academy-note-context-before", before),
-      text$g("span", "academy-note-gap", "＿"),
-      text$g("span", "academy-note-context academy-note-context-after", after)
+      text$h("span", "academy-note-context academy-note-context-before", before),
+      text$h("span", "academy-note-gap", "＿"),
+      text$h("span", "academy-note-context academy-note-context-after", after)
     );
     return line2;
   }
@@ -92988,8 +93026,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.dataset.open = "false";
     const names = section("academy-door-nameplates");
     names.hidden = true;
-    names.append(text$g("span", "", "Aakash"), text$g("span", "", "Sam"));
-    const invitation = text$g("p", "academy-door-invitation", language2 === "ja" ? "どうぞ" : "Come in");
+    names.append(text$h("span", "", "Aakash"), text$h("span", "", "Sam"));
+    const invitation = text$h("p", "academy-door-invitation", language2 === "ja" ? "どうぞ" : "Come in");
     invitation.hidden = true;
     const knock = button$3(language2 === "ja" ? "ノックする" : "Knock", "academy-door-knocker");
     knock.setAttribute("aria-expanded", "false");
@@ -93012,8 +93050,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const renderFace = () => {
       const publicSide = prop.dataset.face === "public";
       face.replaceChildren(
-        text$g("p", "academy-prop-label", publicSide ? "CLASS LINE" : "YOUR CARD"),
-        text$g("strong", "academy-public-card-line", publicSide ? `${displayName2 ?? "Your name"} です。` : "")
+        text$h("p", "academy-prop-label", publicSide ? "CLASS LINE" : "YOUR CARD"),
+        text$h("strong", "academy-public-card-line", publicSide ? `${displayName2 ?? "Your name"} です。` : "")
       );
     };
     renderFace();
@@ -93037,7 +93075,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     prop.setAttribute("aria-label", lit ? "One chapter is lit; the next is still dark." : "This chapter is still waiting.");
     const route = section("academy-lantern-route");
     for (let index = 0; index < 5; index += 1) {
-      const lantern = text$g("span", "academy-route-lantern", "");
+      const lantern = text$h("span", "academy-route-lantern", "");
       lantern.dataset.lit = String(lit && index === 0);
       route.append(lantern);
     }
@@ -93048,26 +93086,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const prop = section("academy-route-arrow-prop");
     prop.setAttribute("aria-label", "The entrance arrow now points back to your saved route.");
     prop.append(
-      text$g("span", "academy-route-arrow-mark", "->"),
-      text$g("strong", "academy-route-arrow-label", language2 === "ja" ? "つづきから" : "Your route")
+      text$h("span", "academy-route-arrow-mark", "->"),
+      text$h("strong", "academy-route-arrow-label", language2 === "ja" ? "つづきから" : "Your route")
     );
     return prop;
   }
   function actionSlip(japanese2, english) {
     const slip = section("academy-action-slip");
-    slip.append(text$g("strong", "", japanese2), text$g("span", "", english));
+    slip.append(text$h("strong", "", japanese2), text$h("span", "", english));
     return slip;
   }
   function sentenceLabel(japanese2, english, supported) {
     const label = section("academy-sentence-label");
     label.dataset.supported = String(supported);
-    label.append(text$g("strong", "", japanese2), text$g("span", "", english));
+    label.append(text$h("strong", "", japanese2), text$h("span", "", english));
     return label;
   }
   function soundNameplate(name, resolved) {
     const plate = section("academy-sound-nameplate");
     plate.dataset.resolved = String(resolved);
-    plate.append(text$g("span", "", resolved ? name : "?"));
+    plate.append(text$h("span", "", resolved ? name : "?"));
     return plate;
   }
   function sceneSignature(sceneId) {
@@ -93093,7 +93131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     value.className = className;
     return value;
   }
-  function text$g(tag, className, value) {
+  function text$h(tag, className, value) {
     const element2 = document.createElement(tag);
     if (className) element2.className = className;
     element2.textContent = value;
@@ -121964,7 +122002,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         throw new TypeError(`${packageId} Library source-row identity changed at row ${index + 1}.`);
       }
       const exact2 = record$Y(rowSource.exact, `${itemId} exact fields`);
-      const exactWords = text$f(exact2.words, `${itemId} exact words`);
+      const exactWords = text$g(exact2.words, `${itemId} exact words`);
       if (expected.sourceWords && exactWords !== expected.sourceWords[index]) {
         throw new TypeError(`${packageId} Library exact source words changed at row ${sourceRow}.`);
       }
@@ -121978,7 +122016,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return Object.freeze({
         expression,
         reading,
-        meaning: text$f(meaning ?? row2.en, `${itemId} Yomu definition`),
+        meaning: text$g(meaning ?? row2.en, `${itemId} Yomu definition`),
         studyStatus: quarantine2 ? "quarantined-source-ambiguity" : "canonical"
       });
     });
@@ -122015,7 +122053,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  function text$f(value, label) {
+  function text$g(value, label) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be nonempty text.`);
     return value;
   }
@@ -122101,8 +122139,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rows = array$X(component.items, `${packageId} vocabulary rows`);
     if (!rows.length) return emptySheet(packageId, component);
     const provenance2 = record$X(component.provenance, `${packageId} vocabulary provenance`);
-    const sourceId2 = text$e(provenance2.sourceId, `${packageId} sourceId`);
-    const title2 = text$e(provenance2.title, `${packageId} source title`);
+    const sourceId2 = text$f(provenance2.sourceId, `${packageId} sourceId`);
+    const title2 = text$f(provenance2.title, `${packageId} source title`);
     const payloadSha256 = digest$3(provenance2.payloadSha256, `${packageId} source digest`);
     const componentId = optionalText$1(component.id) ?? `source-vocabulary:${payloadSha256}`;
     let previousPage = 0;
@@ -122111,10 +122149,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const items = rows.map((candidate2, index) => {
       const row2 = record$X(candidate2, `${packageId} vocabulary row ${index + 1}`);
       const source2 = record$X(row2.source, `${packageId} vocabulary row ${index + 1} source`);
-      const id2 = text$e(source2.itemId, `${packageId} vocabulary row ${index + 1} itemId`);
+      const id2 = text$f(source2.itemId, `${packageId} vocabulary row ${index + 1} itemId`);
       if (seenIds.has(id2)) throw new TypeError(`Duplicate Library vocabulary source row ${id2}.`);
       seenIds.add(id2);
-      if (digest$3(source2.payloadSha256, `${id2} digest`) !== payloadSha256 || text$e(source2.title, `${id2} title`) !== title2 || source2.answerVisibility !== "after-attempt") {
+      if (digest$3(source2.payloadSha256, `${id2} digest`) !== payloadSha256 || text$f(source2.title, `${id2} title`) !== title2 || source2.answerVisibility !== "after-attempt") {
         throw new TypeError(`Library vocabulary source identity changed for ${id2}.`);
       }
       const locus = record$X(source2.locus, `${id2} locus`);
@@ -122128,13 +122166,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const exact2 = record$X(source2.exact, `${id2} exact fields`);
       const fieldProvenance = record$X(source2.fieldProvenance, `${id2} field provenance`);
       const studySupport = earlyStudyDefinition?.rows[index];
-      const studyExpression = studySupport?.expression ?? optionalText$1(source2.normalizedStudySurface) ?? text$e(row2.ja, `${id2} Yomu expression`);
-      const reading = studySupport?.reading ?? text$e(row2.reading, `${id2} Yomu reading`);
-      const supportMeaning = studySupport?.meaning ?? text$e(row2.en, `${id2} Yomu meaning`);
+      const studyExpression = studySupport?.expression ?? optionalText$1(source2.normalizedStudySurface) ?? text$f(row2.ja, `${id2} Yomu expression`);
+      const reading = studySupport?.reading ?? text$f(row2.reading, `${id2} Yomu reading`);
+      const supportMeaning = studySupport?.meaning ?? text$f(row2.en, `${id2} Yomu meaning`);
       const sourceMeaning = nullableText(exact2.meaning, `${id2} source meaning`);
       return Object.freeze({
         id: `authored:${packageId}/library:${id2}`,
-        expression: text$e(exact2.words, `${id2} source words`),
+        expression: text$f(exact2.words, `${id2} source words`),
         studyExpression,
         reading,
         meaning: sourceMeaning ?? supportMeaning,
@@ -122143,9 +122181,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         sourcePronunciation: nullableText(exact2.pronunciation, `${id2} source pronunciation`),
         sourceMeaning,
         fieldProvenance: Object.freeze({
-          words: text$e(fieldProvenance.words, `${id2} words provenance`),
-          reading: text$e(fieldProvenance.reading, `${id2} reading provenance`),
-          meaning: text$e(fieldProvenance.meaning, `${id2} meaning provenance`)
+          words: text$f(fieldProvenance.words, `${id2} words provenance`),
+          reading: text$f(fieldProvenance.reading, `${id2} reading provenance`),
+          meaning: text$f(fieldProvenance.meaning, `${id2} meaning provenance`)
         }),
         source: Object.freeze({ id: id2, title: title2, page, row: sourceRow }),
         reviewSeed: Object.freeze({
@@ -122275,7 +122313,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  function text$e(value, label) {
+  function text$f(value, label) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be nonempty text.`);
     return value;
   }
@@ -122283,7 +122321,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return typeof value === "string" && value.trim() ? value : void 0;
   }
   function nullableText(value, label) {
-    return value === null ? null : text$e(value, label);
+    return value === null ? null : text$f(value, label);
   }
   function positiveInteger$1(value, label) {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
@@ -122292,7 +122330,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return value;
   }
   function digest$3(value, label) {
-    const result2 = text$e(value, label);
+    const result2 = text$f(value, label);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
@@ -123423,7 +123461,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord$4(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$5(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -123441,7 +123479,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord$4(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$5(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -123456,7 +123494,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       message: value.message
     };
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -131799,7 +131837,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const locus = record$V(source2.lineLocus, "l1-l09 Genki line locus");
     const exactTask = record$V(activity2.exactTask, "l1-l09 Genki exact task");
     const config = record$V(exactTask.config, "l1-l09 Genki config");
-    const quizlet = text$d(config.quizlet, "l1-l09 Genki quizlet");
+    const quizlet = text$e(config.quizlet, "l1-l09 Genki quizlet");
     if (activity2.id !== GENKI_TASK_ID$6 || source2.payloadSha256 !== GENKI_SHA256$u || source2.scriptSha256 !== GENKI_SCRIPT_SHA256$g || locus.start !== 76 || locus.end !== 130 || exactTask.engine !== "Genki.generateQuiz" || config.type !== "fill" || config.info !== "Complete the following problems using {!GRI|past tense nouns|l4-p3}.") {
       throw new TypeError("Unexpected l1-l09 Genki task identity.");
     }
@@ -131820,7 +131858,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  function text$d(value, label) {
+  function text$e(value, label) {
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
@@ -168555,7 +168593,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Five source-grounded teaching steps must precede retrieval." });
     }
     const rounds = model2.payload?.rounds;
@@ -168569,7 +168607,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "message-choice",
       "typed-quote"
     ];
-    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$j(item2.sourceQuestionId) || !text$j(item2.prompt.en) || !text$j(item2.prompt.ja) || !text$j(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-quote" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$k(item2.sourceQuestionId) || !text$k(item2.prompt.en) || !text$k(item2.prompt.ja) || !text$k(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-quote" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Eight exact-source rounds with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -168741,7 +168779,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Reported-message responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -170745,7 +170783,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 6 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 6 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Five source teaching steps and one boundary must precede retrieval." });
     }
     const interactions = [
@@ -170758,7 +170796,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "typed-source"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 7 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$j(item2.sourceQuestionId) || !text$j(item2.prompt.en) || !text$j(item2.prompt.ja) || !text$j(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 7 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$k(item2.sourceQuestionId) || !text$k(item2.prompt.en) || !text$k(item2.prompt.ja) || !text$k(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Seven exact-source rounds with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -170931,7 +170969,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Follow-the-model responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -239548,7 +239586,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.genki.used !== false || model2.provenance.support.genki.learnerFacingPayload !== "none") {
       issues2.push({ path: "provenance.support.genki", message: "Genki is not used and contributes no learner-facing payload." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 9 || model2.payload.teaching.slice(0, 7).some((step2) => step2.attribution !== "sensei-source") || model2.payload.teaching.slice(7).some((step2) => step2.attribution !== "yomu-boundary") || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 9 || model2.payload.teaching.slice(0, 7).some((step2) => step2.attribution !== "sensei-source") || model2.payload.teaching.slice(7).some((step2) => step2.attribution !== "yomu-boundary") || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "Seven source teaching steps and two boundaries must precede retrieval." });
     }
     const interactions = [
@@ -239562,7 +239600,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "typed-source"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$j(item2.sourceQuestionId) || !text$j(item2.prompt.en) || !text$j(item2.prompt.ja) || !text$j(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && (!item2.options.some((option2) => option2.value === item2.answer && option2.origin === "sensei-source") || item2.options.some((option2) => option2.value !== item2.answer && option2.origin !== "yomu-scaffolding")))) {
+    if (!Array.isArray(rounds) || rounds.length !== 8 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$k(item2.sourceQuestionId) || !text$k(item2.prompt.en) || !text$k(item2.prompt.ja) || !text$k(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : 2) || item2.options.length > 0 && (!item2.options.some((option2) => option2.value === item2.answer && option2.origin === "sensei-source") || item2.options.some((option2) => option2.value !== item2.answer && option2.origin !== "yomu-scaffolding")))) {
       issues2.push({ path: "payload.rounds", message: "Eight exact-source script lines with all three interaction modes are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -239740,7 +239778,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Conversation-script responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -240017,7 +240055,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "answerSupport", message: "Answers and repair support must remain gated until an attempt." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.slice(0, 4).some((step2) => step2.attribution !== "sensei-source" || !text$j(step2.title) || !text$j(step2.text)) || model2.payload.teaching[4]?.attribution !== "yomu-boundary") {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.slice(0, 4).some((step2) => step2.attribution !== "sensei-source" || !text$k(step2.title) || !text$k(step2.text)) || model2.payload.teaching[4]?.attribution !== "yomu-boundary") {
       issues2.push({ path: "payload.teaching", message: "Four source teaching blocks and one explicit boundary are required." });
     }
     const interactions = [
@@ -240036,7 +240074,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "source-choice"
     ];
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(rounds) || rounds.length !== 13 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$j(item2.sourceQuestionId) || !text$j(item2.prompt.en) || !text$j(item2.prompt.ja) || !text$j(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : item2.sourceTask === "homework-match" ? 5 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
+    if (!Array.isArray(rounds) || rounds.length !== 13 || rounds.some((item2, index) => item2.sourceOrder !== index + 1 || item2.interaction !== interactions[index] || !text$k(item2.sourceQuestionId) || !text$k(item2.prompt.en) || !text$k(item2.prompt.ja) || !text$k(item2.answer) || !model2.conceptIds.includes(item2.conceptId) || item2.options.length !== (item2.interaction === "typed-source" ? 0 : item2.sourceTask === "homework-match" ? 5 : 2) || item2.options.length > 0 && !item2.options.some((option2) => option2.value === item2.answer))) {
       issues2.push({ path: "payload.rounds", message: "Eight verbatim examples and five deterministic homework matches are required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -240209,7 +240247,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("l2-l36 responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -240464,7 +240502,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.payload.vocabulary.length !== 15 || !model2.payload.vocabulary.some((entry2) => entry2.note?.includes("source typo"))) {
       issues2.push({ path: "payload.vocabulary", message: "The corrected Chapter 36-2 source vocabulary is required." });
     }
-    if (model2.payload.rounds.length !== 5 || model2.payload.rounds.some((round2, index) => round2.sourceOrder !== index + 1 || !text$j(round2.prompt.en) || !text$j(round2.prompt.ja) || !text$j(round2.answer) || !model2.conceptIds.includes(round2.conceptId))) {
+    if (model2.payload.rounds.length !== 5 || model2.payload.rounds.some((round2, index) => round2.sourceOrder !== index + 1 || !text$k(round2.prompt.en) || !text$k(round2.prompt.ja) || !text$k(round2.answer) || !model2.conceptIds.includes(round2.conceptId))) {
       issues2.push({ path: "payload.rounds", message: "The five printed ability transformations are required." });
     }
     validateFeedback(model2.payload.feedback, issues2);
@@ -240623,7 +240661,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Lesson 10 responses must use every authored row exactly once.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -242214,7 +242252,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (week.order !== order2 || week.weekId !== CANONICAL_CLASS_WEEK_IDS[order2]) {
       fail$1(`Class-week cast plan order ${order2} does not match the canonical week index.`);
     }
-    text$c(week.weekKind, `week ${week.weekId} kind`);
+    text$d(week.weekKind, `week ${week.weekId} kind`);
     const source2 = record$2(week.source, `week ${week.weekId} source`);
     exactKeys(source2, ["donor", "file", "title", "topicEvidence", "sha256"], `week ${week.weekId} source`);
     if (source2.donor !== "academy-rebuild-20260711" && source2.donor !== "moodle-reachability-20260719") {
@@ -242228,11 +242266,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const title2 = record$2(source2.title, `week ${week.weekId} source title`);
     exactKeys(title2, ["en", "ja"], `week ${week.weekId} source title`);
-    text$c(title2.en, `week ${week.weekId} English source title`);
-    text$c(title2.ja, `week ${week.weekId} Japanese source title`);
+    text$d(title2.en, `week ${week.weekId} English source title`);
+    text$d(title2.ja, `week ${week.weekId} Japanese source title`);
     digest$1(source2.sha256, `week ${week.weekId} source sha256`);
     for (const evidence2 of array$2(source2.topicEvidence, `week ${week.weekId} topic evidence`)) {
-      text$c(evidence2, `week ${week.weekId} topic evidence`);
+      text$d(evidence2, `week ${week.weekId} topic evidence`);
     }
   }
   function validateReviewRequiredWeek(week) {
@@ -242323,7 +242361,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$1(`${label} must be an object.`);
     return value;
   }
-  function text$c(value, label) {
+  function text$d(value, label) {
     if (typeof value !== "string" || !value.trim()) fail$1(`${label} must be non-empty.`);
     return value.trim();
   }
@@ -244364,7 +244402,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     validateReviewTargets$1(model2, issues2);
     validatePassScore(model2.payload?.passScore, issues2);
     validateFeedback(model2.payload?.feedback, issues2);
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((point) => !text$j(point.title.ja) || !text$j(point.title.en) || !text$j(point.cue) || !text$j(point.explanation.ja) || !text$j(point.explanation.en))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((point) => !text$k(point.title.ja) || !text$k(point.title.en) || !text$k(point.cue) || !text$k(point.explanation.ja) || !text$k(point.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Two bilingual teaching cues must precede practice." });
     }
     if (!Array.isArray(model2.payload?.delayedReviewOf) || (model2.provenance.packageId === N3_MOCK_LISTENING_PACKAGE_IDS[0] ? model2.payload.delayedReviewOf.length !== 0 : model2.payload.delayedReviewOf.length === 0)) {
@@ -244612,7 +244650,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (answers.some((answer2) => answer2 === void 0)) return void 0;
     if (model2.payload.production) {
       const production = data.get(model2.payload.production.id);
-      if (typeof production !== "string" || !text$j(production)) return void 0;
+      if (typeof production !== "string" || !text$k(production)) return void 0;
       return { answers, production };
     }
     return { answers };
@@ -244621,7 +244659,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!response || !Array.isArray(response.answers) || response.answers.length !== model2.payload.questions.length) {
       throw new TypeError("Every N3 mock-listening question must be answered exactly once.");
     }
-    if (model2.payload.production && !text$j(response.production)) {
+    if (model2.payload.production && !text$k(response.production)) {
       throw new TypeError("The N3 spoken-transfer sentence is required.");
     }
     const answers = /* @__PURE__ */ new Map();
@@ -244673,7 +244711,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.audioText) || /https?:|\/audio\/|soya-eagle|N3Sample/u.test(question2.audioText) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !model2.conceptIds.includes(question2.conceptId) || !text$j(question2.explanation.ja) || !text$j(question2.explanation.en) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.audioText) || /https?:|\/audio\/|soya-eagle|N3Sample/u.test(question2.audioText) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !model2.conceptIds.includes(question2.conceptId) || !text$k(question2.explanation.ja) || !text$k(question2.explanation.en) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Each original item needs a complete prompt, script, neutral choices, answer, explanation, and Concept." });
       }
       ids2.add(question2.id);
@@ -244689,7 +244727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "payload.production", message: "Expression and response packages require a spoken changed-context transfer." });
       return;
     }
-    if (production && (!text$j(production.prompt.ja) || !text$j(production.prompt.en) || !text$j(production.scenario.ja) || !text$j(production.scenario.en) || !text$j(production.modelAnswer) || production.minimumCharacters < 10 || production.acceptedFragments.length < 2 || production.acceptedFragments.some((group2) => group2.length === 0 || group2.some((fragment2) => !text$j(fragment2))) || !model2.conceptIds.includes(production.conceptId) || !text$j(production.errorTag))) {
+    if (production && (!text$k(production.prompt.ja) || !text$k(production.prompt.en) || !text$k(production.scenario.ja) || !text$k(production.scenario.en) || !text$k(production.modelAnswer) || production.minimumCharacters < 10 || production.acceptedFragments.length < 2 || production.acceptedFragments.some((group2) => group2.length === 0 || group2.some((fragment2) => !text$k(fragment2))) || !model2.conceptIds.includes(production.conceptId) || !text$k(production.errorTag))) {
       issues2.push({ path: "payload.production", message: "The spoken transfer needs deterministic original-Yomu grading evidence." });
     }
   }
@@ -244705,7 +244743,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     targets.forEach((target2, index) => {
-      if (!text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag))) {
+      if (!text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !tags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}`, message: "Every review target must map to a Concept and assessment error." });
       }
     });
@@ -244769,7 +244807,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some(
-      (item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en)
+      (item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en)
     )) {
       issues2.push({
         path: "payload.teaching",
@@ -245159,7 +245197,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "geography-listening": "official-audio",
       "evidence-reading": "source-reading"
     }[model2.payload?.stage];
-    if (!stimulus || stimulus.kind !== expectedKind || !text$j(stimulus.title.ja) || !text$j(stimulus.title.en)) {
+    if (!stimulus || stimulus.kind !== expectedKind || !text$k(stimulus.title.ja) || !text$k(stimulus.title.en)) {
       issues2.push({
         path: "payload.stimulus",
         message: "The stage-specific source stimulus is required."
@@ -245226,9 +245264,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const ids2 = /* @__PURE__ */ new Set();
     questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.sourceItemId) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || question2.options.some(
-        (option2) => !text$j(option2.id) || !text$j(option2.label)
-      ) || !optionIds.has(question2.correctOptionId) || !text$j(question2.explanation.ja) || !text$j(question2.explanation.en) || !text$j(question2.errorTag) || !model2.conceptIds.includes(question2.conceptId)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.sourceItemId) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length < 3 || optionIds.size !== question2.options.length || question2.options.some(
+        (option2) => !text$k(option2.id) || !text$k(option2.label)
+      ) || !optionIds.has(question2.correctOptionId) || !text$k(question2.explanation.ja) || !text$k(question2.explanation.en) || !text$k(question2.errorTag) || !model2.conceptIds.includes(question2.conceptId)) {
         issues2.push({
           path: `payload.questions.${index}`,
           message: "Each question needs a unique source id, neutral options, one key, explanation, error tag, and Concept."
@@ -245247,7 +245285,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         });
       return;
     }
-    if (production?.authorship !== "original-yomu-n3-source-transfer" || production.facts.length !== 2 || production.facts.some((fact2) => !text$j(fact2)) || !text$j(production.prompt.ja) || !text$j(production.prompt.en) || !text$j(production.modelAnswer) || production.minimumCharacters < 20 || !text$j(production.attributionErrorTag) || !text$j(production.boundaryErrorTag) || !text$j(production.substanceErrorTag) || !model2.conceptIds.includes(production.conceptId)) {
+    if (production?.authorship !== "original-yomu-n3-source-transfer" || production.facts.length !== 2 || production.facts.some((fact2) => !text$k(fact2)) || !text$k(production.prompt.ja) || !text$k(production.prompt.en) || !text$k(production.modelAnswer) || production.minimumCharacters < 20 || !text$k(production.attributionErrorTag) || !text$k(production.boundaryErrorTag) || !text$k(production.substanceErrorTag) || !model2.conceptIds.includes(production.conceptId)) {
       issues2.push({
         path: "payload.production",
         message: "The complete original, source-bounded transfer contract is required."
@@ -245273,7 +245311,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const ids2 = /* @__PURE__ */ new Set();
     targets.forEach((target2, index) => {
-      if (!text$j(target2.id) || ids2.has(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$j(meaning)) || !text$j(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
+      if (!text$k(target2.id) || ids2.has(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !target2.meanings.length || target2.meanings.some((meaning) => !text$k(meaning)) || !text$k(target2.sentence) || !target2.repairFor.length || target2.repairFor.some((tag) => !errorTags.has(tag))) {
         issues2.push({
           path: `payload.reviewTargets.${index}`,
           message: "Each review target must map one Concept to an authored assessment error."
@@ -245358,7 +245396,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     value.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || !text$j(step2.sourceQuestionId) || !text$j(step2.sourceLabel) || !text$j(step2.pattern) || !text$j(step2.example) || !text$j(step2.explanation?.en) || !text$j(step2.explanation?.ja)) {
+      if (step2.sourceOrder !== index + 1 || !text$k(step2.sourceQuestionId) || !text$k(step2.sourceLabel) || !text$k(step2.pattern) || !text$k(step2.example) || !text$k(step2.explanation?.en) || !text$k(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must be complete, bilingual, and ordered." });
       }
     });
@@ -245381,15 +245419,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
       const expectedPrefix = index < 8 ? "moodle:6053028:" : index < 20 ? `minna-i:${MINNA_SHA}:` : "genki-2e:l1-l11:";
-      if (round2.sourceOrder !== index + 1 || !round2.sourceQuestionId.startsWith(expectedPrefix) || !text$j(round2.sourceLabel) || !text$j(round2.sourcePrompt) || !text$j(round2.answerExpression) || round2.acceptedAnswers[0] !== round2.answerExpression || round2.acceptedAnswers.some((answer2) => !text$j(answer2))) {
+      if (round2.sourceOrder !== index + 1 || !round2.sourceQuestionId.startsWith(expectedPrefix) || !text$k(round2.sourceLabel) || !text$k(round2.sourcePrompt) || !text$k(round2.answerExpression) || round2.acceptedAnswers[0] !== round2.answerExpression || round2.acceptedAnswers.some((answer2) => !text$k(answer2))) {
         issues2.push({ path, message: "Source order, identity, prompt, and canonical answer must remain complete." });
       }
-      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag)) {
+      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag)) {
         issues2.push({ path, message: "Round ids, source ids, Concepts, and repair tags must be unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+      if (round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
         issues2.push({ path: `${path}.hints`, message: "Three bilingual progressive hints are required." });
       }
     });
@@ -245630,7 +245668,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
       const round2 = model2.payload.rounds.find((candidate2) => candidate2.id === answer2.roundId);
-      if (!round2 || answers.has(answer2.roundId) || answer2.mode !== round2.mode || !text$j(answer2.value)) {
+      if (!round2 || answers.has(answer2.roundId) || answer2.mode !== round2.mode || !text$k(answer2.value)) {
         throw new TypeError("Answers must use every source item once and keep its interaction mode.");
       }
       if (round2.mode === "modifier" && (answer2.mode !== round2.mode || !["direct", "na"].includes(answer2.attachment))) {
@@ -245710,7 +245748,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "Track 78 must use its packaged listening binding." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 5 || model2.payload.prerequisiteContext.some((item2) => !text$j(item2.pattern) || !text$j(item2.explanation?.ja) || !text$j(item2.explanation?.en))) {
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 5 || model2.payload.prerequisiteContext.some((item2) => !text$k(item2.pattern) || !text$k(item2.explanation?.ja) || !text$k(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Five bilingual bank-service prerequisites are required before assessment." });
     }
     const fields = model2.payload?.fields;
@@ -245719,17 +245757,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       fields.forEach((field2, index) => {
-        if (!text$j(field2.id) || ids2.has(field2.id) || !text$j(field2.sourceQuestionId) || !text$j(field2.before) && !text$j(field2.after) || !text$j(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$j(field2.errorTag)) {
+        if (!text$k(field2.id) || ids2.has(field2.id) || !text$k(field2.sourceQuestionId) || !text$k(field2.before) && !text$k(field2.after) || !text$k(field2.answer) || !field2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(field2.answer)) || !model2.conceptIds.includes(field2.conceptId) || !text$k(field2.errorTag)) {
           issues2.push({ path: `payload.fields.${index}`, message: "Every Track 78 blank needs exact source identity, context, and a deterministic answer." });
         }
         ids2.add(field2.id);
       });
     }
     const choice2 = model2.payload?.choice;
-    if (!choice2 || choice2.answer !== "4" || choice2.options?.map((option2) => `${option2.id}:${option2.label}`).join("|") !== "1:④|2:③|3:⑧|4:⑤" || !text$j(choice2.sourceQuestionId) || !model2.conceptIds.includes(choice2.conceptId) || !text$j(choice2.errorTag)) {
+    if (!choice2 || choice2.answer !== "4" || choice2.options?.map((option2) => `${option2.id}:${option2.label}`).join("|") !== "1:④|2:③|3:⑧|4:⑤" || !text$k(choice2.sourceQuestionId) || !model2.conceptIds.includes(choice2.conceptId) || !text$k(choice2.errorTag)) {
       issues2.push({ path: "payload.choice", message: "The exact Track 78 four-option comprehension check is required." });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 17 || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 17 || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed Track 78 post-attempt transcript is required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -245962,7 +246000,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function validate$n(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed sorting requires the answer-support contract." });
-    if (!text$j(model2.payload?.sourceLabel?.en) || !text$j(model2.payload?.sourceLabel?.ja)) {
+    if (!text$k(model2.payload?.sourceLabel?.en) || !text$k(model2.payload?.sourceLabel?.ja)) {
       issues2.push({ path: "payload.sourceLabel", message: "A bilingual source label is required." });
     }
     const items = model2.payload?.items;
@@ -245972,16 +246010,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(items) || !Array.isArray(zones)) return issues2;
     const itemIds = new Set(items.map((item2) => item2.id));
     const zoneIds = new Set(zones.map((zone) => zone.id));
-    if (itemIds.size !== items.length || items.some((item2) => !text$j(item2.id) || !text$j(item2.label))) {
+    if (itemIds.size !== items.length || items.some((item2) => !text$k(item2.id) || !text$k(item2.label))) {
       issues2.push({ path: "payload.items", message: "Items need unique ids and Japanese labels." });
     }
-    if (zoneIds.size !== zones.length || zones.some((zone) => !text$j(zone.id) || !text$j(zone.label.en) || !text$j(zone.label.ja))) {
+    if (zoneIds.size !== zones.length || zones.some((zone) => !text$k(zone.id) || !text$k(zone.label.en) || !text$k(zone.label.ja))) {
       issues2.push({ path: "payload.zones", message: "Destinations need unique ids and bilingual labels." });
     }
     if (items.some((item2) => item2.correctZoneId !== null && !zoneIds.has(item2.correctZoneId))) {
       issues2.push({ path: "payload.items.correctZoneId", message: "Every target destination must exist." });
     }
-    if (!text$j(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$k(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
@@ -246154,13 +246192,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return issues2;
     }
     const ids2 = items.map((item2) => item2.id);
-    if (new Set(ids2).size !== ids2.length || items.some((item2) => !text$j(item2.id) || !text$j(item2.label))) {
+    if (new Set(ids2).size !== ids2.length || items.some((item2) => !text$k(item2.id) || !text$k(item2.label))) {
       issues2.push({ path: "payload.items", message: "Sequence items need unique ids and Japanese labels." });
     }
     if (model2.payload.correctOrder?.length !== items.length || new Set(model2.payload.correctOrder).size !== items.length || model2.payload.correctOrder.some((id2) => !ids2.includes(id2))) {
       issues2.push({ path: "payload.correctOrder", message: "The answer must order every item exactly once." });
     }
-    if (!text$j(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$k(model2.payload.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload.feedback, issues2);
     validateReviewTargets$8(model2.payload.reviewTargets, model2.conceptIds, issues2);
     return issues2;
@@ -246300,11 +246338,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const ids2 = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$j(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be stable and unique." });
+      if (!text$k(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be stable and unique." });
       ids2.add(round2.id);
-      if (!text$j(round2.cue.en) || !text$j(round2.cue.ja)) issues2.push({ path: `${path}.cue`, message: "A bilingual sound cue is required." });
-      if (!text$j(round2.spokenText)) issues2.push({ path: `${path}.spokenText`, message: "A Japanese pronunciation target is required." });
-      if (!text$j(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+      if (!text$k(round2.cue.en) || !text$k(round2.cue.ja)) issues2.push({ path: `${path}.cue`, message: "A bilingual sound cue is required." });
+      if (!text$k(round2.spokenText)) issues2.push({ path: `${path}.spokenText`, message: "A Japanese pronunciation target is required." });
+      if (!text$k(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
       if (round2.task === "mora-tap") {
         if (!Number.isInteger(round2.expectedMora) || round2.expectedMora < 1 || round2.expectedMora > 20) {
           issues2.push({ path: `${path}.expectedMora`, message: "Mora count must be an integer from 1 to 20." });
@@ -246523,11 +246561,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function validate$k(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed reading requires the answer-support contract." });
-    if (!text$j(model2.payload?.title?.en) || !text$j(model2.payload?.title?.ja)) {
+    if (!text$k(model2.payload?.title?.en) || !text$k(model2.payload?.title?.ja)) {
       issues2.push({ path: "payload.title", message: "A bilingual story title is required." });
     }
     const sections = model2.payload?.sections;
-    if (!Array.isArray(sections) || sections.length < 2 || sections.some((section2) => !text$j(section2.id) || !section2.paragraphs?.length || section2.paragraphs.some((paragraph) => !text$j(paragraph)))) {
+    if (!Array.isArray(sections) || sections.length < 2 || sections.some((section2) => !text$k(section2.id) || !section2.paragraphs?.length || section2.paragraphs.some((paragraph) => !text$k(paragraph)))) {
       issues2.push({ path: "payload.sections", message: "Extended reading needs at least two non-empty sections." });
     }
     const questions = model2.payload?.questions;
@@ -246535,7 +246573,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "payload.questions", message: "At least two reading checkpoints are required." });
     } else questions.forEach((question2, index) => {
       const optionIds = new Set(question2.options.map((option2) => option2.id));
-      if (!text$j(question2.id) || !text$j(question2.prompt.en) || !text$j(question2.prompt.ja) || question2.options.length < 2 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || !text$k(question2.prompt.en) || !text$k(question2.prompt.ja) || question2.options.length < 2 || optionIds.size !== question2.options.length || !optionIds.has(question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Reading questions need a prompt, unique choices, answer, and error tag." });
       }
     });
@@ -246676,10 +246714,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function validate$j(model2) {
     const issues2 = [];
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "Assessed typing requires the answer-support contract." });
-    if (!text$j(model2.payload?.inputLabel?.en) || !text$j(model2.payload?.inputLabel?.ja)) {
+    if (!text$k(model2.payload?.inputLabel?.en) || !text$k(model2.payload?.inputLabel?.ja)) {
       issues2.push({ path: "payload.inputLabel", message: "A bilingual input label is required." });
     }
-    if (model2.payload?.audioTerms?.some((item2) => !text$j(item2.term))) {
+    if (model2.payload?.audioTerms?.some((item2) => !text$k(item2.term))) {
       issues2.push({ path: "payload.audioTerms", message: "Audio terms cannot be blank." });
     }
     const accepted = model2.payload?.acceptedAnswers ?? [];
@@ -246689,7 +246727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (groups.some((group2) => !group2.length || group2.some((term) => !normalizeJapanese$2(term)))) {
       issues2.push({ path: "payload.requiredGroups", message: "Required groups need non-empty alternatives." });
     }
-    if (!text$j(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$k(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
@@ -246865,15 +246903,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const payload = model2.payload;
     const formats = ["pair", "group", "info-gap", "role-card", "board", "race"];
     if (!formats.includes(payload?.format)) issues2.push({ path: "payload.format", message: "A supported class activity format is required." });
-    if (!text$j(payload?.location?.en) || !text$j(payload?.location?.ja)) issues2.push({ path: "payload.location", message: "A bilingual grounded location is required." });
-    if (!text$j(payload?.source?.lessonPackageId) || !text$j(payload?.source?.exactPrompt)) {
+    if (!text$k(payload?.location?.en) || !text$k(payload?.location?.ja)) issues2.push({ path: "payload.location", message: "A bilingual grounded location is required." });
+    if (!text$k(payload?.source?.lessonPackageId) || !text$k(payload?.source?.exactPrompt)) {
       issues2.push({ path: "payload.source", message: "Lesson identity and an exact source prompt are required." });
     }
     if (payload?.source?.promptLanguage !== "en" && payload?.source?.promptLanguage !== "ja") {
       issues2.push({ path: "payload.source.promptLanguage", message: "The exact prompt language is required." });
     }
     const sourceItem = payload?.source?.evidenceItem;
-    if (sourceItem && (!text$j(sourceItem.title) || !/^[a-f0-9]{64}$/u.test(sourceItem.payloadSha256))) {
+    if (sourceItem && (!text$k(sourceItem.title) || !/^[a-f0-9]{64}$/u.test(sourceItem.payloadSha256))) {
       issues2.push({ path: "payload.source.evidenceItem", message: "Source evidence needs its exact title and SHA-256." });
     }
     const corpora = new Set(payload?.source?.mappings?.map((mapping2) => mapping2.corpus) ?? []);
@@ -246883,9 +246921,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const roles = payload?.roles ?? [];
     const roleIds = /* @__PURE__ */ new Set();
     for (const [index, role2] of roles.entries()) {
-      if (!text$j(role2.id) || roleIds.has(role2.id)) issues2.push({ path: `payload.roles.${index}.id`, message: "Role ids must be non-empty and unique." });
+      if (!text$k(role2.id) || roleIds.has(role2.id)) issues2.push({ path: `payload.roles.${index}.id`, message: "Role ids must be non-empty and unique." });
       roleIds.add(role2.id);
-      if (!text$j(role2.name) || !text$j(role2.characterId) || !text$j(role2.label?.en) || !text$j(role2.label?.ja)) {
+      if (!text$k(role2.name) || !text$k(role2.characterId) || !text$k(role2.label?.en) || !text$k(role2.label?.ja)) {
         issues2.push({ path: `payload.roles.${index}`, message: "Each role needs a character, name, and bilingual label." });
       }
     }
@@ -246904,13 +246942,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const turnIds = /* @__PURE__ */ new Set();
     let previousActor = "";
     for (const [index, turn2] of turns.entries()) {
-      if (!text$j(turn2.id) || turnIds.has(turn2.id)) issues2.push({ path: `payload.turns.${index}.id`, message: "Turn ids must be non-empty and unique." });
+      if (!text$k(turn2.id) || turnIds.has(turn2.id)) issues2.push({ path: `payload.turns.${index}.id`, message: "Turn ids must be non-empty and unique." });
       turnIds.add(turn2.id);
       const role2 = roles.find((candidate2) => candidate2.id === turn2.actorRoleId);
       if (!role2) issues2.push({ path: `payload.turns.${index}.actorRoleId`, message: "Turn actor must reference a role." });
       if (turn2.kind === "classmate" && role2?.controller !== "classmate") issues2.push({ path: `payload.turns.${index}`, message: "Classmate turns must use simulated roles." });
       if (turn2.kind !== "classmate" && role2?.controller !== "learner") issues2.push({ path: `payload.turns.${index}`, message: "Learner turns must use the learner role." });
-      if (turn2.kind === "classmate" && (!text$j(turn2.line?.en) || !text$j(turn2.line?.ja))) issues2.push({ path: `payload.turns.${index}.line`, message: "Classmate dialogue must be bilingual." });
+      if (turn2.kind === "classmate" && (!text$k(turn2.line?.en) || !text$k(turn2.line?.ja))) issues2.push({ path: `payload.turns.${index}.line`, message: "Classmate dialogue must be bilingual." });
       if (turn2.kind === "learner-choice") {
         if (!turn2.options.length || !turn2.acceptedOptionIds.length) issues2.push({ path: `payload.turns.${index}`, message: "Choice turns need options and accepted ids." });
         if (turn2.acceptedOptionIds.some((id2) => !turn2.options.some((option2) => option2.id === id2))) issues2.push({ path: `payload.turns.${index}.acceptedOptionIds`, message: "Accepted ids must reference options." });
@@ -246918,7 +246956,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (turn2.kind === "learner-text" && !turn2.acceptedAnswers?.length && !turn2.requiredGroups?.length) {
         issues2.push({ path: `payload.turns.${index}`, message: "Text turns need exact answers or required term groups." });
       }
-      if (turn2.kind !== "classmate" && (!text$j(turn2.evidence?.conceptId) || !model2.conceptIds.includes(turn2.evidence.conceptId) || !text$j(turn2.evidence.errorTag))) {
+      if (turn2.kind !== "classmate" && (!text$k(turn2.evidence?.conceptId) || !model2.conceptIds.includes(turn2.evidence.conceptId) || !text$k(turn2.evidence.errorTag))) {
         issues2.push({ path: `payload.turns.${index}.evidence`, message: "Learner turns need model-owned concept evidence and an error tag." });
       }
       if (payload?.format === "group" && previousActor === turn2.actorRoleId) issues2.push({ path: `payload.turns.${index}.actorRoleId`, message: "Group turns must rotate speakers." });
@@ -247197,7 +247235,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Chapter 22 (source inventory label)" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The verbatim basic sentence, examples, and task direction must precede assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -247238,7 +247276,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateRound$9(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.noun) || !text$j(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$j(option2.id) || !text$j(option2.label)) || !optionIds.has(round2.correctOptionId) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.noun) || !text$k(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$k(option2.id) || !text$k(option2.label)) || !optionIds.has(round2.correctOptionId) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs three unique clause tickets, one derived answer, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -247260,7 +247298,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return placements;
   }
   function validVisual$c(value) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$7 && value.url === SOURCE_IMAGE_URL$1 && value.sha256 === SOURCE_IMAGE_SHA256$1 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$7 && value.url === SOURCE_IMAGE_URL$1 && value.sha256 === SOURCE_IMAGE_SHA256$1 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const CLAUSE_RAIL_KIND = "academy-clause-rail";
   function renderClauseRail(model2, host2, submit2) {
@@ -247764,7 +247802,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I, Lesson 21" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The verbatim でしょう rule, explanation, and examples must precede assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -247805,7 +247843,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateRound$8(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$j(option2.id) || !text$j(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.options.find((option2) => option2.id === round2.correctOptionId)?.label !== round2.answerExpression || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$k(option2.id) || !text$k(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.options.find((option2) => option2.id === round2.correctOptionId)?.label !== round2.answerExpression || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs three unique signals, one derived answer, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -247827,7 +247865,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return signals;
   }
   function validVisual$b(value) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$6 && value.url === SOURCE_IMAGE_URL && value.sha256 === SOURCE_IMAGE_SHA256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$6 && value.url === SOURCE_IMAGE_URL && value.sha256 === SOURCE_IMAGE_SHA256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const CONFIRMATION_SIGNAL_KIND = "academy-confirmation-signal";
   function renderConfirmationSignal(model2, host2, submit2) {
@@ -248071,7 +248109,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 29" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki L18 (grammar overlay)" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The completion, future-completion, and regret teaching must precede assessment." });
     }
     const expectedHeadings = [
@@ -248121,7 +248159,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function validateRound$7(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "completion-select" || round2.interaction === "finish-first-choice" ? 2 : 0;
     const expectedPage = round2.sourceTask === 1 ? 1 : round2.sourceTask === 3 ? 2 : 3;
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerValue) || !text$j(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$4(answer2) === normalize$4(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$j(option2.value) || !text$j(option2.label.en) || !text$j(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$4(option2.value) === normalize$4(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerValue) || !text$k(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$4(answer2) === normalize$4(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$k(option2.value) || !text$k(option2.label.en) || !text$k(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$4(option2.value) === normalize$4(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source prompt needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -248134,7 +248172,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Each Chapter 29-2 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -248143,7 +248181,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validVisual$a(value, index) {
     const expected = SOURCE_VISUALS$4[index];
-    return Boolean(value && expected && text$j(value.sourceId) && value.title === SOURCE_TITLE$5 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$5 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && expected && text$k(value.sourceId) && value.title === SOURCE_TITLE$5 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$5 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   function normalize$4(value) {
     return value.normalize("NFKC").replace(/[\s、。・…!！?？「」『』]/gu, "").trim();
@@ -248502,20 +248540,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!contract2 || model2.provenance?.packageId !== contract2.packageId || model2.provenance.answerVisibility !== "after-attempt" || moodle?.moduleId !== contract2.moduleId || moodle.worksheet?.payloadSha256 !== contract2.worksheetSha256 || moodle.worksheet.title !== contract2.worksheetTitle || moodle.worksheet.page !== 1 || moodle.worksheet.url !== contract2.worksheetUrl || moodle.worksheet.sha256 !== contract2.worksheetImageSha256 || moodle.support?.payloadSha256 !== contract2.supportSha256 || moodle.support.title !== contract2.supportTitle || moodle.support.page !== 1 || moodle.support.role !== contract2.supportRole || moodle.audio?.payloadSha256 !== contract2.audioSha256 || moodle.audio.locator !== contract2.locator || moodle.audio.url !== contract2.audioUrl || moodle.audio.durationSeconds !== contract2.durationSeconds || moodle.audio.label !== contract2.label || moodle.answerKeyBasis !== contract2.answerKeyBasis) {
       issues2.push({ path: "provenance.moodle", message: "The exact worksheet, reviewed support, and matching Minna recording are required." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     const tasks2 = model2.payload?.tasks;
     if (!tasks2 || !contract2 || tasks2.length !== contract2.taskCount || tasks2.some((task2, index) => task2.sourceOrder !== index + 1)) {
       issues2.push({ path: "payload.tasks", message: "Every conversation question is required in source order." });
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
-        if (!text$j(task2.id) || ids2.has(task2.id) || !text$j(task2.sourceQuestionId) || !text$j(task2.prompt) || !text$j(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$j(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$j(task2.errorTag) || !text$j(task2.reviewExpression)) {
+        if (!text$k(task2.id) || ids2.has(task2.id) || !text$k(task2.sourceQuestionId) || !text$k(task2.prompt) || !text$k(task2.answer) || !Array.isArray(task2.acceptedAnswers) || task2.acceptedAnswers.length === 0 || task2.acceptedAnswers.some((answer2) => !text$k(answer2)) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$k(task2.errorTag) || !text$k(task2.reviewExpression)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every conversation question needs a canonical answer and reviewed accepted forms." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || !contract2 || model2.payload.transcript.length !== contract2.transcriptCount || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || !contract2 || model2.payload.transcript.length !== contract2.transcriptCount || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed source transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -248808,7 +248846,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     value.forEach((step2, index) => {
-      if (!text$j(step2.sourceQuestionId) || !text$j(step2.sourceLabel) || !text$j(step2.pattern) || !text$j(step2.example) || !text$j(step2.explanation?.en) || !text$j(step2.explanation?.ja)) {
+      if (!text$k(step2.sourceQuestionId) || !text$k(step2.sourceLabel) || !text$k(step2.pattern) || !text$k(step2.example) || !text$k(step2.explanation?.en) || !text$k(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must be bilingual and source-bound." });
       }
     });
@@ -248825,22 +248863,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (round2.sourceOrder !== index + 1 || round2.mode !== EXACT_MODES$4[index]) {
         issues2.push({ path, message: "Source order and interaction mode must remain exact." });
       }
-      if (!text$j(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be unique." });
+      if (!text$k(round2.id) || ids2.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Round ids must be unique." });
       ids2.add(round2.id);
-      if (!text$j(round2.sourceQuestionId) || !text$j(round2.sourceLabel) || !text$j(round2.sourcePrompt) || !text$j(round2.answerExpression) || !text$j(round2.errorTag)) {
+      if (!text$k(round2.sourceQuestionId) || !text$k(round2.sourceLabel) || !text$k(round2.sourcePrompt) || !text$k(round2.answerExpression) || !text$k(round2.errorTag)) {
         issues2.push({ path, message: "Every round needs exact source identity and a repair target." });
       }
       if (!model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path: `${path}.conceptId`, message: "Round Concept must belong to the model." });
       }
-      if (!text$j(round2.hint?.en) || !text$j(round2.hint?.ja) || !text$j(round2.nearbyExample?.en) || !text$j(round2.nearbyExample?.ja)) {
+      if (!text$k(round2.hint?.en) || !text$k(round2.hint?.ja) || !text$k(round2.nearbyExample?.en) || !text$k(round2.nearbyExample?.ja)) {
         issues2.push({ path, message: "Every round needs a bilingual earned hint and nearby repair example." });
       }
       if (round2.mode === "tense-choice" || round2.mode === "routine-time") {
         if (!round2.options.length || !round2.options.some((option2) => option2.id === round2.correctOptionId)) {
           issues2.push({ path, message: "Choice rounds need an offered correct option." });
         }
-      } else if (!round2.acceptedAnswers.length || !round2.acceptedAnswers.every(text$j)) {
+      } else if (!round2.acceptedAnswers.length || !round2.acceptedAnswers.every(text$k)) {
         issues2.push({ path, message: "Typed rounds need accepted source answers." });
       }
     });
@@ -248991,7 +249029,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (answer2.mode !== "tense-choice" && answer2.mode !== "routine-time" || !round2.options.some((option2) => option2.id === answer2.optionId)) {
           throw new TypeError("Choice items require one offered option.");
         }
-      } else if (answer2.mode !== "short-answer" && answer2.mode !== "sentence" || !text$j(answer2.value)) {
+      } else if (answer2.mode !== "short-answer" && answer2.mode !== "sentence" || !text$k(answer2.value)) {
         throw new TypeError("Typed source items require a non-empty answer.");
       }
       answers.set(answer2.roundId, answer2);
@@ -249086,20 +249124,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "B-25 must use the exact packaged listening binding." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en)) issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     const tasks2 = model2.payload?.tasks;
     if (!Array.isArray(tasks2) || tasks2.length !== 3 || tasks2.map((task2) => task2.sourceOrder).join(",") !== "1,2,3" || tasks2.reduce((count2, task2) => count2 + task2.fields.length, 0) !== 5) {
       issues2.push({ path: "payload.tasks", message: "The three source-order B-25 diary items and five blanks are required." });
     } else {
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, taskIndex) => {
-        if (!text$j(task2.id) || ids2.has(task2.id) || !text$j(task2.sourceQuestionId) || !text$j(task2.prompt) || !model2.conceptIds.includes(task2.conceptId) || !text$j(task2.errorTag) || !text$j(task2.reviewExpression) || !task2.fields.length || task2.fields.some((field2) => !text$j(field2.id) || !text$j(field2.before) || !text$j(field2.after) || !text$j(field2.answer))) {
+        if (!text$k(task2.id) || ids2.has(task2.id) || !text$k(task2.sourceQuestionId) || !text$k(task2.prompt) || !model2.conceptIds.includes(task2.conceptId) || !text$k(task2.errorTag) || !text$k(task2.reviewExpression) || !task2.fields.length || task2.fields.some((field2) => !text$k(field2.id) || !text$k(field2.before) || !text$k(field2.after) || !text$k(field2.answer))) {
           issues2.push({ path: `payload.tasks.${taskIndex}`, message: "Every B-25 item needs exact prompt fragments, answers, and review identity." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length === 0 || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length === 0 || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "A reviewed post-attempt B-25 transcript is required." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -249792,7 +249830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rounds = model2.payload?.rounds;
     if (!Array.isArray(rounds) || rounds.length !== EXPECTED_CUES.length) issues2.push({ path: "payload.rounds", message: "All six exact Sensei exercise-1 cues are required." });
     else rounds.forEach((round2, index) => {
-      if (round2.id !== `sensei-frequency-${index + 1}` || round2.sourceOrder !== index + 1 || round2.sourceQuestionId !== `moodle:6310077:chapter-11-3:p1:exercise-1:item-${index + 1}` || round2.sourceCue !== EXPECTED_CUES[index] || round2.answerExpression !== EXPECTED_ANSWERS[index] || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag)) {
+      if (round2.id !== `sensei-frequency-${index + 1}` || round2.sourceOrder !== index + 1 || round2.sourceQuestionId !== `moodle:6310077:chapter-11-3:p1:exercise-1:item-${index + 1}` || round2.sourceCue !== EXPECTED_CUES[index] || round2.answerExpression !== EXPECTED_ANSWERS[index] || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag)) {
         issues2.push({ path: `payload.rounds.${index}`, message: "Each round must preserve its exact source order, cue, and answer expression." });
       }
     });
@@ -250001,7 +250039,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "Track 79 must use its packaged listening binding." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$j(item2.pattern) || !text$j(item2.explanation?.ja) || !text$j(item2.explanation?.en))) {
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$k(item2.pattern) || !text$k(item2.explanation?.ja) || !text$k(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Four bilingual beneficiary-direction prerequisites are required before assessment." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -250011,13 +250049,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const expectedArrow = task2.beneficiaryDirection === "left" ? "←" : "→";
-        if (!text$j(task2.id) || ids2.has(task2.id) || !text$j(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$j(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$j(task2.errorTag)) {
+        if (!text$k(task2.id) || ids2.has(task2.id) || !text$k(task2.sourceQuestionId) || task2.arrow !== expectedArrow || !text$k(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$k(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every Track 79 item needs exact source identity, beneficiary direction, and a deterministic phrase." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 19 || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 19 || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed Track 79 transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -250239,7 +250277,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!/^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(moodle?.audio?.url ?? "")) {
       issues2.push({ path: "provenance.moodle.audio.url", message: "A-11 must use its packaged listening binding." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$j(item2.pattern) || !text$j(item2.explanation?.ja) || !text$j(item2.explanation?.en))) {
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en) || !Array.isArray(model2.payload?.prerequisiteContext) || model2.payload.prerequisiteContext.length !== 4 || model2.payload.prerequisiteContext.some((item2) => !text$k(item2.pattern) || !text$k(item2.explanation?.ja) || !text$k(item2.explanation?.en))) {
       issues2.push({ path: "payload.prerequisiteContext", message: "Four bilingual meal-survey prerequisites are required before assessment." });
     }
     const tasks2 = model2.payload?.tasks;
@@ -250249,13 +250287,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const ids2 = /* @__PURE__ */ new Set();
       tasks2.forEach((task2, index) => {
         const optionsValid = task2.kind === "choice" ? Array.isArray(task2.options) && task2.options.includes(task2.answer) : task2.options === void 0;
-        if (!text$j(task2.id) || ids2.has(task2.id) || !text$j(task2.sourceQuestionId) || !text$j(task2.prompt) || !optionsValid || !text$j(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$j(task2.errorTag)) {
+        if (!text$k(task2.id) || ids2.has(task2.id) || !text$k(task2.sourceQuestionId) || !text$k(task2.prompt) || !optionsValid || !text$k(task2.answer) || !task2.acceptedAnswers.some((answer2) => normalizeJapanese$2(answer2) === normalizeJapanese$2(task2.answer)) || !model2.conceptIds.includes(task2.conceptId) || !text$k(task2.errorTag)) {
           issues2.push({ path: `payload.tasks.${index}`, message: "Every A-11 item needs exact identity, source order, response mode, and deterministic answer." });
         }
         ids2.add(task2.id);
       });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 25 || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 25 || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The complete reviewed A-11 transcript is required after an attempt." });
     }
     validateFeedback(model2.payload?.feedback, issues2);
@@ -250465,19 +250503,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
       issues2.push({ path: "answerSupport", message: "Worksheet choices require assessed answer support." });
     }
-    if (!text$j(model2.provenance?.handout?.sourceId) || !sha(model2.provenance?.handout?.payloadSha256) || !text$j(model2.provenance?.greetingsReference?.sourceId) || !sha(model2.provenance?.greetingsReference?.payloadSha256) || !text$j(model2.provenance?.vocabulary?.sourceId) || !sha(model2.provenance?.vocabulary?.payloadSha256) || !text$j(model2.provenance?.homework?.sourceId) || !sha(model2.provenance?.homework?.payloadSha256) || !safeImageUrl(model2.provenance?.homework?.imageUrl) || !sha(model2.provenance?.homework?.imageSha256) || model2.provenance?.homework?.sourceAnswerKeyStatus !== "not-present-in-digitized-corpus" || model2.provenance?.homework?.gradingKey !== "yomu-contextual-key-derived-from-taught-source-expressions" || model2.provenance?.answerVisibility !== "after-attempt") {
+    if (!text$k(model2.provenance?.handout?.sourceId) || !sha(model2.provenance?.handout?.payloadSha256) || !text$k(model2.provenance?.greetingsReference?.sourceId) || !sha(model2.provenance?.greetingsReference?.payloadSha256) || !text$k(model2.provenance?.vocabulary?.sourceId) || !sha(model2.provenance?.vocabulary?.payloadSha256) || !text$k(model2.provenance?.homework?.sourceId) || !sha(model2.provenance?.homework?.payloadSha256) || !safeImageUrl(model2.provenance?.homework?.imageUrl) || !sha(model2.provenance?.homework?.imageSha256) || model2.provenance?.homework?.sourceAnswerKeyStatus !== "not-present-in-digitized-corpus" || model2.provenance?.homework?.gradingKey !== "yomu-contextual-key-derived-from-taught-source-expressions" || model2.provenance?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "provenance", message: "Exact source records, a safe worksheet image, and answer-key attribution are required." });
     }
-    if (!text$j(model2.payload?.sourceInstruction) || !Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2, index) => step2.sourceOrder !== index + 1 || !text$j(step2.title?.ja) || !text$j(step2.title?.en) || !text$j(step2.pattern) || !text$j(step2.example) || !text$j(step2.explanation?.ja) || !text$j(step2.explanation?.en))) {
+    if (!text$k(model2.payload?.sourceInstruction) || !Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2, index) => step2.sourceOrder !== index + 1 || !text$k(step2.title?.ja) || !text$k(step2.title?.en) || !text$k(step2.pattern) || !text$k(step2.example) || !text$k(step2.explanation?.ja) || !text$k(step2.explanation?.en))) {
       issues2.push({ path: "payload.teaching", message: "The two source handout teaching moves must precede practice." });
     }
     const options = model2.payload?.options;
-    if (!Array.isArray(options) || options.length < 4 || new Set(options.map((option2) => option2.id)).size !== options.length || options.some((option2) => !text$j(option2.id) || !text$j(option2.label))) {
+    if (!Array.isArray(options) || options.length < 4 || new Set(options.map((option2) => option2.id)).size !== options.length || options.some((option2) => !text$k(option2.id) || !text$k(option2.label))) {
       issues2.push({ path: "payload.options", message: "Stable source-expression choices are required." });
     }
     const optionIds = new Set((options ?? []).map((option2) => option2.id));
     const sourceExpressions = model2.payload?.sourceExpressions;
-    if (!Array.isArray(sourceExpressions) || sourceExpressions.length !== options?.length || sourceExpressions.some((expression, index) => expression.sourceOrder !== index + 1 || !optionIds.has(expression.optionId) || !text$j(expression.expression) || !text$j(expression.meaning))) {
+    if (!Array.isArray(sourceExpressions) || sourceExpressions.length !== options?.length || sourceExpressions.some((expression, index) => expression.sourceOrder !== index + 1 || !optionIds.has(expression.optionId) || !text$k(expression.expression) || !text$k(expression.meaning))) {
       issues2.push({ path: "payload.sourceExpressions", message: "Every selectable expression needs its exact source reference before practice." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -250488,7 +250526,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sourceIds = /* @__PURE__ */ new Set();
       const errorTags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$j(prompt2.id) || ids2.has(prompt2.id) || prompt2.sourceOrder !== index + 1 || !text$j(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$j(prompt2.imageDescription?.ja) || !text$j(prompt2.imageDescription?.en) || !prompt2.acceptedOptionIds.length || prompt2.acceptedOptionIds.some((id2) => !optionIds.has(id2)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$j(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !text$j(prompt2.reviewTarget?.id) || prompt2.reviewTarget.conceptId !== prompt2.conceptId || !text$j(prompt2.reviewTarget.expression) || !prompt2.reviewTarget.meanings?.length) {
+        if (!text$k(prompt2.id) || ids2.has(prompt2.id) || prompt2.sourceOrder !== index + 1 || !text$k(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$k(prompt2.imageDescription?.ja) || !text$k(prompt2.imageDescription?.en) || !prompt2.acceptedOptionIds.length || prompt2.acceptedOptionIds.some((id2) => !optionIds.has(id2)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$k(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !text$k(prompt2.reviewTarget?.id) || prompt2.reviewTarget.conceptId !== prompt2.conceptId || !text$k(prompt2.reviewTarget.expression) || !prompt2.reviewTarget.meanings?.length) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Every source image prompt needs a unique deterministic response contract." });
         }
         ids2.add(prompt2.id);
@@ -250506,7 +250544,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!text$j(answer2?.promptId) || !text$j(answer2?.optionId) || answers.has(answer2.promptId)) {
+      if (!text$k(answer2?.promptId) || !text$k(answer2?.optionId) || answers.has(answer2.promptId)) {
         throw new TypeError("Each source image prompt must be answered exactly once.");
       }
       answers.set(answer2.promptId, answer2.optionId);
@@ -250705,13 +250743,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const path = `payload.items.${index}`;
       uniqueText(item2.id, `${path}.id`, itemIds, issues2);
       uniqueText(item2.kana, `${path}.kana`, kana, issues2);
-      if (!text$b(item2.romaji)) issues2.push({ path: `${path}.romaji`, message: "A vowel reading is required." });
+      if (!text$c(item2.romaji)) issues2.push({ path: `${path}.romaji`, message: "A vowel reading is required." });
       uniqueText(item2.conceptId, `${path}.conceptId`, concepts, issues2);
       if (!model2.conceptIds.includes(item2.conceptId)) {
         issues2.push({ path: `${path}.conceptId`, message: "The kana concept must belong to the activity." });
       }
       uniqueText(item2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
-      if (!text$b(item2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+      if (!text$c(item2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
     });
     if (model2.conceptIds.length !== concepts.size || model2.conceptIds.some((id2) => !concepts.has(id2))) {
       issues2.push({ path: "conceptIds", message: "Activity concepts must exactly match the injected kana." });
@@ -250732,7 +250770,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateSource$1(model2, issues2) {
     const source2 = model2.payload.source;
-    if (!text$b(source2?.sourceId) || !text$b(source2?.role) || !text$b(source2?.runtimeUrl) || !text$b(source2?.locus)) {
+    if (!text$c(source2?.sourceId) || !text$c(source2?.role) || !text$c(source2?.runtimeUrl) || !text$c(source2?.locus)) {
       issues2.push({ path: "payload.source", message: "The exact source id, role, page URL, and locus are required." });
     }
     if (!/^[a-f0-9]{64}$/u.test(source2?.sourceSha256 ?? "")) {
@@ -250741,7 +250779,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (source2?.answerGate !== "after-attempt") {
       issues2.push({ path: "payload.source.answerGate", message: "Source answers must stay gated until the full attempt." });
     }
-    if (!text$b(source2?.storyHook?.sceneId) || !text$b(source2?.storyHook?.activityId)) {
+    if (!text$c(source2?.storyHook?.sceneId) || !text$c(source2?.storyHook?.activityId)) {
       issues2.push({ path: "payload.source.storyHook", message: "The authored story scene and activity hook are required." });
     }
   }
@@ -250762,7 +250800,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function uniqueText(value, path, seen, issues2) {
-    const normalized2 = text$b(value);
+    const normalized2 = text$c(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
@@ -250770,9 +250808,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function localized$h(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return Boolean(text$b(candidate2.en) && text$b(candidate2.ja));
+    return Boolean(text$c(candidate2.en) && text$c(candidate2.ja));
   }
-  function text$b(value) {
+  function text$c(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KANA_SOUND_MAP_KIND = "kana-sound-map";
@@ -251373,7 +251411,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "The assessed sort needs answer support." });
     const columns = model2.payload?.columns;
     const rounds = model2.payload?.rounds;
-    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$a(column.id) || !text$a(column.label))) {
+    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$b(column.id) || !text$b(column.label))) {
       issues2.push({ path: "payload.columns", message: "Five named vowel columns are required." });
     }
     if (!Array.isArray(rounds) || rounds.length !== 5) {
@@ -251390,8 +251428,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         unique$6(round2.kana, `${path}.kana`, kana, issues2);
         unique$6(round2.conceptId, `${path}.conceptId`, concepts, issues2);
         unique$6(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
-        if (!text$a(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle worksheet cell is required." });
-        if (!text$a(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+        if (!text$b(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle worksheet cell is required." });
+        if (!text$b(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
         if (!columnIds.has(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every tile must target a source vowel column." });
         if (!model2.conceptIds.includes(round2.conceptId)) issues2.push({ path: `${path}.conceptId`, message: "Every tile concept must belong to the activity." });
       }
@@ -251400,7 +251438,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$a(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$f(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$b(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$f(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Two SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -251437,15 +251475,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return placements;
   }
   function unique$6(value, path, seen, issues2) {
-    const normalized2 = text$a(value);
+    const normalized2 = text$b(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
   function localized$f(value) {
-    return Boolean(value && typeof value === "object" && text$a(value.en) && text$a(value.ja));
+    return Boolean(value && typeof value === "object" && text$b(value.en) && text$b(value.ja));
   }
-  function text$a(value) {
+  function text$b(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_COLUMN_SORT_KIND = "academy-katakana-column-sort";
@@ -251667,7 +251705,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!model2.answerSupport) issues2.push({ path: "answerSupport", message: "The assessed shelf map needs answer support." });
     const shelves = model2.payload?.shelves;
     const slots = shelves?.flatMap((shelf) => shelf.slots) ?? [];
-    if (!shelves || shelves.length !== 4 || new Set(shelves.map((shelf) => shelf.id)).size !== 4 || shelves.some((shelf) => !ROWS.has(shelf.id) || !localized$e(shelf.label) || shelf.slots.some((slot) => !text$9(slot.id) || !text$9(slot.label)))) {
+    if (!shelves || shelves.length !== 4 || new Set(shelves.map((shelf) => shelf.id)).size !== 4 || shelves.some((shelf) => !ROWS.has(shelf.id) || !localized$e(shelf.label) || shelf.slots.some((slot) => !text$a(slot.id) || !text$a(slot.label)))) {
       issues2.push({ path: "payload.shelves", message: "Four named source-chart shelves with labelled slots are required." });
     }
     if (slots.length !== 16 || new Set(slots.map((slot) => slot.id)).size !== 16) {
@@ -251693,7 +251731,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         unique$5(round2.sourceCellId, `${itemPath}.sourceCellId`, sourceCells, issues2);
         unique$5(round2.slotId, `${itemPath}.slotId`, roundSlots, issues2);
         if (!validSlots.has(round2.slotId)) issues2.push({ path: `${itemPath}.slotId`, message: "Every signal must point to a delivered source-chart slot." });
-        if (!text$9(round2.errorTag)) issues2.push({ path: `${itemPath}.errorTag`, message: "A deterministic error tag is required." });
+        if (!text$a(round2.errorTag)) issues2.push({ path: `${itemPath}.errorTag`, message: "A deterministic error tag is required." });
         if (!model2.conceptIds.includes(round2.conceptId)) issues2.push({ path: `${itemPath}.conceptId`, message: "Every shelf concept must belong to the activity." });
       }
       if (roundSlots.size !== 16) issues2.push({ path: "payload.rounds", message: "Every source-chart slot must be assessed once." });
@@ -251702,7 +251740,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$9(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$e(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$a(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$e(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -251740,15 +251778,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function unique$5(value, path, seen, issues2) {
-    const normalized2 = text$9(value);
+    const normalized2 = text$a(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
   function localized$e(value) {
-    return Boolean(value && typeof value === "object" && text$9(value.en) && text$9(value.ja));
+    return Boolean(value && typeof value === "object" && text$a(value.en) && text$a(value.ja));
   }
-  function text$9(value) {
+  function text$a(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_FINAL_ROW_SHELF_KIND = "academy-katakana-final-row-shelf";
@@ -251960,7 +251998,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row2) => row2.id)).size !== 2 || rows.some((row2) => !localized$d(row2.label))) {
       issues2.push({ path: "payload.rows", message: "Two named katakana rows are required." });
     }
-    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$8(column.label))) {
+    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$9(column.label))) {
       issues2.push({ path: "payload.columns", message: "Five named vowel columns are required." });
     }
     const rounds = model2.payload?.rounds;
@@ -251983,7 +252021,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         unique$4(coordinate(round2.rowId, round2.vowelColumnId), `${path}.coordinate`, coordinates, issues2);
         if (!["na", "ha"].includes(round2.rowId)) issues2.push({ path: `${path}.rowId`, message: "Every signal must identify the na or ha source row." });
         if (!["a", "i", "u", "e", "o"].includes(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every signal must identify a source vowel column." });
-        if (!text$8(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+        if (!text$9(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
         if (!model2.conceptIds.includes(round2.conceptId)) issues2.push({ path: `${path}.conceptId`, message: "Every switchboard concept must belong to the activity." });
       }
       if (coordinates.size !== 10) issues2.push({ path: "payload.rounds", message: "Every na/ha and vowel coordinate must occur once." });
@@ -251992,7 +252030,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$8(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$d(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$9(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$d(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -252032,15 +252070,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${rowId}:${vowelColumnId}`;
   }
   function unique$4(value, path, seen, issues2) {
-    const normalized2 = text$8(value);
+    const normalized2 = text$9(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
   function localized$d(value) {
-    return Boolean(value && typeof value === "object" && text$8(value.en) && text$8(value.ja));
+    return Boolean(value && typeof value === "object" && text$9(value.en) && text$9(value.ja));
   }
-  function text$8(value) {
+  function text$9(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_ROW_SWITCHBOARD_KIND = "academy-katakana-row-switchboard";
@@ -252268,16 +252306,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "answerSupport", message: "The Moodle listening choice activity requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l03" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5804931 || provenance2.moodle.handout?.payloadSha256 !== HANDOUT_SHA256 || provenance2.moodle.handout.title !== "Chapter 1 listening" || provenance2.moodle.handout.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !text$j(provenance2.moodle.handout.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-verified-selections" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l03/moodle-chapter-1-listening-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$j(provenance2.moodle.sourceImage?.alt?.en) || !text$j(provenance2.moodle.sourceImage?.alt?.ja)) {
+    if (provenance2?.packageId !== "l1-l03" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5804931 || provenance2.moodle.handout?.payloadSha256 !== HANDOUT_SHA256 || provenance2.moodle.handout.title !== "Chapter 1 listening" || provenance2.moodle.handout.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !text$k(provenance2.moodle.handout.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-verified-selections" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l03/moodle-chapter-1-listening-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$k(provenance2.moodle.sourceImage?.alt?.en) || !text$k(provenance2.moodle.sourceImage?.alt?.ja)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle page-one listening handout, image, and answer basis are required." });
     }
-    if (provenance2?.support?.phase !== "after-moodle-listening" || provenance2.support.minna?.reference !== "Minna no Nihongo I, Lesson 1" || provenance2.support.minna.reuse !== "sequence-only" || !text$j(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-supported-transfer") {
+    if (provenance2?.support?.phase !== "after-moodle-listening" || provenance2.support.minna?.reference !== "Minna no Nihongo I, Lesson 1" || provenance2.support.minna.reuse !== "sequence-only" || !text$k(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-supported-transfer") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki must remain mapped support after the Moodle listening work." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.instruction?.en) || !text$j(step2.instruction?.ja) || !text$j(step2.pattern))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.instruction?.en) || !text$k(step2.instruction?.ja) || !text$k(step2.pattern))) {
       issues2.push({ path: "payload.teaching", message: "Teach both exact worksheet question frames before audio practice." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.en) || !text$j(model2.payload?.sourceCaption?.ja)) {
+    if (!text$k(model2.payload?.sourceCaption?.en) || !text$k(model2.payload?.sourceCaption?.ja)) {
       issues2.push({ path: "payload.sourceCaption", message: "The source image needs a bilingual caption." });
     }
     validateTracks(model2, issues2);
@@ -252300,12 +252338,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const errorTags = /* @__PURE__ */ new Set();
     tracks.forEach((track2, index) => {
       const [digest2, url, duration] = expectedAudio[index];
-      if (!text$j(track2.title?.en) || !text$j(track2.title?.ja) || track2.audio?.payloadSha256 !== digest2 || track2.audio.url !== url || track2.audio.durationSeconds !== duration || track2.audio.transcriptStatus !== "not-provided-do-not-invent" || !text$j(track2.audio.sourceId) || !Array.isArray(track2.prompts) || track2.prompts.length !== 3) {
+      if (!text$k(track2.title?.en) || !text$k(track2.title?.ja) || track2.audio?.payloadSha256 !== digest2 || track2.audio.url !== url || track2.audio.durationSeconds !== duration || track2.audio.transcriptStatus !== "not-provided-do-not-invent" || !text$k(track2.audio.sourceId) || !Array.isArray(track2.prompts) || track2.prompts.length !== 3) {
         issues2.push({ path: `payload.tracks.${index}`, message: "Each exact Moodle audio track needs its original delivery and three choices." });
         return;
       }
       track2.prompts.forEach((prompt2, promptIndex) => {
-        if (!text$j(prompt2.id) || promptIds.has(prompt2.id) || !text$j(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$j(prompt2.prompt) || prompt2.options?.length !== 2 || prompt2.options.map((option2) => option2.id).join(",") !== "a,b" || prompt2.options.some((option2) => !text$j(option2.label)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$j(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !["a", "b"].includes(prompt2.correctOptionId)) {
+        if (!text$k(prompt2.id) || promptIds.has(prompt2.id) || !text$k(prompt2.sourceQuestionId) || sourceIds.has(prompt2.sourceQuestionId) || !text$k(prompt2.prompt) || prompt2.options?.length !== 2 || prompt2.options.map((option2) => option2.id).join(",") !== "a,b" || prompt2.options.some((option2) => !text$k(option2.label)) || !model2.conceptIds.includes(prompt2.conceptId) || !text$k(prompt2.errorTag) || errorTags.has(prompt2.errorTag) || !["a", "b"].includes(prompt2.correctOptionId)) {
           issues2.push({ path: `payload.tracks.${index}.prompts.${promptIndex}`, message: "Every exact audio prompt needs ordered A/B choices and deterministic evidence." });
         }
         promptIds.add(prompt2.id);
@@ -252393,7 +252431,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.moodle.sourceImage.url;
-    image.alt = text$j(model2.provenance.moodle.sourceImage.alt[language2 === "ja" ? "ja" : "en"]);
+    image.alt = text$k(model2.provenance.moodle.sourceImage.alt[language2 === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     const caption2 = document.createElement("figcaption");
     caption2.append(...localizedNodes$1(model2.payload.sourceCaption));
@@ -252497,10 +252535,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!isSourceVisual(provenance2?.moodle?.vocabularySheet) || !isSourceVisual(provenance2?.moodle?.listeningSheet) || provenance2.moodle.vocabularySheet.url !== "/academy/content/lessons/l2-l02/moodle-chapter-19-1-vocabulary-page-1.png" || provenance2.moodle.vocabularySheet.sha256 !== VOCABULARY_IMAGE_SHA256$4 || provenance2.moodle.listeningSheet.url !== "/academy/content/lessons/l2-l02/moodle-chapter-19-listening-page-1.png" || provenance2.moodle.listeningSheet.sha256 !== LISTENING_IMAGE_SHA256$1) {
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Moodle page renders must be delivered." });
     }
-    if (provenance2?.support?.minna.reference !== "Minna no Nihongo I, Lesson 19" || provenance2.support.minna.reuse !== "sequence-only" || !text$j(provenance2.support.genki.sourceId) || provenance2.support.genki.payloadSha256 !== GENKI_SHA256$9 || provenance2.support.genki.relation !== "post-instruction-experience-form-support-only") {
+    if (provenance2?.support?.minna.reference !== "Minna no Nihongo I, Lesson 19" || provenance2.support.minna.reuse !== "sequence-only" || !text$k(provenance2.support.genki.sourceId) || provenance2.support.genki.payloadSha256 !== GENKI_SHA256$9 || provenance2.support.genki.relation !== "post-instruction-experience-form-support-only") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and Genki post-instruction support must remain bounded." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.instruction?.en) || !text$j(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.instruction?.en) || !text$k(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the source vocabulary and experience frame before the listening rail." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -252511,7 +252549,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$j(prompt2.id) || ids2.has(prompt2.id) || !text$j(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["a", "b", "c"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$j(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$j(prompt2.reviewExpression)) {
+        if (!text$k(prompt2.id) || ids2.has(prompt2.id) || !text$k(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["a", "b", "c"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$k(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$k(prompt2.reviewExpression)) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Every B-21 stop needs one exact source question and deterministic hidden answer." });
         }
         ids2.add(prompt2.id);
@@ -252559,7 +252597,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isSourceVisual(value) {
     if (!value || typeof value !== "object") return false;
     const visual2 = value;
-    return Boolean(text$j(visual2.sourceId) && text$j(visual2.title) && text$j(visual2.url) && /^[a-f0-9]{64}$/u.test(String(visual2.sha256 ?? "")) && text$j(visual2.alt?.en) && text$j(visual2.alt?.ja));
+    return Boolean(text$k(visual2.sourceId) && text$k(visual2.title) && text$k(visual2.url) && /^[a-f0-9]{64}$/u.test(String(visual2.sha256 ?? "")) && text$k(visual2.alt?.en) && text$k(visual2.alt?.ja));
   }
   const EXPERIENCE_POSTCARD_LISTENING_KIND = "academy-experience-postcard-listening";
   function renderExperiencePostcardListening(model2, host2, submit2) {
@@ -252713,13 +252751,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Moodle page renders must be delivered." });
     }
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 19" || support2.minna.reuse !== "sequence-only" || !text$j(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$8 || support2.genki.relation !== "prior-form-context-only-no-genki-task-shown") {
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 19" || support2.minna.reuse !== "sequence-only" || !text$k(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$8 || support2.genki.relation !== "prior-form-context-only-no-genki-task-shown") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and bounded prior Genki context must remain explicit." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.instruction?.en) || !text$j(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.instruction?.en) || !text$k(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and grammar page before the listening tape." });
     }
-    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 9 || model2.payload.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+    if (!Array.isArray(model2.payload?.transcript) || model2.payload.transcript.length !== 9 || model2.payload.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
       issues2.push({ path: "payload.transcript", message: "The reviewed B-22 script must remain complete and gated until an attempt." });
     }
     const pins = model2.payload?.pins;
@@ -252730,7 +252768,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       pins.forEach((pin, index) => {
-        if (!text$j(pin.id) || ids2.has(pin.id) || !text$j(pin.sourceQuestionId) || sources.has(pin.sourceQuestionId) || !["speaker-a", "speaker-b"].includes(pin.correctSpeakerId) || !model2.conceptIds.includes(pin.conceptId) || !text$j(pin.errorTag) || tags.has(pin.errorTag) || !text$j(pin.reviewExpression)) {
+        if (!text$k(pin.id) || ids2.has(pin.id) || !text$k(pin.sourceQuestionId) || sources.has(pin.sourceQuestionId) || !["speaker-a", "speaker-b"].includes(pin.correctSpeakerId) || !model2.conceptIds.includes(pin.conceptId) || !text$k(pin.errorTag) || tags.has(pin.errorTag) || !text$k(pin.reviewExpression)) {
           issues2.push({ path: `payload.pins.${index}`, message: "Every B-22 pin needs one reviewed speaker answer and repair seed." });
         }
         ids2.add(pin.id);
@@ -252768,7 +252806,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function validVisual$9(value) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && text$j(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && text$k(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const HOLIDAY_ITINERARY_TAPE_KIND = "academy-holiday-itinerary-tape";
   function renderHolidayItineraryTape(model2, host2, submit2) {
@@ -252925,8 +252963,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.packageId !== "l2-l05" || model2.provenance.answerVisibility !== "after-attempt" || moodle?.moduleId !== 6974651 || moodle.vocabularySheet.payloadSha256 !== VOCABULARY_SHA256$3 || moodle.listeningSheet.payloadSha256 !== LISTENING_SHEET_SHA256 || moodle.audio.payloadSha256 !== AUDIO_SHA256 || moodle.audio.durationSeconds !== 82.56 || moodle.audio.transcriptStatus !== "audio-reviewed-b24-choice-pairing-hidden-until-attempt" || moodle.answerKeyBasis !== "source-worksheet-prompts-and-audio-reviewed-b24-choices") issues2.push({ path: "provenance.moodle", message: "Lesson 30 requires exact Sensei pages and reviewed original B-24 audio." });
     if (!validVisual$8(moodle?.vocabularySheet) || !validVisual$8(moodle?.listeningSheet) || moodle?.vocabularySheet.url !== "/academy/content/lessons/l2-l05/moodle-chapter-20-2-vocabulary-page-1.png" || moodle?.vocabularySheet.sha256 !== VOCABULARY_IMAGE_SHA256$2 || moodle?.listeningSheet.url !== "/academy/content/lessons/l2-l05/moodle-chapter-20-listening-page-1.png" || moodle?.listeningSheet.sha256 !== LISTENING_IMAGE_SHA256) issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Chapter 20 pages must be delivered." });
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$j(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$7 || support2.genki.relation !== "prior-short-form-context-only-no-genki-task-shown") issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form context must remain explicit." });
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.instruction?.en) || !text$j(step2.instruction?.ja))) issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and B-24 sheet before listening." });
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$k(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$7 || support2.genki.relation !== "prior-short-form-context-only-no-genki-task-shown") issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form context must remain explicit." });
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.instruction?.en) || !text$k(step2.instruction?.ja))) issues2.push({ path: "payload.teaching", message: "Teach the Sensei vocabulary and B-24 sheet before listening." });
     const prompts2 = model2.payload?.prompts;
     if (!Array.isArray(prompts2) || prompts2.length !== 3 || prompts2.map((prompt2) => prompt2.sourceOrder).join(",") !== "1,2,3") issues2.push({ path: "payload.prompts", message: "The hinge needs three B-24 source choices in order." });
     else {
@@ -252934,7 +252972,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$j(prompt2.id) || ids2.has(prompt2.id) || !text$j(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["left", "right"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$j(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$j(prompt2.reviewExpression)) issues2.push({ path: `payload.prompts.${index}`, message: "Each B-24 hinge needs one reviewed choice and repair seed." });
+        if (!text$k(prompt2.id) || ids2.has(prompt2.id) || !text$k(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !["left", "right"].includes(prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$k(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$k(prompt2.reviewExpression)) issues2.push({ path: `payload.prompts.${index}`, message: "Each B-24 hinge needs one reviewed choice and repair seed." });
         ids2.add(prompt2.id);
         sources.add(prompt2.sourceQuestionId);
         tags.add(prompt2.errorTag);
@@ -252967,7 +253005,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function validVisual$8(value) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && text$j(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && text$k(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const LISTENING_HINGE_KIND = "academy-listening-hinge";
   function renderListeningHinge(model2, host2, submit2) {
@@ -253121,7 +253159,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I, Lesson 21" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "none-verified" || model2.provenance.support.genki.reuse !== "none") {
       issues2.push({ path: "provenance.support", message: "Minna is scope-only and no Genki crosswalk may be invented." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.instruction?.en) || !text$j(step2.instruction?.ja))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 2 || model2.payload.teaching.some((step2) => !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.instruction?.en) || !text$k(step2.instruction?.ja))) {
       issues2.push({ path: "payload.teaching", message: "Teach the exact Chapter 21 plain-clause frame before assessment." });
     }
     const rounds = model2.payload?.rounds;
@@ -253160,7 +253198,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }]);
   }
   function validateRound$6(model2, round2, index, ids2, sources, tags, issues2) {
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sources.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || !round2.acceptedAnswers.length || !round2.acceptedAnswers.some((answer2) => normalize$3(answer2) === normalize$3(round2.answerExpression)) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || tags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sources.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || !round2.acceptedAnswers.length || !round2.acceptedAnswers.some((answer2) => normalize$3(answer2) === normalize$3(round2.answerExpression)) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || tags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source row needs exact wording, a derived completion, and three bilingual repair hints." });
     }
     ids2.add(round2.id);
@@ -253173,7 +253211,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Each Chapter 21 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -253181,7 +253219,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function validVisual$7(value, page, url, sha2562) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && value.page === page && value.url === url && value.sha256 === sha2562 && /^[a-f0-9]{64}$/u.test(value.payloadSha256) && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && value.page === page && value.url === url && value.sha256 === sha2562 && /^[a-f0-9]{64}$/u.test(value.payloadSha256) && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   function normalize$3(value) {
     return value.normalize("NFKC").replace(/[\s。．.、]/gu, "").toLocaleLowerCase("ja");
@@ -253387,7 +253425,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lessons 20, 23 and 25" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L17" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 3 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All three verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "1-1: Using 〜とき, change the sentences to one sentence.") {
@@ -253429,7 +253467,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }]);
   }
   function validateRound$5(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.affirmativeClause) || !text$j(round2.negativeClause) || !text$j(round2.mainClause) || round2.correctMode !== "affirmative" && round2.correctMode !== "negative" || !text$j(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== "1-1" || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.affirmativeClause) || !text$k(round2.negativeClause) || !text$k(round2.mainClause) || round2.correctMode !== "affirmative" && round2.correctMode !== "negative" || !text$k(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== "1-1" || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs two routes, one derived completion, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -253450,7 +253488,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return routes;
   }
   function validVisual$6(value) {
-    return Boolean(value && text$j(value.sourceId) && value.title === SOURCE_TITLE$4 && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$4 && value.url === SOURCE_VISUAL.url && value.sha256 === SOURCE_VISUAL.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && value.title === SOURCE_TITLE$4 && value.page === 1 && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$4 && value.url === SOURCE_VISUAL.url && value.sha256 === SOURCE_VISUAL.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const OCCASION_ROUTE_KIND = "academy-occasion-route";
   function renderOccasionRoute(model2, host2, submit2) {
@@ -253735,7 +253773,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 28" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · Simultaneous actions and routines" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, two rules, and six examples must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "2: please change two sentences to one long sentence.") {
@@ -253779,7 +253817,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateRound$4(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "typed-join" ? 0 : 2;
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerValue) || !text$j(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$2(answer2) === normalize$2(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== 2 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$j(option2.value) || !text$j(option2.label.en) || !text$j(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$2(option2.value) === normalize$2(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerValue) || !text$k(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$2(answer2) === normalize$2(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 1 || round2.sourceTask !== 2 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$k(option2.value) || !text$k(option2.label.en) || !text$k(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$2(option2.value) === normalize$2(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -253792,7 +253830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Each Chapter 28-1 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -253801,7 +253839,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validVisual$5(value, index) {
     const expected = SOURCE_VISUALS$3[index];
-    return Boolean(value && expected && text$j(value.sourceId) && value.title === SOURCE_TITLE$3 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$3 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && expected && text$k(value.sourceId) && value.title === SOURCE_TITLE$3 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$3 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   function normalize$2(value) {
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
@@ -254123,7 +254161,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo II · Lesson 28" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · Listing reasons and soft refusal" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 5 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, both uses, note, and examples must precede assessment." });
     }
     if (model2.payload?.taskHeadings?.join("|") !== [
@@ -254172,7 +254210,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const optionCount = round2.interaction === "typed-chain" ? 0 : 2;
     const expectedPage = index < 4 ? 1 : 2;
     const expectedItem = index % 4 + 1;
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerValue) || !text$j(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$1(answer2) === normalize$1(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || round2.sourceTask !== expectedPage || round2.sourceItem !== expectedItem || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$j(option2.value) || !text$j(option2.label.en) || !text$j(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$1(option2.value) === normalize$1(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerValue) || !text$k(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize$1(answer2) === normalize$1(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== expectedPage || round2.sourceTask !== expectedPage || round2.sourceItem !== expectedItem || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$k(option2.value) || !text$k(option2.label.en) || !text$k(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize$1(option2.value) === normalize$1(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source pair needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -254185,7 +254223,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Each Chapter 28-2 source row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -254194,7 +254232,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validVisual$4(value, index) {
     const expected = SOURCE_VISUALS$2[index];
-    return Boolean(value && expected && text$j(value.sourceId) && value.title === SOURCE_TITLE$2 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$2 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && expected && text$k(value.sourceId) && value.title === SOURCE_TITLE$2 && value.page === expected.page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$2 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   function normalize$1(value) {
     return value.normalize("NFKC").replace(/[\s、。・]/gu, "").trim();
@@ -254959,7 +254997,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== profile2.minna || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== profile2.genki || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== profile2.teachingCount || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== profile2.teachingCount || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "The source pattern, state rule, particle contrast, topic note, and examples must precede assessment." });
     }
     if (!Array.isArray(model2.payload?.taskHeadings) || model2.payload.taskHeadings.map((heading) => heading.text).join("|") !== profile2.headings.map((heading) => heading[1]).join("|") || model2.payload.taskHeadings.map((heading) => heading.sourceTask).join(",") !== profile2.headings.map((heading) => heading[0]).join(",")) {
@@ -255003,7 +255041,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateRound$2(model2, round2, index, profile2, ids2, sourceIds, errorTags, issues2) {
     const optionCount = round2.interaction === "typed-report" ? 0 : 2;
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.answerValue) || !text$j(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize(answer2) === normalize(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== profile2.pages[index] || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$j(option2.value) || !text$j(option2.label.en) || !text$j(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize(option2.value) === normalize(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.answerValue) || !text$k(round2.answerExpression) || !Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 1 || !round2.acceptedAnswers.some((answer2) => normalize(answer2) === normalize(round2.answerValue)) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== profile2.pages[index] || !Array.isArray(round2.options) || round2.options.length !== optionCount || round2.options.some((option2) => !text$k(option2.value) || !text$k(option2.label.en) || !text$k(option2.label.ja)) || round2.options.length > 0 && !round2.options.some((option2) => normalize(option2.value) === normalize(round2.answerValue)) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source prompt needs one concealed completion and exactly three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -255016,7 +255054,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     response.answers.forEach((answer2) => {
-      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$j(answer2.value)) {
+      if (!model2.payload.rounds.some((round2) => round2.id === answer2.roundId) || answers.has(answer2.roundId) || !text$k(answer2.value)) {
         throw new TypeError("Each source state row needs one unique response.");
       }
       answers.set(answer2.roundId, answer2.value);
@@ -255024,7 +255062,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function validVisual$3(value, expected) {
-    return Boolean(value && expected && text$j(value.sourceId) && value.title === expected.title && value.page === expected.page && value.payloadSha256 === expected.payloadSha256 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && expected && text$k(value.sourceId) && value.title === expected.title && value.page === expected.page && value.payloadSha256 === expected.payloadSha256 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   function profileFor(model2) {
     if (model2.provenance?.packageId === LESSON_39_PROFILE.packageId) return LESSON_39_PROFILE;
@@ -255430,7 +255468,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lesson 22" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L15" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki may support sequence only; neither supplies prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All four verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeadings?.join("|") !== "1: Following examples, create noun-modifying clause sentences.|4: Following examples, create sentences.") {
@@ -255474,7 +255512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateRound$1(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
     const optionIds = new Set(round2.options?.map((option2) => option2.id));
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.phraseTail) || !text$j(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$j(option2.id) || !text$j(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.correctParticle !== "を" && round2.correctParticle !== "が" || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.phraseTail) || !text$k(round2.answerExpression) || !Array.isArray(round2.options) || round2.options.length !== 3 || optionIds.size !== 3 || round2.options.some((option2) => !text$k(option2.id) || !text$k(option2.label)) || !optionIds.has(round2.correctOptionId) || round2.correctParticle !== "を" && round2.correctParticle !== "が" || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source signal needs three forms, one particle channel, one derived answer, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -255497,7 +255535,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validVisual$2(value, page) {
     const expected = SOURCE_VISUALS$1[page];
-    return Boolean(value && text$j(value.sourceId) && value.title === SOURCE_TITLE$1 && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$1 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && value.title === SOURCE_TITLE$1 && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256$1 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const PARTICLE_SIGNAL_MIXER_KIND = "academy-particle-signal-mixer";
   function renderParticleSignalMixer(model2, host2, submit2) {
@@ -255784,7 +255822,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (model2.provenance?.support.minna.reference !== "Minna no Nihongo I · Lessons 22–23" || model2.provenance.support.minna.reuse !== "chronology-and-scope-only" || model2.provenance.support.genki.crosswalk !== "≈ Genki II · L16" || model2.provenance.support.genki.reuse !== "sequence-only") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support sequence only and supply no prompts or answers." });
     }
-    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$j(step2.title) || !text$j(step2.text))) {
+    if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length !== 4 || model2.payload.teaching.some((step2) => !text$k(step2.title) || !text$k(step2.text))) {
       issues2.push({ path: "payload.teaching", message: "All four verbatim teaching blocks must precede assessment." });
     }
     if (model2.payload?.taskHeading !== "7: Look at the picture below and create sentences.") {
@@ -255826,7 +255864,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }]);
   }
   function validateRound(model2, round2, index, ids2, sourceIds, errorTags, issues2) {
-    if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$j(round2.sourcePrompt) || !text$j(round2.beforeForm) || !text$j(round2.afterForm) || round2.correctTiming !== "before" && round2.correctTiming !== "after" || !text$j(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 5 || round2.sourceTask !== 7 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$j(hint2.en) || !text$j(hint2.ja))) {
+    if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || !text$k(round2.sourcePrompt) || !text$k(round2.beforeForm) || !text$k(round2.afterForm) || round2.correctTiming !== "before" && round2.correctTiming !== "after" || !text$k(round2.answerExpression) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag) || round2.sourcePage !== 5 || round2.sourceTask !== 7 || round2.sourceItem !== round2.sourceOrder || !Array.isArray(round2.hints) || round2.hints.length !== 3 || round2.hints.some((hint2) => !text$k(hint2.en) || !text$k(hint2.ja))) {
       issues2.push({ path: `payload.rounds.${index}`, message: "Each source bubble needs before/after forms, one derived answer, and three bilingual hints." });
     }
     ids2.add(round2.id);
@@ -255848,7 +255886,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validVisual$1(value, page) {
     const expected = SOURCE_VISUALS[page];
-    return Boolean(value && text$j(value.sourceId) && value.title === SOURCE_TITLE && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256 && value.url === expected.url && value.sha256 === expected.sha256 && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && value.title === SOURCE_TITLE && value.page === page && value.payloadSha256 === SOURCE_PAYLOAD_SHA256 && value.url === expected.url && value.sha256 === expected.sha256 && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const TOKI_THRESHOLD_KIND = "academy-toki-threshold";
   function renderTokiThreshold(model2, host2, submit2) {
@@ -256117,7 +256155,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "provenance.moodle.visuals", message: "Both canonical Chapter 20 page renders must be delivered." });
     }
     const support2 = model2.provenance?.support;
-    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$j(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$6 || support2.genki.relation !== "post-instruction-short-form-support-only-no-genki-task-shown") {
+    if (support2?.minna.reference !== "Minna no Nihongo I, Lesson 20" || support2.minna.reuse !== "sequence-only" || !text$k(support2?.genki.sourceId) || support2.genki.payloadSha256 !== GENKI_SHA256$6 || support2.genki.relation !== "post-instruction-short-form-support-only-no-genki-task-shown") {
       issues2.push({ path: "provenance.support", message: "Minna chronology and bounded Genki short-form support must remain explicit." });
     }
     const prompts2 = model2.payload?.prompts;
@@ -256127,7 +256165,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const sources = /* @__PURE__ */ new Set();
       const tags = /* @__PURE__ */ new Set();
       prompts2.forEach((prompt2, index) => {
-        if (!text$j(prompt2.id) || ids2.has(prompt2.id) || !text$j(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !text$j(prompt2.politeForm) || !["dictionary", "negative", "past-negative"].includes(prompt2.targetColumn) || prompt2.options.length !== 3 || !prompt2.options.some((option2) => option2.id === prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$j(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$j(prompt2.reviewExpression)) {
+        if (!text$k(prompt2.id) || ids2.has(prompt2.id) || !text$k(prompt2.sourceQuestionId) || sources.has(prompt2.sourceQuestionId) || !text$k(prompt2.politeForm) || !["dictionary", "negative", "past-negative"].includes(prompt2.targetColumn) || prompt2.options.length !== 3 || !prompt2.options.some((option2) => option2.id === prompt2.correctOptionId) || !model2.conceptIds.includes(prompt2.conceptId) || !text$k(prompt2.errorTag) || tags.has(prompt2.errorTag) || !text$k(prompt2.reviewExpression)) {
           issues2.push({ path: `payload.prompts.${index}`, message: "Each source row needs one bounded column choice and derived repair seed." });
         }
         ids2.add(prompt2.id);
@@ -256168,7 +256206,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return answers;
   }
   function validVisual(value) {
-    return Boolean(value && text$j(value.sourceId) && text$j(value.title) && text$j(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$j(value.alt.en) && text$j(value.alt.ja));
+    return Boolean(value && text$k(value.sourceId) && text$k(value.title) && text$k(value.url) && /^[a-f0-9]{64}$/u.test(value.sha256) && text$k(value.alt.en) && text$k(value.alt.ja));
   }
   const PLAIN_STYLE_MATRIX_KIND = "academy-plain-style-matrix";
   function renderPlainStyleMatrix(model2, host2, submit2) {
@@ -256335,10 +256373,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "answerSupport", message: "The Moodle listening grid requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l19" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 6223185 || provenance2.moodle.handout?.title !== "Chapter 11 listening" || provenance2.moodle.handout?.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !hash(provenance2.moodle.handout?.payloadSha256) || !text$j(provenance2.moodle.handout?.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-reviewed-grid-values") {
+    if (provenance2?.packageId !== "l1-l19" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 6223185 || provenance2.moodle.handout?.title !== "Chapter 11 listening" || provenance2.moodle.handout?.locus?.page !== 1 || provenance2.moodle.handout.locus.sections?.join(",") !== "1,2" || !hash(provenance2.moodle.handout?.payloadSha256) || !text$k(provenance2.moodle.handout?.sourceId) || provenance2.moodle.answerKeyBasis !== "source-audio-reviewed-grid-values") {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle listening handout and reviewed source-audio basis are required." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.ja) || !text$j(model2.payload?.sourceCaption?.en)) {
+    if (!text$k(model2.payload?.sourceCaption?.ja) || !text$k(model2.payload?.sourceCaption?.en)) {
       issues2.push({ path: "payload.sourceCaption", message: "A bilingual source caption is required." });
     }
     const tracks = model2.payload?.tracks;
@@ -256349,17 +256387,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const taskIds = /* @__PURE__ */ new Set();
     const sourceQuestionIds = /* @__PURE__ */ new Set();
     tracks.forEach((track2, trackIndex) => {
-      if (!text$j(track2.id) || !text$j(track2.title?.ja) || !text$j(track2.title?.en)) {
+      if (!text$k(track2.id) || !text$k(track2.title?.ja) || !text$k(track2.title?.en)) {
         issues2.push({ path: `payload.tracks.${trackIndex}.title`, message: "Each source track needs a bilingual title." });
       }
-      const audioSource = text$j(track2.audio?.sourceId);
+      const audioSource = text$k(track2.audio?.sourceId);
       const audioHash = hash(track2.audio?.payloadSha256);
       const audioUrl = /^\/academy\/content\/listening\/media\/academy-listening-[a-f0-9]{16}\.mp3$/u.test(track2.audio?.url ?? "");
       const audioDuration = Number.isFinite(track2.audio?.durationSeconds) && track2.audio.durationSeconds > 0;
       if (!audioSource || !audioHash || !audioUrl || !audioDuration) {
         issues2.push({ path: `payload.tracks.${trackIndex}.audio`, message: "Each source track needs byte-verified packaged audio." });
       }
-      if (!Array.isArray(track2.transcript) || track2.transcript.length === 0 || track2.transcript.some((line2) => !text$j(line2.speaker) || !text$j(line2.text))) {
+      if (!Array.isArray(track2.transcript) || track2.transcript.length === 0 || track2.transcript.some((line2) => !text$k(line2.speaker) || !text$k(line2.text))) {
         issues2.push({ path: `payload.tracks.${trackIndex}.transcript`, message: "Each source track needs a reviewed transcript." });
       }
       if (!Array.isArray(track2.tasks) || track2.tasks.length === 0) {
@@ -256367,7 +256405,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         return;
       }
       track2.tasks.forEach((task2, taskIndex) => {
-        if (!text$j(task2.id) || taskIds.has(task2.id) || !text$j(task2.sourceQuestionId) || sourceQuestionIds.has(task2.sourceQuestionId) || !text$j(task2.prompt) || !text$j(task2.conceptId) || !text$j(task2.errorTag) || !text$j(task2.reviewExpression) || !Array.isArray(task2.fields) || task2.fields.length === 0 || task2.fields.some((field2) => !text$j(field2.id) || !text$j(field2.label) || typeof field2.answer !== "string") || !model2.conceptIds.includes(task2.conceptId)) {
+        if (!text$k(task2.id) || taskIds.has(task2.id) || !text$k(task2.sourceQuestionId) || sourceQuestionIds.has(task2.sourceQuestionId) || !text$k(task2.prompt) || !text$k(task2.conceptId) || !text$k(task2.errorTag) || !text$k(task2.reviewExpression) || !Array.isArray(task2.fields) || task2.fields.length === 0 || task2.fields.some((field2) => !text$k(field2.id) || !text$k(field2.label) || typeof field2.answer !== "string") || !model2.conceptIds.includes(task2.conceptId)) {
           issues2.push({ path: `payload.tracks.${trackIndex}.tasks.${taskIndex}`, message: "Every source grid task needs unique exact fields and deterministic evidence." });
         }
         taskIds.add(task2.id);
@@ -256582,8 +256620,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       unique$3(round2.kana, `${path}.kana`, kana, issues2);
       unique$3(round2.conceptId, `${path}.conceptId`, concepts, issues2);
       unique$3(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
-      if (!text$7(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle chart cell id is required." });
-      if (!text$7(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+      if (!text$8(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle chart cell id is required." });
+      if (!text$8(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
       if (!model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path: `${path}.conceptId`, message: "Every relay concept must belong to the activity." });
       }
@@ -256592,7 +256630,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "conceptIds", message: "Relay concepts must exactly match its five stations." });
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$7(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$c(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 2 || visuals.some((visual2) => !text$8(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$c(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Two SHA-pinned bilingual Moodle chart visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -256636,15 +256674,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function unique$3(value, path, seen, issues2) {
-    const normalized2 = text$7(value);
+    const normalized2 = text$8(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
   function localized$c(value) {
-    return Boolean(value && typeof value === "object" && text$7(value.en) && text$7(value.ja));
+    return Boolean(value && typeof value === "object" && text$8(value.en) && text$8(value.ja));
   }
-  function text$7(value) {
+  function text$8(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_SHAPE_RELAY_KIND = "academy-katakana-shape-relay";
@@ -256855,7 +256893,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(rows) || rows.length !== 2 || new Set(rows.map((row2) => row2.id)).size !== 2 || rows.some((row2) => !localized$b(row2.label))) {
       issues2.push({ path: "payload.rows", message: "Two named katakana rows are required." });
     }
-    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$6(column.label))) {
+    if (!Array.isArray(columns) || columns.length !== 5 || new Set(columns.map((column) => column.id)).size !== 5 || columns.some((column) => !text$7(column.label))) {
       issues2.push({ path: "payload.columns", message: "Five named vowel columns are required." });
     }
     const rounds = model2.payload?.rounds;
@@ -256879,7 +256917,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         unique$2(coordinate2, `${path}.coordinate`, coordinates, issues2);
         if (!["sa", "ta"].includes(round2.rowId)) issues2.push({ path: `${path}.rowId`, message: "Every signal must identify the sa or ta source row." });
         if (!["a", "i", "u", "e", "o"].includes(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every signal must identify a source vowel column." });
-        if (!text$6(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+        if (!text$7(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
         if (!model2.conceptIds.includes(round2.conceptId)) issues2.push({ path: `${path}.conceptId`, message: "Every route concept must belong to the activity." });
       }
       if (coordinates.size !== 10) issues2.push({ path: "payload.rounds", message: "Every sa/ta and vowel coordinate must occur once." });
@@ -256888,7 +256926,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     const visuals = model2.payload?.sourceVisuals;
-    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$6(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$b(visual2.label))) {
+    if (!Array.isArray(visuals) || visuals.length !== 3 || visuals.some((visual2) => !text$7(visual2.url) || !/^[a-f0-9]{64}$/u.test(visual2.sha256) || !localized$b(visual2.label))) {
       issues2.push({ path: "payload.sourceVisuals", message: "Three SHA-pinned bilingual Moodle worksheet visuals are required." });
     }
     const audio2 = model2.payload?.audioSupport;
@@ -256927,15 +256965,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${rowId}:${vowelColumnId}`;
   }
   function unique$2(value, path, seen, issues2) {
-    const normalized2 = text$6(value);
+    const normalized2 = text$7(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
     else seen.add(normalized2);
   }
   function localized$b(value) {
-    return Boolean(value && typeof value === "object" && text$6(value.en) && text$6(value.ja));
+    return Boolean(value && typeof value === "object" && text$7(value.en) && text$7(value.ja));
   }
-  function text$6(value) {
+  function text$7(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const KATAKANA_TWO_ROW_AUDIO_ROUTE_KIND = "academy-katakana-two-row-audio-route";
@@ -257692,17 +257730,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (JSON.stringify(model2.provenance) !== JSON.stringify(N2_EVENT_INFORMATION_PROVENANCE)) {
       issues2.push({ path: "provenance", message: "The exact permitted Soya file and item pins are required." });
     }
-    if (model2.payload.notice.authorship !== "original-yomu-n2-notice" || model2.payload.notice.paragraphs.length !== 3 || model2.payload.notice.paragraphs.some((paragraph) => !text$j(paragraph)) || model2.payload.notice.playbackText !== model2.payload.notice.paragraphs.join(" ") || model2.payload.notice.facts.length !== 5) {
+    if (model2.payload.notice.authorship !== "original-yomu-n2-notice" || model2.payload.notice.paragraphs.length !== 3 || model2.payload.notice.paragraphs.some((paragraph) => !text$k(paragraph)) || model2.payload.notice.playbackText !== model2.payload.notice.paragraphs.join(" ") || model2.payload.notice.facts.length !== 5) {
       issues2.push({ path: "payload.notice", message: "The complete original three-paragraph notice and five-row grid are required." });
     }
-    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$j(item2.title.ja) || !text$j(item2.title.en) || !text$j(item2.example) || !text$j(item2.explanation.ja) || !text$j(item2.explanation.en))) {
+    if (model2.payload.teaching.length !== 3 || model2.payload.teaching.some((item2) => !text$k(item2.title.ja) || !text$k(item2.title.en) || !text$k(item2.example) || !text$k(item2.explanation.ja) || !text$k(item2.explanation.en))) {
       issues2.push({ path: "payload.teaching", message: "Three bilingual pre-retrieval teaching points are required." });
     }
     validateQuestions(model2, issues2);
     validateActionSequence(model2, issues2);
     validatePassScore(model2.payload.passScore, issues2);
     validateFeedback(model2.payload.feedback, issues2);
-    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$j(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$j(target2.expression) || !text$j(target2.sentence) || !target2.meanings.length || !target2.repairFor.length)) {
+    if (model2.payload.reviewTargets.length !== 4 || model2.payload.reviewTargets.some((target2) => !text$k(target2.id) || !model2.conceptIds.includes(target2.conceptId) || !text$k(target2.expression) || !text$k(target2.sentence) || !target2.meanings.length || !target2.repairFor.length)) {
       issues2.push({ path: "payload.reviewTargets", message: "Four targeted N2 repair records are required." });
     }
     return issues2;
@@ -257926,7 +257964,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const answers = /* @__PURE__ */ new Map();
     for (const answer2 of response.answers) {
-      if (!answer2 || !text$j(answer2.questionId) || !text$j(answer2.optionId) || answers.has(answer2.questionId)) {
+      if (!answer2 || !text$k(answer2.questionId) || !text$k(answer2.optionId) || answers.has(answer2.questionId)) {
         throw new TypeError("N2 event-information answers must use unique question and option ids.");
       }
       const question2 = model2.payload.questions.find((candidate2) => candidate2.id === answer2.questionId);
@@ -257948,7 +257986,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const ids2 = /* @__PURE__ */ new Set();
     model2.payload.questions.forEach((question2, index) => {
-      if (!text$j(question2.id) || ids2.has(question2.id) || !text$j(question2.prompt.ja) || !text$j(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$j(question2.errorTag)) {
+      if (!text$k(question2.id) || ids2.has(question2.id) || !text$k(question2.prompt.ja) || !text$k(question2.prompt.en) || question2.options.length !== 3 || !question2.options.some((option2) => option2.id === question2.correctOptionId) || !text$k(question2.errorTag)) {
         issues2.push({ path: `payload.questions.${index}`, message: "Questions need unique ids, bilingual prompts, three options, and a valid answer." });
       }
       ids2.add(question2.id);
@@ -258041,7 +258079,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "provenance.minna", message: "Minna must remain a byte-identified audio-only anchor without an invented transcript." });
     }
     const genki = value?.genki;
-    if (genki?.sourceId !== "japanese-genki-interactive:69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53:generateQuiz" || genki?.payloadSha256 !== "69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53" || genki?.scriptSha256 !== "52ce8ff929718489eab63f648eb8f82b12f5b7324f3727e76a6bf84d5559474c" || genki?.relativePath !== "lessons/lesson-2/workbook-2/index.html" || genki?.lineLocus?.start !== 76 || genki?.lineLocus?.end !== 123 || genki?.engine !== "Genki.generateQuiz" || !text$j(genki?.responseAdaptation).includes("exact-prompts-answers-and-order")) {
+    if (genki?.sourceId !== "japanese-genki-interactive:69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53:generateQuiz" || genki?.payloadSha256 !== "69eb24f468086afac22f58fbac149c4765026d38477926417f42835e0dfa9b53" || genki?.scriptSha256 !== "52ce8ff929718489eab63f648eb8f82b12f5b7324f3727e76a6bf84d5559474c" || genki?.relativePath !== "lessons/lesson-2/workbook-2/index.html" || genki?.lineLocus?.start !== 76 || genki?.lineLocus?.end !== 123 || genki?.engine !== "Genki.generateQuiz" || !text$k(genki?.responseAdaptation).includes("exact-prompts-answers-and-order")) {
       issues2.push({ path: "provenance.genki", message: "The exact mapped Genki workbook task and adaptation policy are required." });
     }
     for (const [path, sourceId2, digest2] of [
@@ -258064,7 +258102,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ["これ／それ", "viewpoint"]
     ];
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pronoun !== expected[index][0] || step2.position !== expected[index][1] || !text$j(step2.rule?.ja) || !text$j(step2.rule?.en) || !text$j(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pronoun !== expected[index][0] || step2.position !== expected[index][1] || !text$k(step2.rule?.ja) || !text$k(step2.rule?.en) || !text$k(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve the Moodle position and viewpoint sequence." });
       }
     });
@@ -258075,7 +258113,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     positions.forEach((position, index) => {
-      if (!text$j(position.label?.en) || !text$j(position.label?.ja)) {
+      if (!text$k(position.label?.en) || !text$k(position.label?.ja)) {
         issues2.push({ path: `payload.positions.${index}.label`, message: "Position labels must be bilingual." });
       }
     });
@@ -258092,15 +258130,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
       const expectedPronoun = round2.correctPositionId === "speaker" ? "これ" : round2.correctPositionId === "listener" ? "それ" : "あれ";
-      if (!text$j(round2.id) || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.correctPositionId !== EXACT_ROUND_POSITIONS[index] || round2.pronoun !== expectedPronoun || !text$j(round2.sourcePrompt) || !text$j(round2.context?.en) || !text$j(round2.context?.ja) || !text$j(round2.answerSentence) || !model2.conceptIds.includes(round2.conceptId)) {
+      if (!text$k(round2.id) || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.correctPositionId !== EXACT_ROUND_POSITIONS[index] || round2.pronoun !== expectedPronoun || !text$k(round2.sourcePrompt) || !text$k(round2.context?.en) || !text$k(round2.context?.ja) || !text$k(round2.answerSentence) || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path, message: "Each exact Genki slot needs its source order, spatial answer, prompt, context, and Concept." });
       }
       ids2.add(round2.id);
-      if (!text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || round2.sourceQuestionId !== `genki-2e:l1-l04:lesson-2-workbook-2:slot-${index + 1}`) {
+      if (!text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId) || round2.sourceQuestionId !== `genki-2e:l1-l04:lesson-2-workbook-2:slot-${index + 1}`) {
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Genki source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$j(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!text$k(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.errorTag`, message: "Round error tags must be unique." });
       }
       errorTags.add(round2.errorTag);
@@ -258327,12 +258365,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     cards.forEach((card, index) => {
       const path = `payload.cards.${index}`;
       requireUniqueText(card.id, `${path}.id`, cardIds, "Card ids", issues2);
-      if (!text$5(card.phrase)) issues2.push({ path: `${path}.phrase`, message: "A Japanese phrase is required." });
-      if (!text$5(card.conceptId) || !model2.conceptIds.includes(card.conceptId)) {
+      if (!text$6(card.phrase)) issues2.push({ path: `${path}.phrase`, message: "A Japanese phrase is required." });
+      if (!text$6(card.conceptId) || !model2.conceptIds.includes(card.conceptId)) {
         issues2.push({ path: `${path}.conceptId`, message: "The card concept must belong to the activity." });
       }
-      if (!text$5(card.reviewSeedId)) issues2.push({ path: `${path}.reviewSeedId`, message: "A review seed id is required." });
-      if (!text$5(card.reviewContent?.expression) || !nonEmptyText(card.reviewContent?.meanings)) {
+      if (!text$6(card.reviewSeedId)) issues2.push({ path: `${path}.reviewSeedId`, message: "A review seed id is required." });
+      if (!text$6(card.reviewContent?.expression) || !nonEmptyText(card.reviewContent?.meanings)) {
         issues2.push({ path: `${path}.reviewContent`, message: "Reviewable expression and meanings are required." });
       }
     });
@@ -258344,7 +258382,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!cardIds.has(round2.correctCardId)) {
         issues2.push({ path: `${path}.correctCardId`, message: "The correct card must exist in the injected deck." });
       }
-      if (!text$5(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
+      if (!text$6(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
     });
     if (!Number.isFinite(model2.payload.passScore) || model2.payload.passScore <= 0 || model2.payload.passScore > 1) {
       issues2.push({ path: "payload.passScore", message: "Pass score must be greater than zero and at most one." });
@@ -258374,7 +258412,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   function requireUniqueText(value, path, seen, label, issues2) {
-    const normalized2 = text$5(value);
+    const normalized2 = text$6(value);
     if (!normalized2) issues2.push({ path, message: "A stable id is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: `${label} must be unique.` });
     else seen.add(normalized2);
@@ -258382,12 +258420,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function localized$a(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return Boolean(text$5(candidate2.en) && text$5(candidate2.ja));
+    return Boolean(text$6(candidate2.en) && text$6(candidate2.ja));
   }
   function nonEmptyText(value) {
-    return Array.isArray(value) && value.length > 0 && value.every((item2) => Boolean(text$5(item2)));
+    return Array.isArray(value) && value.length > 0 && value.every((item2) => Boolean(text$6(item2)));
   }
-  function text$5(value) {
+  function text$6(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   const PHRASE_KARUTA_KIND = "phrase-karuta";
@@ -258605,17 +258643,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "answerSupport", message: "The picture vocabulary board requires assessed answer support." });
     }
     const provenance2 = model2.provenance;
-    if (provenance2?.packageId !== "l1-l04" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5822243 || provenance2.moodle.pictureHandout?.payloadSha256 !== PICTURE_SHA256 || provenance2.moodle.pictureHandout.title !== "Chapter 2 pics for vocabulary" || provenance2.moodle.pictureHandout.locus?.page !== 1 || provenance2.moodle.pictureHandout.locus.pictureNumbers?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.vocabularySheet?.payloadSha256 !== VOCABULARY_SHA256 || provenance2.moodle.vocabularySheet.title !== "Chapter 2-1 Vocabulary Sheet" || provenance2.moodle.vocabularySheet.rows?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l04/moodle-chapter-2-pics-for-vocabulary-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$j(provenance2.moodle.pictureHandout.sourceId) || !text$j(provenance2.moodle.vocabularySheet.sourceId) || !text$j(provenance2.moodle.sourceImage?.alt?.en) || !text$j(provenance2.moodle.sourceImage?.alt?.ja)) {
+    if (provenance2?.packageId !== "l1-l04" || provenance2.answerVisibility !== "after-attempt" || provenance2.moodle?.moduleId !== 5822243 || provenance2.moodle.pictureHandout?.payloadSha256 !== PICTURE_SHA256 || provenance2.moodle.pictureHandout.title !== "Chapter 2 pics for vocabulary" || provenance2.moodle.pictureHandout.locus?.page !== 1 || provenance2.moodle.pictureHandout.locus.pictureNumbers?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.vocabularySheet?.payloadSha256 !== VOCABULARY_SHA256 || provenance2.moodle.vocabularySheet.title !== "Chapter 2-1 Vocabulary Sheet" || provenance2.moodle.vocabularySheet.rows?.join(",") !== "1,2,3,4,5,6,7,8" || provenance2.moodle.sourceImage?.url !== "/academy/content/lessons/l1-l04/moodle-chapter-2-pics-for-vocabulary-page-1.png" || !/^[a-f0-9]{64}$/u.test(provenance2.moodle.sourceImage?.sha256 ?? "") || !text$k(provenance2.moodle.pictureHandout.sourceId) || !text$k(provenance2.moodle.vocabularySheet.sourceId) || !text$k(provenance2.moodle.sourceImage?.alt?.en) || !text$k(provenance2.moodle.sourceImage?.alt?.ja)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle picture page, vocabulary rows, and source image are required." });
     }
-    if (provenance2?.support?.phase !== "after-moodle-picture-vocabulary" || provenance2.support.minna?.reference !== "Minna no Nihongo I · Lessons 1–2" || provenance2.support.minna.reuse !== "sequence-only" || !text$j(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-guided-fill") {
+    if (provenance2?.support?.phase !== "after-moodle-picture-vocabulary" || provenance2.support.minna?.reference !== "Minna no Nihongo I · Lessons 1–2" || provenance2.support.minna.reuse !== "sequence-only" || !text$k(provenance2.support.genki?.sourceId) || provenance2.support.genki.relation !== "post-instruction-guided-fill") {
       issues2.push({ path: "provenance.support", message: "Minna and Genki must remain mapped support after Moodle picture vocabulary." });
     }
     const teaching2 = model2.payload?.teaching;
-    if (!Array.isArray(teaching2) || teaching2.length !== 1 || !text$j(teaching2[0]?.title?.en) || !text$j(teaching2[0]?.title?.ja) || !text$j(teaching2[0]?.instruction?.en) || !text$j(teaching2[0]?.instruction?.ja) || teaching2[0].items?.length !== 8) {
+    if (!Array.isArray(teaching2) || teaching2.length !== 1 || !text$k(teaching2[0]?.title?.en) || !text$k(teaching2[0]?.title?.ja) || !text$k(teaching2[0]?.instruction?.en) || !text$k(teaching2[0]?.instruction?.ja) || teaching2[0].items?.length !== 8) {
       issues2.push({ path: "payload.teaching", message: "All eight exact source mappings must be taught before assessment." });
     }
-    if (!text$j(model2.payload?.sourceCaption?.en) || !text$j(model2.payload?.sourceCaption?.ja)) {
+    if (!text$k(model2.payload?.sourceCaption?.en) || !text$k(model2.payload?.sourceCaption?.ja)) {
       issues2.push({ path: "payload.sourceCaption", message: "The source image needs a bilingual caption." });
     }
     validateItems(model2, issues2);
@@ -258633,7 +258671,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceIds = /* @__PURE__ */ new Set();
     const tags = /* @__PURE__ */ new Set();
     items.forEach((item2, index) => {
-      if (item2.sourceOrder !== index + 1 || !text$j(item2.id) || ids2.has(item2.id) || !text$j(item2.sourceQuestionId) || sourceIds.has(item2.sourceQuestionId) || !text$j(item2.sourceRow) || !text$j(item2.prompt?.en) || !text$j(item2.prompt?.ja) || item2.options?.length !== 3 || new Set(item2.options.map((option2) => option2.id)).size !== 3 || item2.options.some((option2) => !text$j(option2.id) || !text$j(option2.label)) || !item2.options.some((option2) => option2.id === item2.correctOptionId) || !model2.conceptIds.includes(item2.conceptId) || !text$j(item2.errorTag) || tags.has(item2.errorTag)) {
+      if (item2.sourceOrder !== index + 1 || !text$k(item2.id) || ids2.has(item2.id) || !text$k(item2.sourceQuestionId) || sourceIds.has(item2.sourceQuestionId) || !text$k(item2.sourceRow) || !text$k(item2.prompt?.en) || !text$k(item2.prompt?.ja) || item2.options?.length !== 3 || new Set(item2.options.map((option2) => option2.id)).size !== 3 || item2.options.some((option2) => !text$k(option2.id) || !text$k(option2.label)) || !item2.options.some((option2) => option2.id === item2.correctOptionId) || !model2.conceptIds.includes(item2.conceptId) || !text$k(item2.errorTag) || tags.has(item2.errorTag)) {
         issues2.push({ path: `payload.items.${index}`, message: "Every taught picture needs three source-row choices and deterministic evidence." });
       }
       ids2.add(item2.id);
@@ -258719,7 +258757,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.moodle.sourceImage.url;
-    image.alt = text$j(model2.provenance.moodle.sourceImage.alt[language2 === "ja" ? "ja" : "en"]);
+    image.alt = text$k(model2.provenance.moodle.sourceImage.alt[language2 === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     const caption2 = document.createElement("figcaption");
     caption2.append(...localizedNodes$1(model2.payload.sourceCaption));
@@ -258903,7 +258941,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$j(step2.rule?.ja) || !text$j(step2.rule?.en) || !text$j(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$k(step2.rule?.ja) || !text$k(step2.rule?.en) || !text$k(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching order, source role, and worked example are required." });
       }
     });
@@ -258922,7 +258960,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const shapeMatches = round2.id === expected[0] && round2.mode === expected[1] && (round2.mode === "location-choice" ? round2.correctPositionId === expected[2] : round2.correctPointer === expected[2] && round2.correctItem === expected[3]);
       const exactAnswerMatches = round2.acceptedAnswers?.join("\0") === EXACT_ACCEPTED_ANSWERS[index].join("\0");
       const exactModePayloadMatches = round2.mode === "location-choice" ? round2.answerSentence === EXACT_ACCEPTED_ANSWERS[index][0] : round2.sourceReply === EXACT_OWNER_REPLIES[index - 4];
-      if (!shapeMatches || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== EXACT_PROMPTS$2[index] || !text$j(round2.context?.en) || !text$j(round2.context?.ja) || !exactAnswerMatches || !exactModePayloadMatches || !model2.conceptIds.includes(round2.conceptId)) {
+      if (!shapeMatches || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== EXACT_PROMPTS$2[index] || !text$k(round2.context?.en) || !text$k(round2.context?.ja) || !exactAnswerMatches || !exactModePayloadMatches || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path: `payload.rounds.${index}`, message: "Each source slot needs its exact mode, answer, order, context, and Concept." });
       }
       ids2.add(round2.id);
@@ -258931,7 +258969,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         issues2.push({ path: `payload.rounds.${index}.sourceQuestionId`, message: "Source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$j(round2.errorTag) || errors.has(round2.errorTag)) {
+      if (!text$k(round2.errorTag) || errors.has(round2.errorTag)) {
         issues2.push({ path: `payload.rounds.${index}.errorTag`, message: "Error tags must be unique." });
       }
       errors.add(round2.errorTag);
@@ -259289,7 +259327,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     steps.forEach((step2, index) => {
-      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$j(step2.rule?.ja) || !text$j(step2.rule?.en) || !text$j(step2.example)) {
+      if (step2.sourceOrder !== index + 1 || step2.pattern !== expected[index][0] || step2.source !== expected[index][1] || !text$k(step2.rule?.ja) || !text$k(step2.rule?.en) || !text$k(step2.example)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve exact source rule order and worked examples." });
       }
     });
@@ -259306,7 +259344,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     rounds.forEach((round2, index) => {
       const expected = EXACT_ROUNDS[index];
       const path = `payload.rounds.${index}`;
-      if (round2.id !== expected.id || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== expected.prompt || round2.correctA !== expected.a || round2.correctB !== expected.b || round2.acceptedAnswers.join("\0") !== expected.answers.join("\0") || !text$j(round2.meaning) || !model2.conceptIds.includes(round2.conceptId)) {
+      if (round2.id !== expected.id || ids2.has(round2.id) || round2.sourceOrder !== index + 1 || round2.sourcePrompt !== expected.prompt || round2.correctA !== expected.a || round2.correctB !== expected.b || round2.acceptedAnswers.join("\0") !== expected.answers.join("\0") || !text$k(round2.meaning) || !model2.conceptIds.includes(round2.conceptId)) {
         issues2.push({ path, message: "Each Genki slot needs its exact prompt, answer variants, order, and Concept." });
       }
       ids2.add(round2.id);
@@ -259315,7 +259353,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Genki source slot ids must be exact and unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$j(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!text$k(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.errorTag`, message: "Round error tags must be unique." });
       }
       errorTags.add(round2.errorTag);
@@ -259864,7 +259902,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(model2.payload?.teaching) || model2.payload.teaching.length < 2) {
       issues2.push({ path: "payload.teaching", message: "Teach both sentence and nationality formation before assessment." });
     } else model2.payload.teaching.forEach((step2, index) => {
-      if (!text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.explanation?.en) || !text$j(step2.explanation?.ja)) {
+      if (!text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.explanation?.en) || !text$k(step2.explanation?.ja)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching steps require bilingual copy and a Japanese pattern." });
       }
     });
@@ -259878,19 +259916,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return issues2;
   }
   function validateProvenance$5(value, issues2) {
-    if (!text$j(value?.sourceId) || !/^[a-f0-9]{64}$/u.test(value?.payloadSha256 ?? "") || !text$j(value?.sourceTitle) || !text$j(value?.author)) {
+    if (!text$k(value?.sourceId) || !/^[a-f0-9]{64}$/u.test(value?.payloadSha256 ?? "") || !text$k(value?.sourceTitle) || !text$k(value?.author)) {
       issues2.push({ path: "provenance", message: "Exact Moodle source identity is required." });
     }
     if (value?.moodleModuleId !== 5792908 || value?.locus?.page !== 2 || value?.locus?.tasks?.join(",") !== "A,B") {
       issues2.push({ path: "provenance.locus", message: "The profile board must retain Moodle module 5792908, page 2, tasks A and B." });
     }
-    if (value?.answerVisibility !== "after-attempt" || value?.exactFields?.join(",") !== "name,country,occupation" || !text$j(value?.yomuFraming)) {
+    if (value?.answerVisibility !== "after-attempt" || value?.exactFields?.join(",") !== "name,country,occupation" || !text$k(value?.yomuFraming)) {
       issues2.push({ path: "provenance.answerPolicy", message: "Source fields and Yomu framing must remain distinguishable." });
     }
-    if (!/^\/academy\/content\/lessons\/l1-l02\/moodle-chapter-1-2-grammar-nationality-occupation-page-2\.png$/u.test(value?.sourceReference?.imageUrl ?? "") || !/^[a-f0-9]{64}$/u.test(value?.sourceReference?.imageSha256 ?? "") || !text$j(value?.sourceReference?.alt?.en) || !text$j(value?.sourceReference?.alt?.ja) || !text$j(value?.sourceReference?.caption?.en) || !text$j(value?.sourceReference?.caption?.ja)) {
+    if (!/^\/academy\/content\/lessons\/l1-l02\/moodle-chapter-1-2-grammar-nationality-occupation-page-2\.png$/u.test(value?.sourceReference?.imageUrl ?? "") || !/^[a-f0-9]{64}$/u.test(value?.sourceReference?.imageSha256 ?? "") || !text$k(value?.sourceReference?.alt?.en) || !text$k(value?.sourceReference?.alt?.ja) || !text$k(value?.sourceReference?.caption?.en) || !text$k(value?.sourceReference?.caption?.ja)) {
       issues2.push({ path: "provenance.sourceReference", message: "The exact Moodle worksheet image and bilingual reference label are required." });
     }
-    if (value?.support?.phase !== "after-moodle-source" || value.support.minna?.sourceId !== "source-minna-no-nihongo" || value.support.minna.reference !== "Minna no Nihongo I · Lesson 1" || value.support.minna.reuse !== "sequence-only" || !text$j(value.support.genki?.sourceId) || !text$j(value.support.genki.title) || value.support.genki.relation !== "post-instruction-guided-fill" || !text$j(value.support.genki.prerequisitePolicy)) {
+    if (value?.support?.phase !== "after-moodle-source" || value.support.minna?.sourceId !== "source-minna-no-nihongo" || value.support.minna.reference !== "Minna no Nihongo I · Lesson 1" || value.support.minna.reuse !== "sequence-only" || !text$k(value.support.genki?.sourceId) || !text$k(value.support.genki.title) || value.support.genki.relation !== "post-instruction-guided-fill" || !text$k(value.support.genki.prerequisitePolicy)) {
       issues2.push({ path: "provenance.support", message: "Minna and Genki support must remain secondary to the Moodle worksheet." });
     }
   }
@@ -259900,7 +259938,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return /* @__PURE__ */ new Set();
     }
     const ids2 = new Set(options.map((option2) => option2.id));
-    if (ids2.size !== options.length || options.some((option2) => !text$j(option2.id) || !text$j(option2.label))) {
+    if (ids2.size !== options.length || options.some((option2) => !text$k(option2.id) || !text$k(option2.label))) {
       issues2.push({ path, message: "Options need unique ids and Japanese labels." });
     }
     return ids2;
@@ -259916,7 +259954,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const errorTags = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$j(round2.id) || roundIds.has(round2.id) || !text$j(round2.name) || !text$j(round2.country) || !text$j(round2.occupationClue?.en) || !text$j(round2.occupationClue?.ja)) {
+      if (!text$k(round2.id) || roundIds.has(round2.id) || !text$k(round2.name) || !text$k(round2.country) || !text$k(round2.occupationClue?.en) || !text$k(round2.occupationClue?.ja)) {
         issues2.push({ path, message: "Each exact profile needs a unique id, name, country, and accessible clue." });
       }
       roundIds.add(round2.id);
@@ -259928,11 +259966,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!conceptIds.includes(criterion?.conceptId) || !optionIds.has(criterion?.correctOptionId)) {
       issues2.push({ path, message: "Each criterion needs an authored concept and correct option." });
     }
-    if (!text$j(criterion?.sourceQuestionId) || sourceIds.has(criterion.sourceQuestionId)) {
+    if (!text$k(criterion?.sourceQuestionId) || sourceIds.has(criterion.sourceQuestionId)) {
       issues2.push({ path: `${path}.sourceQuestionId`, message: "Exact source question ids must be unique." });
     }
     sourceIds.add(criterion.sourceQuestionId);
-    if (!text$j(criterion?.errorTag) || errorTags.has(criterion.errorTag)) {
+    if (!text$k(criterion?.errorTag) || errorTags.has(criterion.errorTag)) {
       issues2.push({ path: `${path}.errorTag`, message: "Criterion error tags must be unique." });
     }
     errorTags.add(criterion.errorTag);
@@ -259995,7 +260033,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     figure.dataset.lessonPhase = "source-reference";
     const image = document.createElement("img");
     image.src = model2.provenance.sourceReference.imageUrl;
-    image.alt = text$j(model2.provenance.sourceReference.alt[language2 === "ja" ? "ja" : "en"]);
+    image.alt = text$k(model2.provenance.sourceReference.alt[language2 === "ja" ? "ja" : "en"]);
     image.loading = "eager";
     image.decoding = "async";
     const caption2 = document.createElement("figcaption");
@@ -260158,28 +260196,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value?.packageId !== "l1-l03" || value?.answerVisibility !== "after-attempt") {
       issues2.push({ path: "provenance", message: "Lesson 3 and after-attempt answer gating are required." });
     }
-    if (moodle?.moduleId !== 5804931 || moodle.payloadSha256 !== "4c9b251ade1fc39cd2d9e31a28575e18f894f3425f8b01584d03ee9c8038da2e" || moodle.locus?.page !== 1 || moodle.locus.sections?.join(",") !== "の,も,だれ,どなた" || !text$j(moodle.sourceId) || !text$j(moodle.sourceTitle)) {
+    if (moodle?.moduleId !== 5804931 || moodle.payloadSha256 !== "4c9b251ade1fc39cd2d9e31a28575e18f894f3425f8b01584d03ee9c8038da2e" || moodle.locus?.page !== 1 || moodle.locus.sections?.join(",") !== "の,も,だれ,どなた" || !text$k(moodle.sourceId) || !text$k(moodle.sourceTitle)) {
       issues2.push({ path: "provenance.moodle", message: "The exact Moodle Lesson 3 instruction handout is required." });
     }
-    if (minna?.reference !== "Minna no Nihongo I, Lesson 1" || minna.relation !== "course-sequence-and-byte-identified-audio-only" || minna.transcriptStatus !== "not-provided-do-not-invent" || minna.audioMember?.title !== "minna shokyu 1 001" || minna.audioMember.payloadSha256 !== "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f" || minna.audioMember.archiveOrder !== 4 || minna.audioMember.durationSeconds !== 23.980417 || !text$j(minna.audioMember.sourceId)) {
+    if (minna?.reference !== "Minna no Nihongo I, Lesson 1" || minna.relation !== "course-sequence-and-byte-identified-audio-only" || minna.transcriptStatus !== "not-provided-do-not-invent" || minna.audioMember?.title !== "minna shokyu 1 001" || minna.audioMember.payloadSha256 !== "5534e1b822942b8b3806c6555fa2c2355457ed4db3c54442525b65c337644e7f" || minna.audioMember.archiveOrder !== 4 || minna.audioMember.durationSeconds !== 23.980417 || !text$k(minna.audioMember.sourceId)) {
       issues2.push({ path: "provenance.minna", message: "Minna must remain an exact byte-identified, transcript-free source anchor." });
     }
-    if (genki?.relativePath !== "lessons/lesson-1/workbook-7/index.html" || genki.payloadSha256 !== "341b1eca3ef498d9c5890601ef4dd5965478675e97fa7dc3a9012bbdd7b292cd" || genki.scriptSha256 !== "474d1b1ae113e6136e9e6b1110804aea1d8637abd91f77992e910d93a96e3949" || genki.lineLocus?.start !== 76 || genki.lineLocus.end !== 119 || genki.engine !== "Genki.generateQuiz" || genki.responseAdaptation !== "exact-prompts-answers-and-order-with-yomu-one-to-one-matching" || !text$j(genki.sourceId)) {
+    if (genki?.relativePath !== "lessons/lesson-1/workbook-7/index.html" || genki.payloadSha256 !== "341b1eca3ef498d9c5890601ef4dd5965478675e97fa7dc3a9012bbdd7b292cd" || genki.scriptSha256 !== "474d1b1ae113e6136e9e6b1110804aea1d8637abd91f77992e910d93a96e3949" || genki.lineLocus?.start !== 76 || genki.lineLocus.end !== 119 || genki.engine !== "Genki.generateQuiz" || genki.responseAdaptation !== "exact-prompts-answers-and-order-with-yomu-one-to-one-matching" || !text$k(genki.sourceId)) {
       issues2.push({ path: "provenance.genki", message: "The mapped Genki workbook task and adaptation policy are required." });
     }
   }
   function validateTeaching$4(steps, issues2) {
-    if (!Array.isArray(steps) || steps.length !== 4 || steps.some((step2, index) => step2.sourceOrder !== index + 1 || !text$j(step2.title?.en) || !text$j(step2.title?.ja) || !text$j(step2.pattern) || !text$j(step2.example) || !text$j(step2.explanation?.en) || !text$j(step2.explanation?.ja))) {
+    if (!Array.isArray(steps) || steps.length !== 4 || steps.some((step2, index) => step2.sourceOrder !== index + 1 || !text$k(step2.title?.en) || !text$k(step2.title?.ja) || !text$k(step2.pattern) || !text$k(step2.example) || !text$k(step2.explanation?.en) || !text$k(step2.explanation?.ja))) {
       issues2.push({ path: "payload.teaching", message: "The four exact Moodle teaching moves must remain complete and in source order." });
     }
   }
   function validateFacts(facts, issues2) {
-    if (!Array.isArray(facts) || facts.length !== 6 || new Set(facts.map((fact2) => fact2.id)).size !== 6 || facts.some((fact2) => !text$j(fact2.id) || !text$j(fact2.label?.en) || !text$j(fact2.label?.ja) || !text$j(fact2.value))) {
+    if (!Array.isArray(facts) || facts.length !== 6 || new Set(facts.map((fact2) => fact2.id)).size !== 6 || facts.some((fact2) => !text$k(fact2.id) || !text$k(fact2.label?.en) || !text$k(fact2.label?.ja) || !text$k(fact2.value))) {
       issues2.push({ path: "payload.profileFacts", message: "Mary’s six source-provided profile clues are required." });
     }
   }
   function validateAnswers(answers, issues2) {
-    if (!Array.isArray(answers) || answers.length !== 6 || new Set(answers.map((answer2) => answer2.id)).size !== 6 || answers.some((answer2) => !text$j(answer2.id) || !text$j(answer2.label) || !text$j(answer2.meaning))) {
+    if (!Array.isArray(answers) || answers.length !== 6 || new Set(answers.map((answer2) => answer2.id)).size !== 6 || answers.some((answer2) => !text$k(answer2.id) || !text$k(answer2.label) || !text$k(answer2.meaning))) {
       issues2.push({ path: "payload.answers", message: "Six unique exact Genki answer cards are required." });
       return /* @__PURE__ */ new Set();
     }
@@ -260197,11 +260235,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const errorTags = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (round2.sourceOrder !== index + 1 || !text$j(round2.id) || roundIds.has(round2.id) || !text$j(round2.question) || !text$j(round2.clue)) {
+      if (round2.sourceOrder !== index + 1 || !text$k(round2.id) || roundIds.has(round2.id) || !text$k(round2.question) || !text$k(round2.clue)) {
         issues2.push({ path, message: "Genki questions need unique ids and exact source order." });
       }
       roundIds.add(round2.id);
-      if (!text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
+      if (!text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
         issues2.push({ path: `${path}.sourceQuestionId`, message: "Source question ids must be unique." });
       }
       sourceIds.add(round2.sourceQuestionId);
@@ -260209,7 +260247,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         issues2.push({ path: `${path}.correctAnswerId`, message: "Each exact answer must be matched once." });
       }
       correctIds.add(round2.correctAnswerId);
-      if (!model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag) || errorTags.has(round2.errorTag)) {
+      if (!model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag) || errorTags.has(round2.errorTag)) {
         issues2.push({ path: `${path}.evidence`, message: "Each question needs a unique concept and error tag." });
       }
       errorTags.add(round2.errorTag);
@@ -260696,7 +260734,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return issues2;
     }
     const ids2 = tokens.map((token) => token.id);
-    if (new Set(ids2).size !== ids2.length || tokens.some((token) => !text$j(token.id) || !text$j(token.label))) {
+    if (new Set(ids2).size !== ids2.length || tokens.some((token) => !text$k(token.id) || !text$k(token.label))) {
       issues2.push({ path: "payload.tokens", message: "Sentence tokens need unique ids and visible labels." });
     }
     const order2 = model2.payload.correctOrder;
@@ -260709,14 +260747,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     validateSource(model2, issues2);
-    if (!text$j(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
+    if (!text$k(model2.payload?.errorTag)) issues2.push({ path: "payload.errorTag", message: "A deterministic error tag is required." });
     validateFeedback(model2.payload?.feedback, issues2);
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     return issues2;
   }
   function validateSource(model2, issues2) {
     const source2 = model2.payload?.source;
-    if (!text$j(source2?.sourceId) || !text$j(source2?.relativePath)) {
+    if (!text$k(source2?.sourceId) || !text$k(source2?.relativePath)) {
       issues2.push({ path: "payload.source", message: "An exact logical source locator is required." });
     }
     if (!/^[a-f0-9]{64}$/u.test(source2?.payloadSha256 ?? "")) {
@@ -260730,7 +260768,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "payload.source.rights", message: "Verbatim activities require a matched authorised source contract." });
     }
     const mapping2 = model2.payload?.mapping;
-    if (!text$j(mapping2?.academyWeek) || !Number.isSafeInteger(mapping2?.moodleModuleId) || !mapping2?.curriculum?.length || !mapping2.curriculum.every(text$j) || !mapping2?.skills?.length || !mapping2.skills.every(text$j) || !text$j(mapping2?.jlpt)) {
+    if (!text$k(mapping2?.academyWeek) || !Number.isSafeInteger(mapping2?.moodleModuleId) || !mapping2?.curriculum?.length || !mapping2.curriculum.every(text$k) || !mapping2?.skills?.length || !mapping2.skills.every(text$k) || !text$k(mapping2?.jlpt)) {
       issues2.push({ path: "payload.mapping", message: "Curriculum, week, Moodle module, skills, and JLPT mappings are required." });
     }
     validateSourceSurface(model2.payload?.sourceSurface, issues2);
@@ -260738,7 +260776,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateSourceSurface(value, issues2) {
     if (!value) return;
-    if (!/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.png$/u.test(value.url) || !/^[a-f0-9]{64}$/u.test(value.sha256) || !text$j(value.alt?.en) || !text$j(value.alt?.ja) || !text$j(value.caption?.en) || !text$j(value.caption?.ja)) {
+    if (!/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.png$/u.test(value.url) || !/^[a-f0-9]{64}$/u.test(value.sha256) || !text$k(value.alt?.en) || !text$k(value.alt?.ja) || !text$k(value.caption?.en) || !text$k(value.caption?.ja)) {
       issues2.push({ path: "payload.sourceSurface", message: "A source page needs a pinned public image and bilingual description." });
     }
   }
@@ -260746,7 +260784,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!value) return;
     const seen = /* @__PURE__ */ new Set();
     value.forEach((track2, index) => {
-      if (!text$j(track2.title?.en) || !text$j(track2.title?.ja) || !text$j(track2.sourceId) || !/^[a-f0-9]{64}$/u.test(track2.payloadSha256) || !/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/u.test(track2.url) || !Number.isFinite(track2.durationSeconds) || track2.durationSeconds <= 0 || track2.transcriptStatus !== "not-provided-do-not-invent" || seen.has(track2.url)) {
+      if (!text$k(track2.title?.en) || !text$k(track2.title?.ja) || !text$k(track2.sourceId) || !/^[a-f0-9]{64}$/u.test(track2.payloadSha256) || !/^\/academy\/content\/lessons\/[a-z0-9-]+\/[a-z0-9-]+\.mp3$/u.test(track2.url) || !Number.isFinite(track2.durationSeconds) || track2.durationSeconds <= 0 || track2.transcriptStatus !== "not-provided-do-not-invent" || seen.has(track2.url)) {
         issues2.push({ path: `payload.sourceAudio.${index}`, message: "Each source audio track needs an exact public delivery without an invented transcript." });
       }
       seen.add(track2.url);
@@ -260940,7 +260978,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(products) || products.length < 2) {
       issues2.push({ path: "payload.products", message: "At least two visual products are required." });
     } else products.forEach((product, index) => {
-      if (!text$j(product.id) || productIds.has(product.id) || !text$j(product.label) || !Object.hasOwn(PRODUCT_SYMBOLS, product.visual)) {
+      if (!text$k(product.id) || productIds.has(product.id) || !text$k(product.label) || !Object.hasOwn(PRODUCT_SYMBOLS, product.visual)) {
         issues2.push({ path: `payload.products.${index}`, message: "Products need unique ids, Japanese labels, and supported visuals." });
       }
       productIds.add(product.id);
@@ -260953,14 +260991,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       issues2.push({ path: "payload.rounds", message: "At least one shop ticket is required." });
     } else rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      if (!text$j(round2.id) || roundIds.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Ticket ids must be stable and unique." });
+      if (!text$k(round2.id) || roundIds.has(round2.id)) issues2.push({ path: `${path}.id`, message: "Ticket ids must be stable and unique." });
       roundIds.add(round2.id);
-      if (!text$j(round2.sourceQuestionId)) issues2.push({ path: `${path}.sourceQuestionId`, message: "An exact source question id is required." });
-      if (!text$j(round2.prompt?.en) || !text$j(round2.prompt?.ja)) issues2.push({ path: `${path}.prompt`, message: "A bilingual ticket prompt is required." });
+      if (!text$k(round2.sourceQuestionId)) issues2.push({ path: `${path}.sourceQuestionId`, message: "An exact source question id is required." });
+      if (!text$k(round2.prompt?.en) || !text$k(round2.prompt?.ja)) issues2.push({ path: `${path}.prompt`, message: "A bilingual ticket prompt is required." });
       if (!productIds.has(round2.correctProductId)) issues2.push({ path: `${path}.correctProductId`, message: "The correct product must be authored." });
       validateOptions(round2.priceOptions, round2.correctPriceId, `${path}.priceOptions`, issues2);
       if (round2.request) {
-        if (!text$j(round2.request.sourceQuestionId)) issues2.push({ path: `${path}.request.sourceQuestionId`, message: "A request criterion needs its exact source question id." });
+        if (!text$k(round2.request.sourceQuestionId)) issues2.push({ path: `${path}.request.sourceQuestionId`, message: "A request criterion needs its exact source question id." });
         validateOptions(round2.request.options, round2.request.correctOptionId, `${path}.request.options`, issues2);
       }
       if (Boolean(round2.request) !== Boolean(round2.errorTags.request)) {
@@ -260968,7 +261006,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       const tags = [round2.errorTags.product, round2.errorTags.price, ...round2.errorTags.request ? [round2.errorTags.request] : []];
       tags.forEach((tag, tagIndex) => {
-        if (!text$j(tag) || allErrorTags.has(tag)) issues2.push({ path: `${path}.errorTags.${tagIndex}`, message: "Criterion error tags must be nonempty and globally unique." });
+        if (!text$k(tag) || allErrorTags.has(tag)) issues2.push({ path: `${path}.errorTags.${tagIndex}`, message: "Criterion error tags must be nonempty and globally unique." });
         allErrorTags.add(tag);
       });
       errorTagSources.set(round2.errorTags.product, round2.sourceQuestionId);
@@ -260979,7 +261017,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     validateReviewTargets$8(model2.payload?.reviewTargets, model2.conceptIds, issues2);
     const coveredTags = /* @__PURE__ */ new Set();
     model2.payload?.reviewTargets?.forEach((target2, index) => {
-      if (!text$j(target2.sourceQuestionId)) issues2.push({ path: `payload.reviewTargets.${index}.sourceQuestionId`, message: "Review targets need exact source question ids." });
+      if (!text$k(target2.sourceQuestionId)) issues2.push({ path: `payload.reviewTargets.${index}.sourceQuestionId`, message: "Review targets need exact source question ids." });
       if (!target2.errorTags?.length || target2.errorTags.some((tag) => !allErrorTags.has(tag))) {
         issues2.push({ path: `payload.reviewTargets.${index}.errorTags`, message: "Review targets must name authored criterion error tags." });
       }
@@ -260999,7 +261037,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return;
     }
     const ids2 = new Set(options.map((option2) => option2.id));
-    if (ids2.size !== options.length || options.some((option2) => !text$j(option2.id) || !text$j(option2.label))) {
+    if (ids2.size !== options.length || options.some((option2) => !text$k(option2.id) || !text$k(option2.label))) {
       issues2.push({ path, message: "Choices need unique ids and Japanese labels." });
     }
     if (!ids2.has(correctId)) issues2.push({ path: `${path}.correctOptionId`, message: "The correct choice must be authored." });
@@ -261640,7 +261678,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const expectedSources = ["moodle:", "moodle:", "minna-i:"];
     value.forEach((step2, index) => {
       const exact2 = EXACT_TEACHING$1[index];
-      if (!text$j(step2.sourceQuestionId).startsWith(expectedSources[index] ?? "") || !exact2 || step2.sourceQuestionId !== exact2[0] || step2.pattern !== exact2[1] || step2.example !== exact2[2] || !text$j(step2.sourceLabel) || !text$j(step2.pattern) || !text$j(step2.example) || !text$j(step2.rule?.ja) || !text$j(step2.rule?.en)) {
+      if (!text$k(step2.sourceQuestionId).startsWith(expectedSources[index] ?? "") || !exact2 || step2.sourceQuestionId !== exact2[0] || step2.pattern !== exact2[1] || step2.example !== exact2[2] || !text$k(step2.sourceLabel) || !text$k(step2.pattern) || !text$k(step2.example) || !text$k(step2.rule?.ja) || !text$k(step2.rule?.en)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching must preserve its source, pattern, rule, and model." });
       }
     });
@@ -261658,27 +261696,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (round2.sourceOrder !== index + 1 || round2.mode !== MODES$1[index] || round2.id !== EXACT_ROUND_IDS[index] || round2.sourcePrompt !== EXACT_PROMPTS$1[index] || round2.answerExpression !== EXACT_EXPRESSIONS$1[index] || round2.sourceQuestionId !== exactSourceQuestionId(index)) {
         issues2.push({ path, message: "Source order and interaction mode must remain exact." });
       }
-      if (!text$j(round2.id) || ids2.has(round2.id) || !text$j(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
+      if (!text$k(round2.id) || ids2.has(round2.id) || !text$k(round2.sourceQuestionId) || sourceIds.has(round2.sourceQuestionId)) {
         issues2.push({ path, message: "Round and source ids must be stable and unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (!text$j(round2.sourcePrompt) || !text$j(round2.answerExpression) || !text$j(round2.conceptId) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag)) {
+      if (!text$k(round2.sourcePrompt) || !text$k(round2.answerExpression) || !text$k(round2.conceptId) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag)) {
         issues2.push({ path, message: "Every source item needs a prompt, answer, Concept, and repair tag." });
       }
       if (round2.mode === "range-build") {
         const optionIds = validOptions(round2.options, `${path}.options`, issues2);
-        if (!optionIds.has(round2.correctStartId) || !optionIds.has(round2.correctEndId) || rangeAnswer(round2) !== ["gogo-1:3-han", "gozen-10:gogo-12-45", "gogo-12-han:1"][index] || optionSignature$1(round2.options) !== EXACT_RANGE_OPTIONS || !text$j(round2.subject) || !text$j(round2.displayedHours)) {
+        if (!optionIds.has(round2.correctStartId) || !optionIds.has(round2.correctEndId) || rangeAnswer(round2) !== ["gogo-1:3-han", "gozen-10:gogo-12-45", "gogo-12-han:1"][index] || optionSignature$1(round2.options) !== EXACT_RANGE_OPTIONS || !text$k(round2.subject) || !text$k(round2.displayedHours)) {
           issues2.push({ path, message: "Range items require offered source start and finish values." });
         }
       } else if (round2.mode === "typed-clock") {
         const expectedAnswers = exactTypedAnswers(index - 2);
-        if (!Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 4 || round2.acceptedAnswers.some((answer2) => !text$j(answer2)) || round2.acceptedAnswers.join("|") !== expectedAnswers.join("|")) {
+        if (!Array.isArray(round2.acceptedAnswers) || round2.acceptedAnswers.length < 4 || round2.acceptedAnswers.some((answer2) => !text$k(answer2)) || round2.acceptedAnswers.join("|") !== expectedAnswers.join("|")) {
           issues2.push({ path: `${path}.acceptedAnswers`, message: "Exact Genki answer variants are required." });
         }
       } else {
         const optionIds = validOptions(round2.options, `${path}.options`, issues2);
-        if (!optionIds.has(round2.correctOptionId) || round2.correctOptionId !== ["9-5", "10-8-30", "9-6-30", "9-15-5-45"][index - 8] || optionSignature$1(round2.options) !== EXACT_OPENING_OPTIONS || !text$j(round2.subject) || !text$j(round2.displayedHours)) {
+        if (!optionIds.has(round2.correctOptionId) || round2.correctOptionId !== ["9-5", "10-8-30", "9-6-30", "9-15-5-45"][index - 8] || optionSignature$1(round2.options) !== EXACT_OPENING_OPTIONS || !text$k(round2.subject) || !text$k(round2.displayedHours)) {
           issues2.push({ path, message: "Opening-hour items require one offered exact range." });
         }
       }
@@ -261719,7 +261757,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     const ids2 = /* @__PURE__ */ new Set();
     options.forEach((option2, index) => {
-      if (!text$j(option2.id) || ids2.has(option2.id) || !text$j(option2.ja) || !text$j(option2.en)) {
+      if (!text$k(option2.id) || ids2.has(option2.id) || !text$k(option2.ja) || !text$k(option2.en)) {
         issues2.push({ path: `${path}.${index}`, message: "Options need unique ids and bilingual labels." });
       }
       ids2.add(option2.id);
@@ -261950,7 +261988,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           throw new TypeError("Range items require offered start and finish values.");
         }
       } else if (round2.mode === "typed-clock") {
-        if (answer2.mode !== round2.mode || !text$j(answer2.value)) {
+        if (answer2.mode !== round2.mode || !text$k(answer2.value)) {
           throw new TypeError("Genki clock items require a non-empty typed answer.");
         }
       } else if (answer2.mode !== round2.mode || !round2.options.some((option2) => option2.id === answer2.optionId)) {
@@ -262117,7 +262155,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     value.forEach((step2, index) => {
       const exact2 = EXACT_TEACHING[index];
       const expectedPrefix = index < 4 ? "moodle:" : index === 4 ? "minna-i:" : "genki-2e:";
-      if (!exact2 || step2.sourceOrder !== index + 1 || !step2.sourceQuestionId.startsWith(expectedPrefix) || step2.pattern !== exact2[0] || step2.example !== exact2[1] || !text$j(step2.sourceLabel) || !text$j(step2.rule?.ja) || !text$j(step2.rule?.en)) {
+      if (!exact2 || step2.sourceOrder !== index + 1 || !step2.sourceQuestionId.startsWith(expectedPrefix) || step2.pattern !== exact2[0] || step2.example !== exact2[1] || !text$k(step2.sourceLabel) || !text$k(step2.rule?.ja) || !text$k(step2.rule?.en)) {
         issues2.push({ path: `payload.teaching.${index}`, message: "Teaching wording, order, and provenance must remain exact." });
       }
     });
@@ -262135,12 +262173,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (round2.sourceOrder !== index + 1 || round2.mode !== EXACT_MODES[index] || round2.id !== EXACT_IDS[index] || round2.sourcePrompt !== EXACT_PROMPTS[index] || round2.answerExpression !== EXACT_EXPRESSIONS[index] || round2.sourceQuestionId !== expectedSourceQuestionId(index)) {
         issues2.push({ path, message: "Source wording, order, mode, and answer must remain exact." });
       }
-      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$j(round2.errorTag)) {
+      if (ids2.has(round2.id) || sourceIds.has(round2.sourceQuestionId) || !model2.conceptIds.includes(round2.conceptId) || !text$k(round2.errorTag)) {
         issues2.push({ path, message: "Round ids, source ids, Concepts, and repair tags must be stable and unique." });
       }
       ids2.add(round2.id);
       sourceIds.add(round2.sourceQuestionId);
-      if (round2.hints.length !== 2 || round2.hints.some((hint2) => !text$j(hint2.ja) || !text$j(hint2.en))) {
+      if (round2.hints.length !== 2 || round2.hints.some((hint2) => !text$k(hint2.ja) || !text$k(hint2.en))) {
         issues2.push({ path: `${path}.hints`, message: "Two bilingual progressive hints are required." });
       }
       if (round2.mode === "weekday-pair") {
@@ -262151,7 +262189,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (optionSignature(round2.dayOptions) !== WEEKDAY_SIGNATURE || !round2.dayOptions.some((option2) => option2.id === round2.correctDayId) || !["hai", "iie", "none"].includes(round2.correctPolarity) || !["です", "でした"].includes(round2.copula)) {
           issues2.push({ path, message: "Day-answer items require the exact polarity, tense, and weekday menu." });
         }
-      } else if (round2.acceptedAnswers.length < 2 || round2.acceptedAnswers.some((answer2) => !text$j(answer2)) || round2.acceptedAnswers[0] !== EXACT_EXPRESSIONS[index]) {
+      } else if (round2.acceptedAnswers.length < 2 || round2.acceptedAnswers.some((answer2) => !text$k(answer2)) || round2.acceptedAnswers[0] !== EXACT_EXPRESSIONS[index]) {
         issues2.push({ path: `${path}.acceptedAnswers`, message: "Genki source answer variants and canonical order are required." });
       }
     });
@@ -262429,7 +262467,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (answer2.mode !== round2.mode || !["hai", "iie", "none"].includes(answer2.polarity) || (round2.correctPolarity === "none" ? answer2.polarity !== "none" : answer2.polarity === "none") || !round2.dayOptions.some((option2) => option2.id === answer2.dayId)) {
           throw new TypeError("Day-answer items require the offered polarity and weekday.");
         }
-      } else if (answer2.mode !== round2.mode || !text$j(answer2.value)) {
+      } else if (answer2.mode !== round2.mode || !text$k(answer2.value)) {
         throw new TypeError("Genki past-tense items require a non-empty typed answer.");
       }
       answers.set(answer2.roundId, answer2);
@@ -268373,7 +268411,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         cell.append(
           anchorImage(visual2, "academy-hiragana-row-image"),
           japanese$1("span", "academy-hiragana-row-kana", item2.kana),
-          text$4("small", "academy-hiragana-row-romaji", item2.romaji),
+          text$5("small", "academy-hiragana-row-romaji", item2.romaji),
           anchorSupport(visual2, "academy-hiragana-row-anchor", "academy-hiragana-row-word")
         );
         cell.setAttribute(
@@ -268535,7 +268573,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     node2.dataset.yomuFuriganaMode = "all";
     return node2;
   }
-  function text$4(tag, className, value) {
+  function text$5(tag, className, value) {
     const node2 = element(tag, className);
     node2.textContent = value;
     node2.dataset.jpdbReaderSurfaceIgnore = "";
@@ -268559,9 +268597,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const targetIndex = anchor2.kind === "object-particle" ? anchor2.reading.lastIndexOf(anchor2.kana) : anchor2.reading.indexOf(anchor2.kana);
     const before = anchor2.reading.slice(0, Math.max(0, targetIndex));
     const after = anchor2.reading.slice(Math.max(0, targetIndex) + anchor2.kana.length);
-    if (before) word.append(text$4("span", "academy-hiragana-anchor-before", before));
+    if (before) word.append(text$5("span", "academy-hiragana-anchor-before", before));
     word.append(japanese$1("strong", "academy-hiragana-anchor-target", anchor2.kana));
-    if (after) word.append(text$4("span", "academy-hiragana-anchor-after", after));
+    if (after) word.append(text$5("span", "academy-hiragana-anchor-after", after));
     return word;
   }
   function anchorSupport(anchor2, className, wordClassName) {
@@ -268571,8 +268609,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     support2.append(
       anchorWord(anchor2, wordClassName),
-      text$4("small", `${className}-pronunciation`, anchor2.pronunciation),
-      text$4("small", `${className}-meaning`, anchor2.meaningEn)
+      text$5("small", `${className}-pronunciation`, anchor2.pronunciation),
+      text$5("small", `${className}-meaning`, anchor2.meaningEn)
     );
     return support2;
   }
@@ -270021,8 +270059,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     return Object.freeze({
-      id: text$3(item2.id, `manifest entries[${index}].id`),
-      identityKey: text$3(
+      id: text$4(item2.id, `manifest entries[${index}].id`),
+      identityKey: text$4(
         item2.identityKey,
         `manifest entries[${index}].identityKey`
       ),
@@ -270031,7 +270069,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         `manifest entries[${index}].lessonIntroductionOrder`
       ),
       introducedAt: Object.freeze({
-        lessonId: text$3(
+        lessonId: text$4(
           introducedAt.lessonId,
           `manifest entries[${index}].introducedAt.lessonId`
         ),
@@ -270044,16 +270082,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
           `manifest entries[${index}].introducedAt.order`
         )
       }),
-      japaneseExpression: text$3(
+      japaneseExpression: text$4(
         item2.japaneseExpression,
         `manifest entries[${index}].japaneseExpression`
       ),
-      displayExpression: text$3(
+      displayExpression: text$4(
         item2.displayExpression ?? item2.japaneseExpression,
         `manifest entries[${index}].displayExpression`
       ),
-      reading: text$3(item2.reading, `manifest entries[${index}].reading`),
-      englishSense: text$3(
+      reading: text$4(item2.reading, `manifest entries[${index}].reading`),
+      englishSense: text$4(
         item2.englishSense,
         `manifest entries[${index}].englishSense`
       ),
@@ -270068,8 +270106,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       imagePath,
       imageStatus,
       imageDimensions,
-      altText: text$3(item2.altText, `manifest entries[${index}].altText`),
-      futurePrompt: text$3(
+      altText: text$4(item2.altText, `manifest entries[${index}].altText`),
+      futurePrompt: text$4(
         item2.futurePrompt,
         `manifest entries[${index}].futurePrompt`
       ),
@@ -270098,25 +270136,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function parseConsumer(value, label) {
     const item2 = record$1(value, label);
-    const surface = text$3(item2.surface, `${label}.surface`);
+    const surface = text$4(item2.surface, `${label}.surface`);
     if (surface !== "introduction" && surface !== "review") {
       throw new TypeError(`Unsupported ${label}.surface.`);
     }
     return Object.freeze({
-      consumerId: text$3(item2.consumerId, `${label}.consumerId`),
-      lessonId: text$3(item2.lessonId, `${label}.lessonId`),
+      consumerId: text$4(item2.consumerId, `${label}.consumerId`),
+      lessonId: text$4(item2.lessonId, `${label}.lessonId`),
       surface
     });
   }
   function parseOccurrence(value, label) {
     const item2 = record$1(value, label);
-    const sourceKind = text$3(item2.sourceKind, `${label}.sourceKind`);
+    const sourceKind = text$4(item2.sourceKind, `${label}.sourceKind`);
     if (sourceKind !== "canonical-vocabulary" && sourceKind !== "lesson-vocabulary-row" && sourceKind !== "lesson-srs-vocabulary" && sourceKind !== "advanced-review-expression")
       throw new TypeError(`Unsupported ${label}.sourceKind.`);
     return Object.freeze({
-      lessonId: text$3(item2.lessonId, `${label}.lessonId`),
+      lessonId: text$4(item2.lessonId, `${label}.lessonId`),
       sourceKind,
-      sourceIdentity: text$3(item2.sourceIdentity, `${label}.sourceIdentity`)
+      sourceIdentity: text$4(item2.sourceIdentity, `${label}.sourceIdentity`)
     });
   }
   function parseInventory(value) {
@@ -270262,38 +270300,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return value.normalize("NFKC").replace(/\s+/gu, "");
   }
   function localImagePath(value, label) {
-    const path = text$3(value, label);
+    const path = text$4(value, label);
     if (!path.startsWith("/academy/art/vocabulary-pictographs/") || path.includes("..") || /^https?:|^data:/iu.test(path)) {
       throw new TypeError(`${label} is not a safe Academy pictograph path.`);
     }
     return path;
   }
   function vocabularyBand(value, label) {
-    const band = text$3(value, label);
+    const band = text$4(value, label);
     if (!COURSE_BANDS.includes(band)) {
       throw new TypeError(`Unsupported ${label}: ${band}.`);
     }
     return band;
   }
   function requirement(value, label) {
-    const result2 = text$3(value, label);
+    const result2 = text$4(value, label);
     if (!REQUIREMENTS.has(result2))
       throw new TypeError(`Unsupported ${label}: ${result2}.`);
     return result2;
   }
   function status(value, label) {
-    const result2 = text$3(value, label);
+    const result2 = text$4(value, label);
     if (!STATUSES.has(result2))
       throw new TypeError(`Unsupported ${label}: ${result2}.`);
     return result2;
   }
   function concreteness(value, label) {
-    const result2 = text$3(value, label);
+    const result2 = text$4(value, label);
     if (!CONCRETENESS.has(result2))
       throw new TypeError(`Unsupported ${label}: ${result2}.`);
     return result2;
   }
-  function text$3(value, label) {
+  function text$4(value, label) {
     if (typeof value !== "string" || !value.trim())
       throw new TypeError(`Missing ${label}.`);
     return value.trim();
@@ -270310,7 +270348,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function strings(value, label) {
     return array$1(value, label).map(
-      (candidate2, index) => text$3(candidate2, `${label}[${index}]`)
+      (candidate2, index) => text$4(candidate2, `${label}[${index}]`)
     );
   }
   function array$1(value, label) {
@@ -270324,7 +270362,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return value;
   }
   function digest(value, label) {
-    const result2 = text$3(value, label);
+    const result2 = text$4(value, label);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`Invalid ${label}.`);
     return result2;
   }
@@ -282135,9 +282173,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       headers: { "X-Return-Format": "html" }
     }).catch(() => "");
     if (typeof response !== "string" || !response) return [];
-    const searchUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const searchUrl2 = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
     const audioHtml = findJishoAudioElement(response, card);
-    const fromHtml = audioHtml ? jishoAudioSourceUrls(audioHtml, searchUrl) : [];
+    const fromHtml = audioHtml ? jishoAudioSourceUrls(audioHtml, searchUrl2) : [];
     if (fromHtml.length) return fromHtml.slice(0, 1);
     return extractJishoTextProxyAudioUrls(response, card).slice(0, 1);
   }
@@ -287955,7 +287993,7 @@ ${item2.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$8(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$9(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -288049,7 +288087,7 @@ ${item2.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$8(value)) return "";
+    if (!isRecord$9(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -291125,11 +291163,11 @@ ${entry2.reading}
 ${glossaryKey}`;
   }
   function selectTermLookupResults(ranked, expression, reading, limit) {
-    const boundedLimit = Math.max(0, Math.floor(limit));
-    if (!boundedLimit || ranked.length <= boundedLimit) return ranked.slice(0, boundedLimit);
-    const selected2 = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
-    fillTermLookupSelection(selected2, ranked, boundedLimit);
-    return ranked.filter((entry2) => selected2.has(entry2)).slice(0, boundedLimit);
+    const boundedLimit2 = Math.max(0, Math.floor(limit));
+    if (!boundedLimit2 || ranked.length <= boundedLimit2) return ranked.slice(0, boundedLimit2);
+    const selected2 = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit2));
+    fillTermLookupSelection(selected2, ranked, boundedLimit2);
+    return ranked.filter((entry2) => selected2.has(entry2)).slice(0, boundedLimit2);
   }
   function firstExactTermEntriesByDictionary(ranked, expression, reading) {
     const firstExactByDictionary = /* @__PURE__ */ new Map();
@@ -291486,18 +291524,27 @@ ${entry2.reading || ""}`;
   }
   function renderProviderExamples(provider, sourceId2, collection, sourceAttributes, language2) {
     const availability = collection.availability;
-    if (availability !== "loaded" || !collection.items.length) return "";
+    const items = availability === "loaded" ? collection.items : [];
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId2}:examples`))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey$3(`${sourceId2}:examples`), items.length > 0)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml$2(uiText(language2, "exampleSentences"))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml$2(providerExampleStatus(collection, language2))}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map((example) => renderProviderExample(example, language2)).join("")}</ul>
+                ${items.length ? `<ul class="jpdb-reader-jpdb-examples">${items.map((example) => renderProviderExample(example, language2)).join("")}</ul>` : renderProviderExampleAvailabilityReason(collection, language2)}
             </div>
         </details>
     `;
+  }
+  function providerExampleStatus(collection, language2) {
+    if (collection.availability === "loaded" && collection.items.length) return String(collection.items.length);
+    return uiText(language2, collection.availability === "unavailable" ? "exampleSourceFailedShort" : "exampleSourceEmptyShort");
+  }
+  function renderProviderExampleAvailabilityReason(collection, language2) {
+    const reason = collection.availability === "unavailable" ? collection.reason : "no-results";
+    const failed = collection.availability === "unavailable";
+    return `<p class="jpdb-reader-help" data-example-reason="${escapeHtml$2(reason)}">${escapeHtml$2(uiText(language2, failed ? "exampleSourceFailed" : "exampleSourceEmpty"))}</p>`;
   }
   function definitionSourceStateKey$3(sourceId2) {
     return `definition-source:${sourceId2}`;
@@ -292090,10 +292137,10 @@ ${entry2.reading || ""}`;
     const updatedAt = storedMiningContextUpdatedAt(record2.updatedAt, now);
     if (updatedAt === null) return null;
     const context2 = createStoredMiningContext(expectedTerm, {
-      sentence: text$2(record2.sentence),
+      sentence: text$3(record2.sentence),
       sourceKind,
-      sourceTitle: text$2(record2.sourceTitle),
-      sourceUrl: text$2(record2.sourceUrl),
+      sourceTitle: text$3(record2.sourceTitle),
+      sourceUrl: text$3(record2.sourceUrl),
       imageUrl: optionalText(record2.imageUrl),
       audioUrls: optionalTextArray(record2.audioUrls),
       immersionIndex: optionalNumber(record2.immersionIndex),
@@ -292103,7 +292150,7 @@ ${entry2.reading || ""}`;
   }
   function storedMiningContextRecord(value, expectedTerm) {
     if (!isNonNullObject(value)) return null;
-    return text$2(value.term) === expectedTerm ? value : null;
+    return text$3(value.term) === expectedTerm ? value : null;
   }
   function storedMiningSourceKind(value) {
     return isMiningSourceKind(value) ? value : null;
@@ -292122,7 +292169,7 @@ ${entry2.reading || ""}`;
     return typeof value === "string" && MINING_SOURCE_KINDS.includes(value);
   }
   function optionalText(value) {
-    const normalized2 = text$2(value);
+    const normalized2 = text$3(value);
     return normalized2 || void 0;
   }
   function optionalTextArray(value) {
@@ -292144,13 +292191,13 @@ ${entry2.reading || ""}`;
     }
   }
   function uniqueTexts(values) {
-    return Array.from(new Set(values.map(text$2).filter(Boolean)));
+    return Array.from(new Set(values.map(text$3).filter(Boolean)));
   }
   function optionalNumber(value) {
     const number = Number(value);
     return Number.isFinite(number) && number >= 0 ? number : void 0;
   }
-  function text$2(value) {
+  function text$3(value) {
     return typeof value === "string" ? value.trim() : "";
   }
   function immersionKitUrl(term, index) {
@@ -295045,7 +295092,7 @@ ${component.reading}`;
       source: "jpdb"
     };
   }
-  function isAbortError(error) {
+  function isAbortError$1(error) {
     return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
   }
   class PromiseLruCache {
@@ -296452,7 +296499,7 @@ ${component.reading}`;
     try {
       return await fetchImpl(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError(error)) throw new JitenApiError("Jiten request timed out.");
+      if (isAbortError$1(error)) throw new JitenApiError("Jiten request timed out.");
       throw error;
     } finally {
       globalThis.clearTimeout(timeoutId);
@@ -298809,10 +298856,10 @@ ${component.reading}`;
     return `definition-source:${sourceId2}`;
   }
   function parseWanikaniSubject(raw) {
-    if (!isRecord$3(raw)) return null;
+    if (!isRecord$4(raw)) return null;
     const type = typeof raw.object === "string" ? raw.object : "";
     if (!isSubjectType(type)) return null;
-    const data = isRecord$3(raw.data) ? raw.data : {};
+    const data = isRecord$4(raw.data) ? raw.data : {};
     const id2 = typeof raw.id === "number" ? raw.id : Number(raw.id);
     if (!Number.isFinite(id2)) return null;
     return {
@@ -298851,7 +298898,7 @@ ${component.reading}`;
   }
   function parseMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$3).map((item2) => ({
+    return raw.filter(isRecord$4).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       primary: item2.primary === true,
       acceptedAsCorrect: item2.accepted_answer === true || item2.accepted_as_correct === true
@@ -298859,14 +298906,14 @@ ${component.reading}`;
   }
   function parseAuxiliaryMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$3).map((item2) => ({
+    return raw.filter(isRecord$4).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       type: item2.type === "whitelist" || item2.type === "blacklist" ? item2.type : "unknown"
     })).filter((item2) => item2.meaning);
   }
   function parseReadings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$3).map((item2) => {
+    return raw.filter(isRecord$4).map((item2) => {
       const type = item2.type === "onyomi" || item2.type === "kunyomi" || item2.type === "nanori" ? item2.type : void 0;
       return {
         reading: typeof item2.reading === "string" ? item2.reading : "",
@@ -298882,15 +298929,15 @@ ${component.reading}`;
   }
   function parseContextSentences(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$3).map((item2) => ({
+    return raw.filter(isRecord$4).map((item2) => ({
       en: typeof item2.en === "string" ? item2.en : "",
       ja: typeof item2.ja === "string" ? item2.ja : ""
     })).filter((item2) => item2.en || item2.ja);
   }
   function parseAudio(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$3).map((item2) => {
-      const metadata2 = isRecord$3(item2.metadata) ? item2.metadata : {};
+    return raw.filter(isRecord$4).map((item2) => {
+      const metadata2 = isRecord$4(item2.metadata) ? item2.metadata : {};
       return {
         url: typeof item2.url === "string" ? item2.url : "",
         contentType: typeof item2.content_type === "string" ? item2.content_type : "",
@@ -298902,7 +298949,7 @@ ${component.reading}`;
       };
     }).filter((item2) => item2.url);
   }
-  function isRecord$3(value) {
+  function isRecord$4(value) {
     return typeof value === "object" && value !== null;
   }
   const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
@@ -299102,6 +299149,534 @@ ${component.reading}`;
       return false;
     }
   }
+  function noComponent(reason) {
+    return { availability: "none", reason };
+  }
+  function unsupportedCapabilities() {
+    return {
+      supported: false,
+      reason: "unsupported-target",
+      text: noComponent("unsupported-target"),
+      audio: noComponent("unsupported-target"),
+      image: noComponent("unsupported-target"),
+      corpus: "limited"
+    };
+  }
+  const IMMERSION_KIT_EXAMPLE_SOURCE_ID = "immersion-kit";
+  function immersionKitCapabilitiesFor(targetLanguage2) {
+    const base = targetLanguage2.trim().toLowerCase().split(/[-_]/u)[0];
+    if (base !== "ja") return unsupportedCapabilities();
+    return {
+      supported: true,
+      text: { availability: "available", scope: "sentence" },
+      audio: { availability: "available", scope: "sentence" },
+      // The one paired scene image in the product. No non-Japanese target has
+      // an equivalent; see `tatoeba.ts`.
+      image: { availability: "available", scope: "sentence" },
+      corpus: "ample"
+    };
+  }
+  function exampleSourceStateKey(sourceId2) {
+    return `definition-source:${sourceId2}:examples`;
+  }
+  function renderExampleSourceRow(options) {
+    const { collection, capabilities } = options;
+    const availability = collection.availability;
+    const status2 = statusChip(options);
+    const components2 = componentAttribute(capabilities);
+    const open = availability === "loaded";
+    return `
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-example-source-card"
+            data-example-source="${escapeHtml$2(options.sourceId)}"
+            data-availability="${availability}"
+            data-example-components="${escapeHtml$2(components2)}"
+            data-example-target="${escapeHtml$2(options.targetLanguage)}"
+            ${options.sourceAttributes(exampleSourceStateKey(options.sourceId), open)}>
+            <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
+                <span class="jpdb-reader-example-source">${escapeHtml$2(options.sourceName)}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count" data-example-status>${escapeHtml$2(status2)}</span>
+            </summary>
+            <div class="jpdb-reader-local-glossary">
+                ${renderRowBody(options)}
+            </div>
+        </details>
+    `;
+  }
+  function renderRowBody(options) {
+    const { collection } = options;
+    switch (collection.availability) {
+      case "unsupported":
+        return reasonBlock(options, "unsupported-target");
+      case "empty":
+        return [
+          reasonBlock(options, "no-results"),
+          options.capabilities.corpus === "limited" ? reasonBlock(options, "limited-corpus") : ""
+        ].join("");
+      case "unavailable":
+        return `${reasonBlock(options, collection.reason)}
+                <button class="jpdb-reader-btn" type="button" data-action="retry-example-source" data-example-source-id="${escapeHtml$2(options.sourceId)}">${escapeHtml$2(uiText(options.interfaceLanguage, "exampleSourceRetry"))}</button>`;
+      case "loaded":
+        return `
+                <ul class="jpdb-reader-jpdb-examples">${collection.items.map((record2) => renderExampleRecord(record2, options)).join("")}</ul>
+                ${mediaNotices(options, collection)}
+            `;
+    }
+  }
+  function statusChip(options) {
+    const { collection, interfaceLanguage } = options;
+    switch (collection.availability) {
+      case "loaded":
+        return String(collection.items.length);
+      case "empty":
+        return uiText(interfaceLanguage, "exampleSourceEmptyShort");
+      case "unsupported":
+        return uiText(interfaceLanguage, "exampleSourceUnsupportedShort");
+      case "unavailable":
+        return uiText(interfaceLanguage, "exampleSourceFailedShort");
+    }
+  }
+  function mediaNotices(options, collection) {
+    const notices = [];
+    const audio2 = options.capabilities.audio;
+    const playable = collection.items.some((record2) => record2.audio?.length);
+    if (audio2.availability === "none") {
+      notices.push(reasonBlock(options, "no-sentence-audio-source"));
+    } else if (!playable) {
+      notices.push(reasonBlock(options, "no-licensed-audio"));
+    } else if (audio2.availability === "per-item") {
+      notices.push(helpBlock("audio-per-item", uiText(options.interfaceLanguage, "exampleSourceAudioPerItem")));
+    }
+    if (options.capabilities.image.availability === "none") notices.push(reasonBlock(options, "no-image-source"));
+    return notices.join("");
+  }
+  function componentAttribute(capabilities) {
+    return ["text", "audio", "image"].filter((component) => capabilities[component].availability !== "none").join(",");
+  }
+  function reasonBlock(options, reason) {
+    return helpBlock(reason, reasonText(options, reason));
+  }
+  function helpBlock(reason, message) {
+    return `<p class="jpdb-reader-help" data-example-reason="${escapeHtml$2(reason)}">${escapeHtml$2(message)}</p>`;
+  }
+  function reasonText(options, reason) {
+    const language2 = options.interfaceLanguage;
+    switch (reason) {
+      case "unsupported-target":
+        return formatUiText(language2, "exampleSourceUnsupported", {
+          language: languageName(options.targetLanguage, language2)
+        });
+      case "limited-corpus":
+        return uiText(language2, "exampleSourceLimitedCorpus");
+      case "no-results":
+        return uiText(language2, "exampleSourceEmpty");
+      case "no-licensed-audio":
+        return uiText(language2, "exampleSourceNoLicensedAudio");
+      case "no-sentence-audio-source":
+        return formatUiText(language2, "exampleSourceNoSentenceAudio", {
+          language: languageName(options.targetLanguage, language2)
+        });
+      case "no-image-source":
+        return uiText(language2, "exampleSourceNoImage");
+      case "no-human-translation":
+        return formatUiText(language2, "exampleSourceNoTranslation", {
+          language: languageName(options.outputLanguage, language2)
+        });
+      case "auth":
+      case "network":
+      case "schema":
+        return uiText(language2, "exampleSourceFailed");
+    }
+  }
+  function languageName(tag, interfaceLanguage) {
+    const locale = resolveUiLanguage(interfaceLanguage);
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(tag) ?? tag;
+    } catch {
+      return tag;
+    }
+  }
+  function renderExampleRecord(record2, options) {
+    const audio2 = record2.audio?.[0];
+    return `
+        <li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml$2(record2.id)}">
+            <div class="jpdb-reader-jpdb-example-row${audio2 ? " has-audio" : ""}">
+                ${audio2 ? renderAudioButton(audio2.url, options.interfaceLanguage) : ""}
+                <div class="jpdb-reader-jpdb-example-text">
+                    <div class="jpdb-reader-example-sentence" lang="${escapeHtml$2(record2.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml$2(record2.text.value)}</div>
+                    ${renderTranslation(record2, options)}
+                    ${renderProvenance(record2, options)}
+                </div>
+            </div>
+        </li>
+    `;
+  }
+  function renderTranslation(record2, options) {
+    if (!record2.translation) return reasonBlock(options, "no-human-translation");
+    const blurred = options.blurTranslations ?? false;
+    return `<div class="jpdb-reader-example-translation"
+        lang="${escapeHtml$2(record2.translation.language)}"
+        dir="auto"
+        data-provider-example-translation
+        data-translation-provenance="${escapeHtml$2(record2.translation.provenance)}"
+        ${blurred ? 'data-provider-translation-blurred="true" role="button" tabindex="0" aria-label="' + escapeHtml$2(uiText(options.interfaceLanguage, "revealTranslation")) + '"' : ""}
+        >${escapeHtml$2(record2.translation.value)}</div>`;
+  }
+  function renderProvenance(record2, options) {
+    const marks = [];
+    if (record2.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
+    if (record2.translation && record2.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
+    const audioCredit = record2.audio?.[0];
+    return `<div class="jpdb-reader-example-provenance" data-example-provenance>
+        <a href="${escapeHtml$2(record2.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml$2(record2.source.attribution)}</a>
+        <span data-example-licence>${escapeHtml$2(record2.source.licence)}</span>
+        ${audioCredit ? `<span data-example-audio-licence>${escapeHtml$2(`${audioCredit.attribution} · ${audioCredit.licence.id}`)}</span>` : ""}
+        ${marks.map((mark) => `<span data-example-translation-mark>${escapeHtml$2(mark)}</span>`).join("")}
+    </div>`;
+  }
+  function renderAudioButton(url, interfaceLanguage) {
+    const label = uiText(interfaceLanguage, "exampleSourcePlayAudio");
+    return `<button class="jpdb-reader-icon-mini jpdb-reader-jpdb-example-audio" type="button" data-action="play-example-audio" data-example-audio-url="${escapeHtml$2(url)}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${speakerIcon()}</button>`;
+  }
+  const ALLOWED_LICENCE_FAMILIES = /* @__PURE__ */ new Map([
+    ["cc0", "https://creativecommons.org/publicdomain/zero/1.0/"],
+    ["by", "https://creativecommons.org/licenses/by/4.0/"],
+    ["by-fr", "https://creativecommons.org/licenses/by/2.0/fr/"],
+    ["by-sa", "https://creativecommons.org/licenses/by-sa/4.0/"],
+    ["public-domain", ""]
+  ]);
+  function decideMediaLicence(raw) {
+    const stated = typeof raw === "string" ? raw.trim() : "";
+    if (!stated) return { allowed: false, withheld: "missing-licence" };
+    const family = licenceFamily(stated);
+    const url = ALLOWED_LICENCE_FAMILIES.get(family);
+    if (url !== void 0) {
+      return { allowed: true, licence: { id: stated, commercialUse: true, derivatives: true, ...url ? { url } : {} } };
+    }
+    if (family.split("-").includes("nd")) return { allowed: false, withheld: "no-derivatives" };
+    if (family.split("-").includes("nc")) return { allowed: false, withheld: "non-commercial" };
+    return { allowed: false, withheld: "unknown-licence" };
+  }
+  function licenceFamily(value) {
+    return value.toLowerCase().replace(/creative\s+commons/gu, "cc").split(/[^a-z0-9]+/u).filter((part) => part && part !== "cc" && !/^\d/u.test(part)).join("-");
+  }
+  const TATOEBA_COVERAGE = Object.freeze({
+    sq: { codes: ["sqi"], sentenceAudioRows: 0, limitedCorpus: true },
+    grc: { codes: ["grc"], sentenceAudioRows: 0, limitedCorpus: true },
+    ar: { codes: ["ara"], sentenceAudioRows: 483 },
+    yue: { codes: ["yue"], sentenceAudioRows: 1784 },
+    zh: { codes: ["cmn"], sentenceAudioRows: 5827 },
+    da: { codes: ["dan"], sentenceAudioRows: 0 },
+    nl: { codes: ["nld"], sentenceAudioRows: 9038 },
+    en: { codes: ["eng"], sentenceAudioRows: 849774 },
+    fi: { codes: ["fin"], sentenceAudioRows: 4253 },
+    fr: { codes: ["fra"], sentenceAudioRows: 9833 },
+    de: { codes: ["deu"], sentenceAudioRows: 32938 },
+    el: { codes: ["ell"], sentenceAudioRows: 0 },
+    hu: { codes: ["hun"], sentenceAudioRows: 6914 },
+    id: { codes: ["ind"], sentenceAudioRows: 1754 },
+    it: { codes: ["ita"], sentenceAudioRows: 1591 },
+    km: { codes: ["khm"], sentenceAudioRows: 0, limitedCorpus: true },
+    ko: { codes: ["kor"], sentenceAudioRows: 0 },
+    lo: { codes: ["lao"], sentenceAudioRows: 0, limitedCorpus: true },
+    la: { codes: ["lat"], sentenceAudioRows: 1064, audioIsReconstruction: true },
+    mn: { codes: ["mon"], sentenceAudioRows: 0, limitedCorpus: true },
+    fa: { codes: ["pes"], sentenceAudioRows: 0 },
+    pl: { codes: ["pol"], sentenceAudioRows: 5618 },
+    pt: { codes: ["por"], sentenceAudioRows: 20957 },
+    ro: { codes: ["ron"], sentenceAudioRows: 52 },
+    ru: { codes: ["rus"], sentenceAudioRows: 10652 },
+    sh: { codes: ["srp", "hrv", "bos"], sentenceAudioRows: 0 },
+    es: { codes: ["spa"], sentenceAudioRows: 119430 },
+    sv: { codes: ["swe"], sentenceAudioRows: 206 },
+    tl: { codes: ["tgl"], sentenceAudioRows: 0 },
+    th: { codes: ["tha"], sentenceAudioRows: 722 },
+    tr: { codes: ["tur"], sentenceAudioRows: 1141 },
+    vi: { codes: ["vie"], sentenceAudioRows: 0 }
+  });
+  const TRANSLATION_ONLY_CODES = Object.freeze({
+    ja: "jpn",
+    he: "heb",
+    uk: "ukr",
+    cs: "ces",
+    nb: "nob",
+    no: "nob",
+    hi: "hin",
+    bn: "ben",
+    ta: "tam",
+    ur: "urd"
+  });
+  function tatoebaTranslationCode(outputLanguage) {
+    const base = outputLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
+    if (!base) return null;
+    const configured = TATOEBA_COVERAGE[base];
+    if (configured) return configured.codes[0] ?? null;
+    return TRANSLATION_ONLY_CODES[base] ?? null;
+  }
+  const TATOEBA_EXAMPLE_SOURCE_ID = "tatoeba";
+  const TATOEBA_API_BASE = "https://api.tatoeba.org/v1/sentences";
+  const TATOEBA_SENTENCE_URL = "https://tatoeba.org/en/sentences/show";
+  const DEFAULT_RESULT_LIMIT = 8;
+  const MAX_RESULT_LIMIT = 20;
+  const RATE_LIMIT_INITIAL_BACKOFF_MS = 3e4;
+  const RATE_LIMIT_MAX_BACKOFF_MS = 10 * 6e4;
+  function createTatoebaExampleSource(options = {}) {
+    const now = options.now ?? (() => Date.now());
+    let rateLimitedUntil = 0;
+    let backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
+    const fetchJson2 = options.fetchJson ?? ((url, signal) => requestJson$1(url, {
+      signal,
+      proxyUrl: options.proxyUrl,
+      timeoutMs: options.timeoutMs,
+      failureLabel: "Tatoeba examples",
+      // Tatoeba is a public read API. Sending credentials would only leak
+      // whatever cookie the learner happens to hold for the site.
+      anonymous: true
+    }));
+    return {
+      id: TATOEBA_EXAMPLE_SOURCE_ID,
+      name: "Tatoeba",
+      supports: (targetLanguage2) => tatoebaCapabilitiesFor(targetLanguage2),
+      async search(request2) {
+        const coverage = coverageFor(request2.targetLanguage);
+        const term = request2.term.trim();
+        if (!coverage || !term) return { availability: "unsupported", items: [] };
+        if (now() < rateLimitedUntil) return { availability: "unavailable", items: [], reason: "network" };
+        const limit = boundedLimit(request2.limit);
+        const urls = coverage.entry.codes.map((code) => searchUrl({
+          code,
+          term,
+          outputLanguage: request2.outputLanguage,
+          limit,
+          requestAudio: options.requestAudio ?? true
+        }));
+        const responses = await Promise.all(urls.map((url) => resolveResponse(url, request2.signal, fetchJson2)));
+        const failure = responses.find((response) => response.kind === "failure");
+        const payloads = responses.filter((response) => response.kind === "payload");
+        if (failure && !payloads.length) {
+          if (failure.reason === "rate-limit") {
+            rateLimitedUntil = now() + backoffMs;
+            backoffMs = Math.min(backoffMs * 2, RATE_LIMIT_MAX_BACKOFF_MS);
+            return { availability: "unavailable", items: [], reason: "network" };
+          }
+          return { availability: "unavailable", items: [], reason: failure.reason };
+        }
+        if (!failure) backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
+        const withheldMedia = [];
+        const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row2) => toExampleRecord(row2, coverage, request2.outputLanguage, withheldMedia)).filter((record2) => Boolean(record2)).slice(0, limit);
+        if (!items.length) return { availability: "empty", items: [] };
+        return withheldMedia.length ? { availability: "loaded", items, withheldMedia } : { availability: "loaded", items };
+      }
+    };
+  }
+  function tatoebaCapabilitiesFor(targetLanguage2) {
+    const coverage = coverageFor(targetLanguage2);
+    if (!coverage) return unsupportedCapabilities();
+    const { entry: entry2 } = coverage;
+    const hasSentenceAudio = entry2.sentenceAudioRows > 0;
+    return {
+      supported: true,
+      text: {
+        availability: "available",
+        scope: "sentence",
+        ...entry2.limitedCorpus ? { reason: "limited-corpus" } : {}
+      },
+      audio: hasSentenceAudio ? { availability: "per-item", scope: "sentence", reason: "no-licensed-audio" } : { availability: "none", scope: "sentence", reason: "no-sentence-audio-source" },
+      // No configured language has a general licensed sentence-paired image
+      // source. Commons can illustrate a concrete lemma after a semantic and
+      // per-file licence check, which is a different feature and is not wired.
+      image: noComponent("no-image-source"),
+      corpus: entry2.limitedCorpus ? "limited" : "ample",
+      sentenceAudioRows: entry2.sentenceAudioRows
+    };
+  }
+  function coverageFor(targetLanguage2) {
+    const base = targetLanguage2.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
+    const id2 = TATOEBA_LANGUAGE_ALIASES[base] ?? base;
+    const entry2 = TATOEBA_COVERAGE[id2];
+    return entry2 ? { id: id2, entry: entry2 } : null;
+  }
+  const TATOEBA_LANGUAGE_ALIASES = Object.freeze({
+    fil: "tl",
+    sr: "sh",
+    hr: "sh",
+    bs: "sh",
+    cmn: "zh",
+    pes: "fa",
+    prs: "fa",
+    nan: "zh"
+  });
+  function boundedLimit(limit) {
+    if (typeof limit !== "number" || !Number.isFinite(limit)) return DEFAULT_RESULT_LIMIT;
+    return Math.max(1, Math.min(MAX_RESULT_LIMIT, Math.trunc(limit)));
+  }
+  function searchUrl(params) {
+    const query = new URLSearchParams({
+      lang: params.code,
+      // Quoted so the corpus matches the written word instead of every
+      // sentence containing its letters.
+      q: `"${params.term}"`,
+      // `sort` is not optional: the API answers 400 without it.
+      sort: "relevance",
+      limit: String(params.limit)
+    });
+    const translation2 = tatoebaTranslationCode(params.outputLanguage);
+    if (translation2) query.set("trans:lang", translation2);
+    if (params.requestAudio) query.set("include", "audios");
+    return `${TATOEBA_API_BASE}?${query.toString()}`;
+  }
+  async function resolveResponse(url, signal, fetchJson2) {
+    try {
+      const payload = await fetchJson2(url, signal);
+      if (!isRecord$3(payload)) return { kind: "failure", reason: "schema" };
+      if (!Array.isArray(payload.data)) return { kind: "failure", reason: "schema" };
+      return { kind: "payload", payload };
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      return { kind: "failure", reason: failureReason(error) };
+    }
+  }
+  function failureReason(error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    if (/\b429\b|too many requests/iu.test(message)) return "rate-limit";
+    if (/\b40[13]\b|unauthori[sz]ed|forbidden/iu.test(message)) return "auth";
+    if (/\bjson\b|unexpected token|schema/iu.test(message)) return "schema";
+    return "network";
+  }
+  function sentenceRows(payload) {
+    if (!isRecord$3(payload) || !Array.isArray(payload.data)) return [];
+    return payload.data.filter(isRecord$3);
+  }
+  function toExampleRecord(row2, coverage, outputLanguage, withheldMedia) {
+    const value = text$2(row2.text);
+    const id2 = text$2(row2.id);
+    if (!value || !id2) return null;
+    const sentenceLicence = text$2(row2.license) || "CC BY 2.0 FR";
+    const owner = text$2(row2.owner);
+    const audio2 = licensedAudio(row2.audios, withheldMedia, coverage);
+    return {
+      id: `${TATOEBA_EXAMPLE_SOURCE_ID}:${id2}`,
+      text: {
+        value,
+        // The row's own `lang`, not the requested one: a Serbo-Croatian
+        // search returns Serbian, Croatian and Bosnian rows and each keeps
+        // the provenance it arrived with.
+        language: text$2(row2.lang) || coverage.entry.codes[0] || coverage.id,
+        ...text$2(row2.script) ? { script: text$2(row2.script) } : {}
+      },
+      ...translationOf(row2, outputLanguage) ?? {},
+      ...audio2.length ? { audio: audio2 } : {},
+      source: {
+        name: "Tatoeba",
+        url: `${TATOEBA_SENTENCE_URL}/${id2}`,
+        licence: sentenceLicence,
+        attribution: owner ? `Tatoeba — ${owner}` : "Tatoeba"
+      },
+      quality: {
+        // `is_unapproved` is Tatoeba's own doubt marker about the sentence.
+        reviewed: row2.is_unapproved !== true,
+        // Owner-contributed rows in the language's own corpus are normally
+        // native. A dead language is the exception, and it says so rather
+        // than borrowing a claim it cannot support.
+        nativeSpeaker: coverage.entry.audioIsReconstruction ? false : Boolean(owner),
+        ...coverage.entry.audioIsReconstruction ? { warnings: ["reconstructed-pronunciation"] } : {}
+      }
+    };
+  }
+  function translationOf(row2, outputLanguage) {
+    const wanted = tatoebaTranslationCode(outputLanguage);
+    const candidates = Array.isArray(row2.translations) ? row2.translations.filter(isRecord$3) : [];
+    const matches = candidates.filter((candidate2) => text$2(candidate2.text) && (!wanted || text$2(candidate2.lang) === wanted));
+    const chosen = matches.find((candidate2) => candidate2.is_direct === true) ?? matches[0];
+    if (!chosen) return null;
+    return {
+      translation: {
+        value: text$2(chosen.text),
+        language: text$2(chosen.lang) || wanted || outputLanguage,
+        provenance: "source",
+        direct: chosen.is_direct === true
+      }
+    };
+  }
+  function licensedAudio(raw, withheldMedia, coverage) {
+    if (!Array.isArray(raw)) return [];
+    const assets = [];
+    raw.filter(isRecord$3).forEach((record2) => {
+      const id2 = text$2(record2.id);
+      const decision = decideMediaLicence(record2.license);
+      if (!decision.allowed) {
+        withheldMedia.push({ kind: "audio", licence: text$2(record2.license) || "", reason: decision.withheld });
+        return;
+      }
+      if (!id2) return;
+      const author = text$2(record2.author);
+      assets.push({
+        kind: "audio",
+        // Never `term`: this file is a reading of the whole sentence.
+        scope: "sentence",
+        url: text$2(record2.download_url) || `https://api.tatoeba.org/v1/audio/${id2}/file`,
+        licence: decision.licence,
+        attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
+        // The attribution link the contributor asked for, not a homepage.
+        recordUrl: text$2(record2.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id2}`
+      });
+    });
+    return assets;
+  }
+  function isRecord$3(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+  function text$2(value) {
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    return "";
+  }
+  function isAbortError(error) {
+    return error instanceof Error && error.name === "AbortError";
+  }
+  const ADAPTERS = /* @__PURE__ */ new Map();
+  function registerExampleSource(adapter) {
+    ADAPTERS.set(adapter.id, adapter);
+    return adapter;
+  }
+  function declaredExampleCapabilities(targetLanguage2) {
+    return [
+      { sourceId: IMMERSION_KIT_EXAMPLE_SOURCE_ID, sourceName: "Immersion Kit", capabilities: immersionKitCapabilitiesFor(targetLanguage2) },
+      { sourceId: TATOEBA_EXAMPLE_SOURCE_ID, sourceName: "Tatoeba", capabilities: tatoebaCapabilitiesFor(targetLanguage2) }
+    ];
+  }
+  registerExampleSource(createTatoebaExampleSource());
+  function renderTargetExampleSourceMounts(settings, sourceAttributes) {
+    const targetLanguage2 = targetLanguageOf(settings);
+    const outputLanguage = outputLanguageOf(settings);
+    return declaredExampleCapabilities(targetLanguage2).map((row2) => {
+      if (!row2.capabilities.supported) {
+        return renderExampleSourceRow({
+          sourceId: row2.sourceId,
+          sourceName: row2.sourceName,
+          interfaceLanguage: settings.interfaceLanguage,
+          targetLanguage: targetLanguage2,
+          outputLanguage,
+          capabilities: row2.capabilities,
+          collection: { availability: "unsupported", items: [] },
+          sourceAttributes
+        });
+      }
+      return `
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-example-source-card"
+                data-example-source="${escapeHtml$2(row2.sourceId)}"
+                data-availability="pending"
+                data-example-target="${escapeHtml$2(targetLanguage2)}"
+                ${sourceAttributes(exampleSourceStateKey(row2.sourceId), false)}>
+                <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
+                    <span class="jpdb-reader-example-source">${escapeHtml$2(row2.sourceName)}</span>
+                </summary>
+                <div class="jpdb-reader-local-glossary">
+                    <p class="jpdb-reader-help">${escapeHtml$2(uiText(settings.interfaceLanguage, "loadingExamples"))}</p>
+                </div>
+            </details>
+        `;
+    }).join("");
+  }
   const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeBunproSource", "includeStudySources", "includeImmersionSource"];
   const CORE_DEFINITION_SOURCE_RENDERERS = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
@@ -299120,6 +299695,9 @@ ${component.reading}`;
   }
   function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
     if (!settings.immersionKitEnabled) return "";
+    if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
+      return renderTargetExampleSourceMounts(settings, sourceAttributes);
+    }
     const title2 = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>
@@ -299647,11 +300225,11 @@ ${component.reading}`;
     }
     searchSource(source2, query, settings, options) {
       return source2 === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError(error)) throw error;
+        if (isAbortError$1(error)) throw error;
         log$h.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
         log$h.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
@@ -299841,7 +300419,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$8(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$9(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text$1(record2.id);
@@ -299882,18 +300460,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$8(data) ? data : null;
+    return isRecord$9(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$8(includes) ? includes.media : void 0;
-    return isRecord$8(media) ? media : {};
+    const media = isRecord$9(includes) ? includes.media : void 0;
+    return isRecord$9(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$8(value)) return null;
+    if (!isRecord$9(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -299930,7 +300508,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$8(value) ? value : {};
+    return isRecord$9(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -299949,7 +300527,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$8(value) ? firstText(value, fields) : "";
+    return isRecord$9(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -300081,7 +300659,7 @@ ${component.reading}`;
       try {
         return await requestJsonCandidate(candidate2, timeoutMs, proxyUrl, signal, language2);
       } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -300106,7 +300684,7 @@ ${component.reading}`;
       statusFailureMessage: (status2) => formatUiText(language2, "immersionKitRequestFailedWithStatus", { status: status2 }),
       timeoutLabel: uiText(language2, "immersionKitRequestTimedOut")
     }).catch((error) => {
-      if (isAbortError(error)) throw error;
+      if (isAbortError$1(error)) throw error;
       if (isImmersionKitRateLimitError(error)) throw error;
       if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
         throw new Error(uiText(language2, "immersionKitSearchBlocked"));
@@ -301432,7 +302010,7 @@ ${component.reading}`;
       return true;
     }
     shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError(error) || !controller.signal.aborted) return false;
+      if (!isAbortError$1(error) || !controller.signal.aborted) return false;
       clearImmersionLoadingState(container);
       return true;
     }
@@ -301702,7 +302280,7 @@ ${component.reading}`;
                 handleAbort();
                 return;
               }
-              if (isAbortError(error)) {
+              if (isAbortError$1(error)) {
                 fail2(error);
                 return;
               }
@@ -301729,7 +302307,7 @@ ${component.reading}`;
         const examples = await this.options.client.search(query, settings, searchOptions);
         return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
       } catch (error) {
-        if (isAbortError(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
         return null;
       }
     }
@@ -302542,7 +303120,7 @@ ${component.reading}`;
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError(error)) throw new Error("JPDB request timed out.");
+      if (isAbortError$1(error)) throw new Error("JPDB request timed out.");
       throw error;
     } finally {
       window.clearTimeout(timeoutId);
@@ -307750,13 +308328,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$8(value)) return [];
+    if (!isRecord$9(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$8(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$9(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -307769,7 +308347,7 @@ ${entry2.url}`),
         minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord$8(value)) return null;
+    if (!isRecord$9(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -311174,14 +311752,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$8(value)) return [];
+    if (!isRecord$9(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$8(value)) return [];
+    if (!isRecord$9(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }

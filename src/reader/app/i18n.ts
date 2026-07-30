@@ -1101,6 +1101,25 @@ const COPY = {
         jitenCompositeWords: 'Composite words',
         usedInVocabulary: 'Used in vocabulary',
         exampleSentences: 'Example sentences',
+        // U46: every one of these is a state a learner can reach. They exist
+        // because an example source with nothing to show used to render nothing
+        // at all, so an unsupported language looked exactly like a broken one.
+        exampleSourceEmpty: 'No examples for this word yet.',
+        exampleSourceEmptyShort: 'None yet',
+        exampleSourceLimitedCorpus: 'This corpus is small, so many words have no example yet.',
+        exampleSourceUnsupported: 'This source has no {language} sentences.',
+        exampleSourceUnsupportedShort: 'Other languages',
+        exampleSourceFailed: 'Examples did not load.',
+        exampleSourceFailedShort: 'Not loaded',
+        exampleSourceRetry: 'Try again',
+        exampleSourceAudioPerItem: 'Audio plays where the recording is openly licensed.',
+        exampleSourceNoSentenceAudio: 'Open {language} sentence audio is not available yet.',
+        exampleSourceNoLicensedAudio: 'These sentences came without openly licensed audio.',
+        exampleSourceNoImage: 'Scene images are Japanese only for now.',
+        exampleSourceNoTranslation: 'No {language} translation yet.',
+        exampleSourceMachineTranslation: 'Machine translation',
+        exampleSourceIndirectTranslation: 'Translated via another language',
+        exampleSourcePlayAudio: 'Play sentence audio',
         acceptedInputs: 'Accepted inputs',
         relatedWords: 'Related words',
         bunproUsedInVocab: 'Used in',
@@ -1704,6 +1723,22 @@ loadingDictionaryDetails	辞書詳細を読み込み中...
 jitenCompositeWords	複合語
 usedInVocabulary	使われる単語
 exampleSentences	例文
+exampleSourceEmpty	この語の例文はまだありません。
+exampleSourceEmptyShort	例文なし
+exampleSourceLimitedCorpus	コーパスが小さいため、例文がまだない語もあります。
+exampleSourceUnsupported	この情報源に{language}の例文はありません。
+exampleSourceUnsupportedShort	他言語のみ
+exampleSourceFailed	例文を読み込めませんでした。
+exampleSourceFailedShort	読み込み失敗
+exampleSourceRetry	もう一度試す
+exampleSourceAudioPerItem	公開ライセンスの録音がある例文では音声を再生できます。
+exampleSourceNoSentenceAudio	{language}の文音声は公開ライセンスのものがまだありません。
+exampleSourceNoLicensedAudio	公開ライセンスの音声が付いていない例文です。
+exampleSourceNoImage	場面画像は今のところ日本語のみです。
+exampleSourceNoTranslation	{language}の訳はまだありません。
+exampleSourceMachineTranslation	機械翻訳
+exampleSourceIndirectTranslation	別の言語を経由した訳
+exampleSourcePlayAudio	例文の音声を再生
 acceptedInputs	入力として認められる表現
 relatedWords	関連語
 bunproUsedInVocab	使われている単語

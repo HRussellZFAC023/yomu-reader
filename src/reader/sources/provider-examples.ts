@@ -57,21 +57,48 @@ export function renderProviderExamples(
     language: InterfaceLanguage,
 ): string {
     const availability = collection.availability;
-    // A section with nothing to show does not earn a header: resolved-empty
-    // and failed-to-load collections render nothing at all instead of a
-    // count-0 shell or an "unavailable" placeholder row.
-    if (availability !== 'loaded' || !collection.items.length) return '';
+    // U46 reverses the hiding that used to live here.
+    //
+    // The old rule was that a section with nothing to show does not earn a
+    // header, so an empty or failed collection rendered the empty string. With
+    // one Japanese source that was tidy. Across 33 targets it makes "this source
+    // has no sentences in your language", "no sentences for this word", "the
+    // media is not licensed" and "the request failed" render identically — as
+    // nothing — and the learner cannot tell any of them from a broken build.
+    //
+    // Each state now stays in the DOM with its own `data-examples-availability`
+    // and a reason in the INTERFACE language. Only a genuinely absent collection
+    // renders nothing.
+    const items = availability === 'loaded' ? collection.items : [];
     return `
-        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey(`${sourceId}:examples`))}>
+        <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" data-example-provider="${provider}" data-examples-availability="${availability}" ${sourceAttributes(definitionSourceStateKey(`${sourceId}:examples`), items.length > 0)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
                 <span class="jpdb-reader-example-source">${escapeHtml(uiText(language, 'exampleSentences'))}</span>
-                <span class="jpdb-reader-source-status jpdb-reader-example-count">${collection.items.length}</span>
+                <span class="jpdb-reader-source-status jpdb-reader-example-count">${escapeHtml(providerExampleStatus(collection, language))}</span>
             </summary>
             <div class="jpdb-reader-local-glossary">
-                <ul class="jpdb-reader-jpdb-examples">${collection.items.map(example => renderProviderExample(example, language)).join('')}</ul>
+                ${items.length
+                    ? `<ul class="jpdb-reader-jpdb-examples">${items.map(example => renderProviderExample(example, language)).join('')}</ul>`
+                    : renderProviderExampleAvailabilityReason(collection, language)}
             </div>
         </details>
     `;
+}
+
+function providerExampleStatus(collection: ProviderCollection<ProviderExampleView>, language: InterfaceLanguage): string {
+    if (collection.availability === 'loaded' && collection.items.length) return String(collection.items.length);
+    // Never "0". A zero beside a source name reads as a defect; "None yet"
+    // reads as an answer.
+    return uiText(language, collection.availability === 'unavailable' ? 'exampleSourceFailedShort' : 'exampleSourceEmptyShort');
+}
+
+function renderProviderExampleAvailabilityReason(
+    collection: ProviderCollection<ProviderExampleView>,
+    language: InterfaceLanguage,
+): string {
+    const reason = collection.availability === 'unavailable' ? collection.reason : 'no-results';
+    const failed = collection.availability === 'unavailable';
+    return `<p class="jpdb-reader-help" data-example-reason="${escapeHtml(reason)}">${escapeHtml(uiText(language, failed ? 'exampleSourceFailed' : 'exampleSourceEmpty'))}</p>`;
 }
 
 function definitionSourceStateKey(sourceId: string): string {
@@ -103,7 +130,13 @@ export function installProviderExampleBehaviors(root: HTMLElement, options: Prov
         .forEach(translation => hydrateProviderTranslation(root, translation, options));
 }
 
-function installProviderTranslationReveal(root: HTMLElement): void {
+/**
+ * Click/Enter/Space reveal for a blurred translation. Exported because the U46
+ * example-source rows use the same `[data-provider-example-translation]`
+ * contract, and a second copy of this handler would be one more place for the
+ * keyboard path to rot.
+ */
+export function installProviderTranslationReveal(root: HTMLElement): void {
     if (root.dataset.providerExampleBehaviorsInstalled === 'true') return;
     root.dataset.providerExampleBehaviorsInstalled = 'true';
     root.addEventListener('click', event => {

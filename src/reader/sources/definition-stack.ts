@@ -14,6 +14,9 @@ import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import { yomuBunproCompanion } from '../companions/registry';
 import { renderWanikaniDefinitionMount } from '../wanikani/wanikani-source';
+import { immersionKitCapabilitiesFor } from './examples/immersion-kit';
+import { renderTargetExampleSourceMounts } from './examples/mount';
+import { targetLanguageOf } from '../languages/selection';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 type DictionaryLabel = (name: string) => string;
@@ -100,6 +103,14 @@ export function renderDictionarySetupNudge(language: InterfaceLanguage): string 
 
 export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     if (!settings.immersionKitEnabled) return '';
+    // U46: this mount used to appear for every TARGET, so a learner reading
+    // Spanish got a Japanese anime-subtitle search that could only come back
+    // empty. Ask the source whether it covers the target first; when it does
+    // not, the target's own example sources render instead, including a visible
+    // row for the ones that refuse it.
+    if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
+        return renderTargetExampleSourceMounts(settings, sourceAttributes);
+    }
     const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, 'immersionKit'));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>

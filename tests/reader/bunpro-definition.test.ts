@@ -480,17 +480,31 @@ describe('Bunpro example sentences', () => {
         const schema = await lookupBunproDefinition({ ...client, getVocab: async () => ({ data: {} }) } as unknown as BunproClient, card);
         expect(schema).toMatchObject({ examplesAvailability: 'unavailable', examples: [], examplesUnavailableReason: 'schema' });
 
-        // Empty and failed example collections render NO examples section at
-        // all — no count-0 header, no placeholder row (loaded sections keep
-        // rendering, asserted above via the 'loaded' info fixture).
+        // U46 reversed the hiding this used to assert. Empty and failed
+        // collections rendered nothing at all, which made "Bunpro has no
+        // examples for this word" and "Bunpro would not answer" identical to a
+        // broken build. Each state now renders, distinctly, with its own
+        // availability and reason.
         const loadedHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, info!, 'en');
-        expect(loadedHtml).toContain('jpdb-reader-jpdb-examples-group');
-        for (const [collection, language] of [[network, 'en'], [empty, 'en'], [network, 'ja']] as const) {
-            const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, collection!, language);
-            expect(html).not.toContain('jpdb-reader-jpdb-examples-group');
-            expect(html).not.toContain('Example sentences unavailable');
-            expect(html).not.toContain('No example sentences');
-            expect(html).not.toContain('例文を読み込めません');
+        expect(loadedHtml).toContain('data-examples-availability="loaded"');
+        expect(loadedHtml).not.toContain('data-example-reason');
+
+        const emptyHtml = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, empty!, 'en');
+        expect(emptyHtml).toContain('data-examples-availability="empty"');
+        expect(emptyHtml).toContain('data-example-reason="no-results"');
+        expect(emptyHtml).toContain('No examples for this word yet.');
+        // Never a count of zero beside the source name.
+        expect(emptyHtml).not.toMatch(/jpdb-reader-example-count">0</u);
+
+        for (const [collection, reason] of [[auth, 'auth'], [network, 'network'], [schema, 'schema']] as const) {
+            const html = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, collection!, 'en');
+            expect(html).toContain('data-examples-availability="unavailable"');
+            expect(html).toContain(`data-example-reason="${reason}"`);
+            expect(html).toContain('Examples did not load.');
         }
+
+        const japanese = renderBunproDefinitionSource(card, key => `data-source-state="${key}"`, network!, 'ja');
+        expect(japanese).toContain('例文を読み込めませんでした。');
+        expect(japanese).not.toContain('未翻訳');
     });
 });
