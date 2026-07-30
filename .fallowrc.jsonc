@@ -20,6 +20,9 @@
     "workers/yomu-academy/src/index.ts",
     "scripts/academy-baseline-inventory.mjs",
     "scripts/build-openapi.mjs",
+    // Release gate launched by package/run-check rather than imported by the
+    // application graph.
+    "scripts/check-userscript-weight.cjs",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
     "scripts/academy-account-lifecycle-live-proof.mjs",
@@ -104,6 +107,9 @@
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",
     "src/reader/companions/register-empty.ts",
+    // Vite names this companion entry through the Greasy Fork library
+    // manifest, so no source import points to it.
+    "src/reader/companions/runtime.ts",
     // Substituted for the real modules by vite alias in companion builds
     // (vite.config.ts greasyfork aliases) — invisible to the import graph.
     "src/reader/app/i18n-companion.ts",

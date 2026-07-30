@@ -25,7 +25,7 @@ export function pinnedArtifactPaths(header) {
     return pinned;
 }
 
-export function contentAddressedArtifacts(root) {
+function contentAddressedArtifacts(root) {
     const artifacts = [];
     const companionDirectory = join(root, 'docs', 'public', 'greasyfork');
     if (existsSync(companionDirectory)) {
@@ -42,7 +42,7 @@ export function contentAddressedArtifacts(root) {
     return artifacts.sort();
 }
 
-export function retainedArtifactPaths(root) {
+function retainedArtifactPaths(root) {
     if (isShallowRepository(root)) {
         const retained = retainedArtifactPathsFromManifest(root);
         for (const relativePath of ['dist/yomu.user.js', 'docs/public/yomu.user.js']) {

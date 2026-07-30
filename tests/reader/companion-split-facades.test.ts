@@ -248,7 +248,12 @@ describe('Greasy Fork split manifest', () => {
     it('removes only the generated IIFE wrapper indent from the injected runtime', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();
-        const built = readFileSync(path.join(repoRoot, 'dist', 'greasyfork', runtime!.fileName), 'utf8');
+        const hostedHeader = readFileSync(path.join(repoRoot, 'docs', 'public', 'yomu.user.js'), 'utf8');
+        const hostedRuntime = hostedHeader.match(
+            /^\/\/ @require\s+https:\/\/yomureader\.com\/greasyfork\/(yomu-runtime\.[0-9a-f]{12}\.user\.js)#/m,
+        )?.[1];
+        expect(hostedRuntime, 'the hosted userscript does not pin a hashed runtime').toBeDefined();
+        const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'greasyfork', hostedRuntime!), 'utf8');
         expect(built).toMatch(/^\(function\(\) \{\n"use strict";\nfunction /);
         expect(built).toContain('\n  return ');
     });
