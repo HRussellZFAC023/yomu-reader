@@ -130,7 +130,18 @@
     // Extension builds substitute these catalogue loaders through Vite aliases.
     // They are real browser entry seams, but no static import names them.
     "src/reader/dictionaries/catalog/runtime-catalog-extension-content.ts",
-    "src/reader/dictionaries/catalog/runtime-catalog-extension-page.ts"
+    "src/reader/dictionaries/catalog/runtime-catalog-extension-page.ts",
+    // Loaded through `createRequire(import.meta.url)(...)` from ESM callers, which
+    // is a string argument the import graph cannot follow. Both have real
+    // consumers, so this is a detector blind spot rather than a suppression:
+    //   favicon-ico.cjs      <- scripts/generate-favicons.mjs,
+    //                           tests/reader/technical-seo.test.ts
+    //   hosted-install-route <- docs/.vitepress/config.mts,
+    //                           tests/reader/install-link-contract.test.ts
+    // tests/reader/dead-code-config.test.ts checks these paths still exist, so a
+    // deleted file cannot keep an entry here the way bookwalker-canvas-probe did.
+    "scripts/lib/favicon-ico.cjs",
+    "scripts/lib/hosted-install-route.cjs"
   ],
   "usedClassMembers": [
     // AudioDirector consumes BrowserMediaBus through this interface, so static
