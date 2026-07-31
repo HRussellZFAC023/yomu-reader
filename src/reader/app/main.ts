@@ -9065,14 +9065,9 @@ export class ReaderApp {
                 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
                 if (fallback.source === 'fallback') this.rememberResolvedFallbackVocabulary(fallback, card);
                 this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
-                // Detail hydration can resolve reading/furigana while still
-                // carrying no pitch (浜面 is a real Jiten example). Keep that
-                // token in the pitch lane so the independent JPDB/local pitch
-                // fallback gets its turn instead of treating "card found" as
-                // "pitch found" and leaving the underline permanently blank.
-                if (this.settings.showPitchAccent
-                    && !cardHasContextPitch(card)
-                    && options.jpdbPublicLookup !== false) queuedTokens.push(token);
+                // Detail hydration can resolve reading without pitch (浜面); keep it in the
+                // independent pitch lane rather than treating "card found" as "pitch found".
+                if (this.shouldQueueResolvedPublicPitch(card, options.jpdbPublicLookup !== false)) queuedTokens.push(token);
                 this.queueSubtitleParsedHtmlRefresh(token.sentence);
             }
         }
@@ -9085,6 +9080,11 @@ export class ReaderApp {
             );
         }
         return queuedTokens;
+    }
+    private shouldQueueResolvedPublicPitch(card: JPDBCard, publicLookup: boolean): boolean {
+        return this.settings.showPitchAccent
+            && !cardHasContextPitch(card)
+            && publicLookup;
     }
 
     private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
