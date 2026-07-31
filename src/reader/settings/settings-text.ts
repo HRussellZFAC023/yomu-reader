@@ -1,6 +1,6 @@
 import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { activeLearningTargetLanguage, languageSubtag, SLICE1_TARGET_LANGUAGE } from '../languages';
-import { headwordLanguageName } from '../dictionaries/catalog-browse';
+import { headwordLanguageName } from '../languages/display-name';
 import type { InterfaceLanguage } from '../app/types';
 
 export type SettingsText = (key: Parameters<typeof uiText>[1]) => string;

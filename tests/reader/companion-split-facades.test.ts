@@ -297,6 +297,17 @@ describe('Greasy Fork split manifest', () => {
         expect(pronunciationSource).not.toContain("from '../languages/registry';");
     });
 
+    it('keeps core language labels detached from the frozen dictionary catalogue', () => {
+        for (const relativePath of [
+            'src/reader/settings/settings-text.ts',
+            'src/reader/app/visible-page-scanner.ts',
+        ]) {
+            const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
+            expect(source, relativePath).toContain("from '../languages/display-name';");
+            expect(source, relativePath).not.toContain('dictionaries/catalog-browse');
+        }
+    });
+
     it('removes only the generated IIFE wrapper indent from the injected runtime', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();

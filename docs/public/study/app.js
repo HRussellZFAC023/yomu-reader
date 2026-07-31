@@ -91978,6 +91978,19 @@ ${spelling}`);
     }
     return state2 === "blocked" ? { state: state2, reason: value ?? "Unavailable" } : { state: "source-only" };
   }
+  const LANGUAGE_ENDONYMS = Object.freeze({
+    ja: "日本語",
+    zh: "中文",
+    yue: "粵語",
+    lzh: "文言"
+  });
+  function headwordLanguageEndonym(language2) {
+    return LANGUAGE_ENDONYMS[language2] ?? language2;
+  }
+  function headwordLanguageName(language2, locale = "en") {
+    const display = languageDisplayName(language2, locale);
+    return display === language2 ? headwordLanguageEndonym(language2) : display;
+  }
   const CATEGORY_ORDER = [
     "terms",
     "names",
@@ -92028,19 +92041,6 @@ ${spelling}`);
       (total, group) => group.dictionaries.reduce((sum, dictionary) => sum + (dictionary.bytes ?? 0), total),
       0
     );
-  }
-  const HEADWORD_LANGUAGE_ENDONYMS = Object.freeze({
-    ja: "日本語",
-    zh: "中文",
-    yue: "粵語",
-    lzh: "文言"
-  });
-  function headwordLanguageEndonym(language2) {
-    return HEADWORD_LANGUAGE_ENDONYMS[language2] ?? language2;
-  }
-  function headwordLanguageName(language2, locale = "en") {
-    const display = languageDisplayName(language2, locale);
-    return display === language2 ? headwordLanguageEndonym(language2) : display;
   }
   function formatDictionaryBytes(bytes, locale = "en") {
     if (!Number.isFinite(bytes) || bytes <= 0) return "";

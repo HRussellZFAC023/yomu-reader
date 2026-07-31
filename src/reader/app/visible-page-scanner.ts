@@ -18,7 +18,7 @@ import {
 } from '../dom/index';
 import { formatUiText, resolveUiLanguage } from '../app/i18n';
 import { activeLearningTargetLanguage, languageSubtag } from '../languages';
-import { headwordLanguageName } from '../dictionaries/catalog-browse';
+import { headwordLanguageName } from '../languages/display-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';

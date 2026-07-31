@@ -9,6 +9,8 @@ import type { RecommendedDictionary, RecommendedDictionaryCategory } from './rec
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import { languageDisplayName } from '../languages/locale';
 
+export { headwordLanguageEndonym, headwordLanguageName } from '../languages/display-name';
+
 /**
  * Every archive Yomu mirrors is installable from Settings, not only the small
  * per-language recommendation seed. The seed answers "what should I install?";
@@ -145,33 +147,6 @@ export function catalogBrowseTotalBytes(groups: readonly CatalogBrowseGroup[]): 
         (total, group) => group.dictionaries.reduce((sum, dictionary) => sum + (dictionary.bytes ?? 0), total),
         0,
     );
-}
-
-/**
- * Endonyms for the headword languages the catalogue carries.
- *
- * ICU knows 'ja', 'zh', 'yue' and every living language in the Wiktionary-
- * derived shelves in practically every locale, but hands back the bare tag for
- * 'lzh' in several, and a heading reading "lzh" is not chrome any reader can
- * use. Falling back to the language's own name keeps the shelf readable without
- * dropping 31 learner languages into English. Only the tags ICU is weak on need
- * a row here.
- */
-const HEADWORD_LANGUAGE_ENDONYMS: Readonly<Record<string, string>> = Object.freeze({
-    ja: '日本語',
-    zh: '中文',
-    yue: '粵語',
-    lzh: '文言',
-});
-
-export function headwordLanguageEndonym(language: string): string {
-    return HEADWORD_LANGUAGE_ENDONYMS[language] ?? language;
-}
-
-/** The shelf heading: the language's name, in the language of the panel. */
-export function headwordLanguageName(language: string, locale = 'en'): string {
-    const display = languageDisplayName(language, locale);
-    return display === language ? headwordLanguageEndonym(language) : display;
 }
 
 export function formatDictionaryBytes(bytes: number, locale = 'en'): string {
