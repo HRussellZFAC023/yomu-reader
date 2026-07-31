@@ -1,6 +1,6 @@
 {
     "src/reader/app/main.ts": 10935,
-    "src/reader/newtab/controller.ts": 10854,
+    "src/reader/newtab/controller.ts": 10803,
     "src/reader/subtitles/controller.ts": 8558,
     "src/reader/dom/index.ts": 7944,
     "src/reader/ocr/controller.ts": 4961,

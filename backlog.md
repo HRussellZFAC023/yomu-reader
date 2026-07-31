@@ -2731,7 +2731,7 @@ These shipped and were verified; retained so the squad doesn't re-litigate them.
 
 ## Added 2026-07-03 (owner asks, session 5d668c75)
 
-- [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Account setup via computer use with the owner present for credentials. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
+- [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Engineering shipped in **[v1.8.57]**: the £10.20 checked-in forecast rounds only for display, local currency uses fresh FX plus `Intl.NumberFormat`, all five authenticated provider shapes aggregate, and unready links stay absent. Production activation remains owner-queued: apply support migrations `0005`–`0007`, deploy `yomu-support`, then configure Buy Me a Coffee, PayPal, and Patreon's campaign identifiers in a supervised session. No account or credential work was attempted. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
 - [ ] **P0 — Study flow: word meaning always in the draw-kanji prompt (＿み物 is ambiguous), progressive hints when unclear, and clean reintegration of the pitch-accent selection + shadow steps** (existed in older versions per codex logs, badly integrated). kotu.io-style pitch test remains the wishlist-adjacent north star.
 - [ ] **P1 — UserScript-Compiler generic UX/DX audit** (github.com/HRussellZFAC023/UserScript-Compiler): stays generic for any userscript; simple, intuitive, customizable; new-user walkthrough of README/CLI/config/templates.
 
@@ -2741,7 +2741,7 @@ These shipped and were verified; retained so the squad doesn't re-litigate them.
 Shipped 1.6.7-resurrection through 1.6.24 (twenty releases, each gated + verified). Cycles broken: Cycle 2 study merge (1.6.17/1.6.20), Cycle 3 factory-reset registry + invariant test (1.6.22). Extension made real + gated (1.6.17, smoke:extension-boot). Docs refreshed to shipped product (1.6.23). Mobile 44px floor (1.6.24).
 
 **Residuals owned by the owner (runbooks committed):**
-- [ ] Donations account setup — workers/yomu-support/PROVIDER-SETUP.md (Ko-fi/Patreon webhooks + secrets, BMAC/PayPal links, KV namespace, deploy). ~30 min supervised.
+- [ ] Donations production activation — follow `workers/yomu-support/PROVIDER-SETUP.md`: preflight Stripe receipt identities, apply migrations `0005`–`0007`, deploy the support Worker, then configure Buy Me a Coffee, PayPal, and Patreon's campaign identifiers with the owner present. ~30 min supervised.
 - [ ] Steam Deck hardware checklist — src/gaming/MANUAL-DECK-TEST.md (gamescope capture, Steam Input, AppImage launch, overlay top-layer). ~20 min on-device.
 - [ ] Real-iPhone spot checks — safe-area insets on bottom bars, Userscripts-app @require/SRI loading, doodle draw gesture (chromium emulation blind spots, from the 2026-07-03 mobile matrix).
 

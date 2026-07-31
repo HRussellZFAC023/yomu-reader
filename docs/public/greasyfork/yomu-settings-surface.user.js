@@ -9723,6 +9723,17 @@ const shared = [
   enabled: true
   },
   {
+  id: "youglish",
+  label: "YouGlish",
+  code: "youglish",
+  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+  components: [
+    "sentences",
+    "audio"
+  ],
+  enabled: true
+  },
+  {
   id: "reverso",
   label: "Reverso",
   code: "reverso",
@@ -9817,7 +9828,8 @@ const targets = {
     glosbe: "ar",
     tatoeba: "ara",
     forvo: "ar",
-    reverso: "arabic"
+    reverso: "arabic",
+    youglish: "arabic"
   },
   links: [
     {
@@ -9885,7 +9897,8 @@ const targets = {
     tatoeba: "cmn",
     forvo: "zh",
     reverso: "chinese",
-    linguee: "chinese"
+    linguee: "chinese",
+    youglish: "chinese"
   },
   links: [
     {
@@ -9948,7 +9961,8 @@ const targets = {
     forvo: "nl",
     reverso: "dutch",
     wordreference: "nlen",
-    linguee: "dutch"
+    linguee: "dutch",
+    youglish: "dutch"
   },
   links: [
     {
@@ -9974,7 +9988,8 @@ const targets = {
   codes: {
     wiktionaryEn: "English",
     tatoeba: "eng",
-    forvo: "en"
+    forvo: "en",
+    youglish: "english"
   },
   links: [
     {
@@ -10028,7 +10043,8 @@ const targets = {
     forvo: "fr",
     reverso: "french",
     wordreference: "fren",
-    linguee: "french"
+    linguee: "french",
+    youglish: "french"
   },
   links: [
     {
@@ -10060,7 +10076,8 @@ const targets = {
     tatoeba: "deu",
     forvo: "de",
     reverso: "german",
-    wordreference: "deen"
+    wordreference: "deen",
+    youglish: "german"
   },
   links: [
     {
@@ -10090,7 +10107,8 @@ const targets = {
     wiktionary: "el",
     glosbe: "el",
     tatoeba: "ell",
-    forvo: "el"
+    forvo: "el",
+    youglish: "greek"
   },
   links: [
     {
@@ -10130,7 +10148,8 @@ const targets = {
     wiktionary: "id",
     glosbe: "id",
     tatoeba: "ind",
-    forvo: "id"
+    forvo: "id",
+    youglish: "indonesian"
   },
   links: [
     {
@@ -10162,7 +10181,8 @@ const targets = {
     forvo: "it",
     reverso: "italian",
     wordreference: "iten",
-    linguee: "italian"
+    linguee: "italian",
+    youglish: "italian"
   },
   links: [
     {
@@ -10210,7 +10230,8 @@ const targets = {
     wiktionary: "ko",
     glosbe: "ko",
     tatoeba: "kor",
-    forvo: "ko"
+    forvo: "ko",
+    youglish: "korean"
   },
   links: [
     {
@@ -10339,7 +10360,8 @@ const targets = {
     wiktionary: "fa",
     glosbe: "fa",
     tatoeba: "pes",
-    forvo: "fa"
+    forvo: "fa",
+    youglish: "persian"
   },
   links: [
     {
@@ -10377,7 +10399,8 @@ const targets = {
     forvo: "pl",
     reverso: "polish",
     wordreference: "plen",
-    linguee: "polish"
+    linguee: "polish",
+    youglish: "polish"
   },
   links: [
     {
@@ -10399,7 +10422,8 @@ const targets = {
     forvo: "pt",
     reverso: "portuguese",
     wordreference: "pten",
-    linguee: "portuguese"
+    linguee: "portuguese",
+    youglish: "portuguese"
   },
   links: [
     {
@@ -10429,7 +10453,8 @@ const targets = {
     forvo: "ro",
     reverso: "romanian",
     wordreference: "roen",
-    linguee: "romanian"
+    linguee: "romanian",
+    youglish: "romanian"
   },
   links: [
     {
@@ -10450,7 +10475,8 @@ const targets = {
     glosbe: "ru",
     tatoeba: "rus",
     forvo: "ru",
-    reverso: "russian"
+    reverso: "russian",
+    youglish: "russian"
   },
   links: [
     {
@@ -10510,7 +10536,8 @@ const targets = {
     forvo: "es",
     reverso: "spanish",
     wordreference: "esen",
-    linguee: "spanish"
+    linguee: "spanish",
+    youglish: "spanish"
   },
   links: [
     {
@@ -10542,7 +10569,8 @@ const targets = {
     forvo: "sv",
     reverso: "swedish",
     wordreference: "sven",
-    linguee: "swedish"
+    linguee: "swedish",
+    youglish: "swedish"
   },
   links: [
     {
@@ -10596,7 +10624,8 @@ const targets = {
     wiktionary: "th",
     glosbe: "th",
     tatoeba: "tha",
-    forvo: "th"
+    forvo: "th",
+    youglish: "thai"
   },
   links: [
     {
@@ -10617,7 +10646,8 @@ const targets = {
     glosbe: "tr",
     tatoeba: "tur",
     forvo: "tr",
-    reverso: "turkish"
+    reverso: "turkish",
+    youglish: "turkish"
   },
   links: [
     {
@@ -10654,7 +10684,8 @@ const targets = {
     wiktionary: "vi",
     glosbe: "vi",
     tatoeba: "vie",
-    forvo: "vi"
+    forvo: "vi",
+    youglish: "vietnamese"
   },
   links: [
     {
@@ -13606,7 +13637,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.56".trim() ? "1.8.56".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.57".trim() ? "1.8.57".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

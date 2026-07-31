@@ -1,7 +1,7 @@
 interface CachedObjectUrl {
     expiresAt: number;
     promise: Promise<string>;
-    timeoutId?: number;
+    timeoutId?: ReturnType<typeof globalThis.setTimeout>;
     url?: string;
 }
 
@@ -31,7 +31,10 @@ export class ObjectUrlCache {
                 .then(createUrl)
                 .then(url => {
                     entry.url = url;
-                    entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
+                    // Vitest removes its jsdom `window` alias during teardown
+                    // while Node timers can still fire. Use the stable global
+                    // timer API in both callback paths.
+                    entry.timeoutId = globalThis.setTimeout(() => this.expire(key, entry), this.ttlMs);
                     return url;
                 })
                 .catch(error => {
@@ -57,7 +60,7 @@ export class ObjectUrlCache {
     private delete(key: string): void {
         const entry = this.entries.get(key);
         if (!entry) return;
-        if (entry.timeoutId !== undefined) window.clearTimeout(entry.timeoutId);
+        if (entry.timeoutId !== undefined) globalThis.clearTimeout(entry.timeoutId);
         this.entries.delete(key);
         if (entry.url !== undefined) this.revoke(entry.url);
     }

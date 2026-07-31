@@ -8499,7 +8499,7 @@ class ObjectUrlCache {
     expiresAt: now + this.ttlMs,
     promise: Promise.resolve().then(createUrl).then((url) => {
       entry.url = url;
-      entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
+      entry.timeoutId = globalThis.setTimeout(() => this.expire(key, entry), this.ttlMs);
       return url;
     }).catch((error) => {
       if (this.entries.get(key) === entry) this.entries.delete(key);
@@ -8521,7 +8521,7 @@ class ObjectUrlCache {
   delete(key) {
   const entry = this.entries.get(key);
   if (!entry) return;
-  if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
+  if (entry.timeoutId !== void 0) globalThis.clearTimeout(entry.timeoutId);
   this.entries.delete(key);
   if (entry.url !== void 0) this.revoke(entry.url);
   }

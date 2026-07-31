@@ -19,11 +19,13 @@ five-minute browser policy.
   `cache-control` 5 min.
 - `/progress` returns month-to-date received across providers:
   `{ month, totalThisMonthGbp, totalTodayGbp, needsRate, providers[] }`. After
-  migration `0005_support_provider_roster.sql` and the Worker are deployed,
+  migrations `0005` through `0007` and the Worker are deployed,
   Stripe, Ko-fi, Buy Me a Coffee, PayPal, and Patreon totals are derived from
   unique authenticated event rows in D1.
   `needsRate` counts current-month payments retained in their native currency
-  while a reporting-currency conversion is unavailable.
+  while a reporting-currency conversion is unavailable. The first later read
+  with a fresh rate locks the converted GBP amount and clears `needsRate`; later
+  rate changes or outages cannot rewrite that receipt.
 - `/status` combines goal + progress + a **localized display**. It accepts
   `?currency=XXX` or derives the currency from `request.cf.country` and the
   request locale, converts GBP using a daily-cached FX rate, and returns
@@ -44,11 +46,11 @@ five-minute browser policy.
   completing the first replaces the first tab's claim proof; finish one card
   donation before starting another.
 - `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records
-  the exact native amount and currency in D1. Public goal progress converts
-  supported native totals to an estimated GBP value using the cached daily FX
-  feed; missing FX never blocks Academy entitlement delivery. The verified
-  Checkout `customer_details.email` receives the code, while the existing
-  same-browser `/claim` route remains a fallback.
+  one exact native receipt per Checkout session in D1. GBP receipts are exact
+  immediately; foreign receipts stay pending until `/progress` can lock the
+  first fresh GBP conversion. FX availability never blocks Academy entitlement
+  delivery. The verified Checkout `customer_details.email` receives the code,
+  while the existing same-browser `/claim` route remains a fallback.
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token), recording
   each stable `message_id` exactly once before attempting Academy delivery. It
   uses Ko-fi's documented `kofi_transaction_id` for the entitlement and keeps
@@ -67,11 +69,18 @@ five-minute browser policy.
   body). The first verified active-membership event with positive lifetime
   support, a current paid entitlement, and a future membership boundary grants
   permanent Academy access. Free trials and future pledge amounts do not grant
-  access. Later decline/delete events are audited but never revoke that grant;
-  only current `members:pledge:create` receipts create unique support-income
-  rows in D1. Deprecated v1 `pledges:*` events are ignored. A verified member
-  email receives the code when Patreon includes it; otherwise the payment
-  enters owner-assisted delivery.
+  access. Later decline/delete events are audited but never revoke that grant.
+  A `members:create` snapshot establishes a cumulative-income baseline;
+  subsequent paid `members:update` snapshots add only the increase in
+  `campaign_lifetime_support_cents`. The high-water update and ledger delta are
+  one SQLite transaction, so retries and unrelated membership edits cannot
+  count the same income twice. Deprecated v1 `pledges:*` events are ignored. A
+  verified member email receives the code when Patreon includes it; otherwise
+  the payment enters owner-assisted delivery. Accounting starts from the first
+  authenticated snapshot after activation; an existing member's earlier
+  lifetime support is not imported. Patreon supplies one latest charge date,
+  so month attribution relies on its documented delivery/retry queue providing
+  each paid Member update.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
@@ -101,14 +110,18 @@ npx wrangler secret put PAYPAL_WEBHOOK_ID --config workers/yomu-support/wrangler
 npx wrangler secret put PATREON_WEBHOOK_SECRET --config workers/yomu-support/wrangler.jsonc
 ```
 
-Use a live-mode Stripe secret (`sk_live_...` or scoped `rk_live_...`) for `support.yomureader.com`.
-The Worker refuses known test-mode keys and test Payment Links on the production support host so donations do not redirect to Stripe sandbox Checkout.
+Use a live-mode Stripe secret (`sk_live_...` or scoped `rk_live_...`) for
+`support.yomureader.com`. The Worker refuses known test-mode keys and test
+Checkout sessions on both the custom domain and the public `workers.dev`
+fallback, so either production entry point stays on live Checkout.
 
 External provider buttons are emitted only when `SUPPORT_DB` is bound, every
-required secret for that provider is non-empty, and the configured page uses
-HTTPS on the provider's exact hostname or its `www` form. Accepted hosts are
+required provider setting is present and format-valid, and the configured page
+uses HTTPS on the provider's exact hostname or its `www` form. Accepted hosts are
 `ko-fi.com`, `buymeacoffee.com`, `paypal.me` or `paypal.com`, and
-`patreon.com`. Stripe is exposed only when live Checkout is ready.
+`patreon.com`. Patreon also requires its numeric campaign API id and a
+three-letter campaign currency. Stripe is exposed only when live Checkout is
+ready.
 
 Apply the D1 schema before turning on the webhook in Stripe:
 

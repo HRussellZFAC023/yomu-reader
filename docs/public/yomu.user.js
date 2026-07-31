@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.56
+// @version 1.8.57
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.1aa14dff788d.user.js#sha256=GqFN/3iN0DFhIBcc04sFOeH1tjWYzjWqZWIZmJjr9og=
+// @require https://yomureader.com/greasyfork/yomu-runtime.9cfd0b107d68.user.js#sha256=nP0LEH1oyO/Hf+p1Mv5VGrIHMw+jr1MYferWfG0Aqo4=
 // @resource yomuCss  https://yomureader.com/yomu.88868683e4f2.css#sha256=iIaGg+TyCOAVx1h0QDwGZPKe11+4raHOfVCFlM/uALM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -5277,6 +5277,17 @@ const shared = [
   enabled: true
   },
   {
+  id: "youglish",
+  label: "YouGlish",
+  code: "youglish",
+  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+  components: [
+    "sentences",
+    "audio"
+  ],
+  enabled: true
+  },
+  {
   id: "reverso",
   label: "Reverso",
   code: "reverso",
@@ -5371,7 +5382,8 @@ const targets = {
     glosbe: "ar",
     tatoeba: "ara",
     forvo: "ar",
-    reverso: "arabic"
+    reverso: "arabic",
+    youglish: "arabic"
   },
   links: [
     {
@@ -5439,7 +5451,8 @@ const targets = {
     tatoeba: "cmn",
     forvo: "zh",
     reverso: "chinese",
-    linguee: "chinese"
+    linguee: "chinese",
+    youglish: "chinese"
   },
   links: [
     {
@@ -5502,7 +5515,8 @@ const targets = {
     forvo: "nl",
     reverso: "dutch",
     wordreference: "nlen",
-    linguee: "dutch"
+    linguee: "dutch",
+    youglish: "dutch"
   },
   links: [
     {
@@ -5528,7 +5542,8 @@ const targets = {
   codes: {
     wiktionaryEn: "English",
     tatoeba: "eng",
-    forvo: "en"
+    forvo: "en",
+    youglish: "english"
   },
   links: [
     {
@@ -5582,7 +5597,8 @@ const targets = {
     forvo: "fr",
     reverso: "french",
     wordreference: "fren",
-    linguee: "french"
+    linguee: "french",
+    youglish: "french"
   },
   links: [
     {
@@ -5614,7 +5630,8 @@ const targets = {
     tatoeba: "deu",
     forvo: "de",
     reverso: "german",
-    wordreference: "deen"
+    wordreference: "deen",
+    youglish: "german"
   },
   links: [
     {
@@ -5644,7 +5661,8 @@ const targets = {
     wiktionary: "el",
     glosbe: "el",
     tatoeba: "ell",
-    forvo: "el"
+    forvo: "el",
+    youglish: "greek"
   },
   links: [
     {
@@ -5684,7 +5702,8 @@ const targets = {
     wiktionary: "id",
     glosbe: "id",
     tatoeba: "ind",
-    forvo: "id"
+    forvo: "id",
+    youglish: "indonesian"
   },
   links: [
     {
@@ -5716,7 +5735,8 @@ const targets = {
     forvo: "it",
     reverso: "italian",
     wordreference: "iten",
-    linguee: "italian"
+    linguee: "italian",
+    youglish: "italian"
   },
   links: [
     {
@@ -5764,7 +5784,8 @@ const targets = {
     wiktionary: "ko",
     glosbe: "ko",
     tatoeba: "kor",
-    forvo: "ko"
+    forvo: "ko",
+    youglish: "korean"
   },
   links: [
     {
@@ -5893,7 +5914,8 @@ const targets = {
     wiktionary: "fa",
     glosbe: "fa",
     tatoeba: "pes",
-    forvo: "fa"
+    forvo: "fa",
+    youglish: "persian"
   },
   links: [
     {
@@ -5931,7 +5953,8 @@ const targets = {
     forvo: "pl",
     reverso: "polish",
     wordreference: "plen",
-    linguee: "polish"
+    linguee: "polish",
+    youglish: "polish"
   },
   links: [
     {
@@ -5953,7 +5976,8 @@ const targets = {
     forvo: "pt",
     reverso: "portuguese",
     wordreference: "pten",
-    linguee: "portuguese"
+    linguee: "portuguese",
+    youglish: "portuguese"
   },
   links: [
     {
@@ -5983,7 +6007,8 @@ const targets = {
     forvo: "ro",
     reverso: "romanian",
     wordreference: "roen",
-    linguee: "romanian"
+    linguee: "romanian",
+    youglish: "romanian"
   },
   links: [
     {
@@ -6004,7 +6029,8 @@ const targets = {
     glosbe: "ru",
     tatoeba: "rus",
     forvo: "ru",
-    reverso: "russian"
+    reverso: "russian",
+    youglish: "russian"
   },
   links: [
     {
@@ -6064,7 +6090,8 @@ const targets = {
     forvo: "es",
     reverso: "spanish",
     wordreference: "esen",
-    linguee: "spanish"
+    linguee: "spanish",
+    youglish: "spanish"
   },
   links: [
     {
@@ -6096,7 +6123,8 @@ const targets = {
     forvo: "sv",
     reverso: "swedish",
     wordreference: "sven",
-    linguee: "swedish"
+    linguee: "swedish",
+    youglish: "swedish"
   },
   links: [
     {
@@ -6150,7 +6178,8 @@ const targets = {
     wiktionary: "th",
     glosbe: "th",
     tatoeba: "tha",
-    forvo: "th"
+    forvo: "th",
+    youglish: "thai"
   },
   links: [
     {
@@ -6171,7 +6200,8 @@ const targets = {
     glosbe: "tr",
     tatoeba: "tur",
     forvo: "tr",
-    reverso: "turkish"
+    reverso: "turkish",
+    youglish: "turkish"
   },
   links: [
     {
@@ -6208,7 +6238,8 @@ const targets = {
     wiktionary: "vi",
     glosbe: "vi",
     tatoeba: "vie",
-    forvo: "vi"
+    forvo: "vi",
+    youglish: "vietnamese"
   },
   links: [
     {
@@ -34361,8 +34392,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.56"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.56"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.57"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.57"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34505,7 +34536,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.56"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.57"}`;
   } catch {
   return null;
   }

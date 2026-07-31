@@ -39528,6 +39528,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       enabled: true
     },
     {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: true
+    },
+    {
       id: "reverso",
       label: "Reverso",
       code: "reverso",
@@ -39622,7 +39633,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "ar",
         tatoeba: "ara",
         forvo: "ar",
-        reverso: "arabic"
+        reverso: "arabic",
+        youglish: "arabic"
       },
       links: [
         {
@@ -39690,7 +39702,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         tatoeba: "cmn",
         forvo: "zh",
         reverso: "chinese",
-        linguee: "chinese"
+        linguee: "chinese",
+        youglish: "chinese"
       },
       links: [
         {
@@ -39753,7 +39766,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "nl",
         reverso: "dutch",
         wordreference: "nlen",
-        linguee: "dutch"
+        linguee: "dutch",
+        youglish: "dutch"
       },
       links: [
         {
@@ -39779,7 +39793,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       codes: {
         wiktionaryEn: "English",
         tatoeba: "eng",
-        forvo: "en"
+        forvo: "en",
+        youglish: "english"
       },
       links: [
         {
@@ -39833,7 +39848,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "fr",
         reverso: "french",
         wordreference: "fren",
-        linguee: "french"
+        linguee: "french",
+        youglish: "french"
       },
       links: [
         {
@@ -39865,7 +39881,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         tatoeba: "deu",
         forvo: "de",
         reverso: "german",
-        wordreference: "deen"
+        wordreference: "deen",
+        youglish: "german"
       },
       links: [
         {
@@ -39895,7 +39912,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "el",
         glosbe: "el",
         tatoeba: "ell",
-        forvo: "el"
+        forvo: "el",
+        youglish: "greek"
       },
       links: [
         {
@@ -39935,7 +39953,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "id",
         glosbe: "id",
         tatoeba: "ind",
-        forvo: "id"
+        forvo: "id",
+        youglish: "indonesian"
       },
       links: [
         {
@@ -39967,7 +39986,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "it",
         reverso: "italian",
         wordreference: "iten",
-        linguee: "italian"
+        linguee: "italian",
+        youglish: "italian"
       },
       links: [
         {
@@ -40015,7 +40035,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "ko",
         glosbe: "ko",
         tatoeba: "kor",
-        forvo: "ko"
+        forvo: "ko",
+        youglish: "korean"
       },
       links: [
         {
@@ -40144,7 +40165,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "fa",
         glosbe: "fa",
         tatoeba: "pes",
-        forvo: "fa"
+        forvo: "fa",
+        youglish: "persian"
       },
       links: [
         {
@@ -40182,7 +40204,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "pl",
         reverso: "polish",
         wordreference: "plen",
-        linguee: "polish"
+        linguee: "polish",
+        youglish: "polish"
       },
       links: [
         {
@@ -40204,7 +40227,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "pt",
         reverso: "portuguese",
         wordreference: "pten",
-        linguee: "portuguese"
+        linguee: "portuguese",
+        youglish: "portuguese"
       },
       links: [
         {
@@ -40234,7 +40258,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "ro",
         reverso: "romanian",
         wordreference: "roen",
-        linguee: "romanian"
+        linguee: "romanian",
+        youglish: "romanian"
       },
       links: [
         {
@@ -40255,7 +40280,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "ru",
         tatoeba: "rus",
         forvo: "ru",
-        reverso: "russian"
+        reverso: "russian",
+        youglish: "russian"
       },
       links: [
         {
@@ -40315,7 +40341,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "es",
         reverso: "spanish",
         wordreference: "esen",
-        linguee: "spanish"
+        linguee: "spanish",
+        youglish: "spanish"
       },
       links: [
         {
@@ -40347,7 +40374,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         forvo: "sv",
         reverso: "swedish",
         wordreference: "sven",
-        linguee: "swedish"
+        linguee: "swedish",
+        youglish: "swedish"
       },
       links: [
         {
@@ -40401,7 +40429,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "th",
         glosbe: "th",
         tatoeba: "tha",
-        forvo: "th"
+        forvo: "th",
+        youglish: "thai"
       },
       links: [
         {
@@ -40422,7 +40451,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         glosbe: "tr",
         tatoeba: "tur",
         forvo: "tr",
-        reverso: "turkish"
+        reverso: "turkish",
+        youglish: "turkish"
       },
       links: [
         {
@@ -40459,7 +40489,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         wiktionary: "vi",
         glosbe: "vi",
         tatoeba: "vie",
-        forvo: "vi"
+        forvo: "vi",
+        youglish: "vietnamese"
       },
       links: [
         {
@@ -276750,10 +276781,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       studyAudioAvailability: "{language} reviews add {modes} when word audio is available.",
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
-      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
-      supportBannerFunded: "Yomu's Ultimate Audio is funded for this month. Thank you.",
-      supportBannerCost: "Donation goal: {amount}/month",
-      supportBannerGoal: "This month: {current} / {goal}",
+      supportBannerMessage: "This month's support keeps fast word and shadowing audio running.",
+      supportBannerFunded: "This month's fast audio bill is covered. Thank you.",
+      supportBannerCost: "Monthly running costs: {amount}",
+      supportBannerGoal: "Received this month: {current} / {goal}",
+      supportBannerBreakdown: "What this covers",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
       listenPerceive: "Perceive",
@@ -277032,10 +277064,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     studyTourStart: "開始",
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
-    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
-    supportBannerFunded: "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。",
-    supportBannerCost: "寄付目標：月{amount}",
-    supportBannerGoal: "今月：{current} / {goal}",
+    supportBannerMessage: "今月のご支援で、単語・シャドーイング向けの高速音声を運営します。",
+    supportBannerFunded: "今月分の高速音声の運営費が集まりました。ありがとうございます。",
+    supportBannerCost: "月の運営費：{amount}",
+    supportBannerGoal: "今月のご支援：{current} / {goal}",
+    supportBannerBreakdown: "内訳",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
     listenPerceive: "聞き取り",
@@ -284814,7 +284847,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         expiresAt: now + this.ttlMs,
         promise: Promise.resolve().then(createUrl).then((url) => {
           entry2.url = url;
-          entry2.timeoutId = window.setTimeout(() => this.expire(key2, entry2), this.ttlMs);
+          entry2.timeoutId = globalThis.setTimeout(() => this.expire(key2, entry2), this.ttlMs);
           return url;
         }).catch((error) => {
           if (this.entries.get(key2) === entry2) this.entries.delete(key2);
@@ -284836,7 +284869,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     delete(key2) {
       const entry2 = this.entries.get(key2);
       if (!entry2) return;
-      if (entry2.timeoutId !== void 0) window.clearTimeout(entry2.timeoutId);
+      if (entry2.timeoutId !== void 0) globalThis.clearTimeout(entry2.timeoutId);
       this.entries.delete(key2);
       if (entry2.url !== void 0) this.revoke(entry2.url);
     }
@@ -309448,111 +309481,6 @@ ${newTabCardReading(card)}`;
       return false;
     }
   }
-  const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
-  const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
-  const SUPPORT_BANNER_VISIT_INTERVAL = 6;
-  const SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS = 14 * SUPPORT_BANNER_DAY_MS;
-  const SUPPORT_BANNER_DISMISS_MS = 30 * SUPPORT_BANNER_DAY_MS;
-  const supportBannerPageDecisions = /* @__PURE__ */ new Map();
-  function shouldShowSupportBannerImpression(options) {
-    const storage = supportBannerPolicyStorage(options.storage);
-    if (!storage) return false;
-    const key2 = supportBannerPageDecisionKey(options);
-    const existingDecision = supportBannerPageDecisions.get(key2);
-    if (existingDecision !== void 0) return existingDecision;
-    const now = policyNow(options);
-    const state = readSupportBannerPolicyState(storage, options.storageKey, options.version);
-    if (state.dismissedUntil > now) {
-      supportBannerPageDecisions.set(key2, false);
-      return false;
-    }
-    state.visits += 1;
-    const firstEligibleVisit = Math.max(0, Math.floor(options.firstQuietVisits ?? SUPPORT_BANNER_FIRST_QUIET_VISITS)) + 1;
-    state.nextEligibleVisit = Math.max(state.nextEligibleVisit, firstEligibleVisit);
-    const shouldShow = state.visits >= state.nextEligibleVisit && state.hiddenUntil <= now;
-    if (shouldShow) {
-      state.lastShownAt = now;
-      state.hiddenUntil = now + Math.max(0, options.impressionCooldownMs ?? SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS);
-      state.nextEligibleVisit = state.visits + Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
-    }
-    if (!writeSupportBannerPolicyState(storage, options.storageKey, state)) {
-      supportBannerPageDecisions.set(key2, false);
-      return false;
-    }
-    supportBannerPageDecisions.set(key2, shouldShow);
-    return shouldShow;
-  }
-  function rememberSupportBannerDismissal(options) {
-    const storage = supportBannerPolicyStorage(options.storage);
-    const key2 = supportBannerPageDecisionKey(options);
-    supportBannerPageDecisions.set(key2, false);
-    if (!storage) return;
-    const now = policyNow(options);
-    const state = readSupportBannerPolicyState(storage, options.storageKey, options.version);
-    const dismissMs = Math.max(0, options.dismissMs ?? SUPPORT_BANNER_DISMISS_MS);
-    const visitInterval = Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
-    state.dismissedUntil = now + dismissMs;
-    state.hiddenUntil = Math.max(state.hiddenUntil, state.dismissedUntil);
-    state.nextEligibleVisit = Math.max(state.nextEligibleVisit, state.visits + visitInterval);
-    writeSupportBannerPolicyState(storage, options.storageKey, state);
-  }
-  function supportBannerPolicyStorage(storage) {
-    if (storage !== void 0) return storage;
-    try {
-      return globalThis.localStorage ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function supportBannerPageDecisionKey(options) {
-    return `${options.storageKey}
-${options.version}`;
-  }
-  function policyNow(options) {
-    return typeof options.now === "number" && Number.isFinite(options.now) ? options.now : Date.now();
-  }
-  function readSupportBannerPolicyState(storage, storageKey, version2) {
-    try {
-      const raw = storage.getItem(storageKey);
-      if (!raw) return freshSupportBannerPolicyState(version2);
-      const parsed = JSON.parse(raw);
-      if (!parsed || parsed.version !== version2) return freshSupportBannerPolicyState(version2);
-      return {
-        version: version2,
-        visits: nonNegativeInteger$1(parsed.visits),
-        nextEligibleVisit: nonNegativeInteger$1(parsed.nextEligibleVisit),
-        hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
-        dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
-        lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
-      };
-    } catch {
-      return freshSupportBannerPolicyState(version2);
-    }
-  }
-  function writeSupportBannerPolicyState(storage, storageKey, state) {
-    try {
-      storage.setItem(storageKey, JSON.stringify(state));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function freshSupportBannerPolicyState(version2) {
-    return {
-      version: version2,
-      visits: 0,
-      nextEligibleVisit: 0,
-      hiddenUntil: 0,
-      dismissedUntil: 0,
-      lastShownAt: 0
-    };
-  }
-  function nonNegativeInteger$1(value) {
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
-  }
-  function nonNegativeTimestamp(value) {
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
-  }
   function pointerPointFromEvent(event) {
     const point = { x: event.clientX, y: event.clientY };
     return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
@@ -314975,6 +314903,172 @@ ${entry2.url}`),
     const day = String(now.getDate()).padStart(2, "0");
     return `${now.getFullYear()}-${month}-${day}`;
   }
+  const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
+  const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
+  const SUPPORT_BANNER_VISIT_INTERVAL = 6;
+  const SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS = 14 * SUPPORT_BANNER_DAY_MS;
+  const SUPPORT_BANNER_DISMISS_MS = 30 * SUPPORT_BANNER_DAY_MS;
+  const supportBannerPageDecisions = /* @__PURE__ */ new Map();
+  function shouldShowSupportBannerImpression(options) {
+    const storage = supportBannerPolicyStorage(options.storage);
+    if (!storage) return false;
+    const key2 = supportBannerPageDecisionKey(options);
+    const existingDecision = supportBannerPageDecisions.get(key2);
+    if (existingDecision !== void 0) return existingDecision;
+    const now = policyNow(options);
+    const state = readSupportBannerPolicyState(storage, options.storageKey, options.version);
+    if (state.dismissedUntil > now) {
+      supportBannerPageDecisions.set(key2, false);
+      return false;
+    }
+    state.visits += 1;
+    const firstEligibleVisit = Math.max(0, Math.floor(options.firstQuietVisits ?? SUPPORT_BANNER_FIRST_QUIET_VISITS)) + 1;
+    state.nextEligibleVisit = Math.max(state.nextEligibleVisit, firstEligibleVisit);
+    const shouldShow = state.visits >= state.nextEligibleVisit && state.hiddenUntil <= now;
+    if (shouldShow) {
+      state.lastShownAt = now;
+      state.hiddenUntil = now + Math.max(0, options.impressionCooldownMs ?? SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS);
+      state.nextEligibleVisit = state.visits + Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    }
+    if (!writeSupportBannerPolicyState(storage, options.storageKey, state)) {
+      supportBannerPageDecisions.set(key2, false);
+      return false;
+    }
+    supportBannerPageDecisions.set(key2, shouldShow);
+    return shouldShow;
+  }
+  function rememberSupportBannerDismissal(options) {
+    const storage = supportBannerPolicyStorage(options.storage);
+    const key2 = supportBannerPageDecisionKey(options);
+    supportBannerPageDecisions.set(key2, false);
+    if (!storage) return;
+    const now = policyNow(options);
+    const state = readSupportBannerPolicyState(storage, options.storageKey, options.version);
+    const dismissMs = Math.max(0, options.dismissMs ?? SUPPORT_BANNER_DISMISS_MS);
+    const visitInterval = Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    state.dismissedUntil = now + dismissMs;
+    state.hiddenUntil = Math.max(state.hiddenUntil, state.dismissedUntil);
+    state.nextEligibleVisit = Math.max(state.nextEligibleVisit, state.visits + visitInterval);
+    writeSupportBannerPolicyState(storage, options.storageKey, state);
+  }
+  function supportBannerPolicyStorage(storage) {
+    if (storage !== void 0) return storage;
+    try {
+      return globalThis.localStorage ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function supportBannerPageDecisionKey(options) {
+    return `${options.storageKey}
+${options.version}`;
+  }
+  function policyNow(options) {
+    return typeof options.now === "number" && Number.isFinite(options.now) ? options.now : Date.now();
+  }
+  function readSupportBannerPolicyState(storage, storageKey, version2) {
+    try {
+      const raw = storage.getItem(storageKey);
+      if (!raw) return freshSupportBannerPolicyState(version2);
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== version2) return freshSupportBannerPolicyState(version2);
+      return {
+        version: version2,
+        visits: nonNegativeInteger$1(parsed.visits),
+        nextEligibleVisit: nonNegativeInteger$1(parsed.nextEligibleVisit),
+        hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
+        dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
+        lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
+      };
+    } catch {
+      return freshSupportBannerPolicyState(version2);
+    }
+  }
+  function writeSupportBannerPolicyState(storage, storageKey, state) {
+    try {
+      storage.setItem(storageKey, JSON.stringify(state));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function freshSupportBannerPolicyState(version2) {
+    return {
+      version: version2,
+      visits: 0,
+      nextEligibleVisit: 0,
+      hiddenUntil: 0,
+      dismissedUntil: 0,
+      lastShownAt: 0
+    };
+  }
+  function nonNegativeInteger$1(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+  function nonNegativeTimestamp(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+  }
+  const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
+  function newTabSupportMeta(status2, language2) {
+    const goalValue = status2.display?.goal ?? status2.donationGoalGbp ?? status2.estimatedMonthlyCostGbp;
+    const goalText = status2.display?.goalText || (typeof goalValue === "number" && Number.isFinite(goalValue) ? formatNewTabSupportCurrency(goalValue, status2.display?.currency ?? "GBP") : "");
+    const amountText = status2.display?.amountText || formatNewTabSupportCurrency(
+      status2.display?.amount ?? status2.donationsThisMonthGbp ?? status2.donationsTodayGbp ?? 0,
+      status2.display?.currency ?? "GBP"
+    );
+    const cost = newTabText(language2, "supportBannerCost").replace("{amount}", goalText);
+    const goal = newTabText(language2, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
+    return `${cost} · ${goal}`;
+  }
+  function newTabReadySupportProviders(status2) {
+    return (status2.providers ?? []).flatMap((provider) => {
+      if (!provider?.enabled) return [];
+      const url = safeNewTabSupportUrl(provider.url);
+      return url ? [{ ...provider, url }] : [];
+    });
+  }
+  function newTabSupportGoalAvailable(status2) {
+    if (typeof status2.display?.goalText === "string" && status2.display.goalText.trim()) return true;
+    if (typeof status2.display?.goal === "number" && Number.isFinite(status2.display.goal)) return true;
+    return [status2.donationGoalGbp, status2.estimatedMonthlyCostGbp].some((value) => typeof value === "number" && Number.isFinite(value));
+  }
+  function newTabSupportDismissVersion(status2) {
+    return status2.banner?.dismissVersion || "ultimate-audio-monthly-v1";
+  }
+  function shouldShowNewTabSupportBannerImpression(version2) {
+    return shouldShowSupportBannerImpression({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version: version2
+    });
+  }
+  function rememberNewTabSupportBannerDismissal(version2) {
+    rememberSupportBannerDismissal({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version: version2
+    });
+  }
+  function safeNewTabSupportUrl(candidate2) {
+    if (!candidate2) return null;
+    try {
+      const url = new URL(candidate2);
+      return url.protocol === "https:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function formatNewTabSupportCurrency(value, currency) {
+    const rounded = Math.round(value);
+    try {
+      return new Intl.NumberFormat(navigator.language || "en-GB", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(rounded);
+    } catch {
+      return `${rounded} ${currency}`;
+    }
+  }
   const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
@@ -316300,7 +316394,6 @@ ${entry2.url}`),
     recall: "recall-cloze",
     kanji: "kanji-doodle:0"
   };
-  const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
   function isNewTabRouteName(value) {
     return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
   }
@@ -316327,40 +316420,6 @@ ${entry2.url}`),
       if (value) return value;
     }
     return "";
-  }
-  function newTabSupportMeta(status2, language2) {
-    const goalText = status2.display?.goalText || formatNewTabSupportGbp(status2.donationGoalGbp ?? Math.max(status2.estimatedMonthlyCostGbp ?? 10, 10));
-    const amountText = status2.display?.amountText || formatNewTabSupportGbp(status2.donationsThisMonthGbp ?? status2.donationsTodayGbp ?? 0);
-    const cost = newTabText(language2, "supportBannerCost").replace("{amount}", goalText);
-    const goal = newTabText(language2, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
-    return `${cost} · ${goal}`;
-  }
-  function newTabSupportDonateUrl(status2) {
-    const candidate2 = status2.banner?.donateUrl || status2.donateUrl || DONATE_URL;
-    try {
-      const url = new URL(candidate2);
-      return url.protocol === "https:" ? url.href : DONATE_URL;
-    } catch {
-      return DONATE_URL;
-    }
-  }
-  function newTabSupportDismissVersion(status2) {
-    return status2.banner?.dismissVersion || "ultimate-audio-monthly-v1";
-  }
-  function shouldShowNewTabSupportBannerImpression(version2) {
-    return shouldShowSupportBannerImpression({
-      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-      version: version2
-    });
-  }
-  function rememberNewTabSupportBannerDismissal(version2) {
-    rememberSupportBannerDismissal({
-      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-      version: version2
-    });
-  }
-  function formatNewTabSupportGbp(value) {
-    return `£${Math.round(value)}`;
   }
   class NewTabController {
     constructor(dependencies, options = {}) {
@@ -317563,27 +317622,35 @@ ${entry2.url}`),
     }
     shouldShowSupportBanner(status2) {
       if (status2.banner?.enabled === false) return false;
+      if (newTabReadySupportProviders(status2).length === 0) return false;
+      if (!newTabSupportGoalAvailable(status2)) return false;
       return shouldShowNewTabSupportBannerImpression(newTabSupportDismissVersion(status2));
     }
     renderSupportBanner(banner, status2) {
       const version2 = newTabSupportDismissVersion(status2);
+      const providers = newTabReadySupportProviders(status2);
       banner.dataset.supportDismissVersion = version2;
       banner.replaceChildren(
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
           el("strong", {}, this.text(status2.goalMet ? "supportBannerFunded" : "supportBannerMessage")),
-          el("span", {}, newTabSupportMeta(status2, this.language()))
+          el("span", {}, newTabSupportMeta(status2, this.language())),
+          el("a", {
+            class: "jpdb-reader-newtab-support-breakdown",
+            href: new URL("/support#monthly-running-costs", DOCS_BASE_URL).href
+          }, this.text("supportBannerBreakdown"))
         ),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-actions" },
-          el("a", {
+          ...providers.map((provider) => el("a", {
             class: "jpdb-reader-newtab-support-donate",
-            href: newTabSupportDonateUrl(status2),
+            dataset: { supportProvider: provider.id ?? "" },
+            href: provider.url,
             target: "_blank",
             rel: "noopener"
-          }, this.text("donate")),
+          }, provider.id === "stripe" ? this.text("donate") : provider.label || provider.id || this.text("donate"))),
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",

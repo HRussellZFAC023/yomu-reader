@@ -37,7 +37,11 @@
     "SUPPORT_PROVIDER_KOFI_URL": "https://ko-fi.com/yomureader",
     "SUPPORT_PROVIDER_BMAC_URL": "",
     "SUPPORT_PROVIDER_PAYPAL_URL": "",
-    "SUPPORT_PROVIDER_PATREON_URL": "https://patreon.com/yomureader"
+    "SUPPORT_PROVIDER_PATREON_URL": "https://patreon.com/yomureader",
+    // Patreon Member webhooks report cumulative income in the campaign's
+    // currency rather than carrying a transaction currency per event.
+    "PATREON_CAMPAIGN_ID": "",
+    "PATREON_CAMPAIGN_CURRENCY": "GBP"
   },
   "observability": {
     "enabled": true,

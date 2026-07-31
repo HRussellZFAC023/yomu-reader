@@ -146,6 +146,39 @@ describe("Yomu support Worker", () => {
     expect(body.display).toMatchObject({ amountText: "£15", goalText: "£10" });
   });
 
+  it("keeps the exact forecast threshold when rounded GBP labels look equal", async () => {
+    const below = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "10" },
+      { waitUntil: vi.fn() },
+    );
+    const covered = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "10.2" },
+      { waitUntil: vi.fn() },
+    );
+    const belowBody = await below.json() as {
+      goalMet: boolean;
+      progressRatio: number;
+      display: { amountText: string; goalText: string };
+      banner: { message: string };
+    };
+    const coveredBody = await covered.json() as typeof belowBody;
+
+    expect(belowBody).toMatchObject({
+      goalMet: false,
+      progressRatio: 0.98,
+      display: { amountText: "£10", goalText: "£10" },
+    });
+    expect(belowBody.banner.message).not.toContain("covered");
+    expect(coveredBody).toMatchObject({
+      goalMet: true,
+      progressRatio: 1,
+      display: { amountText: "£10", goalText: "£10" },
+    });
+    expect(coveredBody.banner.message).toContain("covered");
+  });
+
   it("aggregates month-to-date progress across unique provider events", async () => {
     const day = `${monthKey()}-01`;
     const db = mockSupportDb([
@@ -208,7 +241,7 @@ describe("Yomu support Worker", () => {
     await expect(second.json()).resolves.toMatchObject({ totalThisMonthGbp: 17 });
   });
 
-  it("converts native Stripe totals to estimated GBP without rewriting the native ledger", async () => {
+  it("locks the first Stripe GBP conversion without rewriting the native receipt", async () => {
     const day = `${monthKey()}-01`;
     const db = mockSupportDb([
       stripeDonationRow("stripe-gbp", day, 500, "gbp"),
@@ -219,21 +252,53 @@ describe("Yomu support Worker", () => {
       "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 2, JPY: 200 } }),
     });
 
-    const response = await SupportWorker.fetch(
+    const first = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/progress"),
       { SUPPORT_DB: db, SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
-    const body = await response.json() as {
+    const firstBody = await first.json() as {
       totalThisMonthGbp: number;
+      needsRate: number;
       providers: Array<{ provider: string; monthGbp: number }>;
     };
+    kv.store["fx:GBP:latest"] = JSON.stringify({
+      base: "GBP",
+      date: freshFxDate(),
+      rates: { USD: 4, JPY: 100 },
+    });
+    const changedRate = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
+      { waitUntil: vi.fn() },
+    );
+    delete kv.store["fx:GBP:latest"];
+    const laterOutage = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
+      { waitUntil: vi.fn() },
+    );
 
-    expect(body.totalThisMonthGbp).toBe(17);
-    expect(body.providers.find(provider => provider.provider === "stripe")?.monthGbp).toBe(17);
+    expect(firstBody.totalThisMonthGbp).toBe(17);
+    expect(firstBody.needsRate).toBe(0);
+    expect(firstBody.providers.find(provider => provider.provider === "stripe")?.monthGbp).toBe(17);
+    await expect(changedRate.json()).resolves.toMatchObject({ totalThisMonthGbp: 17, needsRate: 0 });
+    await expect(laterOutage.json()).resolves.toMatchObject({ totalThisMonthGbp: 17, needsRate: 0 });
     expect(db.rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: "stripe-usd", amountMinor: 1400, currency: "usd" }),
-      expect.objectContaining({ id: "stripe-jpy", amountMinor: 1000, currency: "jpy" }),
+      expect.objectContaining({
+        id: "stripe-usd",
+        amountMinor: 1400,
+        currency: "usd",
+        baseAmountMinor: 700,
+        needsRate: false,
+      }),
+      expect.objectContaining({
+        id: "stripe-jpy",
+        amountMinor: 1000,
+        currency: "jpy",
+        baseAmountMinor: 500,
+        needsRate: false,
+      }),
     ]));
   });
 
@@ -242,6 +307,8 @@ describe("Yomu support Worker", () => {
     const db = mockSupportDb([
       stripeDonationRow("live-gbp", day, 500, "gbp"),
       { ...stripeDonationRow("test-gbp", day, 1000, "gbp"), stripeSessionId: "cs_test_historical_probe" },
+      { ...stripeDonationRow("wildcard-gbp", day, 1500, "gbp"), stripeSessionId: "csXliveYhistorical" },
+      { ...stripeDonationRow("uppercase-gbp", day, 2000, "gbp"), stripeSessionId: "CS_LIVE_HISTORICAL" },
     ]);
 
     const response = await SupportWorker.fetch(
@@ -256,6 +323,53 @@ describe("Yomu support Worker", () => {
     });
   });
 
+  it("keeps a Stripe receipt pending when an implausible FX rate would round it to zero", async () => {
+    const day = `${monthKey()}-01`;
+    const db = mockSupportDb([
+      stripeDonationRow("usd-zero-rate", day, 700, "usd"),
+    ]);
+    const env = {
+      SUPPORT_DB: db,
+      SUPPORT_KV: mockKv({
+        "fx:GBP:latest": JSON.stringify({
+          base: "GBP",
+          date: freshFxDate(),
+          rates: { USD: 1e308 },
+        }),
+      }),
+    };
+
+    const pending = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+
+    await expect(pending.json()).resolves.toMatchObject({
+      totalThisMonthGbp: 0,
+      needsRate: 1,
+    });
+    expect(db.rows[0]).toMatchObject({ baseAmountMinor: 0, needsRate: true });
+
+    env.SUPPORT_KV = mockKv({
+      "fx:GBP:latest": JSON.stringify({
+        base: "GBP",
+        date: freshFxDate(),
+        rates: { USD: 2 },
+      }),
+    });
+    const recovered = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    await expect(recovered.json()).resolves.toMatchObject({
+      totalThisMonthGbp: 3.5,
+      needsRate: 0,
+    });
+    expect(db.rows[0]).toMatchObject({ baseAmountMinor: 350, needsRate: false });
+  });
+
   it("omits only foreign totals with no FX rate and never fetches FX for GBP-only progress", async () => {
     const day = `${monthKey()}-01`;
     const fetchMock = vi.fn();
@@ -268,21 +382,47 @@ describe("Yomu support Worker", () => {
     await expect(gbpOnly.json()).resolves.toMatchObject({ totalThisMonthGbp: 5 });
     expect(fetchMock).not.toHaveBeenCalled();
 
+    const db = mockSupportDb([
+      stripeDonationRow("gbp", day, 500, "gbp"),
+      stripeDonationRow("usd", day, 1400, "usd"),
+      stripeDonationRow("cad-no-rate", day, 1000, "cad"),
+    ]);
+    const kv = mockKv({
+      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 2 } }),
+    });
     const partial = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/progress"),
-      {
-        SUPPORT_DB: mockSupportDb([
-          stripeDonationRow("gbp", day, 500, "gbp"),
-          stripeDonationRow("usd", day, 1400, "usd"),
-          stripeDonationRow("cad-no-rate", day, 1000, "cad"),
-        ]),
-        SUPPORT_KV: mockKv({
-          "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 2 } }),
-        }),
-      },
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
-    await expect(partial.json()).resolves.toMatchObject({ totalThisMonthGbp: 12 });
+    await expect(partial.json()).resolves.toMatchObject({ totalThisMonthGbp: 12, needsRate: 1 });
+    expect(db.rows.find(row => row.id === "cad-no-rate")).toMatchObject({
+      baseAmountMinor: 0,
+      needsRate: true,
+    });
+
+    kv.store["fx:GBP:latest"] = JSON.stringify({
+      base: "GBP",
+      date: freshFxDate(),
+      rates: { USD: 4, CAD: 2 },
+    });
+    const recovered = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
+      { waitUntil: vi.fn() },
+    );
+    delete kv.store["fx:GBP:latest"];
+    const stable = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/progress"),
+      { SUPPORT_DB: db, SUPPORT_KV: kv },
+      { waitUntil: vi.fn() },
+    );
+    await expect(recovered.json()).resolves.toMatchObject({ totalThisMonthGbp: 17, needsRate: 0 });
+    await expect(stable.json()).resolves.toMatchObject({ totalThisMonthGbp: 17, needsRate: 0 });
+    expect(db.rows.find(row => row.id === "cad-no-rate")).toMatchObject({
+      baseAmountMinor: 500,
+      needsRate: false,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -474,10 +614,16 @@ describe("Yomu support Worker", () => {
       {
         SUPPORT_PROVIDER_KOFI_URL: "https://ko-fi.com/yomu",
         KOFI_WEBHOOK_SECRET: "kofi-secret",
-        SUPPORT_PROVIDER_PAYPAL_URL: "http://insecure.example/pay",
+        SUPPORT_PROVIDER_BMAC_URL: "https://buymeacoffee.com/yomu",
+        BMAC_WEBHOOK_SECRET: "bmac-secret",
+        SUPPORT_PROVIDER_PAYPAL_URL: "https://paypal.me/yomu",
         PAYPAL_CLIENT_ID: "paypal-client",
         PAYPAL_CLIENT_SECRET: "paypal-secret",
         PAYPAL_WEBHOOK_ID: "paypal-webhook",
+        SUPPORT_PROVIDER_PATREON_URL: "https://patreon.com/yomu",
+        PATREON_WEBHOOK_SECRET: "patreon-secret",
+        PATREON_CAMPAIGN_ID: "123456",
+        PATREON_CAMPAIGN_CURRENCY: "GBP",
         SUPPORT_DB: db,
       },
       { waitUntil: vi.fn() },
@@ -486,9 +632,60 @@ describe("Yomu support Worker", () => {
     const kofi = body.providers.find(p => p.id === "kofi");
     expect(kofi?.enabled).toBe(true);
     expect(kofi?.url).toBe("https://ko-fi.com/yomu");
-    // Non-https provider URLs are rejected and stay hidden.
-    const paypal = body.providers.find(p => p.id === "paypal");
-    expect(paypal).toBeUndefined();
+    expect(body.providers.find(provider => provider.id === "bmac")).toMatchObject({
+      enabled: true,
+      url: "https://buymeacoffee.com/yomu",
+    });
+    expect(body.providers.find(provider => provider.id === "paypal")).toMatchObject({
+      enabled: true,
+      url: "https://paypal.me/yomu",
+    });
+    expect(body.providers.find(provider => provider.id === "patreon")).toMatchObject({
+      enabled: true,
+      url: "https://patreon.com/yomu",
+    });
+  });
+
+  it.each([
+    {
+      label: "an insecure PayPal URL",
+      provider: "paypal",
+      override: { SUPPORT_PROVIDER_PAYPAL_URL: "http://paypal.me/yomu" },
+    },
+    {
+      label: "a malformed PayPal client id",
+      provider: "paypal",
+      override: { PAYPAL_CLIENT_ID: "x" },
+    },
+    {
+      label: "a Patreon vanity instead of its numeric campaign id",
+      provider: "patreon",
+      override: { PATREON_CAMPAIGN_ID: "yomu-reader" },
+    },
+    {
+      label: "a malformed Patreon campaign currency",
+      provider: "patreon",
+      override: { PATREON_CAMPAIGN_CURRENCY: "GBPX" },
+    },
+  ])("hides $provider when configured with $label", async ({ provider, override }) => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      {
+        SUPPORT_PROVIDER_PAYPAL_URL: "https://paypal.me/yomu",
+        PAYPAL_CLIENT_ID: "paypal-client",
+        PAYPAL_CLIENT_SECRET: "paypal-secret",
+        PAYPAL_WEBHOOK_ID: "paypal-webhook",
+        SUPPORT_PROVIDER_PATREON_URL: "https://patreon.com/yomu",
+        PATREON_WEBHOOK_SECRET: "patreon-secret",
+        PATREON_CAMPAIGN_ID: "123456",
+        PATREON_CAMPAIGN_CURRENCY: "GBP",
+        SUPPORT_DB: mockSupportDb(),
+        ...override,
+      },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as { providers: Array<{ id: string }> };
+    expect(body.providers.find(candidate => candidate.id === provider)).toBeUndefined();
   });
 
   it("omits wrong-host and URL-only providers instead of rendering broken links", async () => {
@@ -554,17 +751,20 @@ describe("Yomu support Worker", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it("does not send production donation requests to Stripe test mode", async () => {
+  it.each([
+    "support.yomureader.com",
+    "yomu-support.henry-robert-christopher-russell.workers.dev",
+  ])("does not send production donation requests on %s to Stripe test mode", async host => {
     const stripeFetch = vi.fn();
     vi.stubGlobal("fetch", stripeFetch);
 
     const response = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/donate?amount_gbp=5"),
+      new Request(`https://${host}/donate?amount_gbp=5`),
       readyStripeEnv("sk_test_secret"),
       { waitUntil: vi.fn() },
     );
     const status = await SupportWorker.fetch(
-      new Request("https://support.yomureader.com/status"),
+      new Request(`https://${host}/status`),
       readyStripeEnv("sk_test_secret"),
       { waitUntil: vi.fn() },
     );
@@ -572,7 +772,10 @@ describe("Yomu support Worker", () => {
     expect(response.status).toBe(503);
     await expect(response.text()).resolves.toContain("Stripe donations are temporarily unavailable");
     expect(stripeFetch).not.toHaveBeenCalled();
-    await expect(status.json()).resolves.toMatchObject({ status: "stripe-test-mode" });
+    await expect(status.json()).resolves.toMatchObject({
+      status: "stripe-test-mode",
+      providers: expect.not.arrayContaining([expect.objectContaining({ id: "stripe" })]),
+    });
   });
 
   it("fails closed for an unrecognized production Stripe credential", async () => {
@@ -892,6 +1095,77 @@ describe("Yomu support Worker", () => {
     });
   });
 
+  it("counts one Stripe receipt when two event types describe the same Checkout session", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const common = {
+      sessionId: "cs_live_one_receipt",
+      timestamp,
+      amountMinor: 500,
+    };
+
+    expect((await postStripeCheckoutEvent({
+      ...common,
+      eventId: "evt_checkout_completed",
+      eventType: "checkout.session.completed",
+    }, db, academy)).status).toBe(200);
+    expect((await postStripeCheckoutEvent({
+      ...common,
+      eventId: "evt_async_succeeded",
+      eventType: "checkout.session.async_payment_succeeded",
+    }, db, academy)).status).toBe(200);
+
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      stripeSessionId: common.sessionId,
+      amountMinor: 500,
+      baseAmountMinor: 500,
+      needsRate: false,
+    });
+    const status = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      { SUPPORT_DB: db },
+      { waitUntil: vi.fn() },
+    );
+    await expect(status.json()).resolves.toMatchObject({
+      donationsThisMonthGbp: 5,
+    });
+  });
+
+  it("does not forward a contradictory receipt shape for an existing Stripe session", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const common = {
+      sessionId: "cs_live_immutable_receipt",
+      timestamp,
+    };
+
+    const first = await postStripeCheckoutEvent({
+      ...common,
+      eventId: "evt_immutable_first",
+      amountMinor: 500,
+      eventType: "checkout.session.completed",
+    }, db, academy);
+    const conflict = await postStripeCheckoutEvent({
+      ...common,
+      eventId: "evt_immutable_conflict",
+      amountMinor: 600,
+      eventType: "checkout.session.async_payment_succeeded",
+    }, db, academy);
+
+    expect(first.status).toBe(200);
+    expect(conflict.status).toBe(200);
+    await expect(conflict.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({ amountMinor: 500, baseAmountMinor: 500 });
+    expect(academy.fetch).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("yomu_support_stripe_receipt_conflict"));
+    error.mockRestore();
+  });
+
   it("emails a verified Stripe recipient exactly once across a duplicate webhook", async () => {
     const db = mockSupportDb();
     const academy = mockDeliverableAcademy();
@@ -1084,6 +1358,8 @@ describe("Yomu support Worker", () => {
   it("records and forwards a verified native-currency Stripe donation without consulting FX", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
+    const fxFetch = vi.fn();
+    vi.stubGlobal("fetch", fxFetch);
     const timestamp = Math.floor(Date.now() / 1000);
     const response = await postStripeCheckoutEvent({
       eventId: "evt_support_usd",
@@ -1094,10 +1370,17 @@ describe("Yomu support Worker", () => {
     }, db, academy);
 
     expectWebhookOutcome(response, db, academy, 200, 1);
-    expect(db.rows[0]).toMatchObject({ amountMinor: 700, currency: "usd" });
+    expect(db.rows[0]).toMatchObject({
+      amountMinor: 700,
+      currency: "usd",
+      baseCurrency: "gbp",
+      baseAmountMinor: 0,
+      needsRate: true,
+    });
     await expect(academy.requests[0]!.json()).resolves.toMatchObject({
       transaction: { currency: "usd", amountMinor: 700 },
     });
+    expect(fxFetch).not.toHaveBeenCalled();
   });
 
   it("ignores unsupported or out-of-policy Stripe webhook amounts", async () => {
@@ -1298,6 +1581,36 @@ describe("Yomu support Worker", () => {
     });
   });
 
+  it.each([
+    { label: "missing", currency: undefined },
+    { label: "null", currency: null },
+    { label: "short", currency: "GB" },
+    { label: "renamed-width", currency: "GBPX" },
+  ])("does not invent GBP for a Ko-fi payload with $label currency", async ({ currency }) => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: `message-currency-${currency ?? "absent"}`,
+      timestamp: "2026-07-20T01:02:03.000Z",
+      type: "Donation",
+      amount: "10.00",
+      ...(currency === undefined ? {} : { currency }),
+      kofi_transaction_id: "transaction-currency-shape",
+      email: "supporter@example.test",
+    });
+    const response = await fetchWithAcademyIngress(
+      supportKofiWebhook(payload),
+      { KOFI_WEBHOOK_SECRET: "kofi_secret", SUPPORT_DB: db },
+      academy,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+    expect(academy.fetch).not.toHaveBeenCalled();
+  });
+
   it("records a verified Ko-fi payment before rejecting incomplete Academy identity", async () => {
     const db = mockSupportDb();
     const donationPayload = JSON.stringify({
@@ -1358,6 +1671,44 @@ describe("Yomu support Worker", () => {
     });
   });
 
+  it.each([
+    { label: "zero-rounded", rate: 1e308 },
+    { label: "unsafe-integer", rate: 1e-308 },
+  ])("retains an external receipt when a $label FX conversion is not ledger-safe", async ({ label, rate }) => {
+    const db = mockSupportDb();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const payload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: `message-${label}-rate`,
+      timestamp: new Date().toISOString(),
+      type: "Donation",
+      amount: "7.00",
+      currency: "USD",
+    });
+
+    const response = await fetchSupportWebhook(supportKofiWebhook(payload), {
+      KOFI_WEBHOOK_SECRET: "kofi_secret",
+      SUPPORT_DB: db,
+      SUPPORT_KV: mockKv({
+        "fx:GBP:latest": JSON.stringify({
+          base: "GBP",
+          date: freshFxDate(),
+          rates: { USD: rate },
+        }),
+      }),
+    });
+
+    expect(response.status).toBe(422);
+    expect(db.rows[0]).toMatchObject({
+      provider: "kofi",
+      amountMinor: 700,
+      baseAmountMinor: 0,
+      needsRate: true,
+    });
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("yomu_support_donation_rate_invalid"));
+    warning.mockRestore();
+  });
+
   it("retains an unconvertible donation and counts it as soon as FX recovers", async () => {
     const db = mockSupportDb();
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1395,6 +1746,28 @@ describe("Yomu support Worker", () => {
       donationsThisMonthGbp: 0,
       needsRate: 1,
     });
+    const unsafeStatus = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      {
+        ...env,
+        SUPPORT_KV: mockKv({
+          "fx:GBP:latest": JSON.stringify({
+            base: "GBP",
+            date: freshFxDate(),
+            rates: { CAD: 1e-308 },
+          }),
+        }),
+      },
+      { waitUntil: vi.fn() },
+    );
+    await expect(unsafeStatus.json()).resolves.toMatchObject({
+      donationsThisMonthGbp: 0,
+      needsRate: 1,
+    });
+    expect(db.rows[0]).toMatchObject({
+      baseAmountMinor: 0,
+      needsRate: true,
+    });
     const recoveredStatus = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status"),
       {
@@ -1410,6 +1783,20 @@ describe("Yomu support Worker", () => {
       { waitUntil: vi.fn() },
     );
     await expect(recoveredStatus.json()).resolves.toMatchObject({
+      donationsThisMonthGbp: 4,
+      donationsTodayGbp: 4,
+      needsRate: 0,
+    });
+    expect(db.rows[0]).toMatchObject({
+      baseAmountMinor: 400,
+      needsRate: false,
+    });
+    const lockedStatus = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      env,
+      { waitUntil: vi.fn() },
+    );
+    await expect(lockedStatus.json()).resolves.toMatchObject({
       donationsThisMonthGbp: 4,
       donationsTodayGbp: 4,
       needsRate: 0,
@@ -1652,7 +2039,7 @@ describe("Yomu support Worker", () => {
     const payload = JSON.stringify({ data: { attributes: { amount_cents: 500 } } });
     await expectProviderAuthRejected(
       supportPatreonWebhook(payload, "members:pledge:create", "00000000000000000000000000000000"),
-      { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db },
+      testPatreonEnv(db),
       db,
       academy,
     );
@@ -1673,10 +2060,7 @@ describe("Yomu support Worker", () => {
         },
       },
     });
-    const env = withAcademyIngress({
-      PATREON_WEBHOOK_SECRET: "patreon_secret",
-      SUPPORT_DB: db,
-    }, academy);
+    const env = withAcademyIngress(testPatreonEnv(db), academy);
 
     expect((await SupportWorker.fetch(
       await signedSupportPatreonWebhook(payload, "members:pledge:update", "patreon_secret"),
@@ -1707,52 +2091,222 @@ describe("Yomu support Worker", () => {
     expect(db.rows).toHaveLength(0);
   });
 
-  it("records a signed Patreon pledge receipt exactly once across retries", async () => {
+  it.each([
+    { label: "nonnumeric campaign id", override: { PATREON_CAMPAIGN_ID: "yomu-reader" } },
+    { label: "malformed campaign currency", override: { PATREON_CAMPAIGN_CURRENCY: "GBPX" } },
+  ])("keeps the Patreon webhook unavailable with a $label", async ({ override }) => {
     const db = mockSupportDb();
-    const academy = mockAcademyIngress();
-    const payload = JSON.stringify({
-      data: {
-        id: "member-pledge-receipt",
-        attributes: {
-          patron_status: "active_patron",
-          amount_cents: 500,
-          campaign_lifetime_support_cents: 500,
-          last_charge_date: "2026-07-20T02:00:00.000Z",
-          next_charge_date: "2026-08-20T02:00:00.000Z",
-        },
-      },
+    const payload = patreonAccountingPayload({
+      memberId: "member-bad-config",
+      lifetimeSupportMinor: 0,
     });
+    const response = await SupportWorker.fetch(
+      await signedSupportPatreonWebhook(payload, "members:create", "patreon_secret"),
+      { ...testPatreonEnv(db), ...override },
+      { waitUntil: vi.fn() },
+    );
 
-    expect((await postPatreonEvent(payload, "members:pledge:create", db, academy)).status).toBe(200);
-    expect((await postPatreonEvent(payload, "members:pledge:create", db, academy)).status).toBe(200);
-
-    expect(db.rows).toHaveLength(1);
-    expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500 });
-    expect(academy.fetch).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(503);
+    await expect(response.text()).resolves.toContain("Patreon webhook is not configured");
+    expect(db.rows).toHaveLength(0);
   });
 
-  it("records Patreon income even when the entitlement envelope is incomplete", async () => {
+  it("does not mistake Patreon pledge creation for a paid receipt", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
-    const payload = JSON.stringify({
-      data: {
-        id: "member-accounting-first",
-        attributes: {
-          patron_status: "active_patron",
-          amount_cents: 500,
-          campaign_lifetime_support_cents: 500,
-          last_charge_date: "2026-07-20T02:00:00.000Z",
-        },
-      },
+    const payload = patreonAccountingPayload({
+      memberId: "member-pledge-change",
+      lifetimeSupportMinor: 500,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
     });
 
     const response = await postPatreonEvent(payload, "members:pledge:create", db, academy);
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ received: true, recorded: true });
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("records paid Patreon lifetime increases exactly once across unrelated member updates", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const baseline = patreonAccountingPayload({
+      memberId: "member-recurring",
+      lifetimeSupportMinor: 0,
+    });
+    const firstCharge = patreonAccountingPayload({
+      memberId: "member-recurring",
+      lifetimeSupportMinor: 500,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
+    });
+    const sameChargeDifferentSnapshot = patreonAccountingPayload({
+      memberId: "member-recurring",
+      lifetimeSupportMinor: 500,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
+      note: "unrelated member edit",
+    });
+    const nextCharge = patreonAccountingPayload({
+      memberId: "member-recurring",
+      lifetimeSupportMinor: 1_000,
+      lastChargeAt: "2026-08-20T02:00:00.000Z",
+    });
+
+    expect((await postPatreonEvent(baseline, "members:create", db, academy)).status).toBe(200);
+    expect((await postPatreonEvent(firstCharge, "members:update", db, academy)).status).toBe(200);
+    expect((await postPatreonEvent(sameChargeDifferentSnapshot, "members:update", db, academy)).status).toBe(200);
+    expect((await postPatreonEvent(nextCharge, "members:update", db, academy)).status).toBe(200);
+
+    expect(db.rows).toHaveLength(2);
+    expect(db.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ provider: "patreon", amountMinor: 500, baseAmountMinor: 500 }),
+      expect.objectContaining({ provider: "patreon", amountMinor: 500, baseAmountMinor: 500 }),
+    ]));
+    expect(new Set(db.rows.map(row => row.id)).size).toBe(2);
+    expect(db.patreonAccounting.get("123456\u0000member-recurring\u0000gbp"))
+      .toMatchObject({ lifetimeSupportMinor: 1_000 });
+  });
+
+  it("accepts Patreon's documented legacy-only lifetime support field", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const baseline = patreonAccountingPayload({
+      memberId: "member-legacy-lifetime",
+      lifetimeSupportMinor: 0,
+      legacyOnly: true,
+    });
+    const paid = patreonAccountingPayload({
+      memberId: "member-legacy-lifetime",
+      lifetimeSupportMinor: 500,
+      legacyOnly: true,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
+    });
+
+    await postPatreonEvent(baseline, "members:create", db, academy);
+    await expect((await postPatreonEvent(paid, "members:update", db, academy)).json())
+      .resolves.toEqual({ received: true, recorded: true });
+    expect(db.rows).toEqual([
+      expect.objectContaining({
+        provider: "patreon",
+        amountMinor: 500,
+        baseAmountMinor: 500,
+      }),
+    ]);
+  });
+
+  it("baselines an existing Patreon member before counting later paid income", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const firstSeen = patreonAccountingPayload({
+      memberId: "member-existing",
+      lifetimeSupportMinor: 2_500,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
+    });
+    const renewal = patreonAccountingPayload({
+      memberId: "member-existing",
+      lifetimeSupportMinor: 3_000,
+      lastChargeAt: "2026-08-20T02:00:00.000Z",
+    });
+
+    await expect((await postPatreonEvent(firstSeen, "members:update", db, academy)).json())
+      .resolves.toEqual({ received: true, recorded: false });
+    await expect((await postPatreonEvent(renewal, "members:update", db, academy)).json())
+      .resolves.toEqual({ received: true, recorded: true });
+
     expect(db.rows).toHaveLength(1);
-    expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500, baseAmountMinor: 500 });
-    expect(academy.fetch).not.toHaveBeenCalled();
+    expect(db.rows[0]).toMatchObject({
+      provider: "patreon",
+      amountMinor: 500,
+      baseAmountMinor: 500,
+    });
+  });
+
+  it.each([
+    {
+      label: "unpaid charge status",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+        lastChargeAt: "2026-07-20T02:00:00.000Z",
+        lastChargeStatus: "Declined",
+      }),
+    },
+    {
+      label: "wrong campaign",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+        lastChargeAt: "2026-07-20T02:00:00.000Z",
+        campaignId: "999999",
+      }),
+    },
+    {
+      label: "conflicting lifetime totals",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+        legacyLifetimeSupportMinor: 400,
+        lastChargeAt: "2026-07-20T02:00:00.000Z",
+      }),
+    },
+    {
+      label: "missing charge date",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+      }),
+    },
+    {
+      label: "free trial",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+        lastChargeAt: "2026-07-20T02:00:00.000Z",
+        freeTrial: true,
+      }),
+    },
+    {
+      label: "gifted membership",
+      payload: patreonAccountingPayload({
+        memberId: "member-invalid",
+        lifetimeSupportMinor: 500,
+        lastChargeAt: "2026-07-20T02:00:00.000Z",
+        gifted: true,
+      }),
+    },
+  ])("does not record a Patreon update with $label", async ({ payload }) => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    await postPatreonEvent(patreonAccountingPayload({
+      memberId: "member-invalid",
+      lifetimeSupportMinor: 0,
+    }), "members:create", db, academy);
+
+    await expect((await postPatreonEvent(payload, "members:update", db, academy)).json())
+      .resolves.toMatchObject({ recorded: false });
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("does not regress Patreon accounting for an out-of-order paid snapshot", async () => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    await postPatreonEvent(patreonAccountingPayload({
+      memberId: "member-ordered",
+      lifetimeSupportMinor: 0,
+    }), "members:create", db, academy);
+    await postPatreonEvent(patreonAccountingPayload({
+      memberId: "member-ordered",
+      lifetimeSupportMinor: 500,
+      lastChargeAt: "2026-07-20T02:00:00.000Z",
+    }), "members:update", db, academy);
+    await postPatreonEvent(patreonAccountingPayload({
+      memberId: "member-ordered",
+      lifetimeSupportMinor: 1_000,
+      lastChargeAt: "2026-06-20T02:00:00.000Z",
+    }), "members:update", db, academy);
+
+    expect(db.rows).toHaveLength(1);
+    expect(db.patreonAccounting.get("123456\u0000member-ordered\u0000gbp"))
+      .toMatchObject({ lifetimeSupportMinor: 500 });
   });
 
   it.each([
@@ -1815,8 +2369,7 @@ describe("Yomu support Worker", () => {
     });
     const request = await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret");
     const response = await SupportWorker.fetch(request, withAcademyIngress({
-      PATREON_WEBHOOK_SECRET: "patreon_secret",
-      SUPPORT_DB: db,
+      ...testPatreonEnv(db),
       ACADEMY_CODE_EMAIL: email,
     }, academy), { waitUntil: vi.fn() });
 
@@ -1850,8 +2403,7 @@ describe("Yomu support Worker", () => {
     });
     const request = await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret");
     const response = await SupportWorker.fetch(request, withAcademyIngress({
-      PATREON_WEBHOOK_SECRET: "patreon_secret",
-      SUPPORT_DB: db,
+      ...testPatreonEnv(db),
       ACADEMY_CODE_EMAIL: email,
       ACADEMY_DELIVERY_ALERT_EMAIL: "owner@example.test",
     }, academy), { waitUntil: vi.fn() });
@@ -2197,6 +2749,7 @@ function stripeCheckoutEventPayload(input: {
   eventId: string;
   sessionId: string;
   timestamp: number;
+  eventType?: "checkout.session.completed" | "checkout.session.async_payment_succeeded";
   purchaseId?: string;
   amountMinor?: number;
   currency?: string;
@@ -2211,7 +2764,7 @@ function stripeCheckoutEventPayload(input: {
   };
   return JSON.stringify({
     id: input.eventId,
-    type: "checkout.session.completed",
+    type: input.eventType ?? "checkout.session.completed",
     livemode: input.eventLivemode ?? true,
     created: input.timestamp,
     data: {
@@ -2312,17 +2865,74 @@ async function postPatreonEvent(
   academy: ReturnType<typeof mockAcademyIngress>,
 ): Promise<Response> {
   const request = await signedSupportPatreonWebhook(payload, trigger, "patreon_secret");
-  return fetchWithAcademyIngress(request, { PATREON_WEBHOOK_SECRET: "patreon_secret", SUPPORT_DB: db }, academy);
+  return fetchWithAcademyIngress(request, testPatreonEnv(db), academy);
+}
+
+function testPatreonEnv(db: ReturnType<typeof mockSupportDb>) {
+  return {
+    PATREON_WEBHOOK_SECRET: "patreon_secret",
+    PATREON_CAMPAIGN_ID: "123456",
+    PATREON_CAMPAIGN_CURRENCY: "GBP",
+    SUPPORT_DB: db,
+  };
 }
 
 function patreonMemberPayload(id: string, status: string, updatedAt: string): string {
   return JSON.stringify({
     data: {
       id,
+      type: "member",
       attributes: {
         patron_status: status,
         updated_at: updatedAt,
+        last_charge_date: updatedAt,
+        last_charge_status: "Paid",
+        campaign_lifetime_support_cents: 500,
         currently_entitled_amount_cents: 500,
+      },
+      relationships: {
+        campaign: { data: { id: "123456", type: "campaign" } },
+      },
+    },
+  });
+}
+
+function patreonAccountingPayload(input: {
+  memberId: string;
+  lifetimeSupportMinor: number;
+  lastChargeAt?: string;
+  lastChargeStatus?: string;
+  campaignId?: string;
+  legacyLifetimeSupportMinor?: number;
+  legacyOnly?: boolean;
+  freeTrial?: boolean;
+  gifted?: boolean;
+  note?: string;
+}): string {
+  return JSON.stringify({
+    data: {
+      id: input.memberId,
+      type: "member",
+      attributes: {
+        patron_status: "active_patron",
+        ...(input.legacyOnly
+          ? { lifetime_support_cents: input.lifetimeSupportMinor }
+          : { campaign_lifetime_support_cents: input.lifetimeSupportMinor }),
+        ...(!input.legacyOnly && input.legacyLifetimeSupportMinor !== undefined
+          ? { lifetime_support_cents: input.legacyLifetimeSupportMinor }
+          : {}),
+        currently_entitled_amount_cents: 500,
+        last_charge_status: input.lastChargeStatus ?? "Paid",
+        ...(input.freeTrial ? { is_free_trial: true } : {}),
+        ...(input.gifted ? { is_gifted: true } : {}),
+        ...(input.lastChargeAt ? { last_charge_date: input.lastChargeAt } : {}),
+        next_charge_date: "2026-12-20T02:00:00.000Z",
+        ...(input.note ? { note: input.note } : {}),
+      },
+      relationships: {
+        campaign: {
+          data: { id: input.campaignId ?? "123456", type: "campaign" },
+        },
       },
     },
   });
@@ -2351,6 +2961,9 @@ function stripeDonationRow(id: string, day: string, amountMinor: number, currenc
     day,
     amountMinor,
     currency,
+    baseCurrency: "gbp",
+    baseAmountMinor: currency === "gbp" ? amountMinor : 0,
+    needsRate: currency !== "gbp",
     eventType: "checkout.session.completed",
     stripeSessionId: `cs_live_${id}`,
     stripeCreatedAt: Math.floor(Date.now() / 1000),
@@ -2369,9 +2982,14 @@ function readyStripeEnv(secret = "sk_live_secret") {
 function mockSupportDb(initialRows: DonationRow[] = []) {
   const rows = [...initialRows];
   const counters = new Map<string, { value: number; updatedAt: string }>();
+  const patreonAccounting = new Map<string, {
+    lifetimeSupportMinor: number;
+    lastChargeAt: number;
+  }>();
   return {
     rows,
     counters,
+    patreonAccounting,
     prepare(query: string) {
       let values: unknown[] = [];
       return {
@@ -2386,8 +3004,31 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
               ? { value: counter.value, updated_at: counter.updatedAt }
               : null) as T | null;
           }
+          if (/FROM provider_donation_events/.test(query) && /WHERE provider = 'patreon' AND event_id = \?/.test(query)) {
+            const eventId = String(values[0] ?? "");
+            return (rows.some(row => row.provider === "patreon" && row.id === eventId)
+              ? { event_id: eventId }
+              : null) as T | null;
+          }
+          if (/FROM donation_events/.test(query) && /WHERE stripe_session_id = \? OR id = \?/.test(query)) {
+            const stripeSessionId = stringValue(values, 0);
+            const id = stringValue(values, 1);
+            const row = rows.find(candidate => (
+              candidate.provider === "stripe"
+              && (candidate.stripeSessionId === stripeSessionId || candidate.id === id)
+            ));
+            return (row
+              ? {
+                  id: row.id,
+                  stripe_session_id: row.stripeSessionId,
+                  amount_minor: row.amountMinor,
+                  currency: row.currency,
+                }
+              : null) as T | null;
+          }
           if (/SUM\((?:amount_minor|base_amount_minor)\)/.test(query)) {
             const providerEvents = /FROM provider_donation_events/.test(query);
+            const usesBaseAmount = /SUM\(base_amount_minor\)/.test(query);
             const provider = providerEvents ? String(values[0] ?? "") : "stripe";
             const dayOffset = providerEvents ? 1 : 0;
             if (/day >= \? AND day < \?/.test(query)) {
@@ -2396,12 +3037,12 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
               const currency = String(values[dayOffset + 2] ?? "gbp");
               const matching = rows
                 .filter(row => row.provider === provider && row.day >= start && row.day < end)
-                .filter(row => providerEvents
+                .filter(row => usesBaseAmount
                   ? (row.baseCurrency ?? row.currency) === currency
                   : row.currency === currency)
-                .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
+                .filter(row => providerEvents || !/stripe_session_id GLOB 'cs_live_\*'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
               const total_minor = matching.reduce(
-                (sum, row) => sum + (providerEvents ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
+                (sum, row) => sum + (usesBaseAmount ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
                 0,
               );
               const needs_rate = matching.filter(row => row.needsRate).length;
@@ -2411,12 +3052,12 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
             const currency = String(values[dayOffset + 1] ?? "gbp");
             const matching = rows
               .filter(row => row.provider === provider && row.day === day)
-              .filter(row => providerEvents
+              .filter(row => usesBaseAmount
                 ? (row.baseCurrency ?? row.currency) === currency
                 : row.currency === currency)
-              .filter(row => providerEvents || !/stripe_session_id LIKE 'cs_live_%'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
+              .filter(row => providerEvents || !/stripe_session_id GLOB 'cs_live_\*'/u.test(query) || row.stripeSessionId?.startsWith("cs_live_"))
             const total_minor = matching.reduce(
-              (sum, row) => sum + (providerEvents ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
+              (sum, row) => sum + (usesBaseAmount ? (row.baseAmountMinor ?? row.amountMinor) : row.amountMinor),
               0,
             );
             return { total_minor, donation_count: matching.length } as T;
@@ -2424,40 +3065,21 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
           return null;
         },
         async all<T>() {
-          if (!/FROM provider_donation_events/.test(query) || !/needs_rate = 1/.test(query)) {
+          if (!/needs_rate = 1/.test(query)) {
             return { results: [] as T[] };
           }
-          const today = String(values[0] ?? "");
-          const provider = String(values[1] ?? "");
-          const start = String(values[2] ?? "");
-          const end = String(values[3] ?? "");
-          const baseCurrency = String(values[4] ?? "gbp");
-          const grouped = new Map<string, {
-            currency: string;
-            total_minor: number;
-            today_minor: number;
-            donation_count: number;
-          }>();
+          const providerEvents = /FROM provider_donation_events/.test(query);
+          const provider = providerEvents ? String(values[0] ?? "") : "stripe";
+          const baseCurrency = String(values[providerEvents ? 1 : 0] ?? "gbp");
+          const grouped = new Set<string>();
           const matching = rows.filter(row => (
             row.provider === provider
-            && row.day >= start
-            && row.day < end
             && (row.baseCurrency ?? row.currency) === baseCurrency
             && row.needsRate === true
+            && (providerEvents || row.stripeSessionId?.startsWith("cs_live_"))
           ));
-          for (const row of matching) {
-            const current = grouped.get(row.currency) ?? {
-              currency: row.currency,
-              total_minor: 0,
-              today_minor: 0,
-              donation_count: 0,
-            };
-            current.total_minor += row.amountMinor;
-            if (row.day === today) current.today_minor += row.amountMinor;
-            current.donation_count += 1;
-            grouped.set(row.currency, current);
-          }
-          return { results: [...grouped.values()] as T[] };
+          for (const row of matching) grouped.add(row.currency);
+          return { results: [...grouped].map(currency => ({ currency })) as T[] };
         },
         async run() {
           if (/INSERT INTO support_observability_counters/.test(query)) {
@@ -2467,6 +3089,82 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
               value: (counters.get(name)?.value ?? 0) + 1,
               updatedAt,
             });
+          }
+          if (/UPDATE provider_donation_events/.test(query) && /needs_rate = 0/.test(query)) {
+            const factor = numberValue(values, 0);
+            const provider = stringValue(values, 1);
+            const currency = stringValue(values, 2);
+            const baseCurrency = stringValue(values, 3);
+            for (const row of rows) {
+              if (
+                row.provider === provider
+                && row.currency === currency
+                && (row.baseCurrency ?? row.currency) === baseCurrency
+                && row.needsRate === true
+              ) {
+                const converted = Math.round(row.amountMinor * factor);
+                if (Number.isSafeInteger(converted) && converted > 0) {
+                  row.baseAmountMinor = converted;
+                  row.needsRate = false;
+                }
+              }
+            }
+          }
+          if (/UPDATE donation_events/.test(query) && /needs_rate = 0/.test(query)) {
+            const factor = numberValue(values, 0);
+            const currency = stringValue(values, 1);
+            const baseCurrency = stringValue(values, 2);
+            for (const row of rows) {
+              if (
+                row.provider === "stripe"
+                && row.currency.toLowerCase() === currency
+                && (row.baseCurrency ?? row.currency) === baseCurrency
+                && row.needsRate === true
+                && row.stripeSessionId?.startsWith("cs_live_")
+              ) {
+                const converted = Math.round(row.amountMinor * factor);
+                if (Number.isSafeInteger(converted) && converted > 0) {
+                  row.baseAmountMinor = converted;
+                  row.needsRate = false;
+                }
+              }
+            }
+          }
+          if (/INTO patreon_member_accounting/.test(query)) {
+            const campaignId = stringValue(values, 0);
+            const memberId = stringValue(values, 1);
+            const currency = stringValue(values, 2);
+            const lifetimeSupportMinor = numberValue(values, 3);
+            const lastChargeAt = numberValue(values, 4);
+            const eventId = stringValue(values, 5);
+            const key = `${campaignId}\u0000${memberId}\u0000${currency}`;
+            const prior = patreonAccounting.get(key);
+            if (!prior) {
+              patreonAccounting.set(key, { lifetimeSupportMinor, lastChargeAt });
+            } else if (
+              !/INSERT OR IGNORE/.test(query)
+              && lifetimeSupportMinor > prior.lifetimeSupportMinor
+              && lastChargeAt >= prior.lastChargeAt
+            ) {
+              const amountMinor = lifetimeSupportMinor - prior.lifetimeSupportMinor;
+              patreonAccounting.set(key, { lifetimeSupportMinor, lastChargeAt });
+              if (!rows.some(row => row.provider === "patreon" && row.id === eventId)) {
+                rows.push(providerDonationRow(
+                  "patreon",
+                  eventId,
+                  new Date(lastChargeAt).toISOString().slice(0, 10),
+                  amountMinor,
+                  {
+                    currency,
+                    baseCurrency: "gbp",
+                    baseAmountMinor: currency === "gbp" ? amountMinor : 0,
+                    needsRate: currency !== "gbp",
+                    eventType: "members:update",
+                    occurredAt: lastChargeAt,
+                  },
+                ));
+              }
+            }
           }
           insertStripeDonationRow(query, values, rows);
           insertProviderDonationRow(query, values, rows);
@@ -2480,7 +3178,11 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
 function insertStripeDonationRow(query: string, values: unknown[], rows: DonationRow[]): void {
   if (!/INSERT OR IGNORE INTO donation_events/.test(query)) return;
   const id = stringValue(values, 0);
-  if (rows.some(row => row.provider === "stripe" && row.id === id)) return;
+  const stripeSessionId = stringValue(values, 5);
+  if (rows.some(row => (
+    row.provider === "stripe"
+    && (row.id === id || row.stripeSessionId === stripeSessionId)
+  ))) return;
   rows.push({
     provider: "stripe",
     id,
@@ -2488,9 +3190,12 @@ function insertStripeDonationRow(query: string, values: unknown[], rows: Donatio
     amountMinor: numberValue(values, 2),
     currency: stringValue(values, 3),
     eventType: stringValue(values, 4),
-    stripeSessionId: stringValue(values, 5),
+    stripeSessionId,
     stripeCreatedAt: numberValue(values, 6),
     receivedAt: stringValue(values, 7),
+    baseCurrency: stringValue(values, 8),
+    baseAmountMinor: numberValue(values, 9),
+    needsRate: numberValue(values, 10) === 1,
   });
 }
 

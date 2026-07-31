@@ -1,3 +1,9 @@
+import {
+  isNumericProviderReferenceFormat,
+  isThreeLetterCurrencyCode,
+  paypalWebhookConfigured,
+} from "./external-donation-webhooks";
+
 export const SUPPORT_PROVIDERS = [
   {
     id: "stripe",
@@ -36,7 +42,11 @@ export const SUPPORT_PROVIDERS = [
     kind: "link",
     urlEnv: "SUPPORT_PROVIDER_PATREON_URL",
     allowedHosts: ["patreon.com"],
-    requiredEnv: ["PATREON_WEBHOOK_SECRET"],
+    requiredEnv: [
+      "PATREON_WEBHOOK_SECRET",
+      "PATREON_CAMPAIGN_ID",
+      "PATREON_CAMPAIGN_CURRENCY",
+    ],
   },
 ] as const;
 
@@ -70,8 +80,34 @@ export function supportProviderReady(
   env: object,
 ): boolean {
   const values = env as Record<string, unknown>;
-  return Boolean(values.SUPPORT_DB)
-    && provider.requiredEnv.every(name => typeof values[name] === "string" && Boolean(values[name].trim()));
+  if (
+    !values.SUPPORT_DB
+    || !provider.requiredEnv.every(name => configuredSetting(values[name]))
+  ) return false;
+  if (provider.id === "paypal") {
+    return paypalWebhookConfigured({
+      PAYPAL_CLIENT_ID: stringSetting(values.PAYPAL_CLIENT_ID),
+      PAYPAL_CLIENT_SECRET: stringSetting(values.PAYPAL_CLIENT_SECRET),
+      PAYPAL_WEBHOOK_ID: stringSetting(values.PAYPAL_WEBHOOK_ID),
+    });
+  }
+  if (provider.id === "patreon") {
+    const campaignId = stringSetting(values.PATREON_CAMPAIGN_ID)?.trim();
+    return Boolean(
+      campaignId
+      && isNumericProviderReferenceFormat(campaignId)
+      && isThreeLetterCurrencyCode(values.PATREON_CAMPAIGN_CURRENCY),
+    );
+  }
+  return true;
+}
+
+function configuredSetting(value: unknown): boolean {
+  return typeof value === "string" && Boolean(value.trim());
+}
+
+function stringSetting(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
 }
 
 function providerHostMatches(url: URL, host: string): boolean {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.57] - 2026-07-31
+
+### Changed
+
+- Support status now has one forecast-backed monthly goal: the checked-in £10.20 bill is shown as £10 or the nearest whole unit in the reader's currency. Verified card, Ko-fi, Buy Me a Coffee, and PayPal receipts share the total with authenticated increases in Patreon's paid campaign-lifetime amount after the support Worker migrations are deployed; unfinished provider links stay hidden.
+
 ## [1.8.56] - 2026-07-31
 
 ### Added

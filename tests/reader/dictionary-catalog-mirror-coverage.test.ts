@@ -261,7 +261,10 @@ describe('the upload plan carries unmirrored catalogue rows', () => {
         } finally {
             await rm(root, { recursive: true, force: true });
         }
-    }, 30000);
+    // Builds and scans the complete 32×33 recommendation matrix. Under the
+    // release gate's parallel reader pass this is the same measured workload as
+    // the full-regeneration shelf case, so give both the same real budget.
+    }, 120_000);
 
     it('still refuses a catalogue that publishes nothing at all', async () => {
         const { root, publishedRoot, stagingRoot } = await fixture([

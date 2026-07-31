@@ -4,8 +4,9 @@ This checklist is for the **owner-supervised session** where real accounts are
 created and real secrets are set. Nothing here needs a code change — the Worker
 and homepage already read these values. A provider appears in the homepage bar
 only when its public URL uses HTTPS on the exact provider hostname (or its
-`www` form), `SUPPORT_DB` is bound, and every required secret is present.
-Unready providers stay hidden and report £0 in `/progress`.
+`www` form), `SUPPORT_DB` is bound, and every required setting is valid.
+Unready providers stay hidden. `/progress` still retains any authenticated
+receipts recorded while a provider was ready.
 
 All commands assume you run them from the repo root with the config flag:
 
@@ -61,6 +62,14 @@ npx wrangler kv namespace create SUPPORT_KV --config workers/yomu-support/wrangl
 Apply the D1 schema (already required for Stripe donations):
 
 ```bash
+# Migration 0006 makes one accounting receipt per Stripe Checkout session.
+# This read-only preflight must return no rows. If it returns rows, stop and
+# reconcile them with the owner before applying migrations.
+npx wrangler d1 execute yomu-support \
+  --config workers/yomu-support/wrangler.jsonc \
+  --remote \
+  --command "SELECT stripe_session_id, COUNT(*) AS event_count, COUNT(DISTINCT lower(currency) || ':' || amount_minor) AS receipt_shapes FROM donation_events GROUP BY stripe_session_id HAVING COUNT(*) > 1"
+
 npx wrangler d1 migrations apply yomu-support --config workers/yomu-support/wrangler.jsonc --remote
 ```
 
@@ -112,7 +121,8 @@ native currency before Academy delivery is attempted. Supported Academy
 transaction currencies grant permanent access, and the code is sent to the
 top-level `email`. A missing FX rate leaves the native payment visible through
 `needsRate` instead of discarding it; progress includes the payment once a
-fresh rate becomes available.
+fresh rate becomes available, then locks that converted GBP amount so later
+rates cannot rewrite the receipt.
 
 ## 3. Buy Me a Coffee (donations page + webhook)
 
@@ -190,21 +200,29 @@ is accounting/support-only and does not create an Academy code.
    # paste the Patreon webhook secret when prompted
    ```
 
-4. Edit `wrangler.jsonc` -> `vars.SUPPORT_PROVIDER_PATREON_URL` to your join URL,
-   then deploy.
+4. Copy the numeric campaign API id from the Patreon campaign/API page. Set
+   `vars.PATREON_CAMPAIGN_ID`, confirm the three-letter
+   `vars.PATREON_CAMPAIGN_CURRENCY` code matches the campaign, and set
+   `vars.SUPPORT_PROVIDER_PATREON_URL` to the join URL. Then deploy.
 
 Notes: Patreon signs the raw body with **HMAC-MD5** in the `X-Patreon-Signature`
 header; the Worker verifies it in constant time. Academy access requires a
 positive current entitlement, positive lifetime support, a future
 `next_charge_date`, and no free-trial flag. A future
 `will_pay_amount_cents` value is not paid evidence. Declines and deletes are
-audited but never revoke access already granted. Only pledge-create webhooks
-increment the support income total; other membership updates are not counted
-as new receipts. A signed skeletal event from Patreon's webhook tester is
-acknowledged without granting access or recording income. Pledge amounts are
-read from `data.attributes.amount_cents`, falling back to
-`currently_entitled_amount_cents`, and treated as GBP-equivalent minor units.
-Keep the Patreon page currency in GBP.
+audited but never revoke access already granted. Patreon Member webhooks do not
+carry a charge transaction id or charge amount. A `members:create` snapshot
+therefore establishes the campaign-lifetime baseline; each later paid
+`members:update` adds only the increase in
+`campaign_lifetime_support_cents`. One atomic D1 high-water update prevents
+retries, note edits, and out-of-order snapshots from counting income twice. A
+first-seen existing member establishes a baseline rather than importing their
+old payment history. A signed skeletal event from Patreon's webhook tester is
+acknowledged without granting access or recording income. Patreon supplies only
+the latest charge date with its cumulative amount, so month attribution relies
+on its webhook retry queue delivering each paid Member update. If the Patreon
+dashboard and Yomu total ever diverge, pause the provider and reconcile with the
+owner instead of editing ledger rows in place.
 
 The Worker sends the code to the email in the verified member payload. Patreon
 may omit that field. The payment still grants permanent access. A missing or
@@ -224,6 +242,8 @@ Patreon's member message channel.
 | `PAYPAL_CLIENT_SECRET` | secret | `wrangler secret put` (production REST app client secret) |
 | `PAYPAL_WEBHOOK_ID` | secret | `wrangler secret put` (registered webhook id) |
 | `PATREON_WEBHOOK_SECRET` | secret | `wrangler secret put` (Patreon webhook secret) |
+| `PATREON_CAMPAIGN_ID` | public var | `wrangler.jsonc` `vars` (numeric campaign API id) |
+| `PATREON_CAMPAIGN_CURRENCY` | public var | `wrangler.jsonc` `vars` (three-letter campaign currency) |
 | `ACADEMY_DELIVERY_ALERT_EMAIL` | secret | `wrangler secret put` (owner alert destination) |
 | `SUPPORT_BASE_CURRENCY` | public var | `wrangler.jsonc` `vars` (canonical forecast/accounting currency; keep as GBP) |
 | `SUPPORT_PROVIDER_KOFI_URL` | public var | `wrangler.jsonc` `vars` |
@@ -239,7 +259,8 @@ only in Cloudflare via `wrangler secret put`.
 ## 7. Deploy and verify
 
 ```bash
-# Migration 0005 expands the provider ledger to all four external providers:
+# Migrations 0005-0007 expand the provider ledger, lock Stripe GBP reporting,
+# and add Patreon's cumulative-income high-water:
 npx wrangler d1 migrations apply yomu-support --config workers/yomu-support/wrangler.jsonc --remote
 
 npx wrangler deploy --config workers/yomu-support/wrangler.jsonc
@@ -256,9 +277,10 @@ curl -s "https://support.yomureader.com/status?currency=USD" | jq '.display, .pr
 
 The homepage bar at https://yomureader.com updates automatically from `/status`
 . Each external provider button requires its official HTTPS hostname, the D1
-binding, and all of that provider's required secrets. Stripe requires live
-Checkout readiness. This keeps unfinished or mistyped destinations out of the
-public bar.
+binding, and all of that provider's required settings. Patreon also requires
+its numeric campaign API id and three-letter campaign currency. Stripe requires
+live Checkout readiness. This keeps unfinished or mistyped destinations out of
+the public bar.
 
 After a supervised provider test, inspect Workers logs for delivery errors and
 stale-delivery alerts. These events contain opaque delivery state, not recipient

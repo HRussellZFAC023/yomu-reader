@@ -88,10 +88,26 @@ export async function hasValidBmacSignature(
 
 export function paypalWebhookConfigured(env: PayPalWebhookEnv): boolean {
   return Boolean(
-    boundedCredential(env.PAYPAL_CLIENT_ID)
-    && boundedCredential(env.PAYPAL_CLIENT_SECRET)
-    && boundedReference(env.PAYPAL_WEBHOOK_ID),
+    isWebhookCredentialFormat(env.PAYPAL_CLIENT_ID)
+    && isWebhookCredentialFormat(env.PAYPAL_CLIENT_SECRET)
+    && isProviderReferenceFormat(env.PAYPAL_WEBHOOK_ID),
   );
+}
+
+export function isWebhookCredentialFormat(value: unknown): value is string {
+  return typeof value === "string" && Boolean(value.trim()) && boundedCredential(value) !== null;
+}
+
+export function isProviderReferenceFormat(value: unknown): value is string {
+  return typeof value === "string" && Boolean(value.trim()) && boundedReference(value) !== null;
+}
+
+export function isNumericProviderReferenceFormat(value: unknown): value is string {
+  return isProviderReferenceFormat(value) && /^[1-9]\d*$/u.test(value);
+}
+
+export function isThreeLetterCurrencyCode(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Z]{3}$/iu.test(value.trim());
 }
 
 export async function hasValidPaypalSignature(
@@ -211,7 +227,7 @@ function positiveAmount(value: unknown): string | number | null {
 }
 
 function currencyCode(value: unknown): string | null {
-  return typeof value === "string" && /^[A-Z]{3}$/u.test(value.trim())
+  return isThreeLetterCurrencyCode(value) && value.trim() === value.trim().toUpperCase()
     ? value.trim()
     : null;
 }

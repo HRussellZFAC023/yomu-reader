@@ -13155,6 +13155,17 @@ ${spelling}`);
       enabled: true
     },
     {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: true
+    },
+    {
       id: "reverso",
       label: "Reverso",
       code: "reverso",
@@ -13249,7 +13260,8 @@ ${spelling}`);
         glosbe: "ar",
         tatoeba: "ara",
         forvo: "ar",
-        reverso: "arabic"
+        reverso: "arabic",
+        youglish: "arabic"
       },
       links: [
         {
@@ -13317,7 +13329,8 @@ ${spelling}`);
         tatoeba: "cmn",
         forvo: "zh",
         reverso: "chinese",
-        linguee: "chinese"
+        linguee: "chinese",
+        youglish: "chinese"
       },
       links: [
         {
@@ -13380,7 +13393,8 @@ ${spelling}`);
         forvo: "nl",
         reverso: "dutch",
         wordreference: "nlen",
-        linguee: "dutch"
+        linguee: "dutch",
+        youglish: "dutch"
       },
       links: [
         {
@@ -13406,7 +13420,8 @@ ${spelling}`);
       codes: {
         wiktionaryEn: "English",
         tatoeba: "eng",
-        forvo: "en"
+        forvo: "en",
+        youglish: "english"
       },
       links: [
         {
@@ -13460,7 +13475,8 @@ ${spelling}`);
         forvo: "fr",
         reverso: "french",
         wordreference: "fren",
-        linguee: "french"
+        linguee: "french",
+        youglish: "french"
       },
       links: [
         {
@@ -13492,7 +13508,8 @@ ${spelling}`);
         tatoeba: "deu",
         forvo: "de",
         reverso: "german",
-        wordreference: "deen"
+        wordreference: "deen",
+        youglish: "german"
       },
       links: [
         {
@@ -13522,7 +13539,8 @@ ${spelling}`);
         wiktionary: "el",
         glosbe: "el",
         tatoeba: "ell",
-        forvo: "el"
+        forvo: "el",
+        youglish: "greek"
       },
       links: [
         {
@@ -13562,7 +13580,8 @@ ${spelling}`);
         wiktionary: "id",
         glosbe: "id",
         tatoeba: "ind",
-        forvo: "id"
+        forvo: "id",
+        youglish: "indonesian"
       },
       links: [
         {
@@ -13594,7 +13613,8 @@ ${spelling}`);
         forvo: "it",
         reverso: "italian",
         wordreference: "iten",
-        linguee: "italian"
+        linguee: "italian",
+        youglish: "italian"
       },
       links: [
         {
@@ -13642,7 +13662,8 @@ ${spelling}`);
         wiktionary: "ko",
         glosbe: "ko",
         tatoeba: "kor",
-        forvo: "ko"
+        forvo: "ko",
+        youglish: "korean"
       },
       links: [
         {
@@ -13771,7 +13792,8 @@ ${spelling}`);
         wiktionary: "fa",
         glosbe: "fa",
         tatoeba: "pes",
-        forvo: "fa"
+        forvo: "fa",
+        youglish: "persian"
       },
       links: [
         {
@@ -13809,7 +13831,8 @@ ${spelling}`);
         forvo: "pl",
         reverso: "polish",
         wordreference: "plen",
-        linguee: "polish"
+        linguee: "polish",
+        youglish: "polish"
       },
       links: [
         {
@@ -13831,7 +13854,8 @@ ${spelling}`);
         forvo: "pt",
         reverso: "portuguese",
         wordreference: "pten",
-        linguee: "portuguese"
+        linguee: "portuguese",
+        youglish: "portuguese"
       },
       links: [
         {
@@ -13861,7 +13885,8 @@ ${spelling}`);
         forvo: "ro",
         reverso: "romanian",
         wordreference: "roen",
-        linguee: "romanian"
+        linguee: "romanian",
+        youglish: "romanian"
       },
       links: [
         {
@@ -13882,7 +13907,8 @@ ${spelling}`);
         glosbe: "ru",
         tatoeba: "rus",
         forvo: "ru",
-        reverso: "russian"
+        reverso: "russian",
+        youglish: "russian"
       },
       links: [
         {
@@ -13942,7 +13968,8 @@ ${spelling}`);
         forvo: "es",
         reverso: "spanish",
         wordreference: "esen",
-        linguee: "spanish"
+        linguee: "spanish",
+        youglish: "spanish"
       },
       links: [
         {
@@ -13974,7 +14001,8 @@ ${spelling}`);
         forvo: "sv",
         reverso: "swedish",
         wordreference: "sven",
-        linguee: "swedish"
+        linguee: "swedish",
+        youglish: "swedish"
       },
       links: [
         {
@@ -14028,7 +14056,8 @@ ${spelling}`);
         wiktionary: "th",
         glosbe: "th",
         tatoeba: "tha",
-        forvo: "th"
+        forvo: "th",
+        youglish: "thai"
       },
       links: [
         {
@@ -14049,7 +14078,8 @@ ${spelling}`);
         glosbe: "tr",
         tatoeba: "tur",
         forvo: "tr",
-        reverso: "turkish"
+        reverso: "turkish",
+        youglish: "turkish"
       },
       links: [
         {
@@ -14086,7 +14116,8 @@ ${spelling}`);
         wiktionary: "vi",
         glosbe: "vi",
         tatoeba: "vie",
-        forvo: "vi"
+        forvo: "vi",
+        youglish: "vietnamese"
       },
       links: [
         {
@@ -28909,7 +28940,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         expiresAt: now + this.ttlMs,
         promise: Promise.resolve().then(createUrl).then((url) => {
           entry.url = url;
-          entry.timeoutId = window.setTimeout(() => this.expire(key, entry), this.ttlMs);
+          entry.timeoutId = globalThis.setTimeout(() => this.expire(key, entry), this.ttlMs);
           return url;
         }).catch((error) => {
           if (this.entries.get(key) === entry) this.entries.delete(key);
@@ -28931,7 +28962,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     delete(key) {
       const entry = this.entries.get(key);
       if (!entry) return;
-      if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
+      if (entry.timeoutId !== void 0) globalThis.clearTimeout(entry.timeoutId);
       this.entries.delete(key);
       if (entry.url !== void 0) this.revoke(entry.url);
     }
@@ -56585,7 +56616,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.56".trim() ? "1.8.56".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.57".trim() ? "1.8.57".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -125552,10 +125583,11 @@ ${component.reading}`;
       studyAudioAvailability: "{language} reviews add {modes} when word audio is available.",
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
-      supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
-      supportBannerFunded: "Yomu's Ultimate Audio is funded for this month. Thank you.",
-      supportBannerCost: "Donation goal: {amount}/month",
-      supportBannerGoal: "This month: {current} / {goal}",
+      supportBannerMessage: "This month's support keeps fast word and shadowing audio running.",
+      supportBannerFunded: "This month's fast audio bill is covered. Thank you.",
+      supportBannerCost: "Monthly running costs: {amount}",
+      supportBannerGoal: "Received this month: {current} / {goal}",
+      supportBannerBreakdown: "What this covers",
       listen: "Listen",
       listenSubModeGroup: "Listen practice mode",
       listenPerceive: "Perceive",
@@ -125834,10 +125866,11 @@ ${component.reading}`;
     studyTourStart: "開始",
     supportBannerLabel: "よむ支援状況",
     supportBannerDismiss: "支援状況を閉じる",
-    supportBannerMessage: "よむのUltimate Audioは寄付で運用されています。この目標が、高速な音声再生とシャドーイングに必要です。",
-    supportBannerFunded: "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。",
-    supportBannerCost: "寄付目標：月{amount}",
-    supportBannerGoal: "今月：{current} / {goal}",
+    supportBannerMessage: "今月のご支援で、単語・シャドーイング向けの高速音声を運営します。",
+    supportBannerFunded: "今月分の高速音声の運営費が集まりました。ありがとうございます。",
+    supportBannerCost: "月の運営費：{amount}",
+    supportBannerGoal: "今月のご支援：{current} / {goal}",
+    supportBannerBreakdown: "内訳",
     listen: "リスニング",
     listenSubModeGroup: "リスニング練習モード",
     listenPerceive: "聞き取り",
@@ -127620,111 +127653,6 @@ ${newTabCardReading(card)}`;
     } catch {
       return false;
     }
-  }
-  const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
-  const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
-  const SUPPORT_BANNER_VISIT_INTERVAL = 6;
-  const SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS = 14 * SUPPORT_BANNER_DAY_MS;
-  const SUPPORT_BANNER_DISMISS_MS = 30 * SUPPORT_BANNER_DAY_MS;
-  const supportBannerPageDecisions = /* @__PURE__ */ new Map();
-  function shouldShowSupportBannerImpression(options) {
-    const storage2 = supportBannerPolicyStorage(options.storage);
-    if (!storage2) return false;
-    const key = supportBannerPageDecisionKey(options);
-    const existingDecision = supportBannerPageDecisions.get(key);
-    if (existingDecision !== void 0) return existingDecision;
-    const now = policyNow(options);
-    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
-    if (state2.dismissedUntil > now) {
-      supportBannerPageDecisions.set(key, false);
-      return false;
-    }
-    state2.visits += 1;
-    const firstEligibleVisit = Math.max(0, Math.floor(options.firstQuietVisits ?? SUPPORT_BANNER_FIRST_QUIET_VISITS)) + 1;
-    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, firstEligibleVisit);
-    const shouldShow = state2.visits >= state2.nextEligibleVisit && state2.hiddenUntil <= now;
-    if (shouldShow) {
-      state2.lastShownAt = now;
-      state2.hiddenUntil = now + Math.max(0, options.impressionCooldownMs ?? SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS);
-      state2.nextEligibleVisit = state2.visits + Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
-    }
-    if (!writeSupportBannerPolicyState(storage2, options.storageKey, state2)) {
-      supportBannerPageDecisions.set(key, false);
-      return false;
-    }
-    supportBannerPageDecisions.set(key, shouldShow);
-    return shouldShow;
-  }
-  function rememberSupportBannerDismissal(options) {
-    const storage2 = supportBannerPolicyStorage(options.storage);
-    const key = supportBannerPageDecisionKey(options);
-    supportBannerPageDecisions.set(key, false);
-    if (!storage2) return;
-    const now = policyNow(options);
-    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
-    const dismissMs = Math.max(0, options.dismissMs ?? SUPPORT_BANNER_DISMISS_MS);
-    const visitInterval = Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
-    state2.dismissedUntil = now + dismissMs;
-    state2.hiddenUntil = Math.max(state2.hiddenUntil, state2.dismissedUntil);
-    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, state2.visits + visitInterval);
-    writeSupportBannerPolicyState(storage2, options.storageKey, state2);
-  }
-  function supportBannerPolicyStorage(storage2) {
-    if (storage2 !== void 0) return storage2;
-    try {
-      return globalThis.localStorage ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function supportBannerPageDecisionKey(options) {
-    return `${options.storageKey}
-${options.version}`;
-  }
-  function policyNow(options) {
-    return typeof options.now === "number" && Number.isFinite(options.now) ? options.now : Date.now();
-  }
-  function readSupportBannerPolicyState(storage2, storageKey, version) {
-    try {
-      const raw = storage2.getItem(storageKey);
-      if (!raw) return freshSupportBannerPolicyState(version);
-      const parsed = JSON.parse(raw);
-      if (!parsed || parsed.version !== version) return freshSupportBannerPolicyState(version);
-      return {
-        version,
-        visits: nonNegativeInteger(parsed.visits),
-        nextEligibleVisit: nonNegativeInteger(parsed.nextEligibleVisit),
-        hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
-        dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
-        lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
-      };
-    } catch {
-      return freshSupportBannerPolicyState(version);
-    }
-  }
-  function writeSupportBannerPolicyState(storage2, storageKey, state2) {
-    try {
-      storage2.setItem(storageKey, JSON.stringify(state2));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function freshSupportBannerPolicyState(version) {
-    return {
-      version,
-      visits: 0,
-      nextEligibleVisit: 0,
-      hiddenUntil: 0,
-      dismissedUntil: 0,
-      lastShownAt: 0
-    };
-  }
-  function nonNegativeInteger(value) {
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
-  }
-  function nonNegativeTimestamp(value) {
-    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
   }
   function pointerPointFromEvent(event) {
     const point = { x: event.clientX, y: event.clientY };
@@ -133550,6 +133478,172 @@ ${entry.url}`),
     const day = String(now.getDate()).padStart(2, "0");
     return `${now.getFullYear()}-${month}-${day}`;
   }
+  const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
+  const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
+  const SUPPORT_BANNER_VISIT_INTERVAL = 6;
+  const SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS = 14 * SUPPORT_BANNER_DAY_MS;
+  const SUPPORT_BANNER_DISMISS_MS = 30 * SUPPORT_BANNER_DAY_MS;
+  const supportBannerPageDecisions = /* @__PURE__ */ new Map();
+  function shouldShowSupportBannerImpression(options) {
+    const storage2 = supportBannerPolicyStorage(options.storage);
+    if (!storage2) return false;
+    const key = supportBannerPageDecisionKey(options);
+    const existingDecision = supportBannerPageDecisions.get(key);
+    if (existingDecision !== void 0) return existingDecision;
+    const now = policyNow(options);
+    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
+    if (state2.dismissedUntil > now) {
+      supportBannerPageDecisions.set(key, false);
+      return false;
+    }
+    state2.visits += 1;
+    const firstEligibleVisit = Math.max(0, Math.floor(options.firstQuietVisits ?? SUPPORT_BANNER_FIRST_QUIET_VISITS)) + 1;
+    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, firstEligibleVisit);
+    const shouldShow = state2.visits >= state2.nextEligibleVisit && state2.hiddenUntil <= now;
+    if (shouldShow) {
+      state2.lastShownAt = now;
+      state2.hiddenUntil = now + Math.max(0, options.impressionCooldownMs ?? SUPPORT_BANNER_IMPRESSION_COOLDOWN_MS);
+      state2.nextEligibleVisit = state2.visits + Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    }
+    if (!writeSupportBannerPolicyState(storage2, options.storageKey, state2)) {
+      supportBannerPageDecisions.set(key, false);
+      return false;
+    }
+    supportBannerPageDecisions.set(key, shouldShow);
+    return shouldShow;
+  }
+  function rememberSupportBannerDismissal(options) {
+    const storage2 = supportBannerPolicyStorage(options.storage);
+    const key = supportBannerPageDecisionKey(options);
+    supportBannerPageDecisions.set(key, false);
+    if (!storage2) return;
+    const now = policyNow(options);
+    const state2 = readSupportBannerPolicyState(storage2, options.storageKey, options.version);
+    const dismissMs = Math.max(0, options.dismissMs ?? SUPPORT_BANNER_DISMISS_MS);
+    const visitInterval = Math.max(1, Math.floor(options.visitInterval ?? SUPPORT_BANNER_VISIT_INTERVAL));
+    state2.dismissedUntil = now + dismissMs;
+    state2.hiddenUntil = Math.max(state2.hiddenUntil, state2.dismissedUntil);
+    state2.nextEligibleVisit = Math.max(state2.nextEligibleVisit, state2.visits + visitInterval);
+    writeSupportBannerPolicyState(storage2, options.storageKey, state2);
+  }
+  function supportBannerPolicyStorage(storage2) {
+    if (storage2 !== void 0) return storage2;
+    try {
+      return globalThis.localStorage ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function supportBannerPageDecisionKey(options) {
+    return `${options.storageKey}
+${options.version}`;
+  }
+  function policyNow(options) {
+    return typeof options.now === "number" && Number.isFinite(options.now) ? options.now : Date.now();
+  }
+  function readSupportBannerPolicyState(storage2, storageKey, version) {
+    try {
+      const raw = storage2.getItem(storageKey);
+      if (!raw) return freshSupportBannerPolicyState(version);
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== version) return freshSupportBannerPolicyState(version);
+      return {
+        version,
+        visits: nonNegativeInteger(parsed.visits),
+        nextEligibleVisit: nonNegativeInteger(parsed.nextEligibleVisit),
+        hiddenUntil: nonNegativeTimestamp(parsed.hiddenUntil),
+        dismissedUntil: nonNegativeTimestamp(parsed.dismissedUntil),
+        lastShownAt: nonNegativeTimestamp(parsed.lastShownAt)
+      };
+    } catch {
+      return freshSupportBannerPolicyState(version);
+    }
+  }
+  function writeSupportBannerPolicyState(storage2, storageKey, state2) {
+    try {
+      storage2.setItem(storageKey, JSON.stringify(state2));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function freshSupportBannerPolicyState(version) {
+    return {
+      version,
+      visits: 0,
+      nextEligibleVisit: 0,
+      hiddenUntil: 0,
+      dismissedUntil: 0,
+      lastShownAt: 0
+    };
+  }
+  function nonNegativeInteger(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  }
+  function nonNegativeTimestamp(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;
+  }
+  const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
+  function newTabSupportMeta(status, language2) {
+    const goalValue = status.display?.goal ?? status.donationGoalGbp ?? status.estimatedMonthlyCostGbp;
+    const goalText = status.display?.goalText || (typeof goalValue === "number" && Number.isFinite(goalValue) ? formatNewTabSupportCurrency(goalValue, status.display?.currency ?? "GBP") : "");
+    const amountText = status.display?.amountText || formatNewTabSupportCurrency(
+      status.display?.amount ?? status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0,
+      status.display?.currency ?? "GBP"
+    );
+    const cost = newTabText(language2, "supportBannerCost").replace("{amount}", goalText);
+    const goal = newTabText(language2, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
+    return `${cost} · ${goal}`;
+  }
+  function newTabReadySupportProviders(status) {
+    return (status.providers ?? []).flatMap((provider) => {
+      if (!provider?.enabled) return [];
+      const url = safeNewTabSupportUrl(provider.url);
+      return url ? [{ ...provider, url }] : [];
+    });
+  }
+  function newTabSupportGoalAvailable(status) {
+    if (typeof status.display?.goalText === "string" && status.display.goalText.trim()) return true;
+    if (typeof status.display?.goal === "number" && Number.isFinite(status.display.goal)) return true;
+    return [status.donationGoalGbp, status.estimatedMonthlyCostGbp].some((value) => typeof value === "number" && Number.isFinite(value));
+  }
+  function newTabSupportDismissVersion(status) {
+    return status.banner?.dismissVersion || "ultimate-audio-monthly-v1";
+  }
+  function shouldShowNewTabSupportBannerImpression(version) {
+    return shouldShowSupportBannerImpression({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version
+    });
+  }
+  function rememberNewTabSupportBannerDismissal(version) {
+    rememberSupportBannerDismissal({
+      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
+      version
+    });
+  }
+  function safeNewTabSupportUrl(candidate) {
+    if (!candidate) return null;
+    try {
+      const url = new URL(candidate);
+      return url.protocol === "https:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function formatNewTabSupportCurrency(value, currency) {
+    const rounded = Math.round(value);
+    try {
+      return new Intl.NumberFormat(navigator.language || "en-GB", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(rounded);
+    } catch {
+      return `${rounded} ${currency}`;
+    }
+  }
   const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
   const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
@@ -133599,7 +133693,6 @@ ${entry.url}`),
     recall: "recall-cloze",
     kanji: "kanji-doodle:0"
   };
-  const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = "yomu-newtab-support-banner-dismissed";
   function isNewTabRouteName(value) {
     return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
   }
@@ -133626,40 +133719,6 @@ ${entry.url}`),
       if (value) return value;
     }
     return "";
-  }
-  function newTabSupportMeta(status, language2) {
-    const goalText = status.display?.goalText || formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
-    const amountText = status.display?.amountText || formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
-    const cost = newTabText(language2, "supportBannerCost").replace("{amount}", goalText);
-    const goal = newTabText(language2, "supportBannerGoal").replace("{current}", amountText).replace("{goal}", goalText);
-    return `${cost} · ${goal}`;
-  }
-  function newTabSupportDonateUrl(status) {
-    const candidate = status.banner?.donateUrl || status.donateUrl || DONATE_URL;
-    try {
-      const url = new URL(candidate);
-      return url.protocol === "https:" ? url.href : DONATE_URL;
-    } catch {
-      return DONATE_URL;
-    }
-  }
-  function newTabSupportDismissVersion(status) {
-    return status.banner?.dismissVersion || "ultimate-audio-monthly-v1";
-  }
-  function shouldShowNewTabSupportBannerImpression(version) {
-    return shouldShowSupportBannerImpression({
-      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-      version
-    });
-  }
-  function rememberNewTabSupportBannerDismissal(version) {
-    rememberSupportBannerDismissal({
-      storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-      version
-    });
-  }
-  function formatNewTabSupportGbp(value) {
-    return `£${Math.round(value)}`;
   }
   class NewTabController {
     constructor(dependencies, options = {}) {
@@ -134862,27 +134921,35 @@ ${entry.url}`),
     }
     shouldShowSupportBanner(status) {
       if (status.banner?.enabled === false) return false;
+      if (newTabReadySupportProviders(status).length === 0) return false;
+      if (!newTabSupportGoalAvailable(status)) return false;
       return shouldShowNewTabSupportBannerImpression(newTabSupportDismissVersion(status));
     }
     renderSupportBanner(banner, status) {
       const version = newTabSupportDismissVersion(status);
+      const providers = newTabReadySupportProviders(status);
       banner.dataset.supportDismissVersion = version;
       banner.replaceChildren(
         el(
           "div",
           { class: "jpdb-reader-newtab-support-copy" },
           el("strong", {}, this.text(status.goalMet ? "supportBannerFunded" : "supportBannerMessage")),
-          el("span", {}, newTabSupportMeta(status, this.language()))
+          el("span", {}, newTabSupportMeta(status, this.language())),
+          el("a", {
+            class: "jpdb-reader-newtab-support-breakdown",
+            href: new URL("/support#monthly-running-costs", DOCS_BASE_URL).href
+          }, this.text("supportBannerBreakdown"))
         ),
         el(
           "div",
           { class: "jpdb-reader-newtab-support-actions" },
-          el("a", {
+          ...providers.map((provider) => el("a", {
             class: "jpdb-reader-newtab-support-donate",
-            href: newTabSupportDonateUrl(status),
+            dataset: { supportProvider: provider.id ?? "" },
+            href: provider.url,
             target: "_blank",
             rel: "noopener"
-          }, this.text("donate")),
+          }, provider.id === "stripe" ? this.text("donate") : provider.label || provider.id || this.text("donate"))),
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",

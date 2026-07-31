@@ -56,13 +56,13 @@ Donations are optional and cover Yomu's shared running costs.
 
 The public status bar shows the nearest whole unit, £10, while the support ledger keeps the exact GBP amount.
 
-After the support migration and Worker are deployed, verified receipts from card, Ko-fi, Buy Me a Coffee, PayPal, and Patreon all count toward that monthly total. A provider appears in the status bar only when its official HTTPS page, webhook credentials, and ledger connection are ready.
+After the support migrations and Worker are deployed, verified card, Ko-fi, Buy Me a Coffee, and PayPal receipts count toward that monthly total. Patreon contributes each authenticated increase in its paid campaign-lifetime total. A provider appears in the status bar only when its official HTTPS page, provider verification settings, and ledger connection are ready.
 
 Card, Ko-fi, and qualifying Patreon support can create one Yomu Academy code. Once activated, Buy Me a Coffee and PayPal contribute to support accounting without creating a code. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY.
 
 An Academy code is sent to the email in the provider's verified payment notice and must be entered within 30 days. Card payments can also show it when the same browser returns from checkout. Once redeemed, Academy access stays with the Google account you choose.
 
-If a code from card, Ko-fi, or Patreon does not arrive, ask on Discord with the provider name and receipt reference. Keep payment details out of the message. The owner can recover the code or issue a separate one.
+If a code from card, Ko-fi, or Patreon does not arrive, ask on Discord with the provider name and provider reference. Keep payment details out of the message. The owner can recover the code or issue a separate one.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://support.yomureader.com/donate">Donate</a>

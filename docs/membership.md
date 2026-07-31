@@ -21,7 +21,7 @@ The checked-in forecast for hosting, storage, the domain, APIs, and test devices
 
 Ko-fi takes one-off or monthly payments. Patreon is monthly. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Buy Me a Coffee and PayPal appear in the live status bar once their official pages and verified webhooks are ready.
 
-After the support migration and Worker are deployed, verified receipts from all five services count toward the monthly bill. Card, Ko-fi, and qualifying Patreon support can create one Academy code. Buy Me a Coffee and PayPal will join support accounting after activation, without creating a code.
+After the support migrations and Worker are deployed, verified support from all five services counts toward the monthly bill. Patreon contributes authenticated increases in its paid campaign-lifetime total; the other four services contribute verified receipts. Card, Ko-fi, and qualifying Patreon support can create one Academy code. Buy Me a Coffee and PayPal will join support accounting after activation, without creating a code.
 
 Enter an Academy code within 30 days. Once redeemed, access stays with the Google account you choose.
 

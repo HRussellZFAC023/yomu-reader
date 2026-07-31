@@ -23,7 +23,6 @@ import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
-import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { pointInElementClientRects } from '../dom/pointer-geometry';
@@ -258,7 +257,15 @@ import type { RtkClient, RtkInfo } from '../kanji/rtk';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
-import type { InterfaceLanguage } from '../app/types';
+import {
+    newTabReadySupportProviders,
+    newTabSupportDismissVersion,
+    newTabSupportGoalAvailable,
+    newTabSupportMeta,
+    rememberNewTabSupportBannerDismissal,
+    shouldShowNewTabSupportBannerImpression,
+    type NewTabSupportStatus,
+} from './support-banner';
 import { NEW_TAB_CACHE_KEY } from './cache';
 import {
     JPDB_ALL_DECKS,
@@ -576,37 +583,6 @@ interface NewTabGradeTarget {
 
 type PortableStudyCardIdentity = Omit<PortableStudyCardRoute, 'kind'>;
 
-interface NewTabSupportStatus {
-    goalMet?: boolean;
-    donationGoalGbp?: number;
-    donationsTodayGbp?: number;
-    donationsThisMonthGbp?: number;
-    estimatedMonthlyCostGbp?: number;
-    donateUrl?: string;
-    providers?: Array<{
-        id?: string;
-        label?: string;
-        url?: string;
-        enabled?: boolean;
-    }>;
-    display?: {
-        currency?: string;
-        amount?: number;
-        goal?: number;
-        amountText?: string;
-        goalText?: string;
-    };
-    banner?: {
-        enabled?: boolean;
-        dismissVersion?: string;
-        message?: string;
-        costLabel?: string;
-        goalLabel?: string;
-        ctaLabel?: string;
-        donateUrl?: string;
-    };
-}
-
 const log = Logger.scope('NewTab');
 type ListenInteractionMode = 'perceive' | 'recall' | 'shadow';
 interface LegacyStudyTransition {
@@ -618,8 +594,6 @@ const LEGACY_STUDY_STEP_IDS: Readonly<Record<string, NewTabStudyStepId>> = {
     recall: 'recall-cloze',
     kanji: 'kanji-doodle:0',
 };
-const NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-newtab-support-banner-dismissed';
-
 function isNewTabRouteName(value: string | undefined | null): value is NewTabRoute | 'word' {
     return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
 }
@@ -649,88 +623,6 @@ function newTabRouteSearchQuery(url: URL): string {
         if (value) return value;
     }
     return '';
-}
-
-function newTabSupportMeta(status: NewTabSupportStatus, language: InterfaceLanguage): string {
-    const goalValue = status.display?.goal
-        ?? status.donationGoalGbp
-        ?? status.estimatedMonthlyCostGbp;
-    const goalText = status.display?.goalText
-        || (typeof goalValue === 'number' && Number.isFinite(goalValue)
-            ? formatNewTabSupportCurrency(goalValue, status.display?.currency ?? 'GBP')
-            : '');
-    const amountText = status.display?.amountText
-        || formatNewTabSupportCurrency(
-            status.display?.amount
-                ?? status.donationsThisMonthGbp
-                ?? status.donationsTodayGbp
-                ?? 0,
-            status.display?.currency ?? 'GBP',
-        );
-    const cost = newTabText(language, 'supportBannerCost').replace('{amount}', goalText);
-    const goal = newTabText(language, 'supportBannerGoal')
-        .replace('{current}', amountText)
-        .replace('{goal}', goalText);
-    return `${cost} · ${goal}`;
-}
-
-function safeNewTabSupportUrl(candidate: string | undefined): string | null {
-    if (!candidate) return null;
-    try {
-        const url = new URL(candidate);
-        return url.protocol === 'https:' ? url.href : null;
-    } catch {
-        return null;
-    }
-}
-
-function newTabReadySupportProviders(
-    status: NewTabSupportStatus,
-): Array<NonNullable<NewTabSupportStatus['providers']>[number] & { url: string }> {
-    return (status.providers ?? []).flatMap(provider => {
-        if (!provider?.enabled) return [];
-        const url = safeNewTabSupportUrl(provider.url);
-        return url ? [{ ...provider, url }] : [];
-    });
-}
-
-function newTabSupportGoalAvailable(status: NewTabSupportStatus): boolean {
-    if (typeof status.display?.goalText === 'string' && status.display.goalText.trim()) return true;
-    if (typeof status.display?.goal === 'number' && Number.isFinite(status.display.goal)) return true;
-    return [status.donationGoalGbp, status.estimatedMonthlyCostGbp]
-        .some(value => typeof value === 'number' && Number.isFinite(value));
-}
-
-function newTabSupportDismissVersion(status: NewTabSupportStatus): string {
-    return status.banner?.dismissVersion || 'ultimate-audio-monthly-v1';
-}
-
-function shouldShowNewTabSupportBannerImpression(version: string): boolean {
-    return shouldShowSupportBannerImpression({
-        storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-        version,
-    });
-}
-
-function rememberNewTabSupportBannerDismissal(version: string): void {
-    rememberSupportBannerDismissal({
-        storageKey: NEW_TAB_SUPPORT_BANNER_DISMISSED_KEY,
-        version,
-    });
-}
-
-function formatNewTabSupportCurrency(value: number, currency: string): string {
-    const rounded = Math.round(value);
-    try {
-        return new Intl.NumberFormat(navigator.language || 'en-GB', {
-            style: 'currency',
-            currency,
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(rounded);
-    } catch {
-        return `${rounded} ${currency}`;
-    }
 }
 
 // Consolidated per-card study-step state (NB-41a). One entry per card key holds

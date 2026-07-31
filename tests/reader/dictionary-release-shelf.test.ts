@@ -84,7 +84,9 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
         const english = JSON.parse(await readFile(join(written, 'en-ja.json'), 'utf8'));
         expect(english.dictionaries.map((item: { role: string }) => item.role))
             .toEqual(['primary-terms', 'names', 'kanji']);
-    }, 30_000);
+    // This takes the same 1,056-manifest regeneration path as the byte-for-byte
+    // case above; the smaller assertion does not make the filesystem work smaller.
+    }, 120_000);
 
     it('reads the shelf from the frozen policy rather than a copy inside the script', async () => {
         const policy = JSON.parse(await readFile(SHELF_POLICY, 'utf8'));

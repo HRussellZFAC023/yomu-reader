@@ -189,14 +189,19 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - Documentation: https://yomureader.com/
 - Issues: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: https://discord.gg/jD6NPURewD
-- Donate by card or wallet: https://support.yomureader.com/donate
-- Support on Patreon: https://patreon.com/yomureader
-- Support on Ko-fi: https://ko-fi.com/yomureader
+- Support and monthly running-cost breakdown: https://yomureader.com/support
 
-Each verified payment creates one よむ Academy code. It is sent to the email in
-the provider's verified payment notice; card payments also keep the
-same-browser claim page as a fallback. Enter the code within 30 days with the
-Google account you choose.
+Once the support migrations and Worker are deployed, the live status combines
+verified card, Ko-fi, Buy Me a Coffee, and PayPal receipts with authenticated
+increases in Patreon's paid campaign-lifetime total. A service appears there
+only when its official page, provider verification settings, and support ledger
+connection are ready.
+
+Card, Ko-fi, and qualifying Patreon support can create one よむ Academy code.
+Buy Me a Coffee and PayPal contribute to the running-cost total without
+creating a code. A code is sent to the email in the provider's verified payment
+notice; card payments also keep the same-browser claim page as a fallback.
+Enter it within 30 days with the Google account you choose.
 
 If よむ helps you read more Japanese, a star makes it easier for other learners to find.
 

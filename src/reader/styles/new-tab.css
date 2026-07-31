@@ -240,7 +240,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .jpdb-reader-newtab-support-donate,
@@ -271,13 +273,19 @@
 
 @media (max-width: 640px) {
   .jpdb-reader-newtab-support-banner {
+    flex-direction: column;
     align-items: stretch;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   .jpdb-reader-newtab-support-copy {
     justify-content: flex-start;
     text-align: start;
+  }
+
+  .jpdb-reader-newtab-support-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

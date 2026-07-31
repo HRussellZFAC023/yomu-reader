@@ -16,6 +16,7 @@ import ts from 'typescript';
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { isComplexityAuditedTypeScriptFile } from './lib/complexity-audit-paths.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const THRESHOLD = Number(process.env.YOMU_COMPLEXITY_MAX || 30);
@@ -153,7 +154,7 @@ async function listTypeScriptFiles(dir) {
 async function auditedFilesForEntry(dir, entry) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return auditedDirectoryFiles(full);
-    if (isAuditedTypeScriptFile(entry.name)) return [full];
+    if (isComplexityAuditedTypeScriptFile(entry.name)) return [full];
     return [];
 }
 
@@ -164,10 +165,6 @@ async function auditedDirectoryFiles(dir) {
 
 function isIgnoredPath(relative) {
     return [...IGNORED_DIRS].some(ignored => relative === ignored || relative.startsWith(`${ignored}${path.sep}`));
-}
-
-function isAuditedTypeScriptFile(name) {
-    return /\.(?:ts|mts|mjs)$/.test(name) && !name.endsWith('.d.ts');
 }
 
 function sourceKind(file) {

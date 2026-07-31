@@ -5,6 +5,11 @@ const hostedCss = readFileSync("docs/.vitepress/theme/custom.css", "utf8");
 const hostedTheme = readFileSync("docs/.vitepress/theme/index.ts", "utf8");
 const newTabCss = readFileSync("src/reader/styles/new-tab.css", "utf8");
 const newTabController = readFileSync("src/reader/newtab/controller.ts", "utf8");
+const newTabSupportBanner = readFileSync(
+  "src/reader/newtab/support-banner.ts",
+  "utf8",
+);
+const newTabSupportSources = `${newTabController}\n${newTabSupportBanner}`;
 const supportDocs = readFileSync("docs/support.md", "utf8");
 const operatingForecast = JSON.parse(
   readFileSync("workers/yomu-support/operating-forecast.json", "utf8"),
@@ -40,15 +45,24 @@ describe("support banner layout", () => {
 
     expect(bannerRule).not.toMatch(/\bposition\s*:\s*(?:fixed|sticky|absolute)/u);
     expect(actionsRule).toContain("flex-wrap: wrap");
+    expect(actionsRule).toContain("flex: 0 1 auto");
+    expect(actionsRule).toContain("min-width: 0");
+    expect(actionsRule).toContain("max-width: 100%");
+    expect(newTabCss).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.jpdb-reader-newtab-support-banner \{[\s\S]*?flex-direction: column/u,
+    );
+    expect(newTabCss).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.jpdb-reader-newtab-support-actions \{[\s\S]*?width: 100%/u,
+    );
   });
 
   it("rounds both hosted and Study fallback amounts to whole display units", () => {
     expect(hostedTheme).toContain("return formatHostedLocalCurrency(value, 'GBP')");
     expect(hostedTheme).toContain("minimumFractionDigits: 0");
     expect(hostedTheme).toContain("maximumFractionDigits: 0");
-    expect(newTabController).toContain("new Intl.NumberFormat(navigator.language || 'en-GB'");
-    expect(newTabController).toContain("minimumFractionDigits: 0");
-    expect(newTabController).toContain("maximumFractionDigits: 0");
+    expect(newTabSupportBanner).toContain("new Intl.NumberFormat(navigator.language || 'en-GB'");
+    expect(newTabSupportBanner).toContain("minimumFractionDigits: 0");
+    expect(newTabSupportBanner).toContain("maximumFractionDigits: 0");
   });
 
   it("keeps hosted fallback copy short and aligned with the positive Worker copy", () => {
@@ -61,14 +75,14 @@ describe("support banner layout", () => {
     expect(hostedTheme).toContain("if (hostedReadySupportProviders(status).length === 0) return false");
     expect(hostedTheme).not.toContain("const YOMU_SUPPORT_DONATE_URL");
     expect(newTabController).toContain("if (newTabReadySupportProviders(status).length === 0) return false");
-    expect(newTabController).not.toContain("function newTabSupportDonateUrl");
+    expect(newTabSupportSources).not.toContain("function newTabSupportDonateUrl");
   });
 
   it("never invents a fixed goal when status omits the forecast", () => {
     expect(hostedTheme).toContain("if (!hostedSupportGoalAvailable(status)) return false");
     expect(newTabController).toContain("if (!newTabSupportGoalAvailable(status)) return false");
     expect(hostedTheme).not.toContain("estimatedMonthlyCostGbp ?? 10");
-    expect(newTabController).not.toContain("estimatedMonthlyCostGbp ?? 10");
+    expect(newTabSupportSources).not.toContain("estimatedMonthlyCostGbp ?? 10");
   });
 
   it("re-renders an existing hosted banner when the interface language changes", () => {
