@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.62] - 2026-07-31
+
+### Fixed
+
+- Han-language lookup now searches contiguous ideographs for the earliest longest exact expression in the installed dictionary, instead of treating ICU display boundaries as dictionary word boundaries.
+- Japanese character cards and Japanese-only enrichment stay scoped to Japanese, including when the learning target changes while an asynchronous lookup is still resolving.
+- Language-aware settings and YouTube labels no longer pull the dictionary catalogue into the main userscript, keeping the Greasy Fork artifact below its 2 MB limit.
+
 ## [1.8.61] - 2026-07-31
 
 ### Fixed

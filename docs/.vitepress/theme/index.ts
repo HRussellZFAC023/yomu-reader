@@ -535,6 +535,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Popup readings, meanings, frequency, pitch, audio and examples': 'ポップアップの読み、意味、頻度、ピッチ、音声、例文',
     'Han-language lookup now searches contiguous ideographs for the earliest longest exact expression in the installed dictionary, instead of treating ICU display boundaries as dictionary word boundaries.': '漢字を使う言語の検索では、ICUの表示上の境界を辞書の語境界として扱わず、連続する表意文字の中から、インストール済み辞書に完全一致する最も左側の最長表現を探すようになりました。',
     'Japanese character cards and Japanese-only enrichment stay scoped to Japanese, including when the learning target changes while an asynchronous lookup is still resolving.': '日本語の文字カードと日本語専用の補足情報は、日本語を選択している場合だけに表示されます。非同期検索の処理中に学習対象を切り替えた場合も、この範囲が保たれます。',
+    'Language-aware settings and YouTube labels no longer pull the dictionary catalogue into the main userscript, keeping the Greasy Fork artifact below its 2 MB limit.': '言語に応じた設定とYouTubeのラベルが辞書カタログ全体をメインのユーザースクリプトへ取り込まなくなり、Greasy Forkの2 MB制限内に収まるようになりました。',
     'Grammar detection and per-language references': '文法検出と言語別リファレンス',
     'The YouTube immersion filter, its hidden-video notice, and opening a site in your target language are now available whatever language you are studying, not only Japanese.': 'YouTubeの没入フィルター、非表示動画のお知らせ、学習中の言語版のサイトを開く機能が、日本語だけでなくどの学習言語でも利用できるようになりました。',
     'The YouTube filter notice now names the language you are studying instead of calling everything else non-Japanese.': 'YouTubeフィルターのお知らせは、他をまとめて「日本語以外」と呼ぶのではなく、学習中の言語名を表示するようになりました。',
