@@ -5,6 +5,7 @@ import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
     YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS,
     allYouTubeChannelRecommendations,
+    channelRecommendationsCoverTarget,
     filterYouTubeChannelRecommendations,
     starterYouTubeChannelRecommendations,
     youTubeChannelListSignature,
@@ -17,16 +18,20 @@ import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../app/
 import {
     classifyYouTubeFilterCandidates,
     isProbablyJapaneseYouTubeText,
-    youTubeTargetLanguageDetector,
+    youTubeSettingsTargetLanguageDetector,
     type YouTubeFilterCandidate,
     type YouTubeFilterDecision,
     type YouTubeFilterScanDecision,
 } from './youtube-filter-scan';
-import { learningTargetModuleFor } from '../languages/registry';
-import { targetLanguageOf } from '../languages/selection';
 import { escapeRegExp, readYouTubeConfigStringFromScripts } from './youtube-config';
+import {
+    isYouTubeHomePage,
+    isYouTubeShortsWatchPage,
+    isYouTubeWatchPage,
+    shouldShowChannelRecommendationsForRoute,
+} from './youtube-routes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
-import { jpOnlyOn, languageFamilyIncludes } from '../settings/language-gating';
+import { jpOnlyOn } from '../settings/language-gating';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
@@ -498,24 +503,6 @@ export class YoutubeImmersionFilter {
     }
 
 
-    /**
-     * Which language this filter is FOR. It asked "is this Japanese?" and hid the rest,
-     * so a learner studying Russian had their Russian videos hidden as `non-japanese`
-     * with the filter at its default of on (A48). It asks the active study target now.
-     */
-    private matchesTargetLanguage(): (text: string) => boolean {
-        const target = learningTargetModuleFor(targetLanguageOf(this.options.getSettings()));
-        // No module for the configured target (an unknown or half-migrated setting) falls
-        // back to the Japanese detector rather than to a predicate that matches nothing.
-        // Matching nothing would hide the learner's ENTIRE feed, which is a far worse
-        // failure than filtering for the wrong language.
-        if (!target) return isProbablyJapaneseYouTubeText;
-        return youTubeTargetLanguageDetector(
-            target.language.startsWith('ja'),
-            text => target.isLookupableText(text),
-        );
-    }
-
     private scan(): void {
         const settings = this.options.getSettings();
         if (!youtubeImmersionFilterEnabled(settings)) {
@@ -536,7 +523,8 @@ export class YoutubeImmersionFilter {
         this.resetStaleAutoReveal();
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
             revealed: this.revealed,
-            matchesTargetLanguage: this.matchesTargetLanguage(),
+            // A48: ask the learner's own target, not "is this Japanese?".
+            matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(settings),
         });
         // A search whose results are ALL non-Japanese must not become a
         // filtering loop: hiding everything keeps YouTube's continuation
@@ -741,7 +729,7 @@ export class YoutubeImmersionFilter {
         };
         const decision = classifyYouTubeFilterCandidates([candidate], {
             revealed: this.revealed,
-            matchesTargetLanguage: this.matchesTargetLanguage(),
+            matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(this.options.getSettings()),
         }).decisions[0];
         if (decision?.kind === 'hide') this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
@@ -1047,13 +1035,7 @@ export class YoutubeImmersionFilter {
 
     private shouldShowChannelShelf(filteredCount: number, settings: ReaderSettings): boolean {
         if (!youtubeChannelRecommendationsEnabled(settings)) return false;
-        // The corpus behind this shelf is 100 Japanese channels graded N5..N1
-        // (youtube-channel-recommendations.ts). There is no equivalent list for any
-        // other target, so a learner of Russian who turns the shelf on was being
-        // offered JLPT channels. Recommending the wrong language is worse than
-        // recommending nothing, so the shelf follows its data rather than its
-        // setting. Per-target channel lists would lift this (A48).
-        if (!languageFamilyIncludes('jp-only', targetLanguageOf(settings))) return false;
+        if (!channelRecommendationsCoverTarget(settings)) return false;
         if (this.revealed) return false;
         if (!shouldShowChannelRecommendationsForRoute()) return false;
         if (isYouTubeHomePage()) return false;
@@ -1803,17 +1785,6 @@ function findChannelShelfAnchor(): HTMLElement | null {
     );
 }
 
-function isYouTubeHomePage(): boolean {
-    return location.pathname === '/' || location.pathname === '/feed/explore';
-}
-
-function shouldShowChannelRecommendationsForRoute(): boolean {
-    if (isYouTubeWatchPage()) return false;
-    if (isYouTubeShortsWatchPage()) return false;
-    return isYouTubeHomePage()
-        || location.pathname === '/results'
-        || location.pathname.startsWith('/feed/subscriptions');
-}
 
 function readYouTubeClientConfig(): YouTubeClientConfig | null {
     const ytcfg = readYouTubeConfigSource();
@@ -2571,9 +2542,6 @@ function extractYouTubeVideoId(href: string | null): string {
     }
 }
 
-function isYouTubeShortsWatchPage(): boolean {
-    return location.pathname.startsWith('/shorts/');
-}
 
 function isCurrentYouTubeShortsWatchCard(card: HTMLElement): boolean {
     if (!isYouTubeShortsWatchPage()) return false;
@@ -2654,9 +2622,6 @@ function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
     return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
 }
 
-function isYouTubeWatchPage(): boolean {
-    return location.pathname === '/watch';
-}
 
 function shouldHidePendingYouTubeCard(card: HTMLElement): boolean {
     if (typeof window === 'undefined') return false;

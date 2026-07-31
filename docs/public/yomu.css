@@ -245,6 +245,17 @@
   cursor: crosshair !important;
 }
 
+/* `all: initial` and the `direction: ltr` pin below deliberately stop a host
+   page's own direction from leaking into Yomu's chrome. They also beat the `dir`
+   attribute that applyInterfaceLocaleToRoot stamps, because an author
+   declaration outranks the attribute's presentational hint -- which is why the
+   RTL work that shipped had no visible effect (b14). This restores it for the
+   roots Yomu marks itself, without reopening the door to the host page. */
+[data-jpdb-reader-root][dir='rtl'],
+[data-jpdb-reader-root][data-yomu-interface-dir='rtl'] {
+  direction: rtl;
+}
+
 [data-jpdb-reader-root] {
   all: initial;
   box-sizing: border-box;

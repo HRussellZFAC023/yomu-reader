@@ -7184,10 +7184,9 @@ export class ReaderApp {
     }
 
     private installLazyImmersionExamples(popover: HTMLElement, card: JPDBCard, options: ImmersionSearchOptions = {}): void {
-        if (!this.settings.immersionKitEnabled) return;
-        // Japanese keeps the ImmersionKit controller exactly as it is. Any other
-        // TARGET has its own registered example sources, which the shared loader
-        // fills; ImmersionKit's own row already rendered its refusal.
+        // Japanese keeps the ImmersionKit controller as it is; any other TARGET has its
+        // own example sources, which the shared loader fills. The target check precedes
+        // `immersionKitEnabled` or one Japanese anime toggle empties all 31 (b15).
         if (!immersionKitCapabilitiesFor(targetLanguageOf(this.settings)).supported) {
             installTargetExampleSources(popover, {
                 settings: this.settings,
@@ -7197,6 +7196,7 @@ export class ReaderApp {
             });
             return;
         }
+        if (!this.settings.immersionKitEnabled) return;
         this.immersionPopover?.installLazyLoad(popover, card, options);
     }
 

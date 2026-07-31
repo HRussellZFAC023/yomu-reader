@@ -125,7 +125,8 @@ classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per 
       behaviours the multilingual audit found are now target-aware: `preferred-site-language-impl.ts` imports
       `targetLanguageOf` and threads a `targetLanguage`, and the TTS voice filter no longer forces a Japanese
       voice over a correct `utterance.lang`.
-      **One is NOT done, measured 2026-07-31 and now filed as A48.** ORIGINAL: Quick setup's partial-furigana default is worse than no quick setup (owner, 2026-07-28,
+      **The third was the YouTube immersion filter, filed as A48 and fixed the same day in 1.8.57**, so all
+      three Japanese-only default-ON behaviours are now target-aware. ORIGINAL: Quick setup's partial-furigana default is worse than no quick setup (owner, 2026-07-28,
       verbatim: "currently the 'quick setup' which automatically has furi off for some kanji is more
       confusing that not hainving it at all").** A learner cannot tell whether a bare kanji means
       "you know this" or "Yomu missed it", so the page reads as broken. Default to furigana on
@@ -1514,6 +1515,31 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       - Landed alongside: IPA consumed for real (`src/reader/lookup/ipa-pronunciation.ts`,
         `popup/pronunciation.ts`), user-facing errors localised, the unconditional romaji→kana rewrite of
         every typed answer removed, and the three default-on Japanese-only behaviours gated.
+      **Fixed in this session, each with the test that would have caught it (1.8.57):**
+      - **b19 (OCR three-letter subtag truncation) FIXED.** `targetOcrLanguageHint` ended in `.slice(0, 2)`,
+        so `fil` reached the OCR engines as `fi` — **Finnish**, a real Latin-script language Cloud Vision will
+        weight toward, meaning a Tagalog learner's page was recognised as Finnish. `yue`/`grc` became
+        `yu`/`gr`, codes no engine knows. Targets whose own subtag no engine accepts now declare an
+        engine-recognised hint (`fil→tl`, `yue→zh`, `grc→el`, chosen by the SCRIPT the learner reads) and the
+        hint is used verbatim. The trap found on the way: passing the hint back through `languageSubtag`
+        undoes it, because Intl canonicalises the deprecated `tl` straight back to `fil`.
+      - **b15 (one Japanese anime toggle deleted every other target's examples) FIXED.** Both call sites read
+        `immersionKitEnabled` BEFORE asking whether ImmersionKit covers the target, so unticking a Japanese
+        anime-subtitle source deleted Tatoeba — the only example source the other 31 targets have. Both now
+        ask the target first. Japanese is byte-identical. The existing tests never caught it because both
+        fixtures pin `immersionKitEnabled: true`.
+      - **b14 (RTL) — the PREREQUISITE fixed, and the ticket re-measured much smaller than the audit implies.**
+        `all: initial` plus `direction: ltr` on the reader root are author declarations, so they outranked the
+        `dir` attribute `applyInterfaceLocaleToRoot` stamps: every RTL root was laid out LTR anyway, which is
+        why the shipped RTL work had no visible effect. A higher-specificity rule keyed on Yomu's own root
+        markers fixes that. **Re-measured: the reader stylesheet is already 81% logical** — 114 logical
+        declarations (`margin-inline` 32, `padding-inline` 37, `text-align: start` 35, `inset-inline` 4,
+        `border-inline` 6) against **26 physical** (`margin-left` 11, `border-left` 5, `margin-right` 4,
+        `border-right` 3, `text-align: left` 3). So "RTL is absent" is wrong for the stylesheet; the real
+        remainder is 26 declarations to convert, plus CONTENT direction (subtitles hardcode `lang="ja"`, no
+        `dir=` anywhere in `src/reader/subtitles/`, no bidi isolation). Arabic and Farsi interface locales stay
+        blocked until those land — unblocking on the CSS fix alone would ship a broken Arabic UI.
+
       **Still open:** `examples`, `mining`, `srs`, `grading`, `frequency`, `grammar`, `audio`,
       `character-lookup` and `handwriting` remain undeclared for generic targets — though the audit measured
       several of those as working anyway, so the matrix still understates reality and the flags are still not
@@ -1637,6 +1663,51 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Deliberately NOT added to `MOCK_ISOLATED_TESTS`: that list exists for `vi.mock` registration leakage
       and a conformance test polices it, so parking timeout cases there would make the list lie.
 
+- [ ] **A49 — Anki auto-mapping corrupts a non-Japanese learner's own deck, and the fix needs the NAME
+      signal, not just the script one.** Measured on main 2026-07-31 in `src/reader/anki/field-mapping.ts`.
+      `ANKI_TEXT_ROLE_SCORERS` (`:349-368`) keys every text role on `hasJapanese`:
+      - `expression` and `sentence` return **0 unless `hasJapanese`**, and `reading` does too, so for any
+        non-Japanese target three of the four text roles are unfillable.
+      - `meaning` scores only when **`!hasJapanese`** and rewards `hasLatin` (`54 + (length > 8 ? 6 : 0)`).
+        For a Spanish deck the Spanish word, its English meaning AND the example sentence are all Latin and
+        all non-Japanese, so they compete for the same slot and the longest wins — which is the sentence.
+        That is the reported corruption: the sentence lands in the meaning field of the learner's own deck.
+      **The seams to use:** target script via the active module's `isLookupableText`, and `reading` only for
+      targets that actually have a phonetic form (`featureSemantics.readingAnnotation` — ja kana, zh pinyin,
+      yue jyutping; most targets have none, and a role that cannot exist should be absent, not empty).
+      **The part a script test cannot solve, and why this is not a one-line fix:** for a Latin-script target
+      with a Latin-script definition language (es→en, de→en, fr→en — most of the roster) no script check can
+      tell the target word from its English meaning. The name signal has to win there. The mapper already has
+      one — `ANKI_FIELD_ROLE_CANDIDATES` (`:66`) plus `shouldPreferContentSuggestion` (`:149`) — but its lists
+      are Japanese-flavoured too: `ANKI_GENERIC_EXPRESSION_FIELD_NAMES` is literally
+      `'Expression|Front|Japanese|Kanji|Katakana'`. So: extend the name lists (including each target's own
+      English name and endonym), and make the name signal outrank content for same-script pairs.
+      Verify against a real generic deck per script class: same-script (es→en), different-script (ru→en),
+      and Japanese unchanged.
+
+- [ ] **A50 — every mined card for a space-separated language carries a fragment, and Latin sentences are
+      never split on a full stop.** Measured on main 2026-07-31 in `src/reader/dom/reader-word.ts`. Two
+      defects compound, and the audit (b11) only names the first:
+      1. **Every space is treated as a sentence boundary.** `isStrongWhitespaceBoundary` (`:403-409`) returns
+         true for ANY whitespace whose 24 characters either side are target-language text. In Japanese, which
+         does not space its words, a space inside Japanese text really is a break, so this is sound. In
+         Spanish, German or Russian **every single space between two words qualifies**, so
+         `softBoundaryStart`/`softBoundaryEnd` clamp to the spaces either side of the clicked word and the
+         mined "sentence" is 1–2 words. It fires whenever the sentence exceeds 48 characters
+         (`shouldUseSoftSentenceTrim`), which is most sentences.
+      2. **The sentence terminator set has no plain full stop.** `sentenceStartIndex`/`sentenceEndIndex`
+         (`:345-356`) match `[。！？!?]` — `。`, `！`, `？`, `!`, `?` — and **not `.`**. So for a Latin-script
+         target there is no boundary at the end of an ordinary sentence at all; the "sentence" runs to the
+         start or end of the whole text node and then gets clamped by length. Presumably `.` was left out
+         because of abbreviations and URLs in Japanese text, which is a real concern and the reason this needs
+         per-target data rather than one more character in the character class.
+      **Both need the boundary model to come from the target**, next to segmentation: whether words are
+      space-separated (so whitespace is NOT a boundary) and which characters end a sentence (`.` for Latin,
+      `。` for CJK, `؟` for Arabic, `।` for Devanagari, `;` for Greek). Japanese behaviour must not move —
+      diff the mined sentence over a fixture corpus before and after. Verify with a real mined card per
+      script class, not a unit test alone: the failure is visible in the Anki note, which is where A49's
+      corruption also lands.
+
 - [ ] **A46 — the reader gate produces false reds when it shares a machine with parallel agent sessions.**
       Measured 2026-07-31, twice in a row: `check:release` failed on `test:ci` with
       `Test timed out in 30000ms` in `dictionary-catalog-mirror-coverage.test.ts` (and once also
@@ -1698,25 +1769,29 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       "we could not verify it" is not the same as "it does not work" — do not delete a feature on the
       strength of a failed measurement.** YouGlish now ships for the 20 targets it covers.
 
-- [ ] **A48 — the YouTube filter still hides the learner's own language, and it is on by default.** Found
-      while auditing A11's "a default that requires explanation is not a default" principle against the other
-      smart defaults. Two of the three hostile Japanese-only defaults the multilingual audit found were fixed;
-      this one was not. Measured on main 2026-07-31: `src/reader/subtitles/youtube-filter-scan.ts` classifies
-      purely as `'japanese' | 'non-japanese'` (`:22`, `:113`) via `isProbablyJapaneseYouTubeText`, and
-      `grep -n "targetLanguage\|learningTarget"` across `src/reader/subtitles/*.ts` shows the filter path has
-      **no target awareness at all** — only the subtitle TRACK plumbing does. So a learner studying Russian,
-      with the filter at its default of on, has their Russian videos hidden as `non-japanese`.
-      **The seam to use already exists:** every learning target module carries `detectsText`
-      (`roster-targets.ts` builds it from `scriptDetector(language.scripts)`), so the fix is to ask the active
-      target whether the text is its language instead of asking whether it is Japanese.
-      **The nuance not to flatten:** the same file deliberately strips Japanese-locale YouTube UI chrome —
-      view counts like 「7.2万回視聴・4時間前」and a 視聴する CTA — because an English card whose only Japanese
-      characters come from that chrome must still classify as non-Japanese (the 2026-07-11 "EN videos should
-      be hidden" report). Per-target chrome differs, so a naive detector swap will misclassify; the
-      metadata-stripping needs to become per-target too, or be applied only for Japanese.
-      Also carry over from the audit: ~140 hardcoded Japanese JLPT channel recommendations are offered
-      regardless of target, and existing users' stored setting must not be silently flipped — use the
-      `*Chosen` intent-marker pattern (memory `yomu-auto-select-overwrites-user-settings`).
+- [x] **A48 — the YouTube filter hid the learner's own language. FIXED 1.8.57, `81e4a7b47`.** Found while
+      auditing A11's "a default that requires explanation is not a default" principle against the other smart
+      defaults; two of the three hostile Japanese-only defaults were already fixed, this one was not.
+      `youtube-filter-scan.ts` classified purely as `'japanese' | 'non-japanese'`, so a learner studying
+      Russian had their Russian videos hidden as `non-japanese`. `jpOnlyOn` had papered over the blast radius
+      by keeping the filter dormant until explicitly chosen — which made the DEFAULT safe without making the
+      filter right, and the test that encoded that stopgap ("leaves Russian videos visible until Japanese
+      YouTube filtering is explicitly chosen") is now the test that proves the fix.
+      **What shipped:** `classifyYouTubeFilterCandidates` takes an injected `matchesTargetLanguage`, defaulting
+      to `isProbablyJapaneseYouTubeText` so the Japanese path is byte-identical; `youTubeTargetLanguageDetector`
+      builds it from the active target's `isLookupableText`. A target with no module falls back to the Japanese
+      detector rather than to a predicate matching nothing — matching nothing would hide the ENTIRE feed, a
+      far worse failure than filtering for the wrong language.
+      **The channel shelf now follows its data, not its setting.** Those 100 recommendations are Japanese
+      channels graded N5..N1 with no language field, and were offered to learners of any target once the
+      setting was on. Recommending the wrong language is worse than recommending nothing.
+      **Residual, tested rather than hidden (`youtube-filter.test.ts`, "records that per-target UI chrome is
+      not yet stripped"):** the metadata stripper only knows Japanese chrome — 「7.2万回視聴・4時間前」and
+      視聴する — so on a target-locale YouTube a card whose only target-language text is a view count reads as
+      the target language. Narrower than it looks: `resolveTitleForFiltering` normally decides on the clean
+      oEmbed title, so this only reaches the scraped-fallback path, and it under-filters (one extra foreign
+      video stays visible) where the old behaviour hid the learner's whole language. Per-target chrome
+      patterns, or per-target channel lists, would close both remainders.
 
 #### Dropped in triage
 

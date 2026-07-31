@@ -1,4 +1,6 @@
 import { HAS_JAPANESE } from '../dom/index';
+import { learningTargetModuleFor } from '../languages/registry';
+import { targetLanguageOf } from '../languages/selection';
 
 const HIRAGANA_RE = /\p{Script=Hiragana}/u;
 const KATAKANA_RE = /\p{Script=Katakana}/u;
@@ -174,6 +176,23 @@ function normalizeYouTubeTitleForLanguageCheck(text: string): string {
  * that function also recognises English-titled Japanese-learning content
  * ("comprehensible japanese", "JLPT N3") which no script detector can see.
  */
+/**
+ * The detector for whatever the learner is actually studying, read from settings.
+ *
+ * Lives here rather than on the filter controller because this file owns the
+ * language decision; youtube.ts is a 2,700-line controller and the file-size
+ * ratchet is right that it should not also own this.
+ */
+export function youTubeSettingsTargetLanguageDetector(settings: unknown): (text: string) => boolean {
+    const target = learningTargetModuleFor(targetLanguageOf(settings));
+    // No module for the configured target (an unknown or half-migrated setting)
+    // falls back to the Japanese detector rather than to a predicate that matches
+    // nothing. Matching nothing would hide the learner's ENTIRE feed, which is a
+    // far worse failure than filtering for the wrong language.
+    if (!target) return isProbablyJapaneseYouTubeText;
+    return youTubeTargetLanguageDetector(target.language.startsWith('ja'), text => target.isLookupableText(text));
+}
+
 export function youTubeTargetLanguageDetector(
     isJapaneseTarget: boolean,
     isTargetText: (text: string) => boolean,

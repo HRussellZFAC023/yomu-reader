@@ -2935,6 +2935,11 @@ function resolveMessage(id, locale, packs) {
   }
   return { id, value: id, resolvedFrom: "none", missing: true };
 }
+const OCR_LANGUAGE_HINTS = Object.freeze({
+  fil: "tl",
+  yue: "zh",
+  grc: "el"
+});
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
   const lookupRewrites = lookupRewritesForTarget(language2.id);
@@ -2960,11 +2965,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+    ocr: ocrHintFor(language2.runtimeLocale),
     detectsText: scriptDetector(language2.scripts),
     lookupRewrites
   });
   })
 );
+function ocrHintFor(runtimeLocale) {
+  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+  return hint ? { languageHint: hint } : void 0;
+}
 function scriptDetector(scripts) {
   return new RegExp(
   scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),

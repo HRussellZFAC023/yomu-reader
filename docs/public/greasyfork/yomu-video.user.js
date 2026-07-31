@@ -3436,6 +3436,11 @@ Object.freeze(
   (item) => Object.freeze({ ...item })
   )
 );
+const OCR_LANGUAGE_HINTS = Object.freeze({
+  fil: "tl",
+  yue: "zh",
+  grc: "el"
+});
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
@@ -3461,11 +3466,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+    ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
     lookupRewrites
   });
   })
 );
+function ocrHintFor(runtimeLocale) {
+  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+  return hint ? { languageHint: hint } : void 0;
+}
 function scriptDetector(scripts) {
   return new RegExp(
   scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
@@ -23353,6 +23363,13 @@ function setClassState(element, className, enabled) {
 function shouldHonorExplicitYouTubeSideLayout(layout) {
   return layout.margin > 0 && layout.viewportWidth >= 900;
 }
+function languageFamilyIncludes(family, language) {
+  const base = languageSubtag(language) ?? language.toLowerCase();
+  return base === "ja";
+}
+function jpOnlyOn(settings, storedValue, chosen) {
+  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+}
 const YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS = [
   { id: "all", label: "All" },
   { id: "starter", label: "Starter" },
@@ -23471,6 +23488,9 @@ const YOUTUBE_CHANNEL_RECOMMENDATIONS = [
   { handle: "@nihongo-learning7582", name: "Nihongo-Learning", level: "N5", topics: ["Education", "Travel", "Culture"], captions: ["soft"], sources: ["reddit"] },
   { handle: "@SpeakJapaneseNaturally", name: "Speak Japanese Naturally", level: "N4", topics: ["Education", "Pronunciation", "Travel"], captions: ["soft"], sources: ["reddit", "search"] }
 ];
+function channelRecommendationsCoverTarget(settings) {
+  return languageFamilyIncludes("jp-only", targetLanguageOf(settings));
+}
 const YOUTUBE_CHANNEL_RECOMMENDATION_COUNT = YOUTUBE_CHANNEL_RECOMMENDATIONS.length;
 function allYouTubeChannelRecommendations() {
   return [...YOUTUBE_CHANNEL_RECOMMENDATIONS];
@@ -23584,16 +23604,28 @@ const YOUTUBE_UI_METADATA_RE = new RegExp([
 function normalizeYouTubeTitleForLanguageCheck(text) {
   return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
 }
+function youTubeSettingsTargetLanguageDetector(settings) {
+  const target = learningTargetModuleFor(targetLanguageOf(settings));
+  if (!target) return isProbablyJapaneseYouTubeText;
+  return youTubeTargetLanguageDetector(target.language.startsWith("ja"), (text) => target.isLookupableText(text));
+}
 function youTubeTargetLanguageDetector(isJapaneseTarget, isTargetText) {
   if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
   return (text) => isTargetText(normalizeYouTubeTitleForLanguageCheck(text));
 }
-function languageFamilyIncludes(family, language) {
-  const base = languageSubtag(language) ?? language.toLowerCase();
-  return base === "ja";
+function isYouTubeHomePage() {
+  return location.pathname === "/" || location.pathname === "/feed/explore";
 }
-function jpOnlyOn(settings, storedValue, chosen) {
-  return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+function isYouTubeWatchPage() {
+  return location.pathname === "/watch";
+}
+function isYouTubeShortsWatchPage() {
+  return location.pathname.startsWith("/shorts/");
+}
+function shouldShowChannelRecommendationsForRoute() {
+  if (isYouTubeWatchPage()) return false;
+  if (isYouTubeShortsWatchPage()) return false;
+  return isYouTubeHomePage() || location.pathname === "/results" || location.pathname.startsWith("/feed/subscriptions");
 }
 const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
@@ -23955,19 +23987,6 @@ class YoutubeImmersionFilter {
     this.scan();
   }, delay);
   }
-  /**
-   * Which language this filter is FOR. It asked "is this Japanese?" and hid the rest,
-   * so a learner studying Russian had their Russian videos hidden as `non-japanese`
-   * with the filter at its default of on (A48). It asks the active study target now.
-   */
-  matchesTargetLanguage() {
-  const target = learningTargetModuleFor(targetLanguageOf(this.options.getSettings()));
-  if (!target) return isProbablyJapaneseYouTubeText;
-  return youTubeTargetLanguageDetector(
-    target.language.startsWith("ja"),
-    (text) => target.isLookupableText(text)
-  );
-  }
   scan() {
   const settings = this.options.getSettings();
   if (!youtubeImmersionFilterEnabled(settings)) {
@@ -23984,7 +24003,8 @@ class YoutubeImmersionFilter {
   this.resetStaleAutoReveal();
   const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
     revealed: this.revealed,
-    matchesTargetLanguage: this.matchesTargetLanguage()
+    // A48: ask the learner's own target, not "is this Japanese?".
+    matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(settings)
   });
   if (this.shouldAutoRevealSearchResults(result)) {
     this.revealed = true;
@@ -24134,7 +24154,7 @@ class YoutubeImmersionFilter {
   };
   const decision = classifyYouTubeFilterCandidates([candidate], {
     revealed: this.revealed,
-    matchesTargetLanguage: this.matchesTargetLanguage()
+    matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(this.options.getSettings())
   }).decisions[0];
   if (decision?.kind === "hide") this.advancePastFilteredShort(videoId || resolvedTitle || title);
   }
@@ -24387,7 +24407,7 @@ class YoutubeImmersionFilter {
   }
   shouldShowChannelShelf(filteredCount, settings) {
   if (!youtubeChannelRecommendationsEnabled(settings)) return false;
-  if (!languageFamilyIncludes("jp-only", targetLanguageOf(settings))) return false;
+  if (!channelRecommendationsCoverTarget(settings)) return false;
   if (this.revealed) return false;
   if (!shouldShowChannelRecommendationsForRoute()) return false;
   if (isYouTubeHomePage()) return false;
@@ -25019,14 +25039,6 @@ function findChannelShelfAnchor() {
   "ytd-rich-grid-renderer #contents, ytd-two-column-browse-results-renderer #contents, ytd-section-list-renderer, ytm-rich-grid-renderer, ytm-browse, ytm-search, main"
   );
 }
-function isYouTubeHomePage() {
-  return location.pathname === "/" || location.pathname === "/feed/explore";
-}
-function shouldShowChannelRecommendationsForRoute() {
-  if (isYouTubeWatchPage()) return false;
-  if (isYouTubeShortsWatchPage()) return false;
-  return isYouTubeHomePage() || location.pathname === "/results" || location.pathname.startsWith("/feed/subscriptions");
-}
 function readYouTubeClientConfig() {
   const ytcfg = readYouTubeConfigSource();
   const apiKey = readYouTubeConfigString(ytcfg, "INNERTUBE_API_KEY");
@@ -25612,9 +25624,6 @@ function extractYouTubeVideoId(href) {
   return "";
   }
 }
-function isYouTubeShortsWatchPage() {
-  return location.pathname.startsWith("/shorts/");
-}
 function isCurrentYouTubeShortsWatchCard(card) {
   if (!isYouTubeShortsWatchPage()) return false;
   const item = card.closest(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
@@ -25658,9 +25667,6 @@ function findYouTubeContinuationItem() {
 function nudgeYouTubeContinuationItem(continuation) {
   const rect = continuation.getBoundingClientRect();
   return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
-}
-function isYouTubeWatchPage() {
-  return location.pathname === "/watch";
 }
 function shouldHidePendingYouTubeCard(card) {
   if (typeof window === "undefined") return false;

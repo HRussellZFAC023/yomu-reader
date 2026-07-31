@@ -102,15 +102,20 @@ export function renderDictionarySetupNudge(language: InterfaceLanguage): string 
 }
 
 export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
-    if (!settings.immersionKitEnabled) return '';
     // U46: this mount used to appear for every TARGET, so a learner reading
     // Spanish got a Japanese anime-subtitle search that could only come back
     // empty. Ask the source whether it covers the target first; when it does
     // not, the target's own example sources render instead, including a visible
     // row for the ones that refuse it.
+    //
+    // b15: that target check used to sit BEHIND the `immersionKitEnabled` check,
+    // so unticking one Japanese anime source deleted Tatoeba — the only example
+    // source the other 31 targets have. The toggle governs ImmersionKit, so it is
+    // only consulted once ImmersionKit is the thing being rendered.
     if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
         return renderTargetExampleSourceMounts(settings, sourceAttributes);
     }
+    if (!settings.immersionKitEnabled) return '';
     const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, 'immersionKit'));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>

@@ -236,6 +236,29 @@ describe('a second target needs registration and nothing else', () => {
             .toBe('https://tts.test/sw/habari');
     });
 
+    // b19: this used to end in `.slice(0, 2)`, so every three-letter subtag was
+    // mangled before it reached an OCR engine. `fil` became `fi` — FINNISH, a real
+    // language with a Latin script that Cloud Vision will happily weight toward, so
+    // a Tagalog learner's page was OCR'd as Finnish. `yue` and `grc` became `yu` and
+    // `gr`, codes no engine knows.
+    it('sends OCR a language code an engine recognises, never a truncated subtag', () => {
+        expect(setActiveLearningTargetLanguage('fil')?.language).toBe('fil');
+        expect(targetOcrLanguageHint('')).toBe('tl');
+        expect(targetOcrLanguageTag('')).toBe('fil-PH');
+
+        expect(setActiveLearningTargetLanguage('yue')?.language).toBe('yue-Hant');
+        expect(targetOcrLanguageHint('')).toBe('zh');
+
+        expect(setActiveLearningTargetLanguage('grc')?.language).toBe('grc');
+        expect(targetOcrLanguageHint('')).toBe('el');
+
+        // A regional tag still reduces to its subtag, which is what the slice was
+        // reaching for, and two-letter targets are untouched.
+        expect(setActiveLearningTargetLanguage('ru')?.language).toBe('ru');
+        expect(targetOcrLanguageHint('')).toBe('ru');
+        expect(targetOcrLanguageHint('pt-BR')).toBe('pt');
+    });
+
     it('restores the built-in roster Module after a runtime override is removed', () => {
         const builtIn = learningTargetModuleFor('sv');
         const override = createLearningTargetModule({

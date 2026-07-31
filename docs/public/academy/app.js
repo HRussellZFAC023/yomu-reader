@@ -33884,6 +33884,11 @@ ${spelling}`);
     }
     return { id: id2, value: id2, resolvedFrom: "none", missing: true };
   }
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
       const lookupRewrites = lookupRewritesForTarget(language2.id);
@@ -33909,11 +33914,16 @@ ${spelling}`);
           readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
         },
         typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+        ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
         lookupRewrites
       });
     })
   );
+  function ocrHintFor(runtimeLocale) {
+    const hint2 = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint2 ? { languageHint: hint2 } : void 0;
+  }
   function scriptDetector(scripts) {
     return new RegExp(
       scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
@@ -302150,10 +302160,10 @@ ${component.reading}`;
     return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : params.noDefinitionsHtml();
   }
   function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
-    if (!settings.immersionKitEnabled) return "";
     if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
       return renderTargetExampleSourceMounts(settings, sourceAttributes);
     }
+    if (!settings.immersionKitEnabled) return "";
     const title2 = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>

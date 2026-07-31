@@ -11338,6 +11338,11 @@ ${spelling}`);
     }
     return { id, value: id, resolvedFrom: "none", missing: true };
   }
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
       const lookupRewrites = lookupRewritesForTarget(language2.id);
@@ -11363,11 +11368,16 @@ ${spelling}`);
           readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
         },
         typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+        ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
         lookupRewrites
       });
     })
   );
+  function ocrHintFor(runtimeLocale) {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint ? { languageHint: hint } : void 0;
+  }
   function scriptDetector(scripts) {
     return new RegExp(
       scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
@@ -12924,8 +12934,9 @@ ${spelling}`);
     return configured?.trim() || activeLearningTarget().ocr.defaultLanguage;
   }
   function targetOcrLanguageHint(configured) {
-    const target = activeLearningTarget().ocr;
-    return (configured?.trim() || target.languageHint).slice(0, 2);
+    const configuredTag = configured?.trim();
+    if (!configuredTag) return activeLearningTarget().ocr.languageHint;
+    return languageSubtag(configuredTag) ?? configuredTag;
   }
   function isTargetDefaultOcrLanguageTag(value) {
     const tag = value?.trim().toLowerCase();
@@ -116553,6 +116564,9 @@ ${reading}`);
     { handle: "@nihongo-learning7582", name: "Nihongo-Learning", level: "N5", topics: ["Education", "Travel", "Culture"], captions: ["soft"], sources: ["reddit"] },
     { handle: "@SpeakJapaneseNaturally", name: "Speak Japanese Naturally", level: "N4", topics: ["Education", "Pronunciation", "Travel"], captions: ["soft"], sources: ["reddit", "search"] }
   ];
+  function channelRecommendationsCoverTarget(settings) {
+    return languageFamilyIncludes("jp-only", targetLanguageOf(settings));
+  }
   const YOUTUBE_CHANNEL_RECOMMENDATION_COUNT = YOUTUBE_CHANNEL_RECOMMENDATIONS.length;
   function allYouTubeChannelRecommendations() {
     return [...YOUTUBE_CHANNEL_RECOMMENDATIONS];
@@ -116666,9 +116680,28 @@ ${reading}`);
   function normalizeYouTubeTitleForLanguageCheck(text2) {
     return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
   }
+  function youTubeSettingsTargetLanguageDetector(settings) {
+    const target = learningTargetModuleFor(targetLanguageOf(settings));
+    if (!target) return isProbablyJapaneseYouTubeText;
+    return youTubeTargetLanguageDetector(target.language.startsWith("ja"), (text2) => target.isLookupableText(text2));
+  }
   function youTubeTargetLanguageDetector(isJapaneseTarget, isTargetText) {
     if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
     return (text2) => isTargetText(normalizeYouTubeTitleForLanguageCheck(text2));
+  }
+  function isYouTubeHomePage() {
+    return location.pathname === "/" || location.pathname === "/feed/explore";
+  }
+  function isYouTubeWatchPage() {
+    return location.pathname === "/watch";
+  }
+  function isYouTubeShortsWatchPage() {
+    return location.pathname.startsWith("/shorts/");
+  }
+  function shouldShowChannelRecommendationsForRoute() {
+    if (isYouTubeWatchPage()) return false;
+    if (isYouTubeShortsWatchPage()) return false;
+    return isYouTubeHomePage() || location.pathname === "/results" || location.pathname.startsWith("/feed/subscriptions");
   }
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
@@ -117030,19 +117063,6 @@ ${reading}`);
         this.scan();
       }, delay2);
     }
-    /**
-     * Which language this filter is FOR. It asked "is this Japanese?" and hid the rest,
-     * so a learner studying Russian had their Russian videos hidden as `non-japanese`
-     * with the filter at its default of on (A48). It asks the active study target now.
-     */
-    matchesTargetLanguage() {
-      const target = learningTargetModuleFor(targetLanguageOf(this.options.getSettings()));
-      if (!target) return isProbablyJapaneseYouTubeText;
-      return youTubeTargetLanguageDetector(
-        target.language.startsWith("ja"),
-        (text2) => target.isLookupableText(text2)
-      );
-    }
     scan() {
       const settings = this.options.getSettings();
       if (!youtubeImmersionFilterEnabled(settings)) {
@@ -117059,7 +117079,8 @@ ${reading}`);
       this.resetStaleAutoReveal();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
         revealed: this.revealed,
-        matchesTargetLanguage: this.matchesTargetLanguage()
+        // A48: ask the learner's own target, not "is this Japanese?".
+        matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(settings)
       });
       if (this.shouldAutoRevealSearchResults(result)) {
         this.revealed = true;
@@ -117209,7 +117230,7 @@ ${reading}`);
       };
       const decision = classifyYouTubeFilterCandidates([candidate], {
         revealed: this.revealed,
-        matchesTargetLanguage: this.matchesTargetLanguage()
+        matchesTargetLanguage: youTubeSettingsTargetLanguageDetector(this.options.getSettings())
       }).decisions[0];
       if (decision?.kind === "hide") this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
@@ -117462,7 +117483,7 @@ ${reading}`);
     }
     shouldShowChannelShelf(filteredCount, settings) {
       if (!youtubeChannelRecommendationsEnabled(settings)) return false;
-      if (!languageFamilyIncludes("jp-only", targetLanguageOf(settings))) return false;
+      if (!channelRecommendationsCoverTarget(settings)) return false;
       if (this.revealed) return false;
       if (!shouldShowChannelRecommendationsForRoute()) return false;
       if (isYouTubeHomePage()) return false;
@@ -118094,14 +118115,6 @@ ${reading}`);
       "ytd-rich-grid-renderer #contents, ytd-two-column-browse-results-renderer #contents, ytd-section-list-renderer, ytm-rich-grid-renderer, ytm-browse, ytm-search, main"
     );
   }
-  function isYouTubeHomePage() {
-    return location.pathname === "/" || location.pathname === "/feed/explore";
-  }
-  function shouldShowChannelRecommendationsForRoute() {
-    if (isYouTubeWatchPage()) return false;
-    if (isYouTubeShortsWatchPage()) return false;
-    return isYouTubeHomePage() || location.pathname === "/results" || location.pathname.startsWith("/feed/subscriptions");
-  }
   function readYouTubeClientConfig() {
     const ytcfg = readYouTubeConfigSource();
     const apiKey = readYouTubeConfigString(ytcfg, "INNERTUBE_API_KEY");
@@ -118687,9 +118700,6 @@ ${reading}`);
       return "";
     }
   }
-  function isYouTubeShortsWatchPage() {
-    return location.pathname.startsWith("/shorts/");
-  }
   function isCurrentYouTubeShortsWatchCard(card) {
     if (!isYouTubeShortsWatchPage()) return false;
     const item = card.closest(SHORTS_WATCH_ITEM_SELECTOR) ?? card;
@@ -118733,9 +118743,6 @@ ${reading}`);
   function nudgeYouTubeContinuationItem(continuation) {
     const rect = continuation.getBoundingClientRect();
     return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
-  }
-  function isYouTubeWatchPage() {
-    return location.pathname === "/watch";
   }
   function shouldHidePendingYouTubeCard(card) {
     if (typeof window === "undefined") return false;
@@ -125233,10 +125240,10 @@ ${component.reading}`;
     return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : params.noDefinitionsHtml();
   }
   function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
-    if (!settings.immersionKitEnabled) return "";
     if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
       return renderTargetExampleSourceMounts(settings, sourceAttributes);
     }
+    if (!settings.immersionKitEnabled) return "";
     const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>

@@ -207,6 +207,28 @@ describe('U46 target example mounts in the definition stack', () => {
         expect(cards[1]?.dataset.availability).toBe('pending');
     });
 
+    // b15: both existing cases pin `immersionKitEnabled: true`, which is why this
+    // shipped. ImmersionKit is one Japanese anime-subtitle source; unticking it used
+    // to delete Tatoeba, the ONLY example source the other 31 targets have, because
+    // the toggle was read before anyone asked whether ImmersionKit covers the target.
+    it('keeps a Spanish learner\'s examples when the Japanese anime source is off', () => {
+        document.body.innerHTML = renderDefinitionSourceImmersionMount(
+            { ...spanishTarget(), immersionKitEnabled: false },
+            sourceAttributes,
+        );
+        const cards = Array.from(document.body.querySelectorAll<HTMLElement>('[data-example-source]'));
+        expect(cards.map(card => card.dataset.exampleSource)).toEqual(['immersion-kit', 'tatoeba']);
+        expect(cards[1]?.dataset.availability).toBe('pending');
+    });
+
+    it('still renders nothing for Japanese when the learner turns ImmersionKit off', () => {
+        const html = renderDefinitionSourceImmersionMount(
+            { ...japaneseTarget(), immersionKitEnabled: false },
+            sourceAttributes,
+        );
+        expect(html).toBe('');
+    });
+
     it('fills the pending card, and a retry re-runs only that source', async () => {
         document.body.innerHTML = renderTargetExampleSourceMounts(spanishTarget(), sourceAttributes);
         const root = document.body;

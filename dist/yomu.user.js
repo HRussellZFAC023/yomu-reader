@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.8ac99786464f.user.js#sha256=ismXhkZPbFtNxucZUAPevoOjDfFLPEZ+xGip91q3yUo=
-// @resource yomuCss  https://yomureader.com/yomu.88868683e4f2.css#sha256=iIaGg+TyCOAVx1h0QDwGZPKe11+4raHOfVCFlM/uALM=
+// @require https://yomureader.com/greasyfork/yomu-runtime.f9d31a62e2bb.user.js#sha256=+dMaYuK7rLvnXyiDWBIFlA1PVp/H2mvnR8+bBNpWoU4=
+// @resource yomuCss  https://yomureader.com/yomu.715f15274881.css#sha256=cV8VJ0iB6fHI6jef06iSdfxomWivwdaQa4vvnV7ohFQ=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -21862,6 +21862,11 @@ function resolveInterfaceLocale(requested, options = {}) {
   blockers: []
   };
 }
+const OCR_LANGUAGE_HINTS = Object.freeze({
+  fil: "tl",
+  yue: "zh",
+  grc: "el"
+});
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
@@ -21887,11 +21892,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+    ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
     lookupRewrites
   });
   })
 );
+function ocrHintFor(runtimeLocale) {
+  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+  return hint ? { languageHint: hint } : void 0;
+}
 function scriptDetector(scripts) {
   return new RegExp(
   scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
@@ -29162,10 +29172,10 @@ function renderDictionarySetupNudge(language) {
   </aside>`;
 }
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
-  if (!settings.immersionKitEnabled) return "";
   if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
   return renderTargetExampleSourceMounts(settings, sourceAttributes);
   }
+  if (!settings.immersionKitEnabled) return "";
   const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
   return `
     <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
@@ -40546,7 +40556,6 @@ class ReaderApp {
   if (instantLocalEntries?.length) void this.parsePopoverJapanese(popover);
   }
   installLazyImmersionExamples(popover, card, options = {}) {
-  if (!this.settings.immersionKitEnabled) return;
   if (!immersionKitCapabilitiesFor(targetLanguageOf(this.settings)).supported) {
     installTargetExampleSources(popover, {
       settings: this.settings,
@@ -40556,6 +40565,7 @@ class ReaderApp {
     });
     return;
   }
+  if (!this.settings.immersionKitEnabled) return;
   this.immersionPopover?.installLazyLoad(popover, card, options);
   }
   renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor) {

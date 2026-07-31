@@ -14,13 +14,24 @@ export function targetOcrLanguageTag(configured?: string | null): LanguageTag {
 }
 
 /**
- * Bare language hint for OCR providers that only accept a two-letter code.
- * Derives from the configured tag when there is one, exactly as the providers
- * used to do by slicing their own hardcoded default.
+ * Bare language hint for OCR providers that want a short code rather than a full
+ * BCP-47 tag (Cloud Vision `languageHints`, the local service's
+ * `two_letter_code`, the Lens `Accept-Language`).
+ *
+ * This used to end in `.slice(0, 2)`, which silently mangled every target whose
+ * subtag is three letters: `fil` became `fi` — Finnish, a real language an OCR
+ * engine will happily weight toward — and `yue`/`grc` became `yu`/`gr`, codes no
+ * engine knows (b19). Targets whose own subtag no engine recognises declare an
+ * engine-recognised hint in their module instead of being truncated into one.
  */
 export function targetOcrLanguageHint(configured?: string | null): string {
-    const target = activeLearningTarget().ocr;
-    return (configured?.trim() || target.languageHint).slice(0, 2);
+    const configuredTag = configured?.trim();
+    // A target's declared hint is already the code to send and is used verbatim.
+    // Passing it back through `languageSubtag` would undo the point: Intl
+    // canonicalises the deprecated `tl` to `fil`, so Tagalog's hint of `tl` came
+    // straight back as `fil` again.
+    if (!configuredTag) return activeLearningTarget().ocr.languageHint;
+    return languageSubtag(configuredTag) ?? configuredTag;
 }
 
 /**

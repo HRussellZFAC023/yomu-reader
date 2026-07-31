@@ -1,4 +1,6 @@
 import { stableHashBase36 } from '../core/stable-hash';
+import { languageFamilyIncludes } from '../settings/language-gating';
+import { targetLanguageOf } from '../languages/selection';
 
 export type YouTubeChannelLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type YouTubeChannelCaptionKind = 'soft' | 'hard' | 'furigana';
@@ -138,6 +140,19 @@ const YOUTUBE_CHANNEL_RECOMMENDATIONS = [
     { handle: '@nihongo-learning7582', name: 'Nihongo-Learning', level: 'N5', topics: ['Education', 'Travel', 'Culture'], captions: ['soft'], sources: ['reddit'] },
     { handle: '@SpeakJapaneseNaturally', name: 'Speak Japanese Naturally', level: 'N4', topics: ['Education', 'Pronunciation', 'Travel'], captions: ['soft'], sources: ['reddit', 'search'] },
 ] as const satisfies readonly YouTubeChannelRecommendation[];
+
+/**
+ * Whether this shelf's channels are in the language the learner is studying.
+ *
+ * Every entry below is a Japanese channel graded N5..N1, and there is no
+ * equivalent list for any other target, so the shelf follows its DATA rather
+ * than its setting: a learner of Russian who turns recommendations on was being
+ * offered JLPT channels, and recommending the wrong language is worse than
+ * recommending nothing (A48). Per-target channel lists would lift this.
+ */
+export function channelRecommendationsCoverTarget(settings: unknown): boolean {
+    return languageFamilyIncludes('jp-only', targetLanguageOf(settings));
+}
 
 export const YOUTUBE_CHANNEL_RECOMMENDATION_COUNT = YOUTUBE_CHANNEL_RECOMMENDATIONS.length;
 

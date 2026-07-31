@@ -5446,6 +5446,11 @@ Object.freeze(
   (item) => Object.freeze({ ...item })
   )
 );
+const OCR_LANGUAGE_HINTS = Object.freeze({
+  fil: "tl",
+  yue: "zh",
+  grc: "el"
+});
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
@@ -5471,11 +5476,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+    ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
     lookupRewrites
   });
   })
 );
+function ocrHintFor(runtimeLocale) {
+  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+  return hint ? { languageHint: hint } : void 0;
+}
 function scriptDetector(scripts) {
   return new RegExp(
   scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),

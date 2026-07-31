@@ -114,6 +114,19 @@ describe('host CSS armour', () => {
         expect(armour).not.toContain('!important!important');
     });
 
+    // b14: `all: initial` plus a `direction: ltr` pin on the reader root are author
+    // declarations, so they outrank the presentational hint of the `dir` attribute
+    // that applyInterfaceLocaleToRoot stamps -- every RTL root was laid out LTR
+    // anyway. Both halves matter, so both are asserted: the pin still keeps a host
+    // page's direction out, and a root Yomu itself marks RTL now wins.
+    it('lets a root Yomu marks RTL beat its own LTR pin', () => {
+        const sheet = readFileSync(path.resolve(__dirname, '../../dist/yomu.css'), 'utf8');
+        expect(sheet).toMatch(/\[data-jpdb-reader-root\]\s*\{[^{}]*direction:\s*ltr/u);
+        // Two attribute selectors outrank the one-attribute pin regardless of order.
+        expect(sheet).toMatch(/\[data-jpdb-reader-root\]\[dir=(?:'|")?rtl(?:'|")?\][^{}]*\{[^{}]*direction:\s*rtl/u);
+        expect(sheet).toContain('data-yomu-interface-dir=');
+    });
+
     it('only armours properties that no runtime writes inline', () => {
         // An `!important` author declaration outranks a plain inline style, so an
         // armoured property that some module also sets via element.style would be

@@ -7,6 +7,23 @@ import type { LearningTargetModule } from './types';
  * Thin target Modules for the catalogue roster. ICU supplies segmentation;
  * lookup adds only the bounded interim rewrites declared in target data.
  */
+
+/**
+ * OCR hints for the targets whose own language subtag no OCR engine accepts.
+ *
+ * Cloud Vision and the Lens endpoint recognise scripts, reached through the
+ * language codes in their published lists, so each of these maps to the code
+ * whose script is the one the learner is reading: Tagalog is `tl` there rather
+ * than `fil`, Cantonese is written in Traditional Han, and Ancient Greek is read
+ * by the Greek recogniser. Without this the subtag is passed through verbatim and
+ * the hint is simply ignored (b19). `ocr.defaultLanguage` still carries the
+ * precise tag for engines that understand it.
+ */
+const OCR_LANGUAGE_HINTS: Readonly<Record<string, string>> = Object.freeze({
+    fil: 'tl',
+    yue: 'zh',
+    grc: 'el',
+});
 export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = Object.freeze(
     LEARNER_LANGUAGES
         .filter(language => language.id !== 'ko')
@@ -38,11 +55,17 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                         : 'none',
                 },
                 typography: readingAnnotation ? { readingAnnotationMode: 'ruby' } : undefined,
+                ocr: ocrHintFor(language.runtimeLocale),
                 detectsText: scriptDetector(language.scripts),
                 lookupRewrites,
             });
         }),
 );
+
+function ocrHintFor(runtimeLocale: string): { languageHint: string } | undefined {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split('-')[0]];
+    return hint ? { languageHint: hint } : undefined;
+}
 
 function scriptDetector(scripts: readonly string[]): RegExp {
     return new RegExp(
