@@ -3,6 +3,7 @@
 // reader replays them with GM-fetched clean image sources.
 
 import { isBookwalkerViewerHost } from './canvas-hosts';
+import { managedSessionStorage } from '../app/storage';
 
 export interface MirrorOp {
     seq: number;
@@ -49,9 +50,9 @@ function recorderReloadLoopDetected(): boolean {
     recorderLoadGuardChecked = true;
     try {
         const now = Date.now();
-        const prev = JSON.parse(sessionStorage.getItem(RELOAD_GUARD_KEY) || 'null') as { n: number; at: number } | null;
+        const prev = JSON.parse(managedSessionStorage.getItem(RELOAD_GUARD_KEY) || 'null') as { n: number; at: number } | null;
         const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
-        sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
+        managedSessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
         recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
         if (recorderLoopBroken) { try { console.warn('[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.'); } catch { /* */ } }
     } catch {

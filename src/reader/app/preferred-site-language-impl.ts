@@ -3,7 +3,14 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEYS,
 } from '../settings/index';
-import { gmStorageGet, gmStorageGetSharedSync } from './storage';
+import {
+    ensureManagedWebStorageCurrent,
+    ensureManagedWebStorageCurrentSync,
+    gmStorageGet,
+    gmStorageGetSharedSync,
+    managedLocalStorage,
+    managedSessionStorage,
+} from './storage';
 import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 import { targetLanguageOf } from '../languages/selection';
@@ -48,9 +55,20 @@ let currentPreferenceEnabled = false;
 let pendingStartupOptOutCleanup = false;
 let deferredCookieResponseReload = false;
 
-export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
-    const cachedPreference = readCachedPreferenceEnabled();
+export function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
+    // Capture intent before an async epoch barrier: a later settings action
+    // must supersede this whole install, not just its eventual storage read.
     const revision = ++preferenceRevision;
+    if (ensureManagedWebStorageCurrentSync()) {
+        installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision);
+        return Promise.resolve();
+    }
+    return ensureManagedWebStorageCurrent().then(() => installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision));
+}
+
+function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision: number): void {
+    if (revision !== preferenceRevision) return;
+    const cachedPreference = readCachedPreferenceEnabled();
     pendingStartupOptOutCleanup ||= cachedPreference === true;
     const syncPreference = readStoredPreferenceSync();
     if (syncPreference) {
@@ -86,6 +104,9 @@ export function applyPreferredJapaneseSiteLanguage(
     deferCookieResponseReloadUntilPersisted = false,
     targetLanguage = 'ja',
 ): void {
+    // Settings UI calls occur after boot, but direct companion consumers can
+    // still arrive first when a synchronous userscript backend is available.
+    try { ensureManagedWebStorageCurrentSync(); } catch { /* fail closed in the cache facade */ }
     applyPreferredJapaneseSiteLanguageAtRevision(
         enabled,
         revertOnDisable,
@@ -220,7 +241,7 @@ function sitePreference(
 
 function readCachedPreferenceEnabled(): boolean | undefined {
     try {
-        const value = localStorage.getItem(PREFERENCE_CACHE_KEY);
+        const value = managedLocalStorage.getItem(PREFERENCE_CACHE_KEY);
         if (value === 'true' || value === 'false') return value === 'true';
         const parsed = value == null ? undefined : JSON.parse(value);
         return typeof parsed === 'boolean' ? parsed : undefined;
@@ -231,7 +252,7 @@ function readCachedPreferenceEnabled(): boolean | undefined {
 
 function writeCachedPreferenceEnabled(enabled: boolean): void {
     try {
-        localStorage.setItem(PREFERENCE_CACHE_KEY, String(enabled));
+        managedLocalStorage.setItem(PREFERENCE_CACHE_KEY, String(enabled));
     } catch {
         // Best effort; the canonical setting is still stored with the rest of Yomu settings.
     }
@@ -440,7 +461,7 @@ function hostAlreadyRedirectedThisSession(): boolean {
     const host = currentLocationHost();
     if (!host) return false;
     try {
-        const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+        const raw = managedSessionStorage.getItem(REDIRECT_HOSTS_KEY);
         return raw ? (JSON.parse(raw) as string[]).includes(host) : false;
     } catch {
         return false;
@@ -451,11 +472,11 @@ function markHostRedirectedThisSession(): void {
     const host = currentLocationHost();
     if (!host) return;
     try {
-        const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+        const raw = managedSessionStorage.getItem(REDIRECT_HOSTS_KEY);
         const hosts = raw ? (JSON.parse(raw) as string[]) : [];
         if (!hosts.includes(host)) {
             hosts.push(host);
-            sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+            managedSessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
         }
     } catch {
         // Loop suppression is best-effort; failure should not block the redirect.
@@ -478,13 +499,13 @@ function attemptPreferredDefaultSiteRedirect(): boolean {
 
 function forgetSessionRedirectState(): void {
     try {
-        sessionStorage.removeItem(REDIRECT_CACHE_KEY);
+        managedSessionStorage.removeItem(REDIRECT_CACHE_KEY);
         const host = currentLocationHost();
-        const raw = host ? sessionStorage.getItem(REDIRECT_HOSTS_KEY) : null;
+        const raw = host ? managedSessionStorage.getItem(REDIRECT_HOSTS_KEY) : null;
         if (!raw) return;
         const hosts = (JSON.parse(raw) as string[]).filter(entry => entry !== host);
-        if (hosts.length) sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
-        else sessionStorage.removeItem(REDIRECT_HOSTS_KEY);
+        if (hosts.length) managedSessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+        else managedSessionStorage.removeItem(REDIRECT_HOSTS_KEY);
     } catch {
         // Session bookkeeping only; failing it must never block the opt-out.
     }
@@ -569,7 +590,7 @@ function reloadCurrentLocation(): void {
 
 function recentlyAttemptedRedirect(sourceHref: string, targetHref: string): boolean {
     try {
-        const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+        const value = managedSessionStorage.getItem(REDIRECT_CACHE_KEY);
         if (!value) return false;
         const [source, target, at] = JSON.parse(value) as [string?, string?, number?];
         return source === sourceHref
@@ -582,7 +603,7 @@ function recentlyAttemptedRedirect(sourceHref: string, targetHref: string): bool
 
 function rememberRedirectAttempt(sourceHref: string, targetHref: string): void {
     try {
-        sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify([sourceHref, targetHref, Date.now()]));
+        managedSessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify([sourceHref, targetHref, Date.now()]));
     } catch {
         // Redirect suppression is only a loop guard; failure should not block the redirect.
     }
@@ -590,7 +611,7 @@ function rememberRedirectAttempt(sourceHref: string, targetHref: string): void {
 
 function rememberedRedirectSourceForTarget(targetHref: string): string | null {
     try {
-        const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+        const value = managedSessionStorage.getItem(REDIRECT_CACHE_KEY);
         if (!value) return null;
         const [source, target] = JSON.parse(value) as [string?, string?];
         if (target !== targetHref || !source) return null;

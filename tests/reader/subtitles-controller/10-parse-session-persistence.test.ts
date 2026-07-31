@@ -4,12 +4,14 @@ import {
     BASE_DEFAULT_SETTINGS,
     SubtitlePlayerController,
 } from './fixtures';
+import { ensureManagedWebStorageCurrent } from '../../../src/reader/app/storage';
 
 describe('subtitle parse session persistence (UT-48)', () => {
     registerSubtitleControllerCleanup();
 
     it('restores parsed cue html after a reload without re-parsing', async () => {
         sessionStorage.clear();
+        await ensureManagedWebStorageCurrent();
         const settings = { ...BASE_DEFAULT_SETTINGS, apiKey: 'test-key', furiganaMode: 'all' as const };
         const token = {
             card: {

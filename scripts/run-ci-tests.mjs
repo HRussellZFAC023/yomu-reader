@@ -35,6 +35,11 @@ const ISOLATED_PASS_FILES = [
     // The late bridge test owns storage-bridge globals and is deterministic
     // alone, but can inherit stale state in the fork-reuse pass.
     join(ROOT, 'tests/reader/newtab-runtime-onboarding.test.ts'),
+    // Dynamic storage mocks retain dependent module graphs after doUnmock;
+    // a reused fork can otherwise hand the next file a stale epoch closure.
+    join(ROOT, 'tests/reader/managed-indexeddb-atomicity.test.ts'),
+    join(ROOT, 'tests/reader/reader-boot-storage-barrier.test.ts'),
+    join(ROOT, 'tests/reader/scan-reveal-continuation.test.ts'),
     join(ROOT, 'tests/reader/settings-dialog-controller.test.ts'),
     join(ROOT, 'tests/reader/cloud-sync-web.test.ts'),
     join(ROOT, 'tests/reader/jisho-audio.test.ts'),
@@ -224,10 +229,10 @@ function validateIsolatedPass(allFiles) {
     const isolated = new Set(ISOLATED_PASS_FILES);
     const unisolatedMocks = allFiles.filter(file => {
         if (isolated.has(file)) return false;
-        return /(^|\n)\s*vi\.mock\s*\(/m.test(readFileSync(file, 'utf8'));
+        return /(^|\n)\s*vi\.(?:do)?mock\s*\(/m.test(readFileSync(file, 'utf8'));
     });
     if (unisolatedMocks.length) {
-        throw new Error(`Reader tests using vi.mock must run in the isolated pass:\n${formatFileList(unisolatedMocks)}`);
+        throw new Error(`Reader tests using vi.mock/vi.doMock must run in the isolated pass:\n${formatFileList(unisolatedMocks)}`);
     }
 }
 

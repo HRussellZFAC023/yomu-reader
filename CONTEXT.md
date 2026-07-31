@@ -7,6 +7,7 @@ and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 ## Core Terms
 
 - Reader Surface: Any page area Yomu can scan, annotate, or use as lookup context.
+- Managed State Epoch: The durable reset generation captured once by a JavaScript realm and shared by every Yomu bundle in that realm. Managed values, database markers, and page-cache certificates from another generation are unreadable; an old realm must reload rather than advance its capture.
 - Annotation Scope: A page-owned boundary that restricts Yomu's generic scan to explicitly declared Reader Surfaces; pages that do not declare one retain whole-document scanning.
 - Annotation Pass: One lossless, coalescing scan of a Reader Surface. Ordinary page mutations and lookups may queue another pass but never discard the active pass; only an explicit reader shutdown or annotations-off transition cancels it. Each parse batch preserves one result per input and isolates fallback from later batches.
 - Lookup: Turning Japanese text at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.

@@ -20,15 +20,20 @@ import { PitchSrsStore } from '../../src/reader/newtab/pitch-srs';
 import { flushPersistedOcrCache, persistOcrCacheSoon } from '../../src/reader/ocr/ocr-cache-store';
 import { enumerateLocalYomuSrsStorageKeys } from '../../src/reader/srs/local-yomu-store';
 
-// The registry is the single source of truth for managed state; this test is the
-// enforcement. It seeds EVERY registered store (plus dynamically discovered
-// yomu-* / jpdb-reader-* keys) and asserts nothing survives resetAllData, and
-// that debounced writers cannot re-create a key mid-reset. A future store that
-// forgets to register will leave a key behind here → this test fails.
+// The registry is the reset inventory. These tests seed every declared store,
+// derive writer targets independently from reader source, and assert nothing
+// managed survives. The independent source scan is what catches a future store
+// whose owner forgets to register it.
 
 function sampleKeyForPrefix(prefix: string): string {
     return `${prefix}sentinel`;
 }
+
+const FACTORY_RESET_CONTROL_KEYS = new Set([
+    'yomu:factory-reset-signal',
+    'yomu:state-epoch',
+]);
+const FACTORY_RESET_CONTROL_PREFIXES = ['yomu:state-epoch-lease:v1:'];
 
 /** Concrete keys for every registered entry (exact keys + one sample per prefix). */
 function seededKeysForKind(kinds: ManagedStateEntry['kind'][]): string[] {
@@ -36,8 +41,10 @@ function seededKeysForKind(kinds: ManagedStateEntry['kind'][]): string[] {
     for (const entry of managedStateEntries()) {
         if (entry.kind === 'idb') continue;
         if (!kinds.includes(entry.kind)) continue;
-        if (entry.key) keys.add(entry.key);
-        if (entry.prefix) keys.add(sampleKeyForPrefix(entry.prefix));
+        if (entry.key && !FACTORY_RESET_CONTROL_KEYS.has(entry.key)) keys.add(entry.key);
+        if (entry.prefix && !FACTORY_RESET_CONTROL_PREFIXES.includes(entry.prefix)) {
+            keys.add(sampleKeyForPrefix(entry.prefix));
+        }
     }
     return [...keys];
 }
@@ -72,7 +79,7 @@ function sourceManagedStorageSamples(): string[] {
             }
             const escapedIdentifier = identifier.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
             const directWrite = new RegExp(
-                `(?:gmStorageSet(?:Sync)?|localStorage\\.setItem|sessionStorage\\.setItem)\\(\\s*${escapedIdentifier}\\b`,
+                `(?:gmStorageSet(?:Sync)?|(?:localStorage|sessionStorage|managedLocalStorage|managedSessionStorage)\\.setItem)\\(\\s*${escapedIdentifier}\\b`,
                 'u',
             );
             if (directWrite.test(source)) samples.add(value);

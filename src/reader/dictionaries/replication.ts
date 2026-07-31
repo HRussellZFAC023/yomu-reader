@@ -3,6 +3,7 @@ import { listDictionaryArchives, readDictionaryArchiveFile, type DictionaryArchi
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportOptions, ImportSummary } from './yomitan';
 import type { ReaderSettings } from '../app/types';
+import { ensureManagedWebStorageCurrent, managedLocalStorage } from '../app/storage';
 
 const log = Logger.scope('DictionaryReplication');
 
@@ -39,6 +40,7 @@ export async function ensureLocalDictionariesReplicated(options: DictionaryRepli
     if (replicationInFlight) return [];
     replicationInFlight = true;
     try {
+        await ensureManagedWebStorageCurrent();
         return await replicateMissingDictionaries(options);
     } catch (error) {
         log.warn('Dictionary replication pass failed', error);
@@ -129,7 +131,7 @@ function shouldAttempt(state: ReplicationAttemptState | undefined, now: number):
 // should stop retrying HERE without suppressing replication on other origins.
 function readAttemptState(): Record<string, ReplicationAttemptState> {
     try {
-        const raw = localStorage.getItem(REPLICATION_STATE_KEY);
+        const raw = managedLocalStorage.getItem(REPLICATION_STATE_KEY);
         const parsed = raw ? JSON.parse(raw) as Record<string, ReplicationAttemptState> : null;
         return parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
@@ -139,7 +141,7 @@ function readAttemptState(): Record<string, ReplicationAttemptState> {
 
 function writeAttemptState(state: Record<string, ReplicationAttemptState>): void {
     try {
-        localStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(state));
+        managedLocalStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(state));
     } catch {
         // Origins without persistent storage simply retry next visit.
     }

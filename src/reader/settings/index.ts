@@ -2062,6 +2062,7 @@ function strandedHostedLocalSettingsRecord(): Partial<ReaderSettings> | null {
 export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolean> {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
     try {
+        const gmRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
         const strandedRecord = settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
         if (!strandedRecord) return false;
         // gmStorageGet already migrates a whole stranded blob into an EMPTY GM
@@ -2074,7 +2075,6 @@ export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolea
         // "does not have", not "is still at its default": a GM field the learner
         // deliberately cleared equals the default, and treating that as unset let
         // the hosted mirror replay the old value on every visit (GitHub #36).
-        const gmRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
         const current = mergeSettings(gmRecord);
         const recovery = recoverStrandedHostedSettings(
             current,

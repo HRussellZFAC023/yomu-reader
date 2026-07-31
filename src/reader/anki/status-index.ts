@@ -1,4 +1,12 @@
-import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSet, gmStorageSetSync } from '../app/storage';
+import {
+    assertManagedStateMutationAllowed,
+    gmStorageDeleteSync,
+    gmStorageGetSync,
+    gmStorageSet,
+    gmStorageSetSync,
+} from '../app/storage';
+import { reconcileManagedStateIdbEpoch, runManagedStateIdbWrite } from '../app/managed-indexeddb';
+import type { ManagedStateEpoch } from '../app/managed-state-epoch';
 import { chunkArray, unique } from '../core/array-utils';
 import { Logger } from '../app/logger';
 import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from '../app/types';
@@ -38,9 +46,14 @@ export const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;
 const ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY = 'yomu:anki-status-index-rebuild:v1';
 const ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS = 15 * 60 * 1000;
 const ANKI_STATUS_INDEX_DB_NAME = 'yomu-anki-status-index';
-const ANKI_STATUS_INDEX_DB_VERSION = 1;
+const ANKI_STATUS_INDEX_DB_VERSION = 2;
 const ANKI_STATUS_INDEX_META_STORE = 'meta';
 const ANKI_STATUS_INDEX_ENTRY_STORE = 'entries';
+const ANKI_STATUS_INDEX_EPOCH_RECORD_ID = '__yomu-managed-state-epoch__';
+const ANKI_STATUS_INDEX_EPOCH_MARKER = {
+    storeName: ANKI_STATUS_INDEX_META_STORE,
+    key: ANKI_STATUS_INDEX_EPOCH_RECORD_ID,
+} as const;
 const ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE = 500;
 const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1000;
 const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
@@ -205,31 +218,31 @@ export function ankiStatusIndexMeta(index: AnkiStatusIndex): StoredAnkiStatusInd
     };
 }
 
-export function clearAnkiStatusIndexStores(db: IDBDatabase): Promise<void> {
-    const tx = db.transaction([ANKI_STATUS_INDEX_META_STORE, ANKI_STATUS_INDEX_ENTRY_STORE], 'readwrite');
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).clear();
-    tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear();
-    return idbTransactionDone(tx);
-}
-
-export function putAnkiStatusIndexMeta(db: IDBDatabase, meta: StoredAnkiStatusIndexMeta): Promise<void> {
-    const tx = db.transaction(ANKI_STATUS_INDEX_META_STORE, 'readwrite');
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta);
-    return idbTransactionDone(tx);
-}
-
-export function putBestAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
-    if (!entries.length) return Promise.resolve();
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readwrite');
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach(candidate => {
-        const request = store.get(candidate.key);
-        request.onsuccess = () => {
-            const current = (request.result as StoredAnkiStatusIndexEntry | undefined)?.entry;
-            if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
-        };
+export async function clearAnkiStatusIndexStores(db: IDBDatabase): Promise<void> {
+    await runAnkiStatusIndexWrite(db, [ANKI_STATUS_INDEX_META_STORE, ANKI_STATUS_INDEX_ENTRY_STORE], tx => {
+        tx.objectStore(ANKI_STATUS_INDEX_META_STORE).delete('current');
+        tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear();
     });
-    return idbTransactionDone(tx);
+}
+
+export async function putAnkiStatusIndexMeta(db: IDBDatabase, meta: StoredAnkiStatusIndexMeta): Promise<void> {
+    await runAnkiStatusIndexWrite(db, ANKI_STATUS_INDEX_META_STORE, tx => {
+        tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta);
+    });
+}
+
+export async function putBestAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
+    if (!entries.length) return;
+    await runAnkiStatusIndexWrite(db, ANKI_STATUS_INDEX_ENTRY_STORE, tx => {
+        const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
+        entries.forEach(candidate => {
+            const request = store.get(candidate.key);
+            request.onsuccess = () => {
+                const current = (request.result as StoredAnkiStatusIndexEntry | undefined)?.entry;
+                if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
+            };
+        });
+    });
 }
 
 export function countAnkiStatusIndexEntries(db: IDBDatabase): Promise<number> {
@@ -242,7 +255,8 @@ export function countAnkiStatusIndexEntries(db: IDBDatabase): Promise<number> {
     });
 }
 
-export function openAnkiStatusIndexDb(): Promise<IDBDatabase> {
+export async function openAnkiStatusIndexDb(): Promise<IDBDatabase> {
+    const epoch = await assertManagedStateMutationAllowed();
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
         request.onerror = () => reject(request.error ?? new Error('Could not open Anki status index database.'));
@@ -259,7 +273,10 @@ export function openAnkiStatusIndexDb(): Promise<IDBDatabase> {
         request.onsuccess = () => {
             const db = request.result;
             db.onversionchange = () => db.close();
-            resolve(db);
+            void reconcileAnkiStatusIndexEpoch(db, epoch).then(() => resolve(db)).catch(error => {
+                db.close();
+                reject(error);
+            });
         };
     });
 }
@@ -331,11 +348,30 @@ function ankiStatusIndexEntryUpdatedAt(entry: AnkiStatusIndexEntry): number {
     return Number(entry.updatedAt) || 0;
 }
 
-function putAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, 'readwrite');
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach(entry => store.put(entry));
-    return idbTransactionDone(tx);
+async function putAnkiStatusIndexEntries(db: IDBDatabase, entries: StoredAnkiStatusIndexEntry[]): Promise<void> {
+    await runAnkiStatusIndexWrite(db, ANKI_STATUS_INDEX_ENTRY_STORE, tx => {
+        const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
+        entries.forEach(entry => store.put(entry));
+    });
+}
+
+function reconcileAnkiStatusIndexEpoch(db: IDBDatabase, epoch: ManagedStateEpoch): Promise<void> {
+    return reconcileManagedStateIdbEpoch(db, epoch, {
+        label: 'Anki status index',
+        markerStoreName: ANKI_STATUS_INDEX_META_STORE,
+        markerKey: ANKI_STATUS_INDEX_EPOCH_RECORD_ID,
+        markerKeyPath: 'id',
+        clearedStoreNames: [ANKI_STATUS_INDEX_ENTRY_STORE],
+        deletedRecords: [{ storeName: ANKI_STATUS_INDEX_META_STORE, key: 'current' }],
+    });
+}
+
+function runAnkiStatusIndexWrite(
+    db: IDBDatabase,
+    storeNames: string | string[],
+    mutate: (tx: IDBTransaction) => void,
+): Promise<void> {
+    return runManagedStateIdbWrite(db, ANKI_STATUS_INDEX_EPOCH_MARKER, storeNames, mutate);
 }
 
 async function putStoredAnkiStatusIndexMeta(meta: StoredAnkiStatusIndexMeta): Promise<void> {

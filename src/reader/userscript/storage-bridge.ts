@@ -1,6 +1,6 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
-import { isBridgeManagedStorageKey } from '../app/managed-storage-keys';
+import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
 import { bridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 
@@ -15,7 +15,7 @@ import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, r
 // userscript reads everywhere — and vice versa.
 
 type DatasetEventTarget = EventTarget & { dataset?: DOMStringMap };
-type GmStorageOp = 'get' | 'set' | 'delete' | 'list';
+type GmStorageOp = 'get' | 'set' | 'delete' | 'list' | 'clear-private-managed';
 
 interface StorageBridgeRequestDetail {
     id: string;
@@ -38,6 +38,7 @@ export interface UserscriptGmStorage {
     setValue(key: string, value: unknown): Promise<void>;
     deleteValue(key: string): Promise<void>;
     listValues(): Promise<string[]>;
+    clearPrivateManagedValues(): Promise<void>;
 }
 
 type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
@@ -60,6 +61,7 @@ export function getUserscriptGmStorage(): UserscriptGmStorage | undefined {
         setValue: (key, value) => storageBridgeRequest({ op: 'set', key, value }).then(() => undefined),
         deleteValue: key => storageBridgeRequest({ op: 'delete', key }).then(() => undefined),
         listValues: () => storageBridgeRequest({ op: 'list' }).then(detail => detail.keys ?? []),
+        clearPrivateManagedValues: () => storageBridgeRequest({ op: 'clear-private-managed' }).then(() => undefined),
     };
 }
 
@@ -107,6 +109,14 @@ async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, ac
     try {
         if (detail.op === 'list') {
             send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
+            return;
+        }
+        if (detail.op === 'clear-private-managed') {
+            const privateKeys = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+            for (const key of privateKeys) await accessors.deleteValue(key);
+            const remaining = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+            if (remaining.length) throw new Error('Private managed storage could not be cleared.');
+            send({ ok: true });
             return;
         }
         if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
@@ -268,7 +278,8 @@ function storageBridgeResponseDetail(event: Event): StorageBridgeResponseDetail 
 }
 
 function isGmStorageOp(value: unknown): value is GmStorageOp {
-    return value === 'get' || value === 'set' || value === 'delete' || value === 'list';
+    return value === 'get' || value === 'set' || value === 'delete' || value === 'list'
+        || value === 'clear-private-managed';
 }
 
 function normalizedBridgeEventDetail(event: Event): unknown {

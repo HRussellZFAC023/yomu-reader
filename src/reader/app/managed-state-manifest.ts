@@ -17,8 +17,8 @@ async function enumerateDictionaryArchiveStorageKeys(): Promise<string[]> {
 // jpdb-reader-* key survives a reset, which catches an unregistered store.
 //
 // Keys already covered by the managed-prefix sweep still appear here so the
-// invariant test can seed and assert them, and so GM-only keys are cleared even
-// when GM_listValues is unavailable (no prefix scan possible on that path).
+// invariant test can seed and assert them. Prefix owners enrich their rows with
+// an authoritative enumerator when they can reset safely without GM_listValues.
 const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // Settings (also legacy migration keys). The bunpro token / pill selections /
     // colours all live inside these settings objects.
@@ -34,14 +34,23 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
 
     // App-level signals / flags / caches.
     { owner: 'app/storage', kind: 'gm', key: 'yomu:factory-reset-signal' },
+    { owner: 'app/storage epoch', kind: 'gm', key: 'yomu:state-epoch' },
+    { owner: 'app/storage epoch slots', kind: 'gm', prefix: 'yomu:state-slot:v1:' },
+    { owner: 'app/storage epoch lease', kind: 'gm', prefix: 'yomu:state-epoch-lease:v1:' },
+    { owner: 'app/managed-web-storage', kind: 'local', key: 'yomu:web-storage-epoch:v1:local' },
+    { owner: 'app/managed-web-storage', kind: 'session', key: 'yomu:web-storage-epoch:v1:session' },
+    { owner: 'app/managed-web-storage', kind: 'local', prefix: 'yomu:web-storage-slot:v1:' },
+    { owner: 'app/managed-web-storage', kind: 'session', prefix: 'yomu:web-storage-slot:v1:' },
+    { owner: 'app/storage local provenance', kind: 'local', key: 'yomu:local-storage-provenance:v1' },
     { owner: 'app/card-state-signal', kind: 'gm', key: 'yomu:card-state-signal' },
     { owner: 'app/storage leases', kind: 'gm', prefix: 'yomu:lease:' },
     { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device:v1' },
     { owner: 'srs/account-sync', kind: 'gm', key: 'yomu:private:academy-device-pending:v1' },
     { owner: 'app/logger', kind: 'gm', key: 'yomu:enable-logs' },
-    { owner: 'app/main', kind: 'gm', key: 'yomu:jpdb-review-examples-visible:v1' },
-    // Written with a raw localStorage.setItem, deliberately per-origin: it is the
-    // bootstrap hint for this site, never the preference itself.
+    { owner: 'app/main', kind: 'local', key: 'yomu:jpdb-review-examples-visible:v1' },
+    { owner: 'core/hosted-appearance-boot', kind: 'local', key: 'yomu-page-theme' },
+    // Deliberately per-origin: this is the bootstrap hint for this site, never
+    // the preference itself. Runtime reads and writes use the managed facade.
     { owner: 'app/preferred-site-language', kind: 'local', key: 'yomu:prefer-japanese-site-language' },
     { owner: 'app/preferred-site-language', kind: 'session', key: 'yomu:jps' },
     { owner: 'app/preferred-site-language', kind: 'session', key: 'yomu:jps:hosts' },
@@ -59,9 +68,9 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'bunpro/word-states', kind: 'gm', key: 'yomu:bunpro-word-states:v1' },
 
     // Public lookup caches.
-    { owner: 'jpdb/jpdb-public-cache', kind: 'gm', key: 'yomu:jpdb-cache:v1' },
+    { owner: 'jpdb/jpdb-public-cache', kind: 'local', key: 'yomu:jpdb-cache:v1' },
     { owner: 'dictionaries/jiten-public-cache (legacy)', kind: 'gm', key: 'yomu:jiten-public-cache:v1' },
-    { owner: 'dictionaries/jiten-public-cache', kind: 'gm', key: 'yomu:jiten-public-cache:v2' },
+    { owner: 'dictionaries/jiten-public-cache', kind: 'local', key: 'yomu:jiten-public-cache:v2' },
     { owner: 'dictionaries/jiten-stats-cache', kind: 'gm', key: 'jpdb-reader-jiten-daily-stats' },
 
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
@@ -121,7 +130,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'newtab/controller-config', kind: 'gm', key: 'jpdb-reader-newtab-jpdb-stats-history' },
     { owner: 'newtab/controller-config', kind: 'gm', key: 'jpdb-reader-newtab-disabled-anki-decks' },
     { owner: 'newtab/session-progress', kind: 'local', key: 'jpdb-reader-newtab-daily-study-time' },
-    { owner: 'newtab/controller', kind: 'gm', key: 'yomu-newtab-support-banner-dismissed' },
+    { owner: 'newtab/controller', kind: 'local', key: 'yomu-newtab-support-banner-dismissed' },
 
     // Local pitch-accent SRS (debounced writer — the canonical reset escapee).
     { owner: 'newtab/pitch-srs', kind: 'gm', key: 'yomu-pitch-items:v1' },

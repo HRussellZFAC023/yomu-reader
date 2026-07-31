@@ -1,6 +1,7 @@
 import { primaryCardState } from '../cards/state';
 import { isJitenSrsCard, isPositiveJpdbCard, isReviewSource } from './review-targets';
 import type { JPDBCard } from '../app/types';
+import { managedLocalStorage } from '../app/storage';
 import {
     createStudySessionClock,
     type StudySessionClock,
@@ -212,7 +213,7 @@ export function formatNewTabDailyGoalLabel(
 
 function readNewTabDailyStudyTime(): NewTabDailyStudyTime | null {
     try {
-        const raw = localStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
+        const raw = managedLocalStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
         if (!raw) return null;
         const parsed = JSON.parse(raw) as NewTabDailyStudyTime;
         return typeof parsed?.date === 'string' && Number.isFinite(parsed?.ms) ? parsed : null;
@@ -223,7 +224,7 @@ function readNewTabDailyStudyTime(): NewTabDailyStudyTime | null {
 
 function writeNewTabDailyStudyTime(value: NewTabDailyStudyTime): void {
     try {
-        localStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
+        managedLocalStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
     } catch {
         // Storage full or unavailable: the goal display just stays at 0.
     }

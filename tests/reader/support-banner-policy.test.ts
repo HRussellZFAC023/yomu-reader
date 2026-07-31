@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 import {
     SUPPORT_BANNER_DISMISS_MS,
     SUPPORT_BANNER_FIRST_QUIET_VISITS,
@@ -23,8 +24,10 @@ function nextVisit(now = START): boolean {
 }
 
 describe('support banner policy', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         localStorage.clear();
+        sessionStorage.clear();
+        await ensureManagedWebStorageCurrent();
         resetSupportBannerPolicyMemoryForTests();
     });
 

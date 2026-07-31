@@ -7,7 +7,7 @@
 // cross-origin tabs (the userscript manager shares GM storage), and a
 // BroadcastChannel covers same-origin tabs plus managers without
 // GM_addValueChangeListener.
-import { gmStorageSetSync } from './storage';
+import { gmStorageSetSync, subscribeToStoredValueChanges } from './storage';
 import { Logger } from './logger';
 import type { CardState, JPDBCard } from './types';
 
@@ -108,29 +108,11 @@ export function subscribeToCardStateSignals(onCard: (card: JPDBCard) => void): (
         onCard(cardFromCardStateSignal(signal.card));
     };
 
-    const addValueChangeListener = (globalThis as {
-        GM_addValueChangeListener?: (
-            key: string,
-            listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
-        ) => number;
-    }).GM_addValueChangeListener;
-    const removeValueChangeListener = (globalThis as {
-        GM_removeValueChangeListener?: (listenerId: number) => void;
-    }).GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === 'function') {
-        try {
-            const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-                // Same-tab mutations are applied locally by the action paths;
-                // only remote tabs need the signal.
-                if (remote) handle(newValue);
-            });
-            cleanups.push(() => {
-                if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
-            });
-        } catch (error) {
-            log.debug('GM card-state listener failed', error);
-        }
-    }
+    cleanups.push(subscribeToStoredValueChanges(CARD_STATE_SIGNAL_KEY, (newValue, source) => {
+        // Same-tab mutations are applied locally by the action paths; only
+        // remote tabs need the signal.
+        if (source.remote) handle(newValue);
+    }));
 
     if (typeof BroadcastChannel === 'function') {
         try {

@@ -7,6 +7,7 @@
 // excludes. Bounded by entry count and serialized byte size so it can't grow the
 // origin's storage without limit.
 import { managedStateWritesSuppressed } from '../app/managed-state-registry';
+import { managedLocalStorage } from '../app/storage';
 import type { OcrResult } from './response-shared';
 
 const STORE_KEY = 'yomu-ocr-cache-v2';
@@ -17,9 +18,9 @@ const PERSIST_DELAY_MS = 1200;
 
 interface StoredEntry { r: OcrResult | null; at: number }
 
-function storage(): Storage | null {
+function storage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null {
     try {
-        return typeof localStorage !== 'undefined' ? localStorage : null;
+        return typeof localStorage !== 'undefined' ? managedLocalStorage : null;
     } catch {
         return null; // localStorage can throw in sandboxed/3rd-party contexts
     }

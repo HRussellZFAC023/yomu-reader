@@ -997,6 +997,7 @@ describe('settings dialog keyboard dismissal', () => {
     it('does not dismiss or toast from a stale save after settings is reopened', async () => {
         const storage = deferred<void>();
         const setValue = vi.fn(() => storage.promise);
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', setValue);
         const { controller, dependencies, dismiss, form } = createSettingsDialog();
 

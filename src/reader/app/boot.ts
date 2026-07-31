@@ -7,6 +7,7 @@ import {
     publishReaderRuntimeHealth,
     READER_RUNTIME_MARKER_ID,
 } from './runtime-health';
+import { ensureManagedWebStorageCurrent, ensureManagedWebStorageCurrentSync } from './storage';
 
 type YomuRuntimeKind = 'page' | 'dev' | 'userscript' | 'extension';
 
@@ -41,8 +42,32 @@ const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
 // without an explicit path match it never booted (class Z).
 const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime: ActiveRuntime | undefined;
+let bootInFlight: Promise<void> | undefined;
 
 export function bootReaderApp(): void {
+    if (bootInFlight) return;
+    try {
+        if (ensureManagedWebStorageCurrentSync()) {
+            bootReaderAppAfterStorageBarrier();
+            return;
+        }
+    } catch (error) {
+        console.error('[Yomu Reader] Failed to initialize managed web storage', error);
+        return;
+    }
+    bootInFlight ??= bootReaderAppAfterStorageGate()
+        .catch(error => console.error('[Yomu Reader] Failed to initialize managed web storage', error))
+        .finally(() => {
+            bootInFlight = undefined;
+        });
+}
+
+async function bootReaderAppAfterStorageGate(): Promise<void> {
+    await ensureManagedWebStorageCurrent();
+    bootReaderAppAfterStorageBarrier();
+}
+
+function bootReaderAppAfterStorageBarrier(): void {
     reconcileActiveRuntimeMarker();
     const context = resolveBootContext();
     if (!context) return;

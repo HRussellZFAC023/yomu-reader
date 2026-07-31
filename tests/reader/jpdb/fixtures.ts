@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../../src/reader/app/pages';
+import { ensureManagedWebStorageCurrent } from '../../../src/reader/app/storage';
 import { JITEN_BACKGROUND_DETAIL_TIMEOUT_MS } from '../../../src/reader/dictionaries/jiten-public-vocabulary';
 import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../../src/reader/anki/index';
 import { resolveAnkiWordAudio } from '../../../src/reader/anki/audio';
@@ -3032,8 +3033,12 @@ export function deleteAnkiStatusIndexDatabase(): Promise<void> {
 }
 
 export function registerReaderHelpersCleanup(): void {
-    beforeEach(() => {
+    beforeEach(async () => {
         localStorage.clear();
+        sessionStorage.clear();
+        // Topic files exercise ReaderApp internals directly, bypassing the
+        // normal boot barrier that certifies reset-epoch-scoped web storage.
+        await ensureManagedWebStorageCurrent();
         Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
         Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
         restoreInheritedButtonRectLookup();

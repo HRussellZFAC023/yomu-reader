@@ -17,6 +17,8 @@ import {
 } from './term-match';
 import { uiText } from '../../app/i18n';
 import { Logger } from '../../app/logger';
+import { assertManagedStateMutationAllowed } from '../../app/storage';
+import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
 import { normalizeDictionaryPreferences } from '../../settings/index';
 import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
 import { deleteDictionaryArchive, persistDictionaryArchive } from '../archive-cache';
@@ -25,6 +27,11 @@ import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexi
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';
 import { glossaryValueToSearchText, normalizeGlossarySearchText } from './glossary-text';
+import {
+    ensureYomitanManagedStateStore,
+    reconcileYomitanManagedStateEpoch,
+    runYomitanManagedStateWrite,
+} from './managed-state';
 import { JAPANESE_RE } from './row-coerce';
 import {
     dictionaryCountsFromSummary,
@@ -99,7 +106,7 @@ import type {
 import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemplate } from './import-progress';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const DB_OPEN_TIMEOUT_MS = 10_000;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DICTIONARY_DELETE_BATCH_SIZE = 5000;
@@ -859,6 +866,7 @@ export class YomitanDictionaryStore {
     }
 
     async importFile(file: File, onProgress?: (message: string) => void, sourceUrl = '', options: DictionaryImportOptions = {}): Promise<ImportSummary> {
+        await assertManagedStateMutationAllowed();
         const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
@@ -881,6 +889,7 @@ export class YomitanDictionaryStore {
     }
 
     async importFromUrl(url: string, filename = filenameFromUrl(url), onProgress?: (message: string) => void, options: DictionaryImportOptions = {}): Promise<ImportSummary> {
+        await assertManagedStateMutationAllowed();
         log.info('Dictionary URL import started', { filename, host: safeHost(url) });
         onProgress?.(`${this.text('dictionaryDownloading')}: ${filename}...`);
         const blob = await requestBlob(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
@@ -891,6 +900,7 @@ export class YomitanDictionaryStore {
     }
 
     async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = '', options: DictionaryImportOptions = {}): Promise<ImportSummary> {
+        await assertManagedStateMutationAllowed();
         const language = this.getInterfaceLanguage();
         onProgress?.(`${this.text('dictionaryReadingZip')} ${formatBytes(file.size)}...`);
         const zip = await readZipArchive(file, progress => {
@@ -995,6 +1005,7 @@ export class YomitanDictionaryStore {
     }
 
     async importJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
+        await assertManagedStateMutationAllowed();
         const head = await readBlobText(file.slice(0, 4096));
         if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
             return this.importDexieJson(file, onProgress);
@@ -1027,6 +1038,7 @@ export class YomitanDictionaryStore {
     }
 
     async importDexieJson(file: File, onProgress?: (message: string) => void): Promise<ImportSummary> {
+        await assertManagedStateMutationAllowed();
         onProgress?.('Streaming Yomitan dictionary export...');
         await this.clear();
         const rowCounts: Partial<Record<string, number>> = await readDexieTableRowCounts(file).catch(() => ({}));
@@ -1301,12 +1313,8 @@ export class YomitanDictionaryStore {
             for (const store of stores) {
                 await deleteByDictionary(db, store, dictionary);
             }
-            await new Promise<void>((resolve, reject) => {
-                const tx = db.transaction('dictionaryInfo', 'readwrite');
+            await runYomitanManagedStateWrite(db, 'dictionaryInfo', tx => {
                 tx.objectStore('dictionaryInfo').delete(dictionary);
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
-                tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
             });
             await this.clearDerivedTermIndexes(db);
             this.invalidateCaches();
@@ -1329,7 +1337,10 @@ export class YomitanDictionaryStore {
 
     private async clearDictionaryStores(db: IDBDatabase): Promise<void> {
         this.termIndexGeneration++;
-        await clearStores(db, existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch', 'termKanji']));
+        const stores = existingStores(db, ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'dictionaryInfo', 'termSearch', 'termKanji']);
+        await runYomitanManagedStateWrite(db, stores, tx => {
+            for (const storeName of stores) tx.objectStore(storeName).clear();
+        }, { durability: 'relaxed' });
         this.termKanjiIndexReady = false;
     }
 
@@ -1350,6 +1361,7 @@ export class YomitanDictionaryStore {
         if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db);
         let written = 0;
         for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
+            await assertManagedStateMutationAllowed();
             const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
             await this.addStoreChunk(db, storeName, chunk, put);
             written += chunk.length;
@@ -1359,20 +1371,12 @@ export class YomitanDictionaryStore {
     }
 
     private addStoreChunk<T>(db: IDBDatabase, storeName: StoreName, entries: T[], put: boolean): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const tx = readwriteTransaction(db, storeName);
+        return runYomitanManagedStateWrite(db, storeName, tx => {
             const store = tx.objectStore(storeName);
             for (const entry of entries) {
                 put ? store.put(entry) : store.add(entry);
             }
-            tx.oncomplete = () => {
-                this.invalidateCaches();
-                resolve();
-            };
-            tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-            tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-            commitTransaction(tx);
-        });
+        }, { durability: 'relaxed' }).then(() => this.invalidateCaches());
     }
 
     private async getByIndex<T>(db: IDBDatabase, storeName: StoreName, indexName: string, value: string, limit: number): Promise<T[]> {
@@ -1797,7 +1801,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Term search index rebuild');
         const generation = this.termIndexGeneration;
         try {
-            await this.clearTermSearchIndex(db);
+            await runYomitanManagedStateWrite(db, 'termSearch', tx => tx.objectStore('termSearch').clear());
             let indexedTerms = 0;
             let lastKey: IDBValidKey | undefined;
             for (;;) {
@@ -1805,7 +1809,7 @@ export class YomitanDictionaryStore {
                 const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
                 if (!chunk.terms.length) break;
                 if (generation !== this.termIndexGeneration) return;
-                await this.addTermSearchIndexChunk(db, chunk.terms);
+                await this.addDerivedTermIndexChunk(db, 'termSearch', chunk.terms, termSearchEntries);
                 indexedTerms += chunk.terms.length;
                 await nextTask();
                 if (chunk.done) break;
@@ -1821,7 +1825,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Term kanji index rebuild');
         const generation = this.termIndexGeneration;
         try {
-            await this.clearTermKanjiIndex(db);
+            await runYomitanManagedStateWrite(db, 'termKanji', tx => tx.objectStore('termKanji').clear());
             let indexedTerms = 0;
             let lastKey: IDBValidKey | undefined;
             for (;;) {
@@ -1829,7 +1833,7 @@ export class YomitanDictionaryStore {
                 const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
                 if (!chunk.terms.length) break;
                 if (generation !== this.termIndexGeneration) return;
-                await this.addTermKanjiIndexChunk(db, chunk.terms);
+                await this.addDerivedTermIndexChunk(db, 'termKanji', chunk.terms, termKanjiEntries);
                 indexedTerms += chunk.terms.length;
                 await nextTask();
                 if (chunk.done) break;
@@ -1869,38 +1873,14 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private clearTermSearchIndex(db: IDBDatabase): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction('termSearch', 'readwrite');
-            tx.objectStore('termSearch').clear();
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-        });
-    }
-
-    private clearTermKanjiIndex(db: IDBDatabase): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction('termKanji', 'readwrite');
-            tx.objectStore('termKanji').clear();
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-        });
-    }
-
     private async clearDerivedTermIndexes(db: IDBDatabase): Promise<void> {
         this.termIndexGeneration++;
         const stores = existingStores(db, ['termSearch', 'termKanji']);
         if (!stores.length) return;
-        await clearStores(db, stores);
+        await runYomitanManagedStateWrite(db, stores, tx => {
+            for (const store of stores) tx.objectStore(store).clear();
+        }, { durability: 'relaxed' });
         this.termKanjiIndexReady = false;
-    }
-
-    private addTermSearchIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
-        return this.addDerivedTermIndexChunk(db, 'termSearch', terms, termSearchEntries);
-    }
-
-    private addTermKanjiIndexChunk(db: IDBDatabase, terms: YomitanTermEntry[]): Promise<void> {
-        return this.addDerivedTermIndexChunk(db, 'termKanji', terms, termKanjiEntries);
     }
 
     private addDerivedTermIndexChunk<Row>(
@@ -1909,16 +1889,11 @@ export class YomitanDictionaryStore {
         terms: YomitanTermEntry[],
         rowsForTerm: (term: YomitanTermEntry) => Row[],
     ): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const tx = db.transaction(storeName, 'readwrite');
+        return runYomitanManagedStateWrite(db, storeName, tx => {
             const store = tx.objectStore(storeName);
             for (const term of terms) {
                 for (const row of rowsForTerm(term)) store.add(row);
             }
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject(tx.error);
-            tx.onabort = () => reject(tx.error);
-            commitTransaction(tx);
         });
     }
 
@@ -1934,9 +1909,12 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private db(): Promise<IDBDatabase> {
-        this.dbPromise ??= this.openDb();
-        return this.dbPromise;
+    private async db(): Promise<IDBDatabase> {
+        const epoch = await assertManagedStateMutationAllowed();
+        this.dbPromise ??= this.openDb(epoch);
+        const db = await this.dbPromise;
+        await assertManagedStateMutationAllowed();
+        return db;
     }
 
     // A blocked or wedged upgrade (an older runtime still holding the
@@ -1944,7 +1922,7 @@ export class YomitanDictionaryStore {
     // lookup then died at its own render timeout with no hint why. Fail fast,
     // re-null the cached promise so a later call retries, and handle onblocked
     // (the delete path at clearAll already does both).
-    private openDb(): Promise<IDBDatabase> {
+    private openDb(epoch: ManagedStateEpoch): Promise<IDBDatabase> {
         const promise: Promise<IDBDatabase> = new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_NAME, DB_VERSION);
             let settled = false;
@@ -1981,6 +1959,7 @@ export class YomitanDictionaryStore {
                 if (!db.objectStoreNames.contains('dictionaryInfo')) {
                     db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
                 }
+                ensureYomitanManagedStateStore(db);
                 const termSearch = ensureStore(db, tx, 'termSearch');
                 ensureIndex(termSearch, 'token', 'token');
                 ensureIndex(termSearch, 'dictionary', 'dictionary');
@@ -2006,17 +1985,27 @@ export class YomitanDictionaryStore {
                 }
             };
             request.onsuccess = () => {
-                clearTimeout(openTimeout);
                 if (settled) {
                     // The timeout already rejected this open; release the
                     // connection so it cannot block the retry.
                     try { request.result.close(); } catch { /* already closed */ }
                     return;
                 }
-                settled = true;
                 const db = request.result;
                 this.installVersionChangeHandler(db);
-                resolve(db);
+                void reconcileYomitanManagedStateEpoch(db, epoch).then(() => {
+                    this.invalidateCaches();
+                    if (settled) {
+                        db.close();
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(openTimeout);
+                    resolve(db);
+                }).catch(error => {
+                    db.close();
+                    failOpen('Dictionary database epoch reconciliation failed', error);
+                });
             };
             request.onerror = () => {
                 clearTimeout(openTimeout);
@@ -2436,44 +2425,15 @@ function normalizeMediaPath(path: string): string {
     return path.trim().replace(/^\.?\//, '').replace(/\\/g, '/');
 }
 
-function readwriteTransaction(db: IDBDatabase, storeNames: string | string[]): IDBTransaction {
-    try {
-        return db.transaction(storeNames, 'readwrite', { durability: 'relaxed' });
-    } catch {
-        return db.transaction(storeNames, 'readwrite');
-    }
-}
-
-function commitTransaction(tx: IDBTransaction): void {
-    try {
-        tx.commit?.();
-    } catch {
-        // Older browsers, Safari in particular, may not support explicit commits.
-    }
-}
-
-function clearStores(db: IDBDatabase, stores: InternalStoreName[]): Promise<void> {
-    if (!stores.length) return Promise.resolve();
-    return new Promise<void>((resolve, reject) => {
-        const tx = readwriteTransaction(db, stores);
-        for (const store of stores) tx.objectStore(store).clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(', ')}.`));
-        tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(', ')}.`));
-        commitTransaction(tx);
-    });
-}
-
 async function deleteByDictionary(db: IDBDatabase, storeName: InternalStoreName, dictionary: string): Promise<void> {
     while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
         await nextTask();
     }
 }
 
-function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, limit: number): Promise<number> {
-    return new Promise((resolve, reject) => {
-        let deleted = 0;
-        const tx = readwriteTransaction(db, storeName);
+async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, dictionary: string, limit: number): Promise<number> {
+    let deleted = 0;
+    await runYomitanManagedStateWrite(db, storeName, tx => {
         const index = tx.objectStore(storeName).index('dictionary');
         const request = index.openCursor(IDBKeyRange.only(dictionary));
         request.onsuccess = () => {
@@ -2484,11 +2444,8 @@ function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreName, di
             if (deleted >= limit) return;
             cursor.continue();
         };
-        request.onerror = () => reject(request.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
-        tx.oncomplete = () => resolve(deleted);
-        tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-        tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-    });
+    }, { durability: 'relaxed' });
+    return deleted;
 }
 
 function transactionError(tx: IDBTransaction, fallback: string): Error {

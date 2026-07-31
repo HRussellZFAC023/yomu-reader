@@ -29,7 +29,7 @@ import { DictionarySourceStateController } from '../sources/state';
 import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
-import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from '../app/storage';
+import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
 import { ImmersionKitClient } from '../immersion/kit';
 import { ImmersionPopoverController } from '../immersion/popover-controller';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
@@ -238,12 +238,11 @@ interface LookupPopoverScrollState {
 
 type UchisenData = Awaited<ReturnType<typeof loadUchisenData>>;
 
-export function bootNewTabRuntime(): void {
+export function bootNewTabRuntime(): void { void startNewTabRuntime().catch(error => log.error('New tab initialization failed', error)); }
+async function startNewTabRuntime(): Promise<void> {
+    await ensureManagedWebStorageCurrent();
     const app = new NewTabRuntime();
-    void app.init().catch(error => {
-        log.error('New tab initialization failed', error);
-        throw error;
-    });
+    await app.init();
     addWindowEventListener('pagehide', () => app.destroy(), { once: true });
 }
 
@@ -272,6 +271,7 @@ export async function mountNewTabStudySurface(
         readonly sessionVocabulary?: readonly ReaderStudyVocabulary[];
     },
 ): Promise<{ dispose(): void }> {
+    await ensureManagedWebStorageCurrent();
     const runtime = new NewTabRuntime({
         mountHost: host,
         sessionClock: options.sessionClock,

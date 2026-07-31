@@ -49,7 +49,9 @@ describe('storage reset', () => {
     });
 
     it('clears local and session mirrors when deleting a GM storage key', async () => {
-        const deleteValue = vi.fn(async () => undefined);
+        const values = new Map<string, unknown>([['jpdb-popup-reader-settings', { apiKey: 'secret' }]]);
+        const deleteValue = vi.fn(async (key: string) => { values.delete(key); });
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
         vi.stubGlobal('GM_deleteValue', deleteValue);
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
             apiKey: 'secret',
@@ -148,6 +150,7 @@ describe('storage reset', () => {
             hostname: 'hrussellzfac023.github.io',
             pathname: '/yomu-reader/newtab/index.html',
         });
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', setValue);
 
         await gmStorageSet('jpdb-popup-reader-settings', {
@@ -297,10 +300,10 @@ describe('storage reset', () => {
         });
 
         await gmStorageSet('jpdb-popup-reader-settings', { theme: 'dark' });
+        await vi.waitFor(() => expect(changes).toEqual([{ theme: 'dark' }]));
         unsubscribe();
 
         expect(addValueChangeListener).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.any(Function));
-        expect(changes).toEqual([{ theme: 'dark' }]);
         expect(removeValueChangeListener).toHaveBeenCalledWith(21);
     });
 
@@ -347,6 +350,7 @@ describe('storage resilience', () => {
     });
 
     it('falls back to localStorage when a present GM_setValue rejects', async () => {
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('dead bridge');
         }));
@@ -359,6 +363,7 @@ describe('storage resilience', () => {
     });
 
     it('surfaces a userscript write failure even when the real localStorage fallback is also full', async () => {
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', vi.fn(async () => {
             throw new Error('dead bridge');
         }));

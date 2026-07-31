@@ -654,7 +654,9 @@ describe('reader helpers', () => {
                         primaryCardId: 1001,
                     },
                 }]);
-                expect(getSpy).toHaveBeenCalledTimes(1);
+                const keys = getSpy.mock.calls.map(([key]) => key);
+                expect(keys.filter(key => key === '__yomu-managed-state-epoch__')).toHaveLength(1);
+                expect(keys.filter(key => key !== '__yomu-managed-state-epoch__')).toHaveLength(1);
             } finally {
                 getSpy.mockRestore();
                 getAllSpy.mockRestore();

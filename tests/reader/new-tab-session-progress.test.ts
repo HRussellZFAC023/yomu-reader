@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import {
     NewTabSessionProgressTracker,
@@ -6,6 +6,7 @@ import {
 } from '../../src/reader/newtab/session-progress';
 import { createStudySessionClock, formatStudySessionRemaining } from '../../src/reader/newtab/session-clock';
 import { testEnSettings } from './helpers/settings-fixture';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -76,6 +77,12 @@ afterEach(() => {
     document.body.replaceChildren();
     localStorage.clear();
     sessionStorage.clear();
+});
+
+beforeEach(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await ensureManagedWebStorageCurrent();
 });
 
 describe('new-tab session progress', () => {

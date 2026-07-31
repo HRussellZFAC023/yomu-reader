@@ -1,4 +1,8 @@
+import { managedLocalStorage } from './storage';
+
 const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1000;
+
+type SupportBannerStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 export const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
 export const SUPPORT_BANNER_VISIT_INTERVAL = 6;
@@ -18,7 +22,7 @@ export interface SupportBannerPolicyOptions {
     storageKey: string;
     version: string;
     now?: number;
-    storage?: Storage | null;
+    storage?: SupportBannerStorage | null;
     firstQuietVisits?: number;
     visitInterval?: number;
     impressionCooldownMs?: number;
@@ -82,10 +86,10 @@ export function resetSupportBannerPolicyMemoryForTests(): void {
     supportBannerPageDecisions.clear();
 }
 
-function supportBannerPolicyStorage(storage: Storage | null | undefined): Storage | null {
+function supportBannerPolicyStorage(storage: SupportBannerStorage | null | undefined): SupportBannerStorage | null {
     if (storage !== undefined) return storage;
     try {
-        return globalThis.localStorage ?? null;
+        return typeof localStorage === 'undefined' ? null : managedLocalStorage;
     } catch {
         return null;
     }
@@ -99,7 +103,7 @@ function policyNow(options: SupportBannerPolicyOptions): number {
     return typeof options.now === 'number' && Number.isFinite(options.now) ? options.now : Date.now();
 }
 
-function readSupportBannerPolicyState(storage: Storage, storageKey: string, version: string): SupportBannerPolicyState {
+function readSupportBannerPolicyState(storage: SupportBannerStorage, storageKey: string, version: string): SupportBannerPolicyState {
     try {
         const raw = storage.getItem(storageKey);
         if (!raw) return freshSupportBannerPolicyState(version);
@@ -118,7 +122,7 @@ function readSupportBannerPolicyState(storage: Storage, storageKey: string, vers
     }
 }
 
-function writeSupportBannerPolicyState(storage: Storage, storageKey: string, state: SupportBannerPolicyState): boolean {
+function writeSupportBannerPolicyState(storage: SupportBannerStorage, storageKey: string, state: SupportBannerPolicyState): boolean {
     try {
         storage.setItem(storageKey, JSON.stringify(state));
         return true;

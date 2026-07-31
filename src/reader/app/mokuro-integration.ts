@@ -10,6 +10,10 @@
 //     defer to mokuro again — see siteProvidesNativeTextLayer).
 //   • We annotate the "OCR enabled" label so it is obvious the toggle now picks
 //     between Yomu OCR (off) and mokuro OCR (on).
+//
+// `profiles`, `currentProfile`, and the one-time marker are host-app interop,
+// deliberately outside Yomu's factory-reset inventory. They must stay raw so
+// this document-start hook can run before mokuro hydrates its own Svelte store.
 
 import { mokuroDisplayOcrEnabled } from './site-parsers';
 

@@ -1297,6 +1297,7 @@ describe('reader helpers', () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(700, 500);
         const gmSetValue = vi.fn(async () => undefined);
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => fallback));
         vi.stubGlobal('GM_setValue', gmSetValue);
         const settings = {
             ...DEFAULT_SETTINGS,

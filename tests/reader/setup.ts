@@ -6,6 +6,19 @@ import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferr
 import { resetMediaActivationForTests } from '../../src/reader/audio/media-activation';
 import { resetOcrCacheStoreForTests } from '../../src/reader/ocr/ocr-cache-store';
 import { recaptureInitialWindowMethodsForTests } from '../../src/reader/platform/window-events';
+import {
+    MANAGED_STATE_EPOCH_KEY,
+    resetManagedStateEpochSessionsForTests,
+} from '../../src/reader/app/managed-state-epoch';
+import {
+    MANAGED_STATE_SLOT_KEY_PREFIX,
+    MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX,
+} from '../../src/reader/app/managed-storage-keys';
+import { resetManagedWebStorageForTests } from '../../src/reader/app/managed-web-storage';
+import {
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+    STORAGE_LEASE_KEY_PREFIX,
+} from '../../src/reader/app/gm-storage-lease';
 
 // Under fork reuse (isolate:false), module/global state can outlive a file even
 // as Vitest prepares the next jsdom realm. Tests that replace window.location
@@ -74,7 +87,43 @@ const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const OCR_CACHE_STORE_KEYS = ['yomu-ocr-cache-v1', 'yomu-ocr-cache-v2'] as const;
+const MANAGED_WEB_STORAGE_EPOCH_KEYS = new Set([
+    'yomu:web-storage-epoch:v1:local',
+    'yomu:web-storage-epoch:v1:session',
+    'yomu:local-storage-provenance:v1',
+]);
+const MANAGED_EPOCH_CONTROL_PREFIXES = [
+    MANAGED_STATE_SLOT_KEY_PREFIX,
+    MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX,
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+    STORAGE_LEASE_KEY_PREFIX,
+] as const;
 let mediaMethodRestorers: Array<() => void> = [];
+
+// Every Vitest case models a fresh browser realm unless it explicitly builds
+// several realms inside that case. Fork reuse keeps jsdom storage alive across
+// files, so an epoch committed by one reset test otherwise makes the next
+// legacy fixture look stale even after its in-memory session was reset.
+function resetPersistedManagedEpochForTests(): void {
+    for (const area of ['localStorage', 'sessionStorage'] as const) {
+        try {
+            const storage = globalThis[area];
+            const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
+                .filter((key): key is string => key !== null);
+            for (const key of keys) {
+                if (key === MANAGED_STATE_EPOCH_KEY
+                    || MANAGED_WEB_STORAGE_EPOCH_KEYS.has(key)
+                    || MANAGED_EPOCH_CONTROL_PREFIXES.some(prefix => key.startsWith(prefix))) {
+                    storage.removeItem(key);
+                }
+            }
+        } catch {
+            // A few failure-path tests intentionally replace Storage. Their
+            // own assertions cover that backend; the next beforeEach retries
+            // against the pristine jsdom areas after unstubbing globals.
+        }
+    }
+}
 
 // The OCR controller hydrates its result cache from localStorage at construction
 // and persists on a 1200ms debounce. Stubbed test canvases all share one pixel
@@ -171,6 +220,9 @@ beforeEach(() => {
     // "Cannot read properties of undefined (reading 'hostname')" in unrelated
     // suites. This is the fork-reuse equivalent of Vitest's unstubGlobals.
     vi.unstubAllGlobals();
+    resetPersistedManagedEpochForTests();
+    resetManagedStateEpochSessionsForTests();
+    resetManagedWebStorageForTests();
     restorePristineLocation();
     // Re-read pristine window methods and clear the sticky media-activation flag
     // from the current jsdom realm before any test runs, so a prior file's leaked
@@ -179,6 +231,10 @@ beforeEach(() => {
     resetMediaActivationForTests();
     resetLocaleState();
     resetPersistedOcrCache();
+    // Locale cleanup can touch the storage facade with the preceding test's
+    // backend. Clear that capture last so each test starts as a fresh realm.
+    resetManagedStateEpochSessionsForTests();
+    resetManagedWebStorageForTests();
     stubJsdomMediaElementMethods();
     vi.stubGlobal('GM_xmlhttpRequest', undefined);
     vi.stubGlobal('GM', undefined);
@@ -186,8 +242,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    resetManagedStateEpochSessionsForTests();
+    resetManagedWebStorageForTests();
     resetLocaleState();
     resetPersistedOcrCache();
+    resetManagedStateEpochSessionsForTests();
+    resetManagedWebStorageForTests();
     restoreJsdomMediaElementMethods();
     // Stop a test that left fake timers (or stubbed globals) on from leaking into
     // the next one, which otherwise surfaces as flaky failures in unrelated tests.

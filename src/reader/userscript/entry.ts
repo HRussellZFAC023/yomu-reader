@@ -12,7 +12,9 @@ import { promoteStrandedHostedSettingsToGmStorage } from '../settings';
 // Signal a real userscript/extension immediately so that fallback never races
 // the installed copy and replaces its GM-backed settings, keys, or progress.
 announceInstalledReaderRuntime();
-installPreferredJapaneseSiteLanguageFromStoredSettings();
+void installPreferredJapaneseSiteLanguageFromStoredSettings().catch(error => {
+    console.error('[Yomu Reader] Failed to initialize site-language preference', error);
+});
 // Must run at document-start, before mokuro reads its settings from localStorage,
 // so mokuro's own OCR overlay starts off and the reader OCRs the page instead.
 applyMokuroReaderOcrDefault();

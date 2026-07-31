@@ -1,4 +1,5 @@
 import type { JPDBToken, ReaderSettings } from '../app/types';
+import { managedSessionStorage } from '../app/storage';
 import {
     parsedSubtitleHtmlHasReaderWords,
     subtitleParseSourceSignature,
@@ -181,7 +182,7 @@ export class SubtitleParsedHtmlCache {
     // in-memory caches silently.
     private persistSessionParsedCueHtml(key: string, html: string): void {
         try {
-            sessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
+            managedSessionStorage.setItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`, JSON.stringify({ at: Date.now(), html }));
         } catch {
             // Storage full or unavailable — in-memory cache still applies.
         }
@@ -191,7 +192,7 @@ export class SubtitleParsedHtmlCache {
         if (this.sessionParseCacheChecked.has(key)) return undefined;
         this.sessionParseCacheChecked.add(key);
         try {
-            const raw = sessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
+            const raw = managedSessionStorage.getItem(`${SUBTITLE_SESSION_PARSE_CACHE_PREFIX}${subtitleSessionParseHash(key)}`);
             if (!raw) return undefined;
             const value = JSON.parse(raw) as { at?: number; html?: string };
             if (typeof value.html !== 'string' || typeof value.at !== 'number') return undefined;

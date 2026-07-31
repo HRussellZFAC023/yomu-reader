@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPublicCache } from '../../src/reader/core/public-cache';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 
-beforeEach(() => {
+beforeEach(async () => {
     localStorage.clear();
+    sessionStorage.clear();
+    await ensureManagedWebStorageCurrent();
 });
 
 describe('createPublicCache', () => {

@@ -418,7 +418,7 @@ describe('preferred Japanese site language', () => {
             replace,
         });
 
-        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        await installPreferredJapaneseSiteLanguageFromStoredSettings();
         applyPreferredJapaneseSiteLanguage(false, true);
         resolveStoredPreference({ preferJapaneseSiteLanguage: true });
         await storedPreference;

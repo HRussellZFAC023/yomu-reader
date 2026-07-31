@@ -11,8 +11,10 @@ import {
 import {
     clearManagedStoredValues,
     clearFactoryResetSignal,
+    commitManagedStateResetEpoch,
     createFactoryResetSignal,
     ManagedStateResetError,
+    managedStateResetEpochMayHaveCommitted,
     managedStoredKeysStillPresent,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
@@ -91,6 +93,7 @@ export class FactoryResetCoordinator {
         const resetSignal = createFactoryResetSignal('prepare');
         this.activeResetId = resetSignal.id;
         beginSettingsResetGuard();
+        let epochCommitted = false;
         try {
             await publishFactoryResetSignal(resetSignal);
             await this.dependencies.invalidateRuntimeStores();
@@ -99,10 +102,26 @@ export class FactoryResetCoordinator {
             await deleteSettingsStorage();
             await this.assertManagedStateDeleted();
             await this.dependencies.resetDictionaryDatabase();
-            await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id));
-            await clearFactoryResetSignal();
+            await commitManagedStateResetEpoch(resetSignal.id);
+            epochCommitted = true;
+            // Close the narrow delete/commit race: a stale importer can reopen
+            // IndexedDB after the first delete but before the epoch advances.
+            // A second delete after commit removes that recreation; failure is
+            // best-effort because the DB's own epoch marker clears it on reboot.
+            await this.dependencies.resetDictionaryDatabase()
+                .catch(error => log.warn('Final dictionary reset failed after epoch commit', error));
+            await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id))
+                .catch(error => log.warn('Factory reset completion signal failed after epoch commit', error));
+            await clearFactoryResetSignal()
+                .catch(error => log.warn('Factory reset signal cleanup failed after epoch commit', error));
             this.dependencies.reload();
         } catch (error) {
+            if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
+                log.warn('Factory reset finalization failed after epoch commit; reloading stale realm', error);
+                await clearFactoryResetSignal().catch(signalError => log.warn('Factory reset signal cleanup failed', signalError));
+                this.dependencies.reload();
+                return;
+            }
             this.activeResetId = '';
             await clearFactoryResetSignal().catch(signalError => log.warn('Factory reset signal cleanup failed', signalError));
             endSettingsResetGuard();

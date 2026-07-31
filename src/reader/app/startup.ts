@@ -52,6 +52,8 @@ function adoptHostedInterfaceLanguage(settings: ReaderSettings, href = location.
 }
 
 function hostedPageInterfaceLanguage(): ReaderSettings['interfaceLanguage'] | null {
+    // ReaderApp reaches startup only after the managed web-storage epoch gate;
+    // this raw read is the hosted page's own same-origin language handoff.
     try {
         const raw = window.localStorage?.getItem(SETTINGS_STORAGE_KEY);
         if (!raw) return null;

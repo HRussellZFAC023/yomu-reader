@@ -41,6 +41,8 @@ export function primeHostedAppearance(mode: 'docs' | 'surface'): void {
 }
 
 function readSettings(): Record<string, unknown> {
+    // This is a pre-paint visual hint, not hydrated runtime state. The reader
+    // boot barrier reconciles the managed epoch before constructing ReaderApp.
     try {
         const parsed = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
         return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};

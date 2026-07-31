@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 import {
     JITEN_BACKGROUND_DETAIL_TIMEOUT_MS,
     JitenPublicVocabularyClient,
@@ -22,6 +23,12 @@ function parsedJitenCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('JitenPublicVocabularyClient', () => {
+    beforeEach(async () => {
+        resetJitenPublicVocabularyBackoffForTests();
+        localStorage.removeItem('yomu:jiten-public-cache:v2');
+        await ensureManagedWebStorageCurrent();
+    });
+
     afterEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
         localStorage.removeItem('yomu:jiten-public-cache:v2');

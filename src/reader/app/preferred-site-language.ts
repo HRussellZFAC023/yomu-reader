@@ -4,8 +4,8 @@ import { yomuVideoCompanionSlot } from '../companions/registry';
 // alternate-link redirects, per-site rules) ships in the Yomu Video companion
 // (ADR-0003 size budget); without the companion the preference simply does
 // nothing, which is the correct degraded state.
-export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
-    yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
+export async function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
+    await yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 
 export function applyPreferredJapaneseSiteLanguage(

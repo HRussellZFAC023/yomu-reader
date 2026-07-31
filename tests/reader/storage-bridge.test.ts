@@ -78,6 +78,36 @@ describe('userscript GM storage bridge', () => {
         await expect(storage.setValue('evil-site-token', 'changed')).rejects.toThrow();
     });
 
+    it('never exposes private physical slots through list/get/set/delete', async () => {
+        const privateLogicalKey = 'yomu:private:academy-device:v1';
+        const privateSlot = `yomu:state-slot:v1:1%3Areset:${encodeURIComponent(privateLogicalKey)}`;
+        const nestedPrivateSlot = `yomu:state-slot:v1:1%3Areset:${encodeURIComponent(privateSlot)}`;
+        const values = new Map<string, unknown>([
+            [privateSlot, 'private-secret'],
+            [nestedPrivateSlot, 'nested-private-secret'],
+            ['jpdb-popup-reader-settings', { theme: 'light' }],
+        ]);
+        stubGmStore(values);
+        installUserscriptGmStorageBridge();
+        const storage = getUserscriptGmStorage();
+        expect(storage).toBeDefined();
+        if (!storage) return;
+
+        await expect(storage.listValues()).resolves.toEqual(['jpdb-popup-reader-settings']);
+        for (const key of [privateSlot, nestedPrivateSlot]) {
+            await expect(storage.getValue(key, null)).rejects.toThrow('Unmanaged storage key');
+            await expect(storage.setValue(key, 'changed')).rejects.toThrow('Unmanaged storage key');
+            await expect(storage.deleteValue(key)).rejects.toThrow('Unmanaged storage key');
+        }
+        expect(values.get(privateSlot)).toBe('private-secret');
+        expect(values.get(nestedPrivateSlot)).toBe('nested-private-secret');
+
+        await storage.clearPrivateManagedValues();
+        expect(values.has(privateSlot)).toBe(false);
+        // Malformed nested slots are neither exposed nor treated as valid state.
+        expect(values.get(nestedPrivateSlot)).toBe('nested-private-secret');
+    });
+
     it('installs on the yomureader.com docs origin so settings edited there reach the shared store', () => {
         vi.stubGlobal('location', {
             href: 'https://yomureader.com/',

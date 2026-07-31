@@ -276,7 +276,7 @@ import {
 } from '../study/mining-controls';
 import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
-import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
+import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
@@ -2288,7 +2288,7 @@ export class ReaderApp {
 
     private storedJpdbReviewExamplesVisible(): boolean | null {
         try {
-            const value = localStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
+            const value = managedLocalStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
             return value === 'true' ? true : value === 'false' ? false : null;
         } catch {
             return null;
@@ -2297,7 +2297,7 @@ export class ReaderApp {
 
     private storeJpdbReviewExamplesVisible(visible: boolean): void {
         try {
-            localStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
+            managedLocalStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
         } catch {
             // Ignore storage failures; the native checkbox should still work.
         }

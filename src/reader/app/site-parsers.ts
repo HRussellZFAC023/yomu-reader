@@ -1117,8 +1117,8 @@ function compactText(value: string): string {
 /**
  * Read mokuro's own "OCR enabled" (displayOCR) toggle from the page. mokuro
  * stores per-profile settings in localStorage `profiles`, keyed by the active
- * `currentProfile`. Defaults to enabled when the state cannot be read so we
- * never hide an established mokuro setup unexpectedly.
+ * `currentProfile`. These host-owned interop keys stay outside Yomu's reset
+ * inventory and are read raw; unreadable state defaults on to preserve setups.
  */
 export function mokuroDisplayOcrEnabled(): boolean {
     try {

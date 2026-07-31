@@ -27,9 +27,10 @@ function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
 
 type GmListener = (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void;
 
-function stubGmValueChange(): { listeners: Map<number, GmListener>; removed: number[] } {
+function stubGmValueChange(): { listeners: Map<number, GmListener>; removed: number[]; values: Map<string, unknown> } {
     const listeners = new Map<number, GmListener>();
     const removed: number[] = [];
+    const values = new Map<string, unknown>();
     let nextId = 1;
     vi.stubGlobal('GM_addValueChangeListener', (_key: string, listener: GmListener) => {
         const id = nextId++;
@@ -40,49 +41,55 @@ function stubGmValueChange(): { listeners: Map<number, GmListener>; removed: num
         removed.push(id);
         listeners.delete(id);
     });
-    return { listeners, removed };
+    vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback);
+    return { listeners, removed, values };
 }
 
 function signalValue(id: string, overrides: Partial<ReturnType<typeof cardStateSignalCard>> = {}): unknown {
     return { id, at: Date.now(), card: { ...cardStateSignalCard(card()), ...overrides } };
 }
 
+function emitStoredSignal(values: Map<string, unknown>, listener: GmListener, value: unknown, remote: boolean): void {
+    values.set('yomu:card-state-signal', value);
+    listener('yomu:card-state-signal', undefined, value, remote);
+}
+
 describe('card state signal bus', () => {
-    it('delivers remote GM signals as reconstructed cards and ignores same-tab echoes and duplicates', () => {
-        const { listeners } = stubGmValueChange();
+    it('delivers remote GM signals as reconstructed cards and ignores same-tab echoes and duplicates', async () => {
+        const { listeners, values } = stubGmValueChange();
         const received: JPDBCard[] = [];
         const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
         const listener = [...listeners.values()][0]!;
 
-        listener('yomu:card-state-signal', undefined, signalValue('s1'), true);
-        expect(received).toHaveLength(1);
+        emitStoredSignal(values, listener, signalValue('s1'), true);
+        await vi.waitFor(() => expect(received).toHaveLength(1));
         expect(received[0]).toMatchObject({ vid: 11, sid: 22, spelling: '日本語', cardState: ['known'], pitchAccent: ['LHHH'] });
         // Reconstructed cards are valid JPDBCards for the recolor path.
         expect(received[0]!.meanings).toEqual([]);
 
         // Same-tab events are already applied locally.
-        listener('yomu:card-state-signal', undefined, signalValue('s2'), false);
+        emitStoredSignal(values, listener, signalValue('s2'), false);
         expect(received).toHaveLength(1);
 
         // Duplicate ids (multi-transport delivery) apply once.
-        listener('yomu:card-state-signal', undefined, signalValue('s1'), true);
+        emitStoredSignal(values, listener, signalValue('s1'), true);
         expect(received).toHaveLength(1);
 
         // Malformed payloads are ignored.
-        listener('yomu:card-state-signal', undefined, { id: 's3', card: { spelling: '' } }, true);
-        listener('yomu:card-state-signal', undefined, 'junk', true);
+        emitStoredSignal(values, listener, { id: 's3', card: { spelling: '' } }, true);
+        emitStoredSignal(values, listener, 'junk', true);
         expect(received).toHaveLength(1);
 
         unsubscribe();
     });
 
-    it('carries provider deck metadata for cross-tab rendered-word styling', () => {
-        const { listeners } = stubGmValueChange();
+    it('carries provider deck metadata for cross-tab rendered-word styling', async () => {
+        const { listeners, values } = stubGmValueChange();
         const received: JPDBCard[] = [];
         const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
         const listener = [...listeners.values()][0]!;
 
-        listener('yomu:card-state-signal', undefined, signalValue('decked', {
+        emitStoredSignal(values, listener, signalValue('decked', {
             source: 'jiten',
             deckNames: ['Yomu E2E Seed'],
             sourceDeckName: 'Yomu E2E Seed',
@@ -90,6 +97,7 @@ describe('card state signal bus', () => {
             ankiDeckNames: ['Mining'],
         }), true);
 
+        await vi.waitFor(() => expect(received).toHaveLength(1));
         expect(received[0]).toMatchObject({
             source: 'jiten',
             deckNames: ['Yomu E2E Seed'],
@@ -101,18 +109,19 @@ describe('card state signal bus', () => {
         unsubscribe();
     });
 
-    it('carries Academy review identity and schedule for canonical cross-tab repainting', () => {
-        const { listeners } = stubGmValueChange();
+    it('carries Academy review identity and schedule for canonical cross-tab repainting', async () => {
+        const { listeners, values } = stubGmValueChange();
         const received: JPDBCard[] = [];
         const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
         const listener = [...listeners.values()][0]!;
 
-        listener('yomu:card-state-signal', undefined, signalValue('academy', {
+        emitStoredSignal(values, listener, signalValue('academy', {
             reviewSource: 'yomu-local',
             dueAt: 1_234_567,
             lastReviewAt: 1_000_000,
         }), true);
 
+        await vi.waitFor(() => expect(received).toHaveLength(1));
         expect(received[0]).toMatchObject({
             spelling: '日本語',
             reading: 'にほんご',
@@ -120,6 +129,42 @@ describe('card state signal bus', () => {
             dueAt: 1_234_567,
             lastReviewAt: 1_000_000,
         });
+        unsubscribe();
+    });
+
+    it('preserves GM event order when epoch validation is asynchronous', async () => {
+        let listener: GmListener | undefined;
+        const values = new Map<string, unknown>();
+        vi.stubGlobal('GM_addValueChangeListener', (_key: string, next: GmListener) => {
+            listener = next;
+            return 1;
+        });
+        vi.stubGlobal('GM_removeValueChangeListener', vi.fn());
+        let delayNextEpochRead = false;
+        let releaseRead!: () => void;
+        vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) => {
+            if (delayNextEpochRead) {
+                delayNextEpochRead = false;
+                await new Promise<void>(resolve => { releaseRead = resolve; });
+            }
+            return values.has(key) ? values.get(key) : fallback;
+        }));
+        const received: JPDBCard[] = [];
+        const unsubscribe = subscribeToCardStateSignals(signalCard => { received.push(signalCard); });
+
+        emitStoredSignal(values, listener as GmListener, signalValue('warmup'), true);
+        await vi.waitFor(() => expect(received).toHaveLength(1));
+        received.length = 0;
+
+        delayNextEpochRead = true;
+        emitStoredSignal(values, listener as GmListener, signalValue('older', { spelling: '古い' }), true);
+        await vi.waitFor(() => expect(releaseRead).toBeTypeOf('function'));
+        releaseRead();
+        await vi.waitFor(() => expect(received.map(item => item.spelling)).toEqual(['古い']));
+        emitStoredSignal(values, listener as GmListener, signalValue('newer', { spelling: '新しい' }), true);
+
+        await vi.waitFor(() => expect(received).toHaveLength(2));
+        expect(received.map(item => item.spelling)).toEqual(['古い', '新しい']);
         unsubscribe();
     });
 

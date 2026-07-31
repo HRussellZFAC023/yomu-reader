@@ -15,7 +15,7 @@ import {
     type YouTubeChannelRecommendation,
     type YouTubeChannelRecommendationFilter,
 } from './youtube-channel-recommendations';
-import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../app/storage';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync, managedSessionStorage } from '../app/storage';
 import {
     classifyYouTubeFilterCandidates,
     isProbablyJapaneseYouTubeText,
@@ -2672,11 +2672,11 @@ async function fetchYouTubeOEmbedTitle(videoId: string): Promise<string | null> 
 
 function readStoredOEmbedTitle(videoId: string): string | null | undefined {
     try {
-        const raw = sessionStorage.getItem(storedOEmbedTitleKey(videoId));
+        const raw = managedSessionStorage.getItem(storedOEmbedTitleKey(videoId));
         if (!raw) return undefined;
         const parsed = JSON.parse(raw) as Partial<StoredOEmbedTitle>;
         if (!Number.isFinite(parsed.cachedAt) || Date.now() - Number(parsed.cachedAt) > OEMBED_SESSION_CACHE_TTL_MS) {
-            sessionStorage.removeItem(storedOEmbedTitleKey(videoId));
+            managedSessionStorage.removeItem(storedOEmbedTitleKey(videoId));
             return undefined;
         }
         return typeof parsed.title === 'string' ? parsed.title : null;
@@ -2688,7 +2688,7 @@ function readStoredOEmbedTitle(videoId: string): string | null | undefined {
 function writeStoredOEmbedTitle(videoId: string, title: string | null): void {
     try {
         const stored: StoredOEmbedTitle = { title, cachedAt: Date.now() };
-        sessionStorage.setItem(storedOEmbedTitleKey(videoId), JSON.stringify(stored));
+        managedSessionStorage.setItem(storedOEmbedTitleKey(videoId), JSON.stringify(stored));
     } catch {
         // Session cache is only a jitter/noise reduction; memory cache still covers this page.
     }

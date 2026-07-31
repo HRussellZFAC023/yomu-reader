@@ -254,7 +254,7 @@ import type {
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
-import { gmStorageGet, gmStorageSet } from '../app/storage';
+import { gmStorageGet, gmStorageSet, managedSessionStorage } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
@@ -10427,7 +10427,7 @@ export class NewTabController {
 
     private readStoredWordKey(): { signature: string; key: string } | null {
         try {
-            const raw = sessionStorage.getItem(SESSION_WORD_KEY);
+            const raw = managedSessionStorage.getItem(SESSION_WORD_KEY);
             if (!raw) return null;
             const value = JSON.parse(raw) as Partial<{ signature: string; key: string }>;
             return typeof value.signature === 'string' && typeof value.key === 'string' ? { signature: value.signature, key: value.key } : null;
@@ -10541,7 +10541,7 @@ export class NewTabController {
 
     private writeStoredWordKey(card: JPDBCard): void {
         try {
-            sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
+            managedSessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
                 signature: this.currentSessionSignature(),
                 key: this.cardSelectionKey(card),
             }));

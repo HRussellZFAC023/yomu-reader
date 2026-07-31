@@ -1,3 +1,6 @@
+import { managedLocalStorage } from '../app/storage';
+import { isManagedStorageKey } from '../app/managed-storage-keys';
+
 interface PublicCacheEntry {
     t: number;
     v: unknown;
@@ -19,6 +22,7 @@ export function createPublicCache(
     storageKey: string,
     { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT_LIMIT }: { ttlMs?: number; limit?: number } = {},
 ): PublicCache {
+    const storage = isManagedStorageKey(storageKey) ? managedLocalStorage : localStorage;
     const expiresAt = (entry: PublicCacheEntry): number => entry.t + ttlMs;
 
     function isEntry(value: unknown): value is PublicCacheEntry {
@@ -31,7 +35,7 @@ export function createPublicCache(
 
     function readState(): PublicCacheState {
         try {
-            const value = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+            const value = JSON.parse(storage.getItem(storageKey) ?? '{}');
             return value && typeof value === 'object' && !Array.isArray(value)
                 ? value as PublicCacheState
                 : {};
@@ -42,7 +46,7 @@ export function createPublicCache(
 
     function writeState(state: PublicCacheState): void {
         try {
-            localStorage.setItem(storageKey, JSON.stringify(state));
+            storage.setItem(storageKey, JSON.stringify(state));
         } catch {
             // Callers can still use their memory cache.
         }

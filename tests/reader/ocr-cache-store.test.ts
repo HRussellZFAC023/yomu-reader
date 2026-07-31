@@ -1,11 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { flushPersistedOcrCache, loadPersistedOcrCache, persistOcrCacheSoon } from '../../src/reader/ocr/ocr-cache-store';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
+import { ensureManagedWebStorageCurrent } from '../../src/reader/app/storage';
 
 const result = (text: string): OcrResult => ({
     width: 800, height: 1200,
     lines: [{ text, box: { left: 10, top: 20, width: 300, height: 60 }, vertical: false }],
+});
+
+beforeEach(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await ensureManagedWebStorageCurrent();
 });
 
 afterEach(() => { flushPersistedOcrCache(); localStorage.clear(); vi.useRealTimers(); });
