@@ -1678,10 +1678,14 @@ describe('reader helpers', () => {
             pitchClass: '',
         };
         let runs = 0;
+        const secondRun = deferred<void>();
         const runPitchEnrichmentQueue = vi.fn(async () => {
             runs += 1;
             if (runs === 1) internals.queuePitchEnrichmentTokens([token]);
-            else internals.clearPitchEnrichmentQueue();
+            else {
+                internals.clearPitchEnrichmentQueue();
+                await secondRun.promise;
+            }
         });
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
@@ -1694,9 +1698,21 @@ describe('reader helpers', () => {
         internals.runPitchEnrichmentQueue = runPitchEnrichmentQueue;
 
         try {
-            await internals.drainPitchEnrichmentQueue();
+            let drainSettled = false;
+            const drain = internals.drainPitchEnrichmentQueue().finally(() => {
+                drainSettled = true;
+            });
+
             await waitForExpect(() => expect(runPitchEnrichmentQueue).toHaveBeenCalledTimes(2));
+            expect(drainSettled).toBe(false);
+
+            secondRun.resolve(undefined);
+            await drain;
+
+            expect(drainSettled).toBe(true);
+            expect(runPitchEnrichmentQueue).toHaveBeenCalledTimes(2);
         } finally {
+            secondRun.resolve(undefined);
             app.destroy();
         }
     });

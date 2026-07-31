@@ -9237,7 +9237,17 @@ export class ReaderApp {
         // follow-up drain (started fire-and-forget) enriched those tokens.
         const previous = this.pitchEnrichmentDrain;
         const drain = (previous ? previous.catch(() => undefined) : Promise.resolve())
-            .then(() => this.runPitchEnrichmentQueue());
+            .then(async () => {
+                // `runPitchEnrichmentQueue` normally drains entries queued
+                // during its own awaits, but keep the shared drain alive until
+                // quiescence as well. This closes the final await -> return
+                // window without handing a follow-up run to a detached promise.
+                do {
+                    await this.runPitchEnrichmentQueue();
+                } while (!this.isDestroyed
+                    && this.shouldRunPitchOrReadingEnrichment()
+                    && this.pitchEnrichmentQueue.length);
+            });
         this.pitchEnrichmentDrain = drain;
         void drain.finally(() => {
             if (this.pitchEnrichmentDrain === drain) this.pitchEnrichmentDrain = undefined;

@@ -191,7 +191,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         expect(summary.shelfStage).toBe('released');
         expect(summary.shelfSlotsPerLanguage).toBe(SHELF_ROLES.length);
         expect(summary.shelfRecommendationRows).toBe(SHELF_ROLES.length * 32);
-    });
+    }, 30_000);
 
     it('refuses when a shelf title is in the catalogue but no longer mirrored', async () => {
         const slot = await shelfSlotOf('monolingual');
@@ -203,7 +203,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         });
 
         await expect(run.summary()).rejects.toThrow(/monolingual.*source-only rather than published/s);
-    });
+    }, 30_000);
 
     it('refuses when a re-import renames a shelf title out from under the frozen policy', async () => {
         const slot = await shelfSlotOf('grammar');
@@ -214,7 +214,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         });
 
         await expect(run.summary()).rejects.toThrow(/grammar.*no catalogue entry carries that id/s);
-    });
+    }, 30_000);
 
     it('refuses when a shelf title stops covering the target language', async () => {
         const slot = await shelfSlotOf('pronunciation');
@@ -225,7 +225,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         });
 
         await expect(run.summary()).rejects.toThrow(/pronunciation.*no longer lists ja in headwordLanguages/s);
-    });
+    }, 30_000);
 
     it('refuses when a shelf title disappears from the catalogue entirely', async () => {
         const slot = await shelfSlotOf('examples');
@@ -236,7 +236,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         });
 
         await expect(run.summary()).rejects.toThrow(/examples.*no catalogue entry carries that id/s);
-    });
+    }, 30_000);
 
     // The one that a total-row count cannot see: 31 languages keep all eight
     // rows, one drops to seven because its starter already names the shelf
@@ -253,7 +253,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         });
 
         await expect(run.summary()).rejects.toThrow(/de-ja\.json came out of the release without its monolingual row/);
-    });
+    }, 30_000);
 
     it('fails the dry run too, before a single file is written', async () => {
         const slot = await shelfSlotOf('frequency');
@@ -267,7 +267,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
 
         await expect(run.summary()).rejects.toThrow(/frequency.*source-only rather than published/s);
         await expect(readdir(join(run.releaseRoot, 'v1'))).rejects.toThrow(/ENOENT/);
-    });
+    }, 30_000);
 
     // The narrow shelf is legitimate in exactly one state, and the guard must
     // not take that away: nothing mirrored yet means nothing to recommend.

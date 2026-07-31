@@ -1353,6 +1353,17 @@ function assertYoutubeControlsNotBlocked(result, mode) {
 
 function assertAnnotationStability(result) {
     const timeline = result.annotationTimeline ?? {};
+    assertAnnotationTimeline(result, timeline);
+    assertNaturalPlaybackColdStart(result, timeline);
+    assertAnnotationTimelinePhases(result, timeline);
+    assertNaturalPlaybackPhases(result, timeline);
+    assertAnnotationCueSummaries(result, timeline);
+    assertStableModeAnnotations(result);
+    assertNaturalPlaybackAdvance(result);
+    assertDiagnosticCompoundAnnotation(result);
+}
+
+function assertAnnotationTimeline(result, timeline) {
     assert(timeline.frameCount > 0, `${result.name}: annotation frame recorder produced no samples`, timeline);
     assert(timeline.annotationDowngradeCount === 0, `${result.name}: subtitle annotations downgraded or disappeared after warmup`, {
         downgradeCount: timeline.annotationDowngradeCount,
@@ -1367,23 +1378,33 @@ function assertAnnotationStability(result) {
         rootIds: timeline.rootIds,
         changes: timeline.changes,
     });
-    if (NATURAL_PLAYBACK) {
-        assert(timeline.coldStart?.visibleFrameCount > 0, `${result.name}: recorder missed the first visible subtitle paint`, timeline.coldStart ?? {});
-        assert(timeline.coldStart?.loadingFrames === 0
-            && timeline.coldStart?.plainFrames === 0
-            && timeline.coldStart?.hiddenFrames === 0,
-        `${result.name}: first visible subtitle paint was partial or hidden`, timeline.coldStart ?? {});
-    }
+}
+
+function assertNaturalPlaybackColdStart(result, timeline) {
+    if (!NATURAL_PLAYBACK) return;
+    assert(timeline.coldStart?.visibleFrameCount > 0, `${result.name}: recorder missed the first visible subtitle paint`, timeline.coldStart ?? {});
+    assert(timeline.coldStart?.loadingFrames === 0
+        && timeline.coldStart?.plainFrames === 0
+        && timeline.coldStart?.hiddenFrames === 0,
+    `${result.name}: first visible subtitle paint was partial or hidden`, timeline.coldStart ?? {});
+}
+
+function assertAnnotationTimelinePhases(result, timeline) {
     for (const phase of ['normal-cue-transition', 'normal-ready', 'enter-fullscreen', 'fullscreen', 'exit-fullscreen', 'returned']) {
         assert((timeline.phaseCounts?.[phase] ?? 0) > 0, `${result.name}: annotation recorder missed ${phase}`, timeline.phaseCounts ?? {});
     }
-    if (NATURAL_PLAYBACK) {
-        for (const phase of ['normal-ready', 'enter-fullscreen', 'fullscreen', 'exit-fullscreen', 'returned']) {
-            assert(timeline.playbackByPhase?.[phase]?.pausedFrames === 0,
-                `${result.name}: video paused during active-playback phase ${phase}`,
-                timeline.playbackByPhase?.[phase] ?? {});
-        }
+}
+
+function assertNaturalPlaybackPhases(result, timeline) {
+    if (!NATURAL_PLAYBACK) return;
+    for (const phase of ['normal-ready', 'enter-fullscreen', 'fullscreen', 'exit-fullscreen', 'returned']) {
+        assert(timeline.playbackByPhase?.[phase]?.pausedFrames === 0,
+            `${result.name}: video paused during active-playback phase ${phase}`,
+            timeline.playbackByPhase?.[phase] ?? {});
     }
+}
+
+function assertAnnotationCueSummaries(result, timeline) {
     for (const cue of timeline.cueSummaries ?? []) {
         assert(cue.frameCount > 0, `${result.name}: no rendered frames captured for ${cue.id}`, cue);
         assert(cue.loadingFrames === 0, `${result.name}: ${cue.id} flashed a loading/plain subtitle`, cue);
@@ -1397,7 +1418,9 @@ function assertAnnotationStability(result) {
             changes: timeline.changes,
         });
     }
+}
 
+function assertStableModeAnnotations(result) {
     const stableModes = [result.normal, result.fullscreen, result.returned];
     const expectedCompoundText = DIAGNOSTIC_CUES[1].text.replace(/\s+/gu, '');
     for (const evidence of stableModes) {
@@ -1412,16 +1435,21 @@ function assertAnnotationStability(result) {
         assert(compound?.componentGradient, `${result.name}: ${evidence.mode} lost the component gradient`, compound ?? {});
         assert(compound?.componentPaint && compound.componentPaint !== 'none', `${result.name}: ${evidence.mode} did not paint the component gradient`, compound ?? {});
     }
-    if (NATURAL_PLAYBACK) {
-        assert(Number.isFinite(result.normal.videoCurrentTime)
-            && Number.isFinite(result.returned.videoCurrentTime)
-            && result.returned.videoCurrentTime > result.normal.videoCurrentTime,
-        `${result.name}: playback time did not advance through fullscreen and return`, {
-            normal: result.normal.videoCurrentTime,
-            fullscreen: result.fullscreen.videoCurrentTime,
-            returned: result.returned.videoCurrentTime,
-        });
-    }
+}
+
+function assertNaturalPlaybackAdvance(result) {
+    if (!NATURAL_PLAYBACK) return;
+    assert(Number.isFinite(result.normal.videoCurrentTime)
+        && Number.isFinite(result.returned.videoCurrentTime)
+        && result.returned.videoCurrentTime > result.normal.videoCurrentTime,
+    `${result.name}: playback time did not advance through fullscreen and return`, {
+        normal: result.normal.videoCurrentTime,
+        fullscreen: result.fullscreen.videoCurrentTime,
+        returned: result.returned.videoCurrentTime,
+    });
+}
+
+function assertDiagnosticCompoundAnnotation(result) {
     const normalWords = result.normal.annotation?.words ?? [];
     const compound = normalWords.find(word => word.surface.includes('申し訳'));
     assert(compound, `${result.name}: the diagnostic compound was not represented by a reader word`, { words: normalWords });
