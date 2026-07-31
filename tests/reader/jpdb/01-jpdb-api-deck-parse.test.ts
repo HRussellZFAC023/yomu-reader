@@ -868,6 +868,49 @@ describe('reader helpers', () => {
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
     });
 
+    // Canna's iPad report, 2026-07-31: "the popover is super tiny". The sheet grid is
+    // `auto minmax(0, 1fr) auto`, so when the whole sheet collapses toward its floor
+    // the card body is crushed to nothing and only the drag handle and the grade
+    // buttons remain — which is exactly what her screenshot showed.
+    it('keeps the sheet floor proportional to a tall tablet viewport', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        withViewport(820, 1024, () => {
+            const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+            installSheetHandle(popover, vi.fn());
+
+            // The floor was `Math.min(viewportHeight, 180, Math.max(140, 32%))`, and the
+            // 180 term inside a Math.min deleted the 32% term on every screen taller
+            // than ~560px. On this viewport it gave 180px where 32% is 328px.
+            expect(Number(handle.getAttribute('aria-valuemin'))).toBe(328);
+
+            // Drag far past the bottom of the screen: the sheet must stop at the
+            // proportional floor, not at a strip the height of its own buttons.
+            handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 300, pointerId: 3 }));
+            handle.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true }), { clientY: 4000, pointerId: 3 }));
+            handle.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 4000, pointerId: 3 }));
+
+            expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('328px');
+            // And a height the floor refused must never be remembered, or one bad
+            // measurement leaves the reader with a tiny sheet in every later session.
+            const stored = Number(localStorage.getItem(SHEET_HEIGHT_STORAGE_KEY) ?? '0');
+            expect(stored === 0 || stored >= 0.32).toBe(true);
+        });
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+    });
+
+    it('ignores a remembered sheet ratio too small to have come from a real drag', () => {
+        // Self-heals an install that already stored one: without this the reader has
+        // no way back to a usable sheet except clearing storage.
+        localStorage.setItem(SHEET_HEIGHT_STORAGE_KEY, '0.05');
+        withViewport(820, 1024, () => {
+            const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+            installSheetHandle(popover, vi.fn());
+            expect(popover.style.getPropertyValue('--jpdb-reader-sheet-height')).toBe('717px');
+            expect(handle.getAttribute('aria-valuenow')).toBe('717');
+        });
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+    });
+
     it('dismisses on backdrop click while preserving the page text selection', () => {
         const dismiss = vi.fn();
         const backdrop = createReaderBackdrop(dismiss);

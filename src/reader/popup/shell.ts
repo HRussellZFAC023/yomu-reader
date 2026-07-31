@@ -15,6 +15,17 @@ const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = 'jpdb-reader-settings-drawer-height-r
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
 const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
 const MIN_SHEET_HEIGHT_PX = 180;
+/**
+ * A sheet never restores smaller than this share of the viewport. It is both the
+ * drag floor (see `sheetMinHeight`) and the validity floor for the persisted ratio:
+ * because a drag is clamped to the floor, a STORED ratio below it cannot have come
+ * from a real drag on that viewport, so it is corrupt and is discarded on read.
+ * That matters because the ratio is remembered across sessions — one transient
+ * bad measurement (a mid-rotation viewport, a keyboard animation frame) would
+ * otherwise leave a reader with a permanently tiny sheet and no way back except
+ * clearing storage. Discarding it on read self-heals an already-poisoned install.
+ */
+const SHEET_MIN_HEIGHT_RATIO = 0.32;
 const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
 const SHEET_DISMISS_OVERSHOOT_PX = 72;
 const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
@@ -698,9 +709,24 @@ function layoutViewportHeight(): number {
     return Math.max(0, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
 }
 
+/**
+ * The smallest a lookup sheet may be, as a share of the viewport.
+ *
+ * This read `Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, 32%))`,
+ * and the `MIN_SHEET_HEIGHT_PX` term in a `Math.min` capped the floor at 180px on
+ * every screen — which silently deleted the whole 32% term it sits next to.
+ * Measured on real viewport heights: iPad 1024 gave a 180px floor where 32% is
+ * 328px, iPad Pro 1180 gave 180px against 378px. 180px is about the height of the
+ * drag handle plus the grade buttons, so the sheet's grid
+ * (`auto minmax(0, 1fr) auto`) crushed the card body to nothing and the reader saw
+ * a strip of buttons with the sentence cut off — Canna's iPad report, 2026-07-31.
+ *
+ * 180px stays as the fallback for a viewport we cannot measure, which is the only
+ * case it was ever right for.
+ */
 function sheetMinHeight(viewportHeight: number): number {
     if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
-    return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+    return Math.min(viewportHeight, Math.max(140, Math.round(viewportHeight * SHEET_MIN_HEIGHT_RATIO)));
 }
 
 function settingsDrawerMinHeight(viewportHeight: number): number {
@@ -759,10 +785,17 @@ function miningDrawerHorizontalOpenDirection(handle: HTMLElement): 'left' | 'rig
 }
 
 function readSheetHeightRatio(): number {
-    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+    const stored = readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+    // Below the drag floor the value cannot have been produced by a real drag, so
+    // it is a remembered bad measurement rather than a preference. Fall back
+    // instead of honouring it, which repairs an install that already stored one.
+    return stored < SHEET_MIN_HEIGHT_RATIO ? DEFAULT_SHEET_HEIGHT_RATIO : stored;
 }
 
 function storeSheetHeightRatio(height: number, viewportHeight: number): void {
+    // Do not remember a ratio the drag floor would refuse. Writing one is how a
+    // single bad viewport measurement became permanent.
+    if (viewportHeight > 0 && height / viewportHeight < SHEET_MIN_HEIGHT_RATIO) return;
     storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
 }
 

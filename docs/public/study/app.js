@@ -41855,6 +41855,7 @@ ${normalizedReading}`;
   const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
   const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
   const MIN_SHEET_HEIGHT_PX = 180;
+  const SHEET_MIN_HEIGHT_RATIO = 0.32;
   const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
   const SHEET_DISMISS_OVERSHOOT_PX = 72;
   const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
@@ -42458,7 +42459,7 @@ ${normalizedReading}`;
   }
   function sheetMinHeight(viewportHeight2) {
     if (viewportHeight2 <= 0) return MIN_SHEET_HEIGHT_PX;
-    return Math.min(viewportHeight2, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight2 * 0.32)));
+    return Math.min(viewportHeight2, Math.max(140, Math.round(viewportHeight2 * SHEET_MIN_HEIGHT_RATIO)));
   }
   function settingsDrawerMinHeight(viewportHeight2) {
     if (viewportHeight2 <= 0) return MIN_SETTINGS_DRAWER_HEIGHT_PX;
@@ -42508,9 +42509,11 @@ ${normalizedReading}`;
     return handleCenter < actionsCenter ? "right" : "left";
   }
   function readSheetHeightRatio() {
-    return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+    const stored = readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+    return stored < SHEET_MIN_HEIGHT_RATIO ? DEFAULT_SHEET_HEIGHT_RATIO : stored;
   }
   function storeSheetHeightRatio(height, viewportHeight2) {
+    if (viewportHeight2 > 0 && height / viewportHeight2 < SHEET_MIN_HEIGHT_RATIO) return;
     storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight2);
   }
   function readHeightRatio(storageKey, fallback) {

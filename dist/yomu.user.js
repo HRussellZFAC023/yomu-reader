@@ -32066,6 +32066,7 @@ function addViewportChangeListeners(listener, signal) {
 const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
 const MIN_SHEET_HEIGHT_PX = 180;
+const SHEET_MIN_HEIGHT_RATIO = 0.32;
 const SHEET_DISMISS_OVERSHOOT_PX = 72;
 const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
 const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
@@ -32522,7 +32523,7 @@ function layoutViewportHeight() {
 }
 function sheetMinHeight(viewportHeight) {
   if (viewportHeight <= 0) return MIN_SHEET_HEIGHT_PX;
-  return Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, Math.round(viewportHeight * 0.32)));
+  return Math.min(viewportHeight, Math.max(140, Math.round(viewportHeight * SHEET_MIN_HEIGHT_RATIO)));
 }
 function restoredSheetHeight(viewportHeight) {
   return clampSheetHeight(viewportHeight * readSheetHeightRatio(), viewportHeight);
@@ -32561,9 +32562,11 @@ function miningDrawerHorizontalOpenDirection(handle) {
   return handleCenter < actionsCenter ? "right" : "left";
 }
 function readSheetHeightRatio() {
-  return readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+  const stored = readHeightRatio(SHEET_HEIGHT_STORAGE_KEY, DEFAULT_SHEET_HEIGHT_RATIO);
+  return stored < SHEET_MIN_HEIGHT_RATIO ? DEFAULT_SHEET_HEIGHT_RATIO : stored;
 }
 function storeSheetHeightRatio(height, viewportHeight) {
+  if (viewportHeight > 0 && height / viewportHeight < SHEET_MIN_HEIGHT_RATIO) return;
   storeHeightRatio(SHEET_HEIGHT_STORAGE_KEY, height, viewportHeight);
 }
 function readHeightRatio(storageKey, fallback) {
