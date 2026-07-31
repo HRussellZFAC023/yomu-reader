@@ -534,6 +534,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Grammar detection and per-language references': '文法検出と言語別リファレンス',
     'The YouTube immersion filter, its hidden-video notice, and opening a site in your target language are now available whatever language you are studying, not only Japanese.': 'YouTubeの没入フィルター、非表示動画のお知らせ、学習中の言語版のサイトを開く機能が、日本語だけでなくどの学習言語でも利用できるようになりました。',
     'The YouTube filter notice now names the language you are studying instead of calling everything else non-Japanese.': 'YouTubeフィルターのお知らせは、他をまとめて「日本語以外」と呼ぶのではなく、学習中の言語名を表示するようになりました。',
+    'The YouTube filter toggle now shows its real default-off state for non-Japanese targets and records an opt-in on the first click.': 'YouTubeフィルターの切り替えは、日本語以外の学習言語では実際の初期状態どおりオフで表示され、最初にオンにした操作を明示的な選択として保存するようになりました。',
     'The Hover Lookup hotkey now stays cleared when you clear it, instead of returning to Shift.': 'ホバー辞書のショートカットを消したら消えたままになり、Shiftに戻らなくなりました。',
     'A setting you put back to its default now stays there, instead of an older stored copy restoring it.': '設定を初期値に戻すとその状態が保たれ、古い保存内容で元に戻されなくなりました。',
     'Word colour for ignored, suspended, and blacklisted words can now be turned off like every other state.': '除外・保留・ブラックリストの単語の色も、他の状態と同じようにオフにできるようになりました。',
