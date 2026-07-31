@@ -30386,11 +30386,26 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return true;
     });
   }
+  const UNIFIED_IDEOGRAPH_RE = /^\p{Unified_Ideograph}$/u;
+  const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+  function isUnifiedIdeograph(value) {
+    return UNIFIED_IDEOGRAPH_RE.test(value);
+  }
+  function hanIdeographSegments(text2) {
+    return [...text2.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    }));
+  }
   const HIRAGANA = "぀-ゟ";
   const KATAKANA = "゠-ヿ";
   const KANA = "぀-ヿ";
   const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
   const KANJI = "㐀-鿿";
+  const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+  const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+  const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
   const ITERATION_MARK = "々";
   const ITERATION_MARKS = `${ITERATION_MARK}〆`;
   const KANA_COUNTERS = "ヵヶ";
@@ -30403,19 +30418,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
   const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
   const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+  const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
+  const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
   const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
   const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
   const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
   const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
   const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
   const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
-  const HAS_JAPANESE$1 = new RegExp(`[${JAPANESE_SCRIPT}]`);
-  const HAS_JAPANESE_LETTER = new RegExp(`[${JAPANESE_LETTERS}]`, "u");
-  const KANJI_RE$3 = new RegExp(`[${KANJI}]`, "u");
-  const KANJI_LIKE_RE = new RegExp(`[${KANJI_LIKE}]`, "u");
+  const HAS_JAPANESE$1 = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+  const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
+  const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
   const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
   const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
   const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
+  const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, "u");
+  function isJapaneseKanjiCharacter(value) {
+    return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
+  }
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
@@ -30775,428 +30796,6 @@ ${candidate2.depth}`;
   function stableHashBase36(value) {
     return stableHash32(value).toString(36);
   }
-  const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
-  const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
-  const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
-  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
-  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-  const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-  const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
-  const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
-  const SEGMENT_SEPARATORS = "・･゠·•";
-  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
-  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-  const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
-  const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
-  const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
-  const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
-  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-  const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
-  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
-  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-  const KANA_I_ADJECTIVE_END_RE = /い$/u;
-  const SMALL_TSU_RE = /っ/u;
-  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
-  function normalizeFallbackTerm(text2) {
-    return text2.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
-  function bareFallbackCardFromText(text2) {
-    const spelling = normalizeFallbackTerm(text2);
-    const id2 = -stablePositiveHashId(`fallback
-${spelling}`);
-    const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
-    return {
-      vid: id2,
-      sid: id2,
-      rid: 0,
-      spelling,
-      reading: "",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
-      // placeholder default, so tag it provisional.
-      provisionalState: true,
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "fallback",
-      ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
-    };
-  }
-  let cachedSegmenterConstructor;
-  let cachedJapaneseWordSegmenter;
-  function segmentJapaneseText(text2) {
-    const segmenter = japaneseWordSegmenter();
-    if (!segmenter) {
-      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-        const start = match.index ?? 0;
-        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
-      });
-    }
-    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-      const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter, text2);
-    });
-  }
-  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
-    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment2) => ({
-      surface: segment2.segment,
-      start: offset + segment2.index,
-      end: offset + segment2.index + segment2.segment.length
-    }));
-    if (segments.at(-1)?.end !== offset + text2.length) {
-      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
-    }
-    return finalizeJapaneseRunSegments(segments, sourceText);
-  }
-  function finalizeJapaneseRunSegments(segments, sourceText) {
-    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
-    const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
-    );
-    return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(normalizedSegments),
-      sourceText
-    );
-  }
-  function splitTrailingPoliteParticleSegments(segments) {
-    return segments.flatMap((segment2, index) => {
-      if (!segment2.surface.endsWith("ね") || segment2.surface === "ね") return [segment2];
-      const previous = segments[index - 1]?.surface ?? "";
-      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment2.surface}`)) return [segment2];
-      const particleStart = segment2.end - 1;
-      const stem = segment2.surface.slice(0, -1);
-      return [
-        ...stem ? [{ surface: stem, start: segment2.start, end: particleStart }] : [],
-        { surface: "ね", start: particleStart, end: segment2.end }
-      ];
-    });
-  }
-  function splitSeparatorSegments(segments) {
-    if (!segments.some((segment2) => SEGMENT_SEPARATOR_RE.test(segment2.surface))) return segments;
-    return segments.flatMap(splitSeparatorSegment);
-  }
-  function splitSeparatorSegment(segment2) {
-    if (!SEGMENT_SEPARATOR_RE.test(segment2.surface)) return [segment2];
-    const pieces = [];
-    let cursor = 0;
-    for (const match of segment2.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
-      const index = match.index ?? 0;
-      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment2, cursor, index));
-      cursor = index + match[0].length;
-    }
-    if (cursor < segment2.surface.length) pieces.push(separatorFreeSegmentSlice(segment2, cursor, segment2.surface.length));
-    return pieces;
-  }
-  function separatorFreeSegmentSlice(segment2, from, to) {
-    return {
-      surface: segment2.surface.slice(from, to),
-      start: segment2.start + from,
-      end: segment2.start + to
-    };
-  }
-  function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment2) => NON_HIRAGANA_SCRIPT_RE.test(segment2.surface))) return segments;
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = contiguousKanaMergeSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function mergeContiguousKatakanaSegments(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const first2 = segments[index];
-      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
-        merged.push(first2);
-        index += 1;
-        continue;
-      }
-      let surface = first2.surface;
-      let runEnd = index + 1;
-      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
-        surface += segments[runEnd].surface;
-        runEnd += 1;
-      }
-      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
-      index = runEnd;
-    }
-    return merged;
-  }
-  function contiguousKanaMergeSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
-    const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
-    const runEnd = contiguousKanaRunEnd(segments, startIndex);
-    if (runEnd - startIndex < 2) return null;
-    let surface = first2.surface;
-    let lastIndex = startIndex;
-    for (let index = startIndex + 1; index < runEnd; index += 1) {
-      const current = segments[index];
-      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-      surface += current.surface;
-      lastIndex = index;
-    }
-    if (lastIndex === startIndex) return null;
-    return {
-      segment: { surface, start: first2.start, end: segments[lastIndex].end },
-      nextIndex: lastIndex + 1
-    };
-  }
-  function contiguousKanaRunEnd(segments, startIndex) {
-    let index = startIndex + 1;
-    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-      index += 1;
-    }
-    return index;
-  }
-  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-    let surface = "";
-    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-    return surface;
-  }
-  function isPureKanaSegment(surface) {
-    return HIRAGANA_SEGMENT_RE.test(surface);
-  }
-  function isKanaContentWordSpan(span) {
-    if (isKanaInflectableBaseShape(span)) return true;
-    return deinflectJapaneseTerm(span).some((candidate2) => candidate2.depth > 0 && Array.from(candidate2.term).length >= 2 && !SMALL_TSU_RE.test(candidate2.term) && (KANA_VERB_STEM_END_RE.test(candidate2.term) || KANA_I_ADJECTIVE_END_RE.test(candidate2.term)));
-  }
-  function isKanaInflectableBaseShape(span) {
-    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-  }
-  function splitNumericCounterPrefixSegments(segments, sourceText) {
-    return segments.flatMap((segment2) => splitNumericCounterPrefixSegment(segment2, sourceText));
-  }
-  function splitNumericCounterPrefixSegment(segment2, sourceText) {
-    const first2 = Array.from(segment2.surface)[0] ?? "";
-    if (!first2 || first2 === segment2.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment2];
-    if (!numericRangeImmediatelyBefore(sourceText, segment2.start)) return [segment2];
-    const second = Array.from(segment2.surface)[1] ?? "";
-    if (second === "間") return [segment2];
-    return [
-      { surface: first2, start: segment2.start, end: segment2.start + first2.length },
-      { surface: segment2.surface.slice(first2.length), start: segment2.start + first2.length, end: segment2.end }
-    ];
-  }
-  function splitLeadingParticleSegments(segments) {
-    return segments.flatMap(splitLeadingParticleSegment);
-  }
-  function splitLeadingParticleSegment(segment2) {
-    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate2) => {
-      if (!segment2.surface.startsWith(candidate2) || segment2.surface.length <= candidate2.length) return false;
-      return PARTICLE_PREFIX_REMAINDER_RE.test(segment2.surface.slice(candidate2.length));
-    });
-    if (!prefix) return [segment2];
-    return [
-      { surface: prefix, start: segment2.start, end: segment2.start + prefix.length },
-      { surface: segment2.surface.slice(prefix.length), start: segment2.start + prefix.length, end: segment2.end }
-    ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first2.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
-  }
-  function mergeInflectedFallbackSegments(segments, sourceText) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index, sourceText);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-    const first2 = segments[startIndex];
-    if (!first2 || isBoundarySegment(first2.surface)) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
-      if (!current) break;
-      surface += current.surface;
-      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
-    }
-    return best;
-  }
-  function fallbackInflectionScanEnd(segments, startIndex) {
-    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-  }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
-    const current = segments[index];
-    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
-    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
-    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
-    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
-    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-    return current;
-  }
-  function isPoliteNegativePastContinuation(segments, index, surface) {
-    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
-  }
-  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
-    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
-    return segments[index]?.start === expectedStart;
-  }
-  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
-    if (index === startIndex) return null;
-    const lookupTerms = fallbackLookupTermsForText(surface);
-    if (lookupTerms.length <= 1) return null;
-    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-    return {
-      segment: { surface, start: first2.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  function isBoundarySegment(surface) {
-    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-  }
-  function isInflectionContinuationSegment(surface) {
-    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-  }
-  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
-  }
-  function isNumericCounterFallbackStem(segment2, sourceText) {
-    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment2.surface) && numericRangeImmediatelyBefore(sourceText, segment2.start);
-  }
-  function numericRangeImmediatelyBefore(sourceText, start) {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-  }
-  function hasUsefulFallbackDeinflection(surface) {
-    return fallbackLookupTermsForText(surface).length > 1;
-  }
-  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-    const first2 = segments[startIndex]?.surface ?? "";
-    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
-    const suffix = surface.slice(first2.length);
-    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
-    return true;
-  }
-  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
-    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
-  }
-  function japaneseWordSegmenter() {
-    const Segmenter = intlSegmenter();
-    if (!Segmenter) {
-      cachedSegmenterConstructor = null;
-      cachedJapaneseWordSegmenter = null;
-      return null;
-    }
-    if (cachedSegmenterConstructor !== Segmenter) {
-      cachedSegmenterConstructor = Segmenter;
-      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-    }
-    return cachedJapaneseWordSegmenter ?? null;
-  }
-  function isUsefulJapaneseSegment(segment2) {
-    const surface = segment2.segment.trim();
-    return JAPANESE_CHARACTER_RE.test(surface);
-  }
-  function intlSegmenter() {
-    const candidate2 = Intl.Segmenter;
-    return typeof candidate2 === "function" ? candidate2 : null;
-  }
-  function fallbackJapaneseRunSegment(text2, offset) {
-    const surface = text2.trim();
-    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-    const start = offset + text2.indexOf(surface);
-    return [{ surface, start, end: start + surface.length }];
-  }
-  function fallbackLookupTermsForText(text2) {
-    const source2 = normalizeFallbackTerm(text2);
-    if (!source2) return [];
-    const terms = deinflectJapaneseTerm(source2).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate2) => normalizeFallbackTerm(candidate2.term)).filter(Boolean);
-    return uniqueNonEmptyStrings$1([source2, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-  }
-  function fallbackLookupTermsForCard(card) {
-    const terms = uniqueNonEmptyStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
-    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
-  }
-  function isUsefulFallbackLookupCandidate(candidate2) {
-    return candidate2.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate2.term) && candidate2.term.length > 1;
-  }
-  function compareJapaneseLookupCandidates(a, b) {
-    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
-  function fallbackRulePriority(candidate2) {
-    if (candidate2.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-    if (candidate2.rules.some((rule) => rule === "v1")) return 1;
-    if (candidate2.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-    if (candidate2.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-    return 3;
-  }
-  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
-    const [source2, ...candidates] = terms;
-    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueNonEmptyStrings$1(sourceFirst ? [source2 ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source2 ?? ""]);
-  }
-  function hasAmbiguousContinuativeStemCandidate(source2) {
-    return deinflectJapaneseTerm(source2).some((candidate2) => candidate2.depth === 1 && candidate2.reasons.length === 1 && candidate2.reasons[0] === "continuative stem");
-  }
-  function isTerminalDictionaryFallbackTerm(term) {
-    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
   const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
   function wordSegmenter(locale) {
     const cached = SEGMENTER_BY_LOCALE.get(locale);
@@ -31299,8 +30898,8 @@ ${spelling}`);
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -31379,6 +30978,8 @@ ${spelling}`);
       grammar,
       lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
       ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+      ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+      lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
       normalizeText,
       isLookupableText(text2) {
         return Boolean(text2) && detects(text2);
@@ -31432,2187 +31033,6 @@ ${spelling}`);
   }
   function defaultNormalizeReading(spelling, reading) {
     return (reading ?? "").trim() || spelling.trim();
-  }
-  const JAPANESE_POINTER_WORD_RE = new RegExp(
-    `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
-    "gu"
-  );
-  const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
-    id: "japanese-v1",
-    language: "ja",
-    direction: "ltr",
-    collationLocale: "ja",
-    capabilities: {
-      "term-lookup": true,
-      "character-lookup": true,
-      segmentation: true,
-      morphology: true,
-      "reading-annotation": true,
-      pronunciation: true,
-      frequency: true,
-      examples: true,
-      audio: true,
-      "text-to-speech": true,
-      ocr: true,
-      subtitles: true,
-      mining: true,
-      srs: true,
-      grading: true,
-      typing: true,
-      handwriting: true
-    },
-    featureSemantics: {
-      characterSystem: "kanji",
-      phoneticScripts: ["hiragana", "katakana"],
-      pronunciation: "pitch-accent",
-      readingAnnotation: "furigana"
-    },
-    grammar: JAPANESE_GRAMMAR,
-    typography: {
-      contentLocale: "ja",
-      readingAnnotationMode: "ruby",
-      supportsVerticalWriting: true
-    },
-    typing: {
-      inputNormalizer: "romaji-kana",
-      answerNormalizer: "japanese-kana"
-    },
-    audio: {
-      speechSynthesisLocale: "ja-JP",
-      templateLanguageToken: "ja"
-    },
-    ocr: {
-      defaultLanguage: "ja-JP",
-      languageHint: "ja"
-    },
-    subtitles: {
-      languageTag: "ja",
-      languageAliases: []
-    },
-    detectsText: HAS_JAPANESE$1,
-    normalizeText: normalizeJapaneseTargetText,
-    // Japanese writes no word boundaries, so its segmenter infers them. That is
-    // good enough to decide where a reading is drawn and not good enough to
-    // decide where a dictionary term may begin, which is why the term engine
-    // sweeps every position for this target and lets the dictionary arbitrate.
-    lookupStartsAtSegmentBoundary: false,
-    segment(text2) {
-      return segmentJapaneseText(text2).map((segment2) => ({
-        text: segment2.surface,
-        start: segment2.start,
-        end: segment2.end
-      }));
-    },
-    pointerWordSegments: japanesePointerWordSegments,
-    // Morphology is the deinflector itself, verbatim and unnormalized: the
-    // dictionary engine hands over raw substrings of the page and needs the
-    // candidates to line up with those substrings character for character.
-    // Anything that wants normalized input calls normalizeText first.
-    lookupCandidates: deinflectJapaneseTerm,
-    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
-    // beats i-adjective. Shared verbatim with the Japanese fallback path so
-    // both doors into the deinflector return the same order.
-    compareLookupCandidates: compareJapaneseLookupCandidates,
-    matchesLookupCandidateRules: termRulesMatch,
-    normalizeReading(spelling, reading) {
-      return normalizedJapaneseCardReading(spelling, reading);
-    }
-  });
-  function normalizeJapaneseTargetText(text2) {
-    return normalizeFallbackTerm(text2.normalize("NFKC"));
-  }
-  function japanesePointerWordSegments(text2) {
-    return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length
-    }));
-  }
-  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
-  const KNOWLEDGE_VALUES = /* @__PURE__ */ new Set(["unknown", "learning", "known", "mastered"]);
-  function readGrammarKnowledge() {
-    return readTargetGrammarKnowledge(JAPANESE_LEARNING_TARGET);
-  }
-  function setGrammarRuleKnowledge(ruleId, knowledge, change = {}) {
-    return setTargetGrammarRuleKnowledge(JAPANESE_LEARNING_TARGET, ruleId, knowledge, change);
-  }
-  function readTargetGrammarKnowledge(target2) {
-    return normalizeGrammarKnowledge(
-      gmStorageGetSync(grammarPreferencesKey(target2), null),
-      target2
-    );
-  }
-  function setTargetGrammarRuleKnowledge(target2, ruleId, knowledge, change = {}) {
-    if (!targetHasGrammarRule(target2, ruleId)) {
-      throw new TypeError(`Unknown ${target2.language} grammar rule: ${ruleId}`);
-    }
-    const snapshot = readTargetGrammarKnowledge(target2);
-    const previous = snapshot.entries[ruleId];
-    if (previous?.knowledge === knowledge && change.at === void 0 && change.changeId === void 0) return snapshot;
-    const at = validTimestamp(change.at) ? change.at : Date.now();
-    const changeId = change.changeId?.trim() || createGrammarChangeId();
-    if (previous?.knowledge === knowledge && previous.at === at && previous.changeId === changeId) return snapshot;
-    const entry2 = { knowledge, at, changeId };
-    const next = { ...snapshot, entries: { ...snapshot.entries, [ruleId]: entry2 } };
-    writeTargetGrammarKnowledge(target2, next);
-    return next;
-  }
-  function grammarPreferencesKey(target2) {
-    if (target2.grammar === JAPANESE_GRAMMAR) return GRAMMAR_PREFERENCES_KEY;
-    const targetId = languageSubtag(target2.language) ?? encodeURIComponent(target2.id);
-    return `${GRAMMAR_PREFERENCES_KEY}:${targetId}`;
-  }
-  function normalizeGrammarKnowledge(value, target2) {
-    const record2 = objectRecord$3(value);
-    const entries2 = record2?.version === 2 ? normalizeEntries(record2.entries, target2) : migrateLegacyKnownRules(record2?.knownRuleIds, target2);
-    return {
-      entries: entries2,
-      showKnown: record2?.showKnown === true
-    };
-  }
-  function normalizeEntries(value, target2) {
-    const entries2 = objectRecord$3(value);
-    if (!entries2) return {};
-    const normalized2 = {};
-    for (const [ruleId, candidate2] of Object.entries(entries2)) {
-      const entry2 = objectRecord$3(candidate2);
-      if (!targetHasGrammarRule(target2, ruleId) || !KNOWLEDGE_VALUES.has(entry2?.knowledge) || !validTimestamp(entry2?.at) || typeof entry2?.changeId !== "string" || !entry2.changeId.trim()) continue;
-      normalized2[ruleId] = {
-        knowledge: entry2.knowledge,
-        at: entry2.at,
-        changeId: entry2.changeId.trim()
-      };
-    }
-    return normalized2;
-  }
-  function migrateLegacyKnownRules(value, target2) {
-    if (!Array.isArray(value)) return {};
-    return Object.fromEntries(value.filter((ruleId) => typeof ruleId === "string" && targetHasGrammarRule(target2, ruleId)).map((ruleId) => [ruleId, {
-      knowledge: "known",
-      at: 0,
-      changeId: `grammar-known:legacy:${ruleId}`
-    }]));
-  }
-  function writeTargetGrammarKnowledge(target2, snapshot) {
-    const knownRuleIds = Object.entries(snapshot.entries).filter(([, entry2]) => entry2.knowledge === "known" || entry2.knowledge === "mastered").map(([ruleId]) => ruleId).sort();
-    gmStorageSetSync(grammarPreferencesKey(target2), {
-      version: 2,
-      entries: snapshot.entries,
-      // Older target-aware builds can still read the authoritative map's
-      // boolean projection. For Japanese this is also the old Reader format.
-      knownRuleIds,
-      showKnown: snapshot.showKnown
-    });
-  }
-  function targetHasGrammarRule(target2, ruleId) {
-    return target2.grammar.rules.some((rule) => rule.ruleId === ruleId);
-  }
-  function objectRecord$3(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
-  }
-  function validTimestamp(value) {
-    return Number.isSafeInteger(value) && value >= 0;
-  }
-  function createGrammarChangeId() {
-    const uuid2 = globalThis.crypto?.randomUUID?.();
-    return uuid2 ? `grammar-known:${uuid2}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  }
-  function grammarKnowledgeEventsForAttempt(attempt, projection) {
-    return [...new Set(attempt.conceptIds)].flatMap((conceptId) => {
-      if (!grammarRuleIdForConcept(conceptId)) return [];
-      const current = projection.grammarKnowledge[conceptId] ?? "unknown";
-      const knowledge = knowledgeAfterAttempt(current, attempt.outcome);
-      return knowledge === current ? [] : [{
-        kind: "grammar-known-changed",
-        conceptId,
-        knowledge
-      }];
-    });
-  }
-  function mirrorGrammarKnowledgeEvents(events) {
-    for (const event of events) {
-      if (event.kind !== "grammar-known-changed") continue;
-      const ruleId = grammarRuleIdForConcept(event.conceptId);
-      if (!ruleId) continue;
-      setGrammarRuleKnowledge(ruleId, event.knowledge, {
-        at: event.at,
-        changeId: event.eventId
-      });
-    }
-  }
-  async function reconcileGrammarKnowledge(record2) {
-    const history2 = await record2.history();
-    const latestEvents = latestGrammarEvents(history2);
-    const shared2 = readGrammarKnowledge();
-    const imports = [];
-    for (const [ruleId, entry2] of Object.entries(shared2.entries)) {
-      const conceptId = `concept:grammar:${ruleId}`;
-      const event = latestEvents.get(conceptId);
-      if (!event || compareFacts(entry2, eventFact(event)) > 0) {
-        imports.push({
-          kind: "grammar-known-changed",
-          eventId: entry2.changeId,
-          at: entry2.at,
-          conceptId,
-          knowledge: entry2.knowledge
-        });
-      }
-    }
-    if (imports.length) await record2.recordMany(imports);
-    const reconciledHistory = imports.length ? await record2.history() : history2;
-    const reconciledEvents = latestGrammarEvents(reconciledHistory);
-    for (const event of reconciledEvents.values()) {
-      const ruleId = grammarRuleIdForConcept(event.conceptId);
-      if (!ruleId) continue;
-      const entry2 = shared2.entries[ruleId];
-      if (!entry2 || compareFacts(eventFact(event), entry2) > 0 || event.eventId === entry2.changeId && event.knowledge !== entry2.knowledge) {
-        setGrammarRuleKnowledge(ruleId, event.knowledge, {
-          at: event.at,
-          changeId: event.eventId
-        });
-      }
-    }
-    return record2.snapshot();
-  }
-  function knowledgeAfterAttempt(current, outcome) {
-    if (outcome === "pass") return current === "mastered" ? current : "known";
-    return current === "unknown" ? "learning" : current;
-  }
-  function latestGrammarEvents(events) {
-    const latest = /* @__PURE__ */ new Map();
-    for (const event of events) {
-      if (event.kind !== "grammar-known-changed" || !grammarRuleIdForConcept(event.conceptId)) continue;
-      const previous = latest.get(event.conceptId);
-      if (!previous || compareFacts(eventFact(event), eventFact(previous)) > 0) latest.set(event.conceptId, event);
-    }
-    return latest;
-  }
-  function eventFact(event) {
-    return { knowledge: event.knowledge, at: event.at, changeId: event.eventId };
-  }
-  function compareFacts(left, right) {
-    return left.at - right.at || left.changeId.localeCompare(right.changeId);
-  }
-  function createLearnerEvidence(repository, review2, groundedLessons = createGroundedLessonResolver(), options = {}) {
-    const now = options.now ?? Date.now;
-    return new DefaultLearnerEvidence(createLearnerRecord({ repository, now }), review2, groundedLessons, now);
-  }
-  class DefaultLearnerEvidence {
-    constructor(record2, review2, groundedLessons, now) {
-      this.record = record2;
-      this.review = review2;
-      this.groundedLessons = groundedLessons;
-      this.now = now;
-    }
-    projectionValue = null;
-    pending = Promise.resolve();
-    get projection() {
-      if (!this.projectionValue) throw new Error("Learner evidence has not been initialized.");
-      return this.projectionValue;
-    }
-    initialize() {
-      return this.refresh();
-    }
-    refresh() {
-      return this.enqueue(async () => {
-        this.projectionValue = await reconcileGrammarKnowledge(this.record);
-        return this.projectionValue;
-      });
-    }
-    saveProfile(profile2) {
-      return this.enqueue(async () => {
-        const firstIntroduction = !this.projection.completedEncounterIds.includes("opening-rie-introduction");
-        await this.record.record({ kind: "profile-changed", profile: profile2 });
-        await this.refreshNow();
-        return { firstIntroduction };
-      });
-    }
-    completeRieIntroduction() {
-      return this.enqueue(async () => {
-        if (this.projection.completedEncounterIds.includes("opening-rie-introduction")) {
-          return { recorded: false };
-        }
-        await this.record.recordMany([
-          {
-            kind: "characters-encountered",
-            eventId: "encounter:opening-rie-introduction",
-            encounterId: "opening-rie-introduction",
-            sceneId: "scene:opening-rie-introduction",
-            attendeeIds: ["rie"]
-          },
-          { kind: "asset-unlocked", eventId: "milestone:rie-introduction:asset", assetId: "character:rie" },
-          { kind: "bond-changed", eventId: "milestone:rie-introduction:bond", characterId: "rie", delta: 1 },
-          { kind: "relationship-chapter-unlocked", eventId: "milestone:rie-introduction:journal", characterId: "rie", chapter: 1, majorTurn: "recognition" },
-          { kind: "scene-completed", eventId: "milestone:rie-introduction:scene", sceneId: "scene:opening-rie-introduction" }
-        ]);
-        await this.refreshNow();
-        return { recorded: true };
-      });
-    }
-    chooseCurriculumEntry(choice2) {
-      return this.enqueue(async () => {
-        await this.record.record({ kind: "curriculum-entry-chosen", ...choice2 });
-        await this.refreshNow();
-      });
-    }
-    savePlacement(result2) {
-      return this.enqueue(async () => {
-        await this.record.record({ kind: "placement-assessed", ...result2 });
-        await this.refreshNow();
-      });
-    }
-    recordEncounter(encounter) {
-      return this.enqueue(async () => {
-        if (this.projection.completedEncounterIds.includes(encounter.encounterId)) return;
-        await this.record.recordMany([
-          {
-            kind: "characters-encountered",
-            eventId: `encounter:${encounter.encounterId}`,
-            ...encounter
-          },
-          {
-            kind: "scene-completed",
-            eventId: `encounter:${encounter.encounterId}:scene`,
-            sceneId: encounter.sceneId
-          }
-        ]);
-        await this.refreshNow();
-      });
-    }
-    recordActivity(evaluation, lessonId, milestone, adaptive) {
-      return this.enqueue(async () => {
-        if (lessonId.startsWith("authored-week:")) {
-          const packageId = lessonId.slice("authored-week:".length);
-          getAuthoredWeekRegistration(packageId);
-          if (!authoredWeekOwnsActivity(packageId, evaluation.attempt.activityId)) {
-            throw new TypeError(`Activity ${evaluation.attempt.activityId} does not belong to ${lessonId}.`);
-          }
-        } else if (isAdvancedLessonId(lessonId)) {
-          assertAdvancedEvaluation(evaluation, resolveAdvancedCurriculumEntry(lessonId).activity, lessonId);
-        } else {
-          const lesson = await this.groundedLessons.resolve(lessonId);
-          if (lesson.status === "playable") {
-            assertGroundedEvaluation(evaluation, lesson);
-          } else {
-            const registration = getCompleteLessonRegistration(lessonId);
-            if (registration.releaseChannel !== "trusted-source") {
-              assertGroundedEvaluation(evaluation, lesson);
-            }
-            assertTrustedSourceEvaluation(evaluation, registration.trustedActivityIds);
-          }
-        }
-        if (evaluation.attempt.conceptIds.some(grammarRuleIdForConcept)) await this.refreshNow();
-        const recorded2 = await this.record.recordMany([
-          evaluation.attempt,
-          ...adaptive ? [{
-            kind: "learning-evidence-recorded",
-            ...adaptive.eventId ? { eventId: adaptive.eventId } : {},
-            ...adaptive.at !== void 0 ? { at: adaptive.at } : {},
-            activityId: evaluation.attempt.activityId,
-            modeId: adaptive.modeId,
-            skill: adaptive.skill,
-            action: adaptive.action,
-            outcome: evaluation.result.outcome,
-            conceptIds: evaluation.attempt.conceptIds,
-            ...adaptive.sourceId ? { sourceId: adaptive.sourceId } : {},
-            independent: adaptive.independent
-          }] : [],
-          ...grammarKnowledgeEventsForAttempt(evaluation.attempt, this.projection)
-        ]);
-        mirrorGrammarKnowledgeEvents(recorded2);
-        await this.ingestAndSchedule(evaluation.reviewSeeds, (seed) => ({
-          activity: evaluation.attempt.activityId,
-          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
-        }));
-        await this.refreshNow();
-        if (!milestone || evaluation.result.outcome !== "pass") return;
-        if (milestone.requiredErrorTag && !evaluation.result.errorTags.includes(milestone.requiredErrorTag)) return;
-        if (this.projection.completedScenes.includes(milestone.sceneId)) return;
-        if (milestone.unlock) {
-          await this.recordEncounterNow({
-            encounterId: milestone.id,
-            sceneId: milestone.sceneId,
-            attendeeIds: [milestone.unlock.characterId]
-          });
-        }
-        await this.record.recordMany([
-          ...milestone.journalLine ? [{
-            kind: "journal-line-recorded",
-            eventId: `milestone:${milestone.id}:journal-line`,
-            journalLineId: milestone.journalLine.lineId,
-            characterId: milestone.journalLine.characterId,
-            text: milestone.journalLine.text,
-            activityId: evaluation.attempt.activityId,
-            ...milestone.journalLine.sourceQuestionId ? { sourceQuestionId: milestone.journalLine.sourceQuestionId } : {}
-          }] : [],
-          ...milestone.unlock ? [
-            { kind: "asset-unlocked", eventId: `milestone:${milestone.id}:asset`, assetId: milestone.unlock.assetId },
-            { kind: "bond-changed", eventId: `milestone:${milestone.id}:bond`, characterId: milestone.unlock.characterId, delta: milestone.unlock.bondDelta },
-            { kind: "relationship-chapter-unlocked", eventId: `milestone:${milestone.id}:journal`, characterId: milestone.unlock.characterId, chapter: 1, majorTurn: "recognition" }
-          ] : [{ kind: "scene-completed", eventId: `milestone:${milestone.id}:scene`, sceneId: milestone.sceneId }]
-        ]);
-        await this.refreshNow();
-      });
-    }
-    recordWorldPractice(evaluation) {
-      return this.enqueue(async () => {
-        if (!evaluation.attempt.activityId.startsWith("activity:world:")) {
-          throw new TypeError("World practice evidence must use a world activity id.");
-        }
-        await this.record.record(evaluation.attempt);
-        await this.ingestAndSchedule(evaluation.reviewSeeds, (seed) => ({
-          activity: evaluation.attempt.activityId,
-          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
-        }));
-        await this.refreshNow();
-      });
-    }
-    seedVocabularyPrerequisite(lessonId, seeds) {
-      return this.enqueue(async () => {
-        if (!lessonId.startsWith("authored-week:")) {
-          if (seeds.length) throw new TypeError("Only authored Moodle lessons can seed a vocabulary prerequisite.");
-          return;
-        }
-        const packageId = lessonId.slice("authored-week:".length);
-        getAuthoredWeekRegistration(packageId);
-        for (const seed of seeds) {
-          if (!seed.conceptId.startsWith(`concept:${packageId}:source-vocabulary:`)) {
-            throw new TypeError(`Vocabulary prerequisite seed ${seed.id} is not owned by ${lessonId}.`);
-          }
-          if (seed.reason !== "new-learning" || !seed.sourceQuestionId?.startsWith("moodle-vocabulary:")) {
-            throw new TypeError(`Vocabulary prerequisite seed ${seed.id} must retain its Moodle source row.`);
-          }
-        }
-        await this.ingestAndSchedule(seeds, (seed) => ({
-          prerequisite: lessonId,
-          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
-        }));
-        await this.refreshNow();
-      });
-    }
-    recordSupportUse(activityId, supportKind, choiceId, identity2 = {}) {
-      return this.enqueue(async () => {
-        await this.record.record({
-          kind: "support-used",
-          ...identity2.eventId ? { eventId: identity2.eventId } : {},
-          ...identity2.at !== void 0 ? { at: identity2.at } : {},
-          activityId,
-          supportKind,
-          ...choiceId ? { choiceId } : {}
-        });
-        await this.refreshNow();
-      });
-    }
-    history() {
-      return this.record.history();
-    }
-    recordAuthoredStoryPractice(practice2, outcome) {
-      return this.enqueue(async () => {
-        await this.record.record({
-          kind: "learning-evidence-recorded",
-          activityId: practice2.activityId,
-          modeId: "authored-story-practice",
-          skill: practice2.skill,
-          action: practice2.action,
-          outcome,
-          conceptIds: practice2.conceptIds,
-          sourceId: `story:${practice2.chapterId}`,
-          independent: true
-        });
-        if (outcome === "pass") {
-          await this.review.ingest([practice2.reviewSeed]);
-          const itemId = reviewItemId(practice2.reviewSeed);
-          const alreadyScheduled = this.projection.scheduledReviews[itemId] || Object.values(this.projection.scheduledReviews).some((review2) => review2.conceptId === practice2.reviewSeed.conceptId);
-          if (!alreadyScheduled) await this.record.record({
-            kind: "review-scheduled",
-            eventId: `review-scheduled:story:${practice2.activityId}:${practice2.reviewSeed.conceptId}`,
-            reviewItemId: itemId,
-            conceptId: practice2.reviewSeed.conceptId,
-            dueAt: this.now(),
-            provenance: {
-              activity: practice2.activityId,
-              chapter: practice2.chapterId,
-              response: practice2.interaction === "choice" ? "selected-response" : practice2.interaction
-            }
-          });
-        }
-        await this.refreshNow();
-      });
-    }
-    dueReviews(limit) {
-      return this.review.due(limit);
-    }
-    syllabusState(items) {
-      return this.review.syllabusState?.(items) ?? Promise.resolve(items.length ? "new" : "empty");
-    }
-    rateReview(itemId, rating) {
-      return this.enqueue(async () => {
-        await this.review.rate(itemId, rating);
-        await this.record.record({ kind: "review-rated", reviewItemId: itemId, rating });
-        await this.refreshNow();
-      });
-    }
-    async refreshNow() {
-      this.projectionValue = await reconcileGrammarKnowledge(this.record);
-    }
-    async ingestAndSchedule(seeds, provenance2) {
-      if (!seeds.length) return;
-      await this.review.ingest(seeds);
-      const scheduledAt = this.now();
-      const unscheduled = /* @__PURE__ */ new Map();
-      for (const seed of seeds) {
-        const itemId = reviewItemId(seed);
-        const legacyItemId = `yomu-local:${seed.id}`;
-        const scheduleEventId = `review-scheduled:academy:${seed.id}`;
-        const existing = this.projection.scheduledReviews[itemId] ?? this.projection.scheduledReviews[legacyItemId];
-        if (existing && (seed.reason !== "delayed-review" || existing.eventId === scheduleEventId)) continue;
-        unscheduled.set(itemId, unscheduled.get(itemId) ?? seed);
-      }
-      await this.record.recordMany([...unscheduled].map(([itemId, seed]) => ({
-        kind: "review-scheduled",
-        eventId: `review-scheduled:academy:${seed.id}`,
-        reviewItemId: itemId,
-        conceptId: seed.conceptId,
-        dueAt: scheduledAt + (seed.schedule?.dueAfterMs ?? 0),
-        provenance: provenance2(seed)
-      })));
-    }
-    async recordEncounterNow(encounter) {
-      if (this.projection.completedEncounterIds.includes(encounter.encounterId)) return;
-      await this.record.recordMany([
-        { kind: "characters-encountered", eventId: `encounter:${encounter.encounterId}`, ...encounter },
-        { kind: "scene-completed", eventId: `encounter:${encounter.encounterId}:scene`, sceneId: encounter.sceneId }
-      ]);
-      await this.refreshNow();
-    }
-    enqueue(operation) {
-      const result2 = this.pending.then(operation);
-      this.pending = result2.then(() => void 0, () => void 0);
-      return result2;
-    }
-  }
-  function authoredWeekOwnsActivity(packageId, activityId) {
-    return activityId.startsWith(`authored:${packageId}/`) || activityId.startsWith(`activity:${packageId}-`) || activityId.startsWith(`activity:${packageId}:`);
-  }
-  function assertTrustedSourceEvaluation(evaluation, trustedActivityIds) {
-    if (!trustedActivityIds.includes(evaluation.attempt.activityId)) {
-      throw new Error(`Activity ${evaluation.attempt.activityId} is not in the trusted-source channel.`);
-    }
-    if (!evaluation.attempt.conceptIds.length) {
-      throw new Error(`Trusted-source activity ${evaluation.attempt.activityId} emitted no learning concepts.`);
-    }
-  }
-  function assertAdvancedEvaluation(evaluation, activity2, lessonId) {
-    if (evaluation.attempt.activityId !== activity2.id || evaluation.attempt.sourceQuestionId !== activity2.sourceQuestionId || evaluation.attempt.responseKind !== activity2.responseKind || !sameStrings$1(evaluation.attempt.conceptIds, activity2.conceptIds)) {
-      throw new TypeError(`Activity ${evaluation.attempt.activityId} does not match ${lessonId}.`);
-    }
-    if (evaluation.reviewSeeds.some((seed) => seed.sourceQuestionId !== activity2.sourceQuestionId || !activity2.conceptIds.includes(seed.conceptId))) {
-      throw new TypeError(`Activity ${evaluation.attempt.activityId} emitted review evidence outside ${lessonId}.`);
-    }
-  }
-  function reviewItemId(seed) {
-    return canonicalGroundedReviewKey(seed.content.expression, seed.content.reading);
-  }
-  function assertGroundedEvaluation(evaluation, lesson) {
-    if (lesson.status !== "playable") {
-      throw new Error(`Lesson ${lesson.lessonId} is not grounded-playable.`);
-    }
-    const activity2 = lesson.activities.find((item2) => item2.id === evaluation.attempt.activityId);
-    if (!activity2 || activity2.status !== "playable") {
-      throw new Error(`Activity ${evaluation.attempt.activityId} is not grounded-playable.`);
-    }
-    const curriculum = activity2.proofs.curriculum;
-    if (curriculum.state !== "ready") throw new Error("Grounded activity has no curriculum proof.");
-    if (!sameStrings$1(curriculum.evidence.conceptIds, evaluation.attempt.conceptIds)) {
-      throw new Error(`Activity ${activity2.id} emitted concepts outside its grounding contract.`);
-    }
-    const input2 = activity2.proofs.input;
-    if (input2.state !== "ready") throw new Error("Grounded activity has no input proof.");
-    if (input2.evidence.kind === "source") {
-      const sourceQuestionId2 = evaluation.attempt.sourceQuestionId;
-      if (!sourceQuestionId2 || !input2.evidence.sourceQuestionIds.includes(sourceQuestionId2)) {
-        throw new Error(`Activity ${activity2.id} emitted an ungrounded Source Question.`);
-      }
-    }
-    const learner = activity2.proofs.learnerEvidence;
-    if (learner.state !== "ready") throw new Error("Grounded activity has no learner-evidence proof.");
-    const allowed = new Set(learner.evidence.reviewItems.map((item2) => canonicalGroundedConceptReviewKey(
-      item2.expressionKey,
-      item2.readingKey,
-      item2.conceptId
-    )));
-    for (const seed of evaluation.reviewSeeds) {
-      const key2 = canonicalGroundedConceptReviewKey(
-        seed.content.expression,
-        seed.content.reading,
-        seed.conceptId
-      );
-      if (!allowed.has(key2)) {
-        throw new Error(`Activity ${activity2.id} emitted an ungrounded review item.`);
-      }
-    }
-  }
-  function sameStrings$1(left, right) {
-    return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
-  }
-  function isRecord$9(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
-  function isNonNullObject(value) {
-    return typeof value === "object" && value !== null;
-  }
-  function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$9(value) || value.version !== 1 || !isRecord$9(value.cards)) return { version: 1, cards: {} };
-    const cards = {};
-    for (const candidate2 of Object.values(value.cards)) {
-      const normalized2 = normalizeStoredCard(candidate2);
-      if (!normalized2) continue;
-      cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
-    }
-    const tombstones = {};
-    if (isRecord$9(value.tombstones)) {
-      for (const [id2, timestamp] of Object.entries(value.tombstones)) {
-        if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
-        const card = cards[id2];
-        if (card && card.updatedAt > timestamp) continue;
-        delete cards[id2];
-        tombstones[id2] = timestamp;
-      }
-    }
-    return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
-  }
-  function mergeStoredYomuSrsDecks(leftValue, rightValue) {
-    const left = normalizeStoredYomuSrsDeck(leftValue);
-    const right = normalizeStoredYomuSrsDeck(rightValue);
-    const cards = { ...left.cards };
-    const tombstones = { ...left.tombstones ?? {} };
-    for (const [id2, timestamp] of Object.entries(right.tombstones ?? {})) {
-      tombstones[id2] = Math.max(tombstones[id2] ?? 0, timestamp);
-    }
-    for (const [id2, incoming] of Object.entries(right.cards)) {
-      const tombstone = tombstones[id2];
-      if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
-      if (tombstone !== void 0) delete tombstones[id2];
-      cards[id2] = cards[id2] ? mergeStoredYomuSrsCards(cards[id2], incoming) : incoming;
-    }
-    return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
-  }
-  function mergeStoredYomuSrsCards(existing, incoming) {
-    const existingIdentity = storedCardIdentity(existing);
-    const incomingIdentity = storedCardIdentity(incoming);
-    if (existingIdentity.key !== incomingIdentity.key) {
-      throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
-    }
-    const identity2 = existingIdentity;
-    const schedule = preferredSchedule(existing, incoming);
-    const scheduleFields = { ...schedule };
-    delete scheduleFields.language;
-    delete scheduleFields.partOfSpeech;
-    return {
-      ...scheduleFields,
-      id: identity2.key,
-      expression: identity2.expression,
-      reading: identity2.reading,
-      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
-      ...identity2.language !== "ja" ? { language: identity2.language } : {},
-      meanings: uniqueText$1([...existing.meanings, ...incoming.meanings]),
-      sentence: existing.sentence || incoming.sentence,
-      sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
-      sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-      sourceUrl: existing.sourceUrl || incoming.sourceUrl,
-      tags: uniqueText$1([...existing.tags ?? [], ...incoming.tags ?? []]),
-      createdAt: Math.min(existing.createdAt, incoming.createdAt),
-      updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
-      reviews: Math.max(existing.reviews, incoming.reviews),
-      lapses: Math.max(existing.lapses, incoming.lapses),
-      retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
-      academyProvenance: {
-        ...incoming.academyProvenance ?? {},
-        ...existing.academyProvenance ?? {}
-      }
-    };
-  }
-  function upsertAcademyVocabulary(deck, input2, now) {
-    const identity2 = canonicalStudyCardIdentity(input2.expression, input2.reading);
-    const meanings = uniqueText$1(input2.meanings);
-    const provenance2 = normalizeProvenance(input2.provenance, now);
-    const existing = deck.cards[identity2.key];
-    const previousProvenance = existing?.academyProvenance?.[provenance2.id];
-    if (previousProvenance && !sameProvenance(previousProvenance, provenance2)) {
-      throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance2.id}`);
-    }
-    const incoming = {
-      id: identity2.key,
-      expression: identity2.expression,
-      reading: identity2.reading,
-      meanings,
-      sentence: cleanOptional(input2.sentence),
-      tags: ["academy"],
-      dueAt: finiteDueAt(input2.dueAt, now),
-      lastReviewAt: null,
-      createdAt: now,
-      updatedAt: now,
-      reviews: 0,
-      lapses: 0,
-      intervalDays: 0,
-      ease: 2.5,
-      retainWithoutAcademyProvenance: false,
-      academyProvenance: { [provenance2.id]: previousProvenance ?? provenance2 }
-    };
-    const card = existing ? preserveExistingSchedule(
-      mergeStoredYomuSrsCards(existing, incoming),
-      existing,
-      input2.postponeExisting === true && !previousProvenance ? input2.dueAt : void 0
-    ) : incoming;
-    deck.cards[identity2.key] = card;
-    return {
-      card,
-      cardCreated: !existing,
-      provenanceAdded: !previousProvenance,
-      provenanceCount: Object.keys(card.academyProvenance ?? {}).length
-    };
-  }
-  function finiteDueAt(value, fallback) {
-    return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
-  }
-  function preserveExistingSchedule(merged, existing, notBefore) {
-    return {
-      ...merged,
-      dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
-      lastReviewAt: existing.lastReviewAt,
-      reviews: existing.reviews,
-      lapses: existing.lapses,
-      intervalDays: existing.intervalDays,
-      ease: existing.ease
-    };
-  }
-  function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
-    const direct = deck.cards[cardId];
-    const card = direct ?? Object.values(deck.cards).find((candidate2) => candidate2.academyProvenance?.[provenanceId]);
-    if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
-    if (!card.academyProvenance?.[provenanceId]) {
-      return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
-    }
-    const academyProvenance2 = { ...card.academyProvenance };
-    delete academyProvenance2[provenanceId];
-    const remaining = Object.keys(academyProvenance2).length;
-    if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
-      delete deck.cards[card.id];
-      deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
-      return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
-    }
-    const updated = {
-      ...card,
-      updatedAt: now,
-      tags: remaining ? card.tags : uniqueText$1([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
-      academyProvenance: academyProvenance2
-    };
-    deck.cards[card.id] = updated;
-    const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
-    return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
-  }
-  function normalizeStoredCard(value) {
-    if (!isRecord$9(value) || typeof value.expression !== "string") return null;
-    let identity2;
-    try {
-      identity2 = canonicalStudyCardIdentity(
-        value.expression,
-        typeof value.reading === "string" ? value.reading : "",
-        {
-          ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
-          ...typeof value.language === "string" ? { language: value.language } : {}
-        }
-      );
-    } catch {
-      return null;
-    }
-    const createdAt = finiteNumber$2(value.createdAt, 0);
-    const updatedAt = finiteNumber$2(value.updatedAt, createdAt);
-    return {
-      id: identity2.key,
-      expression: identity2.expression,
-      reading: identity2.reading,
-      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
-      ...identity2.language !== "ja" ? { language: identity2.language } : {},
-      meanings: stringArray$4(value.meanings),
-      ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
-      ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
-      ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
-      ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-      tags: stringArray$4(value.tags),
-      dueAt: finiteNumber$2(value.dueAt, createdAt),
-      lastReviewAt: value.lastReviewAt === null ? null : finiteNumber$2(value.lastReviewAt, null),
-      createdAt,
-      updatedAt,
-      reviews: nonNegativeInteger$3(value.reviews),
-      lapses: nonNegativeInteger$3(value.lapses),
-      intervalDays: Math.max(0, finiteNumber$2(value.intervalDays, 0)),
-      ease: finiteNumber$2(value.ease, 2.5),
-      retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
-      academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
-    };
-  }
-  function storedCardIdentity(card) {
-    return canonicalStudyCardIdentity(card.expression, card.reading, {
-      partOfSpeech: card.partOfSpeech,
-      language: card.language ?? "ja"
-    });
-  }
-  function preferredSchedule(left, right) {
-    if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
-    const leftReviewed = left.lastReviewAt ?? -1;
-    const rightReviewed = right.lastReviewAt ?? -1;
-    if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
-    if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
-    return left.updatedAt >= right.updatedAt ? left : right;
-  }
-  function normalizeProvenance(value, addedAt) {
-    const id2 = requiredText$3(value.id, "Academy vocabulary provenance id");
-    if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
-      throw new TypeError("Academy vocabulary provenance kind is invalid.");
-    }
-    return {
-      id: id2,
-      kind: value.kind,
-      addedAt,
-      ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
-      ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
-      ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
-      ...value.reason ? { reason: value.reason } : {}
-    };
-  }
-  function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$9(value)) return {};
-    const result2 = {};
-    for (const candidate2 of Object.values(value)) {
-      if (!isRecord$9(candidate2)) continue;
-      try {
-        const normalized2 = normalizeProvenance({
-          id: String(candidate2.id ?? ""),
-          kind: candidate2.kind,
-          ...typeof candidate2.activityId === "string" ? { activityId: candidate2.activityId } : {},
-          ...typeof candidate2.conceptId === "string" ? { conceptId: candidate2.conceptId } : {},
-          ...typeof candidate2.sourceId === "string" ? { sourceId: candidate2.sourceId } : {},
-          ...candidate2.reason === "new-learning" || candidate2.reason === "repair" || candidate2.reason === "delayed-review" ? { reason: candidate2.reason } : {}
-        }, finiteNumber$2(candidate2.addedAt, fallbackAt));
-        result2[normalized2.id] = normalized2;
-      } catch {
-      }
-    }
-    return result2;
-  }
-  function sameProvenance(left, right) {
-    return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
-  }
-  function retainsWithoutAcademy(card) {
-    return card.retainWithoutAcademyProvenance !== false;
-  }
-  function hasStudyHistory(card) {
-    return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
-  }
-  function requiredText$3(value, label) {
-    const normalized2 = value.trim();
-    if (!normalized2) throw new TypeError(`${label} is required.`);
-    return normalized2;
-  }
-  function cleanOptional(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : void 0;
-  }
-  function stringArray$4(value) {
-    return Array.isArray(value) ? uniqueText$1(value.filter((item2) => typeof item2 === "string")) : [];
-  }
-  function uniqueText$1(values) {
-    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-  }
-  function finiteNumber$2(value, fallback) {
-    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-  }
-  function nonNegativeInteger$3(value) {
-    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
-  }
-  const LEGACY_DECK_KEY = "yomu:srs-local:v1";
-  const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
-  const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
-  const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
-  registerManagedState({
-    owner: "srs/local-yomu-store",
-    kind: "gm",
-    prefix: "yomu:srs-local:v2:",
-    enumerate: enumerateLocalYomuSrsStorageKeys
-  });
-  class LocalYomuSrsStorageError extends Error {
-    constructor(options) {
-      super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
-      this.name = "LocalYomuSrsStorageError";
-    }
-  }
-  function isLocalYomuSrsStorageError(error) {
-    return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
-  }
-  async function enumerateLocalYomuSrsStorageKeys() {
-    const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
-    if (rawIndex === null || rawIndex === void 0) return [];
-    const index = normalizeIndex(rawIndex);
-    if (!index) throw new Error("The local SRS index is unreadable.");
-    return [
-      DECK_INDEX_KEY,
-      ...index.cardIds.map(cardStorageKey),
-      ...index.tombstoneIds.map(tombstoneStorageKey)
-    ];
-  }
-  class LocalYomuSrsStore {
-    async read() {
-      const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
-      const index = normalizeIndex(rawIndex);
-      const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
-      const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
-      if (legacy === null || legacy === void 0) return current;
-      const migrated = mergeStoredYomuSrsDecks(current, legacy);
-      await this.write(current, migrated);
-      await gmStorageDelete(LEGACY_DECK_KEY);
-      return migrated;
-    }
-    async write(previousValue, nextValue) {
-      const previous = normalizeStoredYomuSrsDeck(previousValue);
-      const next = normalizeStoredYomuSrsDeck(nextValue);
-      const previousIndex = indexForDeck(previous);
-      const storedIndex = normalizeIndex(await gmStorageGet(DECK_INDEX_KEY, null));
-      const nextIndex = indexForDeck(next, (storedIndex?.revision ?? 0) + 1);
-      const newlyCreatedKeys = [];
-      try {
-        for (const [id2, card] of Object.entries(next.cards)) {
-          if (sameStoredValue(previous.cards[id2], card)) continue;
-          const key2 = cardStorageKey(id2);
-          await gmStorageSet(key2, card);
-          if (!previous.cards[id2]) newlyCreatedKeys.push(key2);
-        }
-        for (const [id2, deletedAt] of Object.entries(next.tombstones ?? {})) {
-          if (previous.tombstones?.[id2] === deletedAt) continue;
-          const key2 = tombstoneStorageKey(id2);
-          await gmStorageSet(key2, deletedAt);
-          if (previous.tombstones?.[id2] === void 0) newlyCreatedKeys.push(key2);
-        }
-        await gmStorageSet(DECK_INDEX_KEY, nextIndex);
-      } catch (error) {
-        await Promise.all(newlyCreatedKeys.map((key2) => gmStorageDelete(key2)));
-        throw new LocalYomuSrsStorageError({ cause: error });
-      }
-      await Promise.all([
-        ...previousIndex.cardIds.filter((id2) => !next.cards[id2]).map((id2) => gmStorageDelete(cardStorageKey(id2))),
-        ...previousIndex.tombstoneIds.filter((id2) => next.tombstones?.[id2] === void 0).map((id2) => gmStorageDelete(tombstoneStorageKey(id2)))
-      ]);
-    }
-    async readIndexedDeck(index) {
-      const cards = await Promise.all(index.cardIds.map(async (id2) => [
-        id2,
-        await gmStorageGet(cardStorageKey(id2), null)
-      ]));
-      const tombstones = await Promise.all(index.tombstoneIds.map(async (id2) => [
-        id2,
-        await gmStorageGet(tombstoneStorageKey(id2), null)
-      ]));
-      return normalizeStoredYomuSrsDeck({
-        version: 1,
-        cards: Object.fromEntries(cards.filter((entry2) => Boolean(entry2[1] && typeof entry2[1] === "object"))),
-        tombstones: Object.fromEntries(tombstones.filter((entry2) => typeof entry2[1] === "number" && Number.isFinite(entry2[1])))
-      });
-    }
-  }
-  function normalizeIndex(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    const candidate2 = value;
-    if (candidate2.version !== 2) return null;
-    if (!Array.isArray(candidate2.cardIds) || !candidate2.cardIds.every((id2) => typeof id2 === "string")) return null;
-    if (!Array.isArray(candidate2.tombstoneIds) || !candidate2.tombstoneIds.every((id2) => typeof id2 === "string")) return null;
-    return {
-      version: 2,
-      revision: Number.isSafeInteger(candidate2.revision) && Number(candidate2.revision) >= 0 ? Number(candidate2.revision) : 0,
-      cardIds: [...new Set(candidate2.cardIds)].sort(),
-      tombstoneIds: [...new Set(candidate2.tombstoneIds)].sort()
-    };
-  }
-  function indexForDeck(deck, revision2 = 0) {
-    return {
-      version: 2,
-      revision: revision2,
-      cardIds: Object.keys(deck.cards).sort(),
-      tombstoneIds: Object.keys(deck.tombstones ?? {}).sort()
-    };
-  }
-  function sameStoredValue(left, right) {
-    if (left === right) return true;
-    if (left === void 0 || right === void 0) return false;
-    return JSON.stringify(left) === JSON.stringify(right);
-  }
-  function cardStorageKey(id2) {
-    return `${CARD_KEY_PREFIX}${encodeURIComponent(id2)}`;
-  }
-  function tombstoneStorageKey(id2) {
-    return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id2)}`;
-  }
-  let localDeckMutation = Promise.resolve();
-  const localDeckMutationListeners = /* @__PURE__ */ new Set();
-  function subscribeLocalYomuSrsMutations(listener) {
-    localDeckMutationListeners.add(listener);
-    return () => localDeckMutationListeners.delete(listener);
-  }
-  class LocalYomuSrsRepository {
-    constructor(now = () => Date.now()) {
-      this.now = now;
-    }
-    store = new LocalYomuSrsStore();
-    async importBatch(batch) {
-      return this.mutateDeck((deck) => {
-        let imported = 0;
-        let skipped = 0;
-        for (const item2 of batch.items) {
-          const card = this.cardFromImportItem(item2, batch.importedAt);
-          if (!card) {
-            skipped++;
-            continue;
-          }
-          const existing = deck.cards[card.id];
-          deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
-          if (existing) skipped++;
-          else imported++;
-        }
-        return { imported, skipped };
-      });
-    }
-    /** Atomically upserts one semantic card and one idempotent Academy provenance. */
-    async collectAcademyVocabulary(input2) {
-      return this.mutateDeck((deck) => {
-        const now = this.now();
-        const result2 = upsertAcademyVocabulary(deck, input2, now);
-        return {
-          cardId: result2.card.id,
-          cardCreated: result2.cardCreated,
-          provenanceAdded: result2.provenanceAdded,
-          provenanceCount: result2.provenanceCount,
-          card: this.toReviewable(result2.card, now)
-        };
-      });
-    }
-    /** Reads the shared deck without changing any card or schedule. */
-    async academySyllabusProgress(items) {
-      const deck = await this.readDeck();
-      const identities = new Set(items.map((item2) => canonicalStudyCardIdentity(item2.expression, item2.reading).key));
-      const seeded = [...identities].filter((id2) => Boolean(deck.cards[id2])).length;
-      return { total: identities.size, seeded, unseeded: identities.size - seeded };
-    }
-    /**
-     * Removes only the requested provenance. Independent, multiply-sourced,
-     * or reviewed cards are retained even when their final Academy source is undone.
-     */
-    async removeAcademyVocabularyProvenance(cardId, provenanceId) {
-      return this.mutateDeck((deck) => {
-        const now = this.now();
-        const result2 = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
-        return {
-          provenanceRemoved: result2.provenanceRemoved,
-          cardDeleted: result2.cardDeleted,
-          reason: result2.reason,
-          ...result2.card ? { card: this.toReviewable(result2.card, now) } : {}
-        };
-      });
-    }
-    async queue(limit = 50, options = {}) {
-      const now = this.now();
-      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
-      const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
-      const cap = normalizedQueueLimit(limit);
-      const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
-      const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
-      const dueNew = due.filter((card) => card.reviews === 0).length;
-      const dueReviews = due.length - dueNew;
-      const queue = due.slice(0, cap).map((card) => this.toReviewable(card, now));
-      return {
-        providerId: "yomu-local",
-        fetchedAt: now,
-        cards: queue,
-        dueCount: dueReviews,
-        newCount: dueNew,
-        reviewCount: due.length
-      };
-    }
-    async stats() {
-      const now = this.now();
-      const cards = Object.values((await this.readDeck()).cards);
-      const today = startOfLocalDay$1(now);
-      return {
-        providerId: "yomu-local",
-        fetchedAt: now,
-        reviewsDue: cards.filter((card) => card.dueAt <= now).length,
-        reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
-        newToday: cards.filter((card) => card.createdAt >= today).length,
-        levelCounts: {
-          new: cards.filter((card) => card.reviews === 0).length,
-          learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
-          known: cards.filter((card) => card.intervalDays >= 21).length
-        }
-      };
-    }
-    /** Read the normalized encrypted-sync payload without exposing the storage key. */
-    async snapshot() {
-      return structuredClone(await this.readDeck());
-    }
-    /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
-    async mergeSnapshot(value, options = {}) {
-      return this.mutateDeck((deck) => {
-        const merged = mergeStoredYomuSrsDecks(deck, value);
-        deck.cards = merged.cards;
-        deck.tombstones = merged.tombstones;
-        return structuredClone(merged);
-      }, options.notifyMutations !== false);
-    }
-    /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
-    async lookupCards(items) {
-      const now = this.now();
-      const deck = await this.readDeck();
-      const cards = /* @__PURE__ */ new Map();
-      for (const item2 of items) {
-        try {
-          const identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
-            partOfSpeech: item2.partOfSpeech,
-            language: item2.language
-          });
-          const stored = deck.cards[identity2.key];
-          if (stored) cards.set(identity2.key, this.toReviewable(stored, now));
-        } catch {
-        }
-      }
-      return [...cards.values()];
-    }
-    async review(request2) {
-      return this.mutateDeck((deck) => {
-        const now = this.now();
-        const identity2 = canonicalStudyCardIdentity(request2.card.expression, request2.card.reading, {
-          partOfSpeech: request2.card.partOfSpeech,
-          language: request2.card.language
-        });
-        const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
-        const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
-        if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
-          delete deck.cards[request2.card.providerCardId];
-          deck.tombstones = { ...deck.tombstones ?? {}, [request2.card.providerCardId]: now };
-        }
-        deck.cards[identity2.key] = updated;
-        if ((deck.tombstones?.[identity2.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity2.key];
-        return { card: this.toReviewable(updated, now), raw: updated };
-      });
-    }
-    async mine(request2) {
-      return this.mutateDeck((deck) => {
-        const now = this.now();
-        const candidate2 = this.cardFromImportItem({
-          expression: request2.expression,
-          reading: request2.reading,
-          partOfSpeech: request2.partOfSpeech,
-          language: request2.language,
-          meanings: request2.meaning ? [request2.meaning] : [],
-          sentence: request2.sentence,
-          sourceUrl: request2.sourceUrl
-        }, now);
-        if (!candidate2) throw new TypeError("Vocabulary expression is required.");
-        const existing = deck.cards[candidate2.id];
-        const stored = existing ? mergeStoredYomuSrsCards(existing, candidate2) : candidate2;
-        deck.cards[candidate2.id] = stored;
-        if ((deck.tombstones?.[candidate2.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate2.id];
-        return {
-          card: this.toReviewable(stored, now),
-          raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
-        };
-      });
-    }
-    readDeck() {
-      const result2 = localDeckMutation.then(() => this.readDeckUncoordinated());
-      localDeckMutation = result2.then(() => void 0, () => void 0);
-      return result2;
-    }
-    async readDeckUncoordinated() {
-      return this.store.read();
-    }
-    writeDeck(previous, deck) {
-      return this.store.write(previous, deck);
-    }
-    mutateDeck(operation, notifyMutations = true) {
-      const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
-        const deck = await this.readDeckUncoordinated();
-        const previousDeck = structuredClone(deck);
-        const previousCards = new Map(Object.entries(deck.cards));
-        const previousTombstones = { ...deck.tombstones ?? {} };
-        const value = operation(deck);
-        await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
-        const changedCardIds = /* @__PURE__ */ new Set([
-          ...previousCards.keys(),
-          ...Object.keys(deck.cards),
-          ...Object.keys(previousTombstones),
-          ...Object.keys(deck.tombstones ?? {})
-        ]);
-        const changed = [...changedCardIds].filter((id2) => !sameStoredCard(previousCards.get(id2), deck.cards[id2]) || previousTombstones[id2] !== deck.tombstones?.[id2]);
-        if (notifyMutations) {
-          localDeckMutationListeners.forEach((listener) => {
-            try {
-              listener(changed);
-            } catch {
-            }
-          });
-        }
-        return value;
-      }));
-      localDeckMutation = result2.then(() => void 0, () => void 0);
-      return result2;
-    }
-    cardFromImportItem(item2, now) {
-      let identity2;
-      try {
-        identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
-          partOfSpeech: item2.partOfSpeech,
-          language: item2.language
-        });
-      } catch {
-        return null;
-      }
-      return {
-        id: identity2.key,
-        expression: identity2.expression,
-        reading: identity2.reading,
-        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
-        ...identity2.language !== "ja" ? { language: identity2.language } : {},
-        meanings: uniqueTrimmedStrings(item2.meanings ?? []),
-        sentence: item2.sentence?.trim() || void 0,
-        sourceProviderId: item2.sourceProviderId,
-        sourceCardId: item2.sourceCardId,
-        sourceUrl: item2.sourceUrl,
-        tags: uniqueTrimmedStrings(item2.tags ?? []),
-        dueAt: item2.dueAt ?? now,
-        lastReviewAt: null,
-        createdAt: now,
-        updatedAt: now,
-        reviews: 0,
-        lapses: 0,
-        intervalDays: 0,
-        ease: 2.5,
-        retainWithoutAcademyProvenance: true,
-        academyProvenance: {}
-      };
-    }
-    cardFromReviewable(card, now) {
-      const identity2 = canonicalStudyCardIdentity(card.expression, card.reading, {
-        partOfSpeech: card.partOfSpeech,
-        language: card.language
-      });
-      return {
-        id: identity2.key,
-        expression: identity2.expression,
-        reading: identity2.reading,
-        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
-        ...identity2.language !== "ja" ? { language: identity2.language } : {},
-        meanings: card.meanings.flatMap((meaning) => meaning.glosses),
-        sourceProviderId: card.providerId,
-        sourceCardId: card.providerCardId,
-        sourceUrl: card.sourceUrl,
-        dueAt: card.dueAt ?? now,
-        lastReviewAt: card.lastReviewAt ?? null,
-        createdAt: now,
-        updatedAt: now,
-        reviews: 0,
-        lapses: 0,
-        intervalDays: 0,
-        ease: 2.5,
-        retainWithoutAcademyProvenance: true,
-        academyProvenance: {}
-      };
-    }
-    toReviewable(card, now) {
-      return {
-        providerId: "yomu-local",
-        providerCardId: card.id,
-        providerReviewId: card.id,
-        kind: "vocabulary",
-        expression: card.expression,
-        reading: card.reading,
-        ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
-        ...card.language ? { language: card.language } : {},
-        meanings: meaningsFromGlosses(card.meanings),
-        sentence: card.sentence,
-        state: localCardState(card, now),
-        srsLevel: localSrsLevel(card),
-        dueAt: card.dueAt,
-        lastReviewAt: card.lastReviewAt,
-        sourceUrl: card.sourceUrl,
-        raw: card
-      };
-    }
-  }
-  function sameStoredCard(left, right) {
-    if (left === right) return true;
-    if (!left || !right) return false;
-    return JSON.stringify(left) === JSON.stringify(right);
-  }
-  function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
-    return {
-      id: "yomu-local",
-      // The stored provider id stays yomu-local for migration compatibility.
-      label: ACADEMY_SRS_LABEL,
-      capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
-      hasCredential: () => true,
-      verify: async () => true,
-      stats: () => repository.stats(),
-      queue: (limit, options) => repository.queue(limit, options),
-      review: (request2) => repository.review(request2),
-      mine: (request2) => repository.mine(request2),
-      lookupCards: (items) => repository.lookupCards(items),
-      importBatch: (batch) => repository.importBatch(batch)
-    };
-  }
-  function scheduleReviewedCard(card, grade2, now) {
-    const failed = grade2 === "nothing" || grade2 === "something" || grade2 === "fail" || grade2 === "again";
-    const intervalDays = failed ? 0 : nextIntervalDays(card, grade2);
-    return {
-      ...card,
-      reviews: card.reviews + 1,
-      lapses: card.lapses + (failed ? 1 : 0),
-      intervalDays,
-      ease: Math.min(3.2, Math.max(1.3, card.ease + easeDelta(grade2))),
-      dueAt: now + (failed ? 10 * 6e4 : intervalDays * 864e5),
-      lastReviewAt: now,
-      updatedAt: now
-    };
-  }
-  function nextIntervalDays(card, grade2) {
-    if (card.reviews <= 0) return grade2 === "easy" ? 4 : grade2 === "hard" ? 1 : 2;
-    const multiplier = grade2 === "easy" ? card.ease + 0.7 : grade2 === "hard" ? 1.2 : card.ease;
-    return Math.max(1, Math.round(Math.max(1, card.intervalDays) * multiplier));
-  }
-  function easeDelta(grade2) {
-    if (grade2 === "easy") return 0.15;
-    if (grade2 === "hard") return -0.15;
-    if (grade2 === "nothing" || grade2 === "something" || grade2 === "fail" || grade2 === "again") return -0.25;
-    return 0;
-  }
-  function meaningsFromGlosses(glosses) {
-    const normalized2 = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
-    return normalized2.length ? [{ glosses: normalized2, partOfSpeech: [] }] : [];
-  }
-  function localCardState(card, now) {
-    if (card.reviews === 0) return ["new"];
-    if (card.dueAt <= now) return ["due"];
-    if (card.intervalDays >= 21) return ["known"];
-    return ["learning"];
-  }
-  function localSrsLevel(card) {
-    if (card.reviews === 0) return "New";
-    if (card.intervalDays >= 21) return "Known";
-    if (card.intervalDays >= 7) return "Young";
-    return "Learning";
-  }
-  function startOfLocalDay$1(now) {
-    const date = new Date(now);
-    date.setHours(0, 0, 0, 0);
-    return date.getTime();
-  }
-  function normalizedQueueLimit(limit) {
-    if (Number.isNaN(limit) || limit <= 0) return 0;
-    return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
-  }
-  function createYomuLocalReviewService(repository = new LocalYomuSrsRepository(), now = Date.now) {
-    const cards = /* @__PURE__ */ new Map();
-    return {
-      async due(limit) {
-        const snapshot = await repository.queue(Math.max(50, Math.floor(limit)));
-        const due = snapshot.cards.filter((card) => (card.dueAt ?? 0) <= now()).slice(0, Math.max(0, Math.floor(limit)));
-        due.forEach((card) => cards.set(card.providerCardId, card));
-        return due.map(toQueueItem);
-      },
-      async syllabusState(items) {
-        if (!items.length) return "empty";
-        const progress2 = await repository.academySyllabusProgress(items);
-        return progress2.unseeded ? "new" : "cleared";
-      },
-      async ingest(seeds) {
-        if (!seeds.length) return;
-        const ingestedAt = now();
-        await Promise.all(seeds.map((seed) => repository.collectAcademyVocabulary({
-          expression: seed.content.expression,
-          reading: seed.content.reading,
-          meanings: seed.content.meanings,
-          sentence: seed.content.sentence,
-          ...seed.schedule ? { dueAt: ingestedAt + seed.schedule.dueAfterMs } : {},
-          ...seed.reason === "delayed-review" ? { postponeExisting: true } : {},
-          provenance: {
-            id: reviewSeedProvenanceId(seed),
-            kind: "review-seed",
-            conceptId: seed.conceptId,
-            sourceId: seed.sourceQuestionId,
-            reason: seed.reason
-          }
-        })));
-      },
-      async rate(itemId, rating) {
-        let card = cards.get(itemId);
-        if (!card) {
-          const queue = await repository.queue(500);
-          card = queue.cards.find((candidate2) => candidate2.providerCardId === itemId);
-        }
-        if (!card) throw new Error(`Unknown Yomu review item: ${itemId}`);
-        await repository.review({ card, grade: grade(rating) });
-      }
-    };
-  }
-  function reviewSeedProvenanceId(seed) {
-    return `academy:review-seed:${seed.id}`;
-  }
-  function toQueueItem(card) {
-    const provenance2 = academyProvenance(card.raw);
-    return {
-      id: card.providerCardId,
-      expression: card.expression,
-      ...card.reading ? { reading: card.reading } : {},
-      ...card.meanings[0]?.glosses[0] ? { meaning: card.meanings[0].glosses[0] } : {},
-      dueAt: card.dueAt ?? 0,
-      provenance: { provider: card.providerId, ...provenance2 }
-    };
-  }
-  function academyProvenance(raw) {
-    if (!raw || typeof raw !== "object") return {};
-    const records2 = raw.academyProvenance;
-    if (!records2 || typeof records2 !== "object") return {};
-    const first2 = Object.values(records2).find((value) => value && typeof value === "object");
-    if (!first2) return {};
-    const sourceId2 = text$j(first2.sourceId);
-    const activityId = text$j(first2.activityId);
-    return {
-      ...sourceId2 ? { sourceId: sourceId2 } : {},
-      ...activityId ? { lesson: activityId } : {}
-    };
-  }
-  function text$j(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : void 0;
-  }
-  function grade(rating) {
-    return rating;
-  }
-  const CARD_STATES$1 = /* @__PURE__ */ new Set([
-    "new",
-    "learning",
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "failed",
-    "locked",
-    "never-forget",
-    "blacklisted",
-    "suspended",
-    "in-deck",
-    "not-in-deck",
-    "redundant",
-    "frequent",
-    "unparsed"
-  ]);
-  const CARD_STATE_ALIASES = {
-    never_forget: "never-forget",
-    neverforget: "never-forget",
-    "never forget": "never-forget",
-    not_in_deck: "not-in-deck",
-    notindeck: "not-in-deck",
-    "not in deck": "not-in-deck",
-    in_deck: "in-deck",
-    indeck: "in-deck",
-    "in deck": "in-deck",
-    blacklist: "blacklisted",
-    blacklisted: "blacklisted",
-    ignored: "blacklisted",
-    unknown: "new"
-  };
-  function normalizeCardState(value) {
-    const keys = normalizedCardStateKeys(value);
-    if (!keys) return null;
-    const aliased = aliasedCardState(keys.trimmed, keys.dashed, keys.compact);
-    if (aliased) return aliased;
-    return knownCardState(keys.dashed);
-  }
-  function normalizedCardStateKeys(value) {
-    if (typeof value !== "string") return null;
-    const trimmed = value.trim().toLowerCase();
-    if (!trimmed) return null;
-    return {
-      trimmed,
-      dashed: trimmed.replace(/[_\s]+/g, "-"),
-      compact: trimmed.replace(/[_\s-]+/g, "")
-    };
-  }
-  function aliasedCardState(...keys) {
-    return keys.map((key2) => CARD_STATE_ALIASES[key2]).find(Boolean);
-  }
-  function knownCardState(value) {
-    if (CARD_STATES$1.has(value)) return value;
-    return null;
-  }
-  function normalizeCardStates(value, fallback = "not-in-deck") {
-    const states = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
-    return states.length ? states : [fallback];
-  }
-  function uniqueNormalizedCardStates(rawStates) {
-    const states = [];
-    for (const rawState of rawStates) {
-      appendNormalizedCardState(states, rawState);
-    }
-    return states;
-  }
-  function appendNormalizedCardState(states, rawState) {
-    const state = normalizeCardState(rawState);
-    if (!state || states.includes(state)) return;
-    states.push(state);
-  }
-  function primaryCardState(value) {
-    return normalizeCardStates(value)[0] ?? "not-in-deck";
-  }
-  const DECK_CLASS_NAME_LIMIT = 8;
-  function cardDeckMembership(card) {
-    const names = cardDeckNames(card);
-    return {
-      source: cardDeckMembershipSource(card),
-      names,
-      member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
-    };
-  }
-  function cardDeckNames(card) {
-    return uniqueDeckNames([
-      ...primaryDeckNames(card),
-      ...ankiDeckNames$1(card)
-    ]);
-  }
-  function cardDeckMembershipClassNames(card) {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) return [];
-    const classes2 = /* @__PURE__ */ new Set(["yomu-deck-member"]);
-    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes2, primaryDeckMembershipSource(card), primaryDeckNames(card));
-    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes2, "anki", ankiDeckNames$1(card));
-    return [...classes2];
-  }
-  function deckClassSlug(value) {
-    const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
-    return slug || "unnamed";
-  }
-  function uniqueDeckNames(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.map((value) => value?.trim() ?? "").filter((value) => {
-      if (!value || seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  function cardDeckMembershipSource(card) {
-    if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
-    return primaryDeckMembershipSource(card);
-  }
-  function primaryDeckMembershipSource(card) {
-    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-  }
-  function primaryDeckNames(card) {
-    return uniqueDeckNames([
-      ...card.deckNames ?? [],
-      card.sourceDeckName ?? ""
-    ]);
-  }
-  function ankiDeckNames$1(card) {
-    return uniqueDeckNames(card.ankiDeckNames ?? []);
-  }
-  function hasPrimaryDeckMembership(card) {
-    return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
-  }
-  function hasAnkiDeckMembership(card) {
-    return ankiDeckNames$1(card).length > 0;
-  }
-  function addDeckSourceClasses(classes2, source2, names) {
-    classes2.add(`${source2}-deck-member`);
-    names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
-      const slug = deckClassSlug(name);
-      classes2.add(`yomu-deck-${slug}`);
-      classes2.add(`${source2}-deck-${slug}`);
-    });
-  }
-  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
-  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  const PRONUNCIATION_KANA = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]+$`, "u");
-  const PITCH_CLASS_RULES = [
-    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
-    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
-    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
-    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
-  ];
-  function normalizePitchPatternForReading(pattern, reading) {
-    const levels = pitchLevels(pattern);
-    if (!levels.length) return "";
-    return normalizePitchLevelsForReading(levels, reading).join("");
-  }
-  function normalizePitchPatternsForReading(patterns, reading) {
-    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
-  }
-  function pitchLevelsForDisplay(pattern, reading) {
-    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
-  }
-  function pitchLevels(pattern) {
-    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
-  }
-  function splitMorae(reading) {
-    if (!PRONUNCIATION_KANA.test(reading)) return [];
-    const morae = [];
-    for (const char of Array.from(reading)) {
-      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
-      else morae.push(char);
-    }
-    return morae;
-  }
-  function countMorae(reading) {
-    return splitMorae(reading).length;
-  }
-  function pitchPatternFromPosition(reading, position) {
-    const moraCount = countMorae(reading);
-    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
-    if (position === 0) return `L${"H".repeat(moraCount)}`;
-    if (position === 1) return `H${"L".repeat(moraCount)}`;
-    const highMorae = position - 1;
-    const lowTail = moraCount - position + 1;
-    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
-  }
-  function pitchProfileForPattern(pattern, reading) {
-    const normalized2 = normalizePitchPatternForReading(pattern, reading);
-    const morae = splitMorae(reading);
-    const pitchNumber = pitchNumberFromPattern(normalized2, reading);
-    return {
-      reading,
-      morae,
-      pitchNumber,
-      pattern: normalized2,
-      className: pitchClassNameFromProfile(morae.length, pitchNumber)
-    };
-  }
-  function pitchClassNameForPattern(pattern, reading) {
-    return pitchProfileForPattern(pattern, reading).className;
-  }
-  function collectPitchVariants(reading, patterns, max2 = Infinity) {
-    const seen = /* @__PURE__ */ new Set();
-    const variants = [];
-    for (const pattern of patterns) {
-      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
-      const position = pitchNumberFromPattern(pattern, reading);
-      const key2 = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
-      if (seen.has(key2)) continue;
-      seen.add(key2);
-      variants.push({ pattern, position });
-      if (variants.length >= max2) break;
-    }
-    return variants;
-  }
-  function validPitchPositions(reading, patterns) {
-    const positions = /* @__PURE__ */ new Set();
-    for (const variant2 of collectPitchVariants(reading, patterns)) {
-      if (variant2.position != null) positions.add(variant2.position);
-    }
-    return positions;
-  }
-  function contextPitchPattern(patterns, reading) {
-    if (!patterns?.length) return "";
-    if (!reading) return patterns[0];
-    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
-  }
-  function pitchNumberForReading(patterns, reading) {
-    if (!reading || !patterns?.length) return null;
-    const pattern = contextPitchPattern(patterns, reading);
-    if (!pattern) return null;
-    return pitchNumberFromPattern(pattern, reading);
-  }
-  function pitchNumberFromPattern(pattern, reading) {
-    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
-    const moraCount = countMorae(reading);
-    if (!moraCount) return null;
-    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
-    if (levels.length > moraCount + 1) return null;
-    for (let position = 0; position <= moraCount; position += 1) {
-      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
-      if (levels.every((level, index) => expected[index] === level)) return position;
-    }
-    return null;
-  }
-  function looksLikeCompactHeibanPattern(levels) {
-    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
-  }
-  function pitchClassNameFromProfile(moraCount, pitchNumber) {
-    if (!moraCount || pitchNumber == null) return "";
-    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
-  }
-  function normalizePitchLevelsForReading(levels, reading) {
-    const chars = Array.from(reading);
-    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
-    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
-    const normalized2 = [];
-    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
-      if (normalized2.length && SMALL_KANA.has(chars[index])) continue;
-      normalized2.push(levels[index]);
-    }
-    return normalized2.concat(levels.slice(chars.length));
-  }
-  function looksCharacterAlignedPitch(levels, chars) {
-    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
-    if (levels.length < chars.length) return false;
-    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
-  }
-  function assignSentenceInfo(paragraphs, tokens) {
-    paragraphs.forEach((paragraph, index) => {
-      const tokenData = tokens[index] ?? [];
-      const sentences = splitJapaneseSentences(paragraph);
-      if (sentences.length === 1) {
-        tokenData.forEach((token) => {
-          token.sentence = sentences[0];
-        });
-        return;
-      }
-      let offset = 0;
-      for (const sentence of sentences) {
-        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
-        const relativeStart = paragraph.slice(offset).indexOf(compare);
-        if (relativeStart === -1) {
-          offset += sentence.length;
-          continue;
-        }
-        const start = offset + relativeStart;
-        const end = start + sentence.length;
-        for (const token of tokenData) {
-          if (token.start >= start && token.end <= end) token.sentence = sentence;
-        }
-        offset += sentence.length;
-      }
-    });
-  }
-  function splitJapaneseSentences(text2) {
-    const sentences = [];
-    const state = { start: 0, quote: null };
-    for (let index = 0; index < text2.length; index++) {
-      index = advanceSentenceSplitter(sentences, text2, state, index);
-    }
-    const tail = text2.slice(state.start).trim();
-    if (tail) sentences.push(tail);
-    const nonEmptySentences = sentences.filter(Boolean);
-    const result2 = nonEmptySentences.length ? nonEmptySentences : [text2];
-    return result2;
-  }
-  function advanceSentenceSplitter(sentences, text2, state, index) {
-    state.quote = closingQuoteFor(text2[index]) ?? state.quote;
-    if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
-    return advancePunctuationSentenceSplitter(sentences, text2, state, index);
-  }
-  function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
-    if (!state.quote) return index;
-    const boundary = quotedSentenceBoundary(text2, index, state.quote);
-    if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
-    return index;
-  }
-  function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
-    const boundary = punctuationSentenceBoundary(text2, index);
-    if (!boundary) return index;
-    Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
-    return boundary.nextIndex;
-  }
-  function pushSentenceBoundary(sentences, text2, start, end) {
-    sentences.push(text2.slice(start, end).trim());
-    return { start: end, quote: null };
-  }
-  function closingQuoteFor(char) {
-    if (char === "「") return "」";
-    if (char === "『") return "』";
-    return null;
-  }
-  function quotedSentenceBoundary(text2, index, quote) {
-    if (text2[index] !== quote) return null;
-    const next = text2[index + 1];
-    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
-  }
-  function punctuationSentenceBoundary(text2, index) {
-    if (!"。！？".includes(text2[index])) return null;
-    const next = text2[index + 1];
-    const includesClosingQuote = next === "」" || next === "』";
-    return {
-      end: includesClosingQuote ? index + 2 : index + 1,
-      nextIndex: includesClosingQuote ? index + 1 : index
-    };
-  }
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
-  const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
-  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
-    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
-    assignSentenceInfo(paragraphs, tokens);
-    return tokens;
-  }
-  function parseParagraphTokens(paragraph, rawTokens, cards) {
-    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
-  }
-  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
-    const card = cards[vocabularyIndex];
-    const rubies = parseRubies(furigana, position);
-    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
-    const token = {
-      card,
-      start: position,
-      end: position + length,
-      length,
-      rubies,
-      pitchClass: currentPitchClass(card)
-    };
-    assignWordWithReading(token);
-    return token;
-  }
-  function parseRubies(furigana, startOffset) {
-    if (furigana === null) return [];
-    let offset = startOffset;
-    return furigana.flatMap((part) => {
-      if (typeof part === "string") {
-        offset += part.length;
-        return [];
-      }
-      const [base, ruby] = part;
-      const start = offset;
-      const end = offset = start + base.length;
-      return [{ text: ruby, start, end, length: base.length }];
-    });
-  }
-  function currentPitchClass(card) {
-    if (card.partOfSpeech.includes("prt")) return "";
-    return getPitchClass(card.pitchAccent, card.reading);
-  }
-  function assignWordWithReading(token) {
-    const { card, rubies, start: offset } = token;
-    if (!rubies.length) return;
-    const word = Array.from(card.spelling);
-    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
-      const { text: text2, start, length } = rubies[i2];
-      word.splice(start - offset + length, 0, `[${text2}]`);
-    }
-    card.wordWithReading = word.join("");
-  }
-  function repairCardReadingFromRubies(card, surface, rubies, offset) {
-    if (!shouldRepairCardReading(card, surface, rubies)) return;
-    const reading = surfaceReadingFromRubies(surface, rubies, offset);
-    if (!reading || !KANA_RE.test(reading)) return;
-    const previousReading = card.reading.trim();
-    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
-      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
-      card.pitchAccent = [];
-    }
-    card.reading = reading;
-  }
-  function shouldRepairCardReading(card, surface, rubies) {
-    if (!rubies.length || !surface || card.spelling !== surface) return false;
-    if (!KANJI_RE$2.test(card.spelling)) return false;
-    const reading = card.reading.trim();
-    return !reading || reading === card.spelling || KANA_RE.test(reading);
-  }
-  function surfaceReadingFromRubies(surface, rubies, offset) {
-    let reading = "";
-    let cursor = 0;
-    for (const ruby of rubies) {
-      const start = ruby.start - offset;
-      const end = ruby.end - offset;
-      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
-      reading += surface.slice(cursor, start);
-      reading += ruby.text;
-      cursor = end;
-    }
-    reading += surface.slice(cursor);
-    return reading;
-  }
-  function jpdbVocabularyToCards(vocabulary) {
-    if (!Array.isArray(vocabulary)) return [];
-    const cards = [];
-    for (const item2 of vocabulary) {
-      if (!Array.isArray(item2)) continue;
-      const [
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank2,
-        partOfSpeech,
-        meaningsChunks,
-        meaningsPartOfSpeech,
-        cardState,
-        pitchAccent,
-        dueAt,
-        sentence
-      ] = item2;
-      cards.push({
-        vid,
-        sid,
-        rid,
-        spelling,
-        reading,
-        frequencyRank: frequencyRank2,
-        partOfSpeech,
-        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
-          glosses,
-          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
-        })),
-        cardState: normalizeCardStates(cardState),
-        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
-        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
-        wordWithReading: null,
-        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
-        source: "jpdb"
-      });
-    }
-    return cards;
-  }
-  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-  const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
-  function annotatedWordRubies(spelling, annotated) {
-    if (!annotated || !annotated.includes("[")) return [];
-    const rubies = [];
-    let cursor = 0;
-    let baseText2 = "";
-    let baseOffset = 0;
-    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
-      const matchIndex = match.index ?? 0;
-      const captured = match[1] ?? "";
-      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
-      const base = runMatch ? runMatch[1] : captured;
-      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
-      const reading = (match[2] ?? "").trim();
-      baseText2 += plain;
-      baseOffset += plain.length;
-      const start = baseOffset;
-      baseText2 += base;
-      baseOffset += base.length;
-      if (base && reading) {
-        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
-      }
-      cursor = matchIndex + match[0].length;
-    }
-    baseText2 += annotated.slice(cursor);
-    return baseText2 === spelling ? rubies : [];
-  }
-  function readingFromSurfaceRubies(surface, rubies) {
-    let reading = "";
-    let offset = 0;
-    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
-      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
-      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
-      reading += ruby.text;
-      offset = ruby.end;
-    }
-    reading += unannotatedPronunciationText$1(surface.slice(offset));
-    return reading;
-  }
-  function unannotatedPronunciationText$1(value) {
-    return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
-  }
-  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
-  function tiledPitchComponents(card) {
-    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
-    const components2 = card.pitchComponents ?? [];
-    if (components2.length < 2) return null;
-    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return null;
-    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return null;
-    return components2.map((component) => ({
-      ...component,
-      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
-    }));
-  }
-  function pitchComponentUnderlineGradient(card) {
-    const components2 = tiledPitchComponents(card);
-    if (!components2) return "";
-    if (!components2.some((component) => PITCH_CLASSES$1.has(component.pitchClass))) return "";
-    const lengths = components2.map((component) => Array.from(component.spelling).length);
-    const total = lengths.reduce((sum, length) => sum + length, 0);
-    if (!total) return "";
-    let offset = 0;
-    const stops = [];
-    components2.forEach((component, index) => {
-      const start = offset / total * 100;
-      offset += lengths[index] ?? 0;
-      const end = offset / total * 100;
-      const color = PITCH_CLASSES$1.has(component.pitchClass) ? `var(--jpdb-reader-pitch-${component.pitchClass})` : "var(--jpdb-reader-pitch-unknown)";
-      stops.push(`${color} ${formatPercent$2(start)}`, `${color} ${formatPercent$2(end)}`);
-    });
-    return `linear-gradient(to right, ${stops.join(", ")})`;
-  }
-  function compact(value) {
-    return value.replace(/\s+/g, "").trim();
-  }
-  function formatPercent$2(value) {
-    return `${Number(value.toFixed(3))}%`;
-  }
-  const RENDERED_WORD_CONTRAST_VARS = [
-    "--jpdb-reader-page-bg",
-    "--jpdb-reader-highlight-backdrop",
-    "--jpdb-reader-word-accessible-color",
-    "--jpdb-reader-word-accessible-highlight",
-    "--jpdb-reader-word-accessible-underline",
-    "--jpdb-reader-word-highlight-text",
-    "--jpdb-reader-word-contrast-shadow"
-  ];
-  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
-    (name) => name !== "--jpdb-reader-word-contrast-shadow"
-  );
-  const RENDERED_WORD_CARD_STATES = [
-    "new",
-    "learning",
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "failed",
-    "locked",
-    "never-forget",
-    "blacklisted",
-    "suspended",
-    "in-deck",
-    "not-in-deck",
-    "redundant",
-    "frequent",
-    "unparsed"
-  ];
-  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
-  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
-  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
-  function clearRenderedWordAnkiState(word) {
-    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
-    delete word.dataset.ankiState;
-    delete word.dataset.ankiDecks;
-    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
-  }
-  function setRenderedWordPitchClass(word, pitchClass) {
-    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-    word.dataset.pitchClass = pitchClass;
-    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-  }
-  function setRenderedWordPitchAccentPattern(word, card) {
-    const pitchAccent = card.pitchAccent.join("|");
-    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-  }
-  function setRenderedWordPitchComponents(word, card) {
-    const gradient = pitchComponentUnderlineGradient(card);
-    if (!gradient) {
-      delete word.dataset.pitchComponents;
-      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
-      return;
-    }
-    word.dataset.pitchComponents = "true";
-    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
-  }
-  function cardStateProvenance(card) {
-    return card.provisionalState === true ? "provisional" : "authoritative";
-  }
-  function setRenderedWordCardIdentity(word, card, options = {}) {
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
-    word.dataset.expression = card.spelling;
-    word.dataset.reading = card.reading;
-    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-    setRenderedWordPitchAccentPattern(word, card);
-    setRenderedWordPitchComponents(word, card);
-    applyRenderedWordCardStatus(word, card, options, true);
-  }
-  function setRenderedWordCardStatus(word, card, options = {}) {
-    applyRenderedWordCardStatus(word, card, options, false);
-  }
-  function applyRenderedWordCardStatus(word, card, options, replaceCardIdentity) {
-    const source2 = renderedWordCardSource(card);
-    const state = primaryCardState(card.cardState);
-    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.srsProvider;
-    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
-    if (replaceCardIdentity) {
-      word.dataset.cardSource = source2;
-      word.dataset.cardId = String(renderedWordCardId(card, source2));
-      word.dataset.readingIndex = String(renderedWordReadingIndex(card, source2));
-    }
-    word.dataset.cardState = state;
-    word.dataset.stateProvenance = cardStateProvenance(card);
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    word.classList.add(`jpdb-${state}`);
-    if (source2 !== "jpdb") word.classList.add(`${source2}-${state}`);
-    applyRenderedWordDeckMembership(word, card);
-  }
-  function applyLocalYomuSrsStateToRenderedWord(word, card) {
-    const state = primaryCardState(card.cardState);
-    const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.bunproPrefillState;
-    delete word.dataset.bunproPrefillProvenance;
-    word.dataset.cardState = state;
-    word.dataset.srsProvider = "yomu-local";
-    word.dataset.stateProvenance = "authoritative";
-    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    return changed;
-  }
-  function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
-    return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
-  }
-  function clearRenderedWordMiningInsight(word) {
-    word.classList.remove("jpdb-reader-i-plus-one");
-    delete word.dataset.miningInsight;
-  }
-  function clearRenderedWordCardStateClasses(word) {
-    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
-  }
-  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
-    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
-    if (preserveSources.length) return;
-    delete word.dataset.deckMember;
-    delete word.dataset.deckSource;
-    delete word.dataset.deckNames;
-  }
-  function isRenderedWordCardStateClass(className) {
-    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
-  }
-  function isRenderedWordDeckMembershipClass(className, preserveSources) {
-    if (className === "yomu-deck-member") return false;
-    if (className.startsWith("yomu-deck-")) return true;
-    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
-      if (preserveSources.includes(prefix)) return false;
-      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
-    });
-  }
-  function applyRenderedWordDeckMembership(word, card) {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) {
-      if (!word.classList.contains("anki-deck-member")) {
-        word.classList.remove("yomu-deck-member");
-        delete word.dataset.deckMember;
-        delete word.dataset.deckSource;
-        delete word.dataset.deckNames;
-      }
-      return;
-    }
-    word.classList.add(...cardDeckMembershipClassNames(card));
-    word.dataset.deckMember = "true";
-    word.dataset.deckSource = membership.source;
-    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
-    else delete word.dataset.deckNames;
-  }
-  function renderedWordCardSource(card) {
-    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-  }
-  function renderedWordCardId(card, source2 = renderedWordCardSource(card)) {
-    return source2 === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-  }
-  function renderedWordReadingIndex(card, source2 = renderedWordCardSource(card)) {
-    return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
   const CEFR_GRAMMAR_LEVEL_SCALE = Object.freeze({
     id: "cefr",
@@ -35872,6 +33292,7 @@ ${spelling}`);
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
       const lookupRewrites = lookupRewritesForTarget(language2.id);
       const readingAnnotation = language2.id === "zh" || language2.id === "yue";
+      const usesHanScript = language2.scripts.some((script) => script === "Hans" || script === "Hant");
       return createLearningTargetModule({
         id: `${language2.id}-roster-v1`,
         language: language2.runtimeLocale,
@@ -35896,7 +33317,16 @@ ${spelling}`);
         typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
         ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
-        lookupRewrites
+        lookupRewrites,
+        ...usesHanScript ? {
+          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+          // Let the installed dictionary arbitrate inside a real Han
+          // run, and accept expression hits only.
+          lookupStartsAtSegmentBoundary: false,
+          lookupRunSegments: hanIdeographSegments,
+          lookupSweepMode: "left-to-right-longest-exact",
+          pointerWordSegments: hanIdeographSegments
+        } : {}
       });
     })
   );
@@ -35951,6 +33381,7 @@ ${spelling}`);
   registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
   GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
   let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+  let targetSelectionGeneration = 0;
   let cachedTarget = null;
   let cachedForLanguage = "";
   let cachedForRegistryRevision = -1;
@@ -35966,6 +33397,2700 @@ ${spelling}`);
   }
   function activeLearningTargetLanguage() {
     return activeLearningTarget().language;
+  }
+  function activeLearningTargetGeneration() {
+    return targetSelectionGeneration;
+  }
+  function setActiveLearningTargetLanguage(value) {
+    const module = learningTargetModuleFor(value);
+    if (!module) return null;
+    if (requestedTargetLanguage !== module.language) targetSelectionGeneration += 1;
+    requestedTargetLanguage = module.language;
+    return module;
+  }
+  function adoptLearningTargetLanguage(value) {
+    const requested = setActiveLearningTargetLanguage(value);
+    if (requested) return requested;
+    const fallback = defaultLearningTargetModule();
+    return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
+  }
+  function codePointBoundaryAtOrBefore(text2, offset) {
+    const clamped = Math.max(0, Math.min(offset, text2.length));
+    if (clamped > 0 && clamped < text2.length && isLowSurrogate$1(text2.charCodeAt(clamped)) && isHighSurrogate$1(text2.charCodeAt(clamped - 1))) {
+      return clamped - 1;
+    }
+    return clamped;
+  }
+  function codePointBoundaryAtOrAfter(text2, offset) {
+    const before = codePointBoundaryAtOrBefore(text2, offset);
+    return before === offset ? before : Math.min(text2.length, before + 2);
+  }
+  function codePointSafePrefix(text2, maxUtf16Units) {
+    return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
+  }
+  function lookupSpansStartingInRange(text2, segment2, from, to, maxCodePoints) {
+    const offsets = codePointOffsets(text2, segment2.start, segment2.end);
+    const spans = [];
+    for (let startIndex = 0; startIndex < offsets.length - 1; startIndex++) {
+      const start = offsets[startIndex];
+      if (start < from || start >= to) continue;
+      const lastEndIndex = Math.min(offsets.length - 1, startIndex + maxCodePoints);
+      for (let endIndex = lastEndIndex; endIndex > startIndex; endIndex--) {
+        const end = offsets[endIndex];
+        spans.push({
+          term: text2.slice(start, end),
+          start,
+          end,
+          codePoints: endIndex - startIndex
+        });
+      }
+    }
+    return spans;
+  }
+  function codePointOffsets(text2, start, end) {
+    const safeStart = codePointBoundaryAtOrAfter(text2, start);
+    const safeEnd = codePointBoundaryAtOrBefore(text2, end);
+    const offsets = [safeStart];
+    let offset = safeStart;
+    for (const character of text2.slice(safeStart, safeEnd)) {
+      offset += character.length;
+      offsets.push(offset);
+    }
+    return offsets;
+  }
+  function isHighSurrogate$1(value) {
+    return value >= 55296 && value <= 56319;
+  }
+  function isLowSurrogate$1(value) {
+    return value >= 56320 && value <= 57343;
+  }
+  const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+    "gu"
+  );
+  const JAPANESE_TEXT_RUN_RE = new RegExp(
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    "gu"
+  );
+  const JAPANESE_CHARACTER_RE = new RegExp(
+    `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
+  const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+    `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
+  const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+  const SEGMENT_SEPARATORS = "・･゠·•";
+  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
+  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
+  const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+  const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+    `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+    "u"
+  );
+  const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+    "u"
+  );
+  const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
+  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
+  const SURU_STEM_SEGMENT_RE = new RegExp(
+    `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
+  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+  const KANA_I_ADJECTIVE_END_RE = /い$/u;
+  const SMALL_TSU_RE = /っ/u;
+  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+  const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+    `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  function normalizeFallbackTerm(text2) {
+    return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
+  }
+  function bareFallbackCardFromText(text2, language2 = activeLearningTargetLanguage()) {
+    const spelling = normalizeFallbackTerm(text2);
+    const id2 = -stablePositiveHashId(`fallback
+${language2}
+${spelling}`);
+    const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
+    return {
+      vid: id2,
+      sid: id2,
+      rid: 0,
+      spelling,
+      reading: "",
+      language: language2,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
+      // placeholder default, so tag it provisional.
+      provisionalState: true,
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "fallback",
+      ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
+    };
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function segmentJapaneseText(text2) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
+      });
+    }
+    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
+    });
+  }
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
+    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment2) => ({
+      surface: segment2.segment,
+      start: offset + segment2.index,
+      end: offset + segment2.index + segment2.segment.length
+    }));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
+    const normalizedSegments = splitTrailingPoliteParticleSegments(
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
+    );
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(normalizedSegments),
+      sourceText
+    );
+  }
+  function splitTrailingPoliteParticleSegments(segments) {
+    return segments.flatMap((segment2, index) => {
+      if (!segment2.surface.endsWith("ね") || segment2.surface === "ね") return [segment2];
+      const previous = segments[index - 1]?.surface ?? "";
+      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment2.surface}`)) return [segment2];
+      const particleStart = segment2.end - 1;
+      const stem = segment2.surface.slice(0, -1);
+      return [
+        ...stem ? [{ surface: stem, start: segment2.start, end: particleStart }] : [],
+        { surface: "ね", start: particleStart, end: segment2.end }
+      ];
+    });
+  }
+  function splitSeparatorSegments(segments) {
+    if (!segments.some((segment2) => SEGMENT_SEPARATOR_RE.test(segment2.surface))) return segments;
+    return segments.flatMap(splitSeparatorSegment);
+  }
+  function splitSeparatorSegment(segment2) {
+    if (!SEGMENT_SEPARATOR_RE.test(segment2.surface)) return [segment2];
+    const pieces = [];
+    let cursor = 0;
+    for (const match of segment2.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+      const index = match.index ?? 0;
+      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment2, cursor, index));
+      cursor = index + match[0].length;
+    }
+    if (cursor < segment2.surface.length) pieces.push(separatorFreeSegmentSlice(segment2, cursor, segment2.surface.length));
+    return pieces;
+  }
+  function separatorFreeSegmentSlice(segment2, from, to) {
+    return {
+      surface: segment2.surface.slice(from, to),
+      start: segment2.start + from,
+      end: segment2.start + to
+    };
+  }
+  function mergeContiguousKanaSegments(segments) {
+    if (segments.some((segment2) => NON_HIRAGANA_SCRIPT_RE.test(segment2.surface))) return segments;
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = contiguousKanaMergeSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function mergeContiguousKatakanaSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const first2 = segments[index];
+      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
+        merged.push(first2);
+        index += 1;
+        continue;
+      }
+      let surface = first2.surface;
+      let runEnd = index + 1;
+      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+        surface += segments[runEnd].surface;
+        runEnd += 1;
+      }
+      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
+      index = runEnd;
+    }
+    return merged;
+  }
+  function contiguousKanaMergeSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
+    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first2.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+      const current = segments[index];
+      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      surface += current.surface;
+      lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+      segment: { surface, start: first2.start, end: segments[lastIndex].end },
+      nextIndex: lastIndex + 1
+    };
+  }
+  function contiguousKanaRunEnd(segments, startIndex) {
+    let index = startIndex + 1;
+    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+      index += 1;
+    }
+    return index;
+  }
+  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+    let surface = "";
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+  }
+  function isPureKanaSegment(surface) {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+  }
+  function isKanaContentWordSpan(span) {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some((candidate2) => candidate2.depth > 0 && Array.from(candidate2.term).length >= 2 && !SMALL_TSU_RE.test(candidate2.term) && (KANA_VERB_STEM_END_RE.test(candidate2.term) || KANA_I_ADJECTIVE_END_RE.test(candidate2.term)));
+  }
+  function isKanaInflectableBaseShape(span) {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment2) => splitNumericCounterPrefixSegment(segment2, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment2, sourceText) {
+    const first2 = Array.from(segment2.surface)[0] ?? "";
+    if (!first2 || first2 === segment2.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment2];
+    if (!numericRangeImmediatelyBefore(sourceText, segment2.start)) return [segment2];
+    const second = Array.from(segment2.surface)[1] ?? "";
+    if (second === "間") return [segment2];
+    return [
+      { surface: first2, start: segment2.start, end: segment2.start + first2.length },
+      { surface: segment2.surface.slice(first2.length), start: segment2.start + first2.length, end: segment2.end }
+    ];
+  }
+  function splitLeadingParticleSegments(segments) {
+    return segments.flatMap(splitLeadingParticleSegment);
+  }
+  function splitLeadingParticleSegment(segment2) {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate2) => {
+      if (!segment2.surface.startsWith(candidate2) || segment2.surface.length <= candidate2.length) return false;
+      return PARTICLE_PREFIX_REMAINDER_RE.test(segment2.surface.slice(candidate2.length));
+    });
+    if (!prefix) return [segment2];
+    return [
+      { surface: prefix, start: segment2.start, end: segment2.start + prefix.length },
+      { surface: segment2.surface.slice(prefix.length), start: segment2.start + prefix.length, end: segment2.end }
+    ];
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first2.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
+  }
+  function mergeInflectedFallbackSegments(segments, sourceText) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
+    const first2 = segments[startIndex];
+    if (!first2 || isBoundarySegment(first2.surface)) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
+      if (!current) break;
+      surface += current.surface;
+      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
+    }
+    return best;
+  }
+  function fallbackInflectionScanEnd(segments, startIndex) {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+  }
+  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
+    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+  }
+  function isPoliteNegativePastContinuation(segments, index, surface) {
+    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
+  }
+  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
+    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+  }
+  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+      segment: { surface, start: first2.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  function isBoundarySegment(surface) {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+  }
+  function isInflectionContinuationSegment(surface) {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+  }
+  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment2, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment2.surface) && numericRangeImmediatelyBefore(sourceText, segment2.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
+  }
+  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+    const first2 = segments[startIndex]?.surface ?? "";
+    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
+    const suffix = surface.slice(first2.length);
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
+    return true;
+  }
+  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment2) {
+    const surface = segment2.segment.trim();
+    return JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function intlSegmenter() {
+    const candidate2 = Intl.Segmenter;
+    return typeof candidate2 === "function" ? candidate2 : null;
+  }
+  function fallbackJapaneseRunSegment(text2, offset) {
+    const surface = text2.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text2.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function fallbackLookupTermsForText(text2) {
+    const source2 = normalizeFallbackTerm(text2);
+    if (!source2) return [];
+    const terms = deinflectJapaneseTerm(source2).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate2) => normalizeFallbackTerm(candidate2.term)).filter(Boolean);
+    return uniqueNonEmptyStrings$1([source2, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+  }
+  function fallbackLookupTermsForCard(card) {
+    const terms = uniqueNonEmptyStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
+  }
+  function isUsefulFallbackLookupCandidate(candidate2) {
+    return candidate2.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate2.term) && candidate2.term.length > 1;
+  }
+  function compareJapaneseLookupCandidates(a, b) {
+    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
+  function fallbackRulePriority(candidate2) {
+    if (candidate2.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+    if (candidate2.rules.some((rule) => rule === "v1")) return 1;
+    if (candidate2.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+    if (candidate2.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+    return 3;
+  }
+  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
+    const [source2, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueNonEmptyStrings$1(sourceFirst ? [source2 ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source2 ?? ""]);
+  }
+  function hasAmbiguousContinuativeStemCandidate(source2) {
+    return deinflectJapaneseTerm(source2).some((candidate2) => candidate2.depth === 1 && candidate2.reasons.length === 1 && candidate2.reasons[0] === "continuative stem");
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
+  const JAPANESE_POINTER_WORD_RE = new RegExp(
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    "gu"
+  );
+  const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
+    id: "japanese-v1",
+    language: "ja",
+    direction: "ltr",
+    collationLocale: "ja",
+    capabilities: {
+      "term-lookup": true,
+      "character-lookup": true,
+      segmentation: true,
+      morphology: true,
+      "reading-annotation": true,
+      pronunciation: true,
+      frequency: true,
+      examples: true,
+      audio: true,
+      "text-to-speech": true,
+      ocr: true,
+      subtitles: true,
+      mining: true,
+      srs: true,
+      grading: true,
+      typing: true,
+      handwriting: true
+    },
+    featureSemantics: {
+      characterSystem: "kanji",
+      phoneticScripts: ["hiragana", "katakana"],
+      pronunciation: "pitch-accent",
+      readingAnnotation: "furigana"
+    },
+    grammar: JAPANESE_GRAMMAR,
+    typography: {
+      contentLocale: "ja",
+      readingAnnotationMode: "ruby",
+      supportsVerticalWriting: true
+    },
+    typing: {
+      inputNormalizer: "romaji-kana",
+      answerNormalizer: "japanese-kana"
+    },
+    audio: {
+      speechSynthesisLocale: "ja-JP",
+      templateLanguageToken: "ja"
+    },
+    ocr: {
+      defaultLanguage: "ja-JP",
+      languageHint: "ja"
+    },
+    subtitles: {
+      languageTag: "ja",
+      languageAliases: []
+    },
+    detectsText: HAS_JAPANESE$1,
+    normalizeText: normalizeJapaneseTargetText,
+    // Japanese writes no word boundaries, so its segmenter infers them. That is
+    // good enough to decide where a reading is drawn and not good enough to
+    // decide where a dictionary term may begin, which is why the term engine
+    // sweeps every position for this target and lets the dictionary arbitrate.
+    lookupStartsAtSegmentBoundary: false,
+    segment(text2) {
+      return segmentJapaneseText(text2).map((segment2) => ({
+        text: segment2.surface,
+        start: segment2.start,
+        end: segment2.end
+      }));
+    },
+    pointerWordSegments: japanesePointerWordSegments,
+    // Morphology is the deinflector itself, verbatim and unnormalized: the
+    // dictionary engine hands over raw substrings of the page and needs the
+    // candidates to line up with those substrings character for character.
+    // Anything that wants normalized input calls normalizeText first.
+    lookupCandidates: deinflectJapaneseTerm,
+    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
+    // beats i-adjective. Shared verbatim with the Japanese fallback path so
+    // both doors into the deinflector return the same order.
+    compareLookupCandidates: compareJapaneseLookupCandidates,
+    matchesLookupCandidateRules: termRulesMatch,
+    normalizeReading(spelling, reading) {
+      return normalizedJapaneseCardReading(spelling, reading);
+    }
+  });
+  function normalizeJapaneseTargetText(text2) {
+    return normalizeFallbackTerm(text2.normalize("NFKC"));
+  }
+  function japanesePointerWordSegments(text2) {
+    return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    }));
+  }
+  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
+  const KNOWLEDGE_VALUES = /* @__PURE__ */ new Set(["unknown", "learning", "known", "mastered"]);
+  function readGrammarKnowledge() {
+    return readTargetGrammarKnowledge(JAPANESE_LEARNING_TARGET);
+  }
+  function setGrammarRuleKnowledge(ruleId, knowledge, change = {}) {
+    return setTargetGrammarRuleKnowledge(JAPANESE_LEARNING_TARGET, ruleId, knowledge, change);
+  }
+  function readTargetGrammarKnowledge(target2) {
+    return normalizeGrammarKnowledge(
+      gmStorageGetSync(grammarPreferencesKey(target2), null),
+      target2
+    );
+  }
+  function setTargetGrammarRuleKnowledge(target2, ruleId, knowledge, change = {}) {
+    if (!targetHasGrammarRule(target2, ruleId)) {
+      throw new TypeError(`Unknown ${target2.language} grammar rule: ${ruleId}`);
+    }
+    const snapshot = readTargetGrammarKnowledge(target2);
+    const previous = snapshot.entries[ruleId];
+    if (previous?.knowledge === knowledge && change.at === void 0 && change.changeId === void 0) return snapshot;
+    const at = validTimestamp(change.at) ? change.at : Date.now();
+    const changeId = change.changeId?.trim() || createGrammarChangeId();
+    if (previous?.knowledge === knowledge && previous.at === at && previous.changeId === changeId) return snapshot;
+    const entry2 = { knowledge, at, changeId };
+    const next = { ...snapshot, entries: { ...snapshot.entries, [ruleId]: entry2 } };
+    writeTargetGrammarKnowledge(target2, next);
+    return next;
+  }
+  function grammarPreferencesKey(target2) {
+    if (target2.grammar === JAPANESE_GRAMMAR) return GRAMMAR_PREFERENCES_KEY;
+    const targetId = languageSubtag(target2.language) ?? encodeURIComponent(target2.id);
+    return `${GRAMMAR_PREFERENCES_KEY}:${targetId}`;
+  }
+  function normalizeGrammarKnowledge(value, target2) {
+    const record2 = objectRecord$3(value);
+    const entries2 = record2?.version === 2 ? normalizeEntries(record2.entries, target2) : migrateLegacyKnownRules(record2?.knownRuleIds, target2);
+    return {
+      entries: entries2,
+      showKnown: record2?.showKnown === true
+    };
+  }
+  function normalizeEntries(value, target2) {
+    const entries2 = objectRecord$3(value);
+    if (!entries2) return {};
+    const normalized2 = {};
+    for (const [ruleId, candidate2] of Object.entries(entries2)) {
+      const entry2 = objectRecord$3(candidate2);
+      if (!targetHasGrammarRule(target2, ruleId) || !KNOWLEDGE_VALUES.has(entry2?.knowledge) || !validTimestamp(entry2?.at) || typeof entry2?.changeId !== "string" || !entry2.changeId.trim()) continue;
+      normalized2[ruleId] = {
+        knowledge: entry2.knowledge,
+        at: entry2.at,
+        changeId: entry2.changeId.trim()
+      };
+    }
+    return normalized2;
+  }
+  function migrateLegacyKnownRules(value, target2) {
+    if (!Array.isArray(value)) return {};
+    return Object.fromEntries(value.filter((ruleId) => typeof ruleId === "string" && targetHasGrammarRule(target2, ruleId)).map((ruleId) => [ruleId, {
+      knowledge: "known",
+      at: 0,
+      changeId: `grammar-known:legacy:${ruleId}`
+    }]));
+  }
+  function writeTargetGrammarKnowledge(target2, snapshot) {
+    const knownRuleIds = Object.entries(snapshot.entries).filter(([, entry2]) => entry2.knowledge === "known" || entry2.knowledge === "mastered").map(([ruleId]) => ruleId).sort();
+    gmStorageSetSync(grammarPreferencesKey(target2), {
+      version: 2,
+      entries: snapshot.entries,
+      // Older target-aware builds can still read the authoritative map's
+      // boolean projection. For Japanese this is also the old Reader format.
+      knownRuleIds,
+      showKnown: snapshot.showKnown
+    });
+  }
+  function targetHasGrammarRule(target2, ruleId) {
+    return target2.grammar.rules.some((rule) => rule.ruleId === ruleId);
+  }
+  function objectRecord$3(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
+  }
+  function validTimestamp(value) {
+    return Number.isSafeInteger(value) && value >= 0;
+  }
+  function createGrammarChangeId() {
+    const uuid2 = globalThis.crypto?.randomUUID?.();
+    return uuid2 ? `grammar-known:${uuid2}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+  }
+  function grammarKnowledgeEventsForAttempt(attempt, projection) {
+    return [...new Set(attempt.conceptIds)].flatMap((conceptId) => {
+      if (!grammarRuleIdForConcept(conceptId)) return [];
+      const current = projection.grammarKnowledge[conceptId] ?? "unknown";
+      const knowledge = knowledgeAfterAttempt(current, attempt.outcome);
+      return knowledge === current ? [] : [{
+        kind: "grammar-known-changed",
+        conceptId,
+        knowledge
+      }];
+    });
+  }
+  function mirrorGrammarKnowledgeEvents(events) {
+    for (const event of events) {
+      if (event.kind !== "grammar-known-changed") continue;
+      const ruleId = grammarRuleIdForConcept(event.conceptId);
+      if (!ruleId) continue;
+      setGrammarRuleKnowledge(ruleId, event.knowledge, {
+        at: event.at,
+        changeId: event.eventId
+      });
+    }
+  }
+  async function reconcileGrammarKnowledge(record2) {
+    const history2 = await record2.history();
+    const latestEvents = latestGrammarEvents(history2);
+    const shared2 = readGrammarKnowledge();
+    const imports = [];
+    for (const [ruleId, entry2] of Object.entries(shared2.entries)) {
+      const conceptId = `concept:grammar:${ruleId}`;
+      const event = latestEvents.get(conceptId);
+      if (!event || compareFacts(entry2, eventFact(event)) > 0) {
+        imports.push({
+          kind: "grammar-known-changed",
+          eventId: entry2.changeId,
+          at: entry2.at,
+          conceptId,
+          knowledge: entry2.knowledge
+        });
+      }
+    }
+    if (imports.length) await record2.recordMany(imports);
+    const reconciledHistory = imports.length ? await record2.history() : history2;
+    const reconciledEvents = latestGrammarEvents(reconciledHistory);
+    for (const event of reconciledEvents.values()) {
+      const ruleId = grammarRuleIdForConcept(event.conceptId);
+      if (!ruleId) continue;
+      const entry2 = shared2.entries[ruleId];
+      if (!entry2 || compareFacts(eventFact(event), entry2) > 0 || event.eventId === entry2.changeId && event.knowledge !== entry2.knowledge) {
+        setGrammarRuleKnowledge(ruleId, event.knowledge, {
+          at: event.at,
+          changeId: event.eventId
+        });
+      }
+    }
+    return record2.snapshot();
+  }
+  function knowledgeAfterAttempt(current, outcome) {
+    if (outcome === "pass") return current === "mastered" ? current : "known";
+    return current === "unknown" ? "learning" : current;
+  }
+  function latestGrammarEvents(events) {
+    const latest = /* @__PURE__ */ new Map();
+    for (const event of events) {
+      if (event.kind !== "grammar-known-changed" || !grammarRuleIdForConcept(event.conceptId)) continue;
+      const previous = latest.get(event.conceptId);
+      if (!previous || compareFacts(eventFact(event), eventFact(previous)) > 0) latest.set(event.conceptId, event);
+    }
+    return latest;
+  }
+  function eventFact(event) {
+    return { knowledge: event.knowledge, at: event.at, changeId: event.eventId };
+  }
+  function compareFacts(left, right) {
+    return left.at - right.at || left.changeId.localeCompare(right.changeId);
+  }
+  function createLearnerEvidence(repository, review2, groundedLessons = createGroundedLessonResolver(), options = {}) {
+    const now = options.now ?? Date.now;
+    return new DefaultLearnerEvidence(createLearnerRecord({ repository, now }), review2, groundedLessons, now);
+  }
+  class DefaultLearnerEvidence {
+    constructor(record2, review2, groundedLessons, now) {
+      this.record = record2;
+      this.review = review2;
+      this.groundedLessons = groundedLessons;
+      this.now = now;
+    }
+    projectionValue = null;
+    pending = Promise.resolve();
+    get projection() {
+      if (!this.projectionValue) throw new Error("Learner evidence has not been initialized.");
+      return this.projectionValue;
+    }
+    initialize() {
+      return this.refresh();
+    }
+    refresh() {
+      return this.enqueue(async () => {
+        this.projectionValue = await reconcileGrammarKnowledge(this.record);
+        return this.projectionValue;
+      });
+    }
+    saveProfile(profile2) {
+      return this.enqueue(async () => {
+        const firstIntroduction = !this.projection.completedEncounterIds.includes("opening-rie-introduction");
+        await this.record.record({ kind: "profile-changed", profile: profile2 });
+        await this.refreshNow();
+        return { firstIntroduction };
+      });
+    }
+    completeRieIntroduction() {
+      return this.enqueue(async () => {
+        if (this.projection.completedEncounterIds.includes("opening-rie-introduction")) {
+          return { recorded: false };
+        }
+        await this.record.recordMany([
+          {
+            kind: "characters-encountered",
+            eventId: "encounter:opening-rie-introduction",
+            encounterId: "opening-rie-introduction",
+            sceneId: "scene:opening-rie-introduction",
+            attendeeIds: ["rie"]
+          },
+          { kind: "asset-unlocked", eventId: "milestone:rie-introduction:asset", assetId: "character:rie" },
+          { kind: "bond-changed", eventId: "milestone:rie-introduction:bond", characterId: "rie", delta: 1 },
+          { kind: "relationship-chapter-unlocked", eventId: "milestone:rie-introduction:journal", characterId: "rie", chapter: 1, majorTurn: "recognition" },
+          { kind: "scene-completed", eventId: "milestone:rie-introduction:scene", sceneId: "scene:opening-rie-introduction" }
+        ]);
+        await this.refreshNow();
+        return { recorded: true };
+      });
+    }
+    chooseCurriculumEntry(choice2) {
+      return this.enqueue(async () => {
+        await this.record.record({ kind: "curriculum-entry-chosen", ...choice2 });
+        await this.refreshNow();
+      });
+    }
+    savePlacement(result2) {
+      return this.enqueue(async () => {
+        await this.record.record({ kind: "placement-assessed", ...result2 });
+        await this.refreshNow();
+      });
+    }
+    recordEncounter(encounter) {
+      return this.enqueue(async () => {
+        if (this.projection.completedEncounterIds.includes(encounter.encounterId)) return;
+        await this.record.recordMany([
+          {
+            kind: "characters-encountered",
+            eventId: `encounter:${encounter.encounterId}`,
+            ...encounter
+          },
+          {
+            kind: "scene-completed",
+            eventId: `encounter:${encounter.encounterId}:scene`,
+            sceneId: encounter.sceneId
+          }
+        ]);
+        await this.refreshNow();
+      });
+    }
+    recordActivity(evaluation, lessonId, milestone, adaptive) {
+      return this.enqueue(async () => {
+        if (lessonId.startsWith("authored-week:")) {
+          const packageId = lessonId.slice("authored-week:".length);
+          getAuthoredWeekRegistration(packageId);
+          if (!authoredWeekOwnsActivity(packageId, evaluation.attempt.activityId)) {
+            throw new TypeError(`Activity ${evaluation.attempt.activityId} does not belong to ${lessonId}.`);
+          }
+        } else if (isAdvancedLessonId(lessonId)) {
+          assertAdvancedEvaluation(evaluation, resolveAdvancedCurriculumEntry(lessonId).activity, lessonId);
+        } else {
+          const lesson = await this.groundedLessons.resolve(lessonId);
+          if (lesson.status === "playable") {
+            assertGroundedEvaluation(evaluation, lesson);
+          } else {
+            const registration = getCompleteLessonRegistration(lessonId);
+            if (registration.releaseChannel !== "trusted-source") {
+              assertGroundedEvaluation(evaluation, lesson);
+            }
+            assertTrustedSourceEvaluation(evaluation, registration.trustedActivityIds);
+          }
+        }
+        if (evaluation.attempt.conceptIds.some(grammarRuleIdForConcept)) await this.refreshNow();
+        const recorded2 = await this.record.recordMany([
+          evaluation.attempt,
+          ...adaptive ? [{
+            kind: "learning-evidence-recorded",
+            ...adaptive.eventId ? { eventId: adaptive.eventId } : {},
+            ...adaptive.at !== void 0 ? { at: adaptive.at } : {},
+            activityId: evaluation.attempt.activityId,
+            modeId: adaptive.modeId,
+            skill: adaptive.skill,
+            action: adaptive.action,
+            outcome: evaluation.result.outcome,
+            conceptIds: evaluation.attempt.conceptIds,
+            ...adaptive.sourceId ? { sourceId: adaptive.sourceId } : {},
+            independent: adaptive.independent
+          }] : [],
+          ...grammarKnowledgeEventsForAttempt(evaluation.attempt, this.projection)
+        ]);
+        mirrorGrammarKnowledgeEvents(recorded2);
+        await this.ingestAndSchedule(evaluation.reviewSeeds, (seed) => ({
+          activity: evaluation.attempt.activityId,
+          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
+        }));
+        await this.refreshNow();
+        if (!milestone || evaluation.result.outcome !== "pass") return;
+        if (milestone.requiredErrorTag && !evaluation.result.errorTags.includes(milestone.requiredErrorTag)) return;
+        if (this.projection.completedScenes.includes(milestone.sceneId)) return;
+        if (milestone.unlock) {
+          await this.recordEncounterNow({
+            encounterId: milestone.id,
+            sceneId: milestone.sceneId,
+            attendeeIds: [milestone.unlock.characterId]
+          });
+        }
+        await this.record.recordMany([
+          ...milestone.journalLine ? [{
+            kind: "journal-line-recorded",
+            eventId: `milestone:${milestone.id}:journal-line`,
+            journalLineId: milestone.journalLine.lineId,
+            characterId: milestone.journalLine.characterId,
+            text: milestone.journalLine.text,
+            activityId: evaluation.attempt.activityId,
+            ...milestone.journalLine.sourceQuestionId ? { sourceQuestionId: milestone.journalLine.sourceQuestionId } : {}
+          }] : [],
+          ...milestone.unlock ? [
+            { kind: "asset-unlocked", eventId: `milestone:${milestone.id}:asset`, assetId: milestone.unlock.assetId },
+            { kind: "bond-changed", eventId: `milestone:${milestone.id}:bond`, characterId: milestone.unlock.characterId, delta: milestone.unlock.bondDelta },
+            { kind: "relationship-chapter-unlocked", eventId: `milestone:${milestone.id}:journal`, characterId: milestone.unlock.characterId, chapter: 1, majorTurn: "recognition" }
+          ] : [{ kind: "scene-completed", eventId: `milestone:${milestone.id}:scene`, sceneId: milestone.sceneId }]
+        ]);
+        await this.refreshNow();
+      });
+    }
+    recordWorldPractice(evaluation) {
+      return this.enqueue(async () => {
+        if (!evaluation.attempt.activityId.startsWith("activity:world:")) {
+          throw new TypeError("World practice evidence must use a world activity id.");
+        }
+        await this.record.record(evaluation.attempt);
+        await this.ingestAndSchedule(evaluation.reviewSeeds, (seed) => ({
+          activity: evaluation.attempt.activityId,
+          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
+        }));
+        await this.refreshNow();
+      });
+    }
+    seedVocabularyPrerequisite(lessonId, seeds) {
+      return this.enqueue(async () => {
+        if (!lessonId.startsWith("authored-week:")) {
+          if (seeds.length) throw new TypeError("Only authored Moodle lessons can seed a vocabulary prerequisite.");
+          return;
+        }
+        const packageId = lessonId.slice("authored-week:".length);
+        getAuthoredWeekRegistration(packageId);
+        for (const seed of seeds) {
+          if (!seed.conceptId.startsWith(`concept:${packageId}:source-vocabulary:`)) {
+            throw new TypeError(`Vocabulary prerequisite seed ${seed.id} is not owned by ${lessonId}.`);
+          }
+          if (seed.reason !== "new-learning" || !seed.sourceQuestionId?.startsWith("moodle-vocabulary:")) {
+            throw new TypeError(`Vocabulary prerequisite seed ${seed.id} must retain its Moodle source row.`);
+          }
+        }
+        await this.ingestAndSchedule(seeds, (seed) => ({
+          prerequisite: lessonId,
+          ...seed.sourceQuestionId ? { sourceQuestion: seed.sourceQuestionId } : {}
+        }));
+        await this.refreshNow();
+      });
+    }
+    recordSupportUse(activityId, supportKind, choiceId, identity2 = {}) {
+      return this.enqueue(async () => {
+        await this.record.record({
+          kind: "support-used",
+          ...identity2.eventId ? { eventId: identity2.eventId } : {},
+          ...identity2.at !== void 0 ? { at: identity2.at } : {},
+          activityId,
+          supportKind,
+          ...choiceId ? { choiceId } : {}
+        });
+        await this.refreshNow();
+      });
+    }
+    history() {
+      return this.record.history();
+    }
+    recordAuthoredStoryPractice(practice2, outcome) {
+      return this.enqueue(async () => {
+        await this.record.record({
+          kind: "learning-evidence-recorded",
+          activityId: practice2.activityId,
+          modeId: "authored-story-practice",
+          skill: practice2.skill,
+          action: practice2.action,
+          outcome,
+          conceptIds: practice2.conceptIds,
+          sourceId: `story:${practice2.chapterId}`,
+          independent: true
+        });
+        if (outcome === "pass") {
+          await this.review.ingest([practice2.reviewSeed]);
+          const itemId = reviewItemId(practice2.reviewSeed);
+          const alreadyScheduled = this.projection.scheduledReviews[itemId] || Object.values(this.projection.scheduledReviews).some((review2) => review2.conceptId === practice2.reviewSeed.conceptId);
+          if (!alreadyScheduled) await this.record.record({
+            kind: "review-scheduled",
+            eventId: `review-scheduled:story:${practice2.activityId}:${practice2.reviewSeed.conceptId}`,
+            reviewItemId: itemId,
+            conceptId: practice2.reviewSeed.conceptId,
+            dueAt: this.now(),
+            provenance: {
+              activity: practice2.activityId,
+              chapter: practice2.chapterId,
+              response: practice2.interaction === "choice" ? "selected-response" : practice2.interaction
+            }
+          });
+        }
+        await this.refreshNow();
+      });
+    }
+    dueReviews(limit) {
+      return this.review.due(limit);
+    }
+    syllabusState(items) {
+      return this.review.syllabusState?.(items) ?? Promise.resolve(items.length ? "new" : "empty");
+    }
+    rateReview(itemId, rating) {
+      return this.enqueue(async () => {
+        await this.review.rate(itemId, rating);
+        await this.record.record({ kind: "review-rated", reviewItemId: itemId, rating });
+        await this.refreshNow();
+      });
+    }
+    async refreshNow() {
+      this.projectionValue = await reconcileGrammarKnowledge(this.record);
+    }
+    async ingestAndSchedule(seeds, provenance2) {
+      if (!seeds.length) return;
+      await this.review.ingest(seeds);
+      const scheduledAt = this.now();
+      const unscheduled = /* @__PURE__ */ new Map();
+      for (const seed of seeds) {
+        const itemId = reviewItemId(seed);
+        const legacyItemId = `yomu-local:${seed.id}`;
+        const scheduleEventId = `review-scheduled:academy:${seed.id}`;
+        const existing = this.projection.scheduledReviews[itemId] ?? this.projection.scheduledReviews[legacyItemId];
+        if (existing && (seed.reason !== "delayed-review" || existing.eventId === scheduleEventId)) continue;
+        unscheduled.set(itemId, unscheduled.get(itemId) ?? seed);
+      }
+      await this.record.recordMany([...unscheduled].map(([itemId, seed]) => ({
+        kind: "review-scheduled",
+        eventId: `review-scheduled:academy:${seed.id}`,
+        reviewItemId: itemId,
+        conceptId: seed.conceptId,
+        dueAt: scheduledAt + (seed.schedule?.dueAfterMs ?? 0),
+        provenance: provenance2(seed)
+      })));
+    }
+    async recordEncounterNow(encounter) {
+      if (this.projection.completedEncounterIds.includes(encounter.encounterId)) return;
+      await this.record.recordMany([
+        { kind: "characters-encountered", eventId: `encounter:${encounter.encounterId}`, ...encounter },
+        { kind: "scene-completed", eventId: `encounter:${encounter.encounterId}:scene`, sceneId: encounter.sceneId }
+      ]);
+      await this.refreshNow();
+    }
+    enqueue(operation) {
+      const result2 = this.pending.then(operation);
+      this.pending = result2.then(() => void 0, () => void 0);
+      return result2;
+    }
+  }
+  function authoredWeekOwnsActivity(packageId, activityId) {
+    return activityId.startsWith(`authored:${packageId}/`) || activityId.startsWith(`activity:${packageId}-`) || activityId.startsWith(`activity:${packageId}:`);
+  }
+  function assertTrustedSourceEvaluation(evaluation, trustedActivityIds) {
+    if (!trustedActivityIds.includes(evaluation.attempt.activityId)) {
+      throw new Error(`Activity ${evaluation.attempt.activityId} is not in the trusted-source channel.`);
+    }
+    if (!evaluation.attempt.conceptIds.length) {
+      throw new Error(`Trusted-source activity ${evaluation.attempt.activityId} emitted no learning concepts.`);
+    }
+  }
+  function assertAdvancedEvaluation(evaluation, activity2, lessonId) {
+    if (evaluation.attempt.activityId !== activity2.id || evaluation.attempt.sourceQuestionId !== activity2.sourceQuestionId || evaluation.attempt.responseKind !== activity2.responseKind || !sameStrings$1(evaluation.attempt.conceptIds, activity2.conceptIds)) {
+      throw new TypeError(`Activity ${evaluation.attempt.activityId} does not match ${lessonId}.`);
+    }
+    if (evaluation.reviewSeeds.some((seed) => seed.sourceQuestionId !== activity2.sourceQuestionId || !activity2.conceptIds.includes(seed.conceptId))) {
+      throw new TypeError(`Activity ${evaluation.attempt.activityId} emitted review evidence outside ${lessonId}.`);
+    }
+  }
+  function reviewItemId(seed) {
+    return canonicalGroundedReviewKey(seed.content.expression, seed.content.reading);
+  }
+  function assertGroundedEvaluation(evaluation, lesson) {
+    if (lesson.status !== "playable") {
+      throw new Error(`Lesson ${lesson.lessonId} is not grounded-playable.`);
+    }
+    const activity2 = lesson.activities.find((item2) => item2.id === evaluation.attempt.activityId);
+    if (!activity2 || activity2.status !== "playable") {
+      throw new Error(`Activity ${evaluation.attempt.activityId} is not grounded-playable.`);
+    }
+    const curriculum = activity2.proofs.curriculum;
+    if (curriculum.state !== "ready") throw new Error("Grounded activity has no curriculum proof.");
+    if (!sameStrings$1(curriculum.evidence.conceptIds, evaluation.attempt.conceptIds)) {
+      throw new Error(`Activity ${activity2.id} emitted concepts outside its grounding contract.`);
+    }
+    const input2 = activity2.proofs.input;
+    if (input2.state !== "ready") throw new Error("Grounded activity has no input proof.");
+    if (input2.evidence.kind === "source") {
+      const sourceQuestionId2 = evaluation.attempt.sourceQuestionId;
+      if (!sourceQuestionId2 || !input2.evidence.sourceQuestionIds.includes(sourceQuestionId2)) {
+        throw new Error(`Activity ${activity2.id} emitted an ungrounded Source Question.`);
+      }
+    }
+    const learner = activity2.proofs.learnerEvidence;
+    if (learner.state !== "ready") throw new Error("Grounded activity has no learner-evidence proof.");
+    const allowed = new Set(learner.evidence.reviewItems.map((item2) => canonicalGroundedConceptReviewKey(
+      item2.expressionKey,
+      item2.readingKey,
+      item2.conceptId
+    )));
+    for (const seed of evaluation.reviewSeeds) {
+      const key2 = canonicalGroundedConceptReviewKey(
+        seed.content.expression,
+        seed.content.reading,
+        seed.conceptId
+      );
+      if (!allowed.has(key2)) {
+        throw new Error(`Activity ${activity2.id} emitted an ungrounded review item.`);
+      }
+    }
+  }
+  function sameStrings$1(left, right) {
+    return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
+  }
+  function isRecord$9(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function isNonNullObject(value) {
+    return typeof value === "object" && value !== null;
+  }
+  function normalizeStoredYomuSrsDeck(value) {
+    if (!isRecord$9(value) || value.version !== 1 || !isRecord$9(value.cards)) return { version: 1, cards: {} };
+    const cards = {};
+    for (const candidate2 of Object.values(value.cards)) {
+      const normalized2 = normalizeStoredCard(candidate2);
+      if (!normalized2) continue;
+      cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
+    }
+    const tombstones = {};
+    if (isRecord$9(value.tombstones)) {
+      for (const [id2, timestamp] of Object.entries(value.tombstones)) {
+        if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
+        const card = cards[id2];
+        if (card && card.updatedAt > timestamp) continue;
+        delete cards[id2];
+        tombstones[id2] = timestamp;
+      }
+    }
+    return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
+  }
+  function mergeStoredYomuSrsDecks(leftValue, rightValue) {
+    const left = normalizeStoredYomuSrsDeck(leftValue);
+    const right = normalizeStoredYomuSrsDeck(rightValue);
+    const cards = { ...left.cards };
+    const tombstones = { ...left.tombstones ?? {} };
+    for (const [id2, timestamp] of Object.entries(right.tombstones ?? {})) {
+      tombstones[id2] = Math.max(tombstones[id2] ?? 0, timestamp);
+    }
+    for (const [id2, incoming] of Object.entries(right.cards)) {
+      const tombstone = tombstones[id2];
+      if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
+      if (tombstone !== void 0) delete tombstones[id2];
+      cards[id2] = cards[id2] ? mergeStoredYomuSrsCards(cards[id2], incoming) : incoming;
+    }
+    return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
+  }
+  function mergeStoredYomuSrsCards(existing, incoming) {
+    const existingIdentity = storedCardIdentity(existing);
+    const incomingIdentity = storedCardIdentity(incoming);
+    if (existingIdentity.key !== incomingIdentity.key) {
+      throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
+    }
+    const identity2 = existingIdentity;
+    const schedule = preferredSchedule(existing, incoming);
+    const scheduleFields = { ...schedule };
+    delete scheduleFields.language;
+    delete scheduleFields.partOfSpeech;
+    return {
+      ...scheduleFields,
+      id: identity2.key,
+      expression: identity2.expression,
+      reading: identity2.reading,
+      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+      ...identity2.language !== "ja" ? { language: identity2.language } : {},
+      meanings: uniqueText$1([...existing.meanings, ...incoming.meanings]),
+      sentence: existing.sentence || incoming.sentence,
+      sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
+      sourceCardId: existing.sourceCardId || incoming.sourceCardId,
+      sourceUrl: existing.sourceUrl || incoming.sourceUrl,
+      tags: uniqueText$1([...existing.tags ?? [], ...incoming.tags ?? []]),
+      createdAt: Math.min(existing.createdAt, incoming.createdAt),
+      updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
+      reviews: Math.max(existing.reviews, incoming.reviews),
+      lapses: Math.max(existing.lapses, incoming.lapses),
+      retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
+      academyProvenance: {
+        ...incoming.academyProvenance ?? {},
+        ...existing.academyProvenance ?? {}
+      }
+    };
+  }
+  function upsertAcademyVocabulary(deck, input2, now) {
+    const identity2 = canonicalStudyCardIdentity(input2.expression, input2.reading);
+    const meanings = uniqueText$1(input2.meanings);
+    const provenance2 = normalizeProvenance(input2.provenance, now);
+    const existing = deck.cards[identity2.key];
+    const previousProvenance = existing?.academyProvenance?.[provenance2.id];
+    if (previousProvenance && !sameProvenance(previousProvenance, provenance2)) {
+      throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance2.id}`);
+    }
+    const incoming = {
+      id: identity2.key,
+      expression: identity2.expression,
+      reading: identity2.reading,
+      meanings,
+      sentence: cleanOptional(input2.sentence),
+      tags: ["academy"],
+      dueAt: finiteDueAt(input2.dueAt, now),
+      lastReviewAt: null,
+      createdAt: now,
+      updatedAt: now,
+      reviews: 0,
+      lapses: 0,
+      intervalDays: 0,
+      ease: 2.5,
+      retainWithoutAcademyProvenance: false,
+      academyProvenance: { [provenance2.id]: previousProvenance ?? provenance2 }
+    };
+    const card = existing ? preserveExistingSchedule(
+      mergeStoredYomuSrsCards(existing, incoming),
+      existing,
+      input2.postponeExisting === true && !previousProvenance ? input2.dueAt : void 0
+    ) : incoming;
+    deck.cards[identity2.key] = card;
+    return {
+      card,
+      cardCreated: !existing,
+      provenanceAdded: !previousProvenance,
+      provenanceCount: Object.keys(card.academyProvenance ?? {}).length
+    };
+  }
+  function finiteDueAt(value, fallback) {
+    return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+  }
+  function preserveExistingSchedule(merged, existing, notBefore) {
+    return {
+      ...merged,
+      dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
+      lastReviewAt: existing.lastReviewAt,
+      reviews: existing.reviews,
+      lapses: existing.lapses,
+      intervalDays: existing.intervalDays,
+      ease: existing.ease
+    };
+  }
+  function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
+    const direct = deck.cards[cardId];
+    const card = direct ?? Object.values(deck.cards).find((candidate2) => candidate2.academyProvenance?.[provenanceId]);
+    if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
+    if (!card.academyProvenance?.[provenanceId]) {
+      return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
+    }
+    const academyProvenance2 = { ...card.academyProvenance };
+    delete academyProvenance2[provenanceId];
+    const remaining = Object.keys(academyProvenance2).length;
+    if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
+      delete deck.cards[card.id];
+      deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
+      return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
+    }
+    const updated = {
+      ...card,
+      updatedAt: now,
+      tags: remaining ? card.tags : uniqueText$1([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
+      academyProvenance: academyProvenance2
+    };
+    deck.cards[card.id] = updated;
+    const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
+    return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
+  }
+  function normalizeStoredCard(value) {
+    if (!isRecord$9(value) || typeof value.expression !== "string") return null;
+    let identity2;
+    try {
+      identity2 = canonicalStudyCardIdentity(
+        value.expression,
+        typeof value.reading === "string" ? value.reading : "",
+        {
+          ...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
+          ...typeof value.language === "string" ? { language: value.language } : {}
+        }
+      );
+    } catch {
+      return null;
+    }
+    const createdAt = finiteNumber$2(value.createdAt, 0);
+    const updatedAt = finiteNumber$2(value.updatedAt, createdAt);
+    return {
+      id: identity2.key,
+      expression: identity2.expression,
+      reading: identity2.reading,
+      ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+      ...identity2.language !== "ja" ? { language: identity2.language } : {},
+      meanings: stringArray$4(value.meanings),
+      ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
+      ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
+      ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
+      ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
+      tags: stringArray$4(value.tags),
+      dueAt: finiteNumber$2(value.dueAt, createdAt),
+      lastReviewAt: value.lastReviewAt === null ? null : finiteNumber$2(value.lastReviewAt, null),
+      createdAt,
+      updatedAt,
+      reviews: nonNegativeInteger$3(value.reviews),
+      lapses: nonNegativeInteger$3(value.lapses),
+      intervalDays: Math.max(0, finiteNumber$2(value.intervalDays, 0)),
+      ease: finiteNumber$2(value.ease, 2.5),
+      retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
+      academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
+    };
+  }
+  function storedCardIdentity(card) {
+    return canonicalStudyCardIdentity(card.expression, card.reading, {
+      partOfSpeech: card.partOfSpeech,
+      language: card.language ?? "ja"
+    });
+  }
+  function preferredSchedule(left, right) {
+    if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
+    const leftReviewed = left.lastReviewAt ?? -1;
+    const rightReviewed = right.lastReviewAt ?? -1;
+    if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
+    if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
+    return left.updatedAt >= right.updatedAt ? left : right;
+  }
+  function normalizeProvenance(value, addedAt) {
+    const id2 = requiredText$3(value.id, "Academy vocabulary provenance id");
+    if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
+      throw new TypeError("Academy vocabulary provenance kind is invalid.");
+    }
+    return {
+      id: id2,
+      kind: value.kind,
+      addedAt,
+      ...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
+      ...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
+      ...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
+      ...value.reason ? { reason: value.reason } : {}
+    };
+  }
+  function normalizeProvenanceRecord(value, fallbackAt) {
+    if (!isRecord$9(value)) return {};
+    const result2 = {};
+    for (const candidate2 of Object.values(value)) {
+      if (!isRecord$9(candidate2)) continue;
+      try {
+        const normalized2 = normalizeProvenance({
+          id: String(candidate2.id ?? ""),
+          kind: candidate2.kind,
+          ...typeof candidate2.activityId === "string" ? { activityId: candidate2.activityId } : {},
+          ...typeof candidate2.conceptId === "string" ? { conceptId: candidate2.conceptId } : {},
+          ...typeof candidate2.sourceId === "string" ? { sourceId: candidate2.sourceId } : {},
+          ...candidate2.reason === "new-learning" || candidate2.reason === "repair" || candidate2.reason === "delayed-review" ? { reason: candidate2.reason } : {}
+        }, finiteNumber$2(candidate2.addedAt, fallbackAt));
+        result2[normalized2.id] = normalized2;
+      } catch {
+      }
+    }
+    return result2;
+  }
+  function sameProvenance(left, right) {
+    return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
+  }
+  function retainsWithoutAcademy(card) {
+    return card.retainWithoutAcademyProvenance !== false;
+  }
+  function hasStudyHistory(card) {
+    return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
+  }
+  function requiredText$3(value, label) {
+    const normalized2 = value.trim();
+    if (!normalized2) throw new TypeError(`${label} is required.`);
+    return normalized2;
+  }
+  function cleanOptional(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : void 0;
+  }
+  function stringArray$4(value) {
+    return Array.isArray(value) ? uniqueText$1(value.filter((item2) => typeof item2 === "string")) : [];
+  }
+  function uniqueText$1(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
+  function finiteNumber$2(value, fallback) {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  }
+  function nonNegativeInteger$3(value) {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  }
+  const LEGACY_DECK_KEY = "yomu:srs-local:v1";
+  const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
+  const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
+  const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+  registerManagedState({
+    owner: "srs/local-yomu-store",
+    kind: "gm",
+    prefix: "yomu:srs-local:v2:",
+    enumerate: enumerateLocalYomuSrsStorageKeys
+  });
+  class LocalYomuSrsStorageError extends Error {
+    constructor(options) {
+      super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
+      this.name = "LocalYomuSrsStorageError";
+    }
+  }
+  function isLocalYomuSrsStorageError(error) {
+    return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+  }
+  async function enumerateLocalYomuSrsStorageKeys() {
+    const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
+    if (rawIndex === null || rawIndex === void 0) return [];
+    const index = normalizeIndex(rawIndex);
+    if (!index) throw new Error("The local SRS index is unreadable.");
+    return [
+      DECK_INDEX_KEY,
+      ...index.cardIds.map(cardStorageKey),
+      ...index.tombstoneIds.map(tombstoneStorageKey)
+    ];
+  }
+  class LocalYomuSrsStore {
+    async read() {
+      const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+      const index = normalizeIndex(rawIndex);
+      const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
+      const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
+      if (legacy === null || legacy === void 0) return current;
+      const migrated = mergeStoredYomuSrsDecks(current, legacy);
+      await this.write(current, migrated);
+      await gmStorageDelete(LEGACY_DECK_KEY);
+      return migrated;
+    }
+    async write(previousValue, nextValue) {
+      const previous = normalizeStoredYomuSrsDeck(previousValue);
+      const next = normalizeStoredYomuSrsDeck(nextValue);
+      const previousIndex = indexForDeck(previous);
+      const storedIndex = normalizeIndex(await gmStorageGet(DECK_INDEX_KEY, null));
+      const nextIndex = indexForDeck(next, (storedIndex?.revision ?? 0) + 1);
+      const newlyCreatedKeys = [];
+      try {
+        for (const [id2, card] of Object.entries(next.cards)) {
+          if (sameStoredValue(previous.cards[id2], card)) continue;
+          const key2 = cardStorageKey(id2);
+          await gmStorageSet(key2, card);
+          if (!previous.cards[id2]) newlyCreatedKeys.push(key2);
+        }
+        for (const [id2, deletedAt] of Object.entries(next.tombstones ?? {})) {
+          if (previous.tombstones?.[id2] === deletedAt) continue;
+          const key2 = tombstoneStorageKey(id2);
+          await gmStorageSet(key2, deletedAt);
+          if (previous.tombstones?.[id2] === void 0) newlyCreatedKeys.push(key2);
+        }
+        await gmStorageSet(DECK_INDEX_KEY, nextIndex);
+      } catch (error) {
+        await Promise.all(newlyCreatedKeys.map((key2) => gmStorageDelete(key2)));
+        throw new LocalYomuSrsStorageError({ cause: error });
+      }
+      await Promise.all([
+        ...previousIndex.cardIds.filter((id2) => !next.cards[id2]).map((id2) => gmStorageDelete(cardStorageKey(id2))),
+        ...previousIndex.tombstoneIds.filter((id2) => next.tombstones?.[id2] === void 0).map((id2) => gmStorageDelete(tombstoneStorageKey(id2)))
+      ]);
+    }
+    async readIndexedDeck(index) {
+      const cards = await Promise.all(index.cardIds.map(async (id2) => [
+        id2,
+        await gmStorageGet(cardStorageKey(id2), null)
+      ]));
+      const tombstones = await Promise.all(index.tombstoneIds.map(async (id2) => [
+        id2,
+        await gmStorageGet(tombstoneStorageKey(id2), null)
+      ]));
+      return normalizeStoredYomuSrsDeck({
+        version: 1,
+        cards: Object.fromEntries(cards.filter((entry2) => Boolean(entry2[1] && typeof entry2[1] === "object"))),
+        tombstones: Object.fromEntries(tombstones.filter((entry2) => typeof entry2[1] === "number" && Number.isFinite(entry2[1])))
+      });
+    }
+  }
+  function normalizeIndex(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const candidate2 = value;
+    if (candidate2.version !== 2) return null;
+    if (!Array.isArray(candidate2.cardIds) || !candidate2.cardIds.every((id2) => typeof id2 === "string")) return null;
+    if (!Array.isArray(candidate2.tombstoneIds) || !candidate2.tombstoneIds.every((id2) => typeof id2 === "string")) return null;
+    return {
+      version: 2,
+      revision: Number.isSafeInteger(candidate2.revision) && Number(candidate2.revision) >= 0 ? Number(candidate2.revision) : 0,
+      cardIds: [...new Set(candidate2.cardIds)].sort(),
+      tombstoneIds: [...new Set(candidate2.tombstoneIds)].sort()
+    };
+  }
+  function indexForDeck(deck, revision2 = 0) {
+    return {
+      version: 2,
+      revision: revision2,
+      cardIds: Object.keys(deck.cards).sort(),
+      tombstoneIds: Object.keys(deck.tombstones ?? {}).sort()
+    };
+  }
+  function sameStoredValue(left, right) {
+    if (left === right) return true;
+    if (left === void 0 || right === void 0) return false;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  function cardStorageKey(id2) {
+    return `${CARD_KEY_PREFIX}${encodeURIComponent(id2)}`;
+  }
+  function tombstoneStorageKey(id2) {
+    return `${TOMBSTONE_KEY_PREFIX}${encodeURIComponent(id2)}`;
+  }
+  let localDeckMutation = Promise.resolve();
+  const localDeckMutationListeners = /* @__PURE__ */ new Set();
+  function subscribeLocalYomuSrsMutations(listener) {
+    localDeckMutationListeners.add(listener);
+    return () => localDeckMutationListeners.delete(listener);
+  }
+  class LocalYomuSrsRepository {
+    constructor(now = () => Date.now()) {
+      this.now = now;
+    }
+    store = new LocalYomuSrsStore();
+    async importBatch(batch) {
+      return this.mutateDeck((deck) => {
+        let imported = 0;
+        let skipped = 0;
+        for (const item2 of batch.items) {
+          const card = this.cardFromImportItem(item2, batch.importedAt);
+          if (!card) {
+            skipped++;
+            continue;
+          }
+          const existing = deck.cards[card.id];
+          deck.cards[card.id] = existing ? mergeStoredYomuSrsCards(existing, card) : card;
+          if (existing) skipped++;
+          else imported++;
+        }
+        return { imported, skipped };
+      });
+    }
+    /** Atomically upserts one semantic card and one idempotent Academy provenance. */
+    async collectAcademyVocabulary(input2) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const result2 = upsertAcademyVocabulary(deck, input2, now);
+        return {
+          cardId: result2.card.id,
+          cardCreated: result2.cardCreated,
+          provenanceAdded: result2.provenanceAdded,
+          provenanceCount: result2.provenanceCount,
+          card: this.toReviewable(result2.card, now)
+        };
+      });
+    }
+    /** Reads the shared deck without changing any card or schedule. */
+    async academySyllabusProgress(items) {
+      const deck = await this.readDeck();
+      const identities = new Set(items.map((item2) => canonicalStudyCardIdentity(item2.expression, item2.reading).key));
+      const seeded = [...identities].filter((id2) => Boolean(deck.cards[id2])).length;
+      return { total: identities.size, seeded, unseeded: identities.size - seeded };
+    }
+    /**
+     * Removes only the requested provenance. Independent, multiply-sourced,
+     * or reviewed cards are retained even when their final Academy source is undone.
+     */
+    async removeAcademyVocabularyProvenance(cardId, provenanceId) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const result2 = removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now);
+        return {
+          provenanceRemoved: result2.provenanceRemoved,
+          cardDeleted: result2.cardDeleted,
+          reason: result2.reason,
+          ...result2.card ? { card: this.toReviewable(result2.card, now) } : {}
+        };
+      });
+    }
+    async queue(limit = 50, options = {}) {
+      const now = this.now();
+      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+      const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
+      const cap = normalizedQueueLimit(limit);
+      const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
+      const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
+      const dueNew = due.filter((card) => card.reviews === 0).length;
+      const dueReviews = due.length - dueNew;
+      const queue = due.slice(0, cap).map((card) => this.toReviewable(card, now));
+      return {
+        providerId: "yomu-local",
+        fetchedAt: now,
+        cards: queue,
+        dueCount: dueReviews,
+        newCount: dueNew,
+        reviewCount: due.length
+      };
+    }
+    async stats() {
+      const now = this.now();
+      const cards = Object.values((await this.readDeck()).cards);
+      const today = startOfLocalDay$1(now);
+      return {
+        providerId: "yomu-local",
+        fetchedAt: now,
+        reviewsDue: cards.filter((card) => card.dueAt <= now).length,
+        reviewsToday: cards.filter((card) => (card.lastReviewAt ?? 0) >= today).length,
+        newToday: cards.filter((card) => card.createdAt >= today).length,
+        levelCounts: {
+          new: cards.filter((card) => card.reviews === 0).length,
+          learning: cards.filter((card) => card.reviews > 0 && card.intervalDays < 21).length,
+          known: cards.filter((card) => card.intervalDays >= 21).length
+        }
+      };
+    }
+    /** Read the normalized encrypted-sync payload without exposing the storage key. */
+    async snapshot() {
+      return structuredClone(await this.readDeck());
+    }
+    /** Merge a decrypted remote snapshot using the deck's schedule conflict rules. */
+    async mergeSnapshot(value, options = {}) {
+      return this.mutateDeck((deck) => {
+        const merged = mergeStoredYomuSrsDecks(deck, value);
+        deck.cards = merged.cards;
+        deck.tombstones = merged.tombstones;
+        return structuredClone(merged);
+      }, options.notifyMutations !== false);
+    }
+    /** Resolves an arbitrary parse batch against one consistent deck snapshot. */
+    async lookupCards(items) {
+      const now = this.now();
+      const deck = await this.readDeck();
+      const cards = /* @__PURE__ */ new Map();
+      for (const item2 of items) {
+        try {
+          const identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
+            partOfSpeech: item2.partOfSpeech,
+            language: item2.language
+          });
+          const stored = deck.cards[identity2.key];
+          if (stored) cards.set(identity2.key, this.toReviewable(stored, now));
+        } catch {
+        }
+      }
+      return [...cards.values()];
+    }
+    async review(request2) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const identity2 = canonicalStudyCardIdentity(request2.card.expression, request2.card.reading, {
+          partOfSpeech: request2.card.partOfSpeech,
+          language: request2.card.language
+        });
+        const existing = deck.cards[request2.card.providerCardId] ?? deck.cards[identity2.key] ?? this.cardFromReviewable(request2.card, now);
+        const updated = scheduleReviewedCard({ ...existing, id: identity2.key }, request2.grade, now);
+        if (request2.card.providerCardId !== identity2.key && deck.cards[request2.card.providerCardId]) {
+          delete deck.cards[request2.card.providerCardId];
+          deck.tombstones = { ...deck.tombstones ?? {}, [request2.card.providerCardId]: now };
+        }
+        deck.cards[identity2.key] = updated;
+        if ((deck.tombstones?.[identity2.key] ?? -1) < updated.updatedAt) delete deck.tombstones?.[identity2.key];
+        return { card: this.toReviewable(updated, now), raw: updated };
+      });
+    }
+    async mine(request2) {
+      return this.mutateDeck((deck) => {
+        const now = this.now();
+        const candidate2 = this.cardFromImportItem({
+          expression: request2.expression,
+          reading: request2.reading,
+          partOfSpeech: request2.partOfSpeech,
+          language: request2.language,
+          meanings: request2.meaning ? [request2.meaning] : [],
+          sentence: request2.sentence,
+          sourceUrl: request2.sourceUrl
+        }, now);
+        if (!candidate2) throw new TypeError("Vocabulary expression is required.");
+        const existing = deck.cards[candidate2.id];
+        const stored = existing ? mergeStoredYomuSrsCards(existing, candidate2) : candidate2;
+        deck.cards[candidate2.id] = stored;
+        if ((deck.tombstones?.[candidate2.id] ?? -1) < stored.updatedAt) delete deck.tombstones?.[candidate2.id];
+        return {
+          card: this.toReviewable(stored, now),
+          raw: { imported: existing ? 0 : 1, skipped: existing ? 1 : 0 }
+        };
+      });
+    }
+    readDeck() {
+      const result2 = localDeckMutation.then(() => this.readDeckUncoordinated());
+      localDeckMutation = result2.then(() => void 0, () => void 0);
+      return result2;
+    }
+    async readDeckUncoordinated() {
+      return this.store.read();
+    }
+    writeDeck(previous, deck) {
+      return this.store.write(previous, deck);
+    }
+    mutateDeck(operation, notifyMutations = true) {
+      const result2 = localDeckMutation.then(() => withGmStorageLease("local-yomu-srs-deck", async () => {
+        const deck = await this.readDeckUncoordinated();
+        const previousDeck = structuredClone(deck);
+        const previousCards = new Map(Object.entries(deck.cards));
+        const previousTombstones = { ...deck.tombstones ?? {} };
+        const value = operation(deck);
+        await this.writeDeck(previousDeck, normalizeStoredYomuSrsDeck(deck));
+        const changedCardIds = /* @__PURE__ */ new Set([
+          ...previousCards.keys(),
+          ...Object.keys(deck.cards),
+          ...Object.keys(previousTombstones),
+          ...Object.keys(deck.tombstones ?? {})
+        ]);
+        const changed = [...changedCardIds].filter((id2) => !sameStoredCard(previousCards.get(id2), deck.cards[id2]) || previousTombstones[id2] !== deck.tombstones?.[id2]);
+        if (notifyMutations) {
+          localDeckMutationListeners.forEach((listener) => {
+            try {
+              listener(changed);
+            } catch {
+            }
+          });
+        }
+        return value;
+      }));
+      localDeckMutation = result2.then(() => void 0, () => void 0);
+      return result2;
+    }
+    cardFromImportItem(item2, now) {
+      let identity2;
+      try {
+        identity2 = canonicalStudyCardIdentity(item2.expression, item2.reading, {
+          partOfSpeech: item2.partOfSpeech,
+          language: item2.language
+        });
+      } catch {
+        return null;
+      }
+      return {
+        id: identity2.key,
+        expression: identity2.expression,
+        reading: identity2.reading,
+        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+        ...identity2.language !== "ja" ? { language: identity2.language } : {},
+        meanings: uniqueTrimmedStrings(item2.meanings ?? []),
+        sentence: item2.sentence?.trim() || void 0,
+        sourceProviderId: item2.sourceProviderId,
+        sourceCardId: item2.sourceCardId,
+        sourceUrl: item2.sourceUrl,
+        tags: uniqueTrimmedStrings(item2.tags ?? []),
+        dueAt: item2.dueAt ?? now,
+        lastReviewAt: null,
+        createdAt: now,
+        updatedAt: now,
+        reviews: 0,
+        lapses: 0,
+        intervalDays: 0,
+        ease: 2.5,
+        retainWithoutAcademyProvenance: true,
+        academyProvenance: {}
+      };
+    }
+    cardFromReviewable(card, now) {
+      const identity2 = canonicalStudyCardIdentity(card.expression, card.reading, {
+        partOfSpeech: card.partOfSpeech,
+        language: card.language
+      });
+      return {
+        id: identity2.key,
+        expression: identity2.expression,
+        reading: identity2.reading,
+        ...identity2.partOfSpeech ? { partOfSpeech: identity2.partOfSpeech } : {},
+        ...identity2.language !== "ja" ? { language: identity2.language } : {},
+        meanings: card.meanings.flatMap((meaning) => meaning.glosses),
+        sourceProviderId: card.providerId,
+        sourceCardId: card.providerCardId,
+        sourceUrl: card.sourceUrl,
+        dueAt: card.dueAt ?? now,
+        lastReviewAt: card.lastReviewAt ?? null,
+        createdAt: now,
+        updatedAt: now,
+        reviews: 0,
+        lapses: 0,
+        intervalDays: 0,
+        ease: 2.5,
+        retainWithoutAcademyProvenance: true,
+        academyProvenance: {}
+      };
+    }
+    toReviewable(card, now) {
+      return {
+        providerId: "yomu-local",
+        providerCardId: card.id,
+        providerReviewId: card.id,
+        kind: "vocabulary",
+        expression: card.expression,
+        reading: card.reading,
+        ...card.partOfSpeech ? { partOfSpeech: card.partOfSpeech } : {},
+        ...card.language ? { language: card.language } : {},
+        meanings: meaningsFromGlosses(card.meanings),
+        sentence: card.sentence,
+        state: localCardState(card, now),
+        srsLevel: localSrsLevel(card),
+        dueAt: card.dueAt,
+        lastReviewAt: card.lastReviewAt,
+        sourceUrl: card.sourceUrl,
+        raw: card
+      };
+    }
+  }
+  function sameStoredCard(left, right) {
+    if (left === right) return true;
+    if (!left || !right) return false;
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+  function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepository()) {
+    return {
+      id: "yomu-local",
+      // The stored provider id stays yomu-local for migration compatibility.
+      label: ACADEMY_SRS_LABEL,
+      capabilities: { stats: true, queue: true, review: true, mine: true, import: true },
+      hasCredential: () => true,
+      verify: async () => true,
+      stats: () => repository.stats(),
+      queue: (limit, options) => repository.queue(limit, options),
+      review: (request2) => repository.review(request2),
+      mine: (request2) => repository.mine(request2),
+      lookupCards: (items) => repository.lookupCards(items),
+      importBatch: (batch) => repository.importBatch(batch)
+    };
+  }
+  function scheduleReviewedCard(card, grade2, now) {
+    const failed = grade2 === "nothing" || grade2 === "something" || grade2 === "fail" || grade2 === "again";
+    const intervalDays = failed ? 0 : nextIntervalDays(card, grade2);
+    return {
+      ...card,
+      reviews: card.reviews + 1,
+      lapses: card.lapses + (failed ? 1 : 0),
+      intervalDays,
+      ease: Math.min(3.2, Math.max(1.3, card.ease + easeDelta(grade2))),
+      dueAt: now + (failed ? 10 * 6e4 : intervalDays * 864e5),
+      lastReviewAt: now,
+      updatedAt: now
+    };
+  }
+  function nextIntervalDays(card, grade2) {
+    if (card.reviews <= 0) return grade2 === "easy" ? 4 : grade2 === "hard" ? 1 : 2;
+    const multiplier = grade2 === "easy" ? card.ease + 0.7 : grade2 === "hard" ? 1.2 : card.ease;
+    return Math.max(1, Math.round(Math.max(1, card.intervalDays) * multiplier));
+  }
+  function easeDelta(grade2) {
+    if (grade2 === "easy") return 0.15;
+    if (grade2 === "hard") return -0.15;
+    if (grade2 === "nothing" || grade2 === "something" || grade2 === "fail" || grade2 === "again") return -0.25;
+    return 0;
+  }
+  function meaningsFromGlosses(glosses) {
+    const normalized2 = uniqueTrimmedStrings(glosses.map((gloss) => gloss.trim()).filter(Boolean));
+    return normalized2.length ? [{ glosses: normalized2, partOfSpeech: [] }] : [];
+  }
+  function localCardState(card, now) {
+    if (card.reviews === 0) return ["new"];
+    if (card.dueAt <= now) return ["due"];
+    if (card.intervalDays >= 21) return ["known"];
+    return ["learning"];
+  }
+  function localSrsLevel(card) {
+    if (card.reviews === 0) return "New";
+    if (card.intervalDays >= 21) return "Known";
+    if (card.intervalDays >= 7) return "Young";
+    return "Learning";
+  }
+  function startOfLocalDay$1(now) {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    return date.getTime();
+  }
+  function normalizedQueueLimit(limit) {
+    if (Number.isNaN(limit) || limit <= 0) return 0;
+    return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
+  }
+  function createYomuLocalReviewService(repository = new LocalYomuSrsRepository(), now = Date.now) {
+    const cards = /* @__PURE__ */ new Map();
+    return {
+      async due(limit) {
+        const snapshot = await repository.queue(Math.max(50, Math.floor(limit)));
+        const due = snapshot.cards.filter((card) => (card.dueAt ?? 0) <= now()).slice(0, Math.max(0, Math.floor(limit)));
+        due.forEach((card) => cards.set(card.providerCardId, card));
+        return due.map(toQueueItem);
+      },
+      async syllabusState(items) {
+        if (!items.length) return "empty";
+        const progress2 = await repository.academySyllabusProgress(items);
+        return progress2.unseeded ? "new" : "cleared";
+      },
+      async ingest(seeds) {
+        if (!seeds.length) return;
+        const ingestedAt = now();
+        await Promise.all(seeds.map((seed) => repository.collectAcademyVocabulary({
+          expression: seed.content.expression,
+          reading: seed.content.reading,
+          meanings: seed.content.meanings,
+          sentence: seed.content.sentence,
+          ...seed.schedule ? { dueAt: ingestedAt + seed.schedule.dueAfterMs } : {},
+          ...seed.reason === "delayed-review" ? { postponeExisting: true } : {},
+          provenance: {
+            id: reviewSeedProvenanceId(seed),
+            kind: "review-seed",
+            conceptId: seed.conceptId,
+            sourceId: seed.sourceQuestionId,
+            reason: seed.reason
+          }
+        })));
+      },
+      async rate(itemId, rating) {
+        let card = cards.get(itemId);
+        if (!card) {
+          const queue = await repository.queue(500);
+          card = queue.cards.find((candidate2) => candidate2.providerCardId === itemId);
+        }
+        if (!card) throw new Error(`Unknown Yomu review item: ${itemId}`);
+        await repository.review({ card, grade: grade(rating) });
+      }
+    };
+  }
+  function reviewSeedProvenanceId(seed) {
+    return `academy:review-seed:${seed.id}`;
+  }
+  function toQueueItem(card) {
+    const provenance2 = academyProvenance(card.raw);
+    return {
+      id: card.providerCardId,
+      expression: card.expression,
+      ...card.reading ? { reading: card.reading } : {},
+      ...card.meanings[0]?.glosses[0] ? { meaning: card.meanings[0].glosses[0] } : {},
+      dueAt: card.dueAt ?? 0,
+      provenance: { provider: card.providerId, ...provenance2 }
+    };
+  }
+  function academyProvenance(raw) {
+    if (!raw || typeof raw !== "object") return {};
+    const records2 = raw.academyProvenance;
+    if (!records2 || typeof records2 !== "object") return {};
+    const first2 = Object.values(records2).find((value) => value && typeof value === "object");
+    if (!first2) return {};
+    const sourceId2 = text$j(first2.sourceId);
+    const activityId = text$j(first2.activityId);
+    return {
+      ...sourceId2 ? { sourceId: sourceId2 } : {},
+      ...activityId ? { lesson: activityId } : {}
+    };
+  }
+  function text$j(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : void 0;
+  }
+  function grade(rating) {
+    return rating;
+  }
+  const CARD_STATES$1 = /* @__PURE__ */ new Set([
+    "new",
+    "learning",
+    "young",
+    "mature",
+    "known",
+    "mastered",
+    "due",
+    "failed",
+    "locked",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "in-deck",
+    "not-in-deck",
+    "redundant",
+    "frequent",
+    "unparsed"
+  ]);
+  const CARD_STATE_ALIASES = {
+    never_forget: "never-forget",
+    neverforget: "never-forget",
+    "never forget": "never-forget",
+    not_in_deck: "not-in-deck",
+    notindeck: "not-in-deck",
+    "not in deck": "not-in-deck",
+    in_deck: "in-deck",
+    indeck: "in-deck",
+    "in deck": "in-deck",
+    blacklist: "blacklisted",
+    blacklisted: "blacklisted",
+    ignored: "blacklisted",
+    unknown: "new"
+  };
+  function normalizeCardState(value) {
+    const keys = normalizedCardStateKeys(value);
+    if (!keys) return null;
+    const aliased = aliasedCardState(keys.trimmed, keys.dashed, keys.compact);
+    if (aliased) return aliased;
+    return knownCardState(keys.dashed);
+  }
+  function normalizedCardStateKeys(value) {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim().toLowerCase();
+    if (!trimmed) return null;
+    return {
+      trimmed,
+      dashed: trimmed.replace(/[_\s]+/g, "-"),
+      compact: trimmed.replace(/[_\s-]+/g, "")
+    };
+  }
+  function aliasedCardState(...keys) {
+    return keys.map((key2) => CARD_STATE_ALIASES[key2]).find(Boolean);
+  }
+  function knownCardState(value) {
+    if (CARD_STATES$1.has(value)) return value;
+    return null;
+  }
+  function normalizeCardStates(value, fallback = "not-in-deck") {
+    const states = uniqueNormalizedCardStates(Array.isArray(value) ? value : [value]);
+    return states.length ? states : [fallback];
+  }
+  function uniqueNormalizedCardStates(rawStates) {
+    const states = [];
+    for (const rawState of rawStates) {
+      appendNormalizedCardState(states, rawState);
+    }
+    return states;
+  }
+  function appendNormalizedCardState(states, rawState) {
+    const state = normalizeCardState(rawState);
+    if (!state || states.includes(state)) return;
+    states.push(state);
+  }
+  function primaryCardState(value) {
+    return normalizeCardStates(value)[0] ?? "not-in-deck";
+  }
+  const DECK_CLASS_NAME_LIMIT = 8;
+  function cardDeckMembership(card) {
+    const names = cardDeckNames(card);
+    return {
+      source: cardDeckMembershipSource(card),
+      names,
+      member: hasPrimaryDeckMembership(card) || hasAnkiDeckMembership(card)
+    };
+  }
+  function cardDeckNames(card) {
+    return uniqueDeckNames([
+      ...primaryDeckNames(card),
+      ...ankiDeckNames$1(card)
+    ]);
+  }
+  function cardDeckMembershipClassNames(card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) return [];
+    const classes2 = /* @__PURE__ */ new Set(["yomu-deck-member"]);
+    if (hasPrimaryDeckMembership(card)) addDeckSourceClasses(classes2, primaryDeckMembershipSource(card), primaryDeckNames(card));
+    if (hasAnkiDeckMembership(card)) addDeckSourceClasses(classes2, "anki", ankiDeckNames$1(card));
+    return [...classes2];
+  }
+  function deckClassSlug(value) {
+    const slug = value.normalize("NFKC").trim().toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+    return slug || "unnamed";
+  }
+  function uniqueDeckNames(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map((value) => value?.trim() ?? "").filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  function cardDeckMembershipSource(card) {
+    if (!hasPrimaryDeckMembership(card) && hasAnkiDeckMembership(card)) return "anki";
+    return primaryDeckMembershipSource(card);
+  }
+  function primaryDeckMembershipSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function primaryDeckNames(card) {
+    return uniqueDeckNames([
+      ...card.deckNames ?? [],
+      card.sourceDeckName ?? ""
+    ]);
+  }
+  function ankiDeckNames$1(card) {
+    return uniqueDeckNames(card.ankiDeckNames ?? []);
+  }
+  function hasPrimaryDeckMembership(card) {
+    return primaryDeckNames(card).length > 0 || card.cardState.includes("in-deck") || Boolean(card.jpdbDeckMembership?.trim());
+  }
+  function hasAnkiDeckMembership(card) {
+    return ankiDeckNames$1(card).length > 0;
+  }
+  function addDeckSourceClasses(classes2, source2, names) {
+    classes2.add(`${source2}-deck-member`);
+    names.slice(0, DECK_CLASS_NAME_LIMIT).forEach((name) => {
+      const slug = deckClassSlug(name);
+      classes2.add(`yomu-deck-${slug}`);
+      classes2.add(`${source2}-deck-${slug}`);
+    });
+  }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]+$`, "u");
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function normalizePitchPatternsForReading(patterns, reading) {
+    return (patterns ?? []).map((pattern) => normalizePitchPatternForReading(pattern, reading)).filter(Boolean);
+  }
+  function pitchLevelsForDisplay(pattern, reading) {
+    return normalizePitchPatternForReading(pattern, reading).slice(0, countMorae(reading)).split("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized2 = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized2, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized2,
+      className: pitchClassNameFromProfile(morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function collectPitchVariants(reading, patterns, max2 = Infinity) {
+    const seen = /* @__PURE__ */ new Set();
+    const variants = [];
+    for (const pattern of patterns) {
+      if (pitchClassNameForPattern(pattern, reading) === "" || !pitchLevelsForDisplay(pattern, reading).join("")) continue;
+      const position = pitchNumberFromPattern(pattern, reading);
+      const key2 = position != null ? `#${position}` : pitchLevelsForDisplay(pattern, reading).join("");
+      if (seen.has(key2)) continue;
+      seen.add(key2);
+      variants.push({ pattern, position });
+      if (variants.length >= max2) break;
+    }
+    return variants;
+  }
+  function validPitchPositions(reading, patterns) {
+    const positions = /* @__PURE__ */ new Set();
+    for (const variant2 of collectPitchVariants(reading, patterns)) {
+      if (variant2.position != null) positions.add(variant2.position);
+    }
+    return positions;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberForReading(patterns, reading) {
+    if (!reading || !patterns?.length) return null;
+    const pattern = contextPitchPattern(patterns, reading);
+    if (!pattern) return null;
+    return pitchNumberFromPattern(pattern, reading);
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) return looksLikeCompactHeibanPattern(levels) ? 0 : null;
+    if (levels.length > moraCount + 1) return null;
+    for (let position = 0; position <= moraCount; position += 1) {
+      const expected = pitchLevels(pitchPatternFromPosition(reading, position));
+      if (levels.every((level, index) => expected[index] === level)) return position;
+    }
+    return null;
+  }
+  function looksLikeCompactHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(moraCount, pitchNumber) {
+    if (!moraCount || pitchNumber == null) return "";
+    return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized2 = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized2.length && SMALL_KANA.has(chars[index])) continue;
+      normalized2.push(levels[index]);
+    }
+    return normalized2.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
+  function assignSentenceInfo(paragraphs, tokens) {
+    paragraphs.forEach((paragraph, index) => {
+      const tokenData = tokens[index] ?? [];
+      const sentences = splitJapaneseSentences(paragraph);
+      if (sentences.length === 1) {
+        tokenData.forEach((token) => {
+          token.sentence = sentences[0];
+        });
+        return;
+      }
+      let offset = 0;
+      for (const sentence of sentences) {
+        const compare = sentence.replace(/(^[「『])|([。！？」』]$)/g, "");
+        const relativeStart = paragraph.slice(offset).indexOf(compare);
+        if (relativeStart === -1) {
+          offset += sentence.length;
+          continue;
+        }
+        const start = offset + relativeStart;
+        const end = start + sentence.length;
+        for (const token of tokenData) {
+          if (token.start >= start && token.end <= end) token.sentence = sentence;
+        }
+        offset += sentence.length;
+      }
+    });
+  }
+  function splitJapaneseSentences(text2) {
+    const sentences = [];
+    const state = { start: 0, quote: null };
+    for (let index = 0; index < text2.length; index++) {
+      index = advanceSentenceSplitter(sentences, text2, state, index);
+    }
+    const tail = text2.slice(state.start).trim();
+    if (tail) sentences.push(tail);
+    const nonEmptySentences = sentences.filter(Boolean);
+    const result2 = nonEmptySentences.length ? nonEmptySentences : [text2];
+    return result2;
+  }
+  function advanceSentenceSplitter(sentences, text2, state, index) {
+    state.quote = closingQuoteFor(text2[index]) ?? state.quote;
+    if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
+    return advancePunctuationSentenceSplitter(sentences, text2, state, index);
+  }
+  function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
+    if (!state.quote) return index;
+    const boundary = quotedSentenceBoundary(text2, index, state.quote);
+    if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+    return index;
+  }
+  function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
+    const boundary = punctuationSentenceBoundary(text2, index);
+    if (!boundary) return index;
+    Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+    return boundary.nextIndex;
+  }
+  function pushSentenceBoundary(sentences, text2, start, end) {
+    sentences.push(text2.slice(start, end).trim());
+    return { start: end, quote: null };
+  }
+  function closingQuoteFor(char) {
+    if (char === "「") return "」";
+    if (char === "『") return "』";
+    return null;
+  }
+  function quotedSentenceBoundary(text2, index, quote) {
+    if (text2[index] !== quote) return null;
+    const next = text2[index + 1];
+    return !next || /\s/.test(next) || !/[、，]/.test(next) ? { end: index + 1 } : null;
+  }
+  function punctuationSentenceBoundary(text2, index) {
+    if (!"。！？".includes(text2[index])) return null;
+    const next = text2[index + 1];
+    const includesClosingQuote = next === "」" || next === "』";
+    return {
+      end: includesClosingQuote ? index + 2 : index + 1,
+      nextIndex: includesClosingQuote ? index + 1 : index
+    };
+  }
+  const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
+  function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
+    const tokens = paragraphs.map((paragraph, index) => parseParagraphTokens(paragraph, rawTokens[index] ?? [], cards));
+    assignSentenceInfo(paragraphs, tokens);
+    return tokens;
+  }
+  function parseParagraphTokens(paragraph, rawTokens, cards) {
+    return rawTokens.map((rawToken) => parseToken(rawToken, paragraph, cards));
+  }
+  function parseToken([vocabularyIndex, position, length, furigana], paragraph, cards) {
+    const card = cards[vocabularyIndex];
+    const rubies = parseRubies(furigana, position);
+    repairCardReadingFromRubies(card, paragraph.slice(position, position + length), rubies, position);
+    const token = {
+      card,
+      start: position,
+      end: position + length,
+      length,
+      rubies,
+      pitchClass: currentPitchClass(card)
+    };
+    assignWordWithReading(token);
+    return token;
+  }
+  function parseRubies(furigana, startOffset) {
+    if (furigana === null) return [];
+    let offset = startOffset;
+    return furigana.flatMap((part) => {
+      if (typeof part === "string") {
+        offset += part.length;
+        return [];
+      }
+      const [base, ruby] = part;
+      const start = offset;
+      const end = offset = start + base.length;
+      return [{ text: ruby, start, end, length: base.length }];
+    });
+  }
+  function currentPitchClass(card) {
+    if (card.partOfSpeech.includes("prt")) return "";
+    return getPitchClass(card.pitchAccent, card.reading);
+  }
+  function assignWordWithReading(token) {
+    const { card, rubies, start: offset } = token;
+    if (!rubies.length) return;
+    let word = card.spelling;
+    for (let i2 = rubies.length - 1; i2 >= 0; i2--) {
+      const { text: text2, end } = rubies[i2];
+      const insertionOffset = end - offset;
+      word = `${word.slice(0, insertionOffset)}[${text2}]${word.slice(insertionOffset)}`;
+    }
+    card.wordWithReading = word;
+  }
+  function repairCardReadingFromRubies(card, surface, rubies, offset) {
+    if (!shouldRepairCardReading(card, surface, rubies)) return;
+    const reading = surfaceReadingFromRubies(surface, rubies, offset);
+    if (!reading || !KANA_RE.test(reading)) return;
+    const previousReading = card.reading.trim();
+    if (previousReading && previousReading !== card.spelling && previousReading !== reading) {
+      card.sourceCardKey ??= `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
+      card.pitchAccent = [];
+    }
+    card.reading = reading;
+  }
+  function shouldRepairCardReading(card, surface, rubies) {
+    if (!rubies.length || !surface || card.spelling !== surface) return false;
+    if (!KANJI_RE.test(card.spelling)) return false;
+    const reading = card.reading.trim();
+    return !reading || reading === card.spelling || KANA_RE.test(reading);
+  }
+  function surfaceReadingFromRubies(surface, rubies, offset) {
+    let reading = "";
+    let cursor = 0;
+    for (const ruby of rubies) {
+      const start = ruby.start - offset;
+      const end = ruby.end - offset;
+      if (start < cursor || start < 0 || end > surface.length || end <= start) return "";
+      reading += surface.slice(cursor, start);
+      reading += ruby.text;
+      cursor = end;
+    }
+    reading += surface.slice(cursor);
+    return reading;
+  }
+  function jpdbVocabularyToCards(vocabulary) {
+    if (!Array.isArray(vocabulary)) return [];
+    const cards = [];
+    for (const item2 of vocabulary) {
+      if (!Array.isArray(item2)) continue;
+      const [
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank2,
+        partOfSpeech,
+        meaningsChunks,
+        meaningsPartOfSpeech,
+        cardState,
+        pitchAccent,
+        dueAt,
+        sentence
+      ] = item2;
+      cards.push({
+        vid,
+        sid,
+        rid,
+        spelling,
+        reading,
+        frequencyRank: frequencyRank2,
+        partOfSpeech,
+        meanings: (meaningsChunks ?? []).map((glosses, index) => ({
+          glosses,
+          partOfSpeech: meaningsPartOfSpeech?.[index] ?? []
+        })),
+        cardState: normalizeCardStates(cardState),
+        pitchAccent: normalizePitchPatternsForReading(pitchAccent, reading),
+        dueAt: typeof dueAt === "number" && Number.isFinite(dueAt) ? dueAt : null,
+        wordWithReading: null,
+        sentence: typeof sentence === "string" && sentence.trim() ? sentence : void 0,
+        source: "jpdb"
+      });
+    }
+    return cards;
+  }
+  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+  const TRAILING_KANJI_RUN_RE = new RegExp(`((?:${KANJI_PATTERN}|[々〻ヶ])+)$`, "u");
+  function annotatedWordRubies(spelling, annotated) {
+    if (!annotated || !annotated.includes("[")) return [];
+    const rubies = [];
+    let cursor = 0;
+    let baseText2 = "";
+    let baseOffset = 0;
+    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+      const matchIndex = match.index ?? 0;
+      const captured = match[1] ?? "";
+      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+      const base = runMatch ? runMatch[1] : captured;
+      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
+      const reading = (match[2] ?? "").trim();
+      baseText2 += plain;
+      baseOffset += plain.length;
+      const start = baseOffset;
+      baseText2 += base;
+      baseOffset += base.length;
+      if (base && reading) {
+        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+      }
+      cursor = matchIndex + match[0].length;
+    }
+    baseText2 += annotated.slice(cursor);
+    return baseText2 === spelling ? rubies : [];
+  }
+  function readingFromSurfaceRubies(surface, rubies) {
+    let reading = "";
+    let offset = 0;
+    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
+      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+      reading += ruby.text;
+      offset = ruby.end;
+    }
+    reading += unannotatedPronunciationText$1(surface.slice(offset));
+    return reading;
+  }
+  function unannotatedPronunciationText$1(value) {
+    return Array.from(value).filter((character) => !KANJI_RE.test(character)).join("");
+  }
+  const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
+  function tiledPitchComponents(card) {
+    if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
+    const components2 = card.pitchComponents ?? [];
+    if (components2.length < 2) return null;
+    if (compact(components2.map((component) => component.spelling).join("")) !== compact(card.spelling)) return null;
+    if (card.reading && compact(components2.map((component) => component.reading).join("")) !== compact(card.reading)) return null;
+    return components2.map((component) => ({
+      ...component,
+      pitchClass: getPitchClass(component.pitchAccent, component.reading || component.spelling)
+    }));
+  }
+  function pitchComponentUnderlineGradient(card) {
+    const components2 = tiledPitchComponents(card);
+    if (!components2) return "";
+    if (!components2.some((component) => PITCH_CLASSES$1.has(component.pitchClass))) return "";
+    const lengths = components2.map((component) => Array.from(component.spelling).length);
+    const total = lengths.reduce((sum, length) => sum + length, 0);
+    if (!total) return "";
+    let offset = 0;
+    const stops = [];
+    components2.forEach((component, index) => {
+      const start = offset / total * 100;
+      offset += lengths[index] ?? 0;
+      const end = offset / total * 100;
+      const color = PITCH_CLASSES$1.has(component.pitchClass) ? `var(--jpdb-reader-pitch-${component.pitchClass})` : "var(--jpdb-reader-pitch-unknown)";
+      stops.push(`${color} ${formatPercent$2(start)}`, `${color} ${formatPercent$2(end)}`);
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }
+  function compact(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function formatPercent$2(value) {
+    return `${Number(value.toFixed(3))}%`;
+  }
+  const RENDERED_WORD_CONTRAST_VARS = [
+    "--jpdb-reader-page-bg",
+    "--jpdb-reader-highlight-backdrop",
+    "--jpdb-reader-word-accessible-color",
+    "--jpdb-reader-word-accessible-highlight",
+    "--jpdb-reader-word-accessible-underline",
+    "--jpdb-reader-word-highlight-text",
+    "--jpdb-reader-word-contrast-shadow"
+  ];
+  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-word-contrast-shadow"
+  );
+  const RENDERED_WORD_CARD_STATES = [
+    "new",
+    "learning",
+    "young",
+    "mature",
+    "known",
+    "mastered",
+    "due",
+    "failed",
+    "locked",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "in-deck",
+    "not-in-deck",
+    "redundant",
+    "frequent",
+    "unparsed"
+  ];
+  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
+  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
+  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
+  function clearRenderedWordAnkiState(word) {
+    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
+  }
+  function setRenderedWordPitchClass(word, pitchClass) {
+    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+    word.dataset.pitchClass = pitchClass;
+    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+  }
+  function setRenderedWordPitchAccentPattern(word, card) {
+    const pitchAccent = card.pitchAccent.join("|");
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+  }
+  function setRenderedWordPitchComponents(word, card) {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) {
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      return;
+    }
+    word.dataset.pitchComponents = "true";
+    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
+  }
+  function cardStateProvenance(card) {
+    return card.provisionalState === true ? "provisional" : "authoritative";
+  }
+  function setRenderedWordCardIdentity(word, card, options = {}) {
+    word.dataset.vid = String(card.vid);
+    word.dataset.sid = String(card.sid);
+    word.dataset.expression = card.spelling;
+    word.dataset.reading = card.reading;
+    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+    setRenderedWordPitchAccentPattern(word, card);
+    setRenderedWordPitchComponents(word, card);
+    applyRenderedWordCardStatus(word, card, options, true);
+  }
+  function setRenderedWordCardStatus(word, card, options = {}) {
+    applyRenderedWordCardStatus(word, card, options, false);
+  }
+  function applyRenderedWordCardStatus(word, card, options, replaceCardIdentity) {
+    const source2 = renderedWordCardSource(card);
+    const state = primaryCardState(card.cardState);
+    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.srsProvider;
+    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
+    if (replaceCardIdentity) {
+      word.dataset.cardSource = source2;
+      word.dataset.cardId = String(renderedWordCardId(card, source2));
+      word.dataset.readingIndex = String(renderedWordReadingIndex(card, source2));
+    }
+    word.dataset.cardState = state;
+    word.dataset.stateProvenance = cardStateProvenance(card);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    word.classList.add(`jpdb-${state}`);
+    if (source2 !== "jpdb") word.classList.add(`${source2}-${state}`);
+    applyRenderedWordDeckMembership(word, card);
+  }
+  function applyLocalYomuSrsStateToRenderedWord(word, card) {
+    const state = primaryCardState(card.cardState);
+    const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.bunproPrefillState;
+    delete word.dataset.bunproPrefillProvenance;
+    word.dataset.cardState = state;
+    word.dataset.srsProvider = "yomu-local";
+    word.dataset.stateProvenance = "authoritative";
+    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    return changed;
+  }
+  function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
+    return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
+  }
+  function clearRenderedWordMiningInsight(word) {
+    word.classList.remove("jpdb-reader-i-plus-one");
+    delete word.dataset.miningInsight;
+  }
+  function clearRenderedWordCardStateClasses(word) {
+    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
+  }
+  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
+    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
+    if (preserveSources.length) return;
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+  }
+  function isRenderedWordCardStateClass(className) {
+    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
+  }
+  function isRenderedWordDeckMembershipClass(className, preserveSources) {
+    if (className === "yomu-deck-member") return false;
+    if (className.startsWith("yomu-deck-")) return true;
+    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
+      if (preserveSources.includes(prefix)) return false;
+      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+    });
+  }
+  function applyRenderedWordDeckMembership(word, card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) {
+      if (!word.classList.contains("anki-deck-member")) {
+        word.classList.remove("yomu-deck-member");
+        delete word.dataset.deckMember;
+        delete word.dataset.deckSource;
+        delete word.dataset.deckNames;
+      }
+      return;
+    }
+    word.classList.add(...cardDeckMembershipClassNames(card));
+    word.dataset.deckMember = "true";
+    word.dataset.deckSource = membership.source;
+    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
+    else delete word.dataset.deckNames;
+  }
+  function renderedWordCardSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function renderedWordCardId(card, source2 = renderedWordCardSource(card)) {
+    return source2 === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
+  }
+  function renderedWordReadingIndex(card, source2 = renderedWordCardSource(card)) {
+    return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
   function isTargetLanguageText(text2) {
     return activeLearningTarget().isLookupableText(text2);
@@ -37534,6 +37659,85 @@ ${spelling}`);
     }
     return { mappings: out, movedModels };
   }
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
+  const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+  }
+  function accentToRgba(color, alpha) {
+    const safe = sanitizeAccentColor(color);
+    const red = parseInt(safe.slice(1, 3), 16);
+    const green = parseInt(safe.slice(3, 5), 16);
+    const blue = parseInt(safe.slice(5, 7), 16);
+    return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+  }
+  function accessibleOcrBackgroundOpacity(opacity) {
+    const numericOpacity = Number(opacity);
+    const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+    return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+  }
+  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+      return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+      const candidate2 = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+      if (ocrRenderedBackgroundContrast(candidate2, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return candidate2;
+      }
+    }
+    return "#000000";
+  }
+  function ocrRenderedBackgroundContrast(color, opacity) {
+    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+  }
+  const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
+    DEFAULT_ACCENT_COLOR,
+    DEFAULT_OCR_BACKGROUND_OPACITY
+  );
   function hasOwn(value, key2) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
   }
@@ -37574,6 +37778,11 @@ ${spelling}`);
       studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
     }))
   ]);
+  function learningTargetRosterEntry(id2) {
+    const target2 = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id2);
+    if (!target2) throw new Error(`Unknown learning target: ${id2}`);
+    return target2;
+  }
   Object.freeze(
     LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
   );
@@ -37810,6 +38019,9 @@ ${spelling}`);
   }
   function outputLanguageOf(value) {
     return resolveLanguageProfile(value).outputLanguage;
+  }
+  function adoptLearningTargetFromSettings(value) {
+    return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
   }
   function isTargetDefaultOcrLanguageTag(value) {
     const tag = value?.trim().toLowerCase();
@@ -43096,37 +43308,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return [...expanded];
   }
-  const FALLBACK_HEX_COLOR = "#000000";
-  function normalizeHexColor(color) {
-    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-  }
-  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-    const l1 = relativeLuminance(a, normalizeColor);
-    const l2 = relativeLuminance(b, normalizeColor);
-    const light = Math.max(l1, l2);
-    const dark = Math.min(l1, l2);
-    return (light + 0.05) / (dark + 0.05);
-  }
-  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-      const channel = value / 255;
-      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  }
-  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-    const a = sharedHexToRgb(from, normalizeColor);
-    const b = sharedHexToRgb(to, normalizeColor);
-    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-  }
-  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-    const safe = normalizeHexColor(normalizeColor(color));
-    return [
-      parseInt(safe.slice(1, 3), 16),
-      parseInt(safe.slice(3, 5), 16),
-      parseInt(safe.slice(5, 7), 16)
-    ];
-  }
   const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source2) => source2.enabled);
@@ -43390,16 +43571,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const log$u = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
-  const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
   const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
   const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-  const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-  const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
   const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
   const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
   const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -44783,45 +44957,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isExplicitFuriganaMode(value) {
     return EXPLICIT_FURIGANA_MODES.has(value);
   }
-  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-    if (typeof value !== "string") return fallback;
-    const trimmed = value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-    if (!shortHex) return fallback;
-    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-  }
-  function accentToRgba(color, alpha) {
-    const safe = sanitizeAccentColor(color);
-    const red = parseInt(safe.slice(1, 3), 16);
-    const green = parseInt(safe.slice(3, 5), 16);
-    const blue = parseInt(safe.slice(5, 7), 16);
-    return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-  }
-  function accessibleOcrBackgroundOpacity(opacity) {
-    return Math.max(
-      OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-      clampNumber$1(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
-    );
-  }
-  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-    const accent = sanitizeAccentColor(accentColor);
-    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-      return accent;
-    }
-    for (let amount = 0.08; amount <= 1; amount += 0.04) {
-      const candidate2 = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-      if (ocrRenderedBackgroundContrast(candidate2, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-        return candidate2;
-      }
-    }
-    return "#000000";
-  }
-  function ocrRenderedBackgroundContrast(color, opacity) {
-    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-  }
   function normalizeOcrProvider(value, settings) {
     if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
     if (typeof value !== "string") return DEFAULT_SETTINGS.ocrProvider;
@@ -45096,6 +45231,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const insertIndex = sources.findIndex((candidate2) => candidate2.type === beforeType);
     if (insertIndex < 0) sources.push(source2);
     else sources.splice(insertIndex, 0, source2);
+  }
+  function* uncoveredJapaneseRanges(text2, rangeStart, rangeEnd, isCovered) {
+    let gapStart = -1;
+    for (let index = rangeStart; index < rangeEnd; ) {
+      const codePoint = text2.codePointAt(index);
+      if (codePoint === void 0) break;
+      const character = String.fromCodePoint(codePoint);
+      const codePointEnd = index + character.length;
+      const nextIndex = Math.min(rangeEnd, codePointEnd);
+      const uncoveredJapanese = codePointEnd <= rangeEnd && JAPANESE_CHARACTER_RE.test(character) && !isCovered(index, nextIndex);
+      if (uncoveredJapanese) {
+        if (gapStart < 0) gapStart = index;
+      } else if (gapStart >= 0) {
+        yield { start: gapStart, end: index };
+        gapStart = -1;
+      }
+      index = nextIndex;
+    }
+    if (gapStart >= 0) yield { start: gapStart, end: rangeEnd };
   }
   const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
   const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
@@ -46071,15 +46225,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return null;
   }
   function collectHostGapFallbackTokens(tokens, hostText, rangeStart, rangeEnd, additions) {
-    let gapStart = -1;
-    for (let index = rangeStart; index <= rangeEnd; index += 1) {
-      const uncoveredJapanese = index < rangeEnd && JAPANESE_CHARACTER_RE.test(hostText[index] ?? "") && !tokens.some((token) => token.start <= index && index < token.end) && !additions.some((token) => token.start <= index && index < token.end);
-      if (uncoveredJapanese) {
-        if (gapStart < 0) gapStart = index;
-        continue;
-      }
-      if (gapStart >= 0) appendSegmentedHostFallbackTokens(hostText, gapStart, index, additions);
-      gapStart = -1;
+    const isCovered = (start, end) => tokens.some((token) => token.start < end && start < token.end) || additions.some((token) => token.start < end && start < token.end);
+    for (const gap2 of uncoveredJapaneseRanges(hostText, rangeStart, rangeEnd, isCovered)) {
+      appendSegmentedHostFallbackTokens(hostText, gap2.start, gap2.end, additions);
     }
   }
   function appendSegmentedHostFallbackTokens(hostText, gapStart, gapEnd, additions) {
@@ -48473,7 +48621,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
-      if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
     }
     return false;
   }
@@ -48576,7 +48724,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$3.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
@@ -48610,7 +48758,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$3.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
+    if (!KANJI_RE.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -48646,7 +48794,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const range2 = localRubyRange(surface, token, ruby);
         if (!range2) return [];
         const base = surface.slice(range2.start, range2.end);
-        if (!KANJI_RE$3.test(base)) return [];
+        if (!KANJI_RE.test(base)) return [];
         if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
@@ -48657,7 +48805,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+    if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -48686,7 +48834,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { start, end };
   }
   function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$3.test(base)) return [];
+    if (!base || !reading || !KANJI_RE.test(base)) return [];
     if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
@@ -48707,7 +48855,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes$1(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
     const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
     if (kanjiOnly) {
       return [{
@@ -48725,11 +48873,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function kanaTrimmedKanjiRange(base, reading) {
     if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
     const chars = Array.from(base);
-    const first2 = chars.findIndex((char) => KANJI_RE$3.test(char));
+    const first2 = chars.findIndex((char) => KANJI_RE.test(char));
     if (first2 < 0) return null;
     let last = -1;
     for (let index = chars.length - 1; index >= first2; index -= 1) {
-      if (KANJI_RE$3.test(chars[index])) {
+      if (KANJI_RE.test(chars[index])) {
         last = index;
         break;
       }
@@ -48776,7 +48924,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
   }
   function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
+    return KANJI_RE.test(base) ? reading.length > 0 : reading.length === 0;
   }
   function rubyBaseKanaRuns(base) {
     const runs = [];
@@ -48810,8 +48958,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml$2(`${label}: ${character}`)}">${safeCharacter}</button>`;
   }
   function isKanjiForInlineNavigation(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
+    return isUnifiedIdeograph(value);
   }
   function isVisible(element2) {
     const rect = element2.getBoundingClientRect();
@@ -288590,7 +288737,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function firstJapaneseValue(fields) {
     for (const value of Object.values(fields)) {
       const normalized2 = value.replace(/\s+/g, " ").trim();
-      if (/[\u3040-\u30ff\u3400-\u9fff]/.test(normalized2)) return normalized2.slice(0, 80);
+      if (HAS_JAPANESE$1.test(normalized2)) return codePointSafePrefix(normalized2, 80);
     }
     return "";
   }
@@ -290067,6 +290214,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function jitenDeckLabel$1(deck) {
     return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
   }
+  function targetSupportsCharacterLookup() {
+    return activeLearningTarget().capabilities["character-lookup"];
+  }
+  function usesJapaneseProviders() {
+    return activeLearningTarget().language === "ja";
+  }
+  function targetCanLookupCharacter(value) {
+    return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+  }
   function assertReviewableApiCardState(states) {
     if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
     if (states.includes("never-forget")) throw userFacingError("reviewBlockedNeverForget");
@@ -290625,7 +290781,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalKanji(card, settings) {
-      return settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
+      return targetSupportsCharacterLookup() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalMeta(card, settings) {
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
@@ -291495,6 +291651,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const result2 = selected2.sort((a, b) => a.start - b.start);
     return result2;
   }
+  function leftToRightLongestMatches(matches, limit) {
+    const candidates = [...matches].sort(
+      (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+    );
+    const selected2 = [];
+    let coveredUntil = 0;
+    for (const match of candidates) {
+      if (match.start < coveredUntil) continue;
+      selected2.push(match);
+      coveredUntil = match.end;
+      if (selected2.length >= limit) break;
+    }
+    return selected2;
+  }
   function compareTermMatchesForSelection(a, b) {
     for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
       const result2 = compare(a, b);
@@ -291535,6 +291705,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return record2.frequency ?? record2.value ?? record2.displayValue;
   }
   const WHITESPACE_RE = /\s/u;
+  function targetTermMatchLookupCandidates(target2, surface) {
+    const result2 = [];
+    for (const deinflected of target2.lookupCandidates(surface)) {
+      if (!target2.isLookupableText(deinflected.term)) continue;
+      for (const key2 of genericLookupTextVariants(deinflected.term)) {
+        result2.push({ key: key2, deinflected });
+      }
+    }
+    return result2;
+  }
+  function targetTermMatchQueriesReadingIndex(target2) {
+    return target2.lookupSweepMode !== "left-to-right-longest-exact";
+  }
   function readIndexRequestValues(index, query, limit, resolve, reject) {
     if (typeof index.getAll === "function") {
       const request22 = index.getAll(query, limit);
@@ -292588,7 +292771,7 @@ ${item2.sequence ?? ""}`;
     const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
     if (!match) return null;
     const value = decodeStructuredPathSegment(match[1]);
-    const kanji = Array.from(value).find(isStructuredKanjiCharacter) ?? "";
+    const kanji = Array.from(value).find(isJapaneseKanjiCharacter) ?? "";
     return kanji ? { kanji } : null;
   }
   function decodeStructuredPathSegment(value) {
@@ -292597,10 +292780,6 @@ ${item2.sequence ?? ""}`;
     } catch {
       return value;
     }
-  }
-  function isStructuredKanjiCharacter(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
   }
   function structuredSearchParams(href) {
     try {
@@ -293361,9 +293540,17 @@ ${scopedInner}
   }
   async function readZipArchive(file, onProgress) {
     const bytes = await readBlobBytes(file, onProgress);
-    const files = readZipCentralDirectory(bytes);
-    onProgress?.({ phase: "directory", loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
-    return new ZipArchive(bytes, files);
+    const archive = readZipArchiveBytes(bytes);
+    onProgress?.({
+      phase: "directory",
+      loaded: bytes.byteLength,
+      total: file.size || bytes.byteLength,
+      entries: archive.entries().length
+    });
+    return archive;
+  }
+  function readZipArchiveBytes(bytes) {
+    return new ZipArchive(bytes, readZipCentralDirectory(bytes));
   }
   async function readBlobBytes(file, onProgress) {
     const total = file.size;
@@ -293484,6 +293671,76 @@ ${scopedInner}
   function readBlobArrayBuffer(blob) {
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
+  }
+  const MAX_SURFACE_CODE_POINTS = 18;
+  class InlineTermCandidateCollector {
+    segmentedText = "";
+    segmentedTarget;
+    segments = [];
+    runText = "";
+    runTarget;
+    runs = [];
+    collect(target2, source2, from, to) {
+      const candidates = /* @__PURE__ */ new Map();
+      if (target2.lookupStartsAtSegmentBoundary) {
+        for (const segment2 of this.segmentedSource(source2, target2)) {
+          if (segment2.start < from || segment2.start >= to) continue;
+          this.add(target2, segment2.text, segment2.start, candidates);
+        }
+        return candidates;
+      }
+      if (target2.lookupSubsegments) {
+        for (const segment2 of this.segmentedSource(source2, target2)) {
+          if (segment2.start < from || segment2.start >= to) continue;
+          for (const surface of target2.lookupSubsegments(segment2.text, MAX_SURFACE_CODE_POINTS)) {
+            if (!isSearchableTargetSurface(surface, target2)) continue;
+            this.add(target2, surface, segment2.start, candidates);
+          }
+        }
+        return candidates;
+      }
+      for (const segment2 of this.lookupRuns(source2, target2)) {
+        if (segment2.end <= from || segment2.start >= to) continue;
+        for (const span of lookupSpansStartingInRange(
+          source2,
+          segment2,
+          from,
+          to,
+          MAX_SURFACE_CODE_POINTS
+        )) {
+          if (!isSearchableTargetSurface(span.term, target2)) continue;
+          this.add(target2, span.term, span.start, candidates);
+        }
+      }
+      return candidates;
+    }
+    segmentedSource(source2, target2) {
+      if (this.segmentedText !== source2 || this.segmentedTarget !== target2) {
+        this.segments = target2.segment(source2);
+        this.segmentedText = source2;
+        this.segmentedTarget = target2;
+      }
+      return this.segments;
+    }
+    lookupRuns(source2, target2) {
+      if (this.runText !== source2 || this.runTarget !== target2) {
+        this.runs = target2.lookupRunSegments?.(source2) ?? [{
+          text: source2,
+          start: 0,
+          end: source2.length
+        }];
+        this.runText = source2;
+        this.runTarget = target2;
+      }
+      return this.runs;
+    }
+    add(target2, surface, start, candidates) {
+      for (const { key: key2, deinflected } of targetTermMatchLookupCandidates(target2, surface)) {
+        const positions = candidates.get(key2) ?? [];
+        positions.push({ start, end: start + surface.length, surface, deinflected });
+        candidates.set(key2, positions);
+      }
+    }
   }
   function normalizeDexieTermRow(row2) {
     const record2 = dexieRowRecord(row2);
@@ -293993,7 +294250,6 @@ ${entry2.reading}`;
   const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
   const TERM_MATCH_WINDOW_CHARS = 240;
   const TERM_MATCH_SOURCE_LIMIT = 4e3;
-  const TERM_MATCH_MAX_SURFACE_CHARS = 18;
   const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -294027,9 +294283,7 @@ ${entry2.reading}`;
     // Memo for one findTermMatches call: every window asks the active target
     // to segment the same source, and for an ICU-backed target that is a full
     // pass over the text each time.
-    segmentedSourceText = "";
-    segmentedSourceTarget = "";
-    segmentedSourceSegments = [];
+    inlineTermCandidates = new InlineTermCandidateCollector();
     text(key2) {
       return uiText(this.getInterfaceLanguage(), key2);
     }
@@ -294234,9 +294488,10 @@ ${entry2.reading}`;
         }
       );
     }
-    async findTermMatches(text2, limit = 32, preferences = []) {
+    async findTermMatches(text2, limit = 32, preferences = [], target2 = activeLearningTarget()) {
+      const targetGeneration = activeLearningTargetGeneration();
       const done = log$m.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source2 = text2.slice(0, TERM_MATCH_SOURCE_LIMIT);
+      const source2 = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source2.length < text2.length) {
         log$m.warn("Inline term match source trimmed", { length: text2.length, kept: source2.length });
       }
@@ -294245,7 +294500,8 @@ ${entry2.reading}`;
         return [];
       }
       try {
-        return await this.sweepTermMatchWindows(source2, limit, preferences);
+        const matches = await this.sweepTermMatchWindows(source2, limit, preferences, target2, targetGeneration);
+        return isCurrentLookupTarget(target2, targetGeneration) ? matches : [];
       } catch (error) {
         log$m.warn("Inline term match search failed", { length: source2.length, error });
         throw error;
@@ -294253,100 +294509,29 @@ ${entry2.reading}`;
         done();
       }
     }
-    async sweepTermMatchWindows(source2, limit, preferences) {
+    async sweepTermMatchWindows(source2, limit, preferences, target2, targetGeneration) {
       const selected2 = [];
       let coveredUntil = 0;
-      for (let start = 0; start < source2.length; start += TERM_MATCH_WINDOW_CHARS) {
+      for (let start = 0; start < source2.length; ) {
         if (start > 0) await nextTask();
-        const matches = await this.termMatchesInWindow(source2, start, preferences);
+        const end = codePointBoundaryAtOrAfter(source2, Math.min(start + TERM_MATCH_WINDOW_CHARS, source2.length));
+        if (!isCurrentLookupTarget(target2, targetGeneration)) return [];
+        const matches = await this.termMatchesInWindow(source2, start, end, preferences, target2);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        for (const match of nonOverlappingMatches(free, limit)) {
+        const windowMatches = target2.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        for (const match of windowMatches) {
           selected2.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
         }
+        start = end;
       }
       return selected2.sort((a, b) => a.start - b.start);
     }
-    async termMatchesInWindow(source2, start, preferences) {
-      const candidates = this.collectTermMatchCandidates(source2, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source2.length));
-      return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
+    async termMatchesInWindow(source2, start, end, preferences, target2) {
+      const candidates = this.inlineTermCandidates.collect(target2, source2, start, end);
+      return candidates.size ? await this.lookupTermMatchCandidates(target2, candidates, preferences) : [];
     }
-    /**
-     * Surfaces worth a dictionary lookup in this window, and where each sits.
-     *
-     * Both halves used to be Japanese: the sweep only started on a kana/kanji
-     * character, and every surface it produced was expanded by the Japanese
-     * deinflector. That made the whole engine — a format that serves dozens of
-     * languages — unable to find a single word in any of them, whatever the
-     * reader had installed. Detection, boundaries and morphology now all come
-     * from the active target, so the engine holds entries and ranks them and
-     * asserts nothing about the language they are written in.
-     *
-     * Only start positions are confined to the window; surfaces still run past
-     * its end, so a term straddling a window boundary is found exactly as it
-     * would be in a single sweep of the whole text.
-     */
-    collectTermMatchCandidates(source2, from, to) {
-      const target2 = activeLearningTarget();
-      const candidates = /* @__PURE__ */ new Map();
-      if (target2.lookupStartsAtSegmentBoundary) {
-        for (const segment2 of this.segmentedSource(source2, target2)) {
-          if (segment2.start < from || segment2.start >= to) continue;
-          this.addTargetTermCandidates(target2, segment2.text, segment2.start, candidates);
-        }
-        return candidates;
-      }
-      if (target2.lookupSubsegments) {
-        this.collectSuffixStrippedTermMatchCandidates(target2, source2, from, to, candidates);
-        return candidates;
-      }
-      const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source2.length);
-      for (let start = from; start < to; start++) {
-        if (!target2.isLookupableText(source2[start])) continue;
-        this.collectSweptTermMatchCandidatesAt(target2, source2, start, maxLength, candidates);
-      }
-      return candidates;
-    }
-    collectSuffixStrippedTermMatchCandidates(target2, source2, from, to, candidates) {
-      for (const segment2 of this.segmentedSource(source2, target2)) {
-        if (segment2.start < from || segment2.start >= to) continue;
-        for (const surface of target2.lookupSubsegments(segment2.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
-          if (!isSearchableTargetSurface(surface, target2)) continue;
-          this.addTargetTermCandidates(target2, surface, segment2.start, candidates);
-        }
-      }
-    }
-    /**
-     * One segmentation per `findTermMatches` call rather than one per window:
-     * every window asks for the same answer over the same source, and a target
-     * whose segmenter is ICU pays a full pass for each question.
-     */
-    segmentedSource(source2, target2) {
-      if (this.segmentedSourceText !== source2 || this.segmentedSourceTarget !== target2.id) {
-        this.segmentedSourceSegments = target2.segment(source2);
-        this.segmentedSourceText = source2;
-        this.segmentedSourceTarget = target2.id;
-      }
-      return this.segmentedSourceSegments;
-    }
-    collectSweptTermMatchCandidatesAt(target2, source2, start, maxLength, candidates) {
-      for (let length = Math.min(maxLength, source2.length - start); length > 0; length--) {
-        const surface = source2.slice(start, start + length);
-        if (!isSearchableTargetSurface(surface, target2)) continue;
-        this.addTargetTermCandidates(target2, surface, start, candidates);
-      }
-    }
-    addTargetTermCandidates(target2, surface, start, candidates) {
-      for (const deinflected of target2.lookupCandidates(surface)) {
-        if (!target2.isLookupableText(deinflected.term)) continue;
-        for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
-          const positions = candidates.get(lookupTerm) ?? [];
-          positions.push({ start, end: start + surface.length, surface, deinflected });
-          candidates.set(lookupTerm, positions);
-        }
-      }
-    }
-    async lookupTermMatchCandidates(candidates, preferences) {
+    async lookupTermMatchCandidates(target2, candidates, preferences) {
       const db = await this.db();
       const rank2 = dictionaryRank(preferences);
       return await new Promise((resolve, reject) => {
@@ -294356,7 +294541,8 @@ ${entry2.reading}`;
         const readingIndex = store.index("reading");
         const results = [];
         const expressions2 = sortedTermMatchExpressions(candidates);
-        let pending2 = expressions2.length * 2;
+        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target2);
+        let pending2 = expressions2.length * (queriesReadingIndex ? 2 : 1);
         const finish = () => {
           if (--pending2 <= 0) resolve(results);
         };
@@ -294365,7 +294551,9 @@ ${entry2.reading}`;
         };
         for (const expression of expressions2) {
           requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-          requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+          if (queriesReadingIndex) {
+            requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+          }
         }
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
@@ -295627,7 +295815,7 @@ ${glossaryKey}`;
     return dictionaryPriority(a.dictionary, rank2) - dictionaryPriority(b.dictionary, rank2) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
   }
   function normalizeTermSearchQuery(value) {
-    return normalizeGenericLookupText(value).slice(0, 80);
+    return codePointSafePrefix(normalizeGenericLookupText(value), 80);
   }
   function shouldSearchTermGlossaries(query) {
     return !JAPANESE_RE$1.test(query);
@@ -295755,8 +295943,7 @@ ${glossaryKey}`;
     return reservoir;
   }
   function isKanji(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
+    return isUnifiedIdeograph(value);
   }
   function normalizeStoredLookupTerms(store) {
     const request2 = store.openCursor();
@@ -295822,6 +296009,9 @@ ${glossaryKey}`;
   }
   function transactionError(tx, fallback) {
     return tx.error ?? new Error(fallback);
+  }
+  function isCurrentLookupTarget(target2, generation2) {
+    return activeLearningTarget() === target2 && activeLearningTargetGeneration() === generation2;
   }
   function nextTask() {
     return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -298664,8 +298854,7 @@ ${entry2.reading || ""}`;
     return pronunciationCandidate(card.spelling);
   }
   function isKanjiCharacter(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
+    return isUnifiedIdeograph(value);
   }
   function containsKanji$1(value) {
     return Array.from(value).some(isKanjiCharacter);
@@ -299013,13 +299202,14 @@ ${entry2.reading || ""}`;
       const pitchTarget = cardUsesPitchAccentPronunciation(card);
       const pitchClass = pitchTarget ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading) : "";
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
-      const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
+      const kanjiNavigation = targetSupportsCharacterLookup() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
       const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
       const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
       const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
       const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
+      const kanjiNavigationAttributes = kanjiNavigation ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}"` : "";
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}">${spellingContent}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -301081,7 +301271,6 @@ ${component.reading}`;
     return queryString2 ? `${url}?${queryString2}` : url;
   }
   const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, "u");
-  const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
   function splitReadingAcrossKanji(base, reading, readingsForKanji) {
     if (kanjiCharacterCount(base) < 2) return null;
     const sourceReading = reading.trim();
@@ -301089,16 +301278,23 @@ ${component.reading}`;
     if (!kana || !KANA_ONLY_RUN_RE.test(kana)) return null;
     const trimmed = trimSharedKanaAffixes(base, kana);
     const characters = Array.from(trimmed.base);
-    if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
+    if (characters.length < 2 || !characters.every(isKanjiRubyCharacter)) return null;
     const plans = alignKanjiReadings(characters, trimmed.reading, 0, readingsForKanji);
     if (plans.length !== 1) return null;
     const readingCharacters = Array.from(sourceReading);
     const segments = [];
-    let offset = trimmed.readingStart;
+    let readingOffset = trimmed.readingStart;
+    let baseOffset = trimmed.baseStart;
     plans[0].forEach((segment2, index) => {
-      const segmentText = readingCharacters.slice(offset, offset + segment2.length).join("");
-      segments.push({ text: segmentText, start: trimmed.baseStart + index, end: trimmed.baseStart + index + 1 });
-      offset += segment2.length;
+      const character = characters[index] ?? "";
+      const segmentText = readingCharacters.slice(readingOffset, readingOffset + segment2.length).join("");
+      segments.push({
+        text: segmentText,
+        start: baseOffset,
+        end: baseOffset + character.length
+      });
+      readingOffset += segment2.length;
+      baseOffset += character.length;
     });
     return segments;
   }
@@ -301126,7 +301322,10 @@ ${component.reading}`;
     return Boolean(base && reading && KANA_CHAR_RE.test(base) && toHiragana(base) === reading);
   }
   function kanjiCharacterCount(value) {
-    return Array.from(value).filter((char) => KANJI_CHAR_RE.test(char)).length;
+    return Array.from(value).filter(isKanjiRubyCharacter).length;
+  }
+  function isKanjiRubyCharacter(value) {
+    return value === ITERATION_MARK || isJapaneseKanjiCharacter(value);
   }
   function alignKanjiReadings(characters, kana, index, readingsForKanji) {
     if (index >= characters.length) return kana.length === 0 ? [[]] : [];
@@ -301194,13 +301393,19 @@ ${component.reading}`;
   const LOCAL_PARSE_TIMEOUT_MS = 8e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
-  const JAPANESE_CHAR_COUNT_RE = new RegExp(`[${KANA}${KANJI}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]`, "gu");
+  const JAPANESE_CHAR_COUNT_RE = new RegExp(
+    `(?:[${KANA}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_PATTERN})`,
+    "gu"
+  );
   function japaneseBatchCharCount(paragraphs) {
     return paragraphs.reduce((total, text2) => total + (text2.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
   }
-  const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(`^[${KANA}${KANJI}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]+$`, "u");
-  const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`[${KANJI}${ITERATION_MARK}]`, "u");
-  const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^[${KANJI}${ITERATION_MARK}]$`, "u");
+  const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
+    `^(?:[${KANA}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]|${KANJI_PATTERN})+$`,
+    "u"
+  );
+  const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
+  const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
   const log$k = Logger.scope("ReaderParser");
   const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
   function apiFirstParseOptions(options = {}) {
@@ -301226,6 +301431,8 @@ ${component.reading}`;
     async parse(paragraphs, options = {}) {
       const { getSettings } = this.dependencies;
       const settings = getSettings();
+      const target2 = activeLearningTarget();
+      const targetGeneration = activeLearningTargetGeneration();
       const done = log$k.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
@@ -301233,19 +301440,22 @@ ${component.reading}`;
         localFallback: settings.localDictionariesEnabled
       });
       try {
-        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
+        const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target2);
+        if (!isCurrentLearningTarget(target2, targetGeneration)) return emptyParseResult(paragraphs);
+        const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options, target2);
+        if (!isCurrentLearningTarget(target2, targetGeneration)) return emptyParseResult(paragraphs);
         const normalized2 = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
         if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized2;
         try {
-          return await withTimeout$1(
+          const hydrated = await withTimeout$1(
             hydrateYomuLocalSrsCardStates(normalized2, this.dependencies.yomuLocalSrs),
             LOCAL_PARSE_TIMEOUT_MS,
             () => new Error("Academy SRS state hydration timed out.")
           );
+          return isCurrentLearningTarget(target2, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
         } catch (error) {
           log$k.warn("Academy SRS state hydration failed; keeping provider states", error);
-          return normalized2;
+          return isCurrentLearningTarget(target2, targetGeneration) ? normalized2 : emptyParseResult(paragraphs);
         }
       } finally {
         done();
@@ -301255,10 +301465,10 @@ ${component.reading}`;
     // leaf local parse, an iPad-WebKit stall in either would hang parse()
     // forever. These steps only REFINE an already-valid parse, so a stall (or
     // any failure) degrades to the un-reconciled tokens rather than blocking.
-    async reconcileLocalParse(paragraphs, parsed, options) {
+    async reconcileLocalParse(paragraphs, parsed, options, target2) {
       try {
         return await withTimeout$1(
-          this.reconcileLocalParseResolved(paragraphs, parsed, options),
+          this.reconcileLocalParseResolved(paragraphs, parsed, options, target2),
           LOCAL_PARSE_TIMEOUT_MS,
           () => new Error("Local parse reconciliation timed out.")
         );
@@ -301267,39 +301477,42 @@ ${component.reading}`;
         return parsed;
       }
     }
-    async reconcileLocalParseResolved(paragraphs, parsed, options) {
-      const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-      return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+    async reconcileLocalParseResolved(paragraphs, parsed, options, target2) {
+      const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options, target2);
+      return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled, target2);
     }
-    async parseWithPreferredSource(paragraphs, options, settings) {
+    async parseWithPreferredSource(paragraphs, options, settings, target2) {
+      if (target2.language !== "ja") {
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options, target2)));
+      }
       if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
-        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options, target2)));
       }
       if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
-        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options, target2)));
       }
       if (settings.parserProvider === "jiten" && options.requireJpdb !== true) {
-        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings, target2);
         if (jitenResult2) return jitenResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
+        return this.parseWithFallbackSource(paragraphs, options, target2);
       }
       if (settings.parserProvider === "jpdb") {
-        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings, target2);
         if (jpdbResult2) return jpdbResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
+        return this.parseWithFallbackSource(paragraphs, options, target2);
       }
       if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
-        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings, target2);
         if (jitenResult2) return jitenResult2;
-        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings, target2);
         if (jpdbResult2) return jpdbResult2;
-        return this.parseWithFallbackSource(paragraphs, options);
+        return this.parseWithFallbackSource(paragraphs, options, target2);
       }
-      const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+      const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings, target2);
       if (jpdbResult) return jpdbResult;
-      const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+      const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings, target2);
       if (jitenResult) return jitenResult;
-      return this.parseWithFallbackSource(paragraphs, options);
+      return this.parseWithFallbackSource(paragraphs, options, target2);
     }
     // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
     // short to justify it. Only explicit 'jiten' is gated: the auto path keeps its
@@ -301310,11 +301523,11 @@ ${component.reading}`;
       if (settings.parserProvider !== "jiten" || options.requireJpdb === true) return false;
       return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
     }
-    async tryParseWithJpdb(paragraphs, options, settings) {
+    async tryParseWithJpdb(paragraphs, options, settings, target2) {
       if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
       try {
         const result2 = await this.parseWithJpdb(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result2, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result2, options, target2);
       } catch (error) {
         this.handleRemoteParseError("JPDB", error, options);
         return null;
@@ -301325,11 +301538,11 @@ ${component.reading}`;
       const timeoutMs = remoteParseFallbackTimeoutMs(options);
       return timeoutMs > 0 ? withTimeout$1(parsePromise, timeoutMs, () => new Error("JPDB parse timed out.")) : parsePromise;
     }
-    async tryParseWithJiten(paragraphs, options, settings) {
+    async tryParseWithJiten(paragraphs, options, settings, target2) {
       if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
       try {
         const result2 = await this.parseWithJiten(paragraphs, options);
-        return this.withSegmentedFallbackGaps(paragraphs, result2, options);
+        return this.withSegmentedFallbackGaps(paragraphs, result2, options, target2);
       } catch (error) {
         this.handleRemoteParseError("Jiten", error, options);
         return null;
@@ -301345,14 +301558,14 @@ ${component.reading}`;
       log$k.warn(remoteParseErrorMessage(source2, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
-    async parseWithFallbackSource(paragraphs, options) {
+    async parseWithFallbackSource(paragraphs, options, target2) {
       if (!await this.hasLocalTermDictionaries()) {
-        const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
+        const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options, target2);
         if (publicJitenResult) return publicJitenResult;
       }
-      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options, target2)));
     }
-    async tryParseWithPublicJiten(paragraphs, options) {
+    async tryParseWithPublicJiten(paragraphs, options, target2) {
       if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
       if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
       const parser = this.dependencies.jitenPublicVocabulary;
@@ -301360,7 +301573,7 @@ ${component.reading}`;
       try {
         const parsed = options.publicJitenDetailLimit === void 0 ? await parser.parse(paragraphs) : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
         if (!parsed.some((tokens) => tokens.length)) return null;
-        return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
+        return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target2);
       } catch (error) {
         log$k.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
@@ -301389,8 +301602,9 @@ ${component.reading}`;
       this.localBoundaryEvidenceCache.clear();
       this.localTermDictionaryAvailability = void 0;
     }
-    localCardFromEntry(entry2) {
-      const id2 = -stablePositiveHashId(`${entry2.dictionary}
+    localCardFromEntry(entry2, target2 = activeLearningTarget()) {
+      const id2 = -stablePositiveHashId(`${target2.language}
+${entry2.dictionary}
 ${entry2.expression}
 ${entry2.reading}`);
       const card = {
@@ -301399,7 +301613,7 @@ ${entry2.reading}`);
         rid: 0,
         spelling: entry2.expression,
         reading: entry2.reading || entry2.expression,
-        language: activeLearningTargetLanguage(),
+        language: target2.language,
         frequencyRank: entry2.jpdbFrequency ?? null,
         partOfSpeech: [],
         meanings: [{
@@ -301417,8 +301631,8 @@ ${entry2.reading}`);
       this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
       return card;
     }
-    fallbackCardFromText(text2) {
-      const card = bareFallbackCardFromText(text2);
+    fallbackCardFromText(text2, target2 = activeLearningTarget()) {
+      const card = bareFallbackCardFromText(text2, target2.language);
       this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
       return card;
     }
@@ -301428,42 +301642,42 @@ ${entry2.reading}`);
     canUseParseFallback(options) {
       return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
     }
-    async parseLocalOrSegmentedText(text2, options) {
+    async parseLocalOrSegmentedText(text2, options, target2) {
       const settings = this.dependencies.getSettings();
-      const key2 = localParseCacheKey(text2, options, settings);
+      const key2 = localParseCacheKey(text2, options, settings, target2);
       const cached = this.localParseCache.get(key2);
       if (cached) {
         this.localParseCache.delete(key2);
         this.localParseCache.set(key2, cached);
         return cached;
       }
-      const promise = this.parseLocalOrSegmentedTextUncached(text2, options).catch((error) => {
+      const promise = this.parseLocalOrSegmentedTextUncached(text2, options, target2).catch((error) => {
         if (this.localParseCache.get(key2) === promise) this.localParseCache.delete(key2);
         throw error;
       });
       this.rememberLocalParseCacheEntry(key2, promise);
       return promise;
     }
-    async parseLocalOrSegmentedTextUncached(text2, options) {
+    async parseLocalOrSegmentedTextUncached(text2, options, target2) {
       try {
         return await withTimeout$1(
-          this.resolveLocalOrSegmentedText(text2, options),
+          this.resolveLocalOrSegmentedText(text2, options, target2),
           LOCAL_PARSE_TIMEOUT_MS,
           () => new Error("Local parse timed out.")
         );
       } catch (error) {
         log$k.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
-        return this.localParseTimeoutFallback(text2, options);
+        return this.localParseTimeoutFallback(text2, options, target2);
       }
     }
-    async resolveLocalOrSegmentedText(text2, options) {
+    async resolveLocalOrSegmentedText(text2, options, target2) {
       if (this.canUseLocalDictionaryFallback()) {
-        const tokens = await this.parseLocalDictionaryText(text2, options);
+        const tokens = await this.parseLocalDictionaryText(text2, options, target2);
         if (tokens.length) {
-          return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
+          return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens, target2) : tokens;
         }
       }
-      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2, target2) : [];
     }
     // The timeout path RESOLVES to this fallback (rather than rejecting), so
     // parseLocalOrSegmentedText caches it. That is deliberate: a WebKit IDB
@@ -301471,8 +301685,8 @@ ${entry2.reading}`);
     // result avoids re-hitting the dead request on every later lookup. The cost
     // is that a genuinely transient stall keeps that one sentence ruby-less
     // until LRU eviction — an accepted trade for not re-freezing.
-    localParseTimeoutFallback(text2, options) {
-      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+    localParseTimeoutFallback(text2, options, target2) {
+      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2, target2) : [];
     }
     rememberLocalParseCacheEntry(key2, promise) {
       this.localParseCache.set(key2, promise);
@@ -301482,18 +301696,18 @@ ${entry2.reading}`);
         this.localParseCache.delete(oldest);
       }
     }
-    async parseLocalDictionaryText(text2, options) {
+    async parseLocalDictionaryText(text2, options, target2) {
       const { dictionaries: dictionaries2, getSettings } = this.dependencies;
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
-      const matches = await dictionaries2.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
+      const matches = await dictionaries2.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target2).catch((error) => {
         log$k.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
-      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options));
+      return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target2));
     }
-    async localTokenFromMatch(text2, match, options) {
-      const card = this.localCardFromEntry(match.entry);
+    async localTokenFromMatch(text2, match, options, target2) {
+      const card = this.localCardFromEntry(match.entry, target2);
       const reading = card.reading && card.reading !== match.surface ? card.reading : "";
       const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
       if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
@@ -301512,7 +301726,7 @@ ${entry2.reading}`);
         sentence: text2
       };
     }
-    async withExactLocalBoundaryEvidence(paragraphs, parsed, options) {
+    async withExactLocalBoundaryEvidence(paragraphs, parsed, options, target2) {
       if (!this.canUseLocalDictionaryFallback()) return parsed;
       const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
       if (!candidates.some((items) => items.length)) return parsed;
@@ -301520,26 +301734,27 @@ ${entry2.reading}`);
       const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
         const text2 = paragraphs[paragraphIndex] ?? "";
         const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate2) => {
-          const relative = await this.exactLocalBoundaryMatch(candidate2);
+          const relative = await this.exactLocalBoundaryMatch(candidate2, target2);
           if (!relative) return null;
           const match = offsetTermMatch(relative, candidate2.start);
           if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
-          return this.localTokenFromMatch(text2, match, options);
+          return this.localTokenFromMatch(text2, match, options, target2);
         }));
         return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
       }));
       return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
     }
-    exactLocalBoundaryMatch(candidate2) {
+    exactLocalBoundaryMatch(candidate2, target2) {
       const settings = this.dependencies.getSettings();
       const { surface, boundary } = candidate2;
-      const key2 = localBoundaryEvidenceCacheKey(surface, boundary, settings);
+      const key2 = localBoundaryEvidenceCacheKey(surface, boundary, settings, target2);
       const cached = this.localBoundaryEvidenceCache.get(key2);
       if (cached) return cached;
       const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
         surface,
         LOCAL_BOUNDARY_MATCH_LIMIT,
-        settings.dictionaryPreferences
+        settings.dictionaryPreferences,
+        target2
       )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
         if (this.localBoundaryEvidenceCache.get(key2) === promise) this.localBoundaryEvidenceCache.delete(key2);
         log$k.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
@@ -301570,9 +301785,9 @@ ${entry2.reading}`);
       });
       return this.localTermDictionaryAvailability;
     }
-    parseSegmentedText(text2) {
-      return segmentTargetLanguageText(text2).map((segment2) => {
-        const card = this.fallbackCardFromText(segment2.text);
+    parseSegmentedText(text2, target2) {
+      return target2.segment(text2).map((segment2) => {
+        const card = this.fallbackCardFromText(segment2.text, target2);
         return {
           card,
           start: segment2.start,
@@ -301584,14 +301799,14 @@ ${entry2.reading}`);
         };
       });
     }
-    async withSegmentedFallbackGaps(paragraphs, parsed, options) {
+    async withSegmentedFallbackGaps(paragraphs, parsed, options, target2) {
       const hasExactCardinality = parsed.length === paragraphs.length && paragraphs.every((_, index) => Array.isArray(parsed[index]));
       if (options.allowSegmentedFallback !== true && hasExactCardinality) return parsed;
       return Promise.all(paragraphs.map(async (text2, index) => {
         const tokens = parsed[index] ?? [];
         if (options.allowSegmentedFallback !== true) return tokens;
-        const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options);
-        return this.fillSegmentedFallbackGaps(text2, withLocal);
+        const withLocal = await this.fillGapsWithLocalDictionaryTokens(text2, tokens, options, target2);
+        return this.fillSegmentedFallbackGaps(text2, withLocal, target2);
       }));
     }
     // Remote coverage gaps were previously filled ONLY by the bare segmenter,
@@ -301601,16 +301816,16 @@ ${entry2.reading}`);
     // available, fill the uncovered ranges with deinflected, enriched local
     // tokens first; the bare segmenter only covers what the dictionary also
     // misses.
-    async fillGapsWithLocalDictionaryTokens(text2, tokens, options) {
+    async fillGapsWithLocalDictionaryTokens(text2, tokens, options, target2) {
       if (!this.canUseLocalDictionaryFallback()) return tokens;
       if (!await this.hasLocalTermDictionaries()) return tokens;
-      const localTokens = await this.parseLocalDictionaryText(text2, options).catch(() => []);
+      const localTokens = await this.parseLocalDictionaryText(text2, options, target2).catch(() => []);
       const additions = localTokens.filter((local) => !tokens.some((token) => rangesOverlap(local.start, local.end, token.start, token.end)));
       return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
     }
-    fillSegmentedFallbackGaps(text2, tokens) {
+    fillSegmentedFallbackGaps(text2, tokens, target2) {
       tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
-      const fallbackTokens = this.parseSegmentedText(text2);
+      const fallbackTokens = this.parseSegmentedText(text2, target2);
       const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
       const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
       const replacements = [
@@ -301654,7 +301869,8 @@ ${entry2.reading}`);
       }
       return promise;
     }
-    async withLocallySplitKanjiRubies(paragraphs, parsed) {
+    async withLocallySplitKanjiRubies(paragraphs, parsed, target2) {
+      if (activeLearningTarget() !== target2) return parsed;
       if (!this.canUseLocalKanjiRubySplits()) return parsed;
       let nextParsed = parsed;
       await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
@@ -301707,12 +301923,13 @@ ${entry2.reading}`);
     }
     syncCardWordWithReadingFromTokenRuby(token, surface) {
       if (!token.rubies.length || token.card.spelling !== surface) return;
-      const word = Array.from(token.card.spelling);
+      let word = token.card.spelling;
       for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
-        const { text: text2, start, length } = token.rubies[index];
-        word.splice(start - token.start + length, 0, `[${text2}]`);
+        const { text: text2, end } = token.rubies[index];
+        const insertionOffset = end - token.start;
+        word = `${word.slice(0, insertionOffset)}[${text2}]${word.slice(insertionOffset)}`;
       }
-      token.card.wordWithReading = word.join("");
+      token.card.wordWithReading = word;
     }
     async localPitchPattern(card, options) {
       const settings = this.dependencies.getSettings();
@@ -301854,8 +302071,8 @@ ${entry2.reading}`);
   function boundaryEvidenceCandidate(text2, first2, second) {
     if (first2.end !== second.start) return null;
     if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
-    const left = text2.slice(first2.end - 1, first2.end);
-    const right = text2.slice(second.start, second.start + 1);
+    const left = codePointBeforeUtf16Offset(text2, first2.end);
+    const right = codePointAtUtf16Offset(text2, second.start);
     if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
     const firstSurface = text2.slice(first2.start, first2.end);
     const secondSurface = text2.slice(second.start, second.end);
@@ -301872,6 +302089,22 @@ ${entry2.reading}`);
   function isSingleJapaneseCharacter(surface) {
     const characters = Array.from(surface);
     return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+  }
+  function codePointBeforeUtf16Offset(text2, offset) {
+    if (offset <= 0) return "";
+    const trailingCodeUnit = text2.charCodeAt(offset - 1);
+    const start = isLowSurrogate(trailingCodeUnit) && offset > 1 && isHighSurrogate(text2.charCodeAt(offset - 2)) ? offset - 2 : offset - 1;
+    return text2.slice(start, offset);
+  }
+  function codePointAtUtf16Offset(text2, offset) {
+    const codePoint = text2.codePointAt(offset);
+    return codePoint === void 0 ? "" : String.fromCodePoint(codePoint);
+  }
+  function isHighSurrogate(value) {
+    return value >= 55296 && value <= 56319;
+  }
+  function isLowSurrogate(value) {
+    return value >= 56320 && value <= 57343;
   }
   function exactBoundaryMatch(surface, boundary, matches) {
     const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
@@ -301912,10 +302145,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       ...accepted
     ].sort(compareTokensByOffset);
   }
-  function localBoundaryEvidenceCacheKey(surface, boundary, settings) {
+  function localBoundaryEvidenceCacheKey(surface, boundary, settings, target2) {
     return JSON.stringify({
       surface,
       boundary,
+      target: target2.id,
+      language: target2.language,
       dictionaries: settings.dictionaryPreferences.map((preference) => ({
         name: preference.name,
         enabled: preference.enabled,
@@ -301923,10 +302158,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       }))
     });
   }
-  function localParseCacheKey(text2, options, settings) {
+  function localParseCacheKey(text2, options, settings, target2) {
     const localDictionariesEnabled = settings.localDictionariesEnabled;
     return JSON.stringify({
       text: text2,
+      target: target2.id,
+      language: target2.language,
       localDictionariesEnabled,
       allowSegmentedFallback: options.allowSegmentedFallback === true,
       includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
@@ -301969,9 +302206,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
   }
   function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
-    for (let index = start; index < end; index += 1) {
-      if (!JAPANESE_CHARACTER_RE.test(text2[index] ?? "")) continue;
-      if (!tokens.some((token) => token.start <= index && index < token.end)) return true;
+    for (let index = start; index < end; ) {
+      const character = codePointAtUtf16Offset(text2, index);
+      if (!character) break;
+      const characterEnd = index + character.length;
+      if (JAPANESE_CHARACTER_RE.test(character) && !tokens.some((token) => token.start <= index && characterEnd <= token.end)) return true;
+      index = characterEnd;
     }
     return false;
   }
@@ -301986,6 +302226,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
+  }
+  function isCurrentLearningTarget(target2, generation2) {
+    return activeLearningTarget() === target2 && activeLearningTargetGeneration() === generation2;
+  }
+  function emptyParseResult(paragraphs) {
+    return paragraphs.map(() => []);
   }
   function withTimeout$1(promise, timeoutMs, errorFactory) {
     let timeoutId = 0;
@@ -302171,11 +302417,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const cached = this.definitionSourceCache.get(key2);
       if (cached && cached.expiresAt > now) return cached.load;
       const settings = this.settings();
+      const japaneseProviders = usesJapaneseProviders();
       const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
       const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
-      const jpdbVocabularyInfo = options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
-      const jitenVocabularyInfo = options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
-      const bunproDefinitionInfo = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result2) => result2.info) : Promise.resolve(null);
+      const jpdbVocabularyInfo = japaneseProviders && options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
+      const jitenVocabularyInfo = japaneseProviders && options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
+      const bunproDefinitionInfo = japaneseProviders && options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result2) => result2.info) : Promise.resolve(null);
       const settled = Promise.allSettled([
         localEntriesUncapped,
         jpdbVocabularyInfo,
@@ -302196,15 +302443,18 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     fetch(card, options) {
       const settings = this.settings();
+      const japaneseProviders = usesJapaneseProviders();
+      const providerEpoch = activeLearningTargetGeneration();
       const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
       const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
       const localMetaEntries = this.loadLocalMetaEntries(card).then(async (localMeta) => {
         if (localMeta.completed) {
-          await this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local pitch accent", this.applyLocalPitchAccent(card, localMeta.entries), void 0);
+          await this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local pitch accent", this.applyLocalPitchAccent(card, localMeta.entries, providerEpoch), void 0);
         }
         return localMeta.entries;
       });
-      const basePitchAccent = this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries).then((publicPitch) => {
+      const basePitchAccent = (japaneseProviders ? this.loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries) : localMetaEntries.then(() => [...card.pitchAccent])).then((publicPitch) => {
+        if (!this.isProviderTarget(providerEpoch)) return [];
         if (!card.pitchAccent.length && publicPitch.length) card.pitchAccent = publicPitch;
         return publicPitch;
       });
@@ -302214,17 +302464,18 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         detailedAnkiLookup ??= this.loadDetailedAnkiLookup(card, fastAnkiLookup);
         return detailedAnkiLookup;
       };
-      const jpdbDeckMembership = this.loadJpdbDeckMembership(card);
-      const jpdbVocabularyInfo = this.loadJpdbVocabularyInfo(card);
+      const jpdbDeckMembership = japaneseProviders ? this.loadJpdbDeckMembership(card) : Promise.resolve(false);
+      const jpdbVocabularyInfo = japaneseProviders ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
       const cardRanks = cardFrequencyRanks(card, this.dependencies.isJpdbBackedCard);
       const seededFrequencyRanks = {};
-      if (liveFrequencyEnabled(settings, "jiten") && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
-      if (liveFrequencyEnabled(settings, "jpdb") && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
-      const jitenVocabularyLookup = this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled);
-      const jitenVocabularyInfo = settings.jitenDefinitionsEnabled ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null) : Promise.resolve(null);
-      const bunproDefinitionRequested = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
-      const bunproDataRequested = bunproDefinitionRequested || liveFrequencyEnabled(settings, "bunpro");
-      const bunproDataLookup = this.lookupBunproDataResult(card, bunproDataRequested);
+      if (japaneseProviders && liveFrequencyEnabled(settings, "jiten") && cardRanks.jiten) seededFrequencyRanks.jiten = cardRanks.jiten;
+      if (japaneseProviders && liveFrequencyEnabled(settings, "jpdb") && cardRanks.jpdb) seededFrequencyRanks.jpdb = cardRanks.jpdb;
+      const jitenVocabularyLookup = japaneseProviders ? this.loadJitenVocabularyInfo(card, settings.jitenDefinitionsEnabled) : Promise.resolve(null);
+      const jitenVocabularyInfo = japaneseProviders && settings.jitenDefinitionsEnabled ? this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", jitenVocabularyLookup, null) : Promise.resolve(null);
+      const bunproDefinitionRequested = japaneseProviders && options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled;
+      const bunproDataRequested = japaneseProviders && (bunproDefinitionRequested || liveFrequencyEnabled(settings, "bunpro"));
+      const disabledBunproData = { info: null, status: { state: "disabled", reason: "load-excluded" } };
+      const bunproDataLookup = japaneseProviders ? this.lookupBunproDataResult(card, bunproDataRequested) : Promise.resolve(disabledBunproData);
       const boundedBunproPitchData = this.withFallback(
         card,
         CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -302233,7 +302484,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         { info: null, status: { state: "timeout" } }
       );
       const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result2]) => {
-        if (settings.showPitchAccent && cardUsesPitchAccentPronunciation(card)) {
+        if (this.isProviderTarget(providerEpoch) && settings.showPitchAccent && cardUsesPitchAccentPronunciation(card)) {
           applyBunproPitchToCard(card, result2.info);
         }
         return result2;
@@ -302245,13 +302496,19 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
           reason: settings.bunproDefinitionsEnabled ? "load-excluded" : "definitions-disabled"
         }
       });
-      const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
+      const frequencyRankLoad = japaneseProviders ? this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup) : {
+        initial: Promise.resolve(seededFrequencyRanks),
+        hydrated: Promise.resolve(seededFrequencyRanks)
+      };
       const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result2]) => {
+        if (!this.isProviderTarget(providerEpoch)) return [];
         if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return publicPitch;
         applyBunproPitchToCard(card, result2.info);
         return [...card.pitchAccent];
       });
-      const hydratedPitchAccent = hydratedBunproPitchData.then(() => [...card.pitchAccent]);
+      const hydratedPitchAccent = hydratedBunproPitchData.then(
+        () => this.isProviderTarget(providerEpoch) ? [...card.pitchAccent] : []
+      );
       const bunproDefinitionResult = this.withFallback(
         card,
         CARD_RENDER_BUNPRO_DETAIL_TIMEOUT_MS,
@@ -302272,7 +302529,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
         "expression component pitch",
-        this.loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyLookup),
+        this.loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyLookup, japaneseProviders),
         []
       );
       void pitchAccent.catch(() => void 0);
@@ -302283,7 +302540,22 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       void bunproDefinitionInfo.catch(() => void 0);
       void expressionComponents.catch(() => void 0);
       void componentPitches.catch(() => void 0);
-      const all = this.loadAll(card, localEntries, localMetaEntries, fastAnkiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRankLoad.initial, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches);
+      const all = this.loadAll(
+        card,
+        localEntries,
+        localMetaEntries,
+        fastAnkiLookup,
+        jpdbDeckMembership,
+        jpdbVocabularyInfo,
+        jitenVocabularyInfo,
+        frequencyRankLoad.initial,
+        bunproDefinitionInfo,
+        bunproDefinitionStatus,
+        expressionComponents,
+        componentPitches,
+        japaneseProviders,
+        providerEpoch
+      );
       return {
         localEntries,
         localMetaEntries,
@@ -302303,6 +302575,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         hydrateBunproDefinitionResult: () => bunproDefinitionLookup,
         all
       };
+    }
+    isProviderTarget(generation2) {
+      return generation2 === activeLearningTargetGeneration() && usesJapaneseProviders();
     }
     withFallback(card, timeoutMs, detail, promise, fallback) {
       return cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs);
@@ -302337,7 +302612,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     loadLocalKanjiEntries(card) {
       const settings = this.settings();
-      if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+      if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$j.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
@@ -302390,7 +302665,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     // frequency pill blank and the Jiten source missing — see the hydration pass).
     loadJitenVocabularyInfo(card, enabled) {
       if (!enabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      const providerEpoch = activeLearningTargetGeneration();
       return this.dependencies.jiten.lookupVocabularyInfoForCard(card).then((info) => {
+        if (!this.isProviderTarget(providerEpoch)) return null;
         enrichCardFromJitenVocabularyInfo(card, info);
         return info;
       }).catch((error) => {
@@ -302512,7 +302789,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         return false;
       }), false);
     }
-    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches) {
+    loadAll(card, localEntries, localMetaEntries, ankiLookup, jpdbDeckMembership, jpdbVocabularyInfo, jitenVocabularyInfo, frequencyRanks, bunproDefinitionInfo, bunproDefinitionStatus, expressionComponents, componentPitches, japaneseProviders, providerEpoch) {
       const ankiDecks = ankiLookup.then((lookup) => lookup.primary ? [] : this.loadAnkiDecks(card));
       const ankiFieldTargetPlan = ankiLookup.then((lookup) => lookup.primary ? null : this.loadAnkiFieldTargetPlan(card));
       return Promise.all([
@@ -302520,8 +302797,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         this.loadLocalKanjiEntries(card),
         localMetaEntries,
         ankiLookup,
-        this.loadJpdbDecks(card),
-        this.loadJitenDecks(card),
+        japaneseProviders ? this.loadJpdbDecks(card) : Promise.resolve([]),
+        japaneseProviders ? this.loadJitenDecks(card) : Promise.resolve([]),
         ankiDecks,
         jpdbDeckMembership,
         jpdbVocabularyInfo,
@@ -302533,7 +302810,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         componentPitches.catch(() => []),
         ankiFieldTargetPlan
       ]).then(([localEntriesValue, kanjiEntries, metaEntries, ankiLookup2, jpdbDecks, jitenDecks, ankiDecks2, jpdbDeckMembership2, jpdbVocabularyInfo2, jitenVocabularyInfo2, frequencyRanks2, bunproDefinitionInfo2, bunproDefinitionStatus2, expressionComponentsValue, componentPitchesValue, ankiFieldTargetPlanValue]) => {
-        if (jpdbDeckMembership2) applyPooledJpdbDeckState(card);
+        if (this.isProviderTarget(providerEpoch) && jpdbDeckMembership2) applyPooledJpdbDeckState(card);
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, frequencyRanks: frequencyRanks2, bunproDefinitionInfo: bunproDefinitionInfo2, bunproDefinitionStatus: bunproDefinitionStatus2, expressionComponents: expressionComponentsValue, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
@@ -302551,9 +302828,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     // Expressions and compounds expose their parts as lookup chips. Keep each
     // part's own pitch available for chip colouring even when the card now has
     // a whole-word pitch graph from direct or composed metadata.
-    async loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyInfo) {
+    async loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyInfo, japaneseProviders) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return [];
+      if (!japaneseProviders || !settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return [];
       const [components2, jitenInfo] = await Promise.all([
         expressionComponents.catch(() => []),
         jitenVocabularyInfo.catch(() => null)
@@ -302616,7 +302893,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       }
       return null;
     }
-    async applyLocalPitchAccent(card, metaEntries) {
+    async applyLocalPitchAccent(card, metaEntries, providerEpoch = activeLearningTargetGeneration()) {
       const settings = this.settings();
       if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || !settings.localDictionariesEnabled) return;
       const resolution = await localPitchResolutionFromMetaLookup(
@@ -302628,6 +302905,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         log$j.warn("Local pitch lookup failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
+      if (!this.isProviderTarget(providerEpoch)) return;
       const patterns = resolution.patterns;
       if (!patterns.length) return;
       if (!card.pitchAccent.length) {
@@ -302701,6 +302979,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         },
         bunproDefinitions: settings.bunproDefinitionsEnabled,
         includeBunproDefinition: options.includeBunproDefinition !== false,
+        targetGeneration: activeLearningTargetGeneration(),
         apiMining: settings.jpdbMiningEnabled || settings.bunproMiningEnabled,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -302721,6 +303000,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         jpdbDefinitions: settings.jpdbDefinitionsEnabled && options.includeJpdbDefinition !== false,
         jitenDefinitions: settings.jitenDefinitionsEnabled && options.includeJitenDefinition !== false,
         bunproDefinitions: settings.bunproDefinitionsEnabled && options.includeBunproDefinition !== false,
+        targetGeneration: activeLearningTargetGeneration(),
         dictionaries: settings.dictionaryPreferences.map((preference) => ({
           name: preference.name,
           enabled: preference.enabled,
@@ -307379,7 +307659,7 @@ ${component.reading}`;
     const link = event.target?.closest("a.gloss-link[data-dictionary-lookup]");
     if (!link || !popover.contains(link)) return void 0;
     const query = link.dataset.dictionaryLookup?.trim() ?? "";
-    if (!HAS_JAPANESE$1.test(query)) return void 0;
+    if (!isTargetLanguageText(query)) return void 0;
     consumeLookupPopoverButtonEvent(event);
     return {
       link,
@@ -309080,14 +309360,14 @@ ${key2}`] = { t: now, v: value };
     const reading = button2.dataset.jitenKanjiReading?.trim() ?? "";
     const source2 = button2.closest(".jpdb-reader-jiten-kanji");
     const grid = source2?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
-    if (!character || !reading || !source2 || !grid) return;
+    if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !reading || !source2 || !grid) return;
     source2.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate2) => {
       candidate2.setAttribute("aria-pressed", candidate2 === button2 ? "true" : "false");
     });
     button2.disabled = true;
     try {
       const wordsPage = await context2.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
-      if (!source2.isConnected || !grid.isConnected) return;
+      if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !source2.isConnected || !grid.isConnected) return;
       const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
       const rendered = wordsPage?.items.length ?? 0;
       const total = wordsPage?.total ?? rendered;
@@ -309103,7 +309383,7 @@ ${key2}`] = { t: now, v: value };
   async function loadMoreJitenKanjiWords(button2, context2) {
     if (button2.disabled) return;
     const character = button2.dataset.jitenKanjiCharacter?.trim() ?? "";
-    if (!character) return;
+    if (!usesJapaneseProviders() || !targetCanLookupCharacter(character)) return;
     const page = Math.max(2, Number(button2.dataset.jitenKanjiPage) || 2);
     const pageSize = Math.max(1, Number(button2.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
     button2.disabled = true;
@@ -309113,10 +309393,11 @@ ${key2}`] = { t: now, v: value };
         page,
         pageSize
       });
-      if (!button2.isConnected) return;
+      if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !button2.isConnected) return;
       appendJitenKanjiWords(button2, wordsPage, page, context2);
     } catch (error) {
       context2.onError?.({ character, page }, error);
+    } finally {
       if (button2.isConnected) button2.disabled = false;
     }
   }
@@ -310047,92 +310328,6 @@ ${normalizedReading}`;
   function openDeckPickerForCardAdd(button2, card, sentence, performAction) {
     return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button2, card, sentence, performAction) ?? false;
   }
-  const log$a = Logger.scope("PublicLookupFallback");
-  function normalizedJitenLookupKey(term) {
-    return term.replace(/\s+/g, "");
-  }
-  function jitenFallbackTokenMatches(term, token) {
-    const normalizedTerm = normalizedJitenLookupKey(term);
-    const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
-    return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
-  }
-  function jitenFallbackCardMatchesTerm(term, card) {
-    const normalizedTerm = normalizedJitenLookupKey(term);
-    return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
-  }
-  function uniqueFallbackLookupEntries(cards, termLimit) {
-    const seen = /* @__PURE__ */ new Set();
-    const entries2 = [];
-    for (const card of cards) {
-      const key2 = cardKey(card);
-      if (seen.has(key2)) continue;
-      seen.add(key2);
-      const allTerms = fallbackLookupTermsForCard(card);
-      const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
-      if (terms.length) entries2.push({ key: key2, terms });
-    }
-    return entries2;
-  }
-  async function batchJitenFallbackCards(terms, parse) {
-    const cards = /* @__PURE__ */ new Map();
-    const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
-    if (!uniqueTerms.length) return cards;
-    const parsed = await parse(uniqueTerms).catch((error) => {
-      log$a.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
-      if (isMissingProxyTransportError(error)) throw error;
-      return [];
-    });
-    uniqueTerms.forEach((term, index) => {
-      const tokens = parsed[index] ?? [];
-      const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
-      if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
-    });
-    return cards;
-  }
-  async function jitenFallbackCards(terms, entryCount, deps, options) {
-    if (deps.jitenApiActive()) {
-      const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
-        if (!isMissingProxyTransportError(error)) throw error;
-        return null;
-      });
-      if (batched) return batched;
-    }
-    const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
-      log$a.warn("Jiten fallback failed", { terms: terms.length }, error);
-      return /* @__PURE__ */ new Map();
-    });
-    const cards = /* @__PURE__ */ new Map();
-    loaded.forEach((card, term) => {
-      if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
-    });
-    return cards;
-  }
-  async function publicLookupFallbackCards(cards, deps, options) {
-    const result2 = /* @__PURE__ */ new Map();
-    const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
-    if (!entries2.length) return result2;
-    const terms = [...new Set(entries2.flatMap((entry2) => entry2.terms))];
-    const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
-    for (const entry2 of entries2) {
-      for (const term of entry2.terms) {
-        const card = jitenCards.get(normalizedJitenLookupKey(term));
-        if (!card) continue;
-        result2.set(entry2.key, card);
-        break;
-      }
-    }
-    if (options.jpdbPublicLookup === false) return result2;
-    const unresolved = entries2.filter((entry2) => !result2.has(entry2.key));
-    await runLimited(unresolved, options.concurrency, async (entry2) => {
-      for (const term of entry2.terms) {
-        const publicCard = await deps.publicSpellingCard(term);
-        if (!publicCard) continue;
-        result2.set(entry2.key, publicCard);
-        return;
-      }
-    });
-    return result2;
-  }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
   const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
   const POPOVER_SOURCE_TITLE_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
@@ -310248,7 +310443,7 @@ ${normalizedReading}`;
   function nestedParseKey(targets2) {
     return targets2.map((target2) => target2.text).join("\n\n");
   }
-  const log$9 = Logger.scope("NewTab");
+  const log$a = Logger.scope("NewTab");
   const STATE_STORAGE_KEY = "jpdb-reader-newtab-ui";
   const STATE_CHANNEL_NAME = "jpdb-reader-newtab-ui";
   const DEFAULT_NEW_TAB_UI_STATE = {
@@ -310322,7 +310517,7 @@ ${normalizedReading}`;
           channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
         } catch (error) {
           isClosed = true;
-          log$9.warn("Failed to publish new tab state update", error);
+          log$a.warn("Failed to publish new tab state update", error);
           try {
             channel.close();
           } catch {
@@ -310419,7 +310614,7 @@ ${normalizedReading}`;
     return card.source === "local" || card.source === "fallback";
   }
   function kanjiCharacters$1(value) {
-    return [...new Set(Array.from(value).filter((character) => /[\u3400-\u9fff々〆]/u.test(character)))];
+    return [...new Set(Array.from(value).filter(isJapaneseKanjiCharacter))];
   }
   function cleanupNewTabMeaning(text2) {
     const normalized2 = stripMeaningMarkup(text2);
@@ -310993,13 +311188,13 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   }
   const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
   function normalizeSearchQuery$1(value) {
-    return value.replace(/\s+/g, " ").trim().slice(0, 80);
+    return codePointSafePrefix(value.replace(/\s+/g, " ").trim(), 80);
   }
   function appendSearchHandwritingCandidate(currentQuery, candidate2) {
     return normalizeSearchQuery$1(`${currentQuery}${candidate2}`);
   }
   function queryHasJapanese(value) {
-    return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
+    return HAS_JAPANESE$1.test(value);
   }
   function cardMatchesSearchSuggestion(card, normalizedQuery) {
     return [
@@ -311067,7 +311262,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     for (const card of cards) {
       if (!isScheduledStudyCard(card)) continue;
       const characters = Array.from(card.spelling.trim());
-      const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? "");
+      const isKanjiCard = characters.length === 1 && isJapaneseKanjiCharacter(characters[0] ?? "");
       const isNew = card.cardState.includes("new") || card.cardState.includes("not-in-deck");
       if (isNew) {
         if (isKanjiCard) summary.newKanji += 1;
@@ -312214,7 +312409,7 @@ ${entry2.url}`),
     // study directly as words. Progression is unaffected either way: card
     // states live at the provider, the toggle only changes queue composition.
     applyKanjiUnlockQueue(pool) {
-      if (!this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
+      if (!targetSupportsCharacterLookup() || !this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
       const out = [];
       const seenKanji = /* @__PURE__ */ new Set();
       for (const card of pool) {
@@ -313398,13 +313593,13 @@ ${entry2.url}`),
     if (minutes < 60) return `${Math.round(minutes)}m`;
     return `${(minutes / 60).toFixed(minutes >= 600 ? 0 : 1).replace(/\.0$/u, "")}h`;
   }
-  const log$8 = Logger.scope("NewTab");
+  const log$9 = Logger.scope("NewTab");
   const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1e3;
   async function loadNewTabStatsApiProvider(provider) {
     try {
       return { provider, cards: await provider.load(), error: null };
     } catch (error) {
-      log$8.warn(`${provider.label} stats failed`, error);
+      log$9.warn(`${provider.label} stats failed`, error);
       return { provider, cards: [], error };
     }
   }
@@ -313594,7 +313789,7 @@ ${entry2.url}`),
       try {
         return await this.deps.jpdb.listDeckCards(JPDB_ALL_DECKS, NEW_TAB_STATS_JPDB_CARD_LIMIT);
       } catch (error) {
-        log$8.warn("JPDB deck stats fallback", error);
+        log$9.warn("JPDB deck stats fallback", error);
       }
       const decks = await this.deps.jpdb.listDecks();
       const groups = await Promise.all(decks.slice(0, JPDB_DECK_SAMPLE_LIMIT).map(
@@ -313629,14 +313824,14 @@ ${entry2.url}`),
         const [cards, reviews] = await Promise.all([
           jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
           this.loadJitenRecentReviews().catch((error) => {
-            log$8.warn("Jiten review history failed", error);
+            log$9.warn("Jiten review history failed", error);
             return [];
           })
         ]);
         const source2 = statsFromJitenCards(cards, this.apiLoadedMessage("Jiten", cards.length));
         return applyJitenReviewHistory(source2, reviews);
       } catch (error) {
-        log$8.warn("Jiten stats failed", error);
+        log$9.warn("Jiten stats failed", error);
         return emptyStatsSource("jiten", "Jiten", error instanceof Error ? error.message : this.deps.text("couldNotLoadWords"), "error");
       }
     }
@@ -313673,7 +313868,7 @@ ${entry2.url}`),
           updatedAt: stats.fetchedAt
         };
       } catch (error) {
-        log$8.warn(`${label} stats failed`, error);
+        log$9.warn(`${label} stats failed`, error);
         return emptyStatsSource(source2, label, error instanceof Error ? error.message : this.deps.text("couldNotLoadWords"), "error");
       }
     }
@@ -313688,7 +313883,7 @@ ${entry2.url}`),
           disabledDeckNames: [...this.disabledAnkiDecks]
         });
       } catch (error) {
-        log$8.warn("Anki stats failed", error);
+        log$9.warn("Anki stats failed", error);
         return emptyStatsSource("anki", "Anki", this.deps.text("statsAnkiUnavailable"), "error");
       }
     }
@@ -313700,7 +313895,7 @@ ${entry2.url}`),
       try {
         await this.deps.anki.requestPermission();
       } catch (error) {
-        log$8.warn("Anki permission request failed", error);
+        log$9.warn("Anki permission request failed", error);
         this.snapshot = {
           ...this.snapshot,
           anki: emptyStatsSource("anki", "Anki", this.deps.text("statsAnkiUnavailable"), "error")
@@ -313723,7 +313918,7 @@ ${entry2.url}`),
       else this.disabledAnkiDecks.add(deck);
       this.applyAnkiDeckToggles(root);
       void gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, [...this.disabledAnkiDecks]).catch((error) => {
-        log$8.warn("Anki stats deck preference save failed", error);
+        log$9.warn("Anki stats deck preference save failed", error);
       });
       this.loaded = false;
       void this.loadInto(root, true);
@@ -313781,7 +313976,7 @@ ${entry2.url}`),
         this.selectedSource = this.selectedSource === "anki" ? "combined" : this.selectedSource;
         this.loaded = true;
       } catch (error) {
-        log$8.warn("JPDB stats import failed", error);
+        log$9.warn("JPDB stats import failed", error);
         this.snapshot = {
           ...this.snapshot,
           jpdb: {
@@ -313813,7 +314008,7 @@ ${entry2.url}`),
       this.deckPrefsLoaded = true;
     }
   }
-  const log$7 = Logger.scope("NewTab");
+  const log$8 = Logger.scope("NewTab");
   const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
   const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
   class NewTabSearchController {
@@ -313821,6 +314016,8 @@ ${entry2.url}`),
       this.deps = deps;
     }
     searchGeneration = 0;
+    searchTargetLanguage = activeLearningTargetLanguage();
+    searchTargetGeneration = activeLearningTargetGeneration();
     searchDebounce;
     searchQuery = "";
     handlingSearchPopstate = false;
@@ -313846,8 +314043,11 @@ ${entry2.url}`),
     // Clean-slate reset called by the controller's word-reload path.
     reset() {
       this.searchGeneration++;
+      this.searchTargetLanguage = activeLearningTargetLanguage();
+      this.searchTargetGeneration = activeLearningTargetGeneration();
       this.clearSearchDebounce();
       this.searchQuery = "";
+      this.searchWordCardCache.clear();
       this.searchHandwritingGeneration++;
       this.clearSearchHandwritingDebounce();
       this.searchHandwritingStrokes = [];
@@ -313877,11 +314077,13 @@ ${entry2.url}`),
           return true;
         case "search-handwriting-toggle":
           event.preventDefault();
-          this.toggleSearchHandwriting(root);
+          if (targetSupportsCharacterLookup()) this.toggleSearchHandwriting(root);
           return true;
         case "handwriting-candidate":
           event.preventDefault();
-          this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target2));
+          if (targetCanLookupCharacter(this.searchActionQuery(target2))) {
+            this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target2));
+          }
           return true;
         case "search-result-word":
           return this.handleSearchResultWordClick(root, target2, event);
@@ -313911,7 +314113,7 @@ ${entry2.url}`),
       event.preventDefault();
       const button2 = target2.closest("[data-kanji]");
       const kanji = cleanNestedLookupValue$1(button2?.dataset.kanji);
-      if (kanji && button2) this.toggleSearchKanjiResult(button2, kanji);
+      if (targetCanLookupCharacter(kanji) && button2) this.toggleSearchKanjiResult(button2, kanji);
       return true;
     }
     handleSearchKeydown(root, event, target2) {
@@ -313989,8 +314191,9 @@ ${entry2.url}`),
         this.renderSearchIdle(root);
       } else if (this.deps.browseScopeActive() && this.deps.getBrowsePool() && results) {
         delete results.dataset.searchQuery;
+        delete results.dataset.searchTarget;
         this.deps.renderBrowseResults(results);
-      } else if (results?.dataset.searchQuery !== query) {
+      } else if (results?.dataset.searchQuery !== query || results.dataset.searchTarget !== this.targetSnapshotSignature(this.captureTargetSnapshot())) {
         this.performSearch(root, query);
       }
       void this.parseSearchSurfaces(root, this.searchGeneration, query);
@@ -314115,6 +314318,11 @@ ${entry2.url}`),
       this.toggleSearchHandwriting(root, true);
     }
     installSearchHandwriting(root) {
+      if (!targetSupportsCharacterLookup()) {
+        root.querySelector("[data-newtab-handwriting]")?.remove();
+        this.syncSearchHandwritingToggle(root);
+        return;
+      }
       const panel = this.ensureSearchHandwritingPanel(root);
       this.syncSearchHandwritingToggle(root);
       if (panel && panel.dataset.newtabHandwritingToggleBound !== "true") {
@@ -314138,6 +314346,7 @@ ${entry2.url}`),
       });
     }
     ensureSearchHandwritingPanel(root) {
+      if (!targetSupportsCharacterLookup()) return null;
       const existing = root.querySelector("[data-newtab-handwriting]");
       if (existing) return existing;
       const results = this.searchResultsMount(root);
@@ -314147,6 +314356,7 @@ ${entry2.url}`),
       return panel;
     }
     toggleSearchHandwriting(root, open) {
+      if (!targetSupportsCharacterLookup()) return;
       const panel = this.ensureSearchHandwritingPanel(root);
       if (!panel) return;
       panel.open = open ?? !panel.open;
@@ -314165,9 +314375,16 @@ ${entry2.url}`),
       const panel = root.querySelector("[data-newtab-handwriting]");
       const toggle = root.querySelector('[data-newtab-action="search-handwriting-toggle"]');
       if (!toggle) return;
-      toggle.setAttribute("aria-expanded", String(Boolean(panel?.open)));
+      const enabled = targetSupportsCharacterLookup();
+      toggle.hidden = !enabled;
+      toggle.disabled = !enabled;
+      toggle.setAttribute("aria-expanded", String(enabled && Boolean(panel?.open)));
     }
     scheduleSearchHandwritingRecognition(root) {
+      if (!targetSupportsCharacterLookup()) {
+        this.clearSearchHandwriting(root);
+        return;
+      }
       this.searchHandwritingGeneration++;
       this.clearSearchHandwritingDebounce();
       const strokes = this.searchHandwritingStrokes.map((stroke) => [...stroke]);
@@ -314182,26 +314399,29 @@ ${entry2.url}`),
       }, NEW_TAB_HANDWRITING_DEBOUNCE_MS);
     }
     async recognizeSearchHandwriting(root, strokes, generation2) {
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return;
       const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch((error) => {
-        log$7.warn("Search handwriting failed", error);
+        log$8.warn("Search handwriting failed", error);
         return [];
       });
       const geometryCandidates = recognizedCandidates.length >= 8 ? [] : await this.recognizeSearchHandwritingByGeometry(strokes).catch((error) => {
-        log$7.warn("Search handwriting geometry failed", error);
+        log$8.warn("Search handwriting geometry failed", error);
         return [];
       });
-      if (!root.isConnected || this.currentRoute() !== "search" || generation2 !== this.searchHandwritingGeneration) return;
-      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).slice(0, 8);
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !root.isConnected || this.currentRoute() !== "search" || generation2 !== this.searchHandwritingGeneration) return;
+      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).filter(targetCanLookupCharacter).slice(0, 8);
       const message = candidates.length ? "" : this.deps.text("searchNoHandwritingMatch");
       this.renderSearchHandwritingCandidates(root, candidates, message);
     }
     async recognizeSearchHandwritingByGeometry(strokes) {
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
       const characters = await this.searchHandwritingGeometryCharacters();
       if (!characters.length) return [];
       const candidates = (await Promise.all(characters.map((character) => this.searchHandwritingShapeCandidate(character)))).filter((candidate2) => Boolean(candidate2));
       return rankKanjiStrokeCandidates(strokes, candidates, 8).map((match) => match.kanji);
     }
     async searchHandwritingGeometryCharacters() {
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
       const settings = this.deps.getDependencies().getSettings();
       const commonCharacters = uniqueTrimmedStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI)).slice(0, 200);
       const deckCharacters = uniqueTrimmedStrings([
@@ -314217,6 +314437,7 @@ ${entry2.url}`),
       ]).slice(0, NEW_TAB_HANDWRITING_GEOMETRY_CANDIDATE_LIMIT);
     }
     searchHandwritingShapeCandidate(character) {
+      if (!usesJapaneseProviders() || !targetCanLookupCharacter(character)) return Promise.resolve(null);
       let promise = this.searchHandwritingShapeCandidateCache.get(character);
       if (!promise) {
         promise = this.deps.getDependencies().kanjiVG.lookup(character).then((info) => info?.strokeShapes?.length ? { kanji: info.kanji, strokeShapes: info.strokeShapes } : null).catch(() => null);
@@ -314227,6 +314448,12 @@ ${entry2.url}`),
     renderSearchHandwritingCandidates(root, candidates, message) {
       const mount = root.querySelector("[data-newtab-handwriting-candidates]");
       if (!mount) return;
+      if (!targetSupportsCharacterLookup()) {
+        mount.hidden = true;
+        mount.replaceChildren();
+        return;
+      }
+      candidates = candidates.filter(targetCanLookupCharacter);
       mount.hidden = !candidates.length && !message;
       replaceChildrenWith(
         mount,
@@ -314247,6 +314474,10 @@ ${entry2.url}`),
     }
     performSearch(root, rawQuery) {
       this.clearSearchDebounce();
+      const target2 = activeLearningTarget();
+      this.searchTargetLanguage = target2.language;
+      this.searchTargetGeneration = activeLearningTargetGeneration();
+      const targetGeneration = this.searchTargetGeneration;
       const query = normalizeSearchQuery$1(rawQuery);
       this.setSearchQuery(root, query);
       this.syncSearchUrl(query);
@@ -314257,22 +314488,37 @@ ${entry2.url}`),
       }
       const generation2 = ++this.searchGeneration;
       this.renderSearchLoading(root, query);
-      void this.loadSearchResults(query).then((results) => {
+      void this.loadSearchResults(query, target2, targetGeneration).then((results) => {
         if (!this.isCurrentSearch(root, generation2, query)) return;
         this.renderSearchResults(root, results);
       }).catch((error) => {
-        log$7.warn("New tab search failed", { query }, error);
+        log$8.warn("New tab search failed", { query }, error);
         if (this.isCurrentSearch(root, generation2, query)) this.renderSearchError(root, query);
       });
     }
     isCurrentSearch(root, generation2, query) {
-      return root.isConnected && this.currentRoute() === "search" && this.searchGeneration === generation2 && normalizeSearchQuery$1(this.searchQuery) === query;
+      return root.isConnected && this.currentRoute() === "search" && this.searchGeneration === generation2 && activeLearningTargetLanguage() === this.searchTargetLanguage && activeLearningTargetGeneration() === this.searchTargetGeneration && normalizeSearchQuery$1(this.searchQuery) === query;
     }
-    async loadSearchResults(query) {
+    captureTargetSnapshot() {
+      return {
+        target: activeLearningTarget(),
+        generation: activeLearningTargetGeneration()
+      };
+    }
+    targetSnapshotIsCurrent(snapshot) {
+      return activeLearningTarget() === snapshot.target && activeLearningTargetGeneration() === snapshot.generation;
+    }
+    targetSnapshotSignature(snapshot) {
+      return `${snapshot.target.id}:${snapshot.generation}`;
+    }
+    async loadSearchResults(query, target2, targetGeneration) {
       const settings = this.deps.getDependencies().getSettings();
       const hasLocalDictionaries = settings.localDictionariesEnabled && await this.deps.hasLocalDictionaries();
-      const words = await this.searchWordCards(query, hasLocalDictionaries);
-      const kanji = await this.searchKanjiCards(query, words);
+      const words = await this.searchWordCards(query, hasLocalDictionaries, target2, targetGeneration);
+      if (activeLearningTarget() !== target2 || activeLearningTargetGeneration() !== targetGeneration) {
+        return { query, words: [], kanji: [], suggestions: [], hasLocalDictionaries };
+      }
+      const kanji = await this.searchKanjiCards(query, words, { target: target2, generation: targetGeneration });
       return {
         query,
         words,
@@ -314281,28 +314527,31 @@ ${entry2.url}`),
         hasLocalDictionaries
       };
     }
-    async searchWordCards(query, hasLocalDictionaries) {
+    async searchWordCards(query, hasLocalDictionaries, target2, targetGeneration) {
       const settings = this.deps.getDependencies().getSettings();
-      const parsedPromise = queryHasJapanese(query) ? this.deps.getDependencies().parser.parse([query]).catch(() => [[]]) : Promise.resolve([[]]);
+      const parsedPromise = usesJapaneseProviders() && queryHasJapanese(query) ? this.deps.getDependencies().parser.parse([query]).catch(() => [[]]) : Promise.resolve([[]]);
       const localEntriesPromise = settings.localDictionariesEnabled && hasLocalDictionaries ? this.deps.localSearchWithTimeout(this.searchLocalDictionaryEntries(query, settings), []) : Promise.resolve([]);
       const publicJpdbPromise = this.searchPublicJpdbCards(query);
       const loadedCards = this.searchLoadedWordCards(query);
       const [parsed, localEntries, publicJpdbCards] = await Promise.all([parsedPromise, localEntriesPromise, publicJpdbPromise]);
+      if (activeLearningTarget() !== target2 || activeLearningTargetGeneration() !== targetGeneration) return [];
       const parsedCards = (parsed[0] ?? []).map((token) => ({ ...token.card, sentence: token.sentence ?? query }));
-      const localCards = localEntries.map((entry2) => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry2), sentence: query }));
+      const localCards = localEntries.map((entry2) => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry2, target2), sentence: query }));
       return dedupeSearchWords(searchWordResultOrder(query, { parsedCards, publicJpdbCards, loadedCards, localCards })).slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
     }
     async searchPublicJpdbCards(query, limit = NEW_TAB_SEARCH_WORD_LIMIT) {
+      if (!usesJapaneseProviders()) return [];
       const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
       if (!jpdbVocabulary?.search) return [];
-      return promiseWithTimeout(
+      const cards = await promiseWithTimeout(
         jpdbVocabulary.search(query, limit),
         NEW_TAB_PUBLIC_SEARCH_TIMEOUT_MS,
         "Public JPDB search timed out."
       ).catch((error) => {
-        log$7.warn("New tab public JPDB search failed", { query, error });
+        log$8.warn("New tab public JPDB search failed", { query, error });
         return [];
       });
+      return usesJapaneseProviders() ? cards : [];
     }
     searchLoadedWordCards(query) {
       const normalized2 = normalizeSearchQuery$1(query).toLocaleLowerCase();
@@ -314359,11 +314608,12 @@ ${entry2.url}`),
       }
       return suggestions;
     }
-    async searchKanjiCards(query, wordCards = []) {
+    async searchKanjiCards(query, wordCards = [], targetSnapshot = this.captureTargetSnapshot()) {
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
       const characters = uniqueTrimmedStrings([
         ...kanjiCharacters$1(query),
         ...wordCards.flatMap((card) => kanjiCharacters$1(card.spelling))
-      ]).slice(0, NEW_TAB_SEARCH_KANJI_LIMIT);
+      ]).filter(targetCanLookupCharacter).slice(0, NEW_TAB_SEARCH_KANJI_LIMIT);
       const summaryWordCards = wordCards.filter((card) => !this.searchWordMatchesQueryExactly(card, query));
       const wordsByCharacter = /* @__PURE__ */ new Map();
       summaryWordCards.forEach((card) => {
@@ -314371,16 +314621,23 @@ ${entry2.url}`),
           wordsByCharacter.set(character, [...wordsByCharacter.get(character) ?? [], card]);
         });
       });
-      const results = await Promise.all(characters.map((character) => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [], wordCards)));
+      const results = await Promise.all(characters.map((character) => this.searchKanjiResult(
+        character,
+        wordsByCharacter.get(character) ?? [],
+        wordCards,
+        targetSnapshot
+      )));
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
       return results.filter((result2) => Boolean(result2));
     }
     searchWordMatchesQueryExactly(card, query) {
       const normalizedQuery = normalizedSearchWordIdentity(query);
       return Boolean(normalizedQuery) && (normalizedSearchWordIdentity(card.spelling) === normalizedQuery || normalizedSearchWordIdentity(newTabCardReading(card)) === normalizedQuery);
     }
-    async searchKanjiResult(character, words = [], parentCards = []) {
+    async searchKanjiResult(character, words = [], parentCards = [], targetSnapshot = this.captureTargetSnapshot()) {
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(character)) return null;
       const details = await this.deps.loadKanjiDetails(character).catch((error) => {
-        log$7.debug("Search kanji summary details unavailable", { kanji: character, error });
+        log$8.debug("Search kanji summary details unavailable", { kanji: character, error });
         return {
           jpdb: null,
           jiten: null,
@@ -314398,6 +314655,7 @@ ${entry2.url}`),
           }
         };
       });
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(character)) return null;
       const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
       const parentMeanings = searchParentMeaningKeys(parentCards, character);
       const meanings = uniqueTrimmedStrings([
@@ -314405,7 +314663,7 @@ ${entry2.url}`),
         ...details.local.flatMap((entry2) => entry2.meanings)
       ]).filter((meaning) => !parentMeanings.has(normalizedKeywordText(meaning))).slice(0, 6);
       const readings = details.jiten ? jitenKanjiReadingRows(details.jiten).slice(0, 8) : newTabKanjiReadings(fullInfo, uniqueTrimmedStrings(details.local.flatMap((entry2) => [...entry2.onyomi, ...entry2.kunyomi]))).slice(0, 8);
-      const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
+      const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character, targetSnapshot.target) ?? fallbackSearchKanjiCard(character);
       const sourceKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
       return {
         character,
@@ -314418,15 +314676,16 @@ ${entry2.url}`),
     toggleSearchWordResult(root, button2, card) {
       const existing = this.expandSearchResultDetail(button2);
       if (!existing) return;
-      const kanjiDetailsPromise = this.shouldLoadSearchWordKanjiDetails(card) ? this.loadSearchWordKanjiDetails(card) : null;
+      const targetSnapshot = this.captureTargetSnapshot();
+      const kanjiDetailsPromise = this.shouldLoadSearchWordKanjiDetails(card) ? this.loadSearchWordKanjiDetails(card, targetSnapshot) : null;
       let renderedDetail = {
         ...this.instantSearchWordDetail(),
         wordKanjiLoading: Boolean(kanjiDetailsPromise)
       };
-      const canRender = () => root.isConnected && existing.isConnected && button2.getAttribute("aria-expanded") === "true";
+      const canRender = () => root.isConnected && existing.isConnected && this.targetSnapshotIsCurrent(targetSnapshot) && button2.getAttribute("aria-expanded") === "true";
       const renderCurrentDetail = () => {
         if (!canRender()) return;
-        this.renderSearchWordDetail(existing, card, renderedDetail);
+        this.renderSearchWordDetail(existing, card, renderedDetail, targetSnapshot);
       };
       renderCurrentDetail();
       void this.loadSearchWordDetail(card).then((detail) => {
@@ -314436,28 +314695,32 @@ ${entry2.url}`),
           wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails)
         };
         renderCurrentDetail();
+        if (!usesJapaneseProviders()) return;
         const { hydratePitchAccent, hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
         if (hydratePitchAccent) {
           const renderedPitchKey = card.pitchAccent.join("|");
           void hydratePitchAccent(card).then((pitchAccent) => {
+            if (!usesJapaneseProviders() || !canRender()) return;
             if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
             if (renderedPitchKey === card.pitchAccent.join("|")) return;
             renderCurrentDetail();
           }).catch((error) => {
-            log$7.debug("Search pitch hydration failed", { term: card.spelling, error });
+            log$8.debug("Search pitch hydration failed", { term: card.spelling, error });
           });
         }
         if (hydrateFrequencyRanks) {
           void hydrateFrequencyRanks(card).then((frequencyRanks) => {
+            if (!usesJapaneseProviders() || !canRender()) return;
             if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
             renderedDetail = { ...renderedDetail, frequencyRanks };
             renderCurrentDetail();
           }).catch((error) => {
-            log$7.debug("Search provider frequency hydration failed", { term: card.spelling, error });
+            log$8.debug("Search provider frequency hydration failed", { term: card.spelling, error });
           });
         }
         if (hydrateBunproDefinitionResult) {
           void hydrateBunproDefinitionResult(card).then((result2) => {
+            if (!usesJapaneseProviders() || !canRender()) return;
             const unchangedInfo = renderedDetail.bunproDefinitionInfo === result2.info;
             const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result2.status);
             if (unchangedInfo && unchangedStatus) return;
@@ -314468,20 +314731,21 @@ ${entry2.url}`),
             };
             renderCurrentDetail();
           }).catch((error) => {
-            log$7.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+            log$8.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
           });
         } else if (!detail.bunproDefinitionInfo && hydrateBunproDefinitionInfo) {
           void hydrateBunproDefinitionInfo(card).then((info) => {
+            if (!usesJapaneseProviders() || !canRender()) return;
             if (!info) return;
             renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
             renderCurrentDetail();
           }).catch((error) => {
-            log$7.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
+            log$8.debug("Search Bunpro definition hydration failed", { term: card.spelling, error });
           });
         }
       }).catch((error) => {
-        log$7.warn("New tab search detail failed", { term: card.spelling }, error);
-        if (existing.isConnected) replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
+        log$8.warn("New tab search detail failed", { term: card.spelling }, error);
+        if (canRender()) replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
       });
       void kanjiDetailsPromise?.then((details) => {
         renderedDetail = {
@@ -314491,7 +314755,7 @@ ${entry2.url}`),
         };
         renderCurrentDetail();
       }).catch((error) => {
-        log$7.warn("Search word kanji failed", { term: card.spelling }, error);
+        log$8.warn("Search word kanji failed", { term: card.spelling }, error);
         renderedDetail = {
           ...renderedDetail,
           wordKanjiDetails: [],
@@ -314538,7 +314802,7 @@ ${entry2.url}`),
     }
     async loadRenderedSearchWordDetail(card) {
       return await this.deps.getDependencies().loadCardRenderData?.(card).catch((error) => {
-        log$7.warn("Search render data unavailable", { term: card.spelling }, error);
+        log$8.warn("Search render data unavailable", { term: card.spelling }, error);
         return null;
       }) ?? null;
     }
@@ -314551,7 +314815,7 @@ ${entry2.url}`),
       );
     }
     loadSearchKanjiEntries(card, settings) {
-      if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isSearchLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+      if (!targetCanLookupCharacter(card.spelling) || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isSearchLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.deps.localSearchWithTimeout(
         this.deps.getDependencies().dictionaries.lookupKanji?.(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences) ?? Promise.resolve([]),
         []
@@ -314567,44 +314831,49 @@ ${entry2.url}`),
     }
     loadSearchJpdbVocabularyInfo(card) {
       const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
-      if (!this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+      if (!usesJapaneseProviders() || !this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
       const jpdbVid = !card.source || card.source === "jpdb" ? card.vid : 0;
       return promiseWithTimeout(
         jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "JPDB vocabulary lookup timed out."
-      ).catch(() => null);
+      ).then((info) => usesJapaneseProviders() ? info : null).catch(() => null);
     }
     loadSearchJitenVocabularyInfo(card, settings) {
       const jiten = this.deps.getDependencies().jiten;
-      if (!settings.jitenDefinitionsEnabled || typeof jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      if (!usesJapaneseProviders() || !settings.jitenDefinitionsEnabled || typeof jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
       return promiseWithTimeout(
         jiten.lookupVocabularyInfoForCard(card),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "Jiten vocabulary lookup timed out."
-      ).catch(() => null);
+      ).then((info) => usesJapaneseProviders() ? info : null).catch(() => null);
     }
     shouldLoadSearchWordKanjiDetails(card) {
-      if (!this.searchWordKanjiCharacters(card).length) return false;
+      if (!targetSupportsCharacterLookup() || !this.searchWordKanjiCharacters(card).length) return false;
       return orderedKanjiSourceIds(this.deps.getDependencies().getSettings()).some((sourceId2) => sourceId2 !== KANJI_STROKE_SOURCE_ID);
     }
     searchWordKanjiCharacters(card) {
-      return kanjiCharacters$1(card.spelling);
+      return kanjiCharacters$1(card.spelling).filter(targetCanLookupCharacter);
     }
-    async loadSearchWordKanjiDetails(card) {
-      return await Promise.all(this.searchWordKanjiCharacters(card).map(async (kanji) => {
-        const details = await this.deps.loadKanjiDetails(kanji);
+    async loadSearchWordKanjiDetails(card, targetSnapshot = this.captureTargetSnapshot()) {
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
+      const details = await Promise.all(this.searchWordKanjiCharacters(card).map(async (kanji) => {
+        const details2 = await this.deps.loadKanjiDetails(kanji);
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(kanji)) return null;
         return {
           kanji,
-          details
+          details: details2
         };
       }));
+      if (!this.targetSnapshotIsCurrent(targetSnapshot)) return [];
+      return details.filter((detail) => Boolean(detail));
     }
-    renderSearchWordDetail(mount, card, detail) {
+    renderSearchWordDetail(mount, card, detail, targetSnapshot = this.captureTargetSnapshot()) {
+      if (!this.targetSnapshotIsCurrent(targetSnapshot)) return;
       this.searchWordCardCache.set(cardKey(card), card);
       mount.dataset.newtabCard = cardKey(card);
       setInnerHtml(mount, searchWordDetailHtml(card, detail, this.searchDetailViewContext()));
-      this.insertSearchWordKanjiSectionIfPresent(mount, card, detail);
+      this.insertSearchWordKanjiSectionIfPresent(mount, card, detail, targetSnapshot);
       this.installSearchWordDetailEnhancements(mount, card, detail);
     }
     searchDetailViewContext() {
@@ -314618,13 +314887,15 @@ ${entry2.url}`),
         renderSearchWordPills: this.deps.getDependencies().renderSearchWordPills
       };
     }
-    insertSearchWordKanjiSectionIfPresent(mount, card, detail) {
-      const kanjiSection = this.renderSearchWordKanjiSection(card, detail);
+    insertSearchWordKanjiSectionIfPresent(mount, card, detail, targetSnapshot) {
+      const kanjiSection = this.renderSearchWordKanjiSection(card, detail, targetSnapshot);
       if (kanjiSection) this.insertSearchWordKanjiSection(mount, kanjiSection);
     }
     installSearchWordDetailEnhancements(mount, card, detail) {
       this.deps.getDependencies().installDictionarySourceTracking?.(mount);
-      this.deps.getDependencies().installSearchDetailSources?.(mount, card, card.sentence || card.spelling, detail.jpdbVocabularyInfo);
+      if (usesJapaneseProviders()) {
+        this.deps.getDependencies().installSearchDetailSources?.(mount, card, card.sentence || card.spelling, detail.jpdbVocabularyInfo);
+      }
       void this.deps.getDependencies().parseContent?.(mount);
     }
     insertSearchWordKanjiSection(mount, kanjiSection) {
@@ -314635,7 +314906,8 @@ ${entry2.url}`),
       }
       mount.append(kanjiSection);
     }
-    renderSearchWordKanjiSection(card, detail) {
+    renderSearchWordKanjiSection(card, detail, targetSnapshot = this.captureTargetSnapshot()) {
+      if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return null;
       if (!this.shouldLoadSearchWordKanjiDetails(card)) {
         return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
       }
@@ -314650,13 +314922,13 @@ ${entry2.url}`),
       const details = detail.wordKanjiDetails ?? [];
       if (!details.length) return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
       details.forEach((item2) => {
-        section2.append(this.renderSearchWordKanjiItem(card, item2));
+        section2.append(this.renderSearchWordKanjiItem(card, item2, targetSnapshot));
       });
       return section2;
     }
-    renderSearchWordKanjiItem(card, item2) {
+    renderSearchWordKanjiItem(card, item2, targetSnapshot = this.captureTargetSnapshot()) {
       const fullInfo = item2.details.jpdb ? normalizeJpdbKanjiInfo(item2.details.jpdb) : null;
-      const kanjiCard = this.deps.getDependencies().parser.fallbackCardFromText?.(item2.kanji) ?? fallbackSearchKanjiCard(item2.kanji);
+      const kanjiCard = this.deps.getDependencies().parser.fallbackCardFromText?.(item2.kanji, targetSnapshot.target) ?? fallbackSearchKanjiCard(item2.kanji);
       const localMeanings = uniqueTrimmedStrings(item2.details.local.flatMap((entry2) => entry2.meanings)).slice(0, 6);
       kanjiCard.kanjiKeyword = this.deps.keywordFromDetails(kanjiCard, fullInfo, item2.details.jiten, item2.details.rtk) || localMeanings[0] || "";
       const kanjiDetail = this.deps.renderKanjiDetails(
@@ -314683,13 +314955,15 @@ ${entry2.url}`),
       return itemRoot;
     }
     toggleSearchKanjiResult(button2, kanji) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const existing = this.expandSearchResultDetail(button2);
       if (!existing) return;
+      const targetSnapshot = this.captureTargetSnapshot();
       replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("loadingKanjiDetails")));
       void this.deps.loadKanjiDetails(kanji).then((details) => {
-        if (!existing.isConnected || button2.getAttribute("aria-expanded") !== "true") return;
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(kanji) || !existing.isConnected || button2.getAttribute("aria-expanded") !== "true") return;
         const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
-        const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji);
+        const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji, targetSnapshot.target);
         const localMeanings = uniqueTrimmedStrings(details.local.flatMap((entry2) => entry2.meanings)).slice(0, 6);
         card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || "";
         replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
@@ -314697,14 +314971,17 @@ ${entry2.url}`),
         this.deps.renderNewTabKanjiImmersion(existing, kanji);
         void this.deps.getDependencies().parseContent?.(existing);
       }).catch((error) => {
-        log$7.warn("New tab search kanji detail failed", { kanji }, error);
-        if (existing.isConnected) replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
+        log$8.warn("New tab search kanji detail failed", { kanji }, error);
+        if (this.targetSnapshotIsCurrent(targetSnapshot) && existing.isConnected) {
+          replaceChildrenWith(existing, el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searchLocalDictionariesFailed")));
+        }
       });
     }
     renderSearchIdle(root) {
       const results = this.searchResultsMount(root);
       if (!results) return;
       delete results.dataset.searchQuery;
+      delete results.dataset.searchTarget;
       this.searchWordCardCache.clear();
       this.renderSearchAutocomplete(root, "", []);
       if (this.deps.browseHasProviders()) {
@@ -314755,6 +315032,7 @@ ${entry2.url}`),
       const results = this.searchResultsMount(root);
       if (!results) return;
       results.dataset.searchQuery = query;
+      results.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
       replaceChildrenWith(
         results,
         el("div", { class: "jpdb-reader-newtab-search-message" }, this.deps.text("searching"))
@@ -314763,13 +315041,15 @@ ${entry2.url}`),
     renderSearchResults(root, results) {
       const mount = this.searchResultsMount(root);
       if (!mount) return;
+      const kanjiResults = targetSupportsCharacterLookup() ? results.kanji : [];
       mount.dataset.searchQuery = results.query;
+      mount.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
       this.searchWordCardCache = new Map(results.words.map((card) => [cardKey(card), card]));
-      const resultCount = results.words.length + results.kanji.length;
+      const resultCount = results.words.length + kanjiResults.length;
       this.renderSearchAutocomplete(root, results.query, results.suggestions);
       replaceChildrenWith(
         mount,
-        results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
+        kanjiResults.length ? renderSearchKanjiResults(kanjiResults, this.searchViewContext()) : null,
         results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
         resultCount ? null : this.renderSearchNoResults(results)
       );
@@ -314782,11 +315062,12 @@ ${entry2.url}`),
       await this.deps.getDependencies().parseContent?.(root, this.deps.shortParseOptions())?.catch(() => void 0);
     }
     async enrichSearchResultPitch(root, results, generation2) {
+      if (!usesJapaneseProviders()) return;
       const cards = results.words.filter((card) => this.deps.shouldEnrichWordPitch(card));
       if (!cards.length) return;
       await runLimited(cards, NEW_TAB_SEARCH_PITCH_CONCURRENCY, async (card) => {
         const pitchAccent = await this.deps.loadWordPitch(card);
-        if (!pitchAccent.length || !this.isCurrentSearch(root, generation2, results.query)) return;
+        if (!usesJapaneseProviders() || !pitchAccent.length || !this.isCurrentSearch(root, generation2, results.query)) return;
         if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
         this.deps.updateRenderedWordPitch(root, card);
       });
@@ -314795,7 +315076,7 @@ ${entry2.url}`),
       if (!this.deps.getDependencies().loadCardRenderData || !results.words.length) return;
       await Promise.all(results.words.map(async (card) => {
         const data = await this.deps.getDependencies().loadCardRenderData?.(card).catch((error) => {
-          log$7.debug("Search Anki status skipped", { term: card.spelling, error });
+          log$8.debug("Search Anki status skipped", { term: card.spelling, error });
           return null;
         });
         if (!data || !this.isCurrentSearch(root, generation2, results.query)) return;
@@ -314815,6 +315096,7 @@ ${entry2.url}`),
       const results = this.searchResultsMount(root);
       if (!results) return;
       results.dataset.searchQuery = query;
+      results.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
       this.searchWordCardCache.clear();
       replaceChildrenWith(
         results,
@@ -314826,7 +315108,7 @@ ${entry2.url}`),
         language: this.deps.language(),
         settings: this.deps.getDependencies().getSettings(),
         text: (key2) => this.deps.text(key2),
-        showKanjiFallbackReadings: true
+        showKanjiFallbackReadings: targetSupportsCharacterLookup()
       };
     }
     renderSearchNoResults(results) {
@@ -315726,7 +316008,6 @@ ${entry2.url}`),
     const midpoint = Math.floor(sorted.length / 2);
     return sorted.length % 2 ? sorted[midpoint] ?? 0 : ((sorted[midpoint - 1] ?? 0) + (sorted[midpoint] ?? 0)) / 2;
   }
-  const KANJI_RE = /[\u3400-\u9fff々〆]/u;
   const STUDY_STEP_LABELS = {
     "kanji-doodle": "Kanji",
     word: "Word",
@@ -315745,7 +316026,8 @@ ${entry2.url}`),
   function mergedStudyStepsForCard(card, options) {
     const available = /* @__PURE__ */ new Set();
     const disabled = new Set(options.disabledSteps ?? []);
-    if (options.renderAsKanji || containsKanji(card.spelling)) available.add("kanji-doodle");
+    const characterStudyEnabled = targetSupportsCharacterLookup();
+    if (characterStudyEnabled && (options.renderAsKanji || containsKanji(card.spelling))) available.add("kanji-doodle");
     available.add("word");
     if (options.hasRecallCloze) available.add("recall-cloze");
     if (options.pitchAvailable) {
@@ -315754,7 +316036,7 @@ ${entry2.url}`),
     }
     if (!disabled.has("word")) available.add("type-word");
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
-    const kanji = kanjiCharacters(card.spelling);
+    const kanji = characterStudyEnabled ? kanjiCharacters(card.spelling) : [];
     const steps = ordered.flatMap((kind) => {
       if (!available.has(kind) || disabled.has(kind)) return [];
       if (kind === "kanji-doodle") {
@@ -315816,10 +316098,10 @@ ${entry2.url}`),
     });
   }
   function containsKanji(value) {
-    return Array.from(value).some((character) => KANJI_RE.test(character));
+    return Array.from(value).some(isJapaneseKanjiCharacter);
   }
   function kanjiCharacters(value) {
-    return [...new Set(Array.from(value).filter((character) => KANJI_RE.test(character)))];
+    return [...new Set(Array.from(value).filter(isJapaneseKanjiCharacter))];
   }
   function suggestedStudyGrade(outcomes2, grades) {
     const attempted = Object.values(outcomes2).filter((outcome) => outcome === "correct" || outcome === "wrong");
@@ -316279,12 +316561,33 @@ ${entry2.url}`),
   function sourceResult(value, state) {
     return { value, state };
   }
+  function disabledKanjiDetailBundle() {
+    return {
+      jpdb: null,
+      jiten: null,
+      rtk: null,
+      vg: null,
+      local: [],
+      sourceInfo: null,
+      sourceStates: {
+        jpdb: "disabled",
+        jiten: "disabled",
+        rtk: "disabled",
+        vg: "disabled",
+        local: "disabled",
+        origin: "disabled"
+      }
+    };
+  }
   class KanjiDetailSource {
     constructor(deps) {
       this.deps = deps;
     }
     cache = /* @__PURE__ */ new Map();
     load(kanji) {
+      if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) {
+        return Promise.resolve(disabledKanjiDetailBundle());
+      }
       const settings = this.deps.getSettings();
       const cache2 = this.cacheEntry(kanji);
       const signature = this.settingsSignature(settings);
@@ -317119,10 +317422,6 @@ ${options.version}`;
     } catch {
       return `${rounded} ${currency}`;
     }
-  }
-  const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
-  function clearNewTabOfflineCache() {
-    return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
   function httpStatusFromError(error) {
     if (!error || typeof error !== "object") return void 0;
@@ -318396,13 +318695,215 @@ ${options.version}`;
       timeoutLabel: "Uchisen request timed out."
     });
   }
+  const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
+  function clearNewTabOfflineCache() {
+    return gmStorageDelete(NEW_TAB_CACHE_KEY);
+  }
+  function captureActiveTarget() {
+    return {
+      generation: activeLearningTargetGeneration(),
+      target: activeLearningTarget()
+    };
+  }
+  function isCurrentActiveTarget(snapshot) {
+    return snapshot.generation === activeLearningTargetGeneration() && snapshot.target === activeLearningTarget();
+  }
+  class NewTabLookupTargetScope {
+    language = targetLanguageOf(DEFAULT_SETTINGS);
+    runtimeGeneration = activeLearningTargetGeneration();
+    scopeGeneration = 0;
+    renderRequest = 0;
+    renderTarget;
+    capture() {
+      return {
+        ...captureActiveTarget(),
+        language: this.language,
+        scopeGeneration: this.scopeGeneration
+      };
+    }
+    isCurrent(snapshot) {
+      return snapshot.language === this.language && snapshot.scopeGeneration === this.scopeGeneration && isCurrentActiveTarget(snapshot);
+    }
+    sync(settings) {
+      const language2 = adoptLearningTargetFromSettings(settings).language;
+      const runtimeGeneration = activeLearningTargetGeneration();
+      if (language2 === this.language && runtimeGeneration === this.runtimeGeneration) return false;
+      this.language = language2;
+      this.runtimeGeneration = runtimeGeneration;
+      this.scopeGeneration += 1;
+      this.invalidateRender();
+      return true;
+    }
+    nextRender() {
+      this.renderRequest += 1;
+      this.renderTarget = this.capture();
+      return this.renderRequest;
+    }
+    isCurrentRender(requestId) {
+      return requestId === this.renderRequest && Boolean(this.renderTarget && this.isCurrent(this.renderTarget));
+    }
+    currentRenderRequest() {
+      return this.renderRequest;
+    }
+    invalidateRender() {
+      this.renderRequest += 1;
+      this.renderTarget = void 0;
+    }
+  }
+  const WORD_PITCH_CACHE_LIMIT = 320;
+  const WORD_PITCH_LOCAL_GRACE_MS = 120;
+  const WORD_PITCH_LOCAL_TIMEOUT_MS = 2500;
+  class NewTabTargetResources {
+    constructor(dependencies) {
+      this.dependencies = dependencies;
+    }
+    wordPitch = new BoundedMap(WORD_PITCH_CACHE_LIMIT);
+    clear() {
+      this.wordPitch.clear();
+    }
+    async lookupPortableCard(identity2, lookup, onLookupError, target2 = captureActiveTarget()) {
+      const lookedUp = await lookup?.(identity2.spelling, identity2.reading).catch((error) => {
+        if (!isCurrentActiveTarget(target2)) throw error;
+        onLookupError(error);
+        return null;
+      });
+      if (!isCurrentActiveTarget(target2)) return null;
+      return lookedUp ?? this.dependencies.parser.fallbackCardFromText(identity2.spelling, target2.target);
+    }
+    loadLocalEntries(card) {
+      const settings = this.dependencies.getSettings();
+      const lookup = this.dependencies.dictionaries.lookup;
+      if (!settings.localDictionariesEnabled || typeof lookup !== "function") return Promise.resolve([]);
+      return this.dependencies.localSearchWithTimeout(lookup.call(
+        this.dependencies.dictionaries,
+        card.spelling,
+        newTabCardReading(card),
+        settings.localDictionaryMaxResults,
+        settings.dictionaryPreferences
+      ), []);
+    }
+    async loadDictionaryCards(limit, hasLocalDictionaries, loadEntries) {
+      const settings = this.dependencies.getSettings();
+      const target2 = captureActiveTarget();
+      if (!settings.localDictionariesEnabled || !await hasLocalDictionaries()) return [];
+      const entries2 = await loadEntries(settings, Math.max(1, Math.floor(limit)));
+      return isCurrentActiveTarget(target2) ? entries2.map((entry2) => this.dependencies.parser.localCardFromEntry(entry2, target2.target)) : [];
+    }
+    async writeOffline(cards, sourceLabel2) {
+      const settings = this.dependencies.getSettings();
+      const limit = Math.max(0, settings.newTabOfflineLimit || 0);
+      if (!settings.newTabOfflineEnabled || !limit) return;
+      await gmStorageSet(NEW_TAB_CACHE_KEY, {
+        at: Date.now(),
+        targetLanguage: captureActiveTarget().target.language,
+        sourceLabel: sourceLabel2,
+        cards: cards.slice(0, limit)
+      }).catch(() => void 0);
+    }
+    async readOffline() {
+      const settings = this.dependencies.getSettings();
+      if (!settings.newTabOfflineEnabled) return { cards: [], sourceLabel: "" };
+      const target2 = captureActiveTarget();
+      const cached = await gmStorageGet(NEW_TAB_CACHE_KEY, null).catch(() => null);
+      if (!isCurrentActiveTarget(target2) || (cached?.targetLanguage ?? "ja") !== target2.target.language) {
+        return { cards: [], sourceLabel: "" };
+      }
+      return {
+        cards: Array.isArray(cached?.cards) ? cached.cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard).slice(0, Math.max(0, settings.newTabOfflineLimit || 0)) : [],
+        sourceLabel: cached?.sourceLabel ?? ""
+      };
+    }
+    loadWordPitch(card) {
+      if (!usesJapaneseProviders()) return Promise.resolve([]);
+      const key2 = this.wordPitchKey(card);
+      const cached = this.wordPitch.get(key2);
+      if (cached) return cached;
+      const promise = this.fetchWordPitch(card).catch(() => []);
+      this.wordPitch.set(key2, promise);
+      return promise;
+    }
+    async fetchWordPitch(card) {
+      if (!usesJapaneseProviders()) return [];
+      const localPitch = this.fetchLocalWordPitch(card);
+      const quickLocalPitch = await Promise.race([
+        localPitch,
+        delayWithValue("", WORD_PITCH_LOCAL_GRACE_MS)
+      ]);
+      if (!usesJapaneseProviders()) return [];
+      if (quickLocalPitch) return [quickLocalPitch];
+      const pitch = await firstNonEmptyPitch([
+        this.fetchPublicWordPitch(card),
+        Promise.race([
+          localPitch,
+          delayWithValue("", WORD_PITCH_LOCAL_TIMEOUT_MS)
+        ]).then((value) => value ? [value] : [])
+      ]);
+      return usesJapaneseProviders() ? pitch : [];
+    }
+    async fetchPublicWordPitch(card) {
+      if (!usesJapaneseProviders()) return [];
+      const pitch = await (this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]));
+      return usesJapaneseProviders() ? pitch : [];
+    }
+    async fetchLocalWordPitch(card) {
+      const settings = this.dependencies.getSettings();
+      if (!settings.localDictionariesEnabled) return "";
+      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
+      if (typeof lookupTermMeta !== "function") return "";
+      const metaEntries = await lookupTermMeta.call(
+        this.dependencies.dictionaries,
+        card.spelling,
+        12,
+        settings.dictionaryPreferences
+      ).catch(() => []);
+      const patterns = await localPitchPatternsFromMetaLookup(
+        card.spelling,
+        newTabCardReading(card),
+        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
+        { initialEntries: metaEntries }
+      ).catch(() => []);
+      return patterns[0] ?? "";
+    }
+    wordPitchKey(card) {
+      const settings = this.dependencies.getSettings();
+      return JSON.stringify({
+        spelling: card.spelling,
+        reading: newTabCardReading(card),
+        local: settings.localDictionariesEnabled,
+        dictionaries: settings.dictionaryPreferences.map(({ name, enabled, priority }) => ({ name, enabled, priority }))
+      });
+    }
+  }
+  function firstNonEmptyPitch(promises) {
+    return new Promise((resolve) => {
+      let pending2 = promises.length;
+      let settled = false;
+      const finishEmpty = () => {
+        pending2 -= 1;
+        if (!settled && pending2 <= 0) {
+          settled = true;
+          resolve([]);
+        }
+      };
+      promises.forEach((promise) => {
+        promise.then((pitch) => {
+          if (settled) return;
+          if (pitch.length) {
+            settled = true;
+            resolve(pitch);
+          } else finishEmpty();
+        }).catch(() => finishEmpty());
+      });
+    });
+  }
+  function delayWithValue(value, ms) {
+    return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
+  }
   const NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
   const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
   const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1e3;
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
-  const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
-  const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2500;
   const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
   const QUEUE_REFRESH_LOW_WATER = 20;
   const QUEUE_REFRESH_GRADE_INTERVAL = 10;
@@ -318411,7 +318912,6 @@ ${options.version}`;
   const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
   const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
   const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
-  const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
   const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
   function scheduleIdle(task2) {
@@ -318439,7 +318939,7 @@ ${options.version}`;
   function newTabPitchClass(card) {
     return getPitchClass(card.pitchAccent, newTabCardReading(card)) || "unknown";
   }
-  const log$6 = Logger.scope("NewTab");
+  const log$7 = Logger.scope("NewTab");
   const NEW_TAB_ROUTE_NAMES = /* @__PURE__ */ new Set(["study", "word", "search", "stats"]);
   const LEGACY_STUDY_STEP_IDS = {
     recall: "recall-cloze",
@@ -318477,6 +318977,13 @@ ${options.version}`;
       this.dependencies = dependencies;
       this.options = options;
       this.initialStudyStepIdPending = options.initialStudyStepId ?? null;
+      this.targetResources = new NewTabTargetResources({
+        getSettings: () => this.dependencies.getSettings(),
+        parser: this.dependencies.parser,
+        dictionaries: this.dependencies.dictionaries,
+        jpdbPublicPitch: this.dependencies.jpdbPublicPitch,
+        localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
+      });
       this.statsController = new NewTabStatsController({
         getSettings: () => this.dependencies.getSettings(),
         jpdb: this.dependencies.jpdb,
@@ -318598,7 +319105,6 @@ ${options.version}`;
     immersionExampleIndex = new BoundedMap(NEW_TAB_IMMERSION_CACHE_LIMIT);
     frontSentenceCache = new BoundedMap(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     parsedSentenceCache = /* @__PURE__ */ new Map();
-    wordPitchCache = new BoundedMap(NEW_TAB_WORD_PITCH_CACHE_LIMIT);
     doodlePreviewCache = new BoundedMap(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
     immersionPrefetchGeneration = 0;
     installPrompt = null;
@@ -318786,6 +319292,7 @@ ${options.version}`;
     // constructor body — the review-source clients are read off `this.dependencies`,
     // a parameter property not yet set during field initialization.
     reviewSubmitter;
+    targetResources;
     isCurrentPage() {
       return Boolean(this.options.host) || isYomuNewTabUrl(location.href);
     }
@@ -318943,16 +319450,7 @@ ${options.version}`;
       if (label === "JPDB live review") return `JPDB ${this.text("liveReview")}`;
       return label;
     }
-    invalidateForFactoryReset() {
-      this.loadGeneration++;
-      this.allWords = [];
-      this.visibleWords = [];
-      this.index = 0;
-      this.sourceLabel = "";
-      this.visiblePoolSignature = "";
-      this.navigationSupplementPromise = null;
-      this.reviewCountMode = false;
-      this.emptyLoadMessageKey = null;
+    clearTargetBoundState() {
       this.searchController.reset();
       this.liveCards.clear();
       this.clearSourceResultCache();
@@ -318963,6 +319461,7 @@ ${options.version}`;
       this.immersionExampleIndex.clear();
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
+      this.targetResources.clear();
       this.studySentenceOverrides.clear();
       this.nPlusOneSentenceRequests.clear();
       this.doodlePreviewCache.clear();
@@ -318971,6 +319470,56 @@ ${options.version}`;
       this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsController.reset();
+    }
+    invalidateForFactoryReset() {
+      this.loadGeneration++;
+      this.allWords = [];
+      this.visibleWords = [];
+      this.index = 0;
+      this.sourceLabel = "";
+      this.visiblePoolSignature = "";
+      this.navigationSupplementPromise = null;
+      this.reviewCountMode = false;
+      this.emptyLoadMessageKey = null;
+      this.clearTargetBoundState();
+    }
+    invalidateForTargetChange() {
+      this.loadGeneration++;
+      this.navigationGeneration++;
+      this.immersionPrefetchGeneration++;
+      this.resetLoadedSourceState();
+      this.state.revealAnswer = false;
+      this.clearTargetBoundState();
+      this.pendingLiveJpdbGrade = null;
+      this.studyStepOverride = null;
+      this.pinnedStudyPlan = null;
+      this.browsePool = void 0;
+      this.browsePoolKey = "";
+      this.deckSelectorDecks = void 0;
+      this.studyCardDomTokens.clear();
+      this.studyCardsByDomToken.clear();
+      this.offlineReadyKeys.clear();
+      this.offlineWarmSignature = "";
+      this.offlineWarmTotal = 0;
+      if (this.offlineWarmRetryTimer !== void 0) {
+        clearTimeout(this.offlineWarmRetryTimer);
+        this.offlineWarmRetryTimer = void 0;
+      }
+      this.fallbackStudyNotice = false;
+      this.statsStudyFilter = null;
+      this.listenItem = null;
+      this.listenContrastCard = null;
+      this.listenAudioGeneration++;
+      this.clearListenSpeakingScore();
+      this.clearListenRecording();
+      const root = this.currentRoot();
+      if (!root) return;
+      if (this.state.route === "search") {
+        this.searchController.renderSearch(root);
+        return;
+      }
+      if (this.state.route === "stats") return this.renderStats(root);
+      this.applyWords(root, false);
     }
     renderEnabledContent() {
       const brand = resolveNewTabBrandAssets(location.href);
@@ -319090,7 +319639,9 @@ ${options.version}`;
                   dataset: { newtabAction: "search-handwriting-toggle" },
                   lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en",
                   "aria-controls": "jpdb-reader-newtab-handwriting",
-                  "aria-expanded": "false"
+                  "aria-expanded": "false",
+                  hidden: !targetSupportsCharacterLookup(),
+                  disabled: !targetSupportsCharacterLookup()
                 }, newTabText(language2, "draw")),
                 el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "search-clear" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en", "aria-label": newTabText(language2, "clearSearch") }, uiText(language2, "clear"))
               ),
@@ -320064,6 +320615,7 @@ ${options.version}`;
       const kanji = actionTarget.dataset.kanji ?? "";
       if (!kanji) return false;
       consumeNestedLookupEvent(event);
+      if (!targetCanLookupCharacter(kanji)) return true;
       if (this.state.route === "search") {
         this.searchController.selectSearchSuggestion(root, kanji);
         return true;
@@ -320097,10 +320649,12 @@ ${options.version}`;
       const button2 = actionTarget.closest('button[data-action="jiten-kanji-more"]');
       if (!button2) return false;
       consumeNestedLookupEvent(event);
+      if (!targetCanLookupCharacter(button2.dataset.jitenKanjiCharacter?.trim() ?? "")) return true;
       void this.loadMoreJitenKanjiWords(button2);
       return true;
     }
     jitenKanjiWordsActionContext() {
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return null;
       const jiten = this.dependencies.jiten;
       const lookupKanjiWords = jiten?.lookupKanjiWords;
       if (typeof lookupKanjiWords !== "function") return null;
@@ -320117,6 +320671,7 @@ ${options.version}`;
       const button2 = actionTarget.closest('button[data-action="jiten-kanji-reading"]');
       if (!button2) return false;
       consumeNestedLookupEvent(event);
+      if (!targetCanLookupCharacter(button2.dataset.jitenKanjiCharacter?.trim() ?? "")) return true;
       void this.filterJitenKanjiWords(button2);
       return true;
     }
@@ -320386,20 +320941,15 @@ ${options.version}`;
       const identity2 = this.portableCardIdentityFromLocation();
       if (!identity2?.spelling || !this.isVocabularyStudyRoute()) return cards;
       if (cards.some((card2) => this.cardMatchesPortableIdentity(card2, identity2))) return cards;
-      const card = await this.lookupPortableUrlCard(identity2).catch((error) => {
-        log$6.warn("Could not resolve portable study URL card", { identity: identity2, error });
+      const card = await this.targetResources.lookupPortableCard(
+        identity2,
+        this.dependencies.lookupStudyCard,
+        (error) => log$7.warn("Portable study URL lookup failed", { identity: identity2, error })
+      ).catch((error) => {
+        log$7.warn("Could not resolve portable study URL card", { identity: identity2, error });
         return null;
       });
       return card ? [this.portableUrlStudyCard(card, identity2), ...cards] : cards;
-    }
-    async lookupPortableUrlCard(identity2) {
-      const lookedUp = await this.dependencies.lookupStudyCard?.(identity2.spelling, identity2.reading).catch((error) => {
-        log$6.warn("Portable study URL lookup failed", { identity: identity2, error });
-        return null;
-      });
-      if (lookedUp) return lookedUp;
-      const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
-      return typeof fallbackCardFromText === "function" ? fallbackCardFromText.call(this.dependencies.parser, identity2.spelling) : null;
     }
     portableUrlStudyCard(card, identity2) {
       const normalized2 = normalizeNewTabCard(card);
@@ -320577,7 +321127,7 @@ ${options.version}`;
       };
     }
     async handleLoadWordsError(root, preferStoredWord, loadGeneration, error, useOfflineCache, quiet = false) {
-      log$6.warn("Failed to load words", error);
+      log$7.warn("Failed to load words", error);
       this.statsStudyFilter = null;
       if (quiet && this.visibleWords.length) return;
       const cached = useOfflineCache ? await this.readOfflineCache() : { cards: [], sourceLabel: "" };
@@ -320735,7 +321285,7 @@ ${options.version}`;
       const terms = uniqueTrimmedStrings(entries2.flatMap((entry2) => entry2.terms));
       if (!terms.length) return [];
       const parsed = await parse.call(jiten, terms).catch((error) => {
-        log$6.warn("Jiten practice fallback parse failed", { terms: terms.length }, error);
+        log$7.warn("Jiten practice fallback parse failed", { terms: terms.length }, error);
         return [];
       });
       const byTerm = /* @__PURE__ */ new Map();
@@ -320834,6 +321384,7 @@ ${options.version}`;
         source: source2,
         language: this.language(),
         targetLanguage: activeLearningTarget().language,
+        targetGeneration: activeLearningTargetGeneration(),
         apiKey: hasJpdbApiCredential(settings),
         jitenApiKey: hasJitenApiCredential(settings),
         jpdbMiningEnabled: settings.jpdbMiningEnabled,
@@ -320957,7 +321508,7 @@ ${options.version}`;
       const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.normalizedAnkiDeckScope() || void 0);
       const cards = await (this.state.source === "anki" ? loadCards : promiseWithTimeout(loadCards, timeoutMs, "Anki timed out.")).catch((error) => {
         unavailable = true;
-        log$6.warn("New tab Anki source failed", { error });
+        log$7.warn("New tab Anki source failed", { error });
         return [];
       });
       return {
@@ -320972,33 +321523,12 @@ ${options.version}`;
       return scope2 === "all" ? "" : scope2;
     }
     async loadDictionaryWords(_onProgress, limit = NEW_TAB_WORD_LIMIT) {
-      const settings = this.dependencies.getSettings();
-      const cardLimit = Math.max(1, Math.floor(limit));
-      if (!settings.localDictionariesEnabled) {
-        return {
-          cards: [],
-          sourceLabel: this.text("dictionary"),
-          reviewCountMode: false
-        };
-      }
-      try {
-        if (!await this.hasLocalDictionaries()) {
-          return {
-            cards: [],
-            sourceLabel: this.text("dictionary"),
-            reviewCountMode: false
-          };
-        }
-        const entries2 = await this.loadDictionaryFallbackEntries(settings, cardLimit);
-        const cards = entries2.map((entry2) => this.dependencies.parser.localCardFromEntry(entry2));
-        return {
-          cards,
-          sourceLabel: this.text("dictionary"),
-          reviewCountMode: false
-        };
-      } catch {
-        return { cards: [], sourceLabel: this.text("dictionary"), reviewCountMode: false };
-      }
+      const cards = await this.targetResources.loadDictionaryCards(
+        limit,
+        () => this.hasLocalDictionaries(),
+        (settings, cardLimit) => this.loadDictionaryFallbackEntries(settings, cardLimit)
+      ).catch(() => []);
+      return { cards, sourceLabel: this.text("dictionary"), reviewCountMode: false };
     }
     async loadFreshStudyWords(onProgress, options = {}) {
       if (options.requireDictionaryBeforePublicFallback) {
@@ -321202,7 +321732,7 @@ ${options.version}`;
       });
     }
     async loadPublicJpdbWords() {
-      if (activeLearningTarget().language !== "ja") return emptyNewTabLoadResult("JPDB");
+      if (!usesJapaneseProviders()) return emptyNewTabLoadResult("JPDB");
       const cards = await this.remoteSourceWithFallback(
         "JPDB public dictionary",
         this.loadPublicJpdbDictionaryCards(),
@@ -321211,6 +321741,7 @@ ${options.version}`;
       return { cards, sourceLabel: "JPDB", reviewCountMode: false };
     }
     async loadPublicJpdbDictionaryCards() {
+      if (!usesJapaneseProviders()) return [];
       const localSeedCards = await this.publicFallbackStage(
         "JPDB public local seed",
         this.loadPublicJpdbCardsFromLocalDictionary(),
@@ -321234,7 +321765,7 @@ ${options.version}`;
       );
     }
     async loadPublicJpdbCardsFromLocalDictionary() {
-      if (!this.dependencies.jpdbVocabulary?.search || !await this.hasLocalDictionaries()) return [];
+      if (!usesJapaneseProviders() || !this.dependencies.jpdbVocabulary?.search || !await this.hasLocalDictionaries()) return [];
       const entries2 = await this.loadDictionaryFallbackEntries(this.dependencies.getSettings());
       return this.loadPublicJpdbSearchCards(
         entries2.map((entry2) => entry2.expression).filter(Boolean).slice(0, Math.min(NEW_TAB_PUBLIC_JPDB_LOCAL_SEED_LIMIT, NEW_TAB_PUBLIC_JPDB_CONCURRENCY)),
@@ -321242,27 +321773,34 @@ ${options.version}`;
       );
     }
     async loadPublicJpdbCardsFromKanjiVocabulary() {
+      if (!usesJapaneseProviders()) return [];
       const lookup = this.dependencies.jpdbKanji.lookup;
       if (typeof lookup !== "function") return [];
       const seeds = randomPublicJpdbSeedKanji(NEW_TAB_PUBLIC_JPDB_CONCURRENCY);
       const groups = [];
       await runLimited(seeds, NEW_TAB_PUBLIC_JPDB_CONCURRENCY, async (kanji, index) => {
+        if (!usesJapaneseProviders() || !targetCanLookupCharacter(kanji)) return;
         const info = await promiseWithTimeout(
           lookup.call(this.dependencies.jpdbKanji, kanji),
           NEW_TAB_PUBLIC_STAGE_TIMEOUT_MS,
           "Public JPDB kanji seed timed out."
         ).catch(() => null);
-        groups[index] = (info?.vocabulary ?? []).map(jpdbKanjiVocabularyToNewTabCard);
+        if (usesJapaneseProviders() && targetCanLookupCharacter(kanji)) {
+          groups[index] = (info?.vocabulary ?? []).map(jpdbKanjiVocabularyToNewTabCard);
+        }
       });
+      if (!usesJapaneseProviders()) return [];
       return preferMultiCharacterVocabulary(dedupeWords(groups.flat())).slice(0, NEW_TAB_WORD_LIMIT);
     }
     async loadPublicJpdbSearchCards(queries, limitPerQuery) {
+      if (!usesJapaneseProviders()) return [];
       const search = this.dependencies.jpdbVocabulary?.search;
       if (!search || !queries.length) return [];
       const groups = [];
       await runLimited(uniqueTrimmedStrings(queries), NEW_TAB_PUBLIC_JPDB_CONCURRENCY, async (query, index) => {
         groups[index] = await this.searchController.searchPublicJpdbCards(query, limitPerQuery);
       });
+      if (!usesJapaneseProviders()) return [];
       const cards = groups.flat();
       return dedupeWords(cards).slice(0, NEW_TAB_WORD_LIMIT);
     }
@@ -321321,7 +321859,7 @@ ${options.version}`;
           failed: false
         };
       } catch (error) {
-        log$6.warn("New tab remote source failed", { label, error });
+        log$7.warn("New tab remote source failed", { label, error });
         return { value: fallback, failed: true };
       }
     }
@@ -321329,7 +321867,7 @@ ${options.version}`;
       try {
         return await promiseWithTimeout(promise, NEW_TAB_PUBLIC_STAGE_TIMEOUT_MS, `${label} timed out.`);
       } catch (error) {
-        log$6.warn("New-tab public fallback failed", { label, error });
+        log$7.warn("New-tab public fallback failed", { label, error });
         return fallback;
       }
     }
@@ -321338,7 +321876,7 @@ ${options.version}`;
     }
     persistSourceSettingChange(source2) {
       return Promise.resolve().then(() => this.dependencies.onSettingsChange()).catch((error) => {
-        log$6.warn("New-tab source update failed", { source: source2 }, error);
+        log$7.warn("New-tab source update failed", { source: source2 }, error);
       });
     }
     setState(patch, root, options) {
@@ -321622,13 +322160,15 @@ ${options.version}`;
     }
     async loadMoreForNavigation(root, direction, source2) {
       const currentKey = this.currentVisibleWordKey();
+      const target2 = captureActiveTarget();
       this.setStatus(root, this.text(this.currentCardRendersAsKanji() ? "noKanjiCardsYet" : "noWordsYet"));
       const promise = this.appendNavigationSupplement(root, direction, currentKey, source2);
       this.navigationSupplementPromise = promise;
       try {
         await promise;
       } catch (error) {
-        log$6.warn("New-tab supplement failed", { source: source2 }, error);
+        if (!isCurrentActiveTarget(target2)) return;
+        log$7.warn("New-tab supplement failed", { source: source2 }, error);
         if (root.isConnected && this.visibleWords.length) this.moveVisibleWord(root, direction);
         else if (root.isConnected) this.setStatus(root, this.text("couldNotLoadWords"));
       } finally {
@@ -321636,8 +322176,10 @@ ${options.version}`;
       }
     }
     async appendNavigationSupplement(root, direction, currentKey, source2) {
+      const target2 = captureActiveTarget();
       const beforeSignature = this.newTabPoolSignature(this.studyPoolForCurrentMode());
       const cards = await this.loadNavigationSupplementCards(source2);
+      if (!isCurrentActiveTarget(target2)) return;
       if (!cards.length) {
         this.moveVisibleWord(root, direction);
         return;
@@ -321787,7 +322329,7 @@ ${options.version}`;
         return;
       }
       if (intent.kind === "kanji") {
-        this.initialStudyStepIdPending = "kanji-doodle:0";
+        if (targetSupportsCharacterLookup()) this.initialStudyStepIdPending = "kanji-doodle:0";
         return;
       }
       this.listenInteractionMode = intent.interaction === "recall" ? "recall" : "perceive";
@@ -322225,7 +322767,7 @@ ${options.version}`;
         }, 3200);
         this.rerenderActiveListen();
       } catch (error) {
-        log$6.warn("Listen self-recording unavailable", error);
+        log$7.warn("Listen self-recording unavailable", error);
         this.listenRecorder = void 0;
         this.listenRecordingUnavailable = true;
         this.rerenderActiveListen();
@@ -322254,7 +322796,7 @@ ${options.version}`;
         if (score && speakingCard) this.recordSpeakingOutcome(speakingCard, score.verdict !== "retry");
         this.rerenderActiveListen();
       } catch (error) {
-        log$6.warn("Listen pitch scoring failed", error);
+        log$7.warn("Listen pitch scoring failed", error);
         if (generation2 !== this.listenSpeakingScoreGeneration || this.listenItem?.key !== itemKey) return;
         this.listenSpeakingScore = null;
         this.listenSpeakingScoring = false;
@@ -322306,7 +322848,7 @@ ${options.version}`;
       this.listenSpeakingScoring = false;
     }
     shouldRenderCardAsKanji(card) {
-      return this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
+      return targetSupportsCharacterLookup() && (this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card));
     }
     currentCardRendersAsKanji() {
       const card = this.visibleWords[this.index];
@@ -323164,7 +323706,7 @@ ${options.version}`;
       );
     }
     installNewTabKanjiDoodle(slots, card, kanji) {
-      if (!slots.answer) return;
+      if (!slots.answer || !targetCanLookupCharacter(kanji)) return;
       installKanjiDoodle(slots.answer, () => this.dependencies.getSettings().interfaceLanguage, {
         onChange: (strokes) => this.assessDoodle(slots, card, kanji, strokes),
         onClear: () => {
@@ -323532,6 +324074,7 @@ ${options.version}`;
       );
     }
     installTypeWordDoodle(answer2, card) {
+      if (!targetSupportsCharacterLookup()) return;
       const chars = Array.from(this.typeWordTarget(card));
       const progress2 = this.typeWordHandwritingProgress(card, chars);
       if (progress2 >= chars.length) return;
@@ -323545,11 +324088,9 @@ ${options.version}`;
     }
     async assessTypeWordDoodle(answer2, card, character, strokes) {
       const slots = { ...this.studySlots(answer2.closest(".jpdb-reader-newtab") ?? answer2), answer: answer2 };
-      if (!isKanjiCharacter(character)) {
-        this.advanceTypeWordHandwriting(answer2, card, "correct");
-        return;
-      }
+      if (!targetCanLookupCharacter(character)) return;
       const details = await this.loadKanjiDetails(character);
+      if (!targetCanLookupCharacter(character) || !answer2.isConnected || this.visibleWords[this.index] !== card) return;
       const expectedStrokes = details.vg?.strokeCount ?? 0;
       if (!expectedStrokes || !details.vg?.strokeShapes?.length) {
         this.advanceTypeWordHandwriting(answer2, card, "correct");
@@ -323579,7 +324120,7 @@ ${options.version}`;
       if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
     }
     typeWordSupportsHandwriting(card) {
-      return Array.from(this.typeWordTarget(card)).some(isKanjiCharacter);
+      return targetSupportsCharacterLookup() && Array.from(this.typeWordTarget(card)).some(targetCanLookupCharacter);
     }
     typeWordHandwritingProgress(card, chars = Array.from(this.typeWordTarget(card))) {
       const key2 = cardKey(card);
@@ -323589,7 +324130,7 @@ ${options.version}`;
       return normalized2;
     }
     nextTypeWordHandwritingIndex(chars, start) {
-      const relative = chars.slice(start).findIndex(isKanjiCharacter);
+      const relative = chars.slice(start).findIndex(targetCanLookupCharacter);
       return relative < 0 ? chars.length : start + relative;
     }
     typeWordTarget(card) {
@@ -323609,7 +324150,9 @@ ${options.version}`;
     }
     handleTypeWordModeClick(root, target2) {
       const mode = target2.closest("[data-type-word-mode]")?.dataset.typeWordMode;
-      if (mode === "keyboard" || mode === "handwriting") this.setTypeWordInputMode(root, mode);
+      if (mode === "keyboard" || mode === "handwriting" && targetSupportsCharacterLookup()) {
+        this.setTypeWordInputMode(root, mode);
+      }
     }
     submitTypeWordAnswer(root) {
       const card = this.visibleWords[this.index];
@@ -323676,21 +324219,22 @@ ${options.version}`;
       const renderSources2 = this.dependencies.renderStudyDefinitionSources;
       if (!loadDetails || !renderSources2) return;
       const key2 = cardKey(card);
+      const target2 = captureActiveTarget();
       const requestId = `${key2}:${performance.now()}:${Math.random()}`;
       meaning.dataset.newtabStudyRevealDetailsRequest = requestId;
       let data = await loadDetails(card).catch(() => null);
-      if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId)) return;
-      if (!data.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
+      if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId, target2)) return;
+      if (usesJapaneseProviders() && !data.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
         const info = await this.dependencies.hydrateBunproDefinitionInfo(card).catch(() => null);
         if (info) data = { ...data, bunproDefinitionInfo: info };
-        if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId)) return;
+        if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId, target2)) return;
       }
       let html = renderSources2(card, data, card.sentence || card.spelling);
-      if (this.studyDefinitionSourcesMissing(html)) {
+      if (usesJapaneseProviders() && this.studyDefinitionSourcesMissing(html)) {
         const fallback = await this.lookupStudyRevealDefinitionCard(card);
-        if (!fallback || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId)) return;
+        if (!fallback || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId, target2)) return;
         const fallbackData = await loadDetails(fallback).catch(() => null);
-        if (!fallbackData || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId)) return;
+        if (!fallbackData || !this.isCurrentStudyRevealDefinitionRequest(meaning, key2, requestId, target2)) return;
         html = renderSources2(fallback, fallbackData, card.sentence || fallback.sentence || fallback.spelling);
       }
       if (this.studyDefinitionSourcesMissing(html)) return;
@@ -323699,11 +324243,11 @@ ${options.version}`;
       setInnerHtml(section2, html);
       meaning.append(section2);
       this.dependencies.installDictionarySourceTracking?.(section2);
-      this.dependencies.installWanikaniSources?.(section2, card);
+      if (usesJapaneseProviders()) this.dependencies.installWanikaniSources?.(section2, card);
       void this.dependencies.parseContent?.(section2);
     }
-    isCurrentStudyRevealDefinitionRequest(meaning, cardKeyValue, requestId) {
-      return meaning.isConnected && meaning.dataset.newtabStudyRevealDetailsRequest === requestId && this.state.revealAnswer && this.isVocabularyStudyRoute() && cardKey(this.visibleWords[this.index]) === cardKeyValue;
+    isCurrentStudyRevealDefinitionRequest(meaning, cardKeyValue, requestId, target2) {
+      return isCurrentActiveTarget(target2) && meaning.isConnected && meaning.dataset.newtabStudyRevealDetailsRequest === requestId && this.state.revealAnswer && this.isVocabularyStudyRoute() && cardKey(this.visibleWords[this.index]) === cardKeyValue;
     }
     studyDefinitionSourcesMissing(html) {
       return !html.trim() || html.includes("jpdb-reader-no-definitions");
@@ -323711,7 +324255,7 @@ ${options.version}`;
     async lookupStudyRevealDefinitionCard(card) {
       if (!this.dependencies.lookupStudyCard) return null;
       const fallback = await this.dependencies.lookupStudyCard(card.spelling, card.reading).catch((error) => {
-        log$6.warn("Study reveal dictionary fallback lookup failed", { term: card.spelling }, error);
+        log$7.warn("Study reveal dictionary fallback lookup failed", { term: card.spelling }, error);
         return null;
       });
       if (!fallback) return null;
@@ -323725,12 +324269,13 @@ ${options.version}`;
     // with their keywords ("Composed of"). Chips reuse the existing kanji
     // popover action for drilldown; keywords hydrate from RTK/JPDB lazily.
     async composedOfKeywordLookup(client, character) {
-      if (typeof client?.lookup !== "function") return "";
+      if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || typeof client?.lookup !== "function") return "";
       const result2 = await client.lookup(character).catch(() => null);
-      return result2?.keyword ?? "";
+      return usesJapaneseProviders() && targetCanLookupCharacter(character) ? result2?.keyword ?? "" : "";
     }
     appendComposedOfLine(meaning, card) {
-      const kanjiCharacters2 = [...new Set(Array.from(card.spelling).filter(isKanjiCharacter))];
+      if (!targetSupportsCharacterLookup()) return;
+      const kanjiCharacters2 = [...new Set(Array.from(card.spelling).filter(targetCanLookupCharacter))];
       if (kanjiCharacters2.length === 0) return;
       const row2 = el(
         "div",
@@ -323752,12 +324297,14 @@ ${options.version}`;
       void this.hydrateComposedOfKeywords(row2, kanjiCharacters2);
     }
     async hydrateComposedOfKeywords(row2, kanjiCharacters2) {
+      if (!targetSupportsCharacterLookup()) return;
       await Promise.all(kanjiCharacters2.map(async (character) => {
+        if (!targetCanLookupCharacter(character)) return;
         if (this.keywordCache.has(character)) return;
         const keyword = await this.composedOfKeywordLookup(this.dependencies.rtk, character) || await this.composedOfKeywordLookup(this.dependencies.jpdbKanji, character);
-        if (keyword) this.keywordCache.set(character, keyword);
+        if (keyword && targetCanLookupCharacter(character)) this.keywordCache.set(character, keyword);
       }));
-      if (!row2.isConnected) return;
+      if (!targetSupportsCharacterLookup() || !row2.isConnected) return;
       row2.querySelectorAll("[data-kanji]").forEach((chip) => {
         const small = chip.querySelector("small");
         const keyword = this.keywordCache.get(chip.dataset.kanji ?? "");
@@ -324010,7 +324557,12 @@ ${options.version}`;
       const key2 = cardKey(card);
       if (this.nPlusOneSentenceRequests.has(key2)) return;
       this.nPlusOneSentenceRequests.add(key2);
+      const targetLanguage2 = activeLearningTargetLanguage();
       void this.selectNPlusOneStudySentence(card).then((sentence) => {
+        if (activeLearningTargetLanguage() !== targetLanguage2) {
+          this.nPlusOneSentenceRequests.delete(key2);
+          return;
+        }
         if (!sentence || sentence === this.recallSentenceFromCard(card)) return;
         const root = this.currentRoot();
         const active = this.visibleWords[this.index];
@@ -324032,11 +324584,11 @@ ${options.version}`;
     // example merely because its token score is a little higher.
     async selectNPlusOneStudySentence(card) {
       const reading = newTabCardReading(card);
-      const [data, examples] = await Promise.all([
-        this.dependencies.loadCardRenderData?.(card).catch(() => null) ?? Promise.resolve(null),
+      const [localEntries, examples] = await Promise.all([
+        usesJapaneseProviders() ? this.dependencies.loadCardRenderData?.(card).then((data) => data.localEntries).catch(() => []) ?? Promise.resolve([]) : this.targetResources.loadLocalEntries(card),
         this.dependencies.getSettings().immersionKitEnabled ? this.loadImmersionExamples(card).catch(() => []) : Promise.resolve([])
       ]);
-      const tiers = studySentenceTiers(card, data?.localEntries ?? [], examples.slice(0, 8));
+      const tiers = studySentenceTiers(card, localEntries, examples.slice(0, 8));
       const tier = firstStudySentenceTier(tiers, (sentence) => buildNewTabRecallCloze(card, sentence, reading).hasCloze);
       const clozeable = tier?.sentences ?? [];
       if (clozeable.length <= 1) return clozeable[0] ?? "";
@@ -324097,10 +324649,11 @@ ${options.version}`;
       return this.dependencies.getSettings().immersionKitEnabled && typeof this.dependencies.immersionKit?.search === "function";
     }
     async loadJpdbFrontSentence(card) {
+      if (!usesJapaneseProviders()) return "";
       const settings = this.dependencies.getSettings();
       if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.jpdbVocabulary) return "";
       const info = await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null);
-      return jpdbExampleSentenceForPrompt(info, card);
+      return usesJapaneseProviders() ? jpdbExampleSentenceForPrompt(info, card) : "";
     }
     frontSentenceCacheKey(card) {
       const settings = this.dependencies.getSettings();
@@ -324302,8 +324855,8 @@ ${options.version}`;
       });
     }
     performNewTabKanjiImmersionAction(root, surface, action2) {
-      const kanji = surface.dataset.newtabKanji;
-      if (!kanji) return;
+      const kanji = surface.dataset.newtabKanji ?? "";
+      if (!targetCanLookupCharacter(kanji)) return;
       const card = this.newTabKanjiImmersionCard(kanji);
       if (action2 === "audio") {
         void this.playRenderedOrCurrentKanjiImmersionAudio(surface, kanji, card);
@@ -324576,8 +325129,10 @@ ${options.version}`;
       }
     }
     async addNewTabJpdbImmersionFallbackQueries(candidates, card, exactQuery) {
+      if (!usesJapaneseProviders()) return;
       const settings = this.dependencies.getSettings();
       const jpdbInfo = settings.jpdbDefinitionsEnabled && hasJpdbApiCredential(settings) && this.dependencies.jpdbVocabulary ? await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null) : null;
+      if (!usesJapaneseProviders()) return;
       this.addNewTabImmersionFallbackQueries(
         candidates,
         (jpdbInfo?.compounds ?? []).flatMap((compound) => [compound.term, compound.reading]),
@@ -324586,7 +325141,14 @@ ${options.version}`;
     }
     async addNewTabParsedImmersionFallbackQueries(candidates, card, exactQuery) {
       if (typeof this.dependencies.parser.canParse !== "function" || !this.dependencies.parser.canParse()) return;
-      const [tokens] = await this.dependencies.parser.parse([card.spelling], { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS, allowJpdbTimeoutFallback: true }).catch(() => [[]]);
+      const targetLanguage2 = activeLearningTargetLanguage();
+      const [tokens] = await this.dependencies.parser.parse([card.spelling], {
+        jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS,
+        allowJpdbTimeoutFallback: true,
+        allowSegmentedFallback: true,
+        skipApi: !usesJapaneseProviders()
+      }).catch(() => [[]]);
+      if (activeLearningTargetLanguage() !== targetLanguage2) return;
       for (const token of tokens ?? []) {
         this.addNewTabImmersionFallbackQuery(candidates, token.card.spelling, exactQuery);
         this.addNewTabImmersionFallbackQuery(candidates, card.spelling.slice(token.start, token.end), exactQuery);
@@ -324654,6 +325216,7 @@ ${options.version}`;
       return unique2;
     }
     async enrichKanjiCard(slots, card, kanji) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const details = await this.loadKanjiDetails(kanji);
       if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
@@ -324662,6 +325225,8 @@ ${options.version}`;
       void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
     canApplyKanjiEnrichment(slots, card, kanji) {
+      if (kanji && !targetCanLookupCharacter(kanji)) return false;
+      if (!targetSupportsCharacterLookup()) return false;
       const current = this.visibleWords[this.index];
       if (!current || cardKey(current) !== cardKey(card)) return false;
       const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
@@ -324686,7 +325251,7 @@ ${options.version}`;
       }
     }
     async applyEnrichedUchisenKeyword(slots, card, kanji, details) {
-      if (!slots.prompt || this.state.revealAnswer) return;
+      if (!targetCanLookupCharacter(kanji) || !slots.prompt || this.state.revealAnswer) return;
       const uchisenData = await this.loadUchisenDetails(kanji);
       if (!uchisenData?.kanjiKeyword?.keyword) return;
       if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
@@ -324721,12 +325286,13 @@ ${options.version}`;
       void this.dependencies.parseContent?.(slots.meaning);
     }
     renderNewTabUchisen(root, kanji) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const settings = this.dependencies.getSettings();
       const mount = root.querySelector("[data-newtab-uchisen-mount]");
       if (!mount || !settings.uchisenEnabled) return;
       const sourceAttributes = this.sourceAttributes(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
       void this.loadUchisenDetails(kanji).then((data) => {
-        if (!mount.isConnected) return;
+        if (!targetCanLookupCharacter(kanji) || !mount.isConnected) return;
         if (!data || !data.images.length && !data.canGenerateImages) {
           mount.remove();
           return;
@@ -324743,7 +325309,13 @@ ${options.version}`;
           canGenerateImages: data.canGenerateImages,
           refreshData: () => {
             this.uchisenDataCache.delete(kanji);
-            return loadUchisenData(kanji, this.dependencies.getSettings().corsProxyUrl);
+            return targetCanLookupCharacter(kanji) ? loadUchisenData(kanji, this.dependencies.getSettings().corsProxyUrl) : Promise.resolve({
+              images: [],
+              componentGroups: [],
+              kanjiKeyword: null,
+              kanjiId: "",
+              canGenerateImages: false
+            });
           },
           interfaceLanguage: settings.interfaceLanguage
         });
@@ -324752,7 +325324,7 @@ ${options.version}`;
       });
     }
     renderNewTabKanjiImmersionPlaceholder(settings) {
-      if (!settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return null;
+      if (!targetSupportsCharacterLookup() || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return null;
       const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
       const isOpen = this.isSourceOpen(sourceStateKey, false);
       return el(
@@ -324775,19 +325347,22 @@ ${options.version}`;
       );
     }
     renderNewTabKanjiImmersion(root, kanji) {
+      if (!targetCanLookupCharacter(kanji)) return;
+      const target2 = captureActiveTarget();
+      const isCurrentTarget = () => isCurrentActiveTarget(target2);
       const settings = this.dependencies.getSettings();
       const mount = root.querySelector("[data-newtab-kanji-immersion-mount]");
       const details = mount?.querySelector("[data-newtab-kanji-immersion-details]");
       const body = mount?.querySelector("[data-newtab-kanji-immersion-body]");
       if (!mount || !details || !body || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return;
-      const card = this.newTabKanjiImmersionCard(kanji);
+      const card = this.newTabKanjiImmersionCard(kanji, target2.target);
       const key2 = this.newTabKanjiImmersionKey(kanji);
       let started = false;
       const load2 = () => {
-        if (!details.open || started || !mount.isConnected || !body.isConnected) return;
+        if (!isCurrentTarget() || !targetCanLookupCharacter(kanji) || !details.open || started || !mount.isConnected || !body.isConnected) return;
         started = true;
         void this.loadImmersionExamples(card).then(async (examples) => {
-          if (!mount.isConnected || !body.isConnected) return;
+          if (!isCurrentTarget() || !targetCanLookupCharacter(kanji) || !mount.isConnected || !body.isConnected) return;
           const index = this.normalizedImmersionExampleIndex(key2, examples);
           const example = examples[index];
           if (!example) {
@@ -324800,19 +325375,20 @@ ${options.version}`;
           this.loadNewTabImmersionImage(immersion, example);
           await this.parseNewTabKanjiImmersionExample(immersion, card);
         }).catch(() => {
-          if (body.isConnected) replaceChildrenWith(body, el("div", { class: "jpdb-reader-help" }, uiText(this.language(), "noImmersionExamplesCompact")));
+          if (isCurrentTarget() && body.isConnected) replaceChildrenWith(body, el("div", { class: "jpdb-reader-help" }, uiText(this.language(), "noImmersionExamplesCompact")));
         });
       };
       details.addEventListener("toggle", load2);
       load2();
     }
-    newTabKanjiImmersionCard(kanji) {
-      return this.dependencies.parser.fallbackCardFromText?.(kanji) ?? fallbackSearchKanjiCard(kanji);
+    newTabKanjiImmersionCard(kanji, target2 = activeLearningTarget()) {
+      return this.dependencies.parser.fallbackCardFromText?.(kanji, target2) ?? fallbackSearchKanjiCard(kanji);
     }
     newTabKanjiImmersionKey(kanji) {
       return `kanji:${kanji}`;
     }
     isCurrentRevealedKanji(kanji) {
+      if (!targetCanLookupCharacter(kanji)) return false;
       const current = this.visibleWords[this.index];
       if (!current) return false;
       const currentKanji = kanjiCharacters$1(current.spelling)[0] ?? current.spelling[0] ?? "";
@@ -324829,6 +325405,7 @@ ${options.version}`;
       return this.renderNewTabImmersionCardVariant(card, example, index, total, "kanji");
     }
     loadUchisenDetails(kanji) {
+      if (!targetCanLookupCharacter(kanji)) return Promise.resolve(null);
       const settings = this.dependencies.getSettings();
       if (!settings.uchisenEnabled) return Promise.resolve(null);
       const existing = this.uchisenDataCache.get(kanji);
@@ -324943,7 +325520,7 @@ ${options.version}`;
       return section2;
     }
     renderNewTabUchisenPlaceholder(settings) {
-      if (!settings.uchisenEnabled) return null;
+      if (!targetSupportsCharacterLookup() || !settings.uchisenEnabled) return null;
       const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
       const isOpen = this.isSourceOpen(sourceStateKey);
       return el(
@@ -325066,10 +325643,12 @@ ${options.version}`;
       return firstTruthy(keywordCandidates(card, jpdb, rtk, source2));
     }
     async assessDoodle(slots, card, kanji, strokes) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const settings = this.dependencies.getSettings();
       this.captureDoodlePreview(slots, card);
       if (!settings.newTabKanjiAutogradeEnabled) return;
       const details = await this.loadKanjiDetails(kanji);
+      if (!targetCanLookupCharacter(kanji) || !this.canApplyKanjiEnrichment(slots, card, kanji)) return;
       const expectedStrokes = details.vg?.strokeCount ?? 0;
       if (shouldWaitForMoreDoodleStrokes(strokes, expectedStrokes)) {
         this.clearDoodleAssessment(slots);
@@ -325287,7 +325866,7 @@ ${options.version}`;
     }
     localSearchWithTimeout(promise, fallback) {
       return promiseWithTimeout(promise, NEW_TAB_LOCAL_SEARCH_TIMEOUT_MS, "Local dictionary search timed out.").catch((error) => {
-        log$6.debug("Local dictionary search skipped", { error });
+        log$7.debug("Local dictionary search skipped", { error });
         return fallback;
       });
     }
@@ -325751,12 +326330,14 @@ ${options.version}`;
       if (!actionId) return;
       const card = this.visibleWords[this.index];
       const kanji = visibleCardKanji(card);
+      if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
       try {
         this.setStatus(root, this.text("updatingJpdbKanji"));
         await this.dependencies.jpdbKanji.performAction(actionId);
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
         this.finishJpdbKanjiAction(root, card, kanji);
       } catch (error) {
-        log$6.warn("New tab JPDB kanji action failed", { kanji }, error);
+        log$7.warn("New tab JPDB kanji action failed", { kanji }, error);
         this.setStatus(root, this.text("jpdbKanjiUpdateFailed"));
       }
     }
@@ -325837,7 +326418,7 @@ ${options.version}`;
       return true;
     }
     async handleFailedGrade(target2, grade2, selectedTarget, isCorrection, error) {
-      log$6.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
+      log$7.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
       if (this.localYomuStorageFailure(error)) {
         const message = this.text("yomuLocalSrsStorageFailed");
         this.setStatus(target2.root, message);
@@ -326080,7 +326661,7 @@ ${options.version}`;
         this.dependencies.toast?.(this.text("reviewUndone"));
         this.restoreUndoneCardToFront(root, last.card);
       } catch (error) {
-        log$6.warn("Undo review failed", error);
+        log$7.warn("Undo review failed", error);
         this.dependencies.toast?.(this.text("undoReviewFailed"));
       }
     }
@@ -326380,23 +326961,13 @@ ${options.version}`;
       return true;
     }
     async writeOfflineCache(cards, sourceLabel2) {
-      const settings = this.dependencies.getSettings();
-      if (!settings.newTabOfflineEnabled) return;
-      const limit = Math.max(0, settings.newTabOfflineLimit || 0);
-      if (!limit) return;
-      await gmStorageSet(NEW_TAB_CACHE_KEY, {
-        at: Date.now(),
-        sourceLabel: sourceLabel2,
-        cards: cards.slice(0, limit)
-      }).catch(() => void 0);
+      await this.targetResources.writeOffline(cards, sourceLabel2);
     }
     async readOfflineCache() {
-      const settings = this.dependencies.getSettings();
-      if (!settings.newTabOfflineEnabled) return { cards: [], sourceLabel: "" };
-      const cached = await gmStorageGet(NEW_TAB_CACHE_KEY, null).catch(() => null);
+      const cached = await this.targetResources.readOffline();
       return {
-        cards: Array.isArray(cached?.cards) ? cached.cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard).slice(0, Math.max(0, settings.newTabOfflineLimit || 0)) : [],
-        sourceLabel: this.localizedSourceLabel(cached?.sourceLabel || this.text("cachedReviews"))
+        cards: cached.cards,
+        sourceLabel: this.localizedSourceLabel(cached.sourceLabel || this.text("cachedReviews"))
       };
     }
     renderReaderWord(card, state, text2 = card.spelling, sentence = card.sentence || card.spelling) {
@@ -326437,7 +327008,7 @@ ${options.version}`;
     }
     async enrichWordPitch(root, card) {
       if (!this.shouldEnrichWordPitch(card)) return;
-      const key2 = this.wordPitchCacheKey(card);
+      const key2 = this.targetResources.wordPitchKey(card);
       const requestId = `${key2}:${performance.now()}:${Math.random()}`;
       root.dataset.newtabPitchRequest = requestId;
       const pitchAccent = await this.loadWordPitch(card);
@@ -326464,61 +327035,10 @@ ${options.version}`;
       }).catch(() => void 0);
     }
     shouldEnrichWordPitch(card) {
-      return !card.pitchAccent.length && Boolean(card.spelling.trim());
+      return usesJapaneseProviders() && !card.pitchAccent.length && Boolean(card.spelling.trim());
     }
     loadWordPitch(card) {
-      const key2 = this.wordPitchCacheKey(card);
-      const cached = this.wordPitchCache.get(key2);
-      if (cached) return cached;
-      const promise = this.fetchWordPitch(card).catch(() => []);
-      this.wordPitchCache.set(key2, promise);
-      return promise;
-    }
-    async fetchWordPitch(card) {
-      const localPitch = this.fetchLocalWordPitch(card);
-      const quickLocalPitch = await Promise.race([
-        localPitch,
-        delayWithValue("", NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS)
-      ]);
-      if (quickLocalPitch) return [quickLocalPitch];
-      return firstNonEmptyPitch([
-        this.fetchPublicWordPitch(card),
-        Promise.race([
-          localPitch,
-          delayWithValue("", NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS)
-        ]).then((pitch) => pitch ? [pitch] : [])
-      ]);
-    }
-    fetchPublicWordPitch(card) {
-      return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
-    }
-    async fetchLocalWordPitch(card) {
-      const settings = this.dependencies.getSettings();
-      if (!settings.localDictionariesEnabled) return "";
-      const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
-      if (typeof lookupTermMeta !== "function") return "";
-      const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
-      const reading = newTabCardReading(card);
-      const patterns = await localPitchPatternsFromMetaLookup(
-        card.spelling,
-        reading,
-        (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-        { initialEntries: metaEntries }
-      ).catch(() => []);
-      return patterns[0] ?? "";
-    }
-    wordPitchCacheKey(card) {
-      const settings = this.dependencies.getSettings();
-      return JSON.stringify({
-        spelling: card.spelling,
-        reading: newTabCardReading(card),
-        local: settings.localDictionariesEnabled,
-        dictionaries: settings.dictionaryPreferences.map((preference) => ({
-          name: preference.name,
-          enabled: preference.enabled,
-          priority: preference.priority
-        }))
-      });
+      return this.targetResources.loadWordPitch(card);
     }
     updateRenderedWordPitch(root, card) {
       const pitchClass = newTabPitchClass(card);
@@ -326980,34 +327500,6 @@ ${options.version}`;
     if (sentence.includes(card.spelling)) return card.spelling;
     return reading && sentence.includes(reading) ? reading : "";
   }
-  function firstNonEmptyPitch(promises) {
-    if (!promises.length) return Promise.resolve([]);
-    return new Promise((resolve) => {
-      let pending2 = promises.length;
-      let settled = false;
-      const finishEmpty = () => {
-        pending2 -= 1;
-        if (!settled && pending2 <= 0) {
-          settled = true;
-          resolve([]);
-        }
-      };
-      promises.forEach((promise) => {
-        promise.then((pitch) => {
-          if (settled) return;
-          if (pitch.length) {
-            settled = true;
-            resolve(pitch);
-            return;
-          }
-          finishEmpty();
-        }).catch(() => finishEmpty());
-      });
-    });
-  }
-  function delayWithValue(value, ms) {
-    return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
-  }
   function clearSessionProgressDataset(dataset) {
     for (const key2 of Object.keys(dataset)) {
       if (key2.startsWith("session")) delete dataset[key2];
@@ -327465,7 +327957,7 @@ ${options.version}`;
       }, TOAST_EXIT_MS);
     }, durationMs));
   }
-  const log$5 = Logger.scope("ReaderAudioActions");
+  const log$6 = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -327520,7 +328012,7 @@ ${options.version}`;
         });
         return played;
       } catch (error) {
-        log$5.warn("Term audio playback failed", { term: card.spelling }, error);
+        log$6.warn("Term audio playback failed", { term: card.spelling }, error);
         this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
         return false;
       } finally {
@@ -368450,7 +368942,7 @@ ${options.version}`;
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
   }
-  const log$4 = Logger.scope("SettingsFileIO");
+  const log$5 = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -368496,7 +368988,7 @@ ${options.version}`;
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$4.warn("File picker input missing", { type });
+      log$5.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
@@ -369032,7 +369524,7 @@ ${options.version}`;
   function isRecord$1(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
-  const log$3 = Logger.scope("AcademyAccountSyncSettings");
+  const log$4 = Logger.scope("AcademyAccountSyncSettings");
   class AcademyAccountSyncSettingsController {
     constructor(toast) {
       this.toast = toast;
@@ -369048,7 +369540,7 @@ ${options.version}`;
         renderStatus(form2, status2, language2);
       } catch (error) {
         if (probeId !== this.statusProbeId || !form2.isConnected) return;
-        log$3.warn("Academy account status failed", error);
+        log$4.warn("Academy account status failed", error);
         setMessage(
           form2,
           formatUiText(language2, "academyAccountConnectionProblem", {
@@ -369096,7 +369588,7 @@ ${options.version}`;
           this.toast(uiText(language2, action2 === "connect-academy-account" ? "academyAccountConnectedDone" : "academyAccountSyncedDone"));
         }
       } catch (error) {
-        log$3.warn("Academy account action failed", { action: action2 }, error);
+        log$4.warn("Academy account action failed", { action: action2 }, error);
         const message = userFacingErrorText(language2, "actionFailed", error);
         setMessage(form2, message, "error");
         this.toast(message);
@@ -369228,7 +369720,7 @@ ${options.version}`;
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
-  const log$2 = Logger.scope("SettingsDialog");
+  const log$3 = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
@@ -369493,7 +369985,7 @@ ${options.version}`;
     return -1;
   }
   function handleSettingsActionError(action2, control2, setStatus, error, language2) {
-    log$2.warn("Settings action failed", { action: action2 }, error);
+    log$3.warn("Settings action failed", { action: action2 }, error);
     if (shouldReenableSettingsAction(action2)) control2?.removeAttribute("disabled");
     const message = userFacingErrorText(language2, "actionFailed", error);
     setStatus(message);
@@ -369528,11 +370020,6 @@ ${options.version}`;
   function selectedTargetLanguage(form2, settings) {
     const value = form2.querySelector('select[name="targetLanguage"]')?.value;
     return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
-  }
-  function targetLanguageDisplayName(id2, interfaceLanguage) {
-    const target2 = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id2);
-    if (!target2) return id2;
-    return interfaceLanguage === "ja" ? target2.nativeName : target2.englishName;
   }
   function dictionaryStatusText(summary, language2) {
     if (summary.dictionaries.length) {
@@ -369694,7 +370181,7 @@ ${options.version}`;
             this.afterSettingsSaved(form2, saveRequestId);
           });
         }).catch((error) => {
-          log$2.error("Settings save failed", error);
+          log$3.error("Settings save failed", error);
           this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "settingsSaveFailed", error));
         });
       });
@@ -369779,7 +370266,7 @@ ${options.version}`;
       try {
         await this.dependencies.refreshDictionaryStyles();
       } catch (error) {
-        log$2.warn("Dictionary style refresh failed", error);
+        log$3.warn("Dictionary style refresh failed", error);
         this.dependencies.toast(userFacingErrorText(this.settings.interfaceLanguage, "actionFailed", error));
       }
     }
@@ -369986,12 +370473,13 @@ ${options.version}`;
           showAvailability();
           return;
         }
+        const target2 = learningTargetRosterEntry(selected2);
         showAvailability(formatUiTemplate(
           uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
-          { language: targetLanguageDisplayName(selected2, this.settings.interfaceLanguage) }
+          { language: this.settings.interfaceLanguage === "ja" ? target2.nativeName : target2.englishName }
         ));
       } catch (error) {
-        log$2.warn("Published dictionary coverage check failed", error);
+        log$3.warn("Published dictionary coverage check failed", error);
         if (requestId !== this.targetDictionaryAvailabilityRequestId || !form2.isConnected) return;
         showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
       }
@@ -370235,7 +370723,7 @@ ${options.version}`;
         const decks = await this.dependencies.jpdb.listDecks();
         setInnerHtml(container, renderDeckControls(formSettings, decks, true, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage)));
       } catch (error) {
-        log$2.warn("Deck controls failed to load", error);
+        log$3.warn("Deck controls failed to load", error);
         setInnerHtml(container, renderDeckControls(formSettings, [], true, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage)));
       } finally {
         this.settings.apiKey = originalKey;
@@ -370345,7 +370833,7 @@ ${options.version}`;
         }
       } catch (error) {
         if (!this.shouldApplyAnkiConnectionProbe(form2, requestId)) return;
-        log$2.warn("Anki settings probe failed", error);
+        log$3.warn("Anki settings probe failed", error);
         this.setAnkiStatusLine(form2, this.ankiSetupUnavailableStatus(formSettings, language2));
         void this.refineAnkiUnavailableStatus(form2, requestId, formSettings, language2);
       } finally {
@@ -370394,7 +370882,7 @@ ${options.version}`;
       try {
         return await yomuModelUpdatePlan.call(this.dependencies.anki);
       } catch (error) {
-        log$2.warn("Anki note type update check failed", error);
+        log$3.warn("Anki note type update check failed", error);
         return null;
       } finally {
         this.restoreTransientSettings(previous);
@@ -370423,7 +370911,7 @@ ${options.version}`;
         ]);
       } catch (error) {
         if (!this.shouldApplyAnkiLibraryScan(form2, requestId)) return;
-        log$2.warn("Automatic Anki library scan failed", error);
+        log$3.warn("Automatic Anki library scan failed", error);
         this.setAnkiStatus(form2, uiText(language2, "ankiConnectionReady"), "success", void 0, "connected");
       } finally {
         this.restoreTransientSettings(previous);
@@ -370444,7 +370932,7 @@ ${options.version}`;
       try {
         await warmStatusIndex2.call(this.dependencies.anki);
       } catch (error) {
-        log$2.warn("Automatic Anki status index warmup failed", error);
+        log$3.warn("Automatic Anki status index warmup failed", error);
       } finally {
         this.restoreTransientSettings(previous);
       }
@@ -370469,7 +370957,7 @@ ${options.version}`;
         const summary = await this.dependencies.dictionaries.summary();
         await this.applyDictionaryStatus(form2, elements, summary);
       } catch (error) {
-        log$2.warn("Dictionary status unavailable", error);
+        log$3.warn("Dictionary status unavailable", error);
         setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
       }
     }
@@ -370510,7 +370998,7 @@ ${options.version}`;
         });
         this.refreshSettingsJapaneseParse(form2);
       } catch (error) {
-        log$2.warn("Yomu update status unavailable", error);
+        log$3.warn("Yomu update status unavailable", error);
         if (this.currentForm !== form2 || !form2.isConnected || this.yomuUpdateCheckId !== requestId) return;
         status2.dataset.statusTone = "pending";
         status2.textContent = formatUiText(language2, "updateStatusUnknown", { current: CURRENT_YOMU_VERSION });
@@ -370735,7 +371223,7 @@ ${options.version}`;
           this.dependencies.toast(uiText(language2, "audioPreviewFailed"));
         }
       } catch (error) {
-        log$2.warn("Audio settings preview failed", error);
+        log$3.warn("Audio settings preview failed", error);
         this.dependencies.toast(userFacingErrorText(language2, "audioPreviewFailed", error));
       } finally {
         this.restoreTransientSettings(previous);
@@ -370795,7 +371283,7 @@ ${options.version}`;
         this.renderDetectedAudioSubSources(form2, row2, detected, language2);
         setDetectStatus(detected.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
       } catch (error) {
-        log$2.warn("Audio sub-source detection failed", error);
+        log$3.warn("Audio sub-source detection failed", error);
         setDetectStatus(known.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
       }
     }
@@ -370973,7 +371461,7 @@ ${options.version}`;
       try {
         if (await this.dependencies.anki.isConnected()) return true;
       } catch (error) {
-        log$2.warn("Anki settings check failed", error);
+        log$3.warn("Anki settings check failed", error);
       }
       const line2 = this.ankiSetupUnavailableStatus(this.settings, language2);
       setAnkiStatus(line2.message, line2.tone, line2.action);
@@ -371011,12 +371499,12 @@ ${options.version}`;
     handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
         const line2 = this.ankiSetupUnavailableStatus(this.settings, language2);
-        log$2.warn("Anki settings action unavailable", error);
+        log$3.warn("Anki settings action unavailable", error);
         setAnkiStatus(line2.message, line2.tone, line2.action);
         return;
       }
       const message = this.ankiConnectionErrorMessage(error, language2);
-      log$2.warn("Anki settings test failed", error);
+      log$3.warn("Anki settings test failed", error);
       setAnkiStatus(message, "error");
       this.dependencies.toast(message);
     }
@@ -371356,7 +371844,7 @@ ${options.version}`;
       const status2 = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
       setStatus(status2);
       this.dependencies.toast(status2);
-      log$2.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
+      log$3.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
@@ -371492,22 +371980,6 @@ ${options.version}`;
       shortcuts: {
         ...current.shortcuts,
         ...imported.settings.shortcuts ?? {}
-      }
-    });
-  }
-  function parseContentCacheKey(texts, options, settings) {
-    return JSON.stringify({
-      texts,
-      options,
-      settings: {
-        apiKey: hasJpdbApiCredential(settings),
-        jitenApiKey: hasJitenApiCredential(settings),
-        localDictionariesEnabled: settings.localDictionariesEnabled,
-        dictionaries: settings.dictionaryPreferences.map((preference) => ({
-          name: preference.name,
-          enabled: preference.enabled,
-          priority: preference.priority
-        }))
       }
     });
   }
@@ -371709,7 +372181,7 @@ ${options.version}`;
       return target2;
     }
   }
-  const log$1 = Logger.scope("StudySources");
+  const log$2 = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
@@ -371804,7 +372276,7 @@ ${options.version}`;
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
       } catch (error) {
-        log$1.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+        log$2.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
         if (!this.canRenderGrammar(popover, container)) return;
         const language2 = this.settings().interfaceLanguage;
         const availability = currentGrammarAvailability(language2, true);
@@ -371902,7 +372374,7 @@ ${options.version}`;
       }).catch(() => void 0);
     }
     renderTranslationError(sentence, container, error) {
-      log$1.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+      log$2.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result2 = container.querySelector("[data-study-translation-result]");
       if (result2) result2.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
@@ -372135,7 +372607,8 @@ ${rank2.detail}` : baseTitle;
     };
   }
   function isSingleKanji(value) {
-    return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
+    const character = value.trim();
+    return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(character) || character.length > 1 && isJapaneseKanjiCharacter(character);
   }
   const BUNPRO_FRONTEND_API_BASE_URL = "https://api.bunpro.jp/api/frontend";
   const REQUEST_TIMEOUT_MS = 3e4;
@@ -373048,6 +373521,240 @@ ${rank2.detail}` : baseTitle;
   function uniqueNumbers(values) {
     return values.filter((value, index) => Number.isFinite(value) && value > 0 && values.indexOf(value) === index);
   }
+  const log$1 = Logger.scope("PublicLookupFallback");
+  function normalizedJitenLookupKey(term) {
+    return term.replace(/\s+/g, "");
+  }
+  function jitenFallbackTokenMatches(term, token) {
+    const normalizedTerm = normalizedJitenLookupKey(term);
+    const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
+    return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
+  }
+  function jitenFallbackCardMatchesTerm(term, card) {
+    const normalizedTerm = normalizedJitenLookupKey(term);
+    return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
+  }
+  function uniqueFallbackLookupEntries(cards, termLimit) {
+    const seen = /* @__PURE__ */ new Set();
+    const entries2 = [];
+    for (const card of cards) {
+      const key2 = cardKey(card);
+      if (seen.has(key2)) continue;
+      seen.add(key2);
+      const allTerms = fallbackLookupTermsForCard(card);
+      const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
+      if (terms.length) entries2.push({ key: key2, terms });
+    }
+    return entries2;
+  }
+  async function batchJitenFallbackCards(terms, parse) {
+    const cards = /* @__PURE__ */ new Map();
+    const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+    if (!uniqueTerms.length) return cards;
+    const parsed = await parse(uniqueTerms).catch((error) => {
+      log$1.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+      if (isMissingProxyTransportError(error)) throw error;
+      return [];
+    });
+    uniqueTerms.forEach((term, index) => {
+      const tokens = parsed[index] ?? [];
+      const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
+      if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
+    });
+    return cards;
+  }
+  async function jitenFallbackCards(terms, entryCount, deps, options) {
+    if (deps.jitenApiActive()) {
+      const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
+        if (!isMissingProxyTransportError(error)) throw error;
+        return null;
+      });
+      if (batched) return batched;
+    }
+    const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
+      log$1.warn("Jiten fallback failed", { terms: terms.length }, error);
+      return /* @__PURE__ */ new Map();
+    });
+    const cards = /* @__PURE__ */ new Map();
+    loaded.forEach((card, term) => {
+      if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
+    });
+    return cards;
+  }
+  async function publicLookupFallbackCards(cards, deps, options) {
+    const result2 = /* @__PURE__ */ new Map();
+    const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
+    if (!entries2.length) return result2;
+    const terms = [...new Set(entries2.flatMap((entry2) => entry2.terms))];
+    const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
+    for (const entry2 of entries2) {
+      for (const term of entry2.terms) {
+        const card = jitenCards.get(normalizedJitenLookupKey(term));
+        if (!card) continue;
+        result2.set(entry2.key, card);
+        break;
+      }
+    }
+    if (options.jpdbPublicLookup === false) return result2;
+    const unresolved = entries2.filter((entry2) => !result2.has(entry2.key));
+    await runLimited(unresolved, options.concurrency, async (entry2) => {
+      for (const term of entry2.terms) {
+        const publicCard = await deps.publicSpellingCard(term);
+        if (!publicCard) continue;
+        result2.set(entry2.key, publicCard);
+        return;
+      }
+    });
+    return result2;
+  }
+  class NewTabTargetLookupResolver {
+    constructor(dependencies) {
+      this.dependencies = dependencies;
+    }
+    async lookup(term, reading, target2) {
+      const localEntry = await this.localEntry(term, reading);
+      this.requireCurrent(target2);
+      if (localEntry) return this.dependencies.getParser().localCardFromEntry(localEntry, target2.target);
+      const allowJapaneseProviders = usesJapaneseProviders();
+      const allowJpdbPublicLookup = allowJapaneseProviders && this.dependencies.getSettings().jpdbDefinitionsEnabled;
+      const publicCard = allowJpdbPublicLookup ? await this.publicCard(term, true) : void 0;
+      this.requireCurrent(target2);
+      if (publicCard) return publicCard;
+      const fallbackCard = this.dependencies.getParser().fallbackCardFromText(term, target2.target);
+      const fallbackPublicCard = allowJapaneseProviders ? await this.publicFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false }) : void 0;
+      this.requireCurrent(target2);
+      if (fallbackPublicCard) return fallbackPublicCard;
+      const parsed = await this.dependencies.getParser().parse(
+        [term],
+        allowJapaneseProviders ? jpdbFirstParseOptions() : { skipApi: true, allowSegmentedFallback: true }
+      ).catch(() => [[]]);
+      this.requireCurrent(target2);
+      return pickTokenForSelection(parsed[0] ?? [], term)?.card ?? fallbackCard;
+    }
+    async publicCard(term, exact2 = false) {
+      if (!usesJapaneseProviders() || !this.dependencies.getSettings().jpdbDefinitionsEnabled) return void 0;
+      const cards = await this.dependencies.getJpdbVocabulary().search(term, 1).catch(() => []);
+      if (!usesJapaneseProviders()) return void 0;
+      return cards.find((card) => card.spelling === term) ?? (exact2 ? void 0 : cards[0]);
+    }
+    async publicFallbackCards(cards, options = {}) {
+      const target2 = this.dependencies.targetScope.capture();
+      const current = () => this.dependencies.targetScope.isCurrent(target2) && usesJapaneseProviders();
+      const settings = this.dependencies.getSettings();
+      if (!current() || !settings.jpdbDefinitionsEnabled && !settings.showPitchAccent) return /* @__PURE__ */ new Map();
+      const resolved = await publicLookupFallbackCards(cards, {
+        jitenApiActive: () => current() && this.dependencies.isJitenApiActive(),
+        parse: (terms) => current() ? this.dependencies.getJiten().parse(terms) : Promise.resolve(terms.map(() => [])),
+        lookupMany: (terms) => current() ? this.dependencies.getJitenPublicVocabulary().lookupMany(terms) : Promise.resolve(/* @__PURE__ */ new Map()),
+        publicSpellingCard: async (term) => {
+          if (!current()) return void 0;
+          const found = await this.dependencies.getJpdbVocabulary().search(term, 1).catch((error) => {
+            this.dependencies.warnPublicSearch(term, error);
+            return [];
+          });
+          return current() ? found.find((candidate2) => candidate2.spelling === term) : void 0;
+        }
+      }, {
+        concurrency: this.dependencies.publicFallbackConcurrency,
+        jpdbPublicLookup: options.jpdbPublicLookup
+      });
+      return current() ? resolved : /* @__PURE__ */ new Map();
+    }
+    publicFallbackCard(card, options) {
+      return this.publicFallbackCards([card], options).then((cards) => cards.get(cardKey(card)));
+    }
+    async localEntry(term, reading) {
+      const settings = this.dependencies.getSettings();
+      if (!settings.localDictionariesEnabled) return void 0;
+      const dictionaries2 = this.dependencies.getDictionaries();
+      const entries2 = await dictionaries2.lookup(
+        term,
+        reading || term,
+        settings.localDictionaryMaxResults,
+        settings.dictionaryPreferences
+      ).catch(() => []);
+      return entries2[0];
+    }
+    requireCurrent(target2) {
+      if (!this.dependencies.targetScope.isCurrent(target2)) throw new Error("Lookup target changed.");
+    }
+  }
+  function parseContentCacheKey(texts, options, settings) {
+    return JSON.stringify({
+      texts,
+      options,
+      settings: {
+        apiKey: hasJpdbApiCredential(settings),
+        jitenApiKey: hasJitenApiCredential(settings),
+        localDictionariesEnabled: settings.localDictionariesEnabled,
+        dictionaries: settings.dictionaryPreferences.map((preference) => ({
+          name: preference.name,
+          enabled: preference.enabled,
+          priority: preference.priority
+        }))
+      }
+    });
+  }
+  class NewTabTargetParseCache {
+    constructor(dependencies) {
+      this.dependencies = dependencies;
+    }
+    entries = /* @__PURE__ */ new Map();
+    clear() {
+      this.entries.clear();
+    }
+    load(texts, options = {}, publicJitenDetailLimit) {
+      const allowJapaneseProviders = usesJapaneseProviders();
+      const parseOptions = {
+        jpdbTimeoutMs: options.jpdbTimeoutMs ?? this.dependencies.defaultTimeoutMs,
+        allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
+        includeLocalPitch: false,
+        allowSegmentedFallback: true,
+        skipApi: !allowJapaneseProviders,
+        ...allowJapaneseProviders && publicJitenDetailLimit !== void 0 ? { publicJitenDetailLimit } : {}
+      };
+      const key2 = parseContentCacheKey(texts, {
+        ...parseOptions,
+        targetLanguage: activeLearningTargetLanguage(),
+        targetGeneration: activeLearningTargetGeneration()
+      }, this.dependencies.getSettings());
+      const now = Date.now();
+      const cached = this.entries.get(key2);
+      if (cached?.expiresAt && cached.expiresAt > now) {
+        this.entries.delete(key2);
+        this.entries.set(key2, cached);
+        return cached.promise;
+      }
+      if (cached) this.entries.delete(key2);
+      const promise = this.dependencies.parse(texts, parseOptions).catch((error) => {
+        if (this.entries.get(key2)?.promise === promise) this.entries.delete(key2);
+        throw error;
+      });
+      this.entries.set(key2, { expiresAt: now + this.dependencies.ttlMs, promise });
+      this.prune(now);
+      return promise;
+    }
+    prune(now) {
+      for (const [key2, entry2] of this.entries) {
+        if (entry2.expiresAt <= now) this.entries.delete(key2);
+      }
+      while (this.entries.size > this.dependencies.limit) {
+        const oldest = this.entries.keys().next().value;
+        if (typeof oldest !== "string") break;
+        this.entries.delete(oldest);
+      }
+    }
+  }
+  function emptyKanjiLookupDetailPromises() {
+    return {
+      jpdbInfo: Promise.resolve(null),
+      jitenInfo: Promise.resolve(null),
+      kanjiEntries: Promise.resolve([]),
+      rtkInfo: Promise.resolve(null),
+      kanjiVGInfo: Promise.resolve(null),
+      kanjiSourceInfo: Promise.resolve(null)
+    };
+  }
   const log = Logger.scope("NewTabRuntime");
   const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1200;
   const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 1e4;
@@ -373200,8 +373907,7 @@ ${rank2.detail}` : baseTitle;
     activeLookupAnchor;
     activeLookupHandlerController;
     lookupModal = new LookupModalAccessibility();
-    lookupRenderRequest = 0;
-    parseContentCache = /* @__PURE__ */ new Map();
+    lookupTarget = new NewTabLookupTargetScope();
     lastAutoAudioKey = "";
     lastAutoAudioAt = 0;
     externalRefreshController;
@@ -373278,6 +373984,25 @@ ${rank2.detail}` : baseTitle;
       dictionaries: this.dictionaries,
       yomuLocalSrs: this.yomuLocalSrs
     });
+    targetLookup = new NewTabTargetLookupResolver({
+      getSettings: () => this.settings,
+      getDictionaries: () => this.dictionaries,
+      getParser: () => this.parser,
+      getJpdbVocabulary: () => this.jpdbVocabulary,
+      getJiten: () => this.jiten,
+      getJitenPublicVocabulary: () => this.jitenPublicVocabulary,
+      isJitenApiActive: () => this.isJitenApiActive(),
+      publicFallbackConcurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
+      warnPublicSearch: (term, error) => log.warn("Public JPDB fallback search failed", { term }, error),
+      targetScope: this.lookupTarget
+    });
+    parseContentCache = new NewTabTargetParseCache({
+      getSettings: () => this.settings,
+      parse: (texts, options) => this.parser.parse(texts, options),
+      defaultTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+      ttlMs: NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS,
+      limit: NEW_TAB_PARSE_CONTENT_CACHE_LIMIT
+    });
     factoryReset = createFactoryResetCoordinator({
       dictionaries: this.dictionaries,
       isDestroyed: () => this.isDestroyed,
@@ -373290,6 +374015,7 @@ ${rank2.detail}` : baseTitle;
       getSettings: () => this.settings,
       setSettings: (settings) => {
         this.settings = settings;
+        this.syncLookupTarget(settings);
       },
       jpdb: this.jpdb,
       dictionaries: this.dictionaries,
@@ -373335,6 +374061,7 @@ ${rank2.detail}` : baseTitle;
       if (this.options.interfaceLanguage) {
         this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
       }
+      this.syncLookupTarget(this.settings);
       configureLogger({ forceEnabled: this.settings.enableLogging });
       this.applyInterfaceLocale();
       this.applyTheme();
@@ -373364,6 +374091,7 @@ ${rank2.detail}` : baseTitle;
         getSettings: () => this.settings,
         setSettings: (settings) => {
           this.settings = settings;
+          this.syncLookupTarget(settings);
           this.applyTheme(settings);
           this.applyWordColors(settings);
         },
@@ -373438,6 +374166,7 @@ ${rank2.detail}` : baseTitle;
     }
     async applyRemoteSettings(settings) {
       this.settings = settings;
+      this.syncLookupTarget(settings);
       configureLogger({ forceEnabled: settings.enableLogging });
       this.cardRenderData.clear();
       this.parseContentCache.clear();
@@ -373505,7 +374234,7 @@ ${rank2.detail}` : baseTitle;
       this.dictionarySourceState.clear();
       this.cardRenderData.clear();
       this.parseContentCache.clear();
-      this.lookupRenderRequest++;
+      this.lookupTarget.invalidateRender();
       this.lastAutoAudioKey = "";
       this.lastAutoAudioAt = 0;
       await this.dictionaries.invalidateForFactoryReset();
@@ -373670,11 +374399,25 @@ ${rank2.detail}` : baseTitle;
       form2.focus();
     }
     nextLookupRenderRequest() {
-      this.lookupRenderRequest += 1;
-      return this.lookupRenderRequest;
+      return this.lookupTarget.nextRender();
     }
     isCurrentLookupRender(popover, requestId) {
-      return requestId === this.lookupRenderRequest && popover.isConnected && this.activeLookupPopover === popover;
+      return this.lookupTarget.isCurrentRender(requestId) && popover.isConnected && this.activeLookupPopover === popover;
+    }
+    captureLookupTarget() {
+      return this.lookupTarget.capture();
+    }
+    isCurrentLookupTarget(snapshot) {
+      return this.lookupTarget.isCurrent(snapshot);
+    }
+    syncLookupTarget(settings) {
+      if (!this.lookupTarget.sync(settings)) return;
+      this.parseContentCache.clear();
+      this.newTab?.invalidateForTargetChange();
+      this.dismissLookupPopover();
+    }
+    isCurrentKanjiLookupRender(popover, requestId, kanji) {
+      return targetCanLookupCharacter(kanji) && this.isCurrentLookupRender(popover, requestId);
     }
     lookupRenderSurface(reuseActivePopover) {
       const active = this.activeLookupPopover;
@@ -373721,10 +374464,13 @@ ${rank2.detail}` : baseTitle;
     }
     async lookupText(text2, reading = text2, anchor2, options = {}) {
       const term = text2.trim();
-      if (!HAS_JAPANESE$1.test(term)) return;
+      if (!isTargetLanguageText(term)) return;
+      const lookupTarget = this.captureLookupTarget();
       const sentence = anchor2?.dataset.sentence || term;
       const previousNavigationEntry = options.previousNavigationEntry ?? this.lookupPreviousNavigationEntry(options.navigation);
-      const card = await this.lookupCard(term, reading);
+      const card = await this.lookupCard(term, reading, lookupTarget).catch(() => null);
+      if (!card) return;
+      if (!this.isCurrentLookupTarget(lookupTarget)) return;
       await this.showLookupCard(card, sentence, anchor2, {
         ...options,
         previousNavigationEntry
@@ -373736,7 +374482,7 @@ ${rank2.detail}` : baseTitle;
       this.navigation.updateWord(card, sentence, "modal", navigation, options.previousNavigationEntry);
       this.navigation.clearKanji();
       const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
-      if (requestId !== this.lookupRenderRequest) return;
+      if (!this.lookupTarget.isCurrentRender(requestId)) return;
       this.maybePreloadLookupCardAudio(card);
       const renderData = this.cardRenderData.load(card);
       const fallbackAnkiLookup = { state: "not-in-deck", notes: [], primary: null, trusted: false };
@@ -373906,7 +374652,7 @@ ${rank2.detail}` : baseTitle;
       return this.navigation.activeKanjiEntry() ?? this.navigation.activeWordEntry();
     }
     async showKanjiLookupCard(card, kanji, sentence, anchor2, options = {}) {
-      if (!isKanjiCharacter(kanji)) return;
+      if (!targetCanLookupCharacter(kanji)) return;
       const requestId = this.nextLookupRenderRequest();
       const navigation = options.navigation ?? "reset";
       this.navigation.updateKanji(card, kanji, sentence, navigation);
@@ -374028,6 +374774,7 @@ ${rank2.detail}` : baseTitle;
       this.handleKanjiLookupAction(button2, card, kanji, sentence);
     }
     handleKanjiLookupAction(button2, card, kanji, sentence) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const handlers = {
         "copy-word": () => {
           void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, "copiedWord")));
@@ -374070,7 +374817,7 @@ ${rank2.detail}` : baseTitle;
       if (handler) handler();
     }
     jitenKanjiWordsActionContext() {
-      if (!this.isJitenApiActive()) return null;
+      if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !this.isJitenApiActive()) return null;
       return {
         lookupKanjiWords: (character, options) => this.jiten.lookupKanjiWords(character, options),
         language: () => this.settings.interfaceLanguage,
@@ -374094,7 +374841,8 @@ ${rank2.detail}` : baseTitle;
       const actionId = button2.dataset.kanjiActionId ?? "";
       if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button2);
     }
-    async renderKanjiLookupDetails(popover, card, kanji, requestId = this.lookupRenderRequest) {
+    async renderKanjiLookupDetails(popover, card, kanji, requestId = this.lookupTarget.currentRenderRequest()) {
+      if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
       let jpdbInfo = null;
       let jitenInfo = null;
       let rtkInfo = null;
@@ -374109,12 +374857,12 @@ ${rank2.detail}` : baseTitle;
       this.wanikaniSources.installKanjiMount(popover, kanji);
       this.installKanjiLookupImmersionExamples(popover, kanji);
       const renderKeyword = () => {
-        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         const mount = popover.querySelector("[data-kanji-keyword-mount]");
         if (mount?.isConnected) setInnerHtml(mount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo) : renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo));
       };
       const renderKanjiPillRanks = () => {
-        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
         if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
         updateHeadingWordPills(popover, {
@@ -374129,7 +374877,7 @@ ${rank2.detail}` : baseTitle;
         });
       };
       const renderRtk = () => {
-        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         const mount = popover.querySelector("[data-kanji-rtk-mount]");
         if (!mount?.isConnected) return;
         const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
@@ -374142,7 +374890,7 @@ ${rank2.detail}` : baseTitle;
         ));
       };
       const renderDefinitions = () => {
-        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         popover.querySelectorAll("[data-kanji-definitions-mount]").forEach((mount) => {
           const dictionaryName = mount.dataset.kanjiDictionary;
           const sourceId2 = mount.dataset.kanjiSourceId ?? KANJI_DICTIONARIES_SOURCE_ID;
@@ -374157,7 +374905,7 @@ ${rank2.detail}` : baseTitle;
         });
       };
       const renderKanjiVG = () => {
-        if (!kanjiVGInfo || !this.isCurrentLookupRender(popover, requestId)) return;
+        if (!kanjiVGInfo || !this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         const stage2 = Array.from(popover.querySelectorAll(".jpdb-reader-doodle-stage")).find((candidate2) => candidate2.dataset.kanji === kanji);
         const ghost = stage2?.querySelector(".jpdb-reader-doodle-ghost");
         const help = stage2?.closest(".jpdb-reader-kanjivg")?.querySelector(".jpdb-reader-help");
@@ -374168,7 +374916,7 @@ ${rank2.detail}` : baseTitle;
       await Promise.all([
         detailPromises.jpdbInfo.then((info) => {
           jpdbInfo = info;
-          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
           renderKeyword();
           renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
@@ -374182,7 +374930,7 @@ ${rank2.detail}` : baseTitle;
         }),
         detailPromises.jitenInfo.then((info) => {
           jitenInfo = info;
-          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
           renderKeyword();
           renderKanjiPillRanks();
           const jpdbMount = popover.querySelector("[data-kanji-jpdb-mount]");
@@ -374190,20 +374938,20 @@ ${rank2.detail}` : baseTitle;
         }),
         detailPromises.kanjiEntries.then((entries2) => {
           kanjiEntries = entries2;
-          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
           renderKeyword();
           renderDefinitions();
           renderRtk();
         }),
         detailPromises.rtkInfo.then((info) => {
           rtkInfo = info;
-          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
           renderKeyword();
           renderRtk();
         }),
         detailPromises.kanjiVGInfo.then((info) => {
           kanjiVGInfo = info;
-          if (!this.isCurrentLookupRender(popover, requestId)) return;
+          if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
           renderKanjiVG();
           practiceDoodle.reassess();
         }),
@@ -374212,12 +374960,13 @@ ${rank2.detail}` : baseTitle;
           renderKeyword();
         })
       ]);
-      if (!this.isCurrentLookupRender(popover, requestId)) return;
+      if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
       this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
       void this.parseNewTabContent(popover);
       this.repositionLookupPopover();
     }
     kanjiLookupDetailPromises(kanji) {
+      if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return emptyKanjiLookupDetailPromises();
       return {
         jpdbInfo: this.settings.jpdbKanjiEnabled ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, "JPDB kanji lookup timed out.") : Promise.resolve(null),
         // Keyless requests ride the built-in edge proxy (the kanji endpoint is
@@ -374241,6 +374990,7 @@ ${rank2.detail}` : baseTitle;
       return this.settings.kanjivgEnabled || this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled;
     }
     renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const mount = this.kanjiLookupOriginMount(popover, requestId);
       if (!mount) return;
       const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
@@ -374278,7 +375028,7 @@ ${rank2.detail}` : baseTitle;
       return this.settings.immersionKitEnabled && this.settings.kanjiImmersionKitEnabled;
     }
     installKanjiLookupImmersionExamples(popover, kanji) {
-      if (!this.shouldRenderKanjiImmersionKit()) return;
+      if (!targetCanLookupCharacter(kanji) || !this.shouldRenderKanjiImmersionKit()) return;
       this.immersionPopover.installLazyLoad(popover, jpdbAudioCard(kanji, kanji));
     }
     lookupDetailWithTimeout(promise, fallback, message, timeoutMs = NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS) {
@@ -374295,6 +375045,7 @@ ${rank2.detail}` : baseTitle;
       ]).finally(() => window.clearTimeout(timeoutId));
     }
     async renderUchisenInto(popover, kanji, requestId) {
+      if (!targetCanLookupCharacter(kanji)) return;
       const mount = this.kanjiLookupUchisenMount(popover, requestId);
       if (!mount) return;
       const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
@@ -374306,7 +375057,7 @@ ${rank2.detail}` : baseTitle;
             </details>
         `);
       const data = await this.loadUchisenLookupData(kanji);
-      if (!this.canRenderKanjiLookupMount(popover, requestId, mount)) return;
+      if (!targetCanLookupCharacter(kanji) || !this.canRenderKanjiLookupMount(popover, requestId, mount)) return;
       if (this.shouldRemoveEmptyUchisenData(data)) {
         mount.remove();
         this.repositionLookupPopover();
@@ -374322,10 +375073,10 @@ ${rank2.detail}` : baseTitle;
         kanjiKeyword: data.kanjiKeyword,
         kanjiId: data.kanjiId,
         canGenerateImages: data.canGenerateImages,
-        refreshData: () => loadUchisenData(kanji, this.settings.corsProxyUrl),
+        refreshData: () => this.loadUchisenLookupData(kanji),
         interfaceLanguage: this.settings.interfaceLanguage
       });
-      if (this.isCurrentLookupRender(popover, requestId)) this.repositionLookupPopover();
+      if (this.isCurrentKanjiLookupRender(popover, requestId, kanji)) this.repositionLookupPopover();
     }
     kanjiLookupUchisenMount(popover, requestId) {
       if (!this.settings.uchisenEnabled) return null;
@@ -374336,6 +375087,15 @@ ${rank2.detail}` : baseTitle;
       return mount.isConnected && this.isCurrentLookupRender(popover, requestId);
     }
     loadUchisenLookupData(kanji) {
+      if (!targetCanLookupCharacter(kanji)) {
+        return Promise.resolve({
+          images: [],
+          componentGroups: [],
+          kanjiKeyword: null,
+          kanjiId: "",
+          canGenerateImages: false
+        });
+      }
       return loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({
         images: [],
         componentGroups: [],
@@ -374348,8 +375108,10 @@ ${rank2.detail}` : baseTitle;
       return data.images.length === 0 && !data.canGenerateImages;
     }
     async performJpdbKanjiAction(actionId, card, kanji, sentence, anchor2) {
+      if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
       try {
         await this.jpdbKanji.performAction(actionId);
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
         this.toast(this.text("jpdbKanjiUpdated"));
         await this.showKanjiLookupCard(card, kanji, sentence, anchor2, {
           navigation: "preserve",
@@ -374471,7 +375233,7 @@ ${rank2.detail}` : baseTitle;
       return this.parser.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
     }
     lookupParsedWordWithoutCard(word, expression) {
-      if (!HAS_JAPANESE$1.test(expression)) return;
+      if (!isTargetLanguageText(expression)) return;
       void this.lookupText(expression, expression, word, {
         navigation: "push-current",
         reuseActivePopover: true,
@@ -374570,50 +375332,11 @@ ${rank2.detail}` : baseTitle;
         fetchAudioDataUrl: (audioUrls, timeoutMs) => this.immersionKit.fetchDataUrl(audioUrls, timeoutMs, this.settings.corsProxyUrl, this.settings.interfaceLanguage)
       });
     }
-    async lookupCard(term, reading) {
-      const localEntry = await this.localLookupEntry(term, reading);
-      if (localEntry) return this.parser.localCardFromEntry(localEntry);
-      const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
-      const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : void 0;
-      if (publicCard) return publicCard;
-      const fallbackCard = this.parser.fallbackCardFromText(term);
-      const fallbackPublicCard = await this.publicLookupFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false });
-      if (fallbackPublicCard) return fallbackPublicCard;
-      const parsed = await this.parser.parse([term], jpdbFirstParseOptions()).catch(() => [[]]);
-      const token = pickTokenForSelection(parsed[0] ?? [], term);
-      if (token) return token.card;
-      return fallbackCard;
+    async lookupCard(term, reading, lookupTarget = this.captureLookupTarget()) {
+      return this.targetLookup.lookup(term, reading, lookupTarget);
     }
-    async publicLookupCard(term, exact2 = false) {
-      if (!this.settings.jpdbDefinitionsEnabled) return void 0;
-      const cards = await this.jpdbVocabulary.search(term, 1).catch(() => []);
-      return cards.find((card) => card.spelling === term) ?? (exact2 ? void 0 : cards[0]);
-    }
-    async publicLookupFallbackCard(card, options = {}) {
-      return (await this.publicLookupFallbackCards([card], options)).get(cardKey(card));
-    }
-    async publicLookupFallbackCards(cards, options = {}) {
-      if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return /* @__PURE__ */ new Map();
-      return publicLookupFallbackCards(cards, {
-        jitenApiActive: () => this.isJitenApiActive(),
-        parse: (terms) => this.jiten.parse(terms),
-        lookupMany: (terms) => this.jitenPublicVocabulary.lookupMany(terms),
-        publicSpellingCard: async (term) => {
-          const found = await this.jpdbVocabulary.search(term, 1).catch((error) => {
-            log.warn("Public JPDB fallback search failed", { term }, error);
-            return [];
-          });
-          return found.find((candidate2) => candidate2.spelling === term);
-        }
-      }, {
-        concurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
-        jpdbPublicLookup: options.jpdbPublicLookup
-      });
-    }
-    async localLookupEntry(term, reading) {
-      if (!this.settings.localDictionariesEnabled) return void 0;
-      const entries2 = await this.dictionaries.lookup(term, reading || term, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []);
-      return entries2[0];
+    publicLookupFallbackCards(cards, options = {}) {
+      return this.targetLookup.publicFallbackCards(cards, options);
     }
     mountLookupPopover(popover, anchor2, options = {}) {
       this.activeLookupHandlerController?.abort();
@@ -374795,27 +375518,31 @@ ${rank2.detail}` : baseTitle;
       });
     }
     async enrichPitchWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT) {
-      if (!this.settings.showPitchAccent) return;
+      const target2 = this.captureLookupTarget();
+      if (!usesJapaneseProviders() || !this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
         (token) => cardUsesPitchAccentPronunciation(token.card) && !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
         limit
       );
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
+        if (!this.isCurrentLookupTarget(target2) || !usesJapaneseProviders()) return;
         const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
-        if (!pitchAccent.length) return;
+        if (!this.isCurrentLookupTarget(target2) || !usesJapaneseProviders() || !pitchAccent.length) return;
         if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
         this.applyPitchAccentToRenderedWords(token.card);
       });
     }
     async enrichPublicVocabularyWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT, options = {}) {
-      if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
+      const target2 = this.captureLookupTarget();
+      if (!usesJapaneseProviders() || !this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
         (token) => token.card.source === "fallback",
         limit
       );
       const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map((token) => token.card), { jpdbPublicLookup: false });
+      if (!this.isCurrentLookupTarget(target2) || !usesJapaneseProviders()) return;
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const card = resolvedCards.get(cardKey(token.card));
         if (!card) {
@@ -374981,39 +375708,7 @@ ${rank2.detail}` : baseTitle;
       void this.enrichAnkiWords(tokens, [root]);
     }
     loadParsedNewTabContent(texts, options = {}, publicJitenDetailLimit) {
-      const parseOptions = {
-        jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-        allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
-        includeLocalPitch: false,
-        allowSegmentedFallback: true,
-        ...publicJitenDetailLimit === void 0 ? {} : { publicJitenDetailLimit }
-      };
-      const key2 = parseContentCacheKey(texts, parseOptions, this.settings);
-      const now = Date.now();
-      const cached = this.parseContentCache.get(key2);
-      if (cached && cached.expiresAt > now) {
-        this.parseContentCache.delete(key2);
-        this.parseContentCache.set(key2, cached);
-        return cached.promise;
-      }
-      if (cached) this.parseContentCache.delete(key2);
-      const promise = this.parser.parse(texts, parseOptions).catch((error) => {
-        if (this.parseContentCache.get(key2)?.promise === promise) this.parseContentCache.delete(key2);
-        throw error;
-      });
-      this.parseContentCache.set(key2, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
-      this.pruneParseContentCache(now);
-      return promise;
-    }
-    pruneParseContentCache(now) {
-      for (const [key2, entry2] of this.parseContentCache) {
-        if (entry2.expiresAt <= now) this.parseContentCache.delete(key2);
-      }
-      while (this.parseContentCache.size > NEW_TAB_PARSE_CONTENT_CACHE_LIMIT) {
-        const oldest = this.parseContentCache.keys().next().value;
-        if (typeof oldest !== "string") break;
-        this.parseContentCache.delete(oldest);
-      }
+      return this.parseContentCache.load(texts, options, publicJitenDetailLimit);
     }
     async parseSettingsJapanese(form2) {
       if (!this.isCurrentSettingsRoot(form2)) return;
@@ -375099,12 +375794,15 @@ ${rank2.detail}` : baseTitle;
       }
     }
     async hydrateSettingsFallbackTokens(parsed) {
+      const target2 = this.captureLookupTarget();
+      if (!usesJapaneseProviders()) return;
       const tokens = this.uniqueTokens(
         parsed.flat(),
         (token) => token.card.source === "fallback",
         NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT
       );
       const resolvedCards = await this.publicLookupFallbackCards(tokens.map((token) => token.card), { jpdbPublicLookup: false });
+      if (!this.isCurrentLookupTarget(target2) || !usesJapaneseProviders()) return;
       await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const card = resolvedCards.get(cardKey(token.card));
         if (!card) return;

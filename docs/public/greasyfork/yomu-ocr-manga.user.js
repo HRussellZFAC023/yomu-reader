@@ -2505,11 +2505,22 @@ function addDeckSourceClasses(classes, source, names) {
   classes.add(`${source}-deck-${slug}`);
   });
 }
+const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+function hanIdeographSegments(text) {
+  return [...text.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+  text: match[0],
+  start: match.index,
+  end: match.index + match[0].length
+  }));
+}
 const HIRAGANA = "぀-ゟ";
 const KATAKANA = "゠-ヿ";
 const KANA = "぀-ヿ";
 const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
 const KANJI = "㐀-鿿";
+const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
 const ITERATION_MARK = "々";
 const ITERATION_MARKS = `${ITERATION_MARK}〆`;
 const KANA_COUNTERS = "ヵヶ";
@@ -2519,17 +2530,17 @@ const COMBINING_KANA_MARKS = "゙゚";
 const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
 const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
 const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
-const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
-const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
+const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
 const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
 const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
-const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
-const HAS_JAPANESE_LETTER = new RegExp(`[${JAPANESE_LETTERS}]`, "u");
-const KANJI_RE = new RegExp(`[${KANJI}]`, "u");
-const KANJI_LIKE_RE = new RegExp(`[${KANJI_LIKE}]`, "u");
+const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
+const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
 const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
 const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
@@ -3108,27 +3119,64 @@ function stablePositiveHashId(value) {
 function stableHashBase36(value) {
   return stableHash32(value).toString(36);
 }
-const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
+function codePointBoundaryAtOrBefore(text, offset) {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  if (clamped > 0 && clamped < text.length && isLowSurrogate(text.charCodeAt(clamped)) && isHighSurrogate(text.charCodeAt(clamped - 1))) {
+  return clamped - 1;
+  }
+  return clamped;
+}
+function codePointSafePrefix(text, maxUtf16Units) {
+  return text.slice(0, codePointBoundaryAtOrBefore(text, maxUtf16Units));
+}
+function isHighSurrogate(value) {
+  return value >= 55296 && value <= 56319;
+}
+function isLowSurrogate(value) {
+  return value >= 56320 && value <= 57343;
+}
+const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+  "gu"
+);
+const JAPANESE_TEXT_RUN_RE = new RegExp(
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+  "gu"
+);
+const JAPANESE_CHARACTER_RE = new RegExp(
+  `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+  `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
 const SEGMENT_SEPARATORS = "・･゠·•";
 const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
 const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
-const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
-const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+  `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+  "u"
+);
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+  "u"
+);
 const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
+const SURU_STEM_SEGMENT_RE = new RegExp(
+  `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -3138,9 +3186,12 @@ const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+  `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 function normalizeFallbackTerm(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, 80);
+  return codePointSafePrefix(text.replace(/\s+/g, " ").trim(), 80);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
@@ -3697,8 +3748,8 @@ function grammarMatchContains(outer, inner) {
 }
 const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -3777,6 +3828,8 @@ function createLearningTargetModule(spec) {
   grammar,
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+  ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+  lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
   normalizeText,
   isLookupableText(text) {
     return Boolean(text) && detects(text);
@@ -4290,7 +4343,7 @@ function japaneseLearnerMatch(name, rawMatch) {
   return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-  `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
   "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -6484,6 +6537,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
   const readingAnnotation = language.id === "zh" || language.id === "yue";
+  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
   return createLearningTargetModule({
     id: `${language.id}-roster-v1`,
     language: language.runtimeLocale,
@@ -6508,7 +6562,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
-    lookupRewrites
+    lookupRewrites,
+    ...usesHanScript ? {
+      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+      // Let the installed dictionary arbitrate inside a real Han
+      // run, and accept expression hits only.
+      lookupStartsAtSegmentBoundary: false,
+      lookupRunSegments: hanIdeographSegments,
+      lookupSweepMode: "left-to-right-longest-exact",
+      pointerWordSegments: hanIdeographSegments
+    } : {}
   });
   })
 );
@@ -6560,6 +6623,7 @@ registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
 registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
 GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
 let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+let targetSelectionGeneration = 0;
 let cachedTarget = null;
 let cachedForLanguage = "";
 let cachedForRegistryRevision = -1;
@@ -6572,6 +6636,12 @@ function activeLearningTarget() {
   cachedForLanguage = requestedTargetLanguage;
   cachedForRegistryRevision = revision;
   return cachedTarget;
+}
+function activeLearningTargetLanguage() {
+  return activeLearningTarget().language;
+}
+function activeLearningTargetGeneration() {
+  return targetSelectionGeneration;
 }
 function isTargetLanguageText(text) {
   return activeLearningTarget().isLookupableText(text);
@@ -6996,6 +7066,84 @@ function normalizeAnkiFieldName(value) {
   return value.replace(/[_\s-]+/g, "").toLowerCase();
 }
 new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+const FALLBACK_HEX_COLOR = "#000000";
+function normalizeHexColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+}
+function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+  const l1 = relativeLuminance(a, normalizeColor);
+  const l2 = relativeLuminance(b, normalizeColor);
+  const light = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (light + 0.05) / (dark + 0.05);
+}
+function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+  const channel = value / 255;
+  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+  const a = sharedHexToRgb(from, normalizeColor);
+  const b = sharedHexToRgb(to, normalizeColor);
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+  const safe = normalizeHexColor(normalizeColor(color));
+  return [
+  parseInt(safe.slice(1, 3), 16),
+  parseInt(safe.slice(3, 5), 16),
+  parseInt(safe.slice(5, 7), 16)
+  ];
+}
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+  if (!shortHex) return fallback;
+  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+function accentToRgba(color, alpha) {
+  const safe = sanitizeAccentColor(color);
+  const red = parseInt(safe.slice(1, 3), 16);
+  const green = parseInt(safe.slice(3, 5), 16);
+  const blue = parseInt(safe.slice(5, 7), 16);
+  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+function accessibleOcrBackgroundOpacity(opacity) {
+  const numericOpacity = Number(opacity);
+  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+}
+function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const accent = sanitizeAccentColor(accentColor);
+  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+  return accent;
+  }
+  for (let amount = 0.08; amount <= 1; amount += 0.04) {
+  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+    return candidate;
+  }
+  }
+  return "#000000";
+}
+function ocrRenderedBackgroundContrast(color, opacity) {
+  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+}
+accessibleOcrBackgroundColor(
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_OCR_BACKGROUND_OPACITY
+);
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   id: "ja",
@@ -11169,44 +11317,7 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
-  ];
-}
 Logger.scope("Settings");
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
 function isPopupLookupEnabled(settings) {
   return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
 }
@@ -11252,10 +11363,6 @@ new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   languageProfiles: [createDefaultLanguageProfile()],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
 });
-function clampNumber$1(value, min, max, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
-}
 function effectiveLegacyAutoFuriganaMode() {
   return "all";
 }
@@ -11267,45 +11374,6 @@ function effectiveFuriganaMode(settings) {
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
-}
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accentToRgba(color, alpha) {
-  const safe = sanitizeAccentColor(color);
-  const red = parseInt(safe.slice(1, 3), 16);
-  const green = parseInt(safe.slice(3, 5), 16);
-  const blue = parseInt(safe.slice(5, 7), 16);
-  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  return Math.max(
-  OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-  clampNumber$1(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
-  );
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
@@ -11728,6 +11796,67 @@ function rubyBaseKanaRuns(base) {
 }
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
+}
+function claimOcrScan(owner) {
+  const token = Symbol("ocr-scan");
+  owner.scan = token;
+  owner.loading = true;
+  return token;
+}
+function releaseOcrScan(owner, token) {
+  if (owner.scan !== token) return;
+  owner.scan = void 0;
+  owner.loading = false;
+  owner.manualRequested = false;
+}
+function captureOcrTargetContext() {
+  const target = activeLearningTarget();
+  const generation = activeLearningTargetGeneration();
+  const isCurrent = () => activeLearningTarget() === target && activeLearningTargetGeneration() === generation;
+  return {
+  generation,
+  cacheKey: (contentKey) => `${contentKey}
+@yomu-target:${target.language}`,
+  workKey: (contentKey) => `${contentKey}
+@yomu-target:${target.language}:${generation}`,
+  isCurrent,
+  requireCurrent(staleState) {
+    if (!isCurrent()) throw staleState;
+  }
+  };
+}
+function ocrTargetWorkKey(contentKey) {
+  return captureOcrTargetContext().workKey(contentKey);
+}
+function ocrTargetWork(contentKey, target = captureOcrTargetContext()) {
+  return {
+  target,
+  contentKey,
+  cacheKey: target.cacheKey(contentKey),
+  workKey: target.workKey(contentKey)
+  };
+}
+function ocrFallbackCardFromText(text) {
+  const spelling = normalizeFallbackTerm(text);
+  const language = activeLearningTargetLanguage();
+  const id = -stablePositiveHashId(`ocr-fallback
+${language}
+${spelling}`);
+  return {
+  vid: id,
+  sid: id,
+  rid: 0,
+  spelling,
+  reading: "",
+  language,
+  frequencyRank: null,
+  partOfSpeech: [],
+  meanings: [],
+  cardState: ["not-in-deck"],
+  pitchAccent: [],
+  wordWithReading: null,
+  source: "fallback"
+  };
 }
 function ocrRuntimeActive(settings) {
   return settings.ocrEnabled && !settings.annotationsPaused;
@@ -14887,16 +15016,13 @@ class LocalOcrUnavailableError extends Error {
   }
 }
 function beginOcrScan(state2, image, settings, manualRequested) {
-  state2.loading = true;
+  const token = claimOcrScan(state2);
   const provider = inlineProviderLabel(settings);
   return {
   provider,
-  done: log.time("scanImage", { provider, image: imageSummary(image), manualRequested })
+  done: log.time("scanImage", { provider, image: imageSummary(image), manualRequested }),
+  token
   };
-}
-function finishOcrScan(state2) {
-  state2.loading = false;
-  state2.manualRequested = false;
 }
 function renderNoOcrLines(state2) {
   state2.autoSkipped = true;
@@ -15257,6 +15383,7 @@ class ImageOcrController {
   }
   observeRefreshImage(image, settings) {
   const state2 = this.ensureState(image);
+  this.resetStateIfImageChanged(state2);
   this.observer?.observe(image);
   if (this.shouldAutoEnqueueImage(image, state2, settings)) this.enqueue(image);
   }
@@ -15370,7 +15497,7 @@ class ImageOcrController {
   overlay.hidden = true;
   setOcrOverlayAccessibility(overlay, false);
   this.mountOcrOverlayForImage(overlay, image);
-  const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+  const state2 = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
   const loadListener = () => {
     this.resetStateIfImageChanged(state2);
     this.schedulePosition();
@@ -15393,6 +15520,7 @@ class ImageOcrController {
   enqueue(image, userRequested = false) {
   if (isYouTubeThumbnailImage(image)) return;
   const state2 = this.states.get(image) ?? this.ensureState(image);
+  this.resetStateIfImageChanged(state2);
   if (!this.shouldQueueOcrRequest(state2, image, userRequested)) return;
   this.queueOcrRequest(image);
   }
@@ -15409,7 +15537,7 @@ class ImageOcrController {
   }
   renderExistingOcrResult(state2, userRequested) {
   if (!state2.result) return false;
-  if (userRequested) void this.renderResult(state2, state2.result, true, state2.key);
+  if (userRequested) void this.renderResult(state2, state2.result, true);
   return true;
   }
   requestOcrFromPointerEvent(event) {
@@ -15488,13 +15616,11 @@ class ImageOcrController {
     this.startScan(image);
   }
   }
-  // Pull the next queued image whose content is not already being scanned, so
-  // duplicate enqueues / re-snapshotted canvas frames don't fire redundant OCR
-  // calls (the cache fills them in once the in-flight scan resolves).
+  // Hold duplicate content until the in-flight scan fills its shared cache entry.
   takeNextQueuedImage() {
   for (let index = 0; index < this.queue.length; index++) {
     const candidate = this.queue[index];
-    if (this.inFlightJobs.has(imageCacheKey(candidate))) continue;
+    if (this.inFlightJobs.has(ocrTargetWorkKey(imageCacheKey(candidate)))) continue;
     this.queue.splice(index, 1);
     return candidate;
   }
@@ -15502,14 +15628,16 @@ class ImageOcrController {
   }
   startScan(image) {
   if (this.destroyed) return;
-  const key = imageCacheKey(image);
+  const target = captureOcrTargetContext();
+  const work = ocrTargetWork(imageCacheKey(image), target);
+  const key = work.workKey;
   const job = Symbol(key);
   this.activeScans++;
   this.inFlightJobs.set(key, job);
   const hasFastText = Boolean(readFallbackOcrResult(image, false));
   const isReaderRasterFrame = this.isReaderRasterFrame(image);
-  const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
-  void waitForIdle(delay, delay).then(() => this.scanImage(image)).catch((error) => {
+  const delay = this.cache.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
+  void waitForIdle(delay, delay).then(() => this.scanImage(image, target)).catch((error) => {
     if (isStaleOcrState(error)) return;
     log.warn("OCR scan task failed unexpectedly", {}, error);
   }).finally(() => {
@@ -15518,8 +15646,9 @@ class ImageOcrController {
     if (!this.destroyed) this.drainQueue();
   });
   }
-  async scanImage(image) {
+  async scanImage(image, target = captureOcrTargetContext()) {
   if (this.destroyed) return;
+  target.requireCurrent(STALE_OCR_STATE);
   if (!ocrRuntimeActive(this.options.getSettings())) return;
   const existingState = this.states.get(image);
   if (!image.isConnected) {
@@ -15530,51 +15659,52 @@ class ImageOcrController {
   const settings = this.options.getSettings();
   const manualRequested = state2.manualRequested;
   this.resetStateIfImageChanged(state2);
-  const key = state2.key;
-  if (await this.tryRenderCachedOcrResult(state2, key)) return;
-  if (!this.isCurrentContentState(state2, key)) return;
+  const work = ocrTargetWork(state2.key, target);
+  if (await this.tryRenderCachedOcrResult(state2, work)) return;
+  if (!this.isCurrentContentState(state2, work.contentKey)) return;
   this.updateOcrStatus(image, "loading");
   const scan = beginOcrScan(state2, image, settings, manualRequested);
   try {
-    await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
+    await this.scanUncachedImage(state2, image, work, settings, scan.provider, manualRequested);
   } catch (error) {
     if (isStaleOcrState(error)) return;
     try {
-      await this.renderOcrFailure(state2, image, key, scan.provider, manualRequested, error);
+      await this.renderOcrFailure(state2, image, work, scan.provider, manualRequested, error);
     } catch (renderError) {
       if (isStaleOcrState(renderError)) return;
       throw renderError;
     }
   } finally {
-    finishOcrScan(state2);
+    releaseOcrScan(state2, scan.token);
     scan.done();
   }
   }
-  async renderCachedOcrResult(state2, key) {
-  if (this.isReaderRasterFrame(state2.image) && !state2.manualRequested && this.readerRasterFailedScans.has(key)) {
-    this.requireCurrentContentState(state2, key);
+  async renderCachedOcrResult(state2, work) {
+  work.target.requireCurrent(STALE_OCR_STATE);
+  if (this.isReaderRasterFrame(state2.image) && !state2.manualRequested && this.readerRasterFailedScans.has(work.workKey)) {
+    this.requireCurrentContentState(state2, work.contentKey);
     this.renderNoOcrLines(state2);
     this.updateOcrStatus(state2.image, "failed");
     state2.manualRequested = false;
     return true;
   }
-  if (!this.cache.has(key)) return false;
+  if (!this.cache.has(work.cacheKey)) return false;
   if (this.shouldSuppressAutoRenderedResult(state2, false)) {
     this.clearAutoScannedOverlays();
     return true;
   }
-  const cached = this.cache.get(key);
-  this.requireCurrentContentState(state2, key);
+  const cached = this.cache.get(work.cacheKey);
+  this.requireCurrentContentState(state2, work.contentKey);
   if (!cached) {
     if (this.isReaderRasterFrame(state2.image)) {
-      const emptyScanKey = this.readerRasterEmptyScanKey(state2, key);
+      const emptyScanKey = this.readerRasterEmptyScanKey(state2, work);
       if ((this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
         this.renderNoOcrLines(state2);
         this.updateOcrStatus(state2.image, "empty");
         state2.manualRequested = false;
         return true;
       }
-      this.forget(key);
+      this.forget(work.cacheKey);
       return false;
     }
     if (this.shouldPreserveReaderRasterResult(state2)) return true;
@@ -15583,45 +15713,46 @@ class ImageOcrController {
     state2.manualRequested = false;
     return true;
   }
-  await this.renderResult(state2, cached, false, key);
+  await this.renderResult(state2, cached, false, work);
   state2.manualRequested = false;
   return true;
   }
-  async tryRenderCachedOcrResult(state2, key) {
+  async tryRenderCachedOcrResult(state2, work) {
   try {
-    return await this.renderCachedOcrResult(state2, key);
+    return await this.renderCachedOcrResult(state2, work);
   } catch (error) {
     if (isStaleOcrState(error)) return true;
     throw error;
   }
   }
-  async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
+  async scanUncachedImage(state2, image, work, settings, provider, manualRequested) {
   const inlineFallback = readFallbackOcrResult(image, false);
   const providerResult = inlineFallback ? null : await promiseWithTimeout(
     this.recognizeImage(image, settings),
     ocrAttemptTimeoutMs(settings, this.options.ocrAttemptTimeoutFloorMs),
     "OCR timed out."
   );
-  this.requireCurrentState(state2);
+  work.target.requireCurrent(STALE_OCR_STATE);
+  this.requireCurrentContentState(state2, work.contentKey);
   const result = inlineFallback ?? providerResult;
   if (!result?.lines.length) {
-    this.readerRasterFailedScans.delete(key);
-    this.clearReaderRasterProviderRetry(key);
+    this.readerRasterFailedScans.delete(work.workKey);
+    this.clearReaderRasterProviderRetry(work.workKey);
     if (this.shouldPreserveReaderRasterResult(state2)) {
       this.updateOcrStatus(image, "ready");
       return;
     }
-    const readerRasterEmptyAttempts = this.isReaderRasterFrame(image) ? this.recordReaderRasterEmptyScan(state2, key, manualRequested) : 0;
+    const readerRasterEmptyAttempts = this.isReaderRasterFrame(image) ? this.recordReaderRasterEmptyScan(state2, work, manualRequested) : 0;
     if (this.isReaderRasterFrame(image)) {
       if (!manualRequested && readerRasterEmptyAttempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-        this.remember(key, null);
+        this.remember(work.cacheKey, null);
       } else {
-        this.forget(key);
+        this.forget(work.cacheKey);
       }
     } else {
-      this.remember(key, null);
+      this.remember(work.cacheKey, null);
     }
-    this.requireCurrentContentState(state2, key);
+    this.requireCurrentContentState(state2, work.contentKey);
     this.renderNoOcrLines(state2);
     this.updateOcrStatus(
       image,
@@ -15629,17 +15760,16 @@ class ImageOcrController {
     );
     return;
   }
-  this.remember(key, result);
-  this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state2, key));
-  this.readerRasterFailedScans.delete(key);
-  this.clearReaderRasterProviderRetry(key);
-  this.requireCurrentContentState(state2, key);
-  state2.key = key;
+  this.remember(work.cacheKey, result);
+  this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state2, work));
+  this.readerRasterFailedScans.delete(work.workKey);
+  this.clearReaderRasterProviderRetry(work.workKey);
+  this.requireCurrentContentState(state2, work.contentKey);
   if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
     this.clearAutoScannedOverlays();
     return;
   }
-  await this.renderResult(state2, result, false, key);
+  await this.renderResult(state2, result, false, work);
   log.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
   }
   shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
@@ -15649,23 +15779,24 @@ class ImageOcrController {
   const canvas = this.canvasFrameSources.get(image);
   return Boolean(canvas && isCanvasOcrOptInSurface(canvas));
   }
-  async renderOcrFailure(state2, image, key, provider, manualRequested, error) {
-  this.requireCurrentContentState(state2, key);
+  async renderOcrFailure(state2, image, work, provider, manualRequested, error) {
+  work.target.requireCurrent(STALE_OCR_STATE);
+  this.requireCurrentContentState(state2, work.contentKey);
   const fallback = readFallbackOcrResult(image, false);
   if (fallback?.lines.length) {
     log.warn("OCR provider failed", { provider }, error);
-    this.readerRasterFailedScans.delete(key);
-    this.clearReaderRasterProviderRetry(key);
-    await this.renderResult(state2, fallback, false, key);
+    this.readerRasterFailedScans.delete(work.workKey);
+    this.clearReaderRasterProviderRetry(work.workKey);
+    await this.renderResult(state2, fallback, false, work);
     return;
   }
-  if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state2, key, manualRequested, error)) {
+  if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state2, work, manualRequested, error)) {
     this.updateOcrStatus(image, "loading");
     return;
   }
   if (this.isReaderRasterFrame(image)) {
-    this.clearReaderRasterProviderRetry(key);
-    this.rememberReaderRasterFailure(key);
+    this.clearReaderRasterProviderRetry(work.workKey);
+    this.rememberReaderRasterFailure(work.workKey);
   }
   logOcrFailure(state2, provider, manualRequested, error);
   this.updateOcrStatus(image, "failed");
@@ -15739,8 +15870,9 @@ class ImageOcrController {
   clearLocalOcrUnavailable(endpointUrl) {
   if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
   }
-  async renderResult(state2, result, forceOverlay = false, expectedKey = state2.key) {
-  this.requireCurrentContentState(state2, expectedKey);
+  async renderResult(state2, result, forceOverlay = false, work = ocrTargetWork(state2.key)) {
+  this.requireCurrentContentState(state2, work.contentKey);
+  work.target.requireCurrent(STALE_OCR_STATE);
   if (this.shouldPreserveReaderRasterResult(state2) && state2.overlay.querySelector(".jpdb-ocr-line") && ocrResultTextKey(state2.result) === ocrResultTextKey(result)) {
     this.updateOcrStatus(state2.image, "ready");
     return;
@@ -15749,7 +15881,8 @@ class ImageOcrController {
   const settings = this.options.getSettings();
   const showText = this.shouldShowOcrTextOverlay(state2, settings, forceOverlay);
   const initialParsed = await this.parseOcrLines(result.lines);
-  this.requireCurrentContentState(state2, expectedKey);
+  this.requireCurrentContentState(state2, work.contentKey);
+  work.target.requireCurrent(STALE_OCR_STATE);
   const lines = cleanOcrLookupLines(result.lines, initialParsed);
   if (!lines.length) {
     if (this.shouldPreserveReaderRasterResult(state2)) {
@@ -15761,7 +15894,8 @@ class ImageOcrController {
     return;
   }
   const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-  this.requireCurrentContentState(state2, expectedKey);
+  this.requireCurrentContentState(state2, work.contentKey);
+  work.target.requireCurrent(STALE_OCR_STATE);
   const sentence = lines.map((line) => line.text).join("\n");
   const vocabulary = ocrVocabularyCards(state2.image);
   const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -15775,7 +15909,8 @@ class ImageOcrController {
   ));
   const flatTokens = renderedTokens.flat();
   await this.options.enrichTokensBeforeRender?.(flatTokens);
-  this.requireCurrentContentState(state2, expectedKey);
+  this.requireCurrentContentState(state2, work.contentKey);
+  work.target.requireCurrent(STALE_OCR_STATE);
   applyOcrOverlayStyle(state2.overlay, settings);
   const lineElements = lines.map((line, index) => this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
   const staleLines = Array.from(state2.overlay.querySelectorAll(".jpdb-ocr-line"));
@@ -15973,9 +16108,11 @@ class ImageOcrController {
   }
   resetStateIfImageChanged(state2) {
   const key = imageCacheKey(state2.image);
-  if (key === state2.key) return;
-  const preserveReaderRasterResult = this.shouldPreserveReaderRasterResult(state2);
+  const targetChanged = !state2.target.isCurrent();
+  if (key === state2.key && !targetChanged) return;
+  const preserveReaderRasterResult = !targetChanged && this.shouldPreserveReaderRasterResult(state2);
   state2.key = key;
+  state2.target = captureOcrTargetContext();
   if (!preserveReaderRasterResult) state2.result = void 0;
   state2.loading = false;
   state2.overlayRequested = false;
@@ -15993,14 +16130,14 @@ class ImageOcrController {
   isReaderRasterFrame(image) {
   return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
   }
-  recordReaderRasterEmptyScan(state2, key, userRequested) {
+  recordReaderRasterEmptyScan(state2, work, userRequested) {
   if (!this.isReaderRasterFrame(state2.image)) return 0;
-  const emptyScanKey = this.readerRasterEmptyScanKey(state2, key);
+  const emptyScanKey = this.readerRasterEmptyScanKey(state2, work);
   const attempts = (this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) + 1;
   this.readerRasterEmptyScans.set(emptyScanKey, attempts);
   if (attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
   window.setTimeout(() => {
-    if (!this.isCurrentContentState(state2, key)) return;
+    if (!work.target.isCurrent() || !this.isCurrentContentState(state2, work.contentKey)) return;
     const canvas = this.canvasFrameSources.get(state2.image);
     if (canvas && this.canvasFrameNeedsResnapshot(canvas)) {
       this.releaseCanvasFrameForResnapshot(canvas);
@@ -16012,26 +16149,27 @@ class ImageOcrController {
   }, READER_RASTER_EMPTY_RETRY_MS);
   return attempts;
   }
-  readerRasterEmptyScanKey(state2, fallbackKey) {
-  return state2.image.dataset.ocrAttemptKey || fallbackKey;
+  readerRasterEmptyScanKey(state2, work) {
+  const attemptKey = state2.image.dataset.ocrAttemptKey;
+  return attemptKey ? work.target.workKey(attemptKey) : work.workKey;
   }
-  scheduleReaderRasterProviderRetry(state2, key, userRequested, error) {
+  scheduleReaderRasterProviderRetry(state2, work, userRequested, error) {
   const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
-  const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + attemptCost;
-  this.readerRasterProviderFailures.set(key, attempts);
+  const attempts = (this.readerRasterProviderFailures.get(work.workKey) ?? 0) + attemptCost;
+  this.readerRasterProviderFailures.set(work.workKey, attempts);
   if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
   const delay = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
   log.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay }, error);
-  const previousTimer = this.readerRasterProviderRetryTimers.get(key);
+  const previousTimer = this.readerRasterProviderRetryTimers.get(work.workKey);
   if (previousTimer) window.clearTimeout(previousTimer);
   const timer = window.setTimeout(() => {
-    if (this.readerRasterProviderRetryTimers.get(key) !== timer) return;
-    this.readerRasterProviderRetryTimers.delete(key);
-    if (!this.isCurrentContentState(state2, key)) return;
+    if (this.readerRasterProviderRetryTimers.get(work.workKey) !== timer) return;
+    this.readerRasterProviderRetryTimers.delete(work.workKey);
+    if (!work.target.isCurrent() || !this.isCurrentContentState(state2, work.contentKey)) return;
     state2.autoSkipped = false;
     this.enqueue(state2.image, userRequested);
   }, delay);
-  this.readerRasterProviderRetryTimers.set(key, timer);
+  this.readerRasterProviderRetryTimers.set(work.workKey, timer);
   return true;
   }
   clearReaderRasterProviderRetry(key) {
@@ -17181,18 +17319,20 @@ class ImageOcrController {
   return retried;
   }
   retryReaderRasterImage(image) {
-  const key = imageCacheKey(image);
+  const target = captureOcrTargetContext();
+  const work = ocrTargetWork(imageCacheKey(image), target);
   const state2 = this.states.get(image);
-  const emptyScanKey = state2 ? this.readerRasterEmptyScanKey(state2, state2.key) : image.dataset.ocrAttemptKey;
-  if (state2) this.forget(state2.key);
-  this.forget(key);
-  this.readerRasterEmptyScans.delete(key);
-  if (state2) this.readerRasterEmptyScans.delete(state2.key);
+  const attemptKey = image.dataset.ocrAttemptKey;
+  const emptyScanKey = state2 ? this.readerRasterEmptyScanKey(state2, work) : attemptKey && target.workKey(attemptKey);
+  if (state2) this.forget(state2.target.cacheKey(state2.key));
+  this.forget(work.cacheKey);
+  this.readerRasterEmptyScans.delete(work.workKey);
+  if (state2) this.readerRasterEmptyScans.delete(state2.target.workKey(state2.key));
   if (emptyScanKey) this.readerRasterEmptyScans.delete(emptyScanKey);
-  this.readerRasterFailedScans.delete(key);
-  if (state2) this.readerRasterFailedScans.delete(state2.key);
-  this.clearReaderRasterProviderRetry(key);
-  if (state2 && state2.key !== key) this.clearReaderRasterProviderRetry(state2.key);
+  this.readerRasterFailedScans.delete(work.workKey);
+  if (state2) this.readerRasterFailedScans.delete(state2.target.workKey(state2.key));
+  this.clearReaderRasterProviderRetry(work.workKey);
+  if (state2) this.clearReaderRasterProviderRetry(state2.target.workKey(state2.key));
   this.queue = this.queue.filter((queued) => queued !== image);
   const settings = this.options.getSettings();
   const canvas = this.canvasFrameSources.get(image);
@@ -17470,15 +17610,12 @@ class ImageOcrController {
   }
   forgetImageWork(image, state2) {
   this.queue = this.queue.filter((queued) => queued !== image);
-  this.cancelReaderRasterProviderRetryTimer(imageCacheKey(image));
-  if (state2) this.cancelReaderRasterProviderRetryTimer(state2.key);
+  this.cancelReaderRasterProviderRetryTimer(ocrTargetWorkKey(imageCacheKey(image)));
+  if (state2) this.cancelReaderRasterProviderRetryTimer(state2.target.workKey(state2.key));
   this.removeImageStatusCard(image);
   }
   isCurrentState(state2) {
   return !this.destroyed && this.states.get(state2.image) === state2;
-  }
-  requireCurrentState(state2) {
-  if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
   }
   isCurrentContentState(state2, key) {
   return this.isCurrentState(state2) && state2.key === key && imageCacheKey(state2.image) === key;
@@ -17665,25 +17802,6 @@ function rangesOverlap(start, end, otherStart, otherEnd) {
 }
 function compareOcrTokens(first, second) {
   return first.start - second.start || second.length - first.length;
-}
-function ocrFallbackCardFromText(text) {
-  const spelling = text.replace(/\s+/g, " ").trim().slice(0, 80);
-  const id = -stablePositiveHashId(`ocr-fallback
-${spelling}`);
-  return {
-  vid: id,
-  sid: id,
-  rid: 0,
-  spelling,
-  reading: "",
-  frequencyRank: null,
-  partOfSpeech: [],
-  meanings: [],
-  cardState: ["not-in-deck"],
-  pitchAccent: [],
-  wordWithReading: null,
-  source: "fallback"
-  };
 }
 function createOcrLineElement(result, line, tokens, sentence, showText, settings) {
   const element = document.createElement("div");

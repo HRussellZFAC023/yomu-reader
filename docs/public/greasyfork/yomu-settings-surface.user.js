@@ -66,24 +66,38 @@ function normalizedJapaneseCardReading(spelling, reading) {
 function cleanCardHighlightValue(value) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
+const UNIFIED_IDEOGRAPH_RE = /^\p{Unified_Ideograph}$/u;
+const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+function isUnifiedIdeograph(value) {
+  return UNIFIED_IDEOGRAPH_RE.test(value);
+}
+function hanIdeographSegments(text2) {
+  return [...text2.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+  text: match[0],
+  start: match.index,
+  end: match.index + match[0].length
+  }));
+}
 const HIRAGANA = "぀-ゟ";
 const KATAKANA = "゠-ヿ";
 const KANA = "぀-ヿ";
 const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
 const KANJI = "㐀-鿿";
+const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
 const ITERATION_MARK = "々";
 const ITERATION_MARKS = `${ITERATION_MARK}〆`;
 const KANA_COUNTERS = "ヵヶ";
 const PROLONGED_SOUND_MARK = "ー";
 const KATAKANA_MIDDLE_DOT = "・";
-const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
-const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
 const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
-const KANJI_RE = new RegExp(`[${KANJI}]`, "u");
+const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const GODAN_ROWS = [
@@ -438,27 +452,98 @@ function stableHash32(value) {
 function stablePositiveHashId(value) {
   return stableHash32(value) || 1;
 }
-const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
+function codePointBoundaryAtOrBefore(text2, offset) {
+  const clamped = Math.max(0, Math.min(offset, text2.length));
+  if (clamped > 0 && clamped < text2.length && isLowSurrogate(text2.charCodeAt(clamped)) && isHighSurrogate(text2.charCodeAt(clamped - 1))) {
+  return clamped - 1;
+  }
+  return clamped;
+}
+function codePointBoundaryAtOrAfter(text2, offset) {
+  const before = codePointBoundaryAtOrBefore(text2, offset);
+  return before === offset ? before : Math.min(text2.length, before + 2);
+}
+function codePointSafePrefix(text2, maxUtf16Units) {
+  return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
+}
+function lookupSpansStartingInRange(text2, segment, from, to, maxCodePoints) {
+  const offsets = codePointOffsets(text2, segment.start, segment.end);
+  const spans = [];
+  for (let startIndex = 0; startIndex < offsets.length - 1; startIndex++) {
+  const start = offsets[startIndex];
+  if (start < from || start >= to) continue;
+  const lastEndIndex = Math.min(offsets.length - 1, startIndex + maxCodePoints);
+  for (let endIndex = lastEndIndex; endIndex > startIndex; endIndex--) {
+    const end = offsets[endIndex];
+    spans.push({
+      term: text2.slice(start, end),
+      start,
+      end,
+      codePoints: endIndex - startIndex
+    });
+  }
+  }
+  return spans;
+}
+function codePointOffsets(text2, start, end) {
+  const safeStart = codePointBoundaryAtOrAfter(text2, start);
+  const safeEnd = codePointBoundaryAtOrBefore(text2, end);
+  const offsets = [safeStart];
+  let offset = safeStart;
+  for (const character of text2.slice(safeStart, safeEnd)) {
+  offset += character.length;
+  offsets.push(offset);
+  }
+  return offsets;
+}
+function isHighSurrogate(value) {
+  return value >= 55296 && value <= 56319;
+}
+function isLowSurrogate(value) {
+  return value >= 56320 && value <= 57343;
+}
+const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+  "gu"
+);
+const JAPANESE_TEXT_RUN_RE = new RegExp(
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+  "gu"
+);
+const JAPANESE_CHARACTER_RE = new RegExp(
+  `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+  `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
 const SEGMENT_SEPARATORS = "・･゠·•";
 const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
 const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
-const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
-const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+  `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+  "u"
+);
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+  "u"
+);
 const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
+const SURU_STEM_SEGMENT_RE = new RegExp(
+  `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -468,9 +553,12 @@ const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+  `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 function normalizeFallbackTerm(text2) {
-  return text2.replace(/\s+/g, " ").trim().slice(0, 80);
+  return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
@@ -1067,8 +1155,8 @@ const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -1147,6 +1235,8 @@ function createLearningTargetModule(spec) {
   grammar,
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+  ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+  lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
   normalizeText,
   isLookupableText(text2) {
     return Boolean(text2) && detects(text2);
@@ -1660,7 +1750,7 @@ function japaneseLearnerMatch(name, rawMatch) {
   return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-  `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
   "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -3958,6 +4048,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
   const lookupRewrites = lookupRewritesForTarget(language2.id);
   const readingAnnotation = language2.id === "zh" || language2.id === "yue";
+  const usesHanScript = language2.scripts.some((script) => script === "Hans" || script === "Hant");
   return createLearningTargetModule({
     id: `${language2.id}-roster-v1`,
     language: language2.runtimeLocale,
@@ -3982,7 +4073,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language2.runtimeLocale),
     detectsText: scriptDetector(language2.scripts),
-    lookupRewrites
+    lookupRewrites,
+    ...usesHanScript ? {
+      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+      // Let the installed dictionary arbitrate inside a real Han
+      // run, and accept expression hits only.
+      lookupStartsAtSegmentBoundary: false,
+      lookupRunSegments: hanIdeographSegments,
+      lookupSweepMode: "left-to-right-longest-exact",
+      pointerWordSegments: hanIdeographSegments
+    } : {}
   });
   })
 );
@@ -4037,6 +4137,7 @@ registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
 registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
 GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
 let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+let targetSelectionGeneration = 0;
 let cachedTarget = null;
 let cachedForLanguage = "";
 let cachedForRegistryRevision = -1;
@@ -4053,9 +4154,13 @@ function activeLearningTarget() {
 function activeLearningTargetLanguage() {
   return activeLearningTarget().language;
 }
+function activeLearningTargetGeneration() {
+  return targetSelectionGeneration;
+}
 function setActiveLearningTargetLanguage(value) {
   const module = learningTargetModuleFor(value);
   if (!module) return null;
+  if (requestedTargetLanguage !== module.language) targetSelectionGeneration += 1;
   requestedTargetLanguage = module.language;
   return module;
 }
@@ -4131,6 +4236,7 @@ function readYomuCompanions(target) {
 }
 registerYomuCompanion("learningTargets", {
   activeLearningTarget,
+  activeLearningTargetGeneration,
   activeLearningTargetLanguage,
   adoptLearningTargetLanguage,
   defaultLearningTargetModule,
@@ -8111,6 +8217,85 @@ function migrateAnkiSentenceAudioMappings(mappings) {
   }
   return { mappings: out, movedModels };
 }
+const FALLBACK_HEX_COLOR = "#000000";
+function normalizeHexColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+}
+function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+  const l1 = relativeLuminance(a, normalizeColor);
+  const l2 = relativeLuminance(b, normalizeColor);
+  const light = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (light + 0.05) / (dark + 0.05);
+}
+function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+  const channel = value / 255;
+  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+  const a = sharedHexToRgb(from, normalizeColor);
+  const b = sharedHexToRgb(to, normalizeColor);
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+  const safe = normalizeHexColor(normalizeColor(color));
+  return [
+  parseInt(safe.slice(1, 3), 16),
+  parseInt(safe.slice(3, 5), 16),
+  parseInt(safe.slice(5, 7), 16)
+  ];
+}
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+  if (!shortHex) return fallback;
+  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+function accentToRgba(color, alpha) {
+  const safe = sanitizeAccentColor(color);
+  const red = parseInt(safe.slice(1, 3), 16);
+  const green = parseInt(safe.slice(3, 5), 16);
+  const blue = parseInt(safe.slice(5, 7), 16);
+  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+function accessibleOcrBackgroundOpacity(opacity) {
+  const numericOpacity = Number(opacity);
+  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+}
+function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const accent = sanitizeAccentColor(accentColor);
+  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+  return accent;
+  }
+  for (let amount = 0.08; amount <= 1; amount += 0.04) {
+  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+    return candidate;
+  }
+  }
+  return "#000000";
+}
+function ocrRenderedBackgroundContrast(color, opacity) {
+  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+}
+const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_OCR_BACKGROUND_OPACITY
+);
 function hasOwn(value, key) {
   return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
@@ -13279,37 +13464,6 @@ function changedAutomationProtectedSettingsKeys(previous, next) {
   AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
   );
 }
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
-  ];
-}
 function audioSubSourceProviderName(name) {
   const trimmed = name.trim().normalize("NFC");
   return trimmed.split(/\s+/, 1)[0] ?? trimmed;
@@ -13372,16 +13526,9 @@ const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-langua
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$d = Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
 const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
 const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -14732,45 +14879,6 @@ function furiganaModeNeedsDifficultyExplanation(settings) {
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accentToRgba(color, alpha) {
-  const safe = sanitizeAccentColor(color);
-  const red = parseInt(safe.slice(1, 3), 16);
-  const green = parseInt(safe.slice(3, 5), 16);
-  const blue = parseInt(safe.slice(5, 7), 16);
-  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  return Math.max(
-  OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-  clampNumber$1(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
-  );
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-}
 function normalizeOcrProvider(value, settings) {
   if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
   if (typeof value !== "string") return DEFAULT_SETTINGS.ocrProvider;
@@ -15630,7 +15738,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.61".trim() ? "1.8.61".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.62".trim() ? "1.8.62".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -57984,6 +58092,20 @@ function nonOverlappingMatches(matches, limit) {
   const result = selected.sort((a, b) => a.start - b.start);
   return result;
 }
+function leftToRightLongestMatches(matches, limit) {
+  const candidates = [...matches].sort(
+  (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+  );
+  const selected = [];
+  let coveredUntil = 0;
+  for (const match of candidates) {
+  if (match.start < coveredUntil) continue;
+  selected.push(match);
+  coveredUntil = match.end;
+  if (selected.length >= limit) break;
+  }
+  return selected;
+}
 function compareTermMatchesForSelection(a, b) {
   for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
   const result = compare(a, b);
@@ -58024,6 +58146,19 @@ function nestedFrequencyValue(value) {
   return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 const WHITESPACE_RE = /\s/u;
+function targetTermMatchLookupCandidates(target, surface) {
+  const result = [];
+  for (const deinflected of target.lookupCandidates(surface)) {
+  if (!target.isLookupableText(deinflected.term)) continue;
+  for (const key of genericLookupTextVariants(deinflected.term)) {
+    result.push({ key, deinflected });
+  }
+  }
+  return result;
+}
+function targetTermMatchQueriesReadingIndex(target) {
+  return target.lookupSweepMode !== "left-to-right-longest-exact";
+}
 function readIndexRequestValues(index, query, limit, resolve, reject) {
   if (typeof index.getAll === "function") {
   const request2 = index.getAll(query, limit);
@@ -59469,9 +59604,17 @@ ${scopedInner}
   }
   async function readZipArchive(file, onProgress) {
     const bytes = await readBlobBytes(file, onProgress);
-    const files = readZipCentralDirectory(bytes);
-    onProgress?.({ phase: "directory", loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
-    return new ZipArchive(bytes, files);
+    const archive = readZipArchiveBytes(bytes);
+    onProgress?.({
+      phase: "directory",
+      loaded: bytes.byteLength,
+      total: file.size || bytes.byteLength,
+      entries: archive.entries().length
+    });
+    return archive;
+  }
+  function readZipArchiveBytes(bytes) {
+    return new ZipArchive(bytes, readZipCentralDirectory(bytes));
   }
   async function readBlobBytes(file, onProgress) {
     const total = file.size;
@@ -59592,6 +59735,76 @@ ${scopedInner}
   function readBlobArrayBuffer(blob) {
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
+  }
+  const MAX_SURFACE_CODE_POINTS = 18;
+  class InlineTermCandidateCollector {
+    segmentedText = "";
+    segmentedTarget;
+    segments = [];
+    runText = "";
+    runTarget;
+    runs = [];
+    collect(target, source, from, to) {
+      const candidates = /* @__PURE__ */ new Map();
+      if (target.lookupStartsAtSegmentBoundary) {
+        for (const segment of this.segmentedSource(source, target)) {
+          if (segment.start < from || segment.start >= to) continue;
+          this.add(target, segment.text, segment.start, candidates);
+        }
+        return candidates;
+      }
+      if (target.lookupSubsegments) {
+        for (const segment of this.segmentedSource(source, target)) {
+          if (segment.start < from || segment.start >= to) continue;
+          for (const surface of target.lookupSubsegments(segment.text, MAX_SURFACE_CODE_POINTS)) {
+            if (!isSearchableTargetSurface(surface, target)) continue;
+            this.add(target, surface, segment.start, candidates);
+          }
+        }
+        return candidates;
+      }
+      for (const segment of this.lookupRuns(source, target)) {
+        if (segment.end <= from || segment.start >= to) continue;
+        for (const span of lookupSpansStartingInRange(
+          source,
+          segment,
+          from,
+          to,
+          MAX_SURFACE_CODE_POINTS
+        )) {
+          if (!isSearchableTargetSurface(span.term, target)) continue;
+          this.add(target, span.term, span.start, candidates);
+        }
+      }
+      return candidates;
+    }
+    segmentedSource(source, target) {
+      if (this.segmentedText !== source || this.segmentedTarget !== target) {
+        this.segments = target.segment(source);
+        this.segmentedText = source;
+        this.segmentedTarget = target;
+      }
+      return this.segments;
+    }
+    lookupRuns(source, target) {
+      if (this.runText !== source || this.runTarget !== target) {
+        this.runs = target.lookupRunSegments?.(source) ?? [{
+          text: source,
+          start: 0,
+          end: source.length
+        }];
+        this.runText = source;
+        this.runTarget = target;
+      }
+      return this.runs;
+    }
+    add(target, surface, start, candidates) {
+      for (const { key, deinflected } of targetTermMatchLookupCandidates(target, surface)) {
+        const positions = candidates.get(key) ?? [];
+        positions.push({ start, end: start + surface.length, surface, deinflected });
+        candidates.set(key, positions);
+      }
+    }
   }
   function normalizeDexieTermRow(row) {
     const record2 = dexieRowRecord(row);
@@ -60101,7 +60314,6 @@ ${entry.reading}`;
   const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
   const TERM_MATCH_WINDOW_CHARS = 240;
   const TERM_MATCH_SOURCE_LIMIT = 4e3;
-  const TERM_MATCH_MAX_SURFACE_CHARS = 18;
   const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -60135,9 +60347,7 @@ ${entry.reading}`;
     // Memo for one findTermMatches call: every window asks the active target
     // to segment the same source, and for an ICU-backed target that is a full
     // pass over the text each time.
-    segmentedSourceText = "";
-    segmentedSourceTarget = "";
-    segmentedSourceSegments = [];
+    inlineTermCandidates = new InlineTermCandidateCollector();
     text(key) {
       return uiText(this.getInterfaceLanguage(), key);
     }
@@ -60342,9 +60552,10 @@ ${entry.reading}`;
         }
       );
     }
-    async findTermMatches(text2, limit = 32, preferences = []) {
+    async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
+      const targetGeneration = activeLearningTargetGeneration();
       const done = log$7.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source = text2.slice(0, TERM_MATCH_SOURCE_LIMIT);
+      const source = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source.length < text2.length) {
         log$7.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
       }
@@ -60353,7 +60564,8 @@ ${entry.reading}`;
         return [];
       }
       try {
-        return await this.sweepTermMatchWindows(source, limit, preferences);
+        const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
+        return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
       } catch (error) {
         log$7.warn("Inline term match search failed", { length: source.length, error });
         throw error;
@@ -60361,100 +60573,29 @@ ${entry.reading}`;
         done();
       }
     }
-    async sweepTermMatchWindows(source, limit, preferences) {
+    async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
       let coveredUntil = 0;
-      for (let start = 0; start < source.length; start += TERM_MATCH_WINDOW_CHARS) {
+      for (let start = 0; start < source.length; ) {
         if (start > 0) await nextTask();
-        const matches = await this.termMatchesInWindow(source, start, preferences);
+        const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
+        if (!isCurrentLookupTarget(target, targetGeneration)) return [];
+        const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        for (const match of nonOverlappingMatches(free, limit)) {
+        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        for (const match of windowMatches) {
           selected.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
         }
+        start = end;
       }
       return selected.sort((a, b) => a.start - b.start);
     }
-    async termMatchesInWindow(source, start, preferences) {
-      const candidates = this.collectTermMatchCandidates(source, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
-      return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
+    async termMatchesInWindow(source, start, end, preferences, target) {
+      const candidates = this.inlineTermCandidates.collect(target, source, start, end);
+      return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
     }
-    /**
-     * Surfaces worth a dictionary lookup in this window, and where each sits.
-     *
-     * Both halves used to be Japanese: the sweep only started on a kana/kanji
-     * character, and every surface it produced was expanded by the Japanese
-     * deinflector. That made the whole engine — a format that serves dozens of
-     * languages — unable to find a single word in any of them, whatever the
-     * reader had installed. Detection, boundaries and morphology now all come
-     * from the active target, so the engine holds entries and ranks them and
-     * asserts nothing about the language they are written in.
-     *
-     * Only start positions are confined to the window; surfaces still run past
-     * its end, so a term straddling a window boundary is found exactly as it
-     * would be in a single sweep of the whole text.
-     */
-    collectTermMatchCandidates(source, from, to) {
-      const target = activeLearningTarget();
-      const candidates = /* @__PURE__ */ new Map();
-      if (target.lookupStartsAtSegmentBoundary) {
-        for (const segment of this.segmentedSource(source, target)) {
-          if (segment.start < from || segment.start >= to) continue;
-          this.addTargetTermCandidates(target, segment.text, segment.start, candidates);
-        }
-        return candidates;
-      }
-      if (target.lookupSubsegments) {
-        this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
-        return candidates;
-      }
-      const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source.length);
-      for (let start = from; start < to; start++) {
-        if (!target.isLookupableText(source[start])) continue;
-        this.collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates);
-      }
-      return candidates;
-    }
-    collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates) {
-      for (const segment of this.segmentedSource(source, target)) {
-        if (segment.start < from || segment.start >= to) continue;
-        for (const surface of target.lookupSubsegments(segment.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
-          if (!isSearchableTargetSurface(surface, target)) continue;
-          this.addTargetTermCandidates(target, surface, segment.start, candidates);
-        }
-      }
-    }
-    /**
-     * One segmentation per `findTermMatches` call rather than one per window:
-     * every window asks for the same answer over the same source, and a target
-     * whose segmenter is ICU pays a full pass for each question.
-     */
-    segmentedSource(source, target) {
-      if (this.segmentedSourceText !== source || this.segmentedSourceTarget !== target.id) {
-        this.segmentedSourceSegments = target.segment(source);
-        this.segmentedSourceText = source;
-        this.segmentedSourceTarget = target.id;
-      }
-      return this.segmentedSourceSegments;
-    }
-    collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates) {
-      for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
-        const surface = source.slice(start, start + length);
-        if (!isSearchableTargetSurface(surface, target)) continue;
-        this.addTargetTermCandidates(target, surface, start, candidates);
-      }
-    }
-    addTargetTermCandidates(target, surface, start, candidates) {
-      for (const deinflected of target.lookupCandidates(surface)) {
-        if (!target.isLookupableText(deinflected.term)) continue;
-        for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
-          const positions = candidates.get(lookupTerm) ?? [];
-          positions.push({ start, end: start + surface.length, surface, deinflected });
-          candidates.set(lookupTerm, positions);
-        }
-      }
-    }
-    async lookupTermMatchCandidates(candidates, preferences) {
+    async lookupTermMatchCandidates(target, candidates, preferences) {
       const db = await this.db();
       const rank = dictionaryRank(preferences);
       return await new Promise((resolve, reject) => {
@@ -60464,7 +60605,8 @@ ${entry.reading}`;
         const readingIndex = store.index("reading");
         const results = [];
         const expressions = sortedTermMatchExpressions(candidates);
-        let pending2 = expressions.length * 2;
+        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
+        let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
         const finish = () => {
           if (--pending2 <= 0) resolve(results);
         };
@@ -60473,7 +60615,9 @@ ${entry.reading}`;
         };
         for (const expression of expressions) {
           requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-          requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+          if (queriesReadingIndex) {
+            requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+          }
         }
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
@@ -61735,7 +61879,7 @@ ${glossaryKey}`;
     return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
   }
   function normalizeTermSearchQuery(value) {
-    return normalizeGenericLookupText(value).slice(0, 80);
+    return codePointSafePrefix(normalizeGenericLookupText(value), 80);
   }
   function shouldSearchTermGlossaries(query) {
     return !JAPANESE_RE.test(query);
@@ -61863,8 +62007,7 @@ ${glossaryKey}`;
     return reservoir;
   }
   function isKanji(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
+    return isUnifiedIdeograph(value);
   }
   function normalizeStoredLookupTerms(store) {
     const request = store.openCursor();
@@ -61930,6 +62073,9 @@ ${glossaryKey}`;
   }
   function transactionError(tx, fallback) {
     return tx.error ?? new Error(fallback);
+  }
+  function isCurrentLookupTarget(target, generation) {
+    return activeLearningTarget() === target && activeLearningTargetGeneration() === generation;
   }
   function nextTask() {
     return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -63818,11 +63964,6 @@ ${glossaryKey}`;
     const value = form.querySelector('select[name="targetLanguage"]')?.value;
     return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
   }
-  function targetLanguageDisplayName(id, interfaceLanguage) {
-    const target = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id);
-    if (!target) return id;
-    return interfaceLanguage === "ja" ? target.nativeName : target.englishName;
-  }
   function dictionaryStatusText(summary, language2) {
     if (summary.dictionaries.length) {
       return formatUiTemplate(uiText(language2, "dictionaryStatusSummary"), {
@@ -64294,9 +64435,10 @@ ${glossaryKey}`;
           showAvailability();
           return;
         }
+        const target = learningTargetRosterEntry(selected);
         showAvailability(formatUiTemplate(
           uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
-          { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) }
+          { language: this.settings.interfaceLanguage === "ja" ? target.nativeName : target.englishName }
         ));
       } catch (error) {
         log$4.warn("Published dictionary coverage check failed", error);

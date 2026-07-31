@@ -6126,21 +6126,31 @@ function normalizedJapaneseCardReading(spelling, reading) {
 function cleanCardHighlightValue(value) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
+const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+function hanIdeographSegments(text) {
+  return [...text.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+  text: match[0],
+  start: match.index,
+  end: match.index + match[0].length
+  }));
+}
 const HIRAGANA = "぀-ゟ";
 const KATAKANA = "゠-ヿ";
 const KANA = "぀-ヿ";
 const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
 const KANJI = "㐀-鿿";
+const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
 const ITERATION_MARK = "々";
 const ITERATION_MARKS = `${ITERATION_MARK}〆`;
 const KANA_COUNTERS = "ヵヶ";
 const PROLONGED_SOUND_MARK = "ー";
-const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
-const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
+const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
 const GODAN_ROWS = [
   { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
   { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -6482,27 +6492,64 @@ function uniqueStrings(values, options = {}) {
 function uniqueNonEmptyStrings(values) {
   return uniqueStrings(values, { dropEmpty: true });
 }
-const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
+function codePointBoundaryAtOrBefore(text, offset) {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  if (clamped > 0 && clamped < text.length && isLowSurrogate(text.charCodeAt(clamped)) && isHighSurrogate(text.charCodeAt(clamped - 1))) {
+  return clamped - 1;
+  }
+  return clamped;
+}
+function codePointSafePrefix(text, maxUtf16Units) {
+  return text.slice(0, codePointBoundaryAtOrBefore(text, maxUtf16Units));
+}
+function isHighSurrogate(value) {
+  return value >= 55296 && value <= 56319;
+}
+function isLowSurrogate(value) {
+  return value >= 56320 && value <= 57343;
+}
+const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+  "gu"
+);
+const JAPANESE_TEXT_RUN_RE = new RegExp(
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+  "gu"
+);
+const JAPANESE_CHARACTER_RE = new RegExp(
+  `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+  `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
 const SEGMENT_SEPARATORS = "・･゠·•";
 const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
 const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
-const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
-const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+  `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+  "u"
+);
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+  "u"
+);
 const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
+const SURU_STEM_SEGMENT_RE = new RegExp(
+  `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -6512,9 +6559,12 @@ const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+  `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 function normalizeFallbackTerm(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, 80);
+  return codePointSafePrefix(text.replace(/\s+/g, " ").trim(), 80);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
@@ -7096,8 +7146,8 @@ function grammarMatchContains(outer, inner) {
   return inner.index >= outer.index && inner.index + inner.match.length <= outer.index + outer.match.length;
 }
 const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -7176,6 +7226,8 @@ function createLearningTargetModule(spec) {
   grammar,
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+  ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+  lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
   normalizeText,
   isLookupableText(text) {
     return Boolean(text) && detects(text);
@@ -7689,7 +7741,7 @@ function japaneseLearnerMatch(name, rawMatch) {
   return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-  `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
   "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -8957,6 +9009,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
   const readingAnnotation = language.id === "zh" || language.id === "yue";
+  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
   return createLearningTargetModule({
     id: `${language.id}-roster-v1`,
     language: language.runtimeLocale,
@@ -8981,7 +9034,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
-    lookupRewrites
+    lookupRewrites,
+    ...usesHanScript ? {
+      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+      // Let the installed dictionary arbitrate inside a real Han
+      // run, and accept expression hits only.
+      lookupStartsAtSegmentBoundary: false,
+      lookupRunSegments: hanIdeographSegments,
+      lookupSweepMode: "left-to-right-longest-exact",
+      pointerWordSegments: hanIdeographSegments
+    } : {}
   });
   })
 );

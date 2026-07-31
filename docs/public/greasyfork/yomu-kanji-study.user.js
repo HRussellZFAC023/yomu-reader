@@ -3309,11 +3309,26 @@ function addDeckSourceClasses(classes, source, names) {
   classes.add(`${source}-deck-${slug}`);
   });
 }
+const UNIFIED_IDEOGRAPH_RE = /^\p{Unified_Ideograph}$/u;
+const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+function isUnifiedIdeograph(value) {
+  return UNIFIED_IDEOGRAPH_RE.test(value);
+}
+function hanIdeographSegments(text2) {
+  return [...text2.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+  text: match[0],
+  start: match.index,
+  end: match.index + match[0].length
+  }));
+}
 const HIRAGANA = "぀-ゟ";
 const KATAKANA = "゠-ヿ";
 const KANA = "぀-ヿ";
 const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
 const KANJI = "㐀-鿿";
+const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
 const ITERATION_MARK = "々";
 const ITERATION_MARKS = `${ITERATION_MARK}〆`;
 const KANA_COUNTERS = "ヵヶ";
@@ -3325,16 +3340,18 @@ const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
 const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
 const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
 const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
+const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
 const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
 const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
 const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
-const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
-const HAS_JAPANESE_LETTER = new RegExp(`[${JAPANESE_LETTERS}]`, "u");
-const KANJI_RE$1 = new RegExp(`[${KANJI}]`, "u");
-const KANJI_LIKE_RE = new RegExp(`[${KANJI_LIKE}]`, "u");
+const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
+const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
 const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
 const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
@@ -3919,27 +3936,64 @@ function stablePositiveHashId(value) {
 function stableHashBase36(value) {
   return stableHash32(value).toString(36);
 }
-const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
-const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
+function codePointBoundaryAtOrBefore(text2, offset) {
+  const clamped = Math.max(0, Math.min(offset, text2.length));
+  if (clamped > 0 && clamped < text2.length && isLowSurrogate(text2.charCodeAt(clamped)) && isHighSurrogate(text2.charCodeAt(clamped - 1))) {
+  return clamped - 1;
+  }
+  return clamped;
+}
+function codePointSafePrefix(text2, maxUtf16Units) {
+  return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
+}
+function isHighSurrogate(value) {
+  return value >= 55296 && value <= 56319;
+}
+function isLowSurrogate(value) {
+  return value >= 56320 && value <= 57343;
+}
+const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+  "gu"
+);
+const JAPANESE_TEXT_RUN_RE = new RegExp(
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+  "gu"
+);
+const JAPANESE_CHARACTER_RE = new RegExp(
+  `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+  `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
 const SEGMENT_SEPARATORS = "・･゠·•";
 const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
 const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
-const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
-const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+  `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+  "u"
+);
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+  `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+  "u"
+);
 const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
+const SURU_STEM_SEGMENT_RE = new RegExp(
+  `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -3949,9 +4003,12 @@ const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+  `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+  "u"
+);
 function normalizeFallbackTerm(text2) {
-  return text2.replace(/\s+/g, " ").trim().slice(0, 80);
+  return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
 }
 let cachedSegmenterConstructor;
 let cachedJapaneseWordSegmenter;
@@ -4509,8 +4566,8 @@ const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -4589,6 +4646,8 @@ function createLearningTargetModule(spec) {
   grammar,
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+  ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+  lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
   normalizeText,
   isLookupableText(text2) {
     return Boolean(text2) && detects(text2);
@@ -5102,7 +5161,7 @@ function japaneseLearnerMatch(name, rawMatch) {
   return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-  `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+  `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
   "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -7317,6 +7376,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
   const readingAnnotation = language.id === "zh" || language.id === "yue";
+  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
   return createLearningTargetModule({
     id: `${language.id}-roster-v1`,
     language: language.runtimeLocale,
@@ -7341,7 +7401,16 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
-    lookupRewrites
+    lookupRewrites,
+    ...usesHanScript ? {
+      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+      // Let the installed dictionary arbitrate inside a real Han
+      // run, and accept expression hits only.
+      lookupStartsAtSegmentBoundary: false,
+      lookupRunSegments: hanIdeographSegments,
+      lookupSweepMode: "left-to-right-longest-exact",
+      pointerWordSegments: hanIdeographSegments
+    } : {}
   });
   })
 );
@@ -7684,6 +7753,77 @@ function normalizeAnkiFieldName(value) {
   return value.replace(/[_\s-]+/g, "").toLowerCase();
 }
 new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+const FALLBACK_HEX_COLOR = "#000000";
+function normalizeHexColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+}
+function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+  const l1 = relativeLuminance(a, normalizeColor);
+  const l2 = relativeLuminance(b, normalizeColor);
+  const light = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (light + 0.05) / (dark + 0.05);
+}
+function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+  const channel = value / 255;
+  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+  const a = sharedHexToRgb(from, normalizeColor);
+  const b = sharedHexToRgb(to, normalizeColor);
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+  const safe = normalizeHexColor(normalizeColor(color));
+  return [
+  parseInt(safe.slice(1, 3), 16),
+  parseInt(safe.slice(3, 5), 16),
+  parseInt(safe.slice(5, 7), 16)
+  ];
+}
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+  if (!shortHex) return fallback;
+  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+function accessibleOcrBackgroundOpacity(opacity) {
+  const numericOpacity = Number(opacity);
+  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+}
+function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const accent = sanitizeAccentColor(accentColor);
+  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+  return accent;
+  }
+  for (let amount = 0.08; amount <= 1; amount += 0.04) {
+  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+    return candidate;
+  }
+  }
+  return "#000000";
+}
+function ocrRenderedBackgroundContrast(color, opacity) {
+  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+}
+accessibleOcrBackgroundColor(
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_OCR_BACKGROUND_OPACITY
+);
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   id: "ja",
@@ -10522,16 +10662,16 @@ function isGrammarRuleCopyRecord(value) {
 }
 function externalLinkIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M7 17 17 7"></path>
-        <path d="M9 7h8v8"></path>
-    </svg>`;
+    <path d="M7 17 17 7"></path>
+    <path d="M9 7h8v8"></path>
+  </svg>`;
 }
 function speakerIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-    </svg>`;
+    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+  </svg>`;
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -10543,10 +10683,10 @@ function renderImmersionSearchLinksHtml(query, language) {
   const links = externalExampleSearchLinks(query);
   if (!links.length) return "";
   return `
-        <div class="jpdb-reader-immersion-search-links" aria-label="${escapeHtml(uiText(language, "exampleSearchLinks"))}">
-            ${links.map((link) => renderExternalExampleSearchLink(link, language)).join("")}
-        </div>
-    `;
+    <div class="jpdb-reader-immersion-search-links" aria-label="${escapeHtml(uiText(language, "exampleSearchLinks"))}">
+        ${links.map((link) => renderExternalExampleSearchLink(link, language)).join("")}
+    </div>
+  `;
 }
 function externalExampleSearchLinks(query) {
   const normalizedQuery = query.trim();
@@ -11817,44 +11957,7 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
-  ];
-}
 Logger.scope("Settings");
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
 const AUDIO_SOURCE_TYPE_VALUES = [
   "jpod101",
   "language-pod-101",
@@ -11897,10 +12000,6 @@ new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
   languageProfiles: [createDefaultLanguageProfile()],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
 });
-function clampNumber(value, min, max, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
-}
 function effectiveLegacyAutoFuriganaMode() {
   return "all";
 }
@@ -11912,38 +12011,6 @@ function effectiveFuriganaMode(settings) {
 }
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
-}
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  return Math.max(
-  OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-  clampNumber(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY)
-  );
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
@@ -12145,7 +12212,7 @@ function furiganaModeAllowsRuby(mode, surface, token, settings) {
 }
 function hasDifficultKanji(surface) {
   for (const char of surface) {
-  if (KANJI_RE$1.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+  if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
   }
   return false;
 }
@@ -12193,7 +12260,7 @@ function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const baseSpelling = spelling.trim();
   const baseReading = reading.trim();
   if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-  if (!KANJI_RE$1.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
+  if (!KANJI_RE.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
   for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
   if (!baseReading.endsWith(spellingSuffix)) continue;
   const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
@@ -12227,7 +12294,7 @@ function trailingKanaSuffixes(value) {
 function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
   const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
   if (!trimmed.surface || !trimmed.reading) return [];
-  if (!KANJI_RE$1.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
+  if (!KANJI_RE.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
   return [{
   text: trimmed.reading,
   start: trimmed.offset,
@@ -12263,7 +12330,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     const range = localRubyRange(surface, token, ruby);
     if (!range) return [];
     const base = surface.slice(range.start, range.end);
-    if (!KANJI_RE$1.test(base)) return [];
+    if (!KANJI_RE.test(base)) return [];
     if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
     const parts = kanjiOnlyRubySegments(surface, token, ruby);
     return parts.length ? parts : [ruby];
@@ -12274,7 +12341,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
 function sourceTokenRubies(surface, token) {
   if (token.rubies.length) return token.rubies;
   const reading = token.card.reading.trim();
-  if (!surface || !KANJI_RE$1.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+  if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
   if (inferred.length) {
   return inferred.map((ruby) => ({
@@ -12303,7 +12370,7 @@ function localRubyRange(surface, token, ruby) {
   return { start, end };
 }
 function kanjiRubyParts(base, reading) {
-  if (!base || !reading || !KANJI_RE$1.test(base)) return [];
+  if (!base || !reading || !KANJI_RE.test(base)) return [];
   if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
   const anchors = alignRubyKanaAnchors(base, reading);
   if (!anchors) return trimRubyPartToKanji(base, reading);
@@ -12324,7 +12391,7 @@ function appendRubyGap(parts, base, start, end, reading) {
 }
 function trimRubyPartToKanji(base, reading) {
   const trimmed = trimSharedKanaAffixes(base, reading);
-  if (!trimmed.surface || !trimmed.reading || !KANJI_RE$1.test(trimmed.surface)) return [];
+  if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
   const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
   if (kanjiOnly) {
   return [{
@@ -12342,11 +12409,11 @@ function trimRubyPartToKanji(base, reading) {
 function kanaTrimmedKanjiRange(base, reading) {
   if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
   const chars = Array.from(base);
-  const first2 = chars.findIndex((char) => KANJI_RE$1.test(char));
+  const first2 = chars.findIndex((char) => KANJI_RE.test(char));
   if (first2 < 0) return null;
   let last = -1;
   for (let index = chars.length - 1; index >= first2; index -= 1) {
-  if (KANJI_RE$1.test(chars[index])) {
+  if (KANJI_RE.test(chars[index])) {
     last = index;
     break;
   }
@@ -12393,7 +12460,7 @@ function rubyKanaAnchorPlanIsValid(base, reading, anchors) {
   return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
 }
 function rubyGapCanOwnReading(base, reading) {
-  return KANJI_RE$1.test(base) ? reading.length > 0 : reading.length === 0;
+  return KANJI_RE.test(base) ? reading.length > 0 : reading.length === 0;
 }
 function rubyBaseKanaRuns(base) {
   const runs = [];
@@ -12438,8 +12505,7 @@ function rtkElementFallbackGlyph(keyword) {
   return RTK_ELEMENT_GLYPH_FALLBACKS.get(rtkElementKey(keyword));
 }
 function isKanjiCharacter$1(value) {
-  const code = value.codePointAt(0) ?? 0;
-  return code >= 13312 && code <= 40959;
+  return isUnifiedIdeograph(value);
 }
 const MAX_VISIBLE_KANJI_KEYWORDS = 5;
 function renderKanjiKeywordChips(sources, language) {
@@ -12550,26 +12616,26 @@ function renderRtkInfo(info, components2, language, initiallyExpanded = true, so
   const elementSection = renderRtkElementSection(elementChips, language);
   const stories = renderRtkStories(info, language);
   return `
-    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-        <summary class="jpdb-reader-local-title">RTK</summary>
-        <div class="jpdb-reader-local-entry">
-            <div class="jpdb-reader-rtk-head">
-                <strong>${escapeHtml(info.keyword)}</strong>
-                ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ""}
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+            <summary class="jpdb-reader-local-title">RTK</summary>
+            <div class="jpdb-reader-local-entry">
+                <div class="jpdb-reader-rtk-head">
+                    <strong>${escapeHtml(info.keyword)}</strong>
+                    ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ""}
+                </div>
+                ${readings2}
+                ${elementSection}
+                ${stories}
             </div>
-            ${readings2}
-            ${elementSection}
-            ${stories}
-        </div>
-    </details>
-  `;
+        </details>
+    `;
 }
 function renderRtkReadings(info, language) {
   if (!info.onYomi && !info.kunYomi) return "";
   return `<div class="jpdb-reader-kanji-readings">
-    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml(info.onYomi)}</span>` : ""}
-    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml(info.kunYomi)}</span>` : ""}
-  </div>`;
+        ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml(info.onYomi)}</span>` : ""}
+        ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml(info.kunYomi)}</span>` : ""}
+    </div>`;
 }
 function renderRtkElementSection(elementChips, language) {
   return elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">${elementChips.map((chip) => renderRtkElementChip(chip, language)).join("")}</div>` : "";
@@ -13120,46 +13186,46 @@ function uchisenCarouselRenderModel(kanji, index, images, inputs) {
 }
 function uchisenSummaryHtml(options, index, total) {
   return options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
-    <span class="yomu-jpdb-uchisen-summary-main">
-        <span>Uchisen</span>
-        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
-    </span>
-  `;
+        <span class="yomu-jpdb-uchisen-summary-main">
+            <span>Uchisen</span>
+            <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
+        </span>
+    `;
 }
 function uchisenBodyMetaHtml(options, index, total) {
   return options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
 }
 function renderUchisenCarouselHtml(model) {
   return `
-    <details class="${model.detailsClass}" ${model.sourceAttributes}>
-        <summary class="${model.summaryClass}">
-            ${model.summaryHtml}
-        </summary>
-        <div class="${model.bodyClass}">
-            ${renderUchisenToolbar(model)}
-            ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
-            ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
-            ${renderUchisenImageOrEmpty(model)}
-        </div>
-    </details>
-  `;
+        <details class="${model.detailsClass}" ${model.sourceAttributes}>
+            <summary class="${model.summaryClass}">
+                ${model.summaryHtml}
+            </summary>
+            <div class="${model.bodyClass}">
+                ${renderUchisenToolbar(model)}
+                ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
+                ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
+                ${renderUchisenImageOrEmpty(model)}
+            </div>
+        </details>
+    `;
 }
 function renderUchisenToolbar(model) {
   return `
-    <div class="yomu-jpdb-uchisen-toolbar">
-        ${model.bodyMeta}
-        ${renderUchisenLinkRow(model)}
-        ${renderUchisenNavigationControls(model)}
-    </div>
-  `;
+        <div class="yomu-jpdb-uchisen-toolbar">
+            ${model.bodyMeta}
+            ${renderUchisenLinkRow(model)}
+            ${renderUchisenNavigationControls(model)}
+        </div>
+    `;
 }
 function renderUchisenLinkRow(model) {
   return `
-    <span class="yomu-jpdb-uchisen-link-row">
-        <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
-        ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
-    </span>
-  `;
+        <span class="yomu-jpdb-uchisen-link-row">
+            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
+            ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
+        </span>
+    `;
 }
 function renderUchisenGenerateToggle(model) {
   return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml(uiText(model.language, "generateUchisenImage"))}">${escapeHtml(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
@@ -13169,16 +13235,16 @@ function renderUchisenNavigationControls(model) {
   const previousLabel = uiText(model.language, "previousExample");
   const nextLabel = uiText(model.language, "nextExample");
   return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(model.language, "uchisenMnemonicImages"))}">
-    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
-    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
-  </span>`;
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
+        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
+    </span>`;
 }
 function renderUchisenImageOrEmpty(model) {
   if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml(uiText(model.language, "noUchisenImagesYet"))}</div>`;
   const story = model.item.story && model.item.story !== "No story available" ? model.item.story : uiText(model.language, "noStoryAvailable");
   const alt = formatUchisenTemplate(uiText(model.language, "uchisenMnemonicFor"), { kanji: model.kanji });
   return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image src="${escapeHtml(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
-    <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
+        <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
 }
 function attachRenderedUchisenImage(container, item, index, currentImages, proxyUrl, cleanup, setCurrentImageUrl) {
   const image = container.querySelector("[data-uchisen-image]");
@@ -13287,21 +13353,21 @@ function fitUchisenImagePrompt(prompt) {
 function renderUchisenGeneratePanel(fields, status, busy, language) {
   const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml(status.tone)}">${escapeHtml(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, "uchisenGenerateHint"))}</div>`;
   return `
-    <div class="yomu-jpdb-uchisen-generator">
-        <label class="yomu-jpdb-uchisen-field">
-            <span>${escapeHtml(uiText(language, "uchisenMnemonicStory"))}</span>
-            <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml(fields.mnemonic)}</textarea>
-        </label>
-        <label class="yomu-jpdb-uchisen-field">
-            <span>${escapeHtml(uiText(language, "uchisenImagePrompt"))}</span>
-            <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml(fields.imagePrompt)}</textarea>
-        </label>
-        <div class="yomu-jpdb-uchisen-generator-footer">
-            ${statusHtml}
-            <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml(uiText(language, "generateUchisenImage"))}</button>
+        <div class="yomu-jpdb-uchisen-generator">
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml(uiText(language, "uchisenMnemonicStory"))}</span>
+                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml(fields.mnemonic)}</textarea>
+            </label>
+            <label class="yomu-jpdb-uchisen-field">
+                <span>${escapeHtml(uiText(language, "uchisenImagePrompt"))}</span>
+                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml(fields.imagePrompt)}</textarea>
+            </label>
+            <div class="yomu-jpdb-uchisen-generator-footer">
+                ${statusHtml}
+                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml(uiText(language, "generateUchisenImage"))}</button>
+            </div>
         </div>
-    </div>
-  `;
+    `;
 }
 function defaultUchisenGenerateFields(kanji, keyword, groups) {
   const keywordText = keyword?.keyword || kanji;
@@ -13311,288 +13377,288 @@ function defaultUchisenGenerateFields(kanji, keyword, groups) {
   return {
   mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
   imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
-    };
+  };
+}
+function uniqueUchisenComponents(groups) {
+  const seen = /* @__PURE__ */ new Set();
+  const components2 = [];
+  for (const group of groups) {
+  for (const component of group.components) {
+    const key = component.name || component.symbol;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    components2.push(component);
   }
-  function uniqueUchisenComponents(groups) {
-    const seen = /* @__PURE__ */ new Set();
-    const components2 = [];
-    for (const group of groups) {
-      for (const component of group.components) {
-        const key = component.name || component.symbol;
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        components2.push(component);
-      }
-    }
-    return components2;
   }
-  function findUchisenImageIndex(images, imageUrl) {
-    const canonical = canonicalUchisenUrl(imageUrl);
-    return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
+  return components2;
+}
+function findUchisenImageIndex(images, imageUrl) {
+  const canonical = canonicalUchisenUrl(imageUrl);
+  return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
+}
+function parseUchisenGenerationResponse(text2) {
+  const json = parseJsonObjectFromText(text2);
+  if (!json || isUchisenGenerationFailure(json)) {
+  throw new Error(uchisenGenerationErrorMessage(json, text2));
   }
-  function parseUchisenGenerationResponse(text2) {
-    const json = parseJsonObjectFromText(text2);
-    if (!json || isUchisenGenerationFailure(json)) {
-      throw new Error(uchisenGenerationErrorMessage(json, text2));
-    }
-    const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
-    const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
-    const imageFilename = normalizeUchisenImageFilename(rawFilename);
-    if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
-    return {
-      imageFilename,
-      imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
-    };
+  const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
+  const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
+  const imageFilename = normalizeUchisenImageFilename(rawFilename);
+  if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
+  return {
+  imageFilename,
+  imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
+  };
+}
+function uchisenPromptFieldValue(value) {
+  return escapeHtml(value).replace(/'/g, "&#039;");
+}
+function safeUchisenImagePrompt(value) {
+  let prompt = value;
+  for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
+  prompt = prompt.replace(pattern, replacement);
   }
-  function uchisenPromptFieldValue(value) {
-    return escapeHtml(value).replace(/'/g, "&#039;");
+  prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
+  if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+  return prompt;
+}
+const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
+function parseJsonObjectFromText(text2) {
+  try {
+  return JSON.parse(text2);
+  } catch {
+  const match = /\{[\s\S]*\}/.exec(text2);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return null;
   }
-  function safeUchisenImagePrompt(value) {
-    let prompt = value;
-    for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
-      prompt = prompt.replace(pattern, replacement);
-    }
-    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
-    if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
-    return prompt;
   }
-  const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
-  function parseJsonObjectFromText(text2) {
-    try {
-      return JSON.parse(text2);
-    } catch {
-      const match = /\{[\s\S]*\}/.exec(text2);
-      if (!match) return null;
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return null;
-      }
-    }
+}
+function isUchisenGenerationFailure(json) {
+  if (json.success === false || json.success === 0 || json.success === "0") return true;
+  if (typeof json.error_message === "string" && json.error_message.trim()) return true;
+  if (typeof json.error === "string" && json.error.trim()) return true;
+  return false;
+}
+function uchisenGenerationErrorMessage(json, text2) {
+  const message = firstString(json?.error_message, json?.error);
+  if (/must be logged|not logged|login required/i.test(message)) return message;
+  if (message) return `Uchisen image backend rejected generation: ${message}`;
+  return `Uchisen image backend rejected generation: ${snippet(text2)}`;
+}
+function firstString(...values) {
+  for (const value of values) {
+  if (typeof value === "string" && value.trim()) return value.trim();
   }
-  function isUchisenGenerationFailure(json) {
-    if (json.success === false || json.success === 0 || json.success === "0") return true;
-    if (typeof json.error_message === "string" && json.error_message.trim()) return true;
-    if (typeof json.error === "string" && json.error.trim()) return true;
-    return false;
+  return "";
+}
+function normalizeUchisenImageFilename(value) {
+  if (!value) return "";
+  try {
+  const url = new URL(value);
+  return url.pathname.split("/").filter(Boolean).pop() ?? value;
+  } catch {
+  return value.split("/").filter(Boolean).pop() ?? value;
   }
-  function uchisenGenerationErrorMessage(json, text2) {
-    const message = firstString(json?.error_message, json?.error);
-    if (/must be logged|not logged|login required/i.test(message)) return message;
-    if (message) return `Uchisen image backend rejected generation: ${message}`;
-    return `Uchisen image backend rejected generation: ${snippet(text2)}`;
-  }
-  function firstString(...values) {
-    for (const value of values) {
-      if (typeof value === "string" && value.trim()) return value.trim();
-    }
-    return "";
-  }
-  function normalizeUchisenImageFilename(value) {
-    if (!value) return "";
-    try {
-      const url = new URL(value);
-      return url.pathname.split("/").filter(Boolean).pop() ?? value;
-    } catch {
-      return value.split("/").filter(Boolean).pop() ?? value;
-    }
-  }
-  function snippet(text2) {
-    return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
-  }
-  function formatUchisenMnemonicHtml(value) {
-    return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
-  }
-  function plainUchisenMnemonic(value) {
-    return cleanText$1(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
-  }
-  function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
-    const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
-    const visibleGroups = [
-      ...keywordGroup ? [keywordGroup] : [],
-      ...groups.filter((group) => group.components.length)
-    ];
-    if (!visibleGroups.length) return "";
-    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml(uiText(language, "readingsComponents"))}">
+}
+function snippet(text2) {
+  return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
+}
+function formatUchisenMnemonicHtml(value) {
+  return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
+}
+function plainUchisenMnemonic(value) {
+  return cleanText$1(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
+}
+function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
+  const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
+  const visibleGroups = [
+  ...keywordGroup ? [keywordGroup] : [],
+  ...groups.filter((group) => group.components.length)
+  ];
+  if (!visibleGroups.length) return "";
+  return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml(uiText(language, "readingsComponents"))}">
     ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
-            <span class="yomu-jpdb-component-group-label">${escapeHtml(localizedUchisenComponentGroupTitle(group.title, language))}</span>
-            <div class="yomu-jpdb-component-list">
-                ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
-            </div>
-        </div>`).join("")}
+        <span class="yomu-jpdb-component-group-label">${escapeHtml(localizedUchisenComponentGroupTitle(group.title, language))}</span>
+        <div class="yomu-jpdb-component-list">
+            ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
+        </div>
+    </div>`).join("")}
   </div>`;
-  }
-  function uchisenKanjiKeywordGroup(keyword) {
-    if (!keyword || !keyword.kanji && !keyword.keyword) return null;
-    return {
-      title: "Kanji Keyword",
-      components: [{
-        name: keyword.keyword,
-        symbol: keyword.kanji,
-        url: keyword.url
-      }]
-    };
-  }
-  function localizedUchisenComponentGroupTitle(title, language) {
-    if (resolveUiLanguage(language) !== "ja") return title;
-    if (title === "Kanji Keyword") return "漢字キーワード";
-    if (title === "Kanji Primes") return "漢字パーツ";
-    if (title === "Compound Kanji") return "複合漢字";
-    if (title === "Components") return "部品";
-    return title;
-  }
-  function uchisenExternalLinkLabel(language) {
-    return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
-  }
-  function formatUchisenTemplate(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
-  }
-  function renderUchisenComponentChip(component) {
-    const label = [component.name, component.symbol].filter(Boolean).join(": ");
-    const content = `
+}
+function uchisenKanjiKeywordGroup(keyword) {
+  if (!keyword || !keyword.kanji && !keyword.keyword) return null;
+  return {
+  title: "Kanji Keyword",
+  components: [{
+    name: keyword.keyword,
+    symbol: keyword.kanji,
+    url: keyword.url
+  }]
+  };
+}
+function localizedUchisenComponentGroupTitle(title, language) {
+  if (resolveUiLanguage(language) !== "ja") return title;
+  if (title === "Kanji Keyword") return "漢字キーワード";
+  if (title === "Kanji Primes") return "漢字パーツ";
+  if (title === "Compound Kanji") return "複合漢字";
+  if (title === "Components") return "部品";
+  return title;
+}
+function uchisenExternalLinkLabel(language) {
+  return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
+}
+function formatUchisenTemplate(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+}
+function renderUchisenComponentChip(component) {
+  const label = [component.name, component.symbol].filter(Boolean).join(": ");
+  const content = `
     ${component.symbol ? `<strong>${escapeHtml(component.symbol)}</strong>` : ""}
     ${component.name ? `<span>${escapeHtml(component.name)}</span>` : ""}
   `;
-    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
+  return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
+}
+function preferredUchisenIndex(storedIndex, images) {
+  if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
+  const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
+  return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
+}
+function isValidUchisenIndex(index, images) {
+  return Number.isInteger(index) && index >= 0 && index < images.length;
+}
+function isUchisenPaywallItem(item) {
+  return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
+}
+function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
+  return requestText$5(url, {
+  method: "POST",
+  data: encodedForm(fields),
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    Accept: "text/html, */*; q=0.01",
+    Origin: "https://uchisen.com",
+    Referer: referrer
+  },
+  proxyUrl,
+  timeoutMs: timeout,
+  failureLabel,
+  timeoutLabel: `${failureLabel} timed out.`,
+  credentials: "include",
+  anonymous: false,
+  withCredentials: true,
+  allowPublicProxies: false,
+  allowConfiguredProxy: false,
+  allowDirectCrossOrigin: true
+  }).then((text2) => {
+  const json = parseJsonObjectFromText(text2);
+  const message = firstString(json?.error_message, json?.error);
+  if (message && !/generateimage$/i.test(url)) throw new Error(message);
+  if (isUchisenAuthFailure(text2)) {
+    throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
   }
-  function preferredUchisenIndex(storedIndex, images) {
-    if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
-    const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
-    return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
+  return text2;
+  });
+}
+function isUchisenAuthFailure(text2) {
+  return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
+}
+function encodedForm(fields) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(fields)) params.set(key, value);
+  return params.toString();
+}
+function requestBlobUrl(url, timeout, proxyUrl) {
+  return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
+}
+function requestBlob$1(url, timeout, proxyUrl) {
+  return requestBlob$2(url, {
+  proxyUrl,
+  timeoutMs: timeout,
+  failureLabel: "Uchisen image request",
+  timeoutLabel: "Uchisen image request timed out."
+  });
+}
+function parseUchisenData(html) {
+  if (!html.trim()) return emptyUchisenData();
+  const doc = parseHtmlDocument(html);
+  const kanjiId = parseUchisenKanjiIdFromDocument(doc);
+  return {
+  images: parseUchisenImagesFromDocument(doc),
+  componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+  kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
+  kanjiId,
+  canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
+  };
+}
+function emptyUchisenData() {
+  return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
+}
+function parseUchisenImagesFromDocument(doc) {
+  const images = [];
+  const mainImage = mainUchisenImageUrl(doc);
+  const mainStory = cleanText$1(doc.querySelector("#mnemonic_story")?.textContent ?? "");
+  if (mainImage) {
+  const url = canonicalUchisenUrl(mainImage);
+  images.push({
+    url,
+    story: mainStory || "No story available",
+    paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
+  });
   }
-  function isValidUchisenIndex(index, images) {
-    return Number.isInteger(index) && index >= 0 && index < images.length;
+  doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+  const image = uchisenCardImage(card, mainStory);
+  if (image) images.push(image);
+  });
+  return orderedUchisenImages(images);
+}
+function parseUchisenComponentGroupsFromDocument(doc) {
+  const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
+  if (!root) return [];
+  return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
+}
+function parseUchisenKanjiKeywordFromDocument(doc) {
+  const candidates = [
+  doc.querySelector("#kanji_keyword_container > span")?.textContent,
+  doc.querySelector("#kanji_keyword_container")?.textContent,
+  doc.querySelector(".kanji_name > span")?.textContent,
+  doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
+  ];
+  for (const candidate of candidates) {
+  const keyword = uchisenKanjiKeyword(candidate ?? "");
+  if (keyword) return keyword;
   }
-  function isUchisenPaywallItem(item) {
-    return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
-  }
-  function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
-    return requestText$5(url, {
-      method: "POST",
-      data: encodedForm(fields),
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html, */*; q=0.01",
-        Origin: "https://uchisen.com",
-        Referer: referrer
-      },
-      proxyUrl,
-      timeoutMs: timeout,
-      failureLabel,
-      timeoutLabel: `${failureLabel} timed out.`,
-      credentials: "include",
-      anonymous: false,
-      withCredentials: true,
-      allowPublicProxies: false,
-      allowConfiguredProxy: false,
-      allowDirectCrossOrigin: true
-    }).then((text2) => {
-      const json = parseJsonObjectFromText(text2);
-      const message = firstString(json?.error_message, json?.error);
-      if (message && !/generateimage$/i.test(url)) throw new Error(message);
-      if (isUchisenAuthFailure(text2)) {
-        throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
-      }
-      return text2;
-    });
-  }
-  function isUchisenAuthFailure(text2) {
-    return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
-  }
-  function encodedForm(fields) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(fields)) params.set(key, value);
-    return params.toString();
-  }
-  function requestBlobUrl(url, timeout, proxyUrl) {
-    return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
-  }
-  function requestBlob$1(url, timeout, proxyUrl) {
-    return requestBlob$2(url, {
-      proxyUrl,
-      timeoutMs: timeout,
-      failureLabel: "Uchisen image request",
-      timeoutLabel: "Uchisen image request timed out."
-    });
-  }
-  function parseUchisenData(html) {
-    if (!html.trim()) return emptyUchisenData();
-    const doc = parseHtmlDocument(html);
-    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
-    return {
-      images: parseUchisenImagesFromDocument(doc),
-      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
-      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-      kanjiId,
-      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
-    };
-  }
-  function emptyUchisenData() {
-    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
-  }
-  function parseUchisenImagesFromDocument(doc) {
-    const images = [];
-    const mainImage = mainUchisenImageUrl(doc);
-    const mainStory = cleanText$1(doc.querySelector("#mnemonic_story")?.textContent ?? "");
-    if (mainImage) {
-      const url = canonicalUchisenUrl(mainImage);
-      images.push({
-        url,
-        story: mainStory || "No story available",
-        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
-      });
-    }
-    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
-      const image = uchisenCardImage(card, mainStory);
-      if (image) images.push(image);
-    });
-    return orderedUchisenImages(images);
-  }
-  function parseUchisenComponentGroupsFromDocument(doc) {
-    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
-    if (!root) return [];
-    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
-  }
-  function parseUchisenKanjiKeywordFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("#kanji_keyword_container > span")?.textContent,
-      doc.querySelector("#kanji_keyword_container")?.textContent,
-      doc.querySelector(".kanji_name > span")?.textContent,
-      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
-    ];
-    for (const candidate of candidates) {
-      const keyword = uchisenKanjiKeyword(candidate ?? "");
-      if (keyword) return keyword;
-    }
-    return null;
-  }
-  function parseUchisenKanjiIdFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("input#kanji_id")?.value,
-      doc.querySelector("input#showing_kanji_id")?.value,
-      doc.querySelector('input[name="kanji_id"]')?.value
-    ];
-    return cleanText$1(candidates.find(Boolean) ?? "");
-  }
-  function parseUchisenCanGenerateFromDocument(doc) {
-    const userId = cleanText$1(doc.querySelector("input#user_id")?.value ?? "");
-    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
-    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
-    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
-    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
-    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
-  }
-  function uchisenKanjiKeyword(value) {
-    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));
-    if (!match) return null;
-    const kanji = cleanText$1(match[1].replace(/[「」]/g, ""));
-    const keyword = cleanText$1(match[2]);
-    if (!kanji || !keyword) return null;
-    return {
-      kanji,
-      keyword,
-      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
+  return null;
+}
+function parseUchisenKanjiIdFromDocument(doc) {
+  const candidates = [
+  doc.querySelector("input#kanji_id")?.value,
+  doc.querySelector("input#showing_kanji_id")?.value,
+  doc.querySelector('input[name="kanji_id"]')?.value
+  ];
+  return cleanText$1(candidates.find(Boolean) ?? "");
+}
+function parseUchisenCanGenerateFromDocument(doc) {
+  const userId = cleanText$1(doc.querySelector("input#user_id")?.value ?? "");
+  const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+  const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+  const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+  const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
+  return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
+}
+function uchisenKanjiKeyword(value) {
+  const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));
+  if (!match) return null;
+  const kanji = cleanText$1(match[1].replace(/[「」]/g, ""));
+  const keyword = cleanText$1(match[2]);
+  if (!kanji || !keyword) return null;
+  return {
+  kanji,
+  keyword,
+  url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
   };
 }
 function uchisenComponentGroup(group) {
@@ -14606,9 +14672,9 @@ function parseKanjiVGSvg(svgText, kanji) {
   const strokeShapes = parsedPaths.map((path) => path.shape);
   const numbers = readKanjiVGStrokeNumbers(sourceSvg);
   const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml(kanji)}">
-        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-    </svg>`;
+    <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+    <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+  </svg>`;
   return {
   kanji,
   svg,
@@ -15829,12 +15895,12 @@ function renderImmersionExampleActionsHtml(hasAudio, language) {
   const next = uiText(language, "nextExample");
   const audio = uiText(language, "playExampleAudio");
   return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
-            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-            ${renderImmersionActionButtonHtml("next", next, "›")}
-        </div>
-    `;
+    <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
+        ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+        ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+        ${renderImmersionActionButtonHtml("next", next, "›")}
+    </div>
+  `;
 }
 function renderImmersionActionButtonHtml(action, label, content) {
   return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
@@ -18661,14 +18727,13 @@ function shouldWaitForMorePracticeStrokes(strokes, expectedStrokes) {
 }
 const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
 const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-const KANJI_RE = /[\u3400-\u9fff]/u;
 const log$3 = Logger.scope("RTK");
 class RtkClient {
   cache = /* @__PURE__ */ new Map();
   keywordIndex;
   // fallow-ignore-next-line unused-class-member
   lookup(kanji) {
-  if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
+  if (!isUnifiedIdeograph(kanji)) return Promise.resolve(null);
   const key = Array.from(kanji)[0] ?? kanji;
   let promise = this.cache.get(key);
   if (!promise) {
@@ -18727,7 +18792,7 @@ function parseRtkHtml(html, kanji) {
   onYomi,
   kunYomi,
   elements,
-  componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE.test(character) && character !== kanji))],
+  componentKanji: [...new Set(Array.from(elements).filter((character) => isUnifiedIdeograph(character) && character !== kanji))],
   heisigStory,
   heisigComment,
   koohiiStories
@@ -18793,7 +18858,7 @@ function firstKanjiCharacter(value) {
   return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
 }
 function isKanjiCharacter(character) {
-  return KANJI_RE.test(character);
+  return isUnifiedIdeograph(character);
 }
 function addRtkKeywordIndexEntry(entries2, collisions, key, kanji) {
   if (!key || collisions.has(key)) return;
@@ -20293,20 +20358,29 @@ function jitenWordPitchAccents(word) {
   const rawPitch = Array.isArray(source.pitchAccents) ? source.pitchAccents : Array.isArray(source.pitchAccent) ? source.pitchAccent : [];
   return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
 }
+function targetSupportsCharacterLookup() {
+  return activeLearningTarget().capabilities["character-lookup"];
+}
+function usesJapaneseProviders() {
+  return activeLearningTarget().language === "ja";
+}
+function targetCanLookupCharacter(value) {
+  return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+}
 async function filterJitenKanjiWords(button, context) {
   if (button.disabled) return;
   const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
   const reading = button.dataset.jitenKanjiReading?.trim() ?? "";
   const source = button.closest(".jpdb-reader-jiten-kanji");
   const grid = source?.querySelector(".jpdb-reader-jiten-kanji-vocabulary");
-  if (!character || !reading || !source || !grid) return;
+  if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !reading || !source || !grid) return;
   source.querySelectorAll('[data-action="jiten-kanji-reading"]').forEach((candidate) => {
   candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
   });
   button.disabled = true;
   try {
   const wordsPage = await context.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
-  if (!source.isConnected || !grid.isConnected) return;
+  if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !source.isConnected || !grid.isConnected) return;
   const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
   const rendered = wordsPage?.items.length ?? 0;
   const total = wordsPage?.total ?? rendered;
@@ -20322,7 +20396,7 @@ async function filterJitenKanjiWords(button, context) {
 async function loadMoreJitenKanjiWords(button, context) {
   if (button.disabled) return;
   const character = button.dataset.jitenKanjiCharacter?.trim() ?? "";
-  if (!character) return;
+  if (!usesJapaneseProviders() || !targetCanLookupCharacter(character)) return;
   const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
   const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
   button.disabled = true;
@@ -20332,10 +20406,11 @@ async function loadMoreJitenKanjiWords(button, context) {
     page,
     pageSize
   });
-  if (!button.isConnected) return;
+  if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !button.isConnected) return;
   appendJitenKanjiWords(button, wordsPage, page, context);
   } catch (error) {
   context.onError?.({ character, page }, error);
+  } finally {
   if (button.isConnected) button.disabled = false;
   }
 }
