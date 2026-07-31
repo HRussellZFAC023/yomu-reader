@@ -1416,6 +1416,35 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 ---
 
+- [ ] **A42 — PROGRESS MEASURED 2026-07-31. Most of the gap list has closed; the audit document below is
+      now the BEFORE picture, not the current state.** Verified on main rather than taken from wave reports:
+      - **b1 (no target choice at install) FIXED.** `app/onboarding.ts` no longer renders a read-only
+        `<output>` containing the literal `'日本語 — Japanese'`. It holds a real `targetLanguageSelect`
+        populated through `./study-target-picker` (`populateStudyTargetSelect`, `isSelectableStudyTarget`),
+        with `tests/reader/study-target-picker.test.ts` and
+        `tests/reader/multilingual-onboarding-settings.test.ts` behind it.
+      - **b2 (dictionary shelf could not reach non-Japanese supply) FIXED.** The recommendation directory now
+        holds **1,056 `<learner>-<target>.json` manifests** (ar-ar, ar-da, ar-de, ar-el, ar-en, ar-es, …)
+        where it held 32 `<learner>-ja.json`, and the catalogue target is
+        `DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE` — a default, not the `as const` literal that made every
+        shelf Japanese. So the ~2 GB of non-Japanese dictionary data has a route to the happy path.
+      - **The declared capability set moved 5 -> 8 for generic targets, and two of them are now DERIVED
+        rather than hardcoded.** `roster-targets.ts` declares term-lookup, segmentation, text-to-speech,
+        subtitles, typing, plus `pronunciation: true`, `morphology: lookupRewrites.length > 0` and
+        `reading-annotation` for zh/yue — with `featureSemantics.pronunciation: 'ipa'` where it used to say
+        `'none'`, and pinyin/jyutping named as real phonetic scripts. `morphology` being computed from actual
+        per-target rewrite rules is the important change: it can no longer be true on paper and empty in fact.
+      - Landed alongside: IPA consumed for real (`src/reader/lookup/ipa-pronunciation.ts`,
+        `popup/pronunciation.ts`), user-facing errors localised, the unconditional romaji→kana rewrite of
+        every typed answer removed, and the three default-on Japanese-only behaviours gated.
+      **Still open:** `examples`, `mining`, `srs`, `grading`, `frequency`, `grammar`, `audio`,
+      `character-lookup` and `handwriting` remain undeclared for generic targets — though the audit measured
+      several of those as working anyway, so the matrix still understates reality and the flags are still not
+      the thing to trust. The per-target annotation SCOREBOARD the audit asked for (percentage of content
+      words that resolve, ratcheted in the gate) is **not built yet**; `tests/reader/parity-matrix.test.ts`
+      is a pre-existing provider-queue parity test, not that. Without it "complete for all languages" is
+      still an opinion rather than a number that has to go up.
+
 - [ ] **A42 — MEASURED 2026-07-30: multilingual support is a Japanese system plus a 32-language reading
       tool with a Japanese skin, and the capability matrix describes neither.** Full audit, with every
       number reproducible, in `docs/dev/multilingual-parity-audit-2026-07-30.md` (22 adversarial agents,
