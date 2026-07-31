@@ -1,9 +1,10 @@
 import { Logger } from '../app/logger';
 import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, SETTINGS_CHANGE_EVENT, WORD_COLOR_HIDE_STATE_GROUPS, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
-import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
+import { DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
+import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { AUTOMATION_PROTECTED_SETTINGS_KEYS } from './explicit-user-choice';
 import { hasOwn, stringValue, trimmedText } from './values';
@@ -11,7 +12,6 @@ import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmSto
 export { changedSettingsKeys } from './store-reconciliation';
 import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
-import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
 import {
     activeLanguageProfile,
@@ -24,6 +24,7 @@ import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
 import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
+export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 export { changedAutomationProtectedSettingsKeys, coupledExplicitUserChoiceKeys } from './explicit-user-choice';
 
@@ -48,16 +49,9 @@ let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL =
     YOMU_HOSTED_AUDIO_URL;
 
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
 export const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 export const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY);
 const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
 const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -1823,50 +1817,6 @@ export function furiganaModeNeedsDifficultyExplanation(settings: ReaderSettings)
 
 function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaMode, 'auto' | 'off'> {
     return EXPLICIT_FURIGANA_MODES.has(value);
-}
-
-export function sanitizeAccentColor(value: unknown, fallback: string = DEFAULT_ACCENT_COLOR): string {
-    if (typeof value !== 'string') return fallback;
-    const trimmed = value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-    if (!shortHex) return fallback;
-    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-
-export function accentToRgba(color: string, alpha: number): string {
-    const safe = sanitizeAccentColor(color);
-    const red = parseInt(safe.slice(1, 3), 16);
-    const green = parseInt(safe.slice(3, 5), 16);
-    const blue = parseInt(safe.slice(5, 7), 16);
-    return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-}
-
-export function accessibleOcrBackgroundOpacity(opacity: unknown): number {
-    return Math.max(
-        OCR_BACKGROUND_MIN_RENDERED_OPACITY,
-        clampNumber(opacity, 0, 1, DEFAULT_OCR_BACKGROUND_OPACITY),
-    );
-}
-
-export function accessibleOcrBackgroundColor(accentColor: unknown, opacity: unknown = DEFAULT_OCR_BACKGROUND_OPACITY): string {
-    const accent = sanitizeAccentColor(accentColor);
-    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-        return accent;
-    }
-    for (let amount = 0.08; amount <= 1; amount += 0.04) {
-        const candidate = sharedMixHex(accent, '#000000', amount, sanitizeAccentColor);
-        if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-            return candidate;
-        }
-    }
-    return '#000000';
-}
-
-function ocrRenderedBackgroundContrast(color: string, opacity: number): number {
-    const renderedOnWhite = sharedMixHex('#ffffff', color, opacity, sanitizeAccentColor);
-    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
 }
 
 export function applyUrlBootstrapSettings(settings: ReaderSettings, search = location.search): ReaderSettings {
