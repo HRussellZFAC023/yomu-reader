@@ -42,6 +42,7 @@ import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionar
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { settingsText, type SettingsText } from './settings-text';
+import { renderYoutubeSettingsPanel } from './youtube-panel';
 import {
     activeLanguageProfile,
     learningTargetRosterIdForTag,
@@ -1292,29 +1293,6 @@ function renderSubtitlePreview(language: InterfaceLanguage): string {
     `;
 }
 
-function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
-    const language = settings.interfaceLanguage;
-    const text = settingsText(language);
-    return `
-            <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
-                <legend>${escapedUiText(language, 'youTube')}</legend>
-                <div class="grid jpdb-reader-settings-tgrid">
-                    <div class="jp-only" data-language-family="youtube-immersion">
-                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
-                        ${checkbox('youtubeImmersionEnabled', text('youtubeImmersionEnabled'), settings.youtubeImmersionEnabled)}
-                        ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
-                        ${checkbox('youtubeShowFilterNotice', text('youtubeShowFilterNotice'), settings.youtubeShowFilterNotice)}
-                    </div>
-                    <div class="jp-only" data-language-family="preferred-japanese-sites">
-                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
-                        ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
-                    </div>
-                </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help jp-only" data-language-family="youtube-immersion-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
-            </fieldset>
-    `;
-}
-
 function renderMiningSettingsPanel(settings: ReaderSettings): string {
     const ankiStatus = ankiStatusLineForSettings(settings, settings.interfaceLanguage);
     return renderAnkiMiningSettingsPanel(settings, {
@@ -1548,7 +1526,10 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
         includeReaderRoot: true,
         excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word',
     });
-    const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
+    // settingsText, not a bare uiText lambda: a `{language}` label would otherwise
+    // relabel into its raw token on a live interface-language switch. Every
+    // hand-rolled `key => uiText(language, key)` is a leak site for that (b20).
+    const text = settingsText(language);
     withNamedControlIndex(form, () => {
         localizeSettingsShell(form, language, text);
         localizeSettingsLabels(form, text);
@@ -2679,7 +2660,7 @@ function directFieldsetLegend(fieldset: HTMLFieldSetElement | undefined): HTMLLe
 function localizeHelpLinksPanel(form: HTMLFormElement, language: InterfaceLanguage): void {
     const panel = form.querySelector<HTMLElement>('.jpdb-reader-help-links-card');
     if (!panel) return;
-    const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
+    const text = settingsText(language);
     HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
         const element = panel.querySelector<HTMLElement>(selector);
         if (!element) return;

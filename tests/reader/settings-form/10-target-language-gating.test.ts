@@ -88,12 +88,20 @@ describe('target-language settings', () => {
 
     it('keeps pronunciation universal, shares reading controls with zh/yue/ko, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        // Japanese-only means "the DATA behind it is Japanese", not "it mentions
+        // Japanese". The YouTube immersion filter and the site-language redirect both
+        // follow the active target now (A48 and preferred-site-language-impl), so they
+        // are offered to every learner and only their labels name the target. The
+        // channel suggestions stay here because their corpus really is 100 Japanese
+        // channels graded N5..N1 with no equivalent for any other language.
         const japaneseOnlySelectors = [
             '[data-language-family="pitch-colouring"]',
             '[data-language-family="pitch-legend"]',
             '[data-language-family="provider-pills"]',
-            'input[name="youtubeImmersionEnabled"]',
             'input[name="youtubeShowChannelRecommendations"]',
+        ] as const;
+        const everyTargetSelectors = [
+            'input[name="youtubeImmersionEnabled"]',
             'input[name="youtubeShowFilterNotice"]',
             'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
@@ -115,6 +123,10 @@ describe('target-language settings', () => {
             japaneseOnlySelectors.map(() => null),
         );
         expect(form.querySelectorAll('.jp-only')).toHaveLength(0);
+        // ...and the target-following controls survive, so 31 targets can reach a
+        // filter that works for them.
+        expect(everyTargetSelectors.map(selector => Boolean(form.querySelector(selector))))
+            .toEqual(everyTargetSelectors.map(() => true));
         expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
         expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
         expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
@@ -163,6 +175,32 @@ describe('target-language settings', () => {
         expect(root.querySelector('.jp-only')?.textContent).toBe('pitch');
     });
 
+    // A48 made the YouTube immersion filter ask the ACTIVE target whether text is its
+    // language, but its control stayed `jp-only` DETACHED, so 31 of 32 targets could
+    // not reach a feature that worked for them. Availability follows the capability;
+    // only the channel suggestions stay Japanese, because their corpus is.
+    it('offers the immersion filter to a non-Japanese target, with its own label', () => {
+        setActiveLearningTargetLanguage('ru');
+        try {
+            const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+            syncLanguageFamilyDom(form, 'ru');
+
+            const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]');
+            expect(filter).not.toBeNull();
+            expect(labelFor(form, 'youtubeImmersionEnabled')).toContain('Russian');
+            expect(labelFor(form, 'youtubeImmersionEnabled')).not.toContain('Japanese');
+            // The suggestion corpus is 100 JLPT-graded Japanese channels, so it goes.
+            expect(form.querySelector('input[name="youtubeShowChannelRecommendations"]')).toBeNull();
+            // And a save must not read the detached checkbox as a deliberate uncheck.
+            const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+            expect(saved.youtubeShowChannelRecommendations)
+                .toBe(DEFAULT_SETTINGS.youtubeShowChannelRecommendations);
+            expect(saved.youtubeShowChannelRecommendationsChosen).toBe(false);
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('does not overwrite detached Japanese settings while saving another target', () => {
         const current = {
             ...DEFAULT_SETTINGS,
@@ -206,4 +244,9 @@ function labelText(form: HTMLFormElement, controlName: string): string {
     const control = form.elements.namedItem(controlName);
     const group = (control instanceof RadioNodeList ? control[0] : control) as HTMLElement | null;
     return group?.closest('.jpdb-reader-radio-group')?.querySelector('legend')?.textContent ?? '';
+}
+
+function labelFor(form: HTMLFormElement, controlName: string): string {
+    const control = form.elements.namedItem(controlName) as HTMLElement | null;
+    return control?.closest('label')?.textContent ?? '';
 }

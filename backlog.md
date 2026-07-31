@@ -1573,8 +1573,22 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
         paint and the live language-switch relabel both resolve through it, so neither can drift or leak a
         raw token. The orphaned YouTube help line — after gating, the ru media panel was a legend plus a
         lying help sentence and nothing else — now leaves with the controls it describes.
-        Still open from b20's own measurement: the immersion controls are `jp-only` DETACHED, so 31 targets
-        cannot reach a filter that A48 made work for them. Offering it to every target is the bigger ticket.
+      - **The `jp-only` DETACHED immersion controls b20 exposed — FIXED 1.8.60.** A48 made the filter ask the
+        ACTIVE target whether text is its language, but its control stayed detached, so 31 of 32 targets could
+        not reach a feature that already worked for them. Availability now follows the DATA behind each
+        control rather than whether its label says Japanese: the filter, its notice and the site-language
+        redirect (whose impl threads `targetLanguageOf`) are offered to every learner with target-named
+        labels; the channel suggestions stay Japanese-only because their corpus really is 100 channels graded
+        N5..N1. **Defaults do not move** — `jpOnlyOn` keeps it on for Japanese and off-unless-chosen
+        elsewhere, so nothing changes for existing users; they can now simply choose it.
+        **The trap this hit:** splitting one gated group into two silently broke the presence marker.
+        `readYoutubeFormSettings` used one `youtubeImmersionSettingsPresent` for all three checkboxes, so once
+        the channel checkbox was in its own detached group it read back as a deliberate uncheck and turned the
+        setting off (caught by "does not overwrite detached Japanese settings while saving another target").
+        Every separately-gated group needs its OWN marker.
+        Also collapsed four copies of the "name the active target" computation into
+        `app/target-language-name.ts` — they had appeared in the settings text factory, the page-scan toast,
+        the puck menu and the YouTube notice within one change, and each copy is a chance to leak the token.
 
       **Still open:** `examples`, `mining`, `srs`, `grading`, `frequency`, `grammar`, `audio`,
       `character-lookup` and `handwriting` remain undeclared for generic targets — though the audit measured

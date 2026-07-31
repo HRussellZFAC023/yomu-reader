@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.60] - 2026-07-31
+
+### Added
+
+- The YouTube immersion filter, its hidden-video notice, and opening a site in your target language are now available whatever language you are studying, not only Japanese.
+
+### Fixed
+
+- The YouTube filter notice now names the language you are studying instead of calling everything else non-Japanese.
+
 ## [1.8.59] - 2026-07-31
 
 ### Fixed

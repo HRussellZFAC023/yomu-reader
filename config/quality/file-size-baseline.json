@@ -4,7 +4,7 @@
     "src/reader/subtitles/controller.ts": 8558,
     "src/reader/dom/index.ts": 7944,
     "src/reader/ocr/controller.ts": 4961,
-    "src/reader/settings/form.ts": 3333,
+    "src/reader/settings/form.ts": 3314,
     "src/reader/settings/dialog-controller.ts": 2906,
     "src/reader/subtitles/youtube.ts": 2737,
     "src/reader/app/i18n.ts": 2711,

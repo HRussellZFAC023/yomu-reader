@@ -1,5 +1,6 @@
 import { APP_NAME } from '../app/constants';
 import { uiText } from '../app/i18n';
+import { targetLanguageDisplayName } from '../app/target-language-name';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
@@ -968,9 +969,8 @@ export class YoutubeImmersionFilter {
 
     private updateNoticeSummary(summary: HTMLElement, filteredCount: number, shownCount: number, settings: ReaderSettings): void {
         const summaryText = this.noticeSummaryText(filteredCount, settings);
-        const visibleText = shownCount
-            ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), { count: String(shownCount) })
-            : '';
+        const values = { count: String(shownCount), language: targetLanguageDisplayName(settings) };  // {language} = the target, not Japanese (A48)
+        const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, 'youtubeFilterVisible'), values) : '';
         const bar = summary.closest<HTMLElement>('.jpdb-youtube-filter-bar');
         summary.textContent = summaryText;
         summary.title = visibleText;

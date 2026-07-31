@@ -1,6 +1,5 @@
-import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
-import { activeLearningTargetLanguage, languageSubtag, SLICE1_TARGET_LANGUAGE } from '../languages';
-import { headwordLanguageName } from '../dictionaries/catalog-browse';
+import { formatUiText, uiText } from '../app/i18n';
+import { activeTargetLanguageDisplayName } from '../app/target-language-name';
 import type { InterfaceLanguage } from '../app/types';
 
 export type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
@@ -22,10 +21,7 @@ export type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
  * function, so neither can drift from the other or leak a raw `{language}` token.
  */
 export function settingsText(language: InterfaceLanguage): SettingsText {
-    const targetName = headwordLanguageName(
-        languageSubtag(activeLearningTargetLanguage()) ?? SLICE1_TARGET_LANGUAGE,
-        resolveUiLanguage(language),
-    );
+    const targetName = activeTargetLanguageDisplayName(language);
     return key => {
         const message = uiText(language, key);
         return message.includes('{language}') ? formatUiText(language, key, { language: targetName }) : message;

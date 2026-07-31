@@ -777,10 +777,16 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
 function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { has } = reader;
     const youtubeControlsPresent = has('youtubeImmersionSettingsPresent');
+    // The channel suggestions have their OWN presence marker because they are gated
+    // separately from the filter: the filter follows the active target since A48 and
+    // is offered to every learner, while the suggestion corpus really is 100 Japanese
+    // channels and stays Japanese-only. Without a marker of its own, a detached
+    // checkbox reads as a deliberate uncheck and silently turns the setting off.
+    const channelControlsPresent = has('youtubeChannelSuggestionSettingsPresent');
     const immersionEnabled = youtubeControlsPresent
         ? has('youtubeImmersionEnabled')
         : current.youtubeImmersionEnabled;
-    const channelRecommendations = youtubeControlsPresent
+    const channelRecommendations = channelControlsPresent
         ? has('youtubeShowChannelRecommendations')
         : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
@@ -793,7 +799,7 @@ function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSett
             : current.preferJapaneseSiteLanguage,
         youtubeShowChannelRecommendations: channelRecommendations,
         youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
-            || (youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
+            || (channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
         youtubeShowFilterNotice: youtubeControlsPresent
             ? has('youtubeShowFilterNotice')
             : current.youtubeShowFilterNotice,

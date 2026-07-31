@@ -7483,17 +7483,17 @@ subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
-youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+youtubeImmersionEnabled	{language}のYouTubeのみ
+preferJapaneseSiteLanguage	{language}版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを{language}向けに絞り、{language}版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
 youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は日本語らしくないYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
+youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
+youtubeFilterVisible	{language}らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする

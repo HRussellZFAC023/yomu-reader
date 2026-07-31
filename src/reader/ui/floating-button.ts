@@ -1,5 +1,6 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
-import { uiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
+import { targetLanguageDisplayName } from '../app/target-language-name';
 import type { ReaderSettings } from '../app/types';
 import {
     RadialMenuController,
@@ -221,7 +222,10 @@ export class FloatingButtonController {
             },
             {
                 id: 'japanese-site',
-                label: uiText(language, 'preferJapaneseSiteLanguage'),
+                // Names the active target: the redirect follows it, not Japanese.
+                label: formatUiText(language, 'preferJapaneseSiteLanguage', {
+                    language: targetLanguageDisplayName(settings),
+                }),
                 icon: '日',
                 glyph: true,
                 tone: japaneseSiteLanguage ? 'on' : 'off',

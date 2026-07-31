@@ -16,9 +16,8 @@ import {
     type TextFragment,
     type TextTarget,
 } from '../dom/index';
-import { formatUiText, resolveUiLanguage } from '../app/i18n';
-import { activeLearningTargetLanguage, languageSubtag } from '../languages';
-import { headwordLanguageName } from '../dictionaries/catalog-browse';
+import { formatUiText } from '../app/i18n';
+import { activeTargetLanguageDisplayName } from './target-language-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
@@ -751,10 +750,7 @@ export class VisiblePageScanner {
         // rather than saying "Japanese" to someone studying Russian (b20).
         const interfaceLanguage = this.dependencies.getSettings().interfaceLanguage;
         this.dependencies.toast(formatUiText(interfaceLanguage, 'noUnscannedJapaneseText', {
-            language: headwordLanguageName(
-                languageSubtag(activeLearningTargetLanguage()) ?? 'ja',
-                resolveUiLanguage(interfaceLanguage),
-            ),
+            language: activeTargetLanguageDisplayName(interfaceLanguage),
         }));
     }
 
