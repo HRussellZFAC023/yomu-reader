@@ -58841,6 +58841,16 @@ ${reading}`);
     normalizeLearningTargetLanguage,
     registeredLearningTargetModules
   });
+  const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
+  function registerDecorationPolicyRuntimeApi(api) {
+    Object.defineProperty(globalThis, DECORATION_POLICY_RUNTIME_API_SLOT, {
+      configurable: true,
+      enumerable: false,
+      value: api,
+      writable: true
+    });
+  }
+  registerDecorationPolicyRuntimeApi(decorationPolicy);
   function runningAsBrowserExtension() {
     const global = globalThis;
     try {
@@ -122593,16 +122603,6 @@ ${reading}`);
     renderWanikaniDefinitionMount,
     createWanikaniSrsAdapter
   });
-  const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
-  function registerDecorationPolicyRuntimeApi(api) {
-    Object.defineProperty(globalThis, DECORATION_POLICY_RUNTIME_API_SLOT, {
-      configurable: true,
-      enumerable: false,
-      value: api,
-      writable: true
-    });
-  }
-  registerDecorationPolicyRuntimeApi(decorationPolicy);
   const log$8 = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
