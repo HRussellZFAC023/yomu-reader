@@ -150,6 +150,49 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps non-Japanese pointer lookup off public Jiten and JPDB', async () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = '<p>我去市場</p>';
+        const paragraph = document.querySelector<HTMLElement>('p')!;
+        const sentence = paragraph.textContent!;
+        const parseJapanese = vi.fn(async () => [[]]);
+        const publicLookupCard = vi.fn(async () => undefined);
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
+        const showLocalPointerTextCandidate = vi.fn(async () => true);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const internals = pointerTextInternals(app);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jpdbDefinitionsEnabled: true,
+            localDictionariesEnabled: true,
+        };
+        internals.parseJapanese = parseJapanese;
+        internals.publicLookupCard = publicLookupCard;
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
+        internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
+        internals.showPointerTextCard = showPointerTextCard;
+        setActiveLearningTargetLanguage('zh');
+
+        try {
+            await internals.showFirstPointerTextCandidate(
+                pointerTextCandidate(sentence, paragraph, 1),
+                sentence,
+                'modal',
+                { userGesture: true },
+            );
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(jitenLookupMany).not.toHaveBeenCalled();
+            expect(publicLookupCard).not.toHaveBeenCalled();
+            expect(showLocalPointerTextCandidate).toHaveBeenCalledTimes(1);
+            expect(showPointerTextCard).not.toHaveBeenCalled();
+        } finally {
+            resetActiveLearningTargetLanguage();
+            app.destroy();
+        }
+    });
+
     it('tries deinflected public JPDB pointer terms before falling back to surface text', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>異世界転生疑ってたわけじゃないけどこれは実際に</p>';

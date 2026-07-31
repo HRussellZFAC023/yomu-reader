@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { JPDBCard } from '../../src/reader/app/types';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { normalizeNewTabUiState } from '../../src/reader/newtab/state';
 
@@ -25,6 +26,8 @@ function sessionCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('new-tab study session model', () => {
+    afterEach(() => { resetActiveLearningTargetLanguage(); });
+
     it('migrates legacy modes into route-only persisted state', () => {
         const search = normalizeNewTabUiState({ mode: 'search' });
         const listen = normalizeNewTabUiState({ mode: 'listen' });
@@ -119,6 +122,47 @@ describe('new-tab study session model', () => {
         expect(kanjiSteps.map(step => step.kanji)).toEqual(['図', '鑑']);
         expect(kanjiSteps.map(step => step.id)).toEqual(['kanji-doodle:0', 'kanji-doodle:1']);
         expect(session.activeStep).toMatchObject({ kind: 'kanji-doodle', kanji: '図' });
+    });
+
+    it('does not create Japanese character-study steps for a Han non-character target', () => {
+        setActiveLearningTargetLanguage('zh');
+        const session = createNewTabStudySession(sessionCard({
+            language: 'zh',
+            spelling: '学习',
+            reading: 'xuéxí',
+            sentence: '我学习中文。',
+        }), {
+            revealAnswer: false,
+            renderAsKanji: true,
+            hasRecallCloze: true,
+            pitchAvailable: false,
+        });
+
+        expect(session.steps.map(step => step.kind)).toEqual([
+            'word',
+            'type-word',
+            'recall-cloze',
+            'final-reveal',
+        ]);
+        expect(session.steps.some(step => step.kind === 'kanji-doodle')).toBe(false);
+        expect(session.activeStep.kind).toBe('word');
+    });
+
+    it('creates one doodle step for each supplementary-plane Japanese kanji', () => {
+        const session = createNewTabStudySession(sessionCard({
+            spelling: '𠮟る𩸽𠮟',
+            reading: 'しかるほっけ',
+        }), {
+            revealAnswer: false,
+            renderAsKanji: false,
+            hasRecallCloze: false,
+            pitchAvailable: false,
+        });
+
+        expect(session.steps.filter(step => step.kind === 'kanji-doodle')).toMatchObject([
+            { id: 'kanji-doodle:0', kanji: '𠮟' },
+            { id: 'kanji-doodle:1', kanji: '𩸽' },
+        ]);
     });
 
     it('uses configured order and disabled steps while keeping reveal last', () => {

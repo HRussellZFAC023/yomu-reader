@@ -1,5 +1,6 @@
 import {
     activeLearningTarget,
+    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
     adoptLearningTargetLanguage,
     defaultLearningTargetModule,
@@ -11,6 +12,7 @@ import { registerYomuCompanion } from './registry';
 
 registerYomuCompanion('learningTargets', {
     activeLearningTarget,
+    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
     adoptLearningTargetLanguage,
     defaultLearningTargetModule,

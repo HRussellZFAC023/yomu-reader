@@ -30,6 +30,7 @@ import {
     newTabJpdbAnkiSourceFixture,
     newTabVisibleWordFixture,
     renderNewTabCardFront,
+    cardKey,
     NewTabController,
     definitionSourceRows,
     waitForExpect,
@@ -37,6 +38,10 @@ import {
 import type {
     JPDBCard,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/target-runtime';
 
 function dictionaryBatchOverrides(listRandomTopTerms: () => Promise<Array<ReturnType<typeof newTabLocalDictionaryEntry>>>) {
     return {
@@ -641,6 +646,50 @@ describe('new tab review — cache reuse & source switching', () => {
             expect(root.querySelector('[data-newtab-status]')?.textContent).toContain('Dictionary');
             expect(root.querySelector('[data-newtab-status]')?.textContent).not.toContain('Looking for more words');
         } finally {
+            root.remove();
+        }
+    });
+
+    it('ignores empty and populated navigation supplements after an away-and-back target switch', async () => {
+        const card = newTabTestCard({ spelling: '一番', reading: 'いちばん', source: 'local', reviewSource: 'dictionary' });
+        const supplement = newTabTestCard({ spelling: '二番', reading: 'にばん', source: 'local', reviewSource: 'dictionary' });
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            newTabSource: 'dictionary' as const,
+            immersionKitEnabled: false,
+        });
+        const root = renderSeededNewTabRoot(controller, {
+            allWords: [card],
+            visibleWords: [card],
+            index: 0,
+            sourceLabel: 'Dictionary',
+            state: { mode: 'word', sort: 'frequency', filter: 'study', source: 'dictionary', revealAnswer: false },
+            appendToDocument: true,
+        });
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            loadNavigationSupplementCards(source: 'dictionary'): Promise<JPDBCard[]>;
+            moveVisibleWord(root: HTMLElement, direction: 1): void;
+            appendNavigationSupplement(root: HTMLElement, direction: 1, currentKey: string, source: 'dictionary'): Promise<void>;
+        };
+        const moveVisibleWord = vi.fn();
+        internals.moveVisibleWord = moveVisibleWord;
+
+        try {
+            for (const cards of [[], [supplement]]) {
+                const pending = deferred<JPDBCard[]>();
+                internals.loadNavigationSupplementCards = vi.fn(() => pending.promise);
+                const append = internals.appendNavigationSupplement(root, 1, cardKey(card), 'dictionary');
+                expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+                expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+                pending.resolve(cards);
+                await append;
+
+                expect(internals.allWords).toEqual([card]);
+                expect(moveVisibleWord).not.toHaveBeenCalled();
+            }
+        } finally {
+            resetActiveLearningTargetLanguage();
             root.remove();
         }
     });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import * as SCRIPT from '../../src/reader/lookup/japanese-script';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../../src/reader/dom/constants';
+import { JAPANESE_LEARNING_TARGET } from '../../src/reader/languages/japanese';
 
 /**
  * The shared script ranges are the single definition every kana/kanji check in
@@ -59,7 +60,7 @@ describe('the detectors rebuilt from the shared ranges', () => {
     });
 
     it('keeps the flags the call sites depend on', () => {
-        expect(HAS_JAPANESE.flags).toBe('');
+        expect(HAS_JAPANESE.flags).toBe('u');
         expect(HAS_JAPANESE_LETTER.flags).toBe('u');
     });
 
@@ -69,5 +70,38 @@ describe('the detectors rebuilt from the shared ranges', () => {
             expect(HAS_JAPANESE.test(punctuation)).toBe(true);
             expect(HAS_JAPANESE_LETTER.test(punctuation)).toBe(false);
         }
+    });
+
+    it('reaches supplementary Japanese kanji without narrowing the legacy BMP range', () => {
+        expect(SCRIPT.UNIFIED_IDEOGRAPH).toBe('\\p{Unified_Ideograph}');
+        expect(new RegExp(`^${SCRIPT.KANJI_PATTERN}$`, 'u').test('𠮟')).toBe(true);
+
+        for (const kanji of ['𠮟', '𩸽']) {
+            expect(HAS_JAPANESE.test(kanji)).toBe(true);
+            expect(HAS_JAPANESE_LETTER.test(kanji)).toBe(true);
+            expect(SCRIPT.KANJI_RE.test(kanji)).toBe(true);
+            expect(SCRIPT.isJapaneseKanjiCharacter(kanji)).toBe(true);
+        }
+
+        // U+4DC0 is not Unified_Ideograph, but the old U+3400-U+9FFF class
+        // included it. The property extension must not silently narrow BMP
+        // behavior while adding supplementary-plane characters.
+        expect(SCRIPT.isJapaneseKanjiCharacter('䷀')).toBe(true);
+        expect(SCRIPT.KANJI_RE.test('䷀')).toBe(true);
+
+        // U+FA0E is in Unified_Ideograph but outside the old BMP range. It is
+        // intentionally still excluded: this change adds supplementary-plane
+        // reachability and nothing else to BMP classification.
+        expect(SCRIPT.isJapaneseKanjiCharacter('﨎')).toBe(false);
+        expect(SCRIPT.KANJI_RE.test('﨎')).toBe(false);
+    });
+
+    it('keeps Japanese pointer-run coordinates in UTF-16 units', () => {
+        const text = 'A𠮟る𩸽B';
+
+        expect(JAPANESE_LEARNING_TARGET.pointerWordSegments(text)).toEqual([
+            { text: '𠮟る𩸽', start: 1, end: 6 },
+        ]);
+        expect(text.slice(1, 6)).toBe('𠮟る𩸽');
     });
 });

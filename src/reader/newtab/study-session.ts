@@ -1,5 +1,7 @@
 import type { JPDBCard } from '../app/types';
 import type { NewTabStudyChallengeStep } from '../app/types';
+import { targetSupportsCharacterLookup } from '../languages/character-lookup';
+import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
 
 export type NewTabStudyStepKind =
     | NewTabStudyChallengeStep
@@ -34,8 +36,6 @@ export interface NewTabStudySessionOptions {
     activeStepId?: NewTabStudyStepId | null;
 }
 
-const KANJI_RE = /[\u3400-\u9fff々〆]/u;
-
 const STUDY_STEP_LABELS: Record<NewTabStudyStepKind, string> = {
     'kanji-doodle': 'Kanji',
     word: 'Word',
@@ -56,7 +56,8 @@ export function createNewTabStudySession(card: JPDBCard, options: NewTabStudySes
 function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOptions): NewTabStudyStep[] {
     const available = new Set<NewTabStudyChallengeStep>();
     const disabled = new Set(options.disabledSteps ?? []);
-    if (options.renderAsKanji || containsKanji(card.spelling)) available.add('kanji-doodle');
+    const characterStudyEnabled = targetSupportsCharacterLookup();
+    if (characterStudyEnabled && (options.renderAsKanji || containsKanji(card.spelling))) available.add('kanji-doodle');
     available.add('word');
     if (options.hasRecallCloze) available.add('recall-cloze');
     // Listen/Speak drill pitch accent, so they only make sense once pitch has
@@ -71,7 +72,7 @@ function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOpti
     // without one, the learner can still reproduce the word itself.
     if (!disabled.has('word')) available.add('type-word');
     const ordered = normalizedChallengeStepOrder(options.stepOrder);
-    const kanji = kanjiCharacters(card.spelling);
+    const kanji = characterStudyEnabled ? kanjiCharacters(card.spelling) : [];
     const steps = ordered.flatMap(kind => {
         if (!available.has(kind) || disabled.has(kind)) return [];
         if (kind === 'kanji-doodle') {
@@ -145,9 +146,9 @@ function dedupeStudySteps(steps: NewTabStudyStep[]): NewTabStudyStep[] {
 }
 
 function containsKanji(value: string): boolean {
-    return Array.from(value).some(character => KANJI_RE.test(character));
+    return Array.from(value).some(isJapaneseKanjiCharacter);
 }
 
 function kanjiCharacters(value: string): string[] {
-    return [...new Set(Array.from(value).filter(character => KANJI_RE.test(character)))];
+    return [...new Set(Array.from(value).filter(isJapaneseKanjiCharacter))];
 }

@@ -6,13 +6,17 @@ import {
     segmentJapaneseText,
 } from '../lookup/japanese-segments';
 import { deinflectJapaneseTerm, termRulesMatch } from '../lookup/deinflect';
-import { KANA, KANJI_LIKE_WITH_COUNTERS, PROLONGED_SOUND_MARK } from '../lookup/japanese-script';
+import {
+    KANA,
+    KANJI_LIKE_WITH_COUNTERS_PATTERN,
+    PROLONGED_SOUND_MARK,
+} from '../lookup/japanese-script';
 import { createLearningTargetModule } from './module';
 import { JAPANESE_GRAMMAR } from './japanese-grammar';
 import type { LanguageTextSegment, LearningTargetModule } from './types';
 
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-    `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
     'gu',
 );
 

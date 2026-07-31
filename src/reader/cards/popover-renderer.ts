@@ -26,6 +26,7 @@ import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
+import { targetSupportsCharacterLookup } from '../languages/character-lookup';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -185,7 +186,9 @@ export class CardPopoverRenderer {
             ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading)
             : '';
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
-        const kanjiNavigation = { enabled: true, label: uiText(view.language, 'showKanji') };
+        const kanjiNavigation = targetSupportsCharacterLookup()
+            ? { enabled: true, label: uiText(view.language, 'showKanji') }
+            : undefined;
         const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent
             ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? [])
             : [];
@@ -194,8 +197,11 @@ export class CardPopoverRenderer {
             : '';
         const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
         const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : '';
+        const kanjiNavigationAttributes = kanjiNavigation
+            ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}"`
+            : '';
         return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${spellingContent}</div>
+            <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

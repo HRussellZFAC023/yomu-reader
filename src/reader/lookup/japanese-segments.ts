@@ -3,26 +3,40 @@ import type { LanguageLookupCandidate } from '../languages/types';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard } from '../app/types';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
+import { codePointSafePrefix } from '../languages/lookup-spans';
 import {
     HALFWIDTH_KATAKANA,
     HIRAGANA_WITH_PROLONGED,
     KANA,
-    KANJI,
-    KANJI_LIKE_WITH_COUNTERS,
+    KANJI_PATTERN,
+    KANJI_LIKE_WITH_COUNTERS_PATTERN,
     KATAKANA,
     KATAKANA_WITH_PROLONGED,
     PROLONGED_SOUND_MARK,
 } from './japanese-script';
 
-export const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, 'gu');
-const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, 'gu');
-export const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, 'u');
+export const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+    'gu',
+);
+const JAPANESE_TEXT_RUN_RE = new RegExp(
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    'gu',
+);
+export const JAPANESE_CHARACTER_RE = new RegExp(
+    `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    'u',
+);
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など', 'ね']);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, 'u');
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+    `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    'u',
+);
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, 'u');
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, 'u');
@@ -35,12 +49,21 @@ const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROL
 const SEGMENT_SEPARATORS = '・･゠·•';
 const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, 'u');
 const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, 'gu');
-const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, 'u');
-const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, 'u');
-const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, 'u');
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, 'u');
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+    `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+    'u',
+);
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+    'u',
+);
 const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, 'u');
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, 'u');
+const SURU_STEM_SEGMENT_RE = new RegExp(
+    `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    'u',
+);
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(['話', '巻', '回', '章', '部', '番', '号', '版', '人', '名', '匹', '頭', '羽', '枚', '本', '冊', '個', '台', '件', '分', '秒', '時', '日', '月', '年', '泊', '円']);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -59,19 +82,25 @@ const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
 // Any kanji or katakana — its presence means a segment is NOT pure hiragana, so
 // the kana-merge pass leaves the surrounding (real, mixed-script) sentence alone.
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, 'u');
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+    `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    'u',
+);
 
 export function normalizeFallbackTerm(text: string): string {
-    return text.replace(/\s+/g, ' ').trim().slice(0, 80);
+    return codePointSafePrefix(text.replace(/\s+/g, ' ').trim(), 80);
 }
 
 // The one fallback-card identity: parser-cached fallback cards and render-side
 // remap-gap refills (dom/index.ts) must mint IDENTICAL cards for the same
 // surface, so the stable hash and lookup-term derivation live here rather than
 // being duplicated per caller.
-export function bareFallbackCardFromText(text: string): JPDBCard {
+export function bareFallbackCardFromText(
+    text: string,
+    language = activeLearningTargetLanguage(),
+): JPDBCard {
     const spelling = normalizeFallbackTerm(text);
-    const id = -stablePositiveHashId(`fallback\n${spelling}`);
+    const id = -stablePositiveHashId(`fallback\n${language}\n${spelling}`);
     const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
     return {
         vid: id,
@@ -79,6 +108,7 @@ export function bareFallbackCardFromText(text: string): JPDBCard {
         rid: 0,
         spelling,
         reading: '',
+        language,
         frequencyRank: null,
         partOfSpeech: [],
         meanings: [],

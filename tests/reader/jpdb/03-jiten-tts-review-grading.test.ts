@@ -1175,7 +1175,12 @@ describe('reader helpers', () => {
 
         const [tokens] = await parser.parse(['漢字を書く']);
 
-        expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
+        expect(findTermMatches).toHaveBeenCalledWith(
+            '漢字を書く',
+            expect.any(Number),
+            DEFAULT_SETTINGS.dictionaryPreferences,
+            expect.objectContaining({ language: 'ja' }),
+        );
         expect(tokens[0].rubies).toEqual([{ text: 'かんじ', start: 0, end: 2, length: 2 }]);
         expect(renderTokensToHtml('漢字を書く', tokens, { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
             .toContain('<rt class="jpdb-reader-furi">かんじ</rt>');

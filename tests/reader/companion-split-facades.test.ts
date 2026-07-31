@@ -282,6 +282,20 @@ describe('Greasy Fork split manifest', () => {
         expect(settingsSurface).toContain("import './learning-targets';");
     });
 
+    it('keeps the active-target generation guard on the split runtime boundary', () => {
+        const learningTargets = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/learning-targets.ts'),
+            'utf8',
+        );
+        const companionFacade = readFileSync(
+            path.join(repoRoot, 'src/reader/languages/target-runtime-companion.ts'),
+            'utf8',
+        );
+        expect(learningTargets).toContain('activeLearningTargetGeneration,');
+        expect(companionFacade).toContain('export function activeLearningTargetGeneration(): number');
+        expect(companionFacade).toContain('return runtime().activeLearningTargetGeneration();');
+    });
+
     it('aliases the core learning-target runtime to the companion facade', () => {
         expect(viteConfigSource).toContain("alias['./target-runtime'] = targetRuntimeCompanion;");
         expect(viteConfigSource).toContain("alias['../languages/target-runtime'] = targetRuntimeCompanion;");

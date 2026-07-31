@@ -2,7 +2,7 @@ import { sentenceAroundRange } from '../dom/index';
 import { activeLearningTarget } from '../languages/target-runtime';
 import type { pointerTextRunAt } from './pointer-text-lookup';
 import type { JPDBCard, JPDBToken } from '../app/types';
-import { HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';
+import { HAS_JAPANESE, HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';
 
 const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, 'u');
 const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, 'u');
@@ -29,7 +29,8 @@ export { isLookupableTargetLanguageText as isLookupableJapaneseText };
 // past any short mixed lookup like "iPhoneを買う".
 export function isProseDominantSelection(text: string): boolean {
     const latin = text.match(/[A-Za-z]/gu)?.length ?? 0;
-    return latin >= 24 && latin > (text.match(/[぀-鿿]/gu)?.length ?? 0);
+    const japanese = Array.from(text).filter(character => HAS_JAPANESE.test(character)).length;
+    return latin >= 24 && latin > japanese;
 }
 
 export function lookupCandidateSentence(text: string, start = 0, end = text.length): string {

@@ -9,6 +9,8 @@ import {
 import { isPositiveJpdbCard, isReviewSource } from './review-targets';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { JPDBCard } from '../app/types';
+import { HAS_JAPANESE, isJapaneseKanjiCharacter } from '../lookup/japanese-script';
+import { codePointSafePrefix } from '../languages/lookup-spans';
 
 const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
 
@@ -26,7 +28,7 @@ interface SearchWordResultGroups {
 }
 
 export function normalizeSearchQuery(value: string): string {
-    return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+    return codePointSafePrefix(value.replace(/\s+/g, ' ').trim(), 80);
 }
 
 export function appendSearchHandwritingCandidate(currentQuery: string, candidate: string): string {
@@ -34,7 +36,7 @@ export function appendSearchHandwritingCandidate(currentQuery: string, candidate
 }
 
 export function queryHasJapanese(value: string): boolean {
-    return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
+    return HAS_JAPANESE.test(value);
 }
 
 export function cardMatchesSearchSuggestion(card: JPDBCard, normalizedQuery: string): boolean {
@@ -123,7 +125,7 @@ export function newTabDueSummary(cards: JPDBCard[]): NewTabDueSummary {
     for (const card of cards) {
         if (!isScheduledStudyCard(card)) continue;
         const characters = Array.from(card.spelling.trim());
-        const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? '');
+        const isKanjiCard = characters.length === 1 && isJapaneseKanjiCharacter(characters[0] ?? '');
         const isNew = card.cardState.includes('new') || card.cardState.includes('not-in-deck');
         if (isNew) {
             if (isKanjiCard) summary.newKanji += 1;

@@ -6,6 +6,8 @@ import { quoteAnkiSearch } from './search-escape';
 import { Logger } from '../app/logger';
 import { stablePositiveHashId } from '../core/stable-hash';
 import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '../app/types';
+import { codePointSafePrefix } from '../languages/lookup-spans';
+import { HAS_JAPANESE } from '../lookup/japanese-script';
 
 const log = Logger.scope('AnkiNewTab');
 const ANKI_CARD_INFO_CHUNK_SIZE = 250;
@@ -696,7 +698,7 @@ function mappedField(fields: Record<string, string>, mapping: AnkiFieldMapping |
 function firstJapaneseValue(fields: Record<string, string>): string {
     for (const value of Object.values(fields)) {
         const normalized = value.replace(/\s+/g, ' ').trim();
-        if (/[\u3040-\u30ff\u3400-\u9fff]/.test(normalized)) return normalized.slice(0, 80);
+        if (HAS_JAPANESE.test(normalized)) return codePointSafePrefix(normalized, 80);
     }
     return '';
 }

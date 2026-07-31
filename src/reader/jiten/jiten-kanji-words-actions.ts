@@ -1,6 +1,7 @@
 import { escapeHtml, setInnerHtml } from '../dom';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
+import { targetCanLookupCharacter, usesJapaneseProviders } from '../languages/character-lookup';
 import {
     jitenKanjiWordsPageSize,
     renderJitenKanjiWordsMoreButton,
@@ -24,14 +25,14 @@ export async function filterJitenKanjiWords(button: HTMLButtonElement, context: 
     const reading = button.dataset.jitenKanjiReading?.trim() ?? '';
     const source = button.closest<HTMLElement>('.jpdb-reader-jiten-kanji');
     const grid = source?.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji-vocabulary');
-    if (!character || !reading || !source || !grid) return;
+    if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !reading || !source || !grid) return;
     source.querySelectorAll<HTMLButtonElement>('[data-action="jiten-kanji-reading"]').forEach(candidate => {
         candidate.setAttribute('aria-pressed', candidate === button ? 'true' : 'false');
     });
     button.disabled = true;
     try {
         const wordsPage = await context.lookupKanjiWords(character, { reading, page: 1, pageSize: jitenKanjiWordsPageSize() });
-        if (!source.isConnected || !grid.isConnected) return;
+        if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !source.isConnected || !grid.isConnected) return;
         const wordsHtml = renderJitenKanjiWordsPage(wordsPage, reading);
         const rendered = wordsPage?.items.length ?? 0;
         const total = wordsPage?.total ?? rendered;
@@ -51,7 +52,7 @@ export async function filterJitenKanjiWords(button: HTMLButtonElement, context: 
 export async function loadMoreJitenKanjiWords(button: HTMLButtonElement, context: JitenKanjiWordsActionContext): Promise<void> {
     if (button.disabled) return;
     const character = button.dataset.jitenKanjiCharacter?.trim() ?? '';
-    if (!character) return;
+    if (!usesJapaneseProviders() || !targetCanLookupCharacter(character)) return;
     const page = Math.max(2, Number(button.dataset.jitenKanjiPage) || 2);
     const pageSize = Math.max(1, Number(button.dataset.jitenKanjiPageSize) || jitenKanjiWordsPageSize());
     button.disabled = true;
@@ -61,10 +62,11 @@ export async function loadMoreJitenKanjiWords(button: HTMLButtonElement, context
             page,
             pageSize,
         });
-        if (!button.isConnected) return;
+        if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || !button.isConnected) return;
         appendJitenKanjiWords(button, wordsPage, page, context);
     } catch (error) {
         context.onError?.({ character, page }, error);
+    } finally {
         if (button.isConnected) button.disabled = false;
     }
 }

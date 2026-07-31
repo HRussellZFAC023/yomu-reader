@@ -2,6 +2,7 @@ import { Logger } from '../app/logger';
 import { requestText as requestReaderText } from '../network/http';
 import { rtkElementFallbackGlyph, rtkElementKey, splitRtkElements, type RtkElementGlyph } from './rtk-elements';
 import { parseHtmlDocument } from '../dom';
+import { isUnifiedIdeograph } from '../languages/han';
 
 export interface RtkInfo {
     kanji: string;
@@ -19,7 +20,6 @@ export interface RtkInfo {
 
 const RTK_BASE_URL = 'https://hrussellzfac023.github.io/rtk';
 const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-const KANJI_RE = /[\u3400-\u9fff]/u;
 const log = Logger.scope('RTK');
 
 export class RtkClient {
@@ -28,7 +28,7 @@ export class RtkClient {
 
     // fallow-ignore-next-line unused-class-member
     lookup(kanji: string): Promise<RtkInfo | null> {
-        if (!KANJI_RE.test(kanji)) return Promise.resolve(null);
+        if (!isUnifiedIdeograph(kanji)) return Promise.resolve(null);
         const key = Array.from(kanji)[0] ?? kanji;
         let promise = this.cache.get(key);
         if (!promise) {
@@ -98,7 +98,7 @@ function parseRtkHtml(html: string, kanji: string): RtkInfo | null {
         onYomi,
         kunYomi,
         elements,
-        componentKanji: [...new Set(Array.from(elements).filter(character => KANJI_RE.test(character) && character !== kanji))],
+        componentKanji: [...new Set(Array.from(elements).filter(character => isUnifiedIdeograph(character) && character !== kanji))],
         heisigStory,
         heisigComment,
         koohiiStories,
@@ -179,7 +179,7 @@ function firstKanjiCharacter(value: string | undefined): string {
 }
 
 function isKanjiCharacter(character: string): boolean {
-    return KANJI_RE.test(character);
+    return isUnifiedIdeograph(character);
 }
 
 function addRtkKeywordIndexEntry(entries: Map<string, string>, collisions: Set<string>, key: string, kanji: string): void {

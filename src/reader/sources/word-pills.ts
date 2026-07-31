@@ -9,6 +9,7 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import { frequencyProviderForLookupId, type FrequencyProvider, type ProviderFrequencyRank, type ProviderFrequencyRanks } from '../cards/frequency-ranks';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { extractFrequency } from '../dictionaries/yomitan/ranking';
+import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
 
 interface WordPillContext {
     query: string;
@@ -408,5 +409,10 @@ function wordPillContext(card: JPDBCard, overrideQuery?: string): WordPillContex
 }
 
 function isSingleKanji(value: string): boolean {
-    return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
+    const character = value.trim();
+    // Preserve the historical BMP contract exactly (including 々/〆/〇 and
+    // the old U+9FAF ceiling), while the shared predicate admits assigned
+    // supplementary ideographs without treating either surrogate as a glyph.
+    return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(character)
+        || (character.length > 1 && isJapaneseKanjiCharacter(character));
 }

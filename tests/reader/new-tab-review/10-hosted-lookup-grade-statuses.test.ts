@@ -26,9 +26,74 @@ import type {
     JPDBCard,
     JPDBToken,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
 
 describe('new tab review — hosted segmented fallback & lookup grade statuses', () => {
     registerNewTabReviewCleanup();
+
+    it('blocks stale hosted kanji actions and Japanese public providers after a target switch', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const runtime = new NewTabRuntime();
+        const lookupKanji = vi.fn(async () => null);
+        const performKanjiAction = vi.fn(async () => undefined);
+        const publicSearch = vi.fn(async () => []);
+        const jitenParse = vi.fn(async () => []);
+        const jitenLookupMany = vi.fn(async () => new Map());
+        const card = newTabTestCard({ spelling: '学习', reading: 'xuéxí', language: 'zh', source: 'fallback' });
+        const internals = runtime as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbKanji: { lookup: typeof lookupKanji; performAction: typeof performKanjiAction };
+            jpdbVocabulary: { search: typeof publicSearch };
+            jiten: { parse: typeof jitenParse };
+            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
+            kanjiLookupDetailPromises(kanji: string): {
+                jpdbInfo: Promise<unknown>;
+                jitenInfo: Promise<unknown>;
+                kanjiEntries: Promise<unknown[]>;
+                rtkInfo: Promise<unknown>;
+                kanjiVGInfo: Promise<unknown>;
+                kanjiSourceInfo: Promise<unknown>;
+            };
+            performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string): Promise<void>;
+            publicLookupCard(term: string): Promise<JPDBCard | undefined>;
+            publicLookupFallbackCards(cards: JPDBCard[]): Promise<Map<string, JPDBCard>>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            jpdbKanjiEnabled: true,
+            jpdbDefinitionsEnabled: true,
+            showPitchAccent: true,
+            localDictionariesEnabled: true,
+            localDictionaryShowKanji: true,
+            rtkEnabled: true,
+            kanjivgEnabled: true,
+            kanjiOriginsEnabled: true,
+        };
+        internals.jpdbKanji = { lookup: lookupKanji, performAction: performKanjiAction };
+        internals.jpdbVocabulary = { search: publicSearch };
+        internals.jiten = { parse: jitenParse };
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
+
+        try {
+            const details = internals.kanjiLookupDetailPromises('学');
+            await expect(Promise.all(Object.values(details))).resolves.toEqual([null, null, [], null, null, null]);
+            await internals.performJpdbKanjiAction('add', card, '学');
+            await expect(internals.publicLookupCard('学习')).resolves.toBeUndefined();
+            await expect(internals.publicLookupFallbackCards([card])).resolves.toEqual(new Map());
+
+            expect(lookupKanji).not.toHaveBeenCalled();
+            expect(performKanjiAction).not.toHaveBeenCalled();
+            expect(publicSearch).not.toHaveBeenCalled();
+            expect(jitenParse).not.toHaveBeenCalled();
+            expect(jitenLookupMany).not.toHaveBeenCalled();
+        } finally {
+            runtime.destroy();
+            resetActiveLearningTargetLanguage();
+        }
+    });
 
 
     it('omits study grammar and translation sources from hosted search expansions', () => {

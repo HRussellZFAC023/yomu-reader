@@ -3,6 +3,7 @@ import { hexToRgba, mixHex, readableOn } from '../theme/color-utils';
 import { learnerGlossaryWithoutExamples, summarizeLearnerGlossaryTexts } from '../dictionaries/learner-glossary';
 import { sanitizeAccentColor } from '../settings';
 import type { JPDBCard } from '../app/types';
+import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
 export { cardKey } from '../cards/utils';
 export { isYomuNewTabUrl } from './url';
 export {
@@ -97,7 +98,7 @@ function shouldCleanCardMeaning(card: JPDBCard): boolean {
 }
 
 export function kanjiCharacters(value: string): string[] {
-    return [...new Set(Array.from(value).filter(character => /[\u3400-\u9fff々〆]/u.test(character)))];
+    return [...new Set(Array.from(value).filter(isJapaneseKanjiCharacter))];
 }
 
 function cleanupNewTabMeaning(text: string): string {

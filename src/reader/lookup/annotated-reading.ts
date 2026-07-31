@@ -1,8 +1,13 @@
 import type { JPDBToken } from '../app/types';
+import {
+    KANJI_PATTERN,
+    KANJI_RE,
+} from './japanese-script';
 
-const KANJI_RE = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
+// Preserve the old BMP marks exactly (々, 〻, ヶ) while extending the
+// ideograph member through the shared property-aware pattern atom.
+const TRAILING_KANJI_RUN_RE = new RegExp(`((?:${KANJI_PATTERN}|[々〻ヶ])+)$`, 'u');
 
 export function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['rubies'] {
     if (!annotated || !annotated.includes('[')) return [];

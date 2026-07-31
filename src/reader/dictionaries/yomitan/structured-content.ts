@@ -1,4 +1,5 @@
 import { isRecord } from '../../core/object-utils';
+import { isJapaneseKanjiCharacter } from '../../lookup/japanese-script';
 import { glossaryValueToText } from './glossary-text';
 
 export interface GlossaryRenderOptions {
@@ -429,7 +430,7 @@ function parseStructuredKanjiReference(href: string): StructuredKanjiReference |
     const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
     if (!match) return null;
     const value = decodeStructuredPathSegment(match[1]);
-    const kanji = Array.from(value).find(isStructuredKanjiCharacter) ?? '';
+    const kanji = Array.from(value).find(isJapaneseKanjiCharacter) ?? '';
     return kanji ? { kanji } : null;
 }
 
@@ -439,11 +440,6 @@ function decodeStructuredPathSegment(value: string): string {
     } catch {
         return value;
     }
-}
-
-function isStructuredKanjiCharacter(value: string): boolean {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 0x3400 && code <= 0x9fff;
 }
 
 function structuredSearchParams(href: string): URLSearchParams | null {

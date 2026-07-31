@@ -23,6 +23,7 @@ import { clearRenderedWordAnkiState, renderedWordHasAnkiState, setRenderedWordPi
 import type { AnkiLookupResult } from '../anki/index';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from './types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
+import { targetCanLookupCharacter } from '../languages/character-lookup';
 
 export function isOcrLineFrameWord(word: HTMLElement): boolean {
     return word.classList.contains('jpdb-ocr-line') && !word.dataset.vid && !word.dataset.sid;
@@ -38,7 +39,7 @@ export function singleKanjiOcrLookupCharacter(word: HTMLElement): string {
     if (!word.closest('.jpdb-ocr-line')) return '';
     const surface = normalizedLookupText(readerWordSurfaceText(word) || word.dataset.expression || '');
     const characters = Array.from(surface);
-    return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') ? characters[0] : '';
+    return characters.length === 1 && targetCanLookupCharacter(characters[0] ?? '') ? characters[0] : '';
 }
 
 export function canLookupReaderWordElement(word: HTMLElement): boolean {

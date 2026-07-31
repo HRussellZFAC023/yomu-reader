@@ -1,3 +1,5 @@
+import { isUnifiedIdeograph } from '../languages/han';
+
 /**
  * The one place Japanese script ranges are written down.
  *
@@ -17,8 +19,9 @@
  * lives in that target's module, and core reaches detection through
  * `isTargetLanguageText` rather than through anything here.
  *
- * Nothing in this file imports anything, so the DOM layer, the parser, and the
- * Japanese learning-target module can all share it without an import cycle.
+ * Its only dependency is the language-neutral Unicode ideograph predicate.
+ * That keeps supplementary-plane ownership at the shared Han seam while the
+ * DOM layer, parser, and Japanese target all compose the same Japanese rules.
  */
 
 /** Hiragana block, including the iteration/ligature tail at U+309D-U+309F. */
@@ -29,8 +32,28 @@ export const KATAKANA = '゠-ヿ';
 export const KANA = '぀-ヿ';
 /** Halfwidth katakana, including the halfwidth punctuation at its head. */
 export const HALFWIDTH_KATAKANA = 'ｦ-ﾟ';
-/** CJK ideographs: Extension A (U+3400) through the Unified block (U+9FFF). */
+/**
+ * Legacy BMP kanji class fragment: Extension A (U+3400) through U+9FFF.
+ *
+ * Keep this exact fragment stable. Some existing rules deliberately classify
+ * every code point in that historical range, including non-ideograph slots.
+ * Property-aware consumers use KANJI_PATTERN below.
+ */
 export const KANJI = '㐀-鿿';
+/** Unicode property escape used in `u`-flagged regex sources. */
+export const UNIFIED_IDEOGRAPH = '\\p{Unified_Ideograph}';
+/**
+ * Assigned unified ideographs above the BMP.
+ *
+ * The negative lookahead matters: Unified_Ideograph also contains twelve BMP
+ * compatibility ideographs outside U+3400-U+9FFF. The reader did not classify
+ * those as Japanese before this fix, so admitting the whole property would
+ * widen old BMP behavior while trying to reach supplementary characters.
+ */
+export const SUPPLEMENTARY_KANJI_PATTERN =
+    `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+/** Regex atom: the exact legacy BMP range or an assigned supplementary kanji. */
+export const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
 /** Repeats the preceding kanji; several call sites accept it and not the closing mark. */
 export const ITERATION_MARK = '々';
 /** Iteration and closing marks, read as kanji but living outside the block. */
@@ -60,6 +83,10 @@ export const HALFWIDTH_KATAKANA_LETTERS = 'ｦ-ｯｱ-ﾝ';
 export const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
 /** Kanji semantics plus the counters the segmenter treats as kanji. */
 export const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+/** Property-aware regex atom counterparts of the legacy class fragments. */
+export const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
+export const KANJI_LIKE_WITH_COUNTERS_PATTERN =
+    `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 export const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 export const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 export const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
@@ -83,7 +110,8 @@ export const JAPANESE_LETTERS =
  * its `isLookupableText`. Core does not call it directly -- core asks
  * `isTargetLanguageText`, which resolves to whichever target is active.
  */
-export const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
+export const HAS_JAPANESE =
+    new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, 'u');
 /**
  * Render-boundary check. Unlike the broad scan gate above this excludes the
  * punctuation living inside the kana blocks (notably the middle dot and the
@@ -91,10 +119,24 @@ export const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
  * letter/ideograph before it may replace page text; punctuation may still be
  * part of a wider legitimate word span.
  */
-export const HAS_JAPANESE_LETTER = new RegExp(`[${JAPANESE_LETTERS}]`, 'u');
+export const HAS_JAPANESE_LETTER =
+    new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, 'u');
 
-export const KANJI_RE = new RegExp(`[${KANJI}]`, 'u');
-export const KANJI_LIKE_RE = new RegExp(`[${KANJI_LIKE}]`, 'u');
+export const KANJI_RE = new RegExp(KANJI_PATTERN, 'u');
+export const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, 'u');
 export const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, 'u');
 export const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, 'u');
 export const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, 'u');
+
+const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, 'u');
+
+/**
+ * Exact-character counterpart of KANJI_PATTERN.
+ *
+ * The BMP half retains the reader's historical range semantics; assigned
+ * supplementary ideographs delegate to the shared Unicode property seam.
+ */
+export function isJapaneseKanjiCharacter(value: string): boolean {
+    return BMP_KANJI_CHARACTER_RE.test(value)
+        || (value.length > 1 && isUnifiedIdeograph(value));
+}

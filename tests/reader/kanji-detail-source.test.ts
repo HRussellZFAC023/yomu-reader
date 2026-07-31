@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KanjiDetailSource, type KanjiDetailSourceDeps } from '../../src/reader/newtab/kanji-detail-source';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { JpdbKanjiClient } from '../../src/reader/jpdb/jpdb-kanji';
 import type { JitenApiClient } from '../../src/reader/dictionaries/jiten';
@@ -44,6 +45,32 @@ function makeSource(settingsRef: { current: ReaderSettings }) {
 describe('KanjiDetailSource.load', () => {
     let ref: { current: ReaderSettings };
     beforeEach(() => { ref = { current: settings() }; });
+    afterEach(() => { resetActiveLearningTargetLanguage(); });
+
+    it('returns a disabled bundle without touching Japanese providers for a non-character target', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const { source, spies } = makeSource(ref);
+
+        const bundle = await source.load('何');
+
+        expect(bundle).toMatchObject({
+            jpdb: null,
+            jiten: null,
+            rtk: null,
+            vg: null,
+            local: [],
+            sourceInfo: null,
+            sourceStates: {
+                jpdb: 'disabled',
+                jiten: 'disabled',
+                rtk: 'disabled',
+                vg: 'disabled',
+                local: 'disabled',
+                origin: 'disabled',
+            },
+        });
+        Object.values(spies).forEach(spy => expect(spy).not.toHaveBeenCalled());
+    });
 
     it('fans out to every enabled source and reports ok states', async () => {
         const { source, spies } = makeSource(ref);

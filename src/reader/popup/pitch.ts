@@ -7,6 +7,7 @@ import {
     type PitchVariant,
 } from '../lookup/pitch-accent';
 import { localPitchPatternsFromMeta } from '../lookup/pitch-meta';
+import { isUnifiedIdeograph } from '../languages/han';
 import type { JPDBCard } from '../app/types';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 
@@ -279,8 +280,7 @@ export function uniqueKanji(value: string): string[] {
 }
 
 export function isKanjiCharacter(value: string): boolean {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 0x3400 && code <= 0x9fff;
+    return isUnifiedIdeograph(value);
 }
 
 function containsKanji(value: string): boolean {

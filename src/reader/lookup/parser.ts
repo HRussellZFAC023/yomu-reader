@@ -8,7 +8,8 @@ import {
     normalizeFallbackTerm,
 } from './japanese-segments';
 import { segmentTargetLanguageText } from './target-text';
-import { activeLearningTargetLanguage } from '../languages';
+import { activeLearningTarget, activeLearningTargetGeneration } from '../languages';
+import type { LearningTargetModule } from '../languages/types';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
@@ -25,7 +26,7 @@ import {
     HALFWIDTH_KATAKANA,
     ITERATION_MARK,
     KANA,
-    KANJI,
+    KANJI_PATTERN,
     KATAKANA_MIDDLE_DOT,
     PROLONGED_SOUND_MARK,
     READING_KANA_ONLY_RE as LOCAL_RUBY_SPLIT_READING_RE,
@@ -64,13 +65,19 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // instead — only when local term dictionaries exist, so Jiten-only users are
 // unaffected.
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = new RegExp(`[${KANA}${KANJI}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]`, 'gu');
+const JAPANESE_CHAR_COUNT_RE = new RegExp(
+    `(?:[${KANA}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_PATTERN})`,
+    'gu',
+);
 function japaneseBatchCharCount(paragraphs: string[]): number {
     return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
-const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(`^[${KANA}${KANJI}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]+$`, 'u');
-const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`[${KANJI}${ITERATION_MARK}]`, 'u');
-const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^[${KANJI}${ITERATION_MARK}]$`, 'u');
+const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
+    `^(?:[${KANA}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]|${KANJI_PATTERN})+$`,
+    'u',
+);
+const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, 'u');
+const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, 'u');
 const log = Logger.scope('ReaderParser');
 // Boundary evidence is IndexedDB-backed and parser instances can overlap
 // during reactive rescans, so the gate must be shared at module scope.
@@ -124,6 +131,8 @@ export class ReaderParser {
     async parse(paragraphs: string[], options: ReaderParserParseOptions = {}): Promise<JPDBToken[][]> {
         const { getSettings } = this.dependencies;
         const settings = getSettings();
+        const target = activeLearningTarget();
+        const targetGeneration = activeLearningTargetGeneration();
         const done = log.time('parse', {
             paragraphs: paragraphs.length,
             hasApiKey: hasJpdbApiCredential(settings),
@@ -131,22 +140,27 @@ export class ReaderParser {
             localFallback: settings.localDictionariesEnabled,
         });
         try {
-            const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-            const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
+            const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
+            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
+            const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options, target);
+            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
             if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
             try {
                 // The last IndexedDB read in the pipeline (SRS lookupCards); it
                 // must be bounded too, or a stalled request would re-hang parse()
                 // one line below the fix. A stall/failure keeps provider states.
-                return await withTimeout(
+                const hydrated = await withTimeout(
                     hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
                     LOCAL_PARSE_TIMEOUT_MS,
                     () => new Error('Academy SRS state hydration timed out.'),
                 );
+                return isCurrentLearningTarget(target, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
             } catch (error) {
                 log.warn('Academy SRS state hydration failed; keeping provider states', error);
-                return normalized;
+                return isCurrentLearningTarget(target, targetGeneration)
+                    ? normalized
+                    : emptyParseResult(paragraphs);
             }
         } finally {
             done();
@@ -157,10 +171,15 @@ export class ReaderParser {
     // leaf local parse, an iPad-WebKit stall in either would hang parse()
     // forever. These steps only REFINE an already-valid parse, so a stall (or
     // any failure) degrades to the un-reconciled tokens rather than blocking.
-    private async reconcileLocalParse(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+    private async reconcileLocalParse(
+        paragraphs: string[],
+        parsed: JPDBToken[][],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
         try {
             return await withTimeout(
-                this.reconcileLocalParseResolved(paragraphs, parsed, options),
+                this.reconcileLocalParseResolved(paragraphs, parsed, options, target),
                 LOCAL_PARSE_TIMEOUT_MS,
                 () => new Error('Local parse reconciliation timed out.'),
             );
@@ -170,49 +189,65 @@ export class ReaderParser {
         }
     }
 
-    private async reconcileLocalParseResolved(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
-        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-        return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+    private async reconcileLocalParseResolved(
+        paragraphs: string[],
+        parsed: JPDBToken[][],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
+        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options, target);
+        return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled, target);
     }
 
-    private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
+    private async parseWithPreferredSource(
+        paragraphs: string[],
+        options: ReaderParserParseOptions,
+        settings: ReaderSettings,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
+        // JPDB and Jiten parse Japanese. Other learning targets must keep their
+        // text inside the target-aware local/segmented path, even when a caller
+        // passes requireApi/requireJpdb or no local dictionary is installed.
+        if (target.language !== 'ja') {
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options, target)));
+        }
         // Local-first never touches Jiten/JPDB, even for requireApi/requireJpdb
         // flows ("propagate remote errors", not a data dependency).
         if (settings.parserProvider === 'local' && await this.hasLocalTermDictionaries(true)) {
-            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options, target)));
         }
         // Length-gate the Jiten paths: short batches (a single word, a refresh)
         // go local to avoid spamming jiten.moe, whose /parse endpoint is for
         // batched lines. Only when local term dictionaries exist.
         if (this.shouldRouteShortBatchToLocal(paragraphs, options, settings) && await this.hasLocalTermDictionaries(true)) {
-            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options, target)));
         }
         // An explicit Jiten/JPDB pick never silently swaps to the other API;
         // when the pinned provider fails it drops to local/segmented fallback.
         // requireJpdb flows (JPDB grading needs JPDB token identity) still go
         // JPDB-first below even with Jiten pinned.
         if (settings.parserProvider === 'jiten' && options.requireJpdb !== true) {
-            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings, target);
             if (jitenResult) return jitenResult;
-            return this.parseWithFallbackSource(paragraphs, options);
+            return this.parseWithFallbackSource(paragraphs, options, target);
         }
         if (settings.parserProvider === 'jpdb') {
-            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings, target);
             if (jpdbResult) return jpdbResult;
-            return this.parseWithFallbackSource(paragraphs, options);
+            return this.parseWithFallbackSource(paragraphs, options, target);
         }
         if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
-            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings, target);
             if (jitenResult) return jitenResult;
-            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings, target);
             if (jpdbResult) return jpdbResult;
-            return this.parseWithFallbackSource(paragraphs, options);
+            return this.parseWithFallbackSource(paragraphs, options, target);
         }
-        const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+        const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings, target);
         if (jpdbResult) return jpdbResult;
-        const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+        const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings, target);
         if (jitenResult) return jitenResult;
-        return this.parseWithFallbackSource(paragraphs, options);
+        return this.parseWithFallbackSource(paragraphs, options, target);
     }
 
     // True when an EXPLICIT Jiten pick would fire a remote request for a batch too
@@ -225,11 +260,16 @@ export class ReaderParser {
         return japaneseBatchCharCount(paragraphs) < JITEN_MIN_BATCH_CHARS;
     }
 
-    private async tryParseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
+    private async tryParseWithJpdb(
+        paragraphs: string[],
+        options: ReaderParserParseOptions,
+        settings: ReaderSettings,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][] | null> {
         if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
         try {
             const result = await this.parseWithJpdb(paragraphs, options);
-            return this.withSegmentedFallbackGaps(paragraphs, result, options);
+            return this.withSegmentedFallbackGaps(paragraphs, result, options, target);
         } catch (error) {
             this.handleRemoteParseError('JPDB', error, options);
             return null;
@@ -244,11 +284,16 @@ export class ReaderParser {
             : parsePromise;
     }
 
-    private async tryParseWithJiten(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
+    private async tryParseWithJiten(
+        paragraphs: string[],
+        options: ReaderParserParseOptions,
+        settings: ReaderSettings,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][] | null> {
         if (!shouldUseJitenParser(settings, options, this.dependencies.jiten)) return null;
         try {
             const result = await this.parseWithJiten(paragraphs, options);
-            return this.withSegmentedFallbackGaps(paragraphs, result, options);
+            return this.withSegmentedFallbackGaps(paragraphs, result, options, target);
         } catch (error) {
             this.handleRemoteParseError('Jiten', error, options);
             return null;
@@ -269,15 +314,23 @@ export class ReaderParser {
         if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
 
-    private async parseWithFallbackSource(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+    private async parseWithFallbackSource(
+        paragraphs: string[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
         if (!await this.hasLocalTermDictionaries()) {
-            const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
+            const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options, target);
             if (publicJitenResult) return publicJitenResult;
         }
-        return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+        return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options, target)));
     }
 
-    private async tryParseWithPublicJiten(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][] | null> {
+    private async tryParseWithPublicJiten(
+        paragraphs: string[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][] | null> {
         if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
         // Offline the public round-trip is doomed and would only delay the
         // segmented first paint until the request timeout fires.
@@ -289,7 +342,7 @@ export class ReaderParser {
                 ? await parser.parse(paragraphs)
                 : await parser.parse(paragraphs, { detailLimit: options.publicJitenDetailLimit });
             if (!parsed.some(tokens => tokens.length)) return null;
-            return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
+            return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
         } catch (error) {
             log.warn('Jiten public parse failed; using local or segmented fallback', error);
             return null;
@@ -324,15 +377,15 @@ export class ReaderParser {
         this.localTermDictionaryAvailability = undefined;
     }
 
-    localCardFromEntry(entry: YomitanTermEntry): JPDBCard {
-        const id = -stablePositiveHashId(`${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
+    localCardFromEntry(entry: YomitanTermEntry, target = activeLearningTarget()): JPDBCard {
+        const id = -stablePositiveHashId(`${target.language}\n${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
         const card: JPDBCard = {
             vid: id,
             sid: id,
             rid: 0,
             spelling: entry.expression,
             reading: entry.reading || entry.expression,
-            language: activeLearningTargetLanguage(),
+            language: target.language,
             frequencyRank: entry.jpdbFrequency ?? null,
             partOfSpeech: [],
             meanings: [{
@@ -351,8 +404,8 @@ export class ReaderParser {
         return card;
     }
 
-    fallbackCardFromText(text: string): JPDBCard {
-        const card = bareFallbackCardFromText(text);
+    fallbackCardFromText(text: string, target = activeLearningTarget()): JPDBCard {
+        const card = bareFallbackCardFromText(text, target.language);
         this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
         return card;
     }
@@ -365,16 +418,20 @@ export class ReaderParser {
         return this.canUseLocalDictionaryFallback() || options.allowSegmentedFallback === true;
     }
 
-    private async parseLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+    private async parseLocalOrSegmentedText(
+        text: string,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[]> {
         const settings = this.dependencies.getSettings();
-        const key = localParseCacheKey(text, options, settings);
+        const key = localParseCacheKey(text, options, settings, target);
         const cached = this.localParseCache.get(key);
         if (cached) {
             this.localParseCache.delete(key);
             this.localParseCache.set(key, cached);
             return cached;
         }
-        const promise = this.parseLocalOrSegmentedTextUncached(text, options).catch(error => {
+        const promise = this.parseLocalOrSegmentedTextUncached(text, options, target).catch(error => {
             if (this.localParseCache.get(key) === promise) this.localParseCache.delete(key);
             throw error;
         });
@@ -382,10 +439,14 @@ export class ReaderParser {
         return promise;
     }
 
-    private async parseLocalOrSegmentedTextUncached(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+    private async parseLocalOrSegmentedTextUncached(
+        text: string,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[]> {
         try {
             return await withTimeout(
-                this.resolveLocalOrSegmentedText(text, options),
+                this.resolveLocalOrSegmentedText(text, options, target),
                 LOCAL_PARSE_TIMEOUT_MS,
                 () => new Error('Local parse timed out.'),
             );
@@ -399,20 +460,24 @@ export class ReaderParser {
             // bounded (never a hard hang), so enrichment quality drops rather
             // than the tab freezing. Bounding the gated reads is a follow-up.
             log.warn('Local parse timed out; using segmented fallback', { length: text.length }, error);
-            return this.localParseTimeoutFallback(text, options);
+            return this.localParseTimeoutFallback(text, options, target);
         }
     }
 
-    private async resolveLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+    private async resolveLocalOrSegmentedText(
+        text: string,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[]> {
         if (this.canUseLocalDictionaryFallback()) {
-            const tokens = await this.parseLocalDictionaryText(text, options);
+            const tokens = await this.parseLocalDictionaryText(text, options, target);
             if (tokens.length) {
                 return options.allowSegmentedFallback === true
-                    ? this.fillSegmentedFallbackGaps(text, tokens)
+                    ? this.fillSegmentedFallbackGaps(text, tokens, target)
                     : tokens;
             }
         }
-        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text, target) : [];
     }
 
     // The timeout path RESOLVES to this fallback (rather than rejecting), so
@@ -421,8 +486,12 @@ export class ReaderParser {
     // result avoids re-hitting the dead request on every later lookup. The cost
     // is that a genuinely transient stall keeps that one sentence ruby-less
     // until LRU eviction — an accepted trade for not re-freezing.
-    private localParseTimeoutFallback(text: string, options: ReaderParserParseOptions): JPDBToken[] {
-        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+    private localParseTimeoutFallback(
+        text: string,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): JPDBToken[] {
+        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text, target) : [];
     }
 
     private rememberLocalParseCacheEntry(key: string, promise: Promise<JPDBToken[]>): void {
@@ -434,11 +503,15 @@ export class ReaderParser {
         }
     }
 
-    private async parseLocalDictionaryText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+    private async parseLocalDictionaryText(
+        text: string,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[]> {
         const { dictionaries, getSettings } = this.dependencies;
         if (!await this.hasLocalTermDictionaries()) return [];
         const settings = getSettings();
-        const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch(error => {
+        const matches = await dictionaries.findTermMatches(text, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target).catch(error => {
             log.warn('Local dictionary parse failed', { length: text.length }, error);
             return [];
         });
@@ -446,11 +519,16 @@ export class ReaderParser {
         // enrichment hits IndexedDB. Gate that enrichment through a shared
         // concurrency limiter so parsing many cues at once (keyless warmup)
         // cannot flood IndexedDB and stall the main thread.
-        return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, match => this.localTokenFromMatch(text, match, options));
+        return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, match => this.localTokenFromMatch(text, match, options, target));
     }
 
-    private async localTokenFromMatch(text: string, match: YomitanTermMatch, options: ReaderParserParseOptions): Promise<JPDBToken> {
-        const card = this.localCardFromEntry(match.entry);
+    private async localTokenFromMatch(
+        text: string,
+        match: YomitanTermMatch,
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken> {
+        const card = this.localCardFromEntry(match.entry, target);
         const reading = card.reading && card.reading !== match.surface ? card.reading : '';
         const pitch = await this.enrichmentGate.run(() => this.localPitchPattern(card, options));
         if (pitch && !card.pitchAccent.length) card.pitchAccent = [pitch];
@@ -478,6 +556,7 @@ export class ReaderParser {
         paragraphs: string[],
         parsed: JPDBToken[][],
         options: ReaderParserParseOptions,
+        target: LearningTargetModule,
     ): Promise<JPDBToken[][]> {
         if (!this.canUseLocalDictionaryFallback()) return parsed;
         const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? '', tokens));
@@ -487,27 +566,31 @@ export class ReaderParser {
         const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
             const text = paragraphs[paragraphIndex] ?? '';
             const replacements = await Promise.all(candidates[paragraphIndex].map(async candidate => {
-                const relative = await this.exactLocalBoundaryMatch(candidate);
+                const relative = await this.exactLocalBoundaryMatch(candidate, target);
                 if (!relative) return null;
                 const match = offsetTermMatch(relative, candidate.start);
                 if (!exactMatchSafelyCrossesRemoteBoundary(text, match, tokens)) return null;
-                return this.localTokenFromMatch(text, match, options);
+                return this.localTokenFromMatch(text, match, options, target);
             }));
             return replaceRemoteFragments(tokens, replacements.filter((token): token is JPDBToken => Boolean(token)));
         }));
         return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
     }
 
-    private exactLocalBoundaryMatch(candidate: BoundaryEvidenceCandidate): Promise<YomitanTermMatch | null> {
+    private exactLocalBoundaryMatch(
+        candidate: BoundaryEvidenceCandidate,
+        target: LearningTargetModule,
+    ): Promise<YomitanTermMatch | null> {
         const settings = this.dependencies.getSettings();
         const { surface, boundary } = candidate;
-        const key = localBoundaryEvidenceCacheKey(surface, boundary, settings);
+        const key = localBoundaryEvidenceCacheKey(surface, boundary, settings, target);
         const cached = this.localBoundaryEvidenceCache.get(key);
         if (cached) return cached;
         const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
             surface,
             LOCAL_BOUNDARY_MATCH_LIMIT,
             settings.dictionaryPreferences,
+            target,
         ))
             .then(matches => exactBoundaryMatch(surface, boundary, matches))
             .catch(error => {
@@ -545,9 +628,9 @@ export class ReaderParser {
         return this.localTermDictionaryAvailability;
     }
 
-    private parseSegmentedText(text: string): JPDBToken[] {
-        return segmentTargetLanguageText(text).map(segment => {
-            const card = this.fallbackCardFromText(segment.text);
+    private parseSegmentedText(text: string, target: LearningTargetModule): JPDBToken[] {
+        return target.segment(text).map(segment => {
+            const card = this.fallbackCardFromText(segment.text, target);
             return {
                 card,
                 start: segment.start,
@@ -560,7 +643,12 @@ export class ReaderParser {
         });
     }
 
-    private async withSegmentedFallbackGaps(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+    private async withSegmentedFallbackGaps(
+        paragraphs: string[],
+        parsed: JPDBToken[][],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
         // Parsing is a one-result-per-input contract. Provider adapters are
         // allowed to fail partially, but their response cardinality must never
         // leak into callers: a short response used to leave the tail DOM
@@ -571,8 +659,8 @@ export class ReaderParser {
         return Promise.all(paragraphs.map(async (text, index) => {
             const tokens = parsed[index] ?? [];
             if (options.allowSegmentedFallback !== true) return tokens;
-            const withLocal = await this.fillGapsWithLocalDictionaryTokens(text, tokens, options);
-            return this.fillSegmentedFallbackGaps(text, withLocal);
+            const withLocal = await this.fillGapsWithLocalDictionaryTokens(text, tokens, options, target);
+            return this.fillSegmentedFallbackGaps(text, withLocal, target);
         }));
     }
 
@@ -587,10 +675,11 @@ export class ReaderParser {
         text: string,
         tokens: JPDBToken[],
         options: ReaderParserParseOptions,
+        target: LearningTargetModule,
     ): Promise<JPDBToken[]> {
         if (!this.canUseLocalDictionaryFallback()) return tokens;
         if (!await this.hasLocalTermDictionaries()) return tokens;
-        const localTokens = await this.parseLocalDictionaryText(text, options).catch(() => [] as JPDBToken[]);
+        const localTokens = await this.parseLocalDictionaryText(text, options, target).catch(() => [] as JPDBToken[]);
         // Only fill ranges no provider token touches; fillSegmentedFallbackGaps
         // afterwards sorts and prunes any residual overlap among the merge.
         const additions = localTokens.filter(local =>
@@ -598,14 +687,14 @@ export class ReaderParser {
         return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
     }
 
-    private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
+    private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[], target: LearningTargetModule): JPDBToken[] {
         // Gap coverage must use the same spans the DOM renderer can actually
         // consume. A malformed or overlapping provider token used to mark its
         // Japanese range as covered here, then get discarded at render time,
         // leaving the rejected range as an unannotated raw-text hole.
         tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
             || (second.end - second.start) - (first.end - first.start)), text);
-        const fallbackTokens = this.parseSegmentedText(text);
+        const fallbackTokens = this.parseSegmentedText(text, target);
         const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
         const broad = tokens.filter(token => isBroadPublic(token)
             && fallbackTokens.some(fallback => tokenInsideRange(fallback, token.start, token.end)
@@ -663,7 +752,12 @@ export class ReaderParser {
         return promise;
     }
 
-    private async withLocallySplitKanjiRubies(paragraphs: string[], parsed: JPDBToken[][]): Promise<JPDBToken[][]> {
+    private async withLocallySplitKanjiRubies(
+        paragraphs: string[],
+        parsed: JPDBToken[][],
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
+        if (activeLearningTarget() !== target) return parsed;
         if (!this.canUseLocalKanjiRubySplits()) return parsed;
         let nextParsed = parsed;
         await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
@@ -721,12 +815,13 @@ export class ReaderParser {
 
     private syncCardWordWithReadingFromTokenRuby(token: JPDBToken, surface: string): void {
         if (!token.rubies.length || token.card.spelling !== surface) return;
-        const word = Array.from(token.card.spelling);
+        let word = token.card.spelling;
         for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
-            const { text, start, length } = token.rubies[index];
-            word.splice(start - token.start + length, 0, `[${text}]`);
+            const { text, end } = token.rubies[index];
+            const insertionOffset = end - token.start;
+            word = `${word.slice(0, insertionOffset)}[${text}]${word.slice(insertionOffset)}`;
         }
-        token.card.wordWithReading = word.join('');
+        token.card.wordWithReading = word;
     }
 
     private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {
@@ -904,8 +999,8 @@ function boundaryEvidenceCandidates(text: string, tokens: JPDBToken[]): Boundary
 function boundaryEvidenceCandidate(text: string, first: JPDBToken, second: JPDBToken): BoundaryEvidenceCandidate | null {
     if (first.end !== second.start) return null;
     if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
-    const left = text.slice(first.end - 1, first.end);
-    const right = text.slice(second.start, second.start + 1);
+    const left = codePointBeforeUtf16Offset(text, first.end);
+    const right = codePointAtUtf16Offset(text, second.start);
     if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
     const firstSurface = text.slice(first.start, first.end);
     const secondSurface = text.slice(second.start, second.end);
@@ -927,6 +1022,30 @@ function isReconciliableParseToken(token: JPDBToken): boolean {
 function isSingleJapaneseCharacter(surface: string): boolean {
     const characters = Array.from(surface);
     return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
+}
+
+function codePointBeforeUtf16Offset(text: string, offset: number): string {
+    if (offset <= 0) return '';
+    const trailingCodeUnit = text.charCodeAt(offset - 1);
+    const start = isLowSurrogate(trailingCodeUnit)
+        && offset > 1
+        && isHighSurrogate(text.charCodeAt(offset - 2))
+        ? offset - 2
+        : offset - 1;
+    return text.slice(start, offset);
+}
+
+function codePointAtUtf16Offset(text: string, offset: number): string {
+    const codePoint = text.codePointAt(offset);
+    return codePoint === undefined ? '' : String.fromCodePoint(codePoint);
+}
+
+function isHighSurrogate(value: number): boolean {
+    return value >= 0xd800 && value <= 0xdbff;
+}
+
+function isLowSurrogate(value: number): boolean {
+    return value >= 0xdc00 && value <= 0xdfff;
 }
 
 function exactBoundaryMatch(surface: string, boundary: number, matches: YomitanTermMatch[]): YomitanTermMatch | null {
@@ -982,10 +1101,17 @@ function replaceRemoteFragments(tokens: JPDBToken[], candidates: JPDBToken[]): J
     ].sort(compareTokensByOffset);
 }
 
-function localBoundaryEvidenceCacheKey(surface: string, boundary: number, settings: ReaderSettings): string {
+function localBoundaryEvidenceCacheKey(
+    surface: string,
+    boundary: number,
+    settings: ReaderSettings,
+    target: LearningTargetModule,
+): string {
     return JSON.stringify({
         surface,
         boundary,
+        target: target.id,
+        language: target.language,
         dictionaries: settings.dictionaryPreferences.map(preference => ({
             name: preference.name,
             enabled: preference.enabled,
@@ -994,10 +1120,17 @@ function localBoundaryEvidenceCacheKey(surface: string, boundary: number, settin
     });
 }
 
-function localParseCacheKey(text: string, options: ReaderParserParseOptions, settings: ReaderSettings): string {
+function localParseCacheKey(
+    text: string,
+    options: ReaderParserParseOptions,
+    settings: ReaderSettings,
+    target: LearningTargetModule,
+): string {
     const localDictionariesEnabled = settings.localDictionariesEnabled;
     return JSON.stringify({
         text,
+        target: target.id,
+        language: target.language,
         localDictionariesEnabled,
         allowSegmentedFallback: options.allowSegmentedFallback === true,
         includeLocalPitch: localDictionariesEnabled && settings.showPitchAccent && options.includeLocalPitch !== false,
@@ -1079,9 +1212,15 @@ function fallbackRepairGroupForToken(
 }
 
 function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
-    for (let index = start; index < end; index += 1) {
-        if (!JAPANESE_CHARACTER_RE.test(text[index] ?? '')) continue;
-        if (!tokens.some(token => token.start <= index && index < token.end)) return true;
+    for (let index = start; index < end;) {
+        const character = codePointAtUtf16Offset(text, index);
+        if (!character) break;
+        const characterEnd = index + character.length;
+        if (
+            JAPANESE_CHARACTER_RE.test(character)
+            && !tokens.some(token => token.start <= index && characterEnd <= token.end)
+        ) return true;
+        index = characterEnd;
     }
     return false;
 }
@@ -1102,6 +1241,15 @@ function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
 
 function cardCacheKey(vid: number, sid: number): string {
     return `${vid}:${sid}`;
+}
+
+function isCurrentLearningTarget(target: LearningTargetModule, generation: number): boolean {
+    return activeLearningTarget() === target
+        && activeLearningTargetGeneration() === generation;
+}
+
+function emptyParseResult(paragraphs: readonly string[]): JPDBToken[][] {
+    return paragraphs.map(() => []);
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorFactory: () => Error): Promise<T> {

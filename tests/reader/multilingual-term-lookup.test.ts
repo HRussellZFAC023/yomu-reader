@@ -221,6 +221,18 @@ describe('a non-Japanese target resolves dictionary entries through the normal l
         expect(matches.every(match => match.entry.dictionary === 'wty-es-en')).toBe(true);
     });
 
+    it('drops an in-flight dictionary sweep after an away-and-back target switch', async () => {
+        registerLearningTargetModule(spanishTarget());
+        setActiveLearningTargetLanguage('es');
+        const store = await spanishStore();
+
+        const pending = store.findTermMatches('Me gusta comer paella.', 16);
+        setActiveLearningTargetLanguage('ja');
+        setActiveLearningTargetLanguage('es');
+
+        await expect(pending).resolves.toEqual([]);
+    });
+
     it('normalizes reader-export terms and metadata through their shared write door', async () => {
         const source = 'Cafe\u0301';
         const store = new YomitanDictionaryStore();
@@ -399,6 +411,18 @@ describe('a non-Japanese target resolves dictionary entries through the normal l
 
         await expect(store.findTermMatches(text, 8)).resolves.toMatchObject([
             { entry: { expression: '𡃁好' }, surface: '𡃁好', start: 239, end: 242 },
+        ]);
+    });
+
+    it('caps term-search queries without indexing a lone surrogate', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const safePrefix = '我'.repeat(79);
+        const store = await dictionaryStore([
+            { expression: safePrefix, reading: safePrefix, glossary: ['boundary fixture'], dictionary: 'w13-search-boundary-fixture' },
+        ], 'w13-search-boundary-fixture.json');
+
+        await expect(store.searchTerms(`${safePrefix}𡃁tail`, 4)).resolves.toMatchObject([
+            { expression: safePrefix },
         ]);
     });
 });

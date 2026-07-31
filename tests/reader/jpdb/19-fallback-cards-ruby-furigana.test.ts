@@ -26,10 +26,54 @@ import type {
     JPDBCard,
     JPDBToken,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
 
 registerReaderHelpersCleanup();
 
 describe('reader helpers', () => {
+    it.each(['zh', 'yue'] as const)('keeps %s fallback cards out of Japanese public resolution', async target => {
+        setActiveLearningTargetLanguage(target);
+        const app = new ReaderApp();
+        const publicCard = { ...card, spelling: '学习', reading: 'xuéxí', source: 'jpdb' as const };
+        const lookupFallbackApiCard = vi.fn(async () => publicCard);
+        const cacheCards = vi.fn();
+        const fallbackCard = { ...card, spelling: '学习', reading: 'xuéxí', language: target, source: 'fallback' as const };
+        const internals = app as unknown as {
+            parser: { cacheCards: typeof cacheCards };
+            lookupFallbackApiCard: typeof lookupFallbackApiCard;
+            resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
+        };
+        internals.parser = { cacheCards };
+        internals.lookupFallbackApiCard = lookupFallbackApiCard;
+
+        try {
+            await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(fallbackCard);
+            expect(lookupFallbackApiCard).not.toHaveBeenCalled();
+            expect(cacheCards).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
+    it('loads non-Japanese modal render data through the target-aware loader', async () => {
+        setActiveLearningTargetLanguage('yue');
+        const app = new ReaderApp();
+        const fallbackCard = { ...card, spelling: '學', reading: 'hok6', language: 'yue', source: 'fallback' as const };
+        const fixture = createFallbackShowCardBoundaryFixture(app, async () => fallbackCard);
+
+        try {
+            await fixture.internals.showCard(fallbackCard);
+            expect(fixture.load).toHaveBeenCalledWith(fallbackCard);
+        } finally {
+            app.destroy();
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('renders fallback lookup cards promptly when public JPDB resolution is slow', async () => {
         vi.useFakeTimers();
         const app = new ReaderApp();
@@ -41,7 +85,7 @@ describe('reader helpers', () => {
             await vi.advanceTimersByTimeAsync(181);
             await show;
 
-            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard, expect.any(Object));
             expect(updateWord).toHaveBeenCalledWith(fallbackCard, undefined, 'modal', 'reset', undefined);
             expect(load).toHaveBeenCalledWith(fallbackCard);
             expect(mountInitialCardShell).toHaveBeenCalledWith(expect.any(HTMLElement), fallbackCard, undefined, undefined, expect.any(Object));
@@ -190,7 +234,7 @@ describe('reader helpers', () => {
             expect(lookupText).toHaveBeenCalledWith('甘言蜜語', '甘言蜜語だ。', expect.objectContaining({
                 navigation: 'push-current',
                 preservePosition: true,
-            }));
+            }), expect.any(Object));
             expect(reparseVisiblePage).not.toHaveBeenCalled();
         } finally {
             app.destroy();

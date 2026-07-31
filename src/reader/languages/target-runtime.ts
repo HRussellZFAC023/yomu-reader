@@ -1,5 +1,6 @@
 export {
     activeLearningTarget,
+    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
     adoptLearningTargetLanguage,
     resetActiveLearningTargetLanguage,

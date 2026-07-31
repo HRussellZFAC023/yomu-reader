@@ -4,6 +4,7 @@ import {
     WORD_ONLY_STUDY_DISABLED_STEPS,
     DEFAULT_SETTINGS,
     newTabTestCard,
+    deferred,
     newTabImmersionExample,
     stubNewTabAudioPlayback,
     newTabAudioImmersionExample,
@@ -21,6 +22,10 @@ import {
     installKanjiDoodle,
     waitForExpect,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/target-runtime';
 import type {
     ImmersionKitExample,
     JPDBCard,
@@ -330,6 +335,44 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
         expect(node.querySelector('[data-immersion-action="previous"]')).not.toBeNull();
         expect(node.querySelector('[data-immersion-action="audio"]')).not.toBeNull();
         expect(node.querySelector('[data-immersion-action="next"]')).not.toBeNull();
+    });
+
+    it('does not render a delayed kanji example after an away-and-back target switch', async () => {
+        const pending = deferred<ImmersionKitExample[]>();
+        const example = newTabImmersionExample('多');
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: true, kanjiImmersionKitEnabled: true }, {
+            parser: { fallbackCardFromText: vi.fn(newTabFallbackCardFromText) } as never,
+        });
+        const root = document.createElement('main');
+        root.innerHTML = `
+            <div data-newtab-kanji-immersion-mount>
+                <details data-newtab-kanji-immersion-details open>
+                    <div data-newtab-kanji-immersion-body>Loading</div>
+                </details>
+            </div>
+        `;
+        document.body.append(root);
+        const internals = controller as unknown as {
+            loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]>;
+            renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void;
+        };
+        internals.loadImmersionExamples = vi.fn(() => pending.promise);
+
+        try {
+            internals.renderNewTabKanjiImmersion(root, '多');
+            expect(internals.loadImmersionExamples).toHaveBeenCalledOnce();
+            expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+            expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+            pending.resolve([example]);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(root.querySelector('[data-newtab-kanji-immersion]')).toBeNull();
+            expect(root.querySelector('[data-newtab-kanji-immersion-body]')?.textContent).toBe('Loading');
+        } finally {
+            resetActiveLearningTargetLanguage();
+            root.remove();
+        }
     });
 
     it('navigates kanji new-tab Immersion Kit examples with the shared controls', async () => {

@@ -6,6 +6,7 @@ import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { KanjiOriginClient, KanjiSourceInfo } from '../kanji/origin';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
+import { targetCanLookupCharacter, usesJapaneseProviders } from '../languages/character-lookup';
 import { hasJitenApiCredential } from '../settings/api-credential';
 import { NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS } from './controller-config';
 
@@ -61,6 +62,25 @@ function sourceResult<T>(value: T, state: KanjiDetailSourceState): KanjiDetailSo
     return { value, state };
 }
 
+function disabledKanjiDetailBundle(): KanjiDetailBundle {
+    return {
+        jpdb: null,
+        jiten: null,
+        rtk: null,
+        vg: null,
+        local: [],
+        sourceInfo: null,
+        sourceStates: {
+            jpdb: 'disabled',
+            jiten: 'disabled',
+            rtk: 'disabled',
+            vg: 'disabled',
+            local: 'disabled',
+            origin: 'disabled',
+        },
+    };
+}
+
 // The kanji panel fans out to up to six sources (JPDB, Jiten, RTK, KanjiVG,
 // local Yomitan, origin data), each settings-gated and time-boxed, then memoizes the merged
 // bundle per kanji until the relevant settings change.
@@ -70,6 +90,12 @@ export class KanjiDetailSource {
     constructor(private readonly deps: KanjiDetailSourceDeps) {}
 
     load(kanji: string): Promise<KanjiDetailBundle> {
+        // This is the last common boundary before every Japanese character
+        // provider fans out. Rendering gates are insufficient: stale DOM and
+        // direct callers can survive a learning-target change.
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) {
+            return Promise.resolve(disabledKanjiDetailBundle());
+        }
         const settings = this.deps.getSettings();
         const cache = this.cacheEntry(kanji);
         const signature = this.settingsSignature(settings);

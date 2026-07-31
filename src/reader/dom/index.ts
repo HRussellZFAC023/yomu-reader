@@ -77,6 +77,7 @@ import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwr
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { JAPANESE_CHARACTER_RE, bareFallbackCardFromText } from '../lookup/japanese-segments';
+import { isUnifiedIdeograph } from '../languages/han';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export {
@@ -2298,21 +2299,31 @@ function collectHostGapFallbackTokens(
     additions: JPDBToken[],
 ): void {
     let gapStart = -1;
-    for (let index = rangeStart; index <= rangeEnd; index += 1) {
+    for (let index = rangeStart; index < rangeEnd;) {
+        const codePoint = hostText.codePointAt(index);
+        if (codePoint === undefined) break;
+        const character = String.fromCodePoint(codePoint);
+        const codePointEnd = index + character.length;
+        const nextIndex = Math.min(rangeEnd, codePointEnd);
         // JAPANESE_CHARACTER_RE (not HAS_JAPANESE_LETTER): the parser's own
         // gap-fill counts ー/々 as Japanese, and splitting a katakana run at
         // its prolonged-sound mark would shatter エージェント into エ+ジェント.
-        const uncoveredJapanese = index < rangeEnd
-            && JAPANESE_CHARACTER_RE.test(hostText[index] ?? '')
-            && !tokens.some(token => token.start <= index && index < token.end)
-            && !additions.some(token => token.start <= index && index < token.end);
+        // Walk by Unicode code point while retaining UTF-16 offsets. Testing a
+        // supplementary kanji one surrogate at a time makes neither half look
+        // Japanese, leaving a bare hole exactly where this refill is needed.
+        const uncoveredJapanese = codePointEnd <= rangeEnd
+            && JAPANESE_CHARACTER_RE.test(character)
+            && !tokens.some(token => token.start < nextIndex && index < token.end)
+            && !additions.some(token => token.start < nextIndex && index < token.end);
         if (uncoveredJapanese) {
             if (gapStart < 0) gapStart = index;
-            continue;
+        } else if (gapStart >= 0) {
+            appendSegmentedHostFallbackTokens(hostText, gapStart, index, additions);
+            gapStart = -1;
         }
-        if (gapStart >= 0) appendSegmentedHostFallbackTokens(hostText, gapStart, index, additions);
-        gapStart = -1;
+        index = nextIndex;
     }
+    if (gapStart >= 0) appendSegmentedHostFallbackTokens(hostText, gapStart, rangeEnd, additions);
 }
 
 function appendSegmentedHostFallbackTokens(
@@ -6948,8 +6959,7 @@ function renderKanjiNavigationCharacter(character: string, label: string): strin
 }
 
 function isKanjiForInlineNavigation(value: string): boolean {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 0x3400 && code <= 0x9fff;
+    return isUnifiedIdeograph(value);
 }
 
 function isVisible(element: HTMLElement): boolean {

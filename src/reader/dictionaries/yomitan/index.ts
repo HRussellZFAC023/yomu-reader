@@ -1,4 +1,5 @@
-import { activeLearningTarget } from '../../languages/target-runtime';
+import { activeLearningTarget, activeLearningTargetGeneration } from '../../languages/target-runtime';
+import { isUnifiedIdeograph } from '../../languages/han';
 import {
     codePointBoundaryAtOrAfter,
     codePointSafePrefix,
@@ -482,7 +483,13 @@ export class YomitanDictionaryStore {
         );
     }
 
-    async findTermMatches(text: string, limit = 32, preferences: DictionaryPreference[] = []): Promise<YomitanTermMatch[]> {
+    async findTermMatches(
+        text: string,
+        limit = 32,
+        preferences: DictionaryPreference[] = [],
+        target: LearningTargetModule = activeLearningTarget(),
+    ): Promise<YomitanTermMatch[]> {
+        const targetGeneration = activeLearningTargetGeneration();
         const done = log.time('Inline term match search', { length: text.length, limit, dictionaries: preferences.length });
         // The old 240 character cap silently dropped everything past it: an
         // expanded video description parsed at the top, went completely bare
@@ -504,7 +511,8 @@ export class YomitanDictionaryStore {
         }
 
         try {
-            return await this.sweepTermMatchWindows(source, limit, preferences);
+            const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
+            return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
         } catch (error) {
             log.warn('Inline term match search failed', { length: source.length, error });
             throw error;
@@ -513,9 +521,14 @@ export class YomitanDictionaryStore {
         }
     }
 
-    private async sweepTermMatchWindows(source: string, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
+    private async sweepTermMatchWindows(
+        source: string,
+        limit: number,
+        preferences: DictionaryPreference[],
+        target: LearningTargetModule,
+        targetGeneration: number,
+    ): Promise<YomitanTermMatch[]> {
         const selected: YomitanTermMatch[] = [];
-        const target = activeLearningTarget();
         // Windows are swept in reading order and every match starts inside its
         // own window, so the furthest end selected so far is all a later window
         // needs to stay non-overlapping across the boundary.
@@ -526,7 +539,8 @@ export class YomitanDictionaryStore {
             // timeout fire at all — the collection walk itself never awaits.
             if (start > 0) await nextTask();
             const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
-            const matches = await this.termMatchesInWindow(source, start, end, preferences);
+            if (!isCurrentLookupTarget(target, targetGeneration)) return [];
+            const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
             const free = matches.filter(match => match.start >= coveredUntil);
             const windowMatches = target.lookupSweepMode === 'left-to-right-longest-exact'
                 ? leftToRightLongestMatches(free, limit)
@@ -545,9 +559,9 @@ export class YomitanDictionaryStore {
         start: number,
         end: number,
         preferences: DictionaryPreference[],
+        target: LearningTargetModule,
     ): Promise<YomitanTermMatch[]> {
-        const target = activeLearningTarget();
-        const candidates = this.collectTermMatchCandidates(source, start, end);
+        const candidates = this.collectTermMatchCandidates(target, source, start, end);
         return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
     }
 
@@ -566,8 +580,12 @@ export class YomitanDictionaryStore {
      * its end, so a term straddling a window boundary is found exactly as it
      * would be in a single sweep of the whole text.
      */
-    private collectTermMatchCandidates(source: string, from: number, to: number): TermMatchCandidates {
-        const target = activeLearningTarget();
+    private collectTermMatchCandidates(
+        target: LearningTargetModule,
+        source: string,
+        from: number,
+        to: number,
+    ): TermMatchCandidates {
         const candidates: TermMatchCandidates = new Map();
         if (target.lookupStartsAtSegmentBoundary) {
             // The target writes its own word boundaries, so its segments are
@@ -2232,7 +2250,7 @@ function compareTermLookupEntries(
 }
 
 function normalizeTermSearchQuery(value: string): string {
-    return normalizeGenericLookupText(value).slice(0, 80);
+    return codePointSafePrefix(normalizeGenericLookupText(value), 80);
 }
 
 function shouldSearchTermGlossaries(query: string): boolean {
@@ -2406,8 +2424,7 @@ function reservoirSample<T>(items: T[], limit: number): T[] {
 }
 
 function isKanji(value: string): boolean {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 0x3400 && code <= 0x9fff;
+    return isUnifiedIdeograph(value);
 }
 
 function normalizeStoredLookupTerms(store: IDBObjectStore): void {
@@ -2485,6 +2502,11 @@ async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreNa
 
 function transactionError(tx: IDBTransaction, fallback: string): Error {
     return tx.error ?? new Error(fallback);
+}
+
+function isCurrentLookupTarget(target: LearningTargetModule, generation: number): boolean {
+    return activeLearningTarget() === target
+        && activeLearningTargetGeneration() === generation;
 }
 
 function nextTask(): Promise<void> {

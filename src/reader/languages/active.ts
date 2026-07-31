@@ -7,6 +7,7 @@ import {
 import type { LanguageTag, LearningTargetModule } from './types';
 
 let requestedTargetLanguage: LanguageTag = DEFAULT_LEARNING_TARGET_LANGUAGE;
+let targetSelectionGeneration = 0;
 
 // Resolution runs the tag through Intl.getCanonicalLocales and Intl.Locale —
 // ~4us a call, negligible for the per-page facts that were the first callers,
@@ -38,6 +39,11 @@ export function activeLearningTargetLanguage(): LanguageTag {
     return activeLearningTarget().language;
 }
 
+/** Monotonic identity for async work captured under one target selection. */
+export function activeLearningTargetGeneration(): number {
+    return targetSelectionGeneration;
+}
+
 /**
  * Switches the target every capability resolves against. Returns null (and
  * changes nothing) when no module is registered for the requested language, so
@@ -46,6 +52,7 @@ export function activeLearningTargetLanguage(): LanguageTag {
 export function setActiveLearningTargetLanguage(value: unknown): LearningTargetModule | null {
     const module = learningTargetModuleFor(value);
     if (!module) return null;
+    if (requestedTargetLanguage !== module.language) targetSelectionGeneration += 1;
     requestedTargetLanguage = module.language;
     return module;
 }
@@ -73,5 +80,6 @@ export function adoptLearningTargetLanguage(value: unknown): LearningTargetModul
 }
 
 export function resetActiveLearningTargetLanguage(): void {
+    if (requestedTargetLanguage !== DEFAULT_LEARNING_TARGET_LANGUAGE) targetSelectionGeneration += 1;
     requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
 }

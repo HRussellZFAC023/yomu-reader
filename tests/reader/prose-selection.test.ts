@@ -16,6 +16,10 @@ describe('isProseDominantSelection', () => {
         expect(isProseDominantSelection('よむ')).toBe(false);
     });
 
+    it('counts supplementary-plane kanji as Japanese characters', () => {
+        expect(isProseDominantSelection(`${'𠮟'.repeat(25)} abcdefghijklmnopqrstuvwx`)).toBe(false);
+    });
+
     it('keeps short mixed lookups lookupable', () => {
         expect(isProseDominantSelection('iPhoneを買う')).toBe(false);
         expect(isProseDominantSelection('これはペンです This is a pen')).toBe(false);

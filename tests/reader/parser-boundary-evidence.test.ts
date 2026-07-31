@@ -222,6 +222,37 @@ describe('exact local boundary evidence for remote parse fragments', () => {
         ]);
     });
 
+    it('reconciles a boundary after a supplementary kanji without splitting its surrogate pair', async () => {
+        const sentence = '𠮟咤';
+        const remoteTokens = [
+            token('𠮟', 'し', 0, 2, 'jpdb'),
+            token('咤', 'か', 2, 3, 'jpdb'),
+        ];
+        const exact: YomitanTermMatch = {
+            entry: { expression: sentence, reading: 'しか', glossary: ['fixture'], dictionary: 'Jitendex' },
+            start: 0,
+            end: 3,
+            surface: sentence,
+        };
+        const { parser, findTermMatches } = parserHarness({
+            provider: 'jpdb',
+            localMatches: [exact],
+            remoteTokens,
+        });
+
+        const [tokens] = await parser.parse([sentence]);
+
+        expect(findTermMatches).toHaveBeenCalledWith(sentence, 8, [], expect.objectContaining({ language: 'ja' }));
+        expect(tokens).toHaveLength(1);
+        expect(tokens[0]).toMatchObject({
+            start: 0,
+            end: 3,
+            length: 3,
+            card: { spelling: sentence, reading: 'しか', source: 'local' },
+        });
+        expect(sentence.slice(tokens[0].start, tokens[0].end)).toBe(sentence);
+    });
+
     it('rejects an exact substring when replacing it would discard a Japanese token remainder', async () => {
         const sentence = '日時間';
         const remoteTokens = [

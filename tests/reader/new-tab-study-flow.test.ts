@@ -6,6 +6,10 @@ import { setInnerHtml } from '../../src/reader/dom/index';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
 import { cardKey } from '../../src/reader/cards/utils';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
 
 // 飲み物 (nomimono, "drink") — the owner's ambiguous example: ＿み物 alone fits
 // 読み物 / 飲み物 / 編み物, so the draw prompt must carry the meaning.
@@ -118,6 +122,7 @@ function studyController(cards: JPDBCard[], settings: Partial<ReaderSettings> = 
 }
 
 afterEach(() => {
+    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
     vi.clearAllMocks();
 });
@@ -460,6 +465,48 @@ describe('study flow: composed-of chip drilldown', () => {
             expect(pushSpy).not.toHaveBeenCalled();
         } finally {
             pushSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
+    it('does not render or hydrate composed-of chips and swallows a stale kanji action for a Chinese target', () => {
+        setActiveLearningTargetLanguage('zh');
+        const card = kanjiCard({
+            language: 'zh',
+            spelling: '学习',
+            reading: 'xuéxí',
+            sentence: '我学习中文。',
+        });
+        const rtkLookup = vi.fn(async () => ({ keyword: 'study' }));
+        const jpdbKanjiLookup = vi.fn(async () => ({ keyword: 'study' }));
+        const showKanjiCard = vi.fn(async () => undefined);
+        const lookupText = vi.fn(async () => undefined);
+        const { controller, internals } = studyController([card], {}, {
+            rtk: { lookup: rtkLookup } as never,
+            jpdbKanji: { lookup: jpdbKanjiLookup } as never,
+            showKanjiCard,
+            lookupText,
+        });
+        const root = studyRoot();
+        try {
+            internals.state.revealAnswer = true;
+            internals.bindRootEvents(root);
+            internals.renderWord(root, card);
+            expect(root.querySelector('[data-newtab-composed-of]')).toBeNull();
+            expect(rtkLookup).not.toHaveBeenCalled();
+            expect(jpdbKanjiLookup).not.toHaveBeenCalled();
+
+            const stale = document.createElement('button');
+            stale.dataset.action = 'kanji';
+            stale.dataset.kanji = '学';
+            root.querySelector('[data-newtab-meaning]')?.append(stale);
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            stale.dispatchEvent(event);
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(showKanjiCard).not.toHaveBeenCalled();
+            expect(lookupText).not.toHaveBeenCalled();
+        } finally {
             controller.destroy();
         }
     });

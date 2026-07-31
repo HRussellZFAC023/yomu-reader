@@ -124,4 +124,18 @@ describe('splitReadingAcrossKanji', () => {
             { text: 'キュウ', start: 1, end: 2 },
         ]);
     });
+
+    it('returns UTF-16 ruby coordinates for supplementary kanji after a kana prefix', () => {
+        const segments = splitReadingAcrossKanji('お𠮟咤', 'おしか', readings({
+            𠮟: ['シ'],
+            咤: ['カ'],
+        }));
+
+        expect(segments).toEqual([
+            { text: 'し', start: 1, end: 3 },
+            { text: 'か', start: 3, end: 4 },
+        ]);
+        expect('お𠮟咤'.slice(segments![0].start, segments![0].end)).toBe('𠮟');
+        expect('お𠮟咤'.slice(segments![1].start, segments![1].end)).toBe('咤');
+    });
 });

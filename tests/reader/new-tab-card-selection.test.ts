@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { newTabDueSummary, shouldReplaceKanjiStudyCard } from '../../src/reader/newtab/card-selection';
+import {
+    newTabDueSummary,
+    normalizeSearchQuery,
+    queryHasJapanese,
+    shouldReplaceKanjiStudyCard,
+} from '../../src/reader/newtab/card-selection';
+import { kanjiCharacters } from '../../src/reader/newtab';
 import type { CardState, JPDBCard } from '../../src/reader/app/types';
 
 function kanjiCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -51,6 +57,32 @@ describe('newTabDueSummary', () => {
             kanjiCard({ spelling: '食べる', reading: 'たべる', cardState: ['known'] as CardState[] }),
         ];
         expect(newTabDueSummary(cards)).toEqual({ dueWords: 2, dueKanji: 1, newWords: 1, newKanji: 1 });
+    });
+
+    it('classifies supplementary-plane Japanese kanji as single-kanji cards', () => {
+        const cards = [
+            kanjiCard({ spelling: '𠮟', reading: 'しかる', cardState: ['due'] as CardState[] }),
+            kanjiCard({ spelling: '𩸽', reading: 'ほっけ', cardState: ['new'] as CardState[] }),
+        ];
+
+        expect(newTabDueSummary(cards)).toEqual({ dueWords: 0, dueKanji: 1, newWords: 0, newKanji: 1 });
+    });
+});
+
+describe('NewTab Japanese character classification', () => {
+    it('extracts supplementary-plane kanji without splitting surrogate pairs', () => {
+        expect(kanjiCharacters('𠮟る𩸽𠮟')).toEqual(['𠮟', '𩸽']);
+        expect(queryHasJapanese('𠮟る')).toBe(true);
+        expect(queryHasJapanese('𩸽')).toBe(true);
+    });
+
+    it('caps search queries without leaving a lone UTF-16 surrogate at the boundary', () => {
+        const query = `${'我'.repeat(79)}𡃁tail`;
+        const normalized = normalizeSearchQuery(query);
+
+        expect(normalized).toBe('我'.repeat(79));
+        expect(Array.from(normalized)).toHaveLength(79);
+        expect(normalized).not.toMatch(/[\uD800-\uDFFF]$/u);
     });
 });
 

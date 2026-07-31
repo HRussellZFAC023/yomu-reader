@@ -97,6 +97,7 @@ type StudySourceControllerClass = typeof import('../study/sources').StudySourceC
 type LearningTargetRuntime = Pick<
     typeof import('../languages/target-runtime'),
     | 'activeLearningTarget'
+    | 'activeLearningTargetGeneration'
     | 'activeLearningTargetLanguage'
     | 'adoptLearningTargetLanguage'
     | 'defaultLearningTargetModule'

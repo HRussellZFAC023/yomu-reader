@@ -33,6 +33,10 @@ import type {
     NewTabSearchWordDetailData,
     JPDBCard,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
 
 describe('new tab review — search mode', () => {
     registerNewTabReviewCleanup();
@@ -667,6 +671,43 @@ describe('new tab review — search mode', () => {
         });
         expect(showLookupCard).not.toHaveBeenCalled();
         root.remove();
+    });
+
+    it('keeps Japanese public search, kanji summaries, and handwriting off for a Chinese target', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '学', reading: 'がく', source: 'jpdb' })]);
+        const jpdbKanjiLookup = vi.fn(async () => null);
+        const kanjiVgLookup = vi.fn(async () => null);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: false,
+            immersionKitEnabled: false,
+        }, {
+            jpdbVocabulary: { search: publicSearch } as never,
+            jpdbKanji: { lookup: jpdbKanjiLookup } as never,
+            kanjiVG: { lookup: kanjiVgLookup } as never,
+        });
+        const root = renderBoundNewTabSearchRoot(controller, 'dictionary');
+        const search = (controller as unknown as { searchController: {
+            searchPublicJpdbCards(query: string): Promise<JPDBCard[]>;
+            searchKanjiCards(query: string, cards?: JPDBCard[]): Promise<unknown[]>;
+        } }).searchController;
+
+        try {
+            await expect(search.searchPublicJpdbCards('学习')).resolves.toEqual([]);
+            await expect(search.searchKanjiCards('学习')).resolves.toEqual([]);
+            const toggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]');
+            expect(toggle?.hidden).toBe(true);
+            expect(toggle?.disabled).toBe(true);
+            expect(root.querySelector('[data-newtab-handwriting]')).toBeNull();
+            expect(publicSearch).not.toHaveBeenCalled();
+            expect(jpdbKanjiLookup).not.toHaveBeenCalled();
+            expect(kanjiVgLookup).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            root.remove();
+            resetActiveLearningTargetLanguage();
+        }
     });
 
     it('updates search result status from any Anki deck instead of showing JPDB not-in-deck', async () => {
@@ -1899,6 +1940,82 @@ describe('new tab review — search mode', () => {
             });
             expect(searchTerms).toHaveBeenCalledWith('おもし', expect.any(Number), settings.dictionaryPreferences, expect.any(Object));
         } finally {
+            root.remove();
+        }
+    });
+
+    it('re-runs a completed search after an away-and-back target switch', async () => {
+        const { searchTerms, root, searchApi } = createDictionarySearchModeFixture();
+
+        try {
+            searchApi.performSearch(root, 'cat');
+            await waitForExpect(() => expect(newTabSearchResultsText(root)).toContain('猫'));
+            searchTerms.mockImplementation(async () => []);
+
+            setActiveLearningTargetLanguage('ko');
+            setActiveLearningTargetLanguage('ja');
+            searchApi.renderSearch(root);
+
+            await waitForExpect(() => {
+                expect(searchTerms.mock.calls.length).toBeGreaterThanOrEqual(2);
+                expect(newTabSearchResultsText(root)).not.toContain('猫');
+            });
+        } finally {
+            resetActiveLearningTargetLanguage();
+            root.remove();
+        }
+    });
+
+    it('drops a kanji summary resolved after an away-and-back target switch', async () => {
+        const { controller, root } = createDictionarySearchModeFixture();
+        const lookup = deferred<{
+            jpdb: null;
+            jiten: null;
+            rtk: null;
+            vg: null;
+            local: [];
+            sourceInfo: null;
+            sourceStates: {
+                jpdb: 'unavailable';
+                jiten: 'unavailable';
+                rtk: 'unavailable';
+                vg: 'unavailable';
+                local: 'unavailable';
+                origin: 'unavailable';
+            };
+        }>();
+        const internals = controller as unknown as {
+            loadKanjiDetails(character: string): typeof lookup.promise;
+            searchController: {
+                searchKanjiResult(character: string): Promise<unknown>;
+            };
+        };
+        internals.loadKanjiDetails = vi.fn(() => lookup.promise);
+
+        try {
+            const pending = internals.searchController.searchKanjiResult('日');
+            setActiveLearningTargetLanguage('ko');
+            setActiveLearningTargetLanguage('ja');
+            lookup.resolve({
+                jpdb: null,
+                jiten: null,
+                rtk: null,
+                vg: null,
+                local: [],
+                sourceInfo: null,
+                sourceStates: {
+                    jpdb: 'unavailable',
+                    jiten: 'unavailable',
+                    rtk: 'unavailable',
+                    vg: 'unavailable',
+                    local: 'unavailable',
+                    origin: 'unavailable',
+                },
+            });
+
+            await expect(pending).resolves.toBeNull();
+        } finally {
+            resetActiveLearningTargetLanguage();
             root.remove();
         }
     });

@@ -284,7 +284,8 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
-import { activeLearningTarget } from '../languages/target-runtime';
+import { activeLearningTarget, activeLearningTargetGeneration } from '../languages/target-runtime';
+import { targetCanLookupCharacter, usesJapaneseProviders } from '../languages/character-lookup';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
@@ -321,6 +322,7 @@ import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from 
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { normalizeFallbackTerm } from '../lookup/japanese-segments';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
@@ -712,6 +714,13 @@ interface MountedCardCompletionContext extends Omit<CardPopoverHydrationContext,
     mounted: MountedCardShell;
     fallbackAnkiLookup: AnkiLookupResult;
     loadRenderData: () => CardRenderDataLoad;
+}
+
+interface CardLookupTargetSnapshot {
+    generation: number;
+    language: string;
+    runtimeGeneration: number;
+    target: ReturnType<typeof activeLearningTarget>;
 }
 
 function fullscreenPopoverMountParent(anchor?: HTMLElement): HTMLElement | undefined {
@@ -1120,6 +1129,9 @@ export class ReaderApp {
     private lastAutoAudioAt = 0;
     private lastAutoAudioHoverGeneration?: number;
     private cardRenderRequest = 0;
+    private scopeVersion = 0;
+    private scopeLanguage = targetLanguageOf(DEFAULT_SETTINGS);
+    private scopeRuntime = activeLearningTargetGeneration();
     private dictionaryRescanPending = false;
     private visiblePageReparseTimer?: number;
     private jpdbPageEnhanceTimer?: number;
@@ -1202,6 +1214,7 @@ export class ReaderApp {
             setSettings: settings => {
                 const previous = this.settings;
                 this.settings = settings;
+                this.syncCardLookupTarget(settings);
                 this.applyTheme();
                 this.stagePreferredJapaneseSiteLanguage(previous, settings);
             },
@@ -1338,6 +1351,7 @@ export class ReaderApp {
         if (this.isDestroyed) return null;
         this.factoryReset.bind();
         this.settings = startup.settings;
+        this.syncCardLookupTarget(startup.settings);
         this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         this.pageHasJapaneseText = detectReaderStartupJapaneseText();
@@ -1513,6 +1527,7 @@ export class ReaderApp {
         const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
         this.pendingPreferredJapaneseSiteLanguage = undefined;
         this.settings = settings;
+        this.syncCardLookupTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
@@ -1526,6 +1541,39 @@ export class ReaderApp {
         this.scheduleDictionaryRescan();
         await this.refreshDictionaryStyles();
         dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings, remote: true }));
+    }
+
+    private newScope(): CardLookupTargetSnapshot {
+        return {
+            generation: this.scopeVersion,
+            language: this.scopeLanguage,
+            runtimeGeneration: activeLearningTargetGeneration(),
+            target: activeLearningTarget(),
+        };
+    }
+
+    private inScope(snapshot: CardLookupTargetSnapshot): boolean {
+        return snapshot.generation === this.scopeVersion
+            && snapshot.language === this.scopeLanguage
+            && snapshot.runtimeGeneration === activeLearningTargetGeneration()
+            && snapshot.target === activeLearningTarget();
+    }
+
+    private syncCardLookupTarget(settings: ReaderSettings): void {
+        const language = targetLanguageOf(settings);
+        const runtimeGeneration = activeLearningTargetGeneration();
+        if (language === this.scopeLanguage
+            && runtimeGeneration === this.scopeRuntime) return;
+        this.scopeLanguage = language;
+        this.scopeRuntime = runtimeGeneration;
+        this.scopeVersion += 1;
+        this.cardRenderRequest += 1;
+        this.cancelPendingHoverLookup();
+        if (this.activePopover && !this.activePopover.classList.contains('jpdb-reader-settings')) {
+            // `dismiss` restores a settings form when this lookup was stacked
+            // over it, so a target switch closes only the stale result surface.
+            this.dismiss({ suppressHoverTarget: false });
+        }
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -1553,7 +1601,9 @@ export class ReaderApp {
     }
 
     private shouldRunBunproWordStateWork(): boolean {
-        return !this.isDestroyed && shouldLookupBunproWordStates(this.settings);
+        return !this.isDestroyed
+            && usesJapaneseProviders()
+            && shouldLookupBunproWordStates(this.settings);
     }
 
     private queueBunproWordStateEnrichment(roots: ParentNode[] = [document]): void {
@@ -3317,7 +3367,10 @@ export class ReaderApp {
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
         addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
-            if (!this.isDestroyed) this.syncReaderRootLanguages();
+            if (!this.isDestroyed) {
+                this.syncCardLookupTarget(this.settings);
+                this.syncReaderRootLanguages();
+            }
         }, { signal: abortSignal });
 
         // Tapping Yomu's OCR overlay must look the word up, never fall through to the
@@ -5528,16 +5581,24 @@ export class ReaderApp {
         return this.isJpdbBackedCard(card) || card.source === 'jiten';
     }
 
-    private async lookupText(text: string, sentence = text, options: TextLookupOptions = {}): Promise<void> {
+    private async lookupText(
+        text: string,
+        sentence = text,
+        options: TextLookupOptions = {},
+        scope: CardLookupTargetSnapshot = this.newScope(),
+    ): Promise<void> {
+        if (!this.inScope(scope)) return;
         const context = this.textLookupDisplayContext(text, options);
         if (!context) return;
         const done = log.time('lookupText', { length: context.selected.length, trigger: context.trigger });
         try {
             const [tokens] = await this.parseJapanese([sentence], this.textLookupParseOptions());
-            await showTextLookupResultForContext(context, tokens, sentence, this.textLookupResultCallbacks());
+            if (!this.inScope(scope)) return;
+            await showTextLookupResultForContext(context, tokens, sentence, this.textLookupResultCallbacks(scope));
         } catch (error) {
+            if (!this.inScope(scope)) return;
             log.warn('Lookup fallback', { selected: context.selected }, error);
-            await this.showLocalOrFallbackLookupCard(context, sentence, error);
+            await this.showLocalOrFallbackLookupCard(context, sentence, scope, error);
         } finally {
             done();
         }
@@ -5570,36 +5631,55 @@ export class ReaderApp {
         return createTextLookupParseOptions(effectiveJpdbApiKey(this.settings));
     }
 
-    private textLookupResultCallbacks(): TextLookupResultCallbacks {
+    private textLookupResultCallbacks(scope: CardLookupTargetSnapshot): TextLookupResultCallbacks {
         return {
             isJpdbBackedCard: card => this.isJpdbBackedCard(card),
-            parseJapanese: (paragraphs, options) => this.parseJapanese(paragraphs, options),
+            parseJapanese: (paragraphs, options) => this.inScope(scope)
+                ? this.parseJapanese(paragraphs, options)
+                : Promise.resolve(paragraphs.map(() => [])),
             showCard: (card, cardSentence, anchor, cardOptions) => {
+                if (!this.inScope(scope)) return;
                 void this.showCard(card, cardSentence, anchor, cardOptions);
             },
-            showLocalOrFallbackLookupCard: (context, fallbackSentence, error) => this.showLocalOrFallbackLookupCard(context, fallbackSentence, error),
+            showLocalOrFallbackLookupCard: (context, fallbackSentence, error) => this.showLocalOrFallbackLookupCard(
+                context,
+                fallbackSentence,
+                scope,
+                error,
+            ),
             showTokenList: (tokens, selectedText, anchor, tokenOptions) => {
+                if (!this.inScope(scope)) return;
                 this.showTokenList(tokens, selectedText, anchor, tokenOptions);
             },
             textLookupParseOptions: () => this.textLookupParseOptions(),
         };
     }
 
-    private async resolveLookupCard(card: JPDBCard): Promise<JPDBCard> {
+    private async resolveLookupCard(
+        card: JPDBCard,
+        scope: CardLookupTargetSnapshot = this.newScope(),
+    ): Promise<JPDBCard> {
+        if (!this.inScope(scope) || !usesJapaneseProviders()) return card;
         const contextual = card.source === 'jpdb' && Boolean(card.sourceCardKey);
         if (card.source !== 'fallback' && !contextual) return card;
         const publicCard = card.source === 'fallback'
             ? await this.lookupFallbackApiCard(card)
             : await this.publicLookupCard(card.spelling, true, contextual ? card.reading : '');
-        if (!publicCard) return card;
+        if (!publicCard
+            || !this.inScope(scope)
+            || !usesJapaneseProviders()) return card;
         this.parser.cacheCards?.([publicCard]);
         return publicCard;
     }
 
-    private async resolveLookupCardForInitialRender(card: JPDBCard): Promise<JPDBCard> {
+    private async resolveLookupCardForInitialRender(
+        card: JPDBCard,
+        scope: CardLookupTargetSnapshot = this.newScope(),
+    ): Promise<JPDBCard> {
+        if (!this.inScope(scope) || !usesJapaneseProviders()) return card;
         if (card.source !== 'fallback' && !(card.source === 'jpdb' && card.sourceCardKey)) return card;
 
-        const resolved = this.resolveLookupCard(card);
+        const resolved = this.resolveLookupCard(card, scope);
         void resolved.catch(() => undefined);
         return Promise.race([
             resolved,
@@ -5613,13 +5693,16 @@ export class ReaderApp {
         readingOrOptions: string | { allowCandidateLookup?: boolean } = '',
         maybeOptions: { allowCandidateLookup?: boolean } = {},
     ): Promise<JPDBCard | undefined> {
+        if (!usesJapaneseProviders()) return undefined;
         const request = publicLookupCardRequest(readingOrOptions, maybeOptions);
         if (!canSearchPublicLookupCard(this.settings, request.options)) return undefined;
         const cards = await this.jpdbVocabulary.search(term, publicLookupSearchLimit(request.reading)).catch(error => {
             log.warn('Public JPDB lookup failed', { term }, error);
             return [];
         });
-        return publicLookupCardFromResults(cards, term, exact, request.reading);
+        return usesJapaneseProviders()
+            ? publicLookupCardFromResults(cards, term, exact, request.reading)
+            : undefined;
     }
 
     private async publicLookupSpellingCard(term: string): Promise<JPDBCard | undefined> {
@@ -5639,13 +5722,14 @@ export class ReaderApp {
         cards: readonly JPDBCard[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
     ): Promise<Map<string, JPDBCard>> {
+        if (!usesJapaneseProviders()) return new Map<string, JPDBCard>();
         if (!canSearchPublicLookupCard(this.settings, {})) return new Map<string, JPDBCard>();
         // Keyed users resolve EVERY fallback term through one batched
         // reader/parse (full vocabulary in a single request, metered per-user) —
         // this replaces the per-word /info fan-out that hammered the server.
         // Keyless keeps the public lookup (capped + cached) so it can no longer
         // fan out into the hundreds-of-requests storm.
-        return publicLookupFallbackCards(cards, {
+        const resolved = await publicLookupFallbackCards(cards, {
             jitenApiActive: () => this.isJitenApiActive(),
             parse: terms => this.jiten.parse(terms),
             lookupMany: (terms, lookupOptions) => this.jitenPublicVocabulary.lookupMany(terms, { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS }),
@@ -5656,36 +5740,41 @@ export class ReaderApp {
             jpdbPublicLookup: options.jpdbPublicLookup,
             detailLimit: publicJitenDetailLimit,
         });
+        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     private async publicLookupHydratableJitenCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
-        if (!cards.length) return new Map<string, JPDBCard>();
-        return await this.jitenPublicVocabulary.hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) }).catch(error => {
+        if (!usesJapaneseProviders() || !cards.length) return new Map<string, JPDBCard>();
+        const resolved = await this.jitenPublicVocabulary.hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) }).catch(error => {
             log.warn('Jiten parsed-card hydration failed', { cards: cards.length }, error);
             return new Map<string, JPDBCard>();
         });
+        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     private async publicJitenLookupCandidateCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
+        if (!usesJapaneseProviders()) return new Map<string, JPDBCard>();
         const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
         if (!uniqueTerms.length) return new Map<string, JPDBCard>();
-        return await this.jitenPublicVocabulary.lookupMany(uniqueTerms).catch(error => {
+        const resolved = await this.jitenPublicVocabulary.lookupMany(uniqueTerms).catch(error => {
             log.warn('Jiten candidate failed', { terms: uniqueTerms.length }, error);
             return new Map<string, JPDBCard>();
         });
+        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     private async publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
+        if (!usesJapaneseProviders()) return undefined;
         const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
         if (!uniqueTerms.length) return undefined;
         const jitenCards = await this.publicJitenLookupCandidateCards(uniqueTerms);
         for (const term of uniqueTerms) {
             const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (card) return card;
+            if (card && usesJapaneseProviders()) return card;
         }
         for (const term of uniqueTerms) {
             const card = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
-            if (card) return card;
+            if (card && usesJapaneseProviders()) return card;
         }
         return undefined;
     }
@@ -5712,17 +5801,38 @@ export class ReaderApp {
         return undefined;
     }
 
-    private async showLocalLookupCard(context: TextLookupDisplayContext, sentence: string): Promise<boolean> {
+    private async showLocalLookupCard(
+        context: TextLookupDisplayContext,
+        sentence: string,
+        scope: CardLookupTargetSnapshot,
+    ): Promise<boolean> {
         const localEntries = await this.localLookupEntries(context.selected);
-        if (!localEntries.length) return false;
-        void this.showCard(this.parser.localCardFromEntry(localEntries[0]), sentence, context.anchor, textLookupCardOptions(context));
+        if (!this.inScope(scope) || !localEntries.length) return false;
+        void this.showCard(
+            this.parser.localCardFromEntry(localEntries[0], scope.target),
+            sentence,
+            context.anchor,
+            textLookupCardOptions(context),
+        );
         return true;
     }
 
-    private async showLocalOrFallbackLookupCard(context: TextLookupDisplayContext, sentence: string, error?: unknown): Promise<void> {
-        if (await this.showLocalLookupCard(context, sentence)) return;
+    private async showLocalOrFallbackLookupCard(
+        context: TextLookupDisplayContext,
+        sentence: string,
+        scope: CardLookupTargetSnapshot,
+        error?: unknown,
+    ): Promise<void> {
+        if (!this.inScope(scope)) return;
+        if (await this.showLocalLookupCard(context, sentence, scope)) return;
+        if (!this.inScope(scope)) return;
         if (error) this.toast(userFacingErrorText(this.settings.interfaceLanguage, 'jpdbLookupFailed', error));
-        void this.showCard(this.parser.fallbackCardFromText(context.selected), sentence, context.anchor, textLookupCardOptions(context));
+        void this.showCard(
+            this.parser.fallbackCardFromText(context.selected, scope.target),
+            sentence,
+            context.anchor,
+            textLookupCardOptions(context),
+        );
     }
 
     private async localLookupEntries(selected: string): Promise<YomitanTermEntry[]> {
@@ -5790,6 +5900,7 @@ export class ReaderApp {
         preservePosition = false,
     ): Promise<void> {
         if (!isTargetLanguageText(query)) return;
+        const scope = this.newScope();
         const normalizedReading = reading.replace(/\s+/g, ' ').trim();
         const navigation: CardNavigationMode = trigger === 'modal' ? 'push-current' : 'reset';
         const done = log.time('dictionaryReferenceLookup', { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
@@ -5798,15 +5909,22 @@ export class ReaderApp {
             const jpdbCard = sourceDictionary === 'JPDB'
                 ? await this.publicLookupCard(query, true, normalizedReading)
                 : undefined;
+            if (!this.inScope(scope)) return;
             if (jpdbCard) {
                 this.parser.cacheCards?.([jpdbCard]);
                 await this.showCard(jpdbCard, query, anchor, { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry });
                 return;
             }
             const localEntries = await this.dictionaryReferenceLocalEntries(query, normalizedReading, sourceDictionary);
+            if (!this.inScope(scope)) return;
             const preferredEntry = localEntries.find(entry => entry.dictionary === sourceDictionary) ?? localEntries[0];
             if (preferredEntry) {
-                await this.showCard(this.parser.localCardFromEntry(preferredEntry), query, anchor, { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry });
+                await this.showCard(
+                    this.parser.localCardFromEntry(preferredEntry, scope.target),
+                    query,
+                    anchor,
+                    { autoPlay: false, trigger, navigation, preservePosition, previousNavigationEntry },
+                );
                 return;
             }
             await this.lookupText(query, query, { navigation, preservePosition, previousNavigationEntry });
@@ -5888,10 +6006,14 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
     ): Promise<void> {
-        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        if (await this.showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options)) return;
-        if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options)) return;
+        const scope = this.newScope();
+        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
+        if (!this.inScope(scope)) return;
+        if (await this.showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
+        if (!this.inScope(scope)) return;
+        if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
+        if (!this.inScope(scope)) return;
+        if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
     }
 
     private async showParsedPointerTextCandidate(
@@ -5899,15 +6021,19 @@ export class ReaderApp {
         sentence: string,
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
         try {
             const [tokens] = await this.parseJapanese([candidate.text], this.pointerTextJpdbParseOptions());
+            if (!this.inScope(scope)) return true;
             const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
             if (!token || this.shouldSkipPointerTextToken(candidate, token)) return false;
             if (!this.isParserBackedLookupCard(token.card)) return false;
+            if (!this.inScope(scope)) return true;
             await this.showPointerTextCard(token.card, sentence, candidate, { start: token.start, end: token.end }, trigger, options);
             return true;
         } catch (error) {
+            if (!this.inScope(scope)) return true;
             log.warn('Pointer parse failed', { offset: candidate.offset }, error);
             return false;
         }
@@ -5946,20 +6072,26 @@ export class ReaderApp {
         sentence: string,
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
+        if (!this.canUsePublicJpdbPointerLookup()) return false;
         const spans = this.publicJpdbPointerLookupCandidates(candidate);
-        if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
+        if (!this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
         const jitenCards = await this.publicJitenLookupCandidateCards(spans.map(span => span.term));
+        if (!this.inScope(scope)) return true;
         for (const span of spans) {
             const card = jitenCards.get(normalizedJitenLookupKey(span.term));
             if (!card) continue;
             const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
+            if (!this.inScope(scope)) return true;
             this.parser.cacheCards?.([card]);
             await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
             return true;
         }
         for (const span of spans) {
             const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
+            if (!this.inScope(scope)) return true;
             if (card) {
                 const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
                 this.parser.cacheCards?.([card]);
@@ -5983,7 +6115,8 @@ export class ReaderApp {
     }
 
     private canUsePublicJpdbPointerLookup(): boolean {
-        return !hasJpdbApiCredential(this.settings);
+        return activeLearningTarget().language === 'ja'
+            && !hasJpdbApiCredential(this.settings);
     }
 
     private canUsePublicJpdbPointerTextLookup(candidate: PointerTextLookup, spans: PointerTextSpanCandidate[]): boolean {
@@ -6009,10 +6142,14 @@ export class ReaderApp {
         sentence: string,
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
         const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
-        if (!localMatch || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
-        const card = this.parser.localCardFromEntry(localMatch.entry);
+        if (!this.inScope(scope)
+            || !localMatch
+            || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
+        const card = this.parser.localCardFromEntry(localMatch.entry, scope.target);
+        if (!this.inScope(scope)) return true;
         await this.showPointerTextCard(card, sentence, candidate, localMatch, trigger, options);
         return true;
     }
@@ -6022,13 +6159,16 @@ export class ReaderApp {
         sentence: string,
         trigger: 'modal' | 'hover',
         options: PointerTextDisplayOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return false;
         const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset) ?? candidate;
         const fallbackTerm = this.pointerFallbackDisplayTerm(candidate, fallbackRange);
         if (!fallbackTerm
             || this.isWeakPointerFallbackTerm(candidate, fallbackTerm)
             || this.isOverbroadPointerFallback(candidate, fallbackRange)) return false;
-        const card = this.parser.fallbackCardFromText(fallbackTerm);
+        const card = this.parser.fallbackCardFromText(fallbackTerm, scope.target);
+        if (!this.inScope(scope)) return true;
         await this.showPointerTextCard(card, sentence, candidate, fallbackRange, trigger, options);
         return true;
     }
@@ -6221,7 +6361,7 @@ export class ReaderApp {
     }
 
     private pointerFallbackDisplayTerm(candidate: PointerTextLookup, range: { start: number; end: number }): string {
-        const surface = candidate.text.slice(range.start, range.end).replace(/\s+/g, ' ').trim().slice(0, 80);
+        const surface = normalizeFallbackTerm(candidate.text.slice(range.start, range.end));
         if (this.shouldPreferPointerFallbackSurface(candidate, range, surface)) return surface;
         return fallbackLookupTermAtOffset(candidate.text, candidate.offset);
     }
@@ -6251,12 +6391,13 @@ export class ReaderApp {
     }
 
     private async showWord(word: HTMLElement, options: RenderedWordLookupOptions = {}): Promise<void> {
+        const scope = this.newScope();
         if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const stackOverSettings = options.stackOverSettings || Boolean(word.closest('.jpdb-reader-settings'));
         const card = this.cardForRenderedWord(word);
         if (!card) {
-            await this.handleMissingRenderedWordCard(word, { ...options, stackOverSettings }, insideReaderPopup);
+            await this.handleMissingRenderedWordCard(word, { ...options, stackOverSettings }, insideReaderPopup, scope);
             return;
         }
         // The settings self-annotation parse caches reading/pitch skeleton
@@ -6265,19 +6406,21 @@ export class ReaderApp {
         // lookup (full dictionary/public fetch) instead.
         if (stackOverSettings && !insideReaderPopup && options.trigger !== 'hover'
             && !card.meanings.length
-            && await this.lookupUncachedPageWord(word, { ...options, stackOverSettings })) return;
+            && await this.lookupUncachedPageWord(word, { ...options, stackOverSettings }, scope)) return;
+        if (!this.inScope(scope)) return;
         this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
         if (this.shouldShowRenderedWordCardImmediately(context, options)) {
             this.preloadHoverWordAudio(word);
-            await this.showRenderedWordCard(card, context, options, stackOverSettings);
+            await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
             return;
         }
-        if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings)) return;
+        if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return;
+        if (!this.inScope(scope)) return;
         this.preloadHoverWordAudio(word);
-        await this.showRenderedWordCard(card, context, options, stackOverSettings);
+        await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
     }
 
     private async showAlternativeRenderedWordCandidate(
@@ -6286,12 +6429,17 @@ export class ReaderApp {
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
-        if (await this.showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings)) return true;
-        if (await this.showLocalRenderedWordCandidate(card, context, options, stackOverSettings)) return true;
-        if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings)) return true;
+        if (!this.inScope(scope)) return true;
+        if (await this.showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
+        if (!this.inScope(scope)) return true;
+        if (await this.showLocalRenderedWordCandidate(card, context, options, stackOverSettings, scope)) return true;
+        if (!this.inScope(scope)) return true;
+        if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
+        if (!this.inScope(scope)) return true;
         if (this.shouldSuppressRenderedKanaFragmentFallback(word, card, context)) return true;
-        return this.showOcrKanjiRenderedWord(word, card, context);
+        return this.showOcrKanjiRenderedWord(word, card, context, scope);
     }
 
     private async showLocalRenderedWordCandidate(
@@ -6299,6 +6447,7 @@ export class ReaderApp {
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
         if (!this.settings.localDictionariesEnabled || card.source !== 'fallback') return false;
         for (const term of fallbackLookupTermsForCard(card)) {
@@ -6308,9 +6457,16 @@ export class ReaderApp {
                 this.settings.localDictionaryMaxResults,
                 this.settings.dictionaryPreferences,
             ).catch(() => [] as YomitanTermEntry[]);
+            if (!this.inScope(scope)) return true;
             const entry = entries[0];
             if (!entry) continue;
-            await this.showRenderedWordCard(this.parser.localCardFromEntry(entry), context, options, stackOverSettings);
+            await this.showRenderedWordCard(
+                this.parser.localCardFromEntry(entry, scope.target),
+                context,
+                options,
+                stackOverSettings,
+                scope,
+            );
             return true;
         }
         return false;
@@ -6338,9 +6494,16 @@ export class ReaderApp {
         return context.trigger === 'hover' && !this.isCurrentRenderedWordHover(word, context.hoverLookupKey ?? '', hoverLookupGeneration);
     }
 
-    private async showOcrKanjiRenderedWord(word: HTMLElement, card: JPDBCard, context: RenderedWordDisplayContext): Promise<boolean> {
+    private async showOcrKanjiRenderedWord(
+        word: HTMLElement,
+        card: JPDBCard,
+        context: RenderedWordDisplayContext,
+        scope: CardLookupTargetSnapshot,
+    ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         const ocrKanji = singleKanjiOcrLookupCharacter(word);
         if (!ocrKanji || context.trigger !== 'modal') return false;
+        if (!this.inScope(scope)) return true;
         await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
             navigation: context.navigation,
             preservePosition: context.insideReaderPopup,
@@ -6353,7 +6516,9 @@ export class ReaderApp {
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<void> {
+        if (!this.inScope(scope)) return Promise.resolve();
         return this.showCard(card, context.sentence, context.anchor, {
             trigger: context.trigger,
             navigation: context.navigation,
@@ -6381,13 +6546,16 @@ export class ReaderApp {
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
         if (!lookup) return false;
         const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms, this.isExactRenderedWordCardMatch(word, card));
+        if (!this.inScope(scope)) return true;
         if (!resolved) return false;
         this.parser.cacheCards?.([resolved]);
-        await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
+        await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
         return true;
     }
 
@@ -6401,19 +6569,23 @@ export class ReaderApp {
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         if (!this.canUseParserBackedRenderedWordLookup()) return false;
         const lookup = renderedKanaFragmentExpansionLookup(word, card, context);
         if (!lookup) return false;
         try {
             const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
+            if (!this.inScope(scope)) return true;
             const token = this.parsedRenderedWordCandidateToken(tokens ?? [], lookup, word);
             if (!token) return false;
             this.parser.cacheCards?.([token.card]);
             this.restampKanaRunRenderedWords(word, token, lookup.sentence);
-            await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings);
+            await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
             return true;
         } catch (error) {
+            if (!this.inScope(scope)) return true;
             log.warn('Rendered JPDB parse failed', { expression: card.spelling }, error);
             return false;
         }
@@ -6499,11 +6671,14 @@ export class ReaderApp {
         word: HTMLElement,
         options: RenderedWordLookupOptions,
         insideReaderPopup: boolean,
+        scope: CardLookupTargetSnapshot,
     ): Promise<void> {
+        if (!this.inScope(scope)) return;
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
-        if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options)) return;
-        if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options)) return;
+        if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options, scope)) return;
+        if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options, scope)) return;
+        if (!this.inScope(scope)) return;
         if (options.stackOverSettings) return;
         log.warn('Clicked word cache miss; reparsing', { vid, sid });
         this.scheduleVisiblePageReparse();
@@ -6512,18 +6687,21 @@ export class ReaderApp {
     private async lookupUncachedPageWord(
         word: HTMLElement,
         options: RenderedWordLookupOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         const expression = renderedWordLookupText(word);
         if (!isLookupableJapaneseText(expression)) return false;
         const trigger = this.renderedWordTrigger(options.trigger, false);
         const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
         const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
         if (options.fastInitialRender) {
-            await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation);
+            await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation, scope);
             return true;
         }
-        if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation)) return true;
-        if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation)) return true;
+        if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation, scope)) return true;
+        if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation, scope)) return true;
+        if (!this.inScope(scope)) return true;
         await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
             anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
             navigation,
@@ -6533,7 +6711,7 @@ export class ReaderApp {
             trigger,
             hoverLookupGeneration: options.hoverLookupGeneration,
             stackOverSettings: options.stackOverSettings,
-        });
+        }, scope);
         return true;
     }
 
@@ -6543,9 +6721,12 @@ export class ReaderApp {
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
+        scope: CardLookupTargetSnapshot,
     ): Promise<void> {
+        if (!this.inScope(scope)) return;
         const sentence = this.renderedWordSentence(word) ?? expression;
-        const card = this.parser.fallbackCardFromText(expression);
+        const card = this.parser.fallbackCardFromText(expression, scope.target);
+        if (!this.inScope(scope)) return;
         await this.showCard(card, sentence, renderedWordAnchor(word, false, this.activePopoverAnchor), {
             trigger,
             navigation,
@@ -6556,6 +6737,7 @@ export class ReaderApp {
             stackOverSettings: options.stackOverSettings,
             skipInitialCardResolution: true,
         });
+        if (!this.inScope(scope)) return;
         this.scheduleVisiblePageReparse();
     }
 
@@ -6566,18 +6748,21 @@ export class ReaderApp {
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
         try {
             const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
+            if (!this.inScope(scope)) return true;
             const token = pointerTokenAtOffset(tokens ?? [], lookup.offset);
             const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
             if (!token
                 || token.end - token.start <= lookup.surfaceLength
                 || this.shouldSkipPointerTextToken(candidate, token)
                 || !this.isParserBackedLookupCard(token.card)) return false;
-            await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation);
+            await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation, scope);
             return true;
         } catch (error) {
+            if (!this.inScope(scope)) return true;
             log.warn('Uncached JPDB parse failed', { expression }, error);
             return false;
         }
@@ -6589,14 +6774,17 @@ export class ReaderApp {
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset)
             .filter(span => span.end - span.start > lookup.surfaceLength)
             .map(span => span.term);
         if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
         const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms, false);
+        if (!this.inScope(scope)) return true;
         if (!resolved) return false;
-        await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation);
+        await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation, scope);
         return true;
     }
 
@@ -6607,7 +6795,9 @@ export class ReaderApp {
         options: RenderedWordLookupOptions,
         trigger: 'modal' | 'hover',
         navigation: CardNavigationMode,
+        scope: CardLookupTargetSnapshot,
     ): Promise<void> {
+        if (!this.inScope(scope)) return;
         this.parser.cacheCards?.([card]);
         await this.showCard(card, sentence, word, {
             trigger,
@@ -6623,7 +6813,9 @@ export class ReaderApp {
     private async lookupUncachedPopupWord(
         word: HTMLElement,
         options: RenderedWordLookupOptions,
+        scope: CardLookupTargetSnapshot,
     ): Promise<boolean> {
+        if (!this.inScope(scope)) return true;
         const expression = renderedWordLookupText(word);
         if (!isLookupableJapaneseText(expression)) return false;
         const trigger = this.renderedWordTrigger(options.trigger, true);
@@ -6639,7 +6831,7 @@ export class ReaderApp {
             userGesture: options.userGesture,
             trigger,
             hoverLookupGeneration: options.hoverLookupGeneration,
-        });
+        }, scope);
         return true;
     }
 
@@ -6813,12 +7005,14 @@ export class ReaderApp {
     }
 
     private async showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options: CardDisplayOptions = {}): Promise<void> {
+        const scope = this.newScope();
+        if (!this.inScope(scope)) return;
         const requestedCard = card;
         const trigger = cardDisplayTrigger(options);
         const immediatePitch = trigger === 'modal';
         this.prioritizeQueuedPitchEnrichment(requestedCard, { immediate: immediatePitch });
-        if (!options.skipInitialCardResolution) card = await this.resolveLookupCardForInitialRender(card);
-        if (this.isDestroyed || typeof document === 'undefined') return;
+        if (!options.skipInitialCardResolution) card = await this.resolveLookupCardForInitialRender(card, scope);
+        if (this.isDestroyed || typeof document === 'undefined' || !this.inScope(scope)) return;
         sentence = this.preferredCardSentence(sentence, anchor);
         if (card !== requestedCard) this.prioritizeQueuedPitchEnrichment(card, { immediate: immediatePitch });
         this.lastCard = card;
@@ -6826,7 +7020,8 @@ export class ReaderApp {
         const popover = this.createPopover(trigger);
         const navigation = options.navigation ?? 'reset';
         const hoverLookup = this.cardHoverLookupContext(trigger, options);
-        const isCurrentHoverCard = () => this.isCurrentCardHoverLookup(trigger, hoverLookup);
+        const isCurrentHoverCard = () => this.inScope(scope)
+            && this.isCurrentCardHoverLookup(trigger, hoverLookup);
         this.navigation.updateWord(card, sentence, trigger, navigation, options.previousNavigationEntry);
         this.navigation.clearKanji();
         const done = log.time('showCard', { term: card.spelling, source: cardSourceLabel(card), trigger });
@@ -6857,7 +7052,16 @@ export class ReaderApp {
             return;
         }
         if (options.skipInitialCardResolution) {
-            void this.refreshSkippedInitialCardResolution(popover, card, sentence, anchor, options, mounted.requestId, isCurrentHoverCard);
+            void this.refreshSkippedInitialCardResolution(
+                popover,
+                card,
+                sentence,
+                anchor,
+                options,
+                mounted.requestId,
+                isCurrentHoverCard,
+                scope,
+            );
         }
 
         try {
@@ -6917,13 +7121,18 @@ export class ReaderApp {
         options: CardDisplayOptions,
         requestId: number,
         isCurrentHoverCard: () => boolean,
+        scope: CardLookupTargetSnapshot = this.newScope(),
     ): Promise<void> {
+        if (!this.inScope(scope) || !usesJapaneseProviders()) return;
         if (!this.shouldResolveAfterSkippedInitialCardResolution(card)) return;
-        const resolved = await this.resolveLookupCard(card).catch(error => {
+        const resolved = await this.resolveLookupCard(card, scope).catch(error => {
             log.warn('Skipped initial card resolution failed', { term: card.spelling }, error);
             return null;
         });
-        if (!resolved || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+        if (!resolved
+            || !this.inScope(scope)
+            || !usesJapaneseProviders()
+            || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
         if (!this.isResolvedCardRefresh(card, resolved)) return;
         this.applyPublicVocabularyToRenderedWords(card, resolved);
         await this.showCard(resolved, sentence, anchor, {
@@ -7296,6 +7505,7 @@ export class ReaderApp {
         }
         if (renderData.ankiLookup) {
             void renderData.ankiLookup.then(ankiLookup => {
+                if (!isCurrentRender()) return;
                 ankiLookupValue = ankiLookup;
                 this.lastAnkiLookup = ankiLookup;
                 this.applyAnkiLookupToRenderedWords(card, ankiLookup, {
@@ -7484,10 +7694,10 @@ export class ReaderApp {
     // lookup and re-render once it arrives instead of dropping it on the floor.
     private renderHydratedCardJitenVocabulary(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
         const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
-        if (state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
+        if (!usesJapaneseProviders() || state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
         void renderData.hydrateJitenVocabularyInfo()
             .then(info => {
-                if (!info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                if (!usesJapaneseProviders() || !info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 state.data = { ...state.data, jitenVocabularyInfo: info };
                 this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
             })
@@ -7500,9 +7710,9 @@ export class ReaderApp {
         const renderedPitchKey = card.pitchAccent.join('|');
         void renderData.hydratePitchAccent()
             .then(pitchAccent => {
+                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
                 if (renderedPitchKey === card.pitchAccent.join('|')) return;
-                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
             })
             .catch(error => log.debug('Popup pitch hydration failed', { term: card.spelling, error }));
@@ -7510,10 +7720,10 @@ export class ReaderApp {
 
     private renderHydratedCardFrequencyRanks(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
         const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
-        if (!renderData.hydrateFrequencyRanks) return;
+        if (!usesJapaneseProviders() || !renderData.hydrateFrequencyRanks) return;
         void renderData.hydrateFrequencyRanks()
             .then(frequencyRanks => {
-                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                if (!usesJapaneseProviders() || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 if (JSON.stringify(state.data.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
                 state.data = { ...state.data, frequencyRanks };
                 this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
@@ -7523,10 +7733,10 @@ export class ReaderApp {
 
     private renderHydratedCardBunproDefinition(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
         const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
-        if (!renderData.hydrateBunproDefinitionResult) return;
+        if (!usesJapaneseProviders() || !renderData.hydrateBunproDefinitionResult) return;
         void renderData.hydrateBunproDefinitionResult()
             .then(result => {
-                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                if (!usesJapaneseProviders() || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 const unchangedInfo = state.data.bunproDefinitionInfo === result.info;
                 const unchangedStatus = JSON.stringify(state.data.bunproDefinitionStatus) === JSON.stringify(result.status);
                 if (unchangedInfo && unchangedStatus) return;
@@ -7735,7 +7945,7 @@ export class ReaderApp {
     }
 
     private async showKanjiCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: { navigation?: CardNavigationMode; preservePosition?: boolean } = {}): Promise<void> {
-        if (!isKanjiCharacter(kanji)) return;
+        if (!targetCanLookupCharacter(kanji)) return;
         const navigation = options.navigation ?? 'reset';
         this.navigation.updateKanji(card, kanji, sentence, navigation);
         const popover = this.createPopover();
@@ -7901,7 +8111,7 @@ export class ReaderApp {
     }
 
     private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
-        if (!actionId || !this.jpdbKanji) return;
+        if (!actionId || !this.jpdbKanji || !targetCanLookupCharacter(kanji)) return;
         try {
             await this.jpdbKanji?.performAction(actionId);
             this.toast(uiText(this.settings.interfaceLanguage, 'jpdbKanjiUpdated'));
@@ -8996,7 +9206,8 @@ export class ReaderApp {
     }
 
     private shouldRunPitchOrReadingEnrichment(): boolean {
-        return this.settings.showPitchAccent || (this.settings.showFurigana && this.settings.furiganaMode !== 'off');
+        return usesJapaneseProviders()
+            && (this.settings.showPitchAccent || (this.settings.showFurigana && this.settings.furiganaMode !== 'off'));
     }
 
     private reconcileRenderedTokenFurigana(token: JPDBToken): void {
@@ -10297,6 +10508,7 @@ export class ReaderApp {
                 // would navigate away from a Japanese page the user chose.
                 const previous = this.settings;
                 this.settings = settings;
+                this.syncCardLookupTarget(settings);
                 if (options?.transient) return;
                 this.stagePreferredJapaneseSiteLanguage(previous, settings);
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();

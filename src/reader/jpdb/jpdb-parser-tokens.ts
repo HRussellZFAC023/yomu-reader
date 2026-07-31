@@ -1,8 +1,8 @@
 import { getPitchClass } from './jpdb-parser-pitch';
 import { assignSentenceInfo } from './jpdb-parser-sentences';
 import type { JPDBCard, JPDBRawToken, JPDBRuby, JPDBToken } from '../app/types';
+import { KANJI_RE } from '../lookup/japanese-script';
 
-const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 
 export function jpdbParseResultToTokens(paragraphs: string[], rawTokens: JPDBRawToken[][], cards: JPDBCard[]): JPDBToken[][] {
@@ -57,12 +57,13 @@ function assignWordWithReading(token: JPDBToken): void {
     const { card, rubies, start: offset } = token;
     if (!rubies.length) return;
 
-    const word = Array.from(card.spelling);
+    let word = card.spelling;
     for (let i = rubies.length - 1; i >= 0; i--) {
-        const { text, start, length } = rubies[i];
-        word.splice(start - offset + length, 0, `[${text}]`);
+        const { text, end } = rubies[i];
+        const insertionOffset = end - offset;
+        word = `${word.slice(0, insertionOffset)}[${text}]${word.slice(insertionOffset)}`;
     }
-    card.wordWithReading = word.join('');
+    card.wordWithReading = word;
 }
 
 function repairCardReadingFromRubies(card: JPDBCard, surface: string, rubies: JPDBRuby[], offset: number): void {

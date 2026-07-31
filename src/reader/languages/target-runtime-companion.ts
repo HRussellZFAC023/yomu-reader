@@ -11,6 +11,10 @@ export function activeLearningTarget(): LearningTargetModule {
     return runtime().activeLearningTarget();
 }
 
+export function activeLearningTargetGeneration(): number {
+    return runtime().activeLearningTargetGeneration();
+}
+
 export function activeLearningTargetLanguage(): string {
     return runtime().activeLearningTargetLanguage();
 }

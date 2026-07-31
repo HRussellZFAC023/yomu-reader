@@ -1559,6 +1559,20 @@ describe('reader helpers', () => {
         expect(html).not.toContain('target="_blank"');
     });
 
+    it('renders supplementary-plane Yomitan kanji links as in-reader kanji actions', () => {
+        const html = glossaryToHtml({
+            tag: 'a',
+            href: '/kanji/𠮟',
+            content: '𠮟',
+        }, 'Jitendex', { internalSearchLinks: true });
+
+        expect(html).toContain('href="#jpdb-reader-kanji-lookup"');
+        expect(html).toContain('data-action="kanji"');
+        expect(html).toContain('data-kanji="𠮟"');
+        expect(html).toContain('data-external="false"');
+        expect(html).not.toContain('target="_blank"');
+    });
+
     it('scopes imported Yomitan dictionary CSS to dictionary content', () => {
         const css = renderDictionaryScopedStyles([
             { title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, styles: 'ul[data-sc-content="glossary"] { padding-left: 1em; }' },

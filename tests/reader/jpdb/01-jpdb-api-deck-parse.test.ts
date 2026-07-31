@@ -673,6 +673,33 @@ describe('reader helpers', () => {
         expect(html).not.toContain('data-reading="もと"');
     });
 
+    it('keeps supplementary-kanji ruby and token coordinates in UTF-16 units', () => {
+        const text = 'A𠮟る';
+        const supplementaryCard: JPDBCard = {
+            ...card,
+            spelling: '𠮟る',
+            reading: '𠮟る',
+            pitchAccent: [],
+            wordWithReading: null,
+        };
+        const rawTokens: JPDBRawToken[][] = [[[0, 1, 3, [['𠮟', 'しか'], 'る']]]];
+
+        const [[token]] = jpdbParseResultToTokens([text], rawTokens, [supplementaryCard]);
+
+        expect(token).toMatchObject({
+            start: 1,
+            end: 4,
+            length: 3,
+            rubies: [{ text: 'しか', start: 1, end: 3, length: 2 }],
+            card: {
+                spelling: '𠮟る',
+                reading: 'しかる',
+                wordWithReading: '𠮟[しか]る',
+            },
+        });
+        expect(text.slice(token.start, token.end)).toBe('𠮟る');
+    });
+
     it('keeps JPDB conversion cardinality aligned with every requested paragraph', () => {
         const paragraphs = ['日本語', 'フィード', '参加'];
         const cards = jpdbVocabularyToCards([

@@ -52,6 +52,24 @@ describe('Yomitan ZIP import performance path', () => {
         expect(progress).toContain('Importing Multi Bank JMdict: terms 6 entries saved...');
     });
 
+    it('imports and retrieves supplementary-plane kanji without splitting the character', async () => {
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Supplementary Han Fixture', format: 3 },
+            'kanji_bank_1.json': [
+                ['𡃁', '', 'ngam4', '', ['correct; suitable'], {}, {}],
+            ],
+        })], 'supplementary-han.zip', { type: 'application/zip' }));
+
+        expect(await store.lookupKanji('𡃁', 5)).toMatchObject([{
+            character: '𡃁',
+            kunyomi: ['ngam4'],
+            meanings: ['correct; suitable'],
+            dictionary: 'Supplementary Han Fixture',
+        }]);
+    });
+
     it('rejects a catalogue archive with mismatched integrity before changing dictionary rows', async () => {
         const store = createStore();
         await store.clear();

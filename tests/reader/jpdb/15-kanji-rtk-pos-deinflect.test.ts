@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
+import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
     JpdbKanjiClient,
@@ -370,6 +374,39 @@ describe('reader helpers', () => {
         expect(controls).toContain('jpdb-reader-mining-details jpdb-reader-kanji-mining');
         expect(controls).toContain('jpdb-reader-mining-action-row jpdb-reader-kanji-mining-row');
         expect(controls).toContain('data-action="jpdb-kanji-action"');
+    });
+
+    it('does not execute a stale JPDB kanji action after the learning target changes', async () => {
+        const app = new ReaderApp();
+        const performAction = vi.fn(async () => undefined);
+        const showKanjiCard = vi.fn(async () => undefined);
+        const toast = vi.fn();
+        const internals = app as unknown as {
+            jpdbKanji: { performAction: typeof performAction };
+            showKanjiCard: typeof showKanjiCard;
+            toast: typeof toast;
+            performJpdbKanjiAction(
+                actionId: string,
+                lookupCard: JPDBCard,
+                kanji: string,
+                sentence?: string,
+            ): Promise<void>;
+        };
+        internals.jpdbKanji = { performAction };
+        internals.showKanjiCard = showKanjiCard;
+        internals.toast = toast;
+        setActiveLearningTargetLanguage('zh');
+
+        try {
+            await internals.performJpdbKanjiAction('stale-action', card, '読', '読む。');
+
+            expect(performAction).not.toHaveBeenCalled();
+            expect(showKanjiCard).not.toHaveBeenCalled();
+            expect(toast).not.toHaveBeenCalled();
+        } finally {
+            resetActiveLearningTargetLanguage();
+            app.destroy();
+        }
     });
 
     it('does not treat JPDB kanji setup links as mining controls', () => {

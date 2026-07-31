@@ -67,6 +67,13 @@ function parserWithPublicVocabulary(parse: (paragraphs: readonly string[]) => Pr
 }
 
 describe('fallback Japanese segmentation coherence (P0-02)', () => {
+    it('keeps supplementary kanji reachable at either UTF-16 code-unit offset', () => {
+        const text = 'A𠮟B';
+        expect(surfaces('𠮟る')).toContain('𠮟');
+        expect(fallbackLookupTermAtOffset(text, 1)).toBe('𠮟');
+        expect(fallbackLookupTermAtOffset(text, 2)).toBe('𠮟');
+    });
+
     it('does not leave a dangling さし stem for ややさしい', () => {
         const segs = surfaces('ややさしい');
         expect(segs).toEqual(['や', 'やさしい']);

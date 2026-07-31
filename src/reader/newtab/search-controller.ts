@@ -7,6 +7,16 @@ import { Logger } from '../app/logger';
 import { resolveUiLanguage, type UiCopyKey } from '../app/i18n';
 import { newTabText, type NewTabCopyKey } from './i18n';
 import { isKanjiCharacter } from '../popup/pitch';
+import {
+    targetCanLookupCharacter,
+    targetSupportsCharacterLookup,
+    usesJapaneseProviders,
+} from '../languages/character-lookup';
+import {
+    activeLearningTarget,
+    activeLearningTargetGeneration,
+    activeLearningTargetLanguage,
+} from '../languages/target-runtime';
 import { installKanjiDoodle, KANJI_DOODLE_CLEAR_EVENT, type DoodleStroke } from '../kanji/doodle';
 import { rankKanjiStrokeCandidates, type KanjiShapeCandidate } from '../kanji/stroke-grader';
 import { orderedKanjiSourceIds, KANJI_STROKE_SOURCE_ID } from '../sources/sections';
@@ -94,6 +104,11 @@ interface NewTabSearchWordKanjiDetail {
     details: KanjiDetailBundle;
 }
 
+interface SearchTargetSnapshot {
+    target: ReturnType<typeof activeLearningTarget>;
+    generation: number;
+}
+
 // The slots the search surface actually touches (subset of the controller's
 // NewTabStudySlots) — kept structural so the controller's private slot shape
 // need not be exported.
@@ -161,6 +176,8 @@ export interface NewTabSearchControllerDeps {
 // input flows through NewTabSearchControllerDeps.
 export class NewTabSearchController {
     private searchGeneration = 0;
+    private searchTargetLanguage = activeLearningTargetLanguage();
+    private searchTargetGeneration = activeLearningTargetGeneration();
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
     private handlingSearchPopstate = false;
@@ -194,8 +211,11 @@ export class NewTabSearchController {
     // Clean-slate reset called by the controller's word-reload path.
     reset(): void {
         this.searchGeneration++;
+        this.searchTargetLanguage = activeLearningTargetLanguage();
+        this.searchTargetGeneration = activeLearningTargetGeneration();
         this.clearSearchDebounce();
         this.searchQuery = '';
+        this.searchWordCardCache.clear();
         this.searchHandwritingGeneration++;
         this.clearSearchHandwritingDebounce();
         this.searchHandwritingStrokes = [];
@@ -228,11 +248,13 @@ export class NewTabSearchController {
                 return true;
             case 'search-handwriting-toggle':
                 event.preventDefault();
-                this.toggleSearchHandwriting(root);
+                if (targetSupportsCharacterLookup()) this.toggleSearchHandwriting(root);
                 return true;
             case 'handwriting-candidate':
                 event.preventDefault();
-                this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
+                if (targetCanLookupCharacter(this.searchActionQuery(target))) {
+                    this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
+                }
                 return true;
             case 'search-result-word':
                 return this.handleSearchResultWordClick(root, target, event);
@@ -265,7 +287,7 @@ export class NewTabSearchController {
         event.preventDefault();
         const button = target.closest<HTMLElement>('[data-kanji]');
         const kanji = cleanNestedLookupValue(button?.dataset.kanji);
-        if (kanji && button) this.toggleSearchKanjiResult(button, kanji);
+        if (targetCanLookupCharacter(kanji) && button) this.toggleSearchKanjiResult(button, kanji);
         return true;
     }
 
@@ -356,8 +378,10 @@ export class NewTabSearchController {
             // searches MY cards (Jiten Cards parity / 2D reviews); with no
             // scope the default stays dictionary search.
             delete results.dataset.searchQuery;
+            delete results.dataset.searchTarget;
             this.deps.renderBrowseResults(results);
-        } else if (results?.dataset.searchQuery !== query) {
+        } else if (results?.dataset.searchQuery !== query
+            || results.dataset.searchTarget !== this.targetSnapshotSignature(this.captureTargetSnapshot())) {
             this.performSearch(root, query);
         }
         void this.parseSearchSurfaces(root, this.searchGeneration, query);
@@ -502,6 +526,11 @@ export class NewTabSearchController {
     }
 
     private installSearchHandwriting(root: HTMLElement): void {
+        if (!targetSupportsCharacterLookup()) {
+            root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
+            this.syncSearchHandwritingToggle(root);
+            return;
+        }
         const panel = this.ensureSearchHandwritingPanel(root);
         this.syncSearchHandwritingToggle(root);
         if (panel && panel.dataset.newtabHandwritingToggleBound !== 'true') {
@@ -526,6 +555,7 @@ export class NewTabSearchController {
     }
 
     private ensureSearchHandwritingPanel(root: HTMLElement): HTMLElement | null {
+        if (!targetSupportsCharacterLookup()) return null;
         const existing = root.querySelector<HTMLElement>('[data-newtab-handwriting]');
         if (existing) return existing;
         const results = this.searchResultsMount(root);
@@ -536,6 +566,7 @@ export class NewTabSearchController {
     }
 
     private toggleSearchHandwriting(root: HTMLElement, open?: boolean): void {
+        if (!targetSupportsCharacterLookup()) return;
         const panel = this.ensureSearchHandwritingPanel(root) as HTMLDetailsElement | null;
         if (!panel) return;
         panel.open = open ?? !panel.open;
@@ -556,10 +587,17 @@ export class NewTabSearchController {
         const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
         const toggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]');
         if (!toggle) return;
-        toggle.setAttribute('aria-expanded', String(Boolean(panel?.open)));
+        const enabled = targetSupportsCharacterLookup();
+        toggle.hidden = !enabled;
+        toggle.disabled = !enabled;
+        toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel?.open)));
     }
 
     private scheduleSearchHandwritingRecognition(root: HTMLElement): void {
+        if (!targetSupportsCharacterLookup()) {
+            this.clearSearchHandwriting(root);
+            return;
+        }
         this.searchHandwritingGeneration++;
         this.clearSearchHandwritingDebounce();
         const strokes = this.searchHandwritingStrokes.map(stroke => [...stroke]);
@@ -575,6 +613,7 @@ export class NewTabSearchController {
     }
 
     private async recognizeSearchHandwriting(root: HTMLElement, strokes: DoodleStroke[], generation: number): Promise<void> {
+        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return;
         const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch(error => {
             log.warn('Search handwriting failed', error);
             return [];
@@ -583,13 +622,16 @@ export class NewTabSearchController {
             log.warn('Search handwriting geometry failed', error);
             return [];
         });
-        if (!root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
-        const candidates = uniqueStrings([...recognizedCandidates, ...geometryCandidates]).slice(0, 8);
+        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
+        const candidates = uniqueStrings([...recognizedCandidates, ...geometryCandidates])
+            .filter(targetCanLookupCharacter)
+            .slice(0, 8);
         const message = candidates.length ? '' : this.deps.text('searchNoHandwritingMatch');
         this.renderSearchHandwritingCandidates(root, candidates, message);
     }
 
     private async recognizeSearchHandwritingByGeometry(strokes: DoodleStroke[]): Promise<string[]> {
+        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
         const characters = await this.searchHandwritingGeometryCharacters();
         if (!characters.length) return [];
         const candidates = (await Promise.all(characters.map(character => this.searchHandwritingShapeCandidate(character))))
@@ -598,6 +640,7 @@ export class NewTabSearchController {
     }
 
     private async searchHandwritingGeometryCharacters(): Promise<string[]> {
+        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
         const settings = this.deps.getDependencies().getSettings();
         const commonCharacters = uniqueStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI)).slice(0, 200);
         const deckCharacters = uniqueStrings([
@@ -616,6 +659,7 @@ export class NewTabSearchController {
     }
 
     private searchHandwritingShapeCandidate(character: string): Promise<KanjiShapeCandidate | null> {
+        if (!usesJapaneseProviders() || !targetCanLookupCharacter(character)) return Promise.resolve(null);
         let promise = this.searchHandwritingShapeCandidateCache.get(character);
         if (!promise) {
             promise = this.deps.getDependencies().kanjiVG.lookup(character)
@@ -629,6 +673,12 @@ export class NewTabSearchController {
     private renderSearchHandwritingCandidates(root: HTMLElement, candidates: string[], message: string): void {
         const mount = root.querySelector<HTMLElement>('[data-newtab-handwriting-candidates]');
         if (!mount) return;
+        if (!targetSupportsCharacterLookup()) {
+            mount.hidden = true;
+            mount.replaceChildren();
+            return;
+        }
+        candidates = candidates.filter(targetCanLookupCharacter);
         mount.hidden = !candidates.length && !message;
         replaceChildrenWith(mount,
             candidates.map(candidate => el('button', {
@@ -650,6 +700,10 @@ export class NewTabSearchController {
 
     performSearch(root: HTMLElement, rawQuery: string): void {
         this.clearSearchDebounce();
+        const target = activeLearningTarget();
+        this.searchTargetLanguage = target.language;
+        this.searchTargetGeneration = activeLearningTargetGeneration();
+        const targetGeneration = this.searchTargetGeneration;
         const query = normalizeSearchQuery(rawQuery);
         this.setSearchQuery(root, query);
         this.syncSearchUrl(query);
@@ -661,7 +715,7 @@ export class NewTabSearchController {
 
         const generation = ++this.searchGeneration;
         this.renderSearchLoading(root, query);
-        void this.loadSearchResults(query).then(results => {
+        void this.loadSearchResults(query, target, targetGeneration).then(results => {
             if (!this.isCurrentSearch(root, generation, query)) return;
             this.renderSearchResults(root, results);
         }).catch(error => {
@@ -674,14 +728,40 @@ export class NewTabSearchController {
         return root.isConnected
             && this.currentRoute() === 'search'
             && this.searchGeneration === generation
+            && activeLearningTargetLanguage() === this.searchTargetLanguage
+            && activeLearningTargetGeneration() === this.searchTargetGeneration
             && normalizeSearchQuery(this.searchQuery) === query;
     }
 
-    private async loadSearchResults(query: string): Promise<NewTabSearchResults> {
+    private captureTargetSnapshot(): SearchTargetSnapshot {
+        return {
+            target: activeLearningTarget(),
+            generation: activeLearningTargetGeneration(),
+        };
+    }
+
+    private targetSnapshotIsCurrent(snapshot: SearchTargetSnapshot): boolean {
+        return activeLearningTarget() === snapshot.target
+            && activeLearningTargetGeneration() === snapshot.generation;
+    }
+
+    private targetSnapshotSignature(snapshot: SearchTargetSnapshot): string {
+        return `${snapshot.target.id}:${snapshot.generation}`;
+    }
+
+    private async loadSearchResults(
+        query: string,
+        target: ReturnType<typeof activeLearningTarget>,
+        targetGeneration: number,
+    ): Promise<NewTabSearchResults> {
         const settings = this.deps.getDependencies().getSettings();
         const hasLocalDictionaries = settings.localDictionariesEnabled && await this.deps.hasLocalDictionaries();
-        const words = await this.searchWordCards(query, hasLocalDictionaries);
-        const kanji = await this.searchKanjiCards(query, words);
+        const words = await this.searchWordCards(query, hasLocalDictionaries, target, targetGeneration);
+        if (activeLearningTarget() !== target
+            || activeLearningTargetGeneration() !== targetGeneration) {
+            return { query, words: [], kanji: [], suggestions: [], hasLocalDictionaries };
+        }
+        const kanji = await this.searchKanjiCards(query, words, { target, generation: targetGeneration });
         return {
             query,
             words,
@@ -691,9 +771,14 @@ export class NewTabSearchController {
         };
     }
 
-    private async searchWordCards(query: string, hasLocalDictionaries: boolean): Promise<JPDBCard[]> {
+    private async searchWordCards(
+        query: string,
+        hasLocalDictionaries: boolean,
+        target: ReturnType<typeof activeLearningTarget>,
+        targetGeneration: number,
+    ): Promise<JPDBCard[]> {
         const settings = this.deps.getDependencies().getSettings();
-        const parsedPromise = queryHasJapanese(query)
+        const parsedPromise = usesJapaneseProviders() && queryHasJapanese(query)
             ? this.deps.getDependencies().parser.parse([query]).catch(() => [[]])
             : Promise.resolve([[]] as Awaited<ReturnType<ReaderParser['parse']>>);
         const localEntriesPromise = settings.localDictionariesEnabled && hasLocalDictionaries
@@ -703,17 +788,20 @@ export class NewTabSearchController {
 
         const loadedCards = this.searchLoadedWordCards(query);
         const [parsed, localEntries, publicJpdbCards] = await Promise.all([parsedPromise, localEntriesPromise, publicJpdbPromise]);
+        if (activeLearningTarget() !== target
+            || activeLearningTargetGeneration() !== targetGeneration) return [];
         const parsedCards = (parsed[0] ?? []).map(token => ({ ...token.card, sentence: token.sentence ?? query }));
         const localCards = localEntries
-            .map(entry => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry), sentence: query }));
+            .map(entry => ({ ...this.deps.getDependencies().parser.localCardFromEntry(entry, target), sentence: query }));
         return dedupeSearchWords(searchWordResultOrder(query, { parsedCards, publicJpdbCards, loadedCards, localCards }))
             .slice(0, NEW_TAB_SEARCH_WORD_LIMIT);
     }
 
     async searchPublicJpdbCards(query: string, limit = NEW_TAB_SEARCH_WORD_LIMIT): Promise<JPDBCard[]> {
+        if (!usesJapaneseProviders()) return [];
         const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
         if (!jpdbVocabulary?.search) return [];
-        return promiseWithTimeout(
+        const cards = await promiseWithTimeout(
             jpdbVocabulary.search(query, limit),
             NEW_TAB_PUBLIC_SEARCH_TIMEOUT_MS,
             'Public JPDB search timed out.',
@@ -722,6 +810,7 @@ export class NewTabSearchController {
                 log.warn('New tab public JPDB search failed', { query, error });
                 return [];
             });
+        return usesJapaneseProviders() ? cards : [];
     }
 
     private searchLoadedWordCards(query: string): JPDBCard[] {
@@ -785,11 +874,16 @@ export class NewTabSearchController {
         return suggestions;
     }
 
-    private async searchKanjiCards(query: string, wordCards: JPDBCard[] = []): Promise<NewTabSearchKanjiResult[]> {
+    private async searchKanjiCards(
+        query: string,
+        wordCards: JPDBCard[] = [],
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): Promise<NewTabSearchKanjiResult[]> {
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
         const characters = uniqueStrings([
             ...kanjiCharacters(query),
             ...wordCards.flatMap(card => kanjiCharacters(card.spelling)),
-        ]).slice(0, NEW_TAB_SEARCH_KANJI_LIMIT);
+        ]).filter(targetCanLookupCharacter).slice(0, NEW_TAB_SEARCH_KANJI_LIMIT);
         const summaryWordCards = wordCards.filter(card => !this.searchWordMatchesQueryExactly(card, query));
         const wordsByCharacter = new Map<string, JPDBCard[]>();
         summaryWordCards.forEach(card => {
@@ -797,7 +891,13 @@ export class NewTabSearchController {
                 wordsByCharacter.set(character, [...(wordsByCharacter.get(character) ?? []), card]);
             });
         });
-        const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [], wordCards)));
+        const results = await Promise.all(characters.map(character => this.searchKanjiResult(
+            character,
+            wordsByCharacter.get(character) ?? [],
+            wordCards,
+            targetSnapshot,
+        )));
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
         return results.filter((result): result is NewTabSearchKanjiResult => Boolean(result));
     }
 
@@ -808,7 +908,13 @@ export class NewTabSearchController {
                 || normalizedSearchWordIdentity(newTabCardReading(card)) === normalizedQuery);
     }
 
-    private async searchKanjiResult(character: string, words: JPDBCard[] = [], parentCards: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
+    private async searchKanjiResult(
+        character: string,
+        words: JPDBCard[] = [],
+        parentCards: JPDBCard[] = [],
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): Promise<NewTabSearchKanjiResult | null> {
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(character)) return null;
         const details = await this.deps.loadKanjiDetails(character).catch(error => {
             log.debug('Search kanji summary details unavailable', { kanji: character, error });
             return {
@@ -828,6 +934,7 @@ export class NewTabSearchController {
                 },
             } satisfies KanjiDetailBundle;
         });
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(character)) return null;
         const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
         const parentMeanings = searchParentMeaningKeys(parentCards, character);
         const meanings = uniqueStrings([
@@ -839,7 +946,8 @@ export class NewTabSearchController {
         const readings = details.jiten
             ? jitenKanjiReadingRows(details.jiten).slice(0, 8)
             : newTabKanjiReadings(fullInfo, uniqueStrings(details.local.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
-        const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
+        const card = this.deps.getDependencies().parser.fallbackCardFromText?.(character, targetSnapshot.target)
+            ?? fallbackSearchKanjiCard(character);
         const sourceKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
         return {
             character,
@@ -853,17 +961,21 @@ export class NewTabSearchController {
     private toggleSearchWordResult(root: HTMLElement, button: HTMLElement, card: JPDBCard): void {
         const existing = this.expandSearchResultDetail(button);
         if (!existing) return;
+        const targetSnapshot = this.captureTargetSnapshot();
         const kanjiDetailsPromise = this.shouldLoadSearchWordKanjiDetails(card)
-            ? this.loadSearchWordKanjiDetails(card)
+            ? this.loadSearchWordKanjiDetails(card, targetSnapshot)
             : null;
         let renderedDetail: NewTabSearchWordDetail = {
             ...this.instantSearchWordDetail(),
             wordKanjiLoading: Boolean(kanjiDetailsPromise),
         };
-        const canRender = () => root.isConnected && existing.isConnected && button.getAttribute('aria-expanded') === 'true';
+        const canRender = () => root.isConnected
+            && existing.isConnected
+            && this.targetSnapshotIsCurrent(targetSnapshot)
+            && button.getAttribute('aria-expanded') === 'true';
         const renderCurrentDetail = () => {
             if (!canRender()) return;
-            this.renderSearchWordDetail(existing, card, renderedDetail);
+            this.renderSearchWordDetail(existing, card, renderedDetail, targetSnapshot);
         };
         renderCurrentDetail();
         void this.loadSearchWordDetail(card).then(detail => {
@@ -873,10 +985,12 @@ export class NewTabSearchController {
                 wordKanjiLoading: Boolean(kanjiDetailsPromise && !renderedDetail.wordKanjiDetails),
             };
             renderCurrentDetail();
+            if (!usesJapaneseProviders()) return;
             const { hydratePitchAccent, hydrateFrequencyRanks, hydrateBunproDefinitionResult, hydrateBunproDefinitionInfo } = this.deps.getDependencies();
             if (hydratePitchAccent) {
                 const renderedPitchKey = card.pitchAccent.join('|');
                 void hydratePitchAccent(card).then(pitchAccent => {
+                    if (!usesJapaneseProviders() || !canRender()) return;
                     if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
                     if (renderedPitchKey === card.pitchAccent.join('|')) return;
                     renderCurrentDetail();
@@ -886,6 +1000,7 @@ export class NewTabSearchController {
             }
             if (hydrateFrequencyRanks) {
                 void hydrateFrequencyRanks(card).then(frequencyRanks => {
+                    if (!usesJapaneseProviders() || !canRender()) return;
                     if (JSON.stringify(renderedDetail.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
                     renderedDetail = { ...renderedDetail, frequencyRanks };
                     renderCurrentDetail();
@@ -895,6 +1010,7 @@ export class NewTabSearchController {
             }
             if (hydrateBunproDefinitionResult) {
                 void hydrateBunproDefinitionResult(card).then(result => {
+                    if (!usesJapaneseProviders() || !canRender()) return;
                     const unchangedInfo = renderedDetail.bunproDefinitionInfo === result.info;
                     const unchangedStatus = JSON.stringify(renderedDetail.bunproDefinitionStatus) === JSON.stringify(result.status);
                     if (unchangedInfo && unchangedStatus) return;
@@ -909,6 +1025,7 @@ export class NewTabSearchController {
                 });
             } else if (!detail.bunproDefinitionInfo && hydrateBunproDefinitionInfo) {
                 void hydrateBunproDefinitionInfo(card).then(info => {
+                    if (!usesJapaneseProviders() || !canRender()) return;
                     if (!info) return;
                     renderedDetail = { ...renderedDetail, bunproDefinitionInfo: info };
                     renderCurrentDetail();
@@ -918,7 +1035,7 @@ export class NewTabSearchController {
             }
         }).catch(error => {
             log.warn('New tab search detail failed', { term: card.spelling }, error);
-            if (existing.isConnected) replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searchLocalDictionariesFailed')));
+            if (canRender()) replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searchLocalDictionariesFailed')));
         });
         void kanjiDetailsPromise?.then(details => {
             renderedDetail = {
@@ -995,7 +1112,7 @@ export class NewTabSearchController {
     }
 
     private loadSearchKanjiEntries(card: JPDBCard, settings: ReaderSettings): Promise<YomitanKanjiEntry[]> {
-        if (!settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isSearchLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+        if (!targetCanLookupCharacter(card.spelling) || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isSearchLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
         return this.deps.localSearchWithTimeout(
             this.deps.getDependencies().dictionaries.lookupKanji?.(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences) ?? Promise.resolve([]),
             [] as YomitanKanjiEntry[],
@@ -1015,49 +1132,62 @@ export class NewTabSearchController {
         const jpdbVocabulary = this.deps.getDependencies().jpdbVocabulary;
         // Keyless: jpdbVocabulary scrapes the public site (cached + backoff); the
         // JPDB definitions toggle alone decides whether the source loads.
-        if (!this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+        if (!usesJapaneseProviders() || !this.deps.getDependencies().getSettings().jpdbDefinitionsEnabled || !jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
         const jpdbVid = !card.source || card.source === 'jpdb' ? card.vid : 0;
         return promiseWithTimeout(
             jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
             'JPDB vocabulary lookup timed out.',
-        ).catch(() => null);
+        ).then(info => usesJapaneseProviders() ? info : null).catch(() => null);
     }
 
     private loadSearchJitenVocabularyInfo(card: JPDBCard, settings: ReaderSettings): Promise<JitenVocabularyInfo | null> {
         const jiten = this.deps.getDependencies().jiten;
-        if (!settings.jitenDefinitionsEnabled || typeof jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
+        if (!usesJapaneseProviders() || !settings.jitenDefinitionsEnabled || typeof jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
         return promiseWithTimeout(
             jiten.lookupVocabularyInfoForCard(card),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
             'Jiten vocabulary lookup timed out.',
-        ).catch(() => null);
+        ).then(info => usesJapaneseProviders() ? info : null).catch(() => null);
     }
 
     private shouldLoadSearchWordKanjiDetails(card: JPDBCard): boolean {
-        if (!this.searchWordKanjiCharacters(card).length) return false;
+        if (!targetSupportsCharacterLookup() || !this.searchWordKanjiCharacters(card).length) return false;
         return orderedKanjiSourceIds(this.deps.getDependencies().getSettings()).some(sourceId => sourceId !== KANJI_STROKE_SOURCE_ID);
     }
 
     private searchWordKanjiCharacters(card: JPDBCard): string[] {
-        return kanjiCharacters(card.spelling);
+        return kanjiCharacters(card.spelling).filter(targetCanLookupCharacter);
     }
 
-    private async loadSearchWordKanjiDetails(card: JPDBCard): Promise<NewTabSearchWordKanjiDetail[]> {
-        return await Promise.all(this.searchWordKanjiCharacters(card).map(async kanji => {
+    private async loadSearchWordKanjiDetails(
+        card: JPDBCard,
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): Promise<NewTabSearchWordKanjiDetail[]> {
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
+        const details = await Promise.all(this.searchWordKanjiCharacters(card).map(async kanji => {
             const details = await this.deps.loadKanjiDetails(kanji);
+            if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(kanji)) return null;
             return {
                 kanji,
                 details,
             };
         }));
+        if (!this.targetSnapshotIsCurrent(targetSnapshot)) return [];
+        return details.filter((detail): detail is NewTabSearchWordKanjiDetail => Boolean(detail));
     }
 
-    private renderSearchWordDetail(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
+    private renderSearchWordDetail(
+        mount: HTMLElement,
+        card: JPDBCard,
+        detail: NewTabSearchWordDetail,
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): void {
+        if (!this.targetSnapshotIsCurrent(targetSnapshot)) return;
         this.searchWordCardCache.set(cardKey(card), card);
         mount.dataset.newtabCard = cardKey(card);
         setInnerHtml(mount, searchWordDetailHtml(card, detail, this.searchDetailViewContext()));
-        this.insertSearchWordKanjiSectionIfPresent(mount, card, detail);
+        this.insertSearchWordKanjiSectionIfPresent(mount, card, detail, targetSnapshot);
         this.installSearchWordDetailEnhancements(mount, card, detail);
     }
 
@@ -1073,14 +1203,21 @@ export class NewTabSearchController {
         };
     }
 
-    private insertSearchWordKanjiSectionIfPresent(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
-        const kanjiSection = this.renderSearchWordKanjiSection(card, detail);
+    private insertSearchWordKanjiSectionIfPresent(
+        mount: HTMLElement,
+        card: JPDBCard,
+        detail: NewTabSearchWordDetail,
+        targetSnapshot: SearchTargetSnapshot,
+    ): void {
+        const kanjiSection = this.renderSearchWordKanjiSection(card, detail, targetSnapshot);
         if (kanjiSection) this.insertSearchWordKanjiSection(mount, kanjiSection);
     }
 
     private installSearchWordDetailEnhancements(mount: HTMLElement, card: JPDBCard, detail: NewTabSearchWordDetail): void {
         this.deps.getDependencies().installDictionarySourceTracking?.(mount);
-        this.deps.getDependencies().installSearchDetailSources?.(mount, card, card.sentence || card.spelling, detail.jpdbVocabularyInfo);
+        if (usesJapaneseProviders()) {
+            this.deps.getDependencies().installSearchDetailSources?.(mount, card, card.sentence || card.spelling, detail.jpdbVocabularyInfo);
+        }
         void this.deps.getDependencies().parseContent?.(mount);
     }
 
@@ -1093,7 +1230,12 @@ export class NewTabSearchController {
         mount.append(kanjiSection);
     }
 
-    private renderSearchWordKanjiSection(card: JPDBCard, detail: NewTabSearchWordDetail): HTMLElement | null {
+    private renderSearchWordKanjiSection(
+        card: JPDBCard,
+        detail: NewTabSearchWordDetail,
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): HTMLElement | null {
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return null;
         if (!this.shouldLoadSearchWordKanjiDetails(card)) {
             return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
         }
@@ -1108,14 +1250,19 @@ export class NewTabSearchController {
         const details = detail.wordKanjiDetails ?? [];
         if (!details.length) return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
         details.forEach(item => {
-            section.append(this.renderSearchWordKanjiItem(card, item));
+            section.append(this.renderSearchWordKanjiItem(card, item, targetSnapshot));
         });
         return section;
     }
 
-    private renderSearchWordKanjiItem(card: JPDBCard, item: NewTabSearchWordKanjiDetail): HTMLElement {
+    private renderSearchWordKanjiItem(
+        card: JPDBCard,
+        item: NewTabSearchWordKanjiDetail,
+        targetSnapshot = this.captureTargetSnapshot(),
+    ): HTMLElement {
         const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
-        const kanjiCard = this.deps.getDependencies().parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
+        const kanjiCard = this.deps.getDependencies().parser.fallbackCardFromText?.(item.kanji, targetSnapshot.target)
+            ?? fallbackSearchKanjiCard(item.kanji);
         const localMeanings = uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6);
         kanjiCard.kanjiKeyword = this.deps.keywordFromDetails(kanjiCard, fullInfo, item.details.jiten, item.details.rtk) || localMeanings[0] || '';
         const kanjiDetail = this.deps.renderKanjiDetails(
@@ -1138,13 +1285,18 @@ export class NewTabSearchController {
     }
 
     private toggleSearchKanjiResult(button: HTMLElement, kanji: string): void {
+        if (!targetCanLookupCharacter(kanji)) return;
         const existing = this.expandSearchResultDetail(button);
         if (!existing) return;
+        const targetSnapshot = this.captureTargetSnapshot();
         replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('loadingKanjiDetails')));
         void this.deps.loadKanjiDetails(kanji).then(details => {
-            if (!existing.isConnected || button.getAttribute('aria-expanded') !== 'true') return;
+            if (!this.targetSnapshotIsCurrent(targetSnapshot)
+                || !targetCanLookupCharacter(kanji)
+                || !existing.isConnected
+                || button.getAttribute('aria-expanded') !== 'true') return;
             const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
-            const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji);
+            const card = this.deps.getDependencies().parser.fallbackCardFromText(kanji, targetSnapshot.target);
             const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
             card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
             replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
@@ -1153,7 +1305,9 @@ export class NewTabSearchController {
             void this.deps.getDependencies().parseContent?.(existing);
         }).catch(error => {
             log.warn('New tab search kanji detail failed', { kanji }, error);
-            if (existing.isConnected) replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searchLocalDictionariesFailed')));
+            if (this.targetSnapshotIsCurrent(targetSnapshot) && existing.isConnected) {
+                replaceChildrenWith(existing, el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searchLocalDictionariesFailed')));
+            }
         });
     }
 
@@ -1161,6 +1315,7 @@ export class NewTabSearchController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         delete results.dataset.searchQuery;
+        delete results.dataset.searchTarget;
         this.searchWordCardCache.clear();
         this.renderSearchAutocomplete(root, '', []);
         // Study-hub parity SH-3: the idle Search tab is the "My Cards"
@@ -1214,6 +1369,7 @@ export class NewTabSearchController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         results.dataset.searchQuery = query;
+        results.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
         replaceChildrenWith(results,
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searching')),
         );
@@ -1222,12 +1378,14 @@ export class NewTabSearchController {
     private renderSearchResults(root: HTMLElement, results: NewTabSearchResults): void {
         const mount = this.searchResultsMount(root);
         if (!mount) return;
+        const kanjiResults = targetSupportsCharacterLookup() ? results.kanji : [];
         mount.dataset.searchQuery = results.query;
+        mount.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
         this.searchWordCardCache = new Map(results.words.map(card => [cardKey(card), card]));
-        const resultCount = results.words.length + results.kanji.length;
+        const resultCount = results.words.length + kanjiResults.length;
         this.renderSearchAutocomplete(root, results.query, results.suggestions);
         replaceChildrenWith(mount,
-            results.kanji.length ? renderSearchKanjiResults(results.kanji, this.searchViewContext()) : null,
+            kanjiResults.length ? renderSearchKanjiResults(kanjiResults, this.searchViewContext()) : null,
             results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
             resultCount ? null : this.renderSearchNoResults(results),
         );
@@ -1242,11 +1400,12 @@ export class NewTabSearchController {
     }
 
     private async enrichSearchResultPitch(root: HTMLElement, results: NewTabSearchResults, generation: number): Promise<void> {
+        if (!usesJapaneseProviders()) return;
         const cards = results.words.filter(card => this.deps.shouldEnrichWordPitch(card));
         if (!cards.length) return;
         await runLimited(cards, NEW_TAB_SEARCH_PITCH_CONCURRENCY, async card => {
             const pitchAccent = await this.deps.loadWordPitch(card);
-            if (!pitchAccent.length || !this.isCurrentSearch(root, generation, results.query)) return;
+            if (!usesJapaneseProviders() || !pitchAccent.length || !this.isCurrentSearch(root, generation, results.query)) return;
             if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
             this.deps.updateRenderedWordPitch(root, card);
         });
@@ -1278,6 +1437,7 @@ export class NewTabSearchController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         results.dataset.searchQuery = query;
+        results.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
         this.searchWordCardCache.clear();
         replaceChildrenWith(results,
             el('div', { class: 'jpdb-reader-newtab-search-message' }, this.deps.text('searchLocalDictionariesFailed')),
@@ -1289,7 +1449,7 @@ export class NewTabSearchController {
             language: this.deps.language(),
             settings: this.deps.getDependencies().getSettings(),
             text: key => this.deps.text(key),
-            showKanjiFallbackReadings: true,
+            showKanjiFallbackReadings: targetSupportsCharacterLookup(),
         };
     }
 

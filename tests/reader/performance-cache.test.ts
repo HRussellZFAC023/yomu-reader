@@ -12,6 +12,8 @@ import type { AnkiConnectClient } from '../../src/reader/anki/index';
 import type { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../../src/reader/jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
+import { renderPronunciation } from '../../src/reader/popup/pronunciation';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
 
 type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
 type CardRenderDataLoaderFixture = {
@@ -57,6 +59,106 @@ function createCardRenderDataLoader({
 }
 
 describe('performance cache bounds', () => {
+    it('preserves Yue local definitions, IPA metadata, and Anki while silencing Japanese providers', async () => {
+        setActiveLearningTargetLanguage('yue');
+        const localEntry = { expression: '學', reading: 'hok6', glossary: ['to learn'], dictionary: 'Cantonese' };
+        const ipaEntry = {
+            expression: '學',
+            mode: 'ipa' as const,
+            data: { reading: 'hok6', transcriptions: [{ ipa: '/hɔːk̚⁶/' }] },
+            dictionary: 'Cantonese IPA',
+        };
+        const lookup = vi.fn(async () => [localEntry]);
+        const lookupTermMeta = vi.fn(async () => [ipaEntry]);
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const jpdbLookup = vi.fn(async () => ({ meanings: ['Japanese result'] }));
+        const jpdbSearch = vi.fn(async () => []);
+        const jitenLookup = vi.fn(async () => ({ meanings: ['Japanese result'] }));
+        const jitenSearch = vi.fn(async () => []);
+        const bunproSearch = vi.fn(async () => ({}));
+        const cachedAnki = { state: 'known' as const, notes: [], primary: null };
+        const findCachedStatusBatch = vi.fn(async () => [cachedAnki]);
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: true,
+            showPitchAccent: true,
+            ankiEnabled: true,
+            ankiSectionEnabled: true,
+            jpdbDefinitionsEnabled: true,
+            jitenDefinitionsEnabled: true,
+            bunproDefinitionsEnabled: true,
+            jpdbMiningEnabled: true,
+            apiKey: 'jpdb-key',
+            jitenApiKey: 'jiten-key',
+        };
+        const loader = new CardRenderDataLoader({
+            getSettings: () => settings,
+            dictionaries: {
+                lookup,
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta,
+            },
+            jpdbPublicPitch: { lookup: publicPitch },
+            jpdbVocabulary: { lookup: jpdbLookup, search: jpdbSearch },
+            anki: {
+                findCachedStatusBatch,
+                findExistingCards: vi.fn(async () => cachedAnki),
+                deckNames: vi.fn(async () => []),
+            },
+            jpdb: { listDecks: vi.fn(async () => []), isInUserDeckPool: vi.fn(async () => false) },
+            jiten: {
+                lookupVocabularyInfoForCard: jitenLookup,
+                searchVocabulary: jitenSearch,
+                listReaderStudyDecks: vi.fn(async () => []),
+            },
+            bunpro: {
+                search: bunproSearch,
+                getVocab: vi.fn(async () => ({})),
+                getGrammarPoint: vi.fn(async () => ({})),
+            },
+            isJpdbBackedCard: () => false,
+        } as unknown as CardRenderDataLoaderDependencies);
+        const lookupCard: JPDBCard = {
+            ...cardFor(1),
+            spelling: '學',
+            reading: 'hok6',
+            language: 'yue',
+            source: 'fallback',
+            fallbackLookupTerms: ['學'],
+            pitchAccent: [],
+        };
+
+        try {
+            const load = loader.load(lookupCard);
+            const data = await load.all;
+
+            expect(data.localEntries).toEqual([localEntry]);
+            expect(data.metaEntries).toEqual([ipaEntry]);
+            expect(data.ankiLookup).toEqual(cachedAnki);
+            expect(renderPronunciation({
+                card: lookupCard,
+                settings,
+                metaEntries: data.metaEntries,
+                dictionaryLabel: name => name,
+            })).toContain('/hɔːk̚⁶/');
+            expect(data).toMatchObject({
+                jpdbVocabularyInfo: null,
+                jitenVocabularyInfo: null,
+                bunproDefinitionInfo: null,
+                frequencyRanks: {},
+            });
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(jpdbLookup).not.toHaveBeenCalled();
+            expect(jpdbSearch).not.toHaveBeenCalled();
+            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(jitenSearch).not.toHaveBeenCalled();
+            expect(bunproSearch).not.toHaveBeenCalled();
+            expect(findCachedStatusBatch).toHaveBeenCalledWith([lookupCard]);
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('loads installed definitions for an authored fallback lemma instead of rendering an empty definition state', async () => {
         const lookup = vi.fn(async (term: string) => term === '行く'
             ? [{ expression: '行く', reading: 'いく', glossary: ['to go'], dictionary: 'Jitendex' }]

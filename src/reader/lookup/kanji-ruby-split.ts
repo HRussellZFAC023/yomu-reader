@@ -1,4 +1,9 @@
-import { KANA_ONLY_RUN_RE as KANA_ONLY_RE, KANA_WITH_PROLONGED } from './japanese-script';
+import {
+    ITERATION_MARK,
+    KANA_ONLY_RUN_RE as KANA_ONLY_RE,
+    KANA_WITH_PROLONGED,
+    isJapaneseKanjiCharacter,
+} from './japanese-script';
 // Splits a whole-word reading across individual kanji using readings from the
 // user's imported kanji dictionaries. Shared kana affixes are trimmed first, so
 // 質問する/しつもんする can align as 質=しつ 問=もん while する stays unannotated.
@@ -10,7 +15,6 @@ export interface KanjiRubySegment {
 }
 
 const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, 'u');
-const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
 
 export function splitReadingAcrossKanji(
     base: string,
@@ -24,17 +28,24 @@ export function splitReadingAcrossKanji(
 
     const trimmed = trimSharedKanaAffixes(base, kana);
     const characters = Array.from(trimmed.base);
-    if (characters.length < 2 || !characters.every(char => KANJI_CHAR_RE.test(char))) return null;
+    if (characters.length < 2 || !characters.every(isKanjiRubyCharacter)) return null;
 
     const plans = alignKanjiReadings(characters, trimmed.reading, 0, readingsForKanji);
     if (plans.length !== 1) return null;
     const readingCharacters = Array.from(sourceReading);
     const segments: KanjiRubySegment[] = [];
-    let offset = trimmed.readingStart;
+    let readingOffset = trimmed.readingStart;
+    let baseOffset = trimmed.baseStart;
     plans[0].forEach((segment, index) => {
-        const segmentText = readingCharacters.slice(offset, offset + segment.length).join('');
-        segments.push({ text: segmentText, start: trimmed.baseStart + index, end: trimmed.baseStart + index + 1 });
-        offset += segment.length;
+        const character = characters[index] ?? '';
+        const segmentText = readingCharacters.slice(readingOffset, readingOffset + segment.length).join('');
+        segments.push({
+            text: segmentText,
+            start: baseOffset,
+            end: baseOffset + character.length,
+        });
+        readingOffset += segment.length;
+        baseOffset += character.length;
     });
     return segments;
 }
@@ -65,7 +76,11 @@ function sameKana(base: string | undefined, reading: string | undefined): boolea
 }
 
 function kanjiCharacterCount(value: string): number {
-    return Array.from(value).filter(char => KANJI_CHAR_RE.test(char)).length;
+    return Array.from(value).filter(isKanjiRubyCharacter).length;
+}
+
+function isKanjiRubyCharacter(value: string): boolean {
+    return value === ITERATION_MARK || isJapaneseKanjiCharacter(value);
 }
 
 function alignKanjiReadings(

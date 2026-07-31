@@ -580,6 +580,33 @@ describe('type-word typed answers', () => {
         }
     });
 
+    it('falls back to typing and disables Japanese handwriting for a Chinese target', () => {
+        adoptLearningTargetLanguage('zh');
+        const card = typeCard({
+            language: 'zh',
+            spelling: '学习',
+            reading: 'xuéxí',
+            sentence: '我学习中文。',
+            pitchAccent: [],
+        });
+        const loadKanjiDetails = vi.fn();
+        const { controller, internals } = typeWordController(
+            [card],
+            { newTabTypeWordInputMode: 'handwriting' },
+            { jpdbKanji: { lookup: loadKanjiDetails } as never },
+        );
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            expect(root.querySelector('[data-newtab-type-input]')).not.toBeNull();
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
+            expect(root.querySelector<HTMLButtonElement>('[data-type-word-mode="handwriting"]')?.disabled).toBe(true);
+            expect(loadKanjiDetails).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('offers a handwriting toggle that remembers the last used mode', () => {
         const card = typeCard();
         const { controller, internals, settings } = typeWordController([card]);

@@ -39,6 +39,10 @@ import type {
 } from './fixtures';
 import { DOCS_BASE_URL } from '../../../src/reader/app/constants';
 import { studyShellNavRoutes } from '../../../src/reader/app/site-nav';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/target-runtime';
 
 describe('new tab review — dictionary fallbacks, refresh & shared-URL history', () => {
     registerNewTabReviewCleanup();
@@ -1311,6 +1315,39 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['読む']);
         } finally {
             root.remove();
+        }
+    });
+
+    it('does not turn a target-change lookup rejection into an ambient portable fallback card', async () => {
+        localStorage.removeItem('jpdb-reader-newtab-ui');
+        window.history.replaceState(null, '', `/newtab/index.html#card=${encodeURIComponent('999:1:図鑑:ずかん')}&w=${encodeURIComponent('図鑑')}&r=${encodeURIComponent('ずかん')}`);
+        const queued = newTabTestCard({ vid: 1, spelling: '読む', reading: 'よむ', source: 'jpdb', reviewSource: 'jpdb-api' });
+        let rejectLookup!: (error: Error) => void;
+        const lookupPromise = new Promise<JPDBCard | null>((_resolve, reject) => { rejectLookup = reject; });
+        const lookupStudyCard = vi.fn(() => lookupPromise);
+        const fallbackCardFromText = vi.fn(() => newTabTestCard({ spelling: '図鑑', reading: 'ずかん', source: 'fallback' }));
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, newTabSource: 'jpdb', immersionKitEnabled: false }), {
+            lookupStudyCard,
+            parser: {
+                cacheCards: vi.fn(),
+                fallbackCardFromText,
+            } as never,
+        });
+        const internals = controller as unknown as {
+            withPortableUrlCard(cards: JPDBCard[]): Promise<JPDBCard[]>;
+        };
+
+        try {
+            const resolved = internals.withPortableUrlCard([queued]);
+            await waitForExpect(() => expect(lookupStudyCard).toHaveBeenCalledWith('図鑑', 'ずかん'));
+            expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+            expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+            rejectLookup(new Error('target changed'));
+
+            await expect(resolved).resolves.toEqual([queued]);
+            expect(fallbackCardFromText).not.toHaveBeenCalled();
+        } finally {
+            resetActiveLearningTargetLanguage();
         }
     });
 

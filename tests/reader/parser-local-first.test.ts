@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { YomitanTermMatch } from '../../src/reader/dictionaries/yomitan';
 
@@ -35,6 +39,7 @@ interface HarnessOverrides {
 function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOverrides = {}) {
     const jpdbParse = vi.fn(async (paragraphs: string[]) => paragraphs.map(() => []));
     const jitenParse = vi.fn(async (paragraphs: string[]) => paragraphs.map(() => []));
+    const publicJitenParse = vi.fn(async (paragraphs: readonly string[]) => paragraphs.map(() => []));
     const findTermMatches = vi.fn(async (text: string) => (text.includes('日本語') ? [termMatch('日本語', 'にほんご', text.indexOf('日本語'))] : []));
     const parser = new ReaderParser({
         getSettings: () => ({
@@ -46,6 +51,7 @@ function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOve
         }),
         jpdb: { parse: jpdbParse } as never,
         jiten: { parse: jitenParse } as never,
+        jitenPublicVocabulary: { parse: publicJitenParse },
         dictionaries: {
             hasTermDictionaries: vi.fn(async () => hasTermDictionaries),
             findTermMatches,
@@ -53,8 +59,16 @@ function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOve
             lookupKanji: vi.fn(async () => []),
         } as never,
     });
-    return { parser, jpdbParse, jitenParse, findTermMatches };
+    return { parser, jpdbParse, jitenParse, publicJitenParse, findTermMatches };
 }
+
+afterEach(() => {
+    resetActiveLearningTargetLanguage();
+});
+
+beforeEach(() => {
+    resetActiveLearningTargetLanguage();
+});
 
 describe('local-first parsing', () => {
     it('parses with local dictionaries and never calls Jiten/JPDB when term dictionaries are installed', async () => {
@@ -92,6 +106,32 @@ describe('local-first parsing', () => {
 
         expect(jitenParse).toHaveBeenCalledTimes(1);
         expect(findTermMatches).not.toHaveBeenCalled();
+    });
+});
+
+describe('non-Japanese provider isolation', () => {
+    it.each([true, false])('uses only local/segmented parsing when term dictionaries installed is %s', async hasTermDictionaries => {
+        setActiveLearningTargetLanguage('zh');
+        const {
+            parser,
+            jpdbParse,
+            jitenParse,
+            publicJitenParse,
+        } = parserHarness({
+            settings: { parserProvider: 'auto' },
+            hasTermDictionaries,
+        });
+
+        const [tokens] = await parser.parse(['我去市場'], {
+            requireApi: true,
+            requireJpdb: true,
+            allowSegmentedFallback: true,
+        });
+
+        expect(jpdbParse).not.toHaveBeenCalled();
+        expect(jitenParse).not.toHaveBeenCalled();
+        expect(publicJitenParse).not.toHaveBeenCalled();
+        expect(tokens?.length).toBeGreaterThan(0);
     });
 });
 

@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import { normalizeOcrRenderedText } from '../../src/reader/ocr/rendered-text';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { dispatchPointerEvent } from './helpers/browser-fixtures';
 import { stubInstantIntersectionObserver } from './helpers/dom-fixtures';
@@ -874,6 +878,61 @@ describe('OCR sentence focus', () => {
             });
         } finally {
             controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('drops an OCR parse when the target switches away and back before fallback cards are built', async () => {
+        stubInstantIntersectionObserver();
+        const image = document.createElement('img');
+        image.src = '/ocr-target-switch.png';
+        image.dataset.ocrLines = JSON.stringify([
+            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        ]);
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+
+        let resolveParse!: (tokens: JPDBToken[]) => void;
+        const parseJapanese = vi.fn(() => new Promise<JPDBToken[]>(resolve => {
+            resolveParse = resolve;
+        }));
+        const fallbackCardFromText = vi.fn((text: string) => testCard({
+            spelling: text,
+            reading: '',
+            source: 'fallback',
+        }));
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese,
+            fallbackCardFromText,
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+            await waitForExpect(() => expect(parseJapanese).toHaveBeenCalled());
+            setActiveLearningTargetLanguage('zh');
+            setActiveLearningTargetLanguage('ja');
+            resolveParse([]);
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(fallbackCardFromText).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+        } finally {
+            controller.destroy();
+            resetActiveLearningTargetLanguage();
             vi.unstubAllGlobals();
             document.body.replaceChildren();
         }

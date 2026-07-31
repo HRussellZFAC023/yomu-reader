@@ -88,7 +88,6 @@ import {
     buildKanjiOriginGraph,
     buildRtkComponentSummaries,
     installOriginGraphInteractions,
-    isKanjiCharacter,
     pickTokenForSelection,
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
@@ -98,6 +97,11 @@ import {
 } from '../popup/render';
 import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
+import {
+    targetCanLookupCharacter,
+    targetSupportsCharacterLookup,
+    usesJapaneseProviders,
+} from '../languages/character-lookup';
 import { ReaderParser, jpdbFirstParseOptions } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
@@ -142,7 +146,9 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { outputLanguageOf } from '../languages/selection';
+import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
+import { adoptLearningTargetFromSettings } from '../languages/target-selection';
+import { activeLearningTarget, activeLearningTargetGeneration } from '../languages/target-runtime';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
@@ -231,9 +237,27 @@ interface KanjiLookupDetailPromises {
     kanjiSourceInfo: Promise<KanjiSourceInfo | null>;
 }
 
+function emptyKanjiLookupDetailPromises(): KanjiLookupDetailPromises {
+    return {
+        jpdbInfo: Promise.resolve(null),
+        jitenInfo: Promise.resolve(null),
+        kanjiEntries: Promise.resolve([]),
+        rtkInfo: Promise.resolve(null),
+        kanjiVGInfo: Promise.resolve(null),
+        kanjiSourceInfo: Promise.resolve(null),
+    };
+}
+
 interface LookupPopoverScrollState {
     body?: HTMLElement;
     scrollTop: number;
+}
+
+interface LookupTargetSnapshot {
+    generation: number;
+    language: string;
+    runtimeGeneration: number;
+    target: ReturnType<typeof activeLearningTarget>;
 }
 
 type UchisenData = Awaited<ReturnType<typeof loadUchisenData>>;
@@ -383,6 +407,10 @@ export class NewTabRuntime {
     private activeLookupHandlerController?: AbortController;
     private readonly lookupModal = new LookupModalAccessibility();
     private lookupRenderRequest = 0;
+    private lookupTargetGeneration = 0;
+    private lookupTargetLanguage = targetLanguageOf(DEFAULT_SETTINGS);
+    private lookupRuntimeGeneration = activeLearningTargetGeneration();
+    private lookupRenderTarget?: LookupTargetSnapshot;
     private parseContentCache = new Map<string, { expiresAt: number; promise: Promise<JPDBToken[][]> }>();
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
@@ -473,7 +501,10 @@ export class NewTabRuntime {
 
     private settingsDialog = new SettingsDialogController({
         getSettings: () => this.settings,
-        setSettings: settings => { this.settings = settings; },
+        setSettings: settings => {
+            this.settings = settings;
+            this.syncLookupTarget(settings);
+        },
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
         anki: this.anki,
@@ -521,6 +552,7 @@ export class NewTabRuntime {
         if (this.options.interfaceLanguage) {
             this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
         }
+        this.syncLookupTarget(this.settings);
         configureLogger({ forceEnabled: this.settings.enableLogging });
         // D43: the new tab and the study app are documents Yomu owns outright, so
         // they take `lang`, `dir` and the per-script interface font from the
@@ -555,6 +587,7 @@ export class NewTabRuntime {
             getSettings: () => this.settings,
             setSettings: settings => {
                 this.settings = settings;
+                this.syncLookupTarget(settings);
                 this.applyTheme(settings);
                 this.applyWordColors(settings);
             },
@@ -635,6 +668,7 @@ export class NewTabRuntime {
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
         this.settings = settings;
+        this.syncLookupTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.cardRenderData.clear();
         this.parseContentCache.clear();
@@ -886,13 +920,52 @@ export class NewTabRuntime {
 
     private nextLookupRenderRequest(): number {
         this.lookupRenderRequest += 1;
+        this.lookupRenderTarget = this.captureLookupTarget();
         return this.lookupRenderRequest;
     }
 
     private isCurrentLookupRender(popover: HTMLElement, requestId: number): boolean {
         return requestId === this.lookupRenderRequest
+            && Boolean(this.lookupRenderTarget && this.isCurrentLookupTarget(this.lookupRenderTarget))
             && popover.isConnected
             && this.activeLookupPopover === popover;
+    }
+
+    private captureLookupTarget(): LookupTargetSnapshot {
+        return {
+            generation: this.lookupTargetGeneration,
+            language: this.lookupTargetLanguage,
+            runtimeGeneration: activeLearningTargetGeneration(),
+            target: activeLearningTarget(),
+        };
+    }
+
+    private isCurrentLookupTarget(snapshot: LookupTargetSnapshot): boolean {
+        return snapshot.generation === this.lookupTargetGeneration
+            && snapshot.language === this.lookupTargetLanguage
+            && snapshot.runtimeGeneration === activeLearningTargetGeneration()
+            && snapshot.target === activeLearningTarget();
+    }
+
+    private syncLookupTarget(settings: ReaderSettings): void {
+        const language = adoptLearningTargetFromSettings(settings).language;
+        const runtimeGeneration = activeLearningTargetGeneration();
+        if (language === this.lookupTargetLanguage
+            && runtimeGeneration === this.lookupRuntimeGeneration) return;
+        this.lookupTargetLanguage = language;
+        this.lookupRuntimeGeneration = runtimeGeneration;
+        this.lookupTargetGeneration += 1;
+        this.lookupRenderRequest += 1;
+        this.lookupRenderTarget = undefined;
+        this.newTab?.invalidateForTargetChange();
+        // This closes only the lookup layer. A settings dialog underneath a
+        // stacked lookup remains mounted and interactive.
+        this.dismissLookupPopover();
+    }
+
+    private isCurrentKanjiLookupRender(popover: HTMLElement, requestId: number, kanji: string): boolean {
+        return targetCanLookupCharacter(kanji)
+            && this.isCurrentLookupRender(popover, requestId);
     }
 
     private lookupRenderSurface(reuseActivePopover: boolean): { popover: HTMLElement; reused: boolean } {
@@ -946,10 +1019,13 @@ export class NewTabRuntime {
     private async lookupText(text: string, reading = text, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): Promise<void> {
         const term = text.trim();
         if (!HAS_JAPANESE.test(term)) return;
+        const lookupTarget = this.captureLookupTarget();
         const sentence = anchor?.dataset.sentence || term;
         const previousNavigationEntry = options.previousNavigationEntry
             ?? this.lookupPreviousNavigationEntry(options.navigation);
-        const card = await this.lookupCard(term, reading);
+        const card = await this.lookupCard(term, reading, lookupTarget).catch(() => null);
+        if (!card) return;
+        if (!this.isCurrentLookupTarget(lookupTarget)) return;
         await this.showLookupCard(card, sentence, anchor, {
             ...options,
             previousNavigationEntry,
@@ -1173,7 +1249,7 @@ export class NewTabRuntime {
     }
 
     private async showKanjiLookupCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: NewTabKanjiLookupOptions = {}): Promise<void> {
-        if (!isKanjiCharacter(kanji)) return;
+        if (!targetCanLookupCharacter(kanji)) return;
         const requestId = this.nextLookupRenderRequest();
         const navigation = options.navigation ?? 'reset';
         this.navigation.updateKanji(card, kanji, sentence, navigation);
@@ -1307,6 +1383,10 @@ export class NewTabRuntime {
     }
 
     private handleKanjiLookupAction(button: HTMLButtonElement, card: JPDBCard, kanji: string, sentence?: string): void {
+        // A target switch can leave the old popover connected long enough for
+        // one more delegated click. Make the stale surface inert before any
+        // Japanese provider action is dispatched.
+        if (!targetCanLookupCharacter(kanji)) return;
         const handlers: Record<string, () => void> = {
             'copy-word': () => {
                 void copyText(kanji).then(() => this.toast(uiText(this.settings.interfaceLanguage, 'copiedWord')));
@@ -1350,7 +1430,7 @@ export class NewTabRuntime {
     }
 
     private jitenKanjiWordsActionContext(): JitenKanjiWordsActionContext | null {
-        if (!this.isJitenApiActive()) return null;
+        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !this.isJitenApiActive()) return null;
         return {
             lookupKanjiWords: (character, options) => this.jiten.lookupKanjiWords(character, options),
             language: () => this.settings.interfaceLanguage,
@@ -1380,6 +1460,7 @@ export class NewTabRuntime {
     }
 
     private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
         let jpdbInfo: JpdbKanjiInfo | null = null;
         let jitenInfo: JitenKanjiInfo | null = null;
         let rtkInfo: RtkInfo | null = null;
@@ -1396,7 +1477,7 @@ export class NewTabRuntime {
         this.installKanjiLookupImmersionExamples(popover, kanji);
 
         const renderKeyword = () => {
-            if (!this.isCurrentLookupRender(popover, requestId)) return;
+            if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
             if (mount?.isConnected) setInnerHtml(mount, jitenInfo
                 ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, this.settings.interfaceLanguage, sourceInfo)
@@ -1405,7 +1486,7 @@ export class NewTabRuntime {
         // Merge each provider's own KANJI frequency into the heading pills
         // (Jiten's kanji API rank, JPDB's "Top 300-400" band) once it arrives.
         const renderKanjiPillRanks = () => {
-            if (!this.isCurrentLookupRender(popover, requestId)) return;
+            if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
             const frequencyRanks = kanjiFrequencyRanks(kanji, jitenInfo?.frequencyRank, jpdbInfo?.frequency);
             if (!frequencyRanks.jiten && !frequencyRanks.jpdb) return;
             updateHeadingWordPills(popover, {
@@ -1420,7 +1501,7 @@ export class NewTabRuntime {
             });
         };
         const renderRtk = () => {
-            if (!this.isCurrentLookupRender(popover, requestId)) return;
+            if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
             const mount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
             if (!mount?.isConnected) return;
             const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
@@ -1434,7 +1515,7 @@ export class NewTabRuntime {
         };
 
         const renderDefinitions = () => {
-            if (!this.isCurrentLookupRender(popover, requestId)) return;
+            if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
             popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]').forEach(mount => {
                 const dictionaryName = mount.dataset.kanjiDictionary;
                 const sourceId = mount.dataset.kanjiSourceId ?? KANJI_DICTIONARIES_SOURCE_ID;
@@ -1450,7 +1531,7 @@ export class NewTabRuntime {
         };
 
         const renderKanjiVG = () => {
-            if (!kanjiVGInfo || !this.isCurrentLookupRender(popover, requestId)) return;
+            if (!kanjiVGInfo || !this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
             const stage = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-doodle-stage'))
                 .find(candidate => candidate.dataset.kanji === kanji);
             const ghost = stage?.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
@@ -1463,7 +1544,7 @@ export class NewTabRuntime {
         await Promise.all([
             detailPromises.jpdbInfo.then(info => {
                 jpdbInfo = info;
-                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
                 renderKeyword();
                 renderKanjiPillRanks();
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
@@ -1477,7 +1558,7 @@ export class NewTabRuntime {
             }),
             detailPromises.jitenInfo.then(info => {
                 jitenInfo = info;
-                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
                 renderKeyword();
                 renderKanjiPillRanks();
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
@@ -1485,20 +1566,20 @@ export class NewTabRuntime {
             }),
             detailPromises.kanjiEntries.then(entries => {
                 kanjiEntries = entries;
-                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
                 renderKeyword();
                 renderDefinitions();
                 renderRtk();
             }),
             detailPromises.rtkInfo.then(info => {
                 rtkInfo = info;
-                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
                 renderKeyword();
                 renderRtk();
             }),
             detailPromises.kanjiVGInfo.then(info => {
                 kanjiVGInfo = info;
-                if (!this.isCurrentLookupRender(popover, requestId)) return;
+                if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
                 renderKanjiVG();
                 practiceDoodle.reassess();
             }),
@@ -1507,13 +1588,14 @@ export class NewTabRuntime {
                 renderKeyword();
             }),
         ]);
-        if (!this.isCurrentLookupRender(popover, requestId)) return;
+        if (!this.isCurrentKanjiLookupRender(popover, requestId, kanji)) return;
         this.renderKanjiLookupOrigins(popover, requestId, kanji, jpdbInfo, jitenInfo, rtkInfo, kanjiVGInfo, kanjiEntries, sourceInfo);
         void this.parseNewTabContent(popover);
         this.repositionLookupPopover();
     }
 
     private kanjiLookupDetailPromises(kanji: string): KanjiLookupDetailPromises {
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return emptyKanjiLookupDetailPromises();
         return {
             jpdbInfo: this.settings.jpdbKanjiEnabled
                 ? this.lookupDetailWithTimeout(this.jpdbKanji.lookup(kanji), null, 'JPDB kanji lookup timed out.')
@@ -1560,6 +1642,7 @@ export class NewTabRuntime {
         kanjiEntries: YomitanKanjiEntry[],
         sourceInfo: KanjiSourceInfo | null,
     ): void {
+        if (!targetCanLookupCharacter(kanji)) return;
         const mount = this.kanjiLookupOriginMount(popover, requestId);
         if (!mount) return;
         const sourceStateKey = kanjiSourceStateKey(KANJI_ORIGINS_SOURCE_ID);
@@ -1611,7 +1694,7 @@ export class NewTabRuntime {
     }
 
     private installKanjiLookupImmersionExamples(popover: HTMLElement, kanji: string): void {
-        if (!this.shouldRenderKanjiImmersionKit()) return;
+        if (!targetCanLookupCharacter(kanji) || !this.shouldRenderKanjiImmersionKit()) return;
         this.immersionPopover.installLazyLoad(popover, jpdbAudioCard(kanji, kanji));
     }
 
@@ -1635,6 +1718,7 @@ export class NewTabRuntime {
     }
 
     private async renderUchisenInto(popover: HTMLElement, kanji: string, requestId: number): Promise<void> {
+        if (!targetCanLookupCharacter(kanji)) return;
         const mount = this.kanjiLookupUchisenMount(popover, requestId);
         if (!mount) return;
         const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
@@ -1646,7 +1730,7 @@ export class NewTabRuntime {
             </details>
         `);
         const data = await this.loadUchisenLookupData(kanji);
-        if (!this.canRenderKanjiLookupMount(popover, requestId, mount)) return;
+        if (!targetCanLookupCharacter(kanji) || !this.canRenderKanjiLookupMount(popover, requestId, mount)) return;
         if (this.shouldRemoveEmptyUchisenData(data)) {
             mount.remove();
             this.repositionLookupPopover();
@@ -1662,10 +1746,10 @@ export class NewTabRuntime {
             kanjiKeyword: data.kanjiKeyword,
             kanjiId: data.kanjiId,
             canGenerateImages: data.canGenerateImages,
-            refreshData: () => loadUchisenData(kanji, this.settings.corsProxyUrl),
+            refreshData: () => this.loadUchisenLookupData(kanji),
             interfaceLanguage: this.settings.interfaceLanguage,
         });
-        if (this.isCurrentLookupRender(popover, requestId)) this.repositionLookupPopover();
+        if (this.isCurrentKanjiLookupRender(popover, requestId, kanji)) this.repositionLookupPopover();
     }
 
     private kanjiLookupUchisenMount(popover: HTMLElement, requestId: number): HTMLElement | null {
@@ -1679,6 +1763,15 @@ export class NewTabRuntime {
     }
 
     private loadUchisenLookupData(kanji: string): Promise<UchisenData> {
+        if (!targetCanLookupCharacter(kanji)) {
+            return Promise.resolve({
+                images: [],
+                componentGroups: [],
+                kanjiKeyword: null,
+                kanjiId: '',
+                canGenerateImages: false,
+            });
+        }
         return loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({
             images: [],
             componentGroups: [],
@@ -1693,8 +1786,10 @@ export class NewTabRuntime {
     }
 
     private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
+        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
         try {
             await this.jpdbKanji.performAction(actionId);
+            if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
             this.toast(this.text('jpdbKanjiUpdated'));
             await this.showKanjiLookupCard(card, kanji, sentence, anchor, {
                 navigation: 'preserve',
@@ -1950,24 +2045,41 @@ export class NewTabRuntime {
         });
     }
 
-    private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
+    private async lookupCard(
+        term: string,
+        reading: string,
+        lookupTarget = this.captureLookupTarget(),
+    ): Promise<JPDBCard> {
         const localEntry = await this.localLookupEntry(term, reading);
-        if (localEntry) return this.parser.localCardFromEntry(localEntry);
-        const allowJpdbPublicLookup = this.settings.jpdbDefinitionsEnabled;
+        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
+        if (localEntry) return this.parser.localCardFromEntry(localEntry, lookupTarget.target);
+        const allowJapaneseProviders = usesJapaneseProviders();
+        const allowJpdbPublicLookup = allowJapaneseProviders && this.settings.jpdbDefinitionsEnabled;
         const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : undefined;
+        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
         if (publicCard) return publicCard;
-        const fallbackCard = this.parser.fallbackCardFromText(term);
-        const fallbackPublicCard = await this.publicLookupFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false });
+        const fallbackCard = this.parser.fallbackCardFromText(term, lookupTarget.target);
+        const fallbackPublicCard = allowJapaneseProviders
+            ? await this.publicLookupFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false })
+            : undefined;
+        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
         if (fallbackPublicCard) return fallbackPublicCard;
-        const parsed = await this.parser.parse([term], jpdbFirstParseOptions()).catch(() => [[]]);
+        const parsed = await this.parser.parse(
+            [term],
+            allowJapaneseProviders
+                ? jpdbFirstParseOptions()
+                : { skipApi: true, allowSegmentedFallback: true },
+        ).catch(() => [[]]);
+        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
         const token = pickTokenForSelection(parsed[0] ?? [], term);
         if (token) return token.card;
         return fallbackCard;
     }
 
     private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
-        if (!this.settings.jpdbDefinitionsEnabled) return undefined;
+        if (!usesJapaneseProviders() || !this.settings.jpdbDefinitionsEnabled) return undefined;
         const cards = await this.jpdbVocabulary.search(term, 1).catch(() => []);
+        if (!usesJapaneseProviders()) return undefined;
         return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
     }
 
@@ -1976,22 +2088,26 @@ export class NewTabRuntime {
     }
 
     private async publicLookupFallbackCards(cards: readonly JPDBCard[], options: { jpdbPublicLookup?: boolean } = {}): Promise<Map<string, JPDBCard>> {
-        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return new Map<string, JPDBCard>();
-        return publicLookupFallbackCards(cards, {
-            jitenApiActive: () => this.isJitenApiActive(),
-            parse: terms => this.jiten.parse(terms),
-            lookupMany: terms => this.jitenPublicVocabulary.lookupMany(terms),
+        if (!usesJapaneseProviders() || (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent)) return new Map<string, JPDBCard>();
+        const resolved = await publicLookupFallbackCards(cards, {
+            jitenApiActive: () => usesJapaneseProviders() && this.isJitenApiActive(),
+            parse: terms => usesJapaneseProviders() ? this.jiten.parse(terms) : Promise.resolve(terms.map(() => [])),
+            lookupMany: terms => usesJapaneseProviders() ? this.jitenPublicVocabulary.lookupMany(terms) : Promise.resolve(new Map()),
             publicSpellingCard: async term => {
+                if (!usesJapaneseProviders()) return undefined;
                 const found = await this.jpdbVocabulary.search(term, 1).catch(error => {
                     log.warn('Public JPDB fallback search failed', { term }, error);
                     return [];
                 });
-                return found.find(candidate => candidate.spelling === term);
+                return usesJapaneseProviders()
+                    ? found.find(candidate => candidate.spelling === term)
+                    : undefined;
             },
         }, {
             concurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
             jpdbPublicLookup: options.jpdbPublicLookup,
         });
+        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -2222,7 +2338,7 @@ export class NewTabRuntime {
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
-        if (!this.settings.showPitchAccent) return;
+        if (!usesJapaneseProviders() || !this.settings.showPitchAccent) return;
         // Public pitch enrichment is keyless — don't gate it on a JPDB API key, or
         // Jiten-only / no-key readers never get pitch underlines.
         const uniqueTokens = this.uniqueTokens(
@@ -2234,8 +2350,9 @@ export class NewTabRuntime {
         );
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
+            if (!usesJapaneseProviders()) return;
             const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
-            if (!pitchAccent.length) return;
+            if (!usesJapaneseProviders() || !pitchAccent.length) return;
             if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
             this.applyPitchAccentToRenderedWords(token.card);
         });
@@ -2246,13 +2363,14 @@ export class NewTabRuntime {
         limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT,
         options: { preserveMissingFallbacks?: boolean } = {},
     ): Promise<void> {
-        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
+        if (!usesJapaneseProviders() || (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent)) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
             token => token.card.source === 'fallback',
             limit,
         );
         const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map(token => token.card), { jpdbPublicLookup: false });
+        if (!usesJapaneseProviders()) return;
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
@@ -2446,12 +2564,14 @@ export class NewTabRuntime {
     }
 
     private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}, publicJitenDetailLimit?: number): Promise<JPDBToken[][]> {
+        const allowJapaneseProviders = usesJapaneseProviders();
         const parseOptions = {
             jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
             allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
             includeLocalPitch: false,
             allowSegmentedFallback: true,
-            ...(publicJitenDetailLimit === undefined ? {} : { publicJitenDetailLimit }),
+            skipApi: !allowJapaneseProviders,
+            ...(allowJapaneseProviders && publicJitenDetailLimit !== undefined ? { publicJitenDetailLimit } : {}),
         };
         const key = parseContentCacheKey(texts, parseOptions, this.settings);
         const now = Date.now();
@@ -2570,12 +2690,14 @@ export class NewTabRuntime {
     }
 
     private async hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void> {
+        if (!usesJapaneseProviders()) return;
         const tokens = this.uniqueTokens(
             parsed.flat(),
             token => token.card.source === 'fallback',
             NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT,
         );
         const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card), { jpdbPublicLookup: false });
+        if (!usesJapaneseProviders()) return;
         await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) return;

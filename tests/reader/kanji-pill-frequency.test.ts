@@ -64,4 +64,39 @@ describe('kanji popover pill frequency update', () => {
         const ranks = kanjiFrequencyRanks('肉', null, '');
         expect(ranks).toEqual({});
     });
+
+    it.each(['肉', '々', '〆', '〇', '𠮟', '𩸽'])('routes the single kanji %s to Jiten kanji lookup', kanji => {
+        const popover = kanjiShellPopover();
+        updateHeadingWordPills(popover, {
+            card: kanjiCard(),
+            jpdbUrl: `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`,
+            settings: DEFAULT_SETTINGS,
+            metaEntries: [],
+            overrideQuery: kanji,
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+
+        const jiten = popover.querySelector<HTMLAnchorElement>('a[href^="https://jiten.moe/kanji/"]');
+        expect(jiten?.getAttribute('href')).toBe(`https://jiten.moe/kanji/${encodeURIComponent(kanji)}`);
+        popover.remove();
+    });
+
+    it.each(['龳', '﨑'])('does not widen the legacy BMP single-kanji contract for %s', query => {
+        const popover = kanjiShellPopover();
+        updateHeadingWordPills(popover, {
+            card: kanjiCard(),
+            jpdbUrl: `https://jpdb.io/search?q=${encodeURIComponent(query)}`,
+            settings: DEFAULT_SETTINGS,
+            metaEntries: [],
+            overrideQuery: query,
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+
+        expect(popover.querySelector('a[href^="https://jiten.moe/kanji/"]')).toBeNull();
+        expect(popover.querySelector<HTMLAnchorElement>('a[href^="https://jiten.moe/parse"]')?.getAttribute('href'))
+            .toContain(encodeURIComponent(query));
+        popover.remove();
+    });
 });
