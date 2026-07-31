@@ -1596,21 +1596,23 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       **Still open:** `examples`, `mining`, `srs`, `grading`, `frequency`, `grammar`, `audio`,
       `character-lookup` and `handwriting` remain undeclared for generic targets — though the audit measured
       several of those as working anyway, so the matrix still understates reality and the flags are still not
-      the thing to trust. The per-target annotation SCOREBOARD the audit asked for (percentage of content
-      words that resolve, ratcheted in the gate) is **not built yet**; `tests/reader/parity-matrix.test.ts`
-      is a pre-existing provider-queue parity test, not that. Without it "complete for all languages" is
-      still an opinion rather than a number that has to go up.
+      the thing to trust. **Wave 13 built the per-target exact-span scoreboard and ratchet:** ten annotated
+      sentences per target measured against pinned published archives. The baseline is 1,458/1,732 (84.2%);
+      29/33 targets meet the proposed 60% product bar, while `grc`, `yue`, `lo`, and `mn` remain below it.
+      The release gate requires every recorded hit and miss to equal that baseline, so both regressions and
+      unreviewed improvements fail; the 60% column remains informational, not a completeness claim.
 
 - [ ] **A42 — MEASURED 2026-07-30: multilingual support is a Japanese system plus a 32-language reading
       tool with a Japanese skin, and the capability matrix describes neither.** Full audit, with every
       number reproducible, in `docs/dev/multilingual-parity-audit-2026-07-30.md` (22 adversarial agents,
       each finding challenged in both directions; several priors were REFUTED). The headline facts:
-      - **Only 3 of the 18 capability flags have any read site in production code**, and none of the three
-        gates a feature: `morphology` (`languages/morphology.ts:39`) has zero callers, `ocr`
-        (`languages/resolve.ts:42`) only scopes a settings migration, and `term-lookup`
-        (`config/docs/product-claims.ts:34`) is build-time and licenses the homepage claim. Sixteen flags
-        change nothing a learner can see, so the matrix neither documents reality nor protects anyone
-        from it. Roster is **33** targets, not 32; Burmese is absent entirely, which moots A37.4.
+      - **Four of the 18 capability flags now have a production read site.** `character-lookup`
+        gates Japanese character-card rendering and execution after Wave 13. `morphology`
+        (`languages/morphology.ts:39`) still has zero callers, `ocr` (`languages/resolve.ts:42`) only
+        scopes a settings migration, and `term-lookup` (`config/docs/product-claims.ts:34`) is
+        build-time and licenses the homepage claim. Fourteen flags have no production read site, so
+        most of the matrix still neither documents reality nor protects anyone from it. Roster is
+        **33** targets, not 32; Burmese is absent entirely, which moots A37.4.
       - **PRIOR REFUTED:** the catalogue does NOT have zero non-CJK entries. It ships **1,637 published
         entries across 34 headword languages**, ~2.07 GB — all of it unreachable on the happy path
         because `DICTIONARY_CATALOG_TARGET_LANGUAGE = 'ja'` is an `as const` literal and all 32
@@ -1622,10 +1624,13 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
         navigator language, Intl locale, timezone `Asia/Tokyo`, Date offset AND geolocation on every URL;
         TTS overrides a correct `utterance.lang` with a Japanese voice (22 of 33 locales have a real OS
         voice, so the voice filter is the defect, not the flag).
-      - **Lookup silently misses words the dictionary has.** NFKC decomposes THAI/LAO SARA AM on the query
-        path while the importer stores headwords verbatim, so every ำ/ຳ word is unfindable; there is no
-        case folding anywhere, so `"Paella"`→0 and `"paella"`→1 and every sentence-initial or capitalised
-        word fails. Measured with correct lemmas installed: th 1/8, ru 1/7, ar 1/6, ko 3/7, de 4/7, es 4/9.
+      - **W13 CORRECTION (2026-07-31):** the six quoted lookup ratios were constructed lemma-only probes,
+        not measurements of the published WTY archives. The real ten-sentence harness at clean
+        `fdf8682fc` measured th 49/61 (80.3%), ru 49/49 (100.0%), ar 40/48 (83.3%),
+        ko 61/65 (93.8%), de 49/49 (100.0%), and es 50/50 (100.0%). Yomitan has
+        GPL-3.0-or-later transform modules for only 11/32 non-Japanese roster targets and omits ru/th, so
+        its transformer was not copied into this MIT distribution. Evidence and payload accounting:
+        `docs/dev/w13-morphology-measurement-2026-07-31.md`.
       - **Some features work BETTER than declared:** Tatoeba examples for all 32 with the best degradation
         copy in the product; ICU segmentation and OCR for all 33; a genuinely language-agnostic SRS store
         and SM-2 scheduler; and zh/yue/ko get pinyin/jyutping ruby that was never declared — though
