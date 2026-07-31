@@ -12313,6 +12313,12 @@ function inferDictionaryTypeFromName(name) {
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
 }
+function settingsValueEquals(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function changedSettingsKeys(previous, next) {
+  return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
+}
 const FALLBACK_HEX_COLOR = "#000000";
 function normalizeHexColor(color) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -13230,7 +13236,7 @@ function normalizeShortcutSettings(value) {
   if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
   shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
   }
-  if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+  if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
   shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
   }
   migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
@@ -13856,9 +13862,6 @@ async function persistPreferredJapaneseSiteLanguage(value) {
 }
 function settingsRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function settingsValueEquals(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 async function saveSettings(settings, options = {}) {
   try {
@@ -62811,7 +62814,7 @@ ${glossaryKey}`;
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {

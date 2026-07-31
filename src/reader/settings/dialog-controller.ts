@@ -18,7 +18,7 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedAutomationProtectedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { changedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -742,7 +742,7 @@ export class SettingsDialogController {
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-                explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings),
+                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
             });
             this.dependencies.onSettingsPersisted?.(settings);
         } catch (error) {

@@ -15744,6 +15744,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
     return "terms";
   }
+  function settingsValueEquals(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
+  }
+  function changedSettingsKeys(previous, next) {
+    return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
+  }
+  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+    return recoverInto(current, legacy, settledKeys, defaults, () => false);
+  }
+  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+    return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+  }
+  function recoverInto(current, donor, settledKeys, defaults, excluded) {
+    let settings = current;
+    let changed = false;
+    for (const key of Object.keys(defaults)) {
+      if (excluded(key)) continue;
+      if (settledKeys.has(key)) continue;
+      if (!settingsValueEquals(settings[key], defaults[key])) continue;
+      if (settingsValueEquals(donor[key], defaults[key])) continue;
+      settings = { ...settings, [key]: donor[key] };
+      settledKeys.add(key);
+      changed = true;
+    }
+    return { settings, changed };
+  }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -16862,7 +16888,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
-    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
       shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
     }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
@@ -17529,16 +17555,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
       let recoveredLegacySettings = false;
+      const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
       for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
         const legacyRecord = settingsRecord(await gmStorageGet(key, null));
         if (!legacyRecord) continue;
-        const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+        const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
       const strandedRecord = strandedHostedLocalSettingsRecord();
       if (strandedRecord) {
-        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
@@ -17581,34 +17608,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
     return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
   }
-  function recoverStrandedHostedSettings(current, stranded) {
-    let settings = current;
-    let changed = false;
-    for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
-      if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-      if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
-      settings = { ...settings, [key]: stranded[key] };
-      changed = true;
-    }
-    return { settings, changed };
-  }
-  function recoverLegacySettings(current, legacy) {
-    let settings = current;
-    let changed = false;
-    for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-      if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
-      settings = { ...settings, [key]: legacy[key] };
-      changed = true;
-    }
-    return { settings, changed };
-  }
   function settingsRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-  function settingsValueEquals(left, right) {
-    return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function subscribeToSettingsStorageChanges(onSettings) {
     let active = true;
@@ -100481,7 +100482,7 @@ ${spelling}`);
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {

@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b1238b206e54.user.js#sha256=sSOLIG5UMHuxu4UiMy+M5a6FE3BswJ8AyyalGZVQKIg=
+// @require https://yomureader.com/greasyfork/yomu-runtime.7f66c9672a9c.user.js#sha256=f2bJZyqcVXiKInw3OvdOF3V/iGlZ+aUYVFMaCGt4npw=
 // @resource yomuCss  https://yomureader.com/yomu.25e8d11f407c.css#sha256=JejRH0B8pOC/+MjHcK1QcOn0/1uuMIrRHwshoj4sNto=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -6645,6 +6645,29 @@ function inferDictionaryTypeFromName(name) {
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
 }
+function settingsValueEquals(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+  return recoverInto(current, legacy, settledKeys, defaults, () => false);
+}
+function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+  return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+}
+function recoverInto(current, donor, settledKeys, defaults, excluded) {
+  let settings = current;
+  let changed = false;
+  for (const key of Object.keys(defaults)) {
+  if (excluded(key)) continue;
+  if (settledKeys.has(key)) continue;
+  if (!settingsValueEquals(settings[key], defaults[key])) continue;
+  if (settingsValueEquals(donor[key], defaults[key])) continue;
+  settings = { ...settings, [key]: donor[key] };
+  settledKeys.add(key);
+  changed = true;
+  }
+  return { settings, changed };
+}
 const FALLBACK_HEX_COLOR = "#000000";
 function normalizeHexColor(color) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -7547,7 +7570,7 @@ function normalizeShortcutSettings(value) {
   if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
   shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
   }
-  if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+  if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
   shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
   }
   migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
@@ -8235,16 +8258,17 @@ async function loadSettings() {
   const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   let settings = mergeSettings(currentRecord);
   let recoveredLegacySettings = false;
+  const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
   for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
     const legacyRecord = settingsRecord(await gmStorageGet(key, null));
     if (!legacyRecord) continue;
-    const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+    const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
     settings = recovery.settings;
     recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
   }
   const strandedRecord = strandedHostedLocalSettingsRecord();
   if (strandedRecord) {
-    const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+    const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
     settings = recovery.settings;
     recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
   }
@@ -8287,25 +8311,19 @@ function strandedHostedLocalSettingsRecord() {
   if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
   return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
 }
-function recoverStrandedHostedSettings(current, stranded) {
-  let settings = current;
-  let changed = false;
-  for (const key of Object.keys(DEFAULT_SETTINGS)) {
-  if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
-  if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-  if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
-  settings = { ...settings, [key]: stranded[key] };
-  changed = true;
-  }
-  return { settings, changed };
-}
 async function promoteStrandedHostedSettingsToGmStorage() {
   if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
   try {
   const strandedRecord = settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
   if (!strandedRecord) return false;
-  const current = mergeSettings(settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null)));
-  const recovery = recoverStrandedHostedSettings(current, mergeSettings(strandedRecord));
+  const gmRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+  const current = mergeSettings(gmRecord);
+  const recovery = recoverStrandedHostedSettings(
+    current,
+    mergeSettings(strandedRecord),
+    new Set(gmRecord ? Object.keys(gmRecord) : []),
+    DEFAULT_SETTINGS
+  );
   if (recovery.changed) await persistSettings(recovery.settings);
   return true;
   } catch (error) {
@@ -8313,22 +8331,8 @@ async function promoteStrandedHostedSettingsToGmStorage() {
   return false;
   }
 }
-function recoverLegacySettings(current, legacy) {
-  let settings = current;
-  let changed = false;
-  for (const key of Object.keys(DEFAULT_SETTINGS)) {
-  if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-  if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
-  settings = { ...settings, [key]: legacy[key] };
-  changed = true;
-  }
-  return { settings, changed };
-}
 function settingsRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function settingsValueEquals(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 function subscribeToSettingsStorageChanges(onSettings) {
   let active = true;

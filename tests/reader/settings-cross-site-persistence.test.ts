@@ -103,6 +103,48 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
     });
 
+    // GitHub #36 (mirrormc), the half with the broad blast radius. Recovery from an
+    // older storage key inferred "the learner never set this" from "the value equals
+    // the default", so ANY field reset to its default could be replayed from a legacy
+    // key and re-persisted -- a cleared API key, a toggle turned back off, a colour
+    // put back, any cleared shortcut. Only 15 allowlisted keys were protected.
+    it('does not let a legacy settings key resurrect a field the learner reset to its default', async () => {
+        const store = new Map<string, unknown>();
+        // A legacy install that had a dark theme.
+        store.set('yomu-reader-settings', { theme: 'dark' });
+        store.set(SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'dark' });
+        installSharedMessageBasedGm(store);
+
+        // The learner puts the theme BACK to its default and saves. The settings
+        // dialog declares what the edit changed, which is the only trustworthy signal
+        // -- a difference measured against storage could just mean another context
+        // saved since.
+        const settings = await loadSettings();
+        await saveSettings({ ...settings, theme: DEFAULT_SETTINGS.theme }, {
+            explicitUserChoiceKeys: ['theme'],
+        });
+
+        // Recovery spots gaps by comparing against the default -- it has to, because
+        // Yomu stores the whole settings object -- so without the recorded choice the
+        // legacy 'dark' is treated as filling a gap and comes back, re-persisted, on
+        // every load. That is what the reporter saw seconds after saving and again
+        // after a version update.
+        expect((await loadSettings()).theme).toBe(DEFAULT_SETTINGS.theme);
+        expect(await loadSettings().then(value => value.theme)).toBe(DEFAULT_SETTINGS.theme);
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({ theme: DEFAULT_SETTINGS.theme });
+    });
+
+    it('still fills a field the current store has never stored at all', async () => {
+        const store = new Map<string, unknown>();
+        // The recovery has a real job: a genuinely absent key must still be adopted,
+        // which is what the presence check preserves and the equality check conflated.
+        store.set('yomu-reader-settings', { ankiTags: 'legacy-tag' });
+        store.set(SETTINGS_STORAGE_KEY, { theme: 'dark' });
+        installSharedMessageBasedGm(store);
+
+        expect((await loadSettings()).ankiTags).toBe('legacy-tag');
+    });
+
     it('does not let a stale whole-settings save overwrite an explicit annotations choice', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);

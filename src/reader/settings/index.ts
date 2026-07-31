@@ -7,7 +7,8 @@ import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCre
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
-import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
+export { changedSettingsKeys } from './store-reconciliation';
+import { recoverLegacySettings, recoverStrandedHostedSettings, settingsValueEquals } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
@@ -1042,9 +1043,19 @@ function normalizeShortcutSettings(value: Partial<ReaderSettings> | null): Reade
     if (value?.shortcuts && !hasOwn(value.shortcuts, 'hoverLookup')) {
         shortcuts.hoverLookup = value.popupActivationMode === 'modifier' ? shortcutFromLegacyModifier(value.scanModifierKey) : '';
     }
-    // A blank shortcut matches every event, which would silently turn
-    // 'modifier' mode into plain hover mode, so it must resolve to a key.
-    if (value?.popupActivationMode === 'modifier' && !shortcuts.hoverLookup.trim()) {
+    // A blank shortcut matches every event, which would silently turn 'modifier'
+    // mode into plain hover mode, so a legacy modifier profile must resolve to a
+    // key -- but only when the learner has not stored a hover shortcut of their
+    // own. This tested the emptiness of the RESULT rather than the absence of a
+    // stored choice, so someone who deliberately cleared the shortcut had 'Shift'
+    // re-minted inside every save and every load, which is why it came back
+    // seconds later and again after an update (GitHub #36). The clause above
+    // already uses this guard; this one has to agree with it.
+    if (
+        value?.popupActivationMode === 'modifier'
+        && !shortcuts.hoverLookup.trim()
+        && !hasOwn(value?.shortcuts ?? {}, 'hoverLookup')
+    ) {
         shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || 'Shift';
     }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
@@ -1973,18 +1984,28 @@ export async function loadSettings(): Promise<ReaderSettings> {
         let settings = mergeSettings(currentRecord);
         let recoveredLegacySettings = false;
 
+        // Keys the learner has expressed a deliberate choice about. Recovery below
+        // still uses "equals the default" to spot a gap -- it has to, because Yomu
+        // persists the WHOLE settings object, so presence in the stored record tells
+        // you nothing -- but a key in this set is never treated as a gap. That is what
+        // makes clearing a field stick: an explicit '' equals the default, so without
+        // this a donor store replayed the old value and re-persisted it (GitHub #36).
+        // Keys recovered from an earlier donor join the set too, so the first donor
+        // still wins, exactly as the bare equality test used to arrange.
+        const settledKeys = new Set<string>(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
+
         for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
             const legacyRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(key, null));
             if (!legacyRecord) continue;
 
-            const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+            const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
             settings = recovery.settings;
             recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
         }
 
         const strandedRecord = strandedHostedLocalSettingsRecord();
         if (strandedRecord) {
-            const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+            const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
             settings = recovery.settings;
             recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
         }
@@ -2044,24 +2065,6 @@ function strandedHostedLocalSettingsRecord(): Partial<ReaderSettings> | null {
     return settingsRecord(localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
 }
 
-function recoverStrandedHostedSettings(current: ReaderSettings, stranded: ReaderSettings): { settings: ReaderSettings; changed: boolean } {
-    let settings = current;
-    let changed = false;
-
-    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof ReaderSettings>) {
-        // The docs site force-enables demo-player settings in its localStorage
-        // copy; those writes are not user intent and must never replicate.
-        if (HOSTED_DEMO_SETTINGS_KEYS.has(key)) continue;
-        if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-        if (settingsValueEquals(stranded[key], DEFAULT_SETTINGS[key])) continue;
-
-        settings = { ...settings, [key]: stranded[key] };
-        changed = true;
-    }
-
-    return { settings, changed };
-}
-
 // Called from the userscript entry at document-start on trusted hosted origins
 // (yomureader.com). Root cause it addresses (iPad Safari): a user's API key and
 // theme entered through the hosted-app Settings land in THIS origin's
@@ -2082,11 +2085,21 @@ export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolea
         // gmStorageGet already migrates a whole stranded blob into an EMPTY GM
         // store as a side effect; running it first fills that case. Then
         // reconcile field-by-field for a partially-populated GM, filling only
-        // GM fields still at their default so an explicit GM choice is never
+        // fields the GM store does not HAVE so an explicit GM choice is never
         // clobbered. Either path leaves the shared store holding the hosted
         // key/theme, so youtube.com stops falling back to defaults.
-        const current = mergeSettings(settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null)));
-        const recovery = recoverStrandedHostedSettings(current, mergeSettings(strandedRecord));
+        //
+        // "does not have", not "is still at its default": a GM field the learner
+        // deliberately cleared equals the default, and treating that as unset let
+        // the hosted mirror replay the old value on every visit (GitHub #36).
+        const gmRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null));
+        const current = mergeSettings(gmRecord);
+        const recovery = recoverStrandedHostedSettings(
+            current,
+            mergeSettings(strandedRecord),
+            new Set<string>(gmRecord ? Object.keys(gmRecord) : []),
+            DEFAULT_SETTINGS,
+        );
         if (recovery.changed) await persistSettings(recovery.settings);
         return true;
     } catch (error) {
@@ -2095,29 +2108,10 @@ export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolea
     }
 }
 
-function recoverLegacySettings(current: ReaderSettings, legacy: ReaderSettings): { settings: ReaderSettings; changed: boolean } {
-    let settings = current;
-    let changed = false;
-
-    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof ReaderSettings>) {
-        if (!settingsValueEquals(settings[key], DEFAULT_SETTINGS[key])) continue;
-        if (settingsValueEquals(legacy[key], DEFAULT_SETTINGS[key])) continue;
-
-        settings = { ...settings, [key]: legacy[key] };
-        changed = true;
-    }
-
-    return { settings, changed };
-}
-
 function settingsRecord(value: unknown): Partial<ReaderSettings> | null {
     return value && typeof value === 'object' && !Array.isArray(value)
         ? value as Partial<ReaderSettings>
         : null;
-}
-
-function settingsValueEquals(left: unknown, right: unknown): boolean {
-    return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 
 export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderSettings) => void): () => void {
@@ -2152,7 +2146,7 @@ export interface SaveSettingsOptions {
      * the whole-settings blob so stale listeners, onboarding defaults, and
      * auto-discovery passes cannot silently overwrite the user's intent.
      */
-    readonly explicitUserChoiceKeys?: readonly AutomationProtectedSettingsKey[];
+    readonly explicitUserChoiceKeys?: readonly (keyof ReaderSettings)[];
 }
 
 export async function saveSettings(
@@ -2181,7 +2175,7 @@ export async function saveSettings(
 
 async function persistSettings(
     settings: ReaderSettings,
-    explicitUserChoiceKeys: readonly AutomationProtectedSettingsKey[] = [],
+    explicitUserChoiceKeys: readonly (keyof ReaderSettings)[] = [],
 ): Promise<void> {
     const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
     let storedSettings: Partial<ReaderSettings> = normalizedSettings;
@@ -2191,6 +2185,9 @@ async function persistSettings(
             null,
         ));
         const nextExplicitSettings: Partial<ReaderSettings> = { ...existingExplicitSettings };
+        // Only the CALLER can say what the learner touched. A save may carry a stale
+        // whole-object snapshot, so differences against the stored record are not
+        // intent -- inferring them here clobbers another context's explicit choice.
         for (const key of explicitUserChoiceKeys) {
             assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
         }

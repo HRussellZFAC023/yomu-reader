@@ -41792,6 +41792,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (/\b(?:kanjidic|kanji)\b/.test(normalized2)) return "kanji";
     return "terms";
   }
+  function settingsValueEquals(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
+  }
+  function changedSettingsKeys(previous, next) {
+    return Object.keys(previous).filter((key2) => !settingsValueEquals(previous[key2], next[key2]));
+  }
+  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+    return recoverInto(current, legacy, settledKeys, defaults, () => false);
+  }
+  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+    return recoverInto(current, stranded, settledKeys, defaults, (key2) => HOSTED_DEMO_SETTINGS_KEYS.has(key2));
+  }
+  function recoverInto(current, donor, settledKeys, defaults, excluded) {
+    let settings = current;
+    let changed = false;
+    for (const key2 of Object.keys(defaults)) {
+      if (excluded(key2)) continue;
+      if (settledKeys.has(key2)) continue;
+      if (!settingsValueEquals(settings[key2], defaults[key2])) continue;
+      if (settingsValueEquals(donor[key2], defaults[key2])) continue;
+      settings = { ...settings, [key2]: donor[key2] };
+      settledKeys.add(key2);
+      changed = true;
+    }
+    return { settings, changed };
+  }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -42910,7 +42936,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
       shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
     }
-    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim()) {
+    if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
       shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
     }
     migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
@@ -43577,16 +43603,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
       let recoveredLegacySettings = false;
+      const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
       for (const key2 of LEGACY_SETTINGS_STORAGE_KEYS) {
         const legacyRecord = settingsRecord(await gmStorageGet(key2, null));
         if (!legacyRecord) continue;
-        const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord));
+        const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
       const strandedRecord = strandedHostedLocalSettingsRecord();
       if (strandedRecord) {
-        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord));
+        const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
@@ -43629,34 +43656,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
     return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
   }
-  function recoverStrandedHostedSettings(current, stranded) {
-    let settings = current;
-    let changed = false;
-    for (const key2 of Object.keys(DEFAULT_SETTINGS)) {
-      if (HOSTED_DEMO_SETTINGS_KEYS.has(key2)) continue;
-      if (!settingsValueEquals(settings[key2], DEFAULT_SETTINGS[key2])) continue;
-      if (settingsValueEquals(stranded[key2], DEFAULT_SETTINGS[key2])) continue;
-      settings = { ...settings, [key2]: stranded[key2] };
-      changed = true;
-    }
-    return { settings, changed };
-  }
-  function recoverLegacySettings(current, legacy) {
-    let settings = current;
-    let changed = false;
-    for (const key2 of Object.keys(DEFAULT_SETTINGS)) {
-      if (!settingsValueEquals(settings[key2], DEFAULT_SETTINGS[key2])) continue;
-      if (settingsValueEquals(legacy[key2], DEFAULT_SETTINGS[key2])) continue;
-      settings = { ...settings, [key2]: legacy[key2] };
-      changed = true;
-    }
-    return { settings, changed };
-  }
   function settingsRecord(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-  function settingsValueEquals(left, right) {
-    return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function subscribeToSettingsStorageChanges(onSettings) {
     let active = true;
@@ -43726,9 +43727,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (hasOwn(explicitSettings, key2)) assignSetting(candidate2, key2, explicitSettings[key2]);
     }
     return mergeSettings(candidate2);
-  }
-  function changedAutomationProtectedSettingsKeys(previous, next) {
-    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key2) => !settingsValueEquals(previous[key2], next[key2]));
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -368239,7 +368237,7 @@ ${options.version}`;
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
