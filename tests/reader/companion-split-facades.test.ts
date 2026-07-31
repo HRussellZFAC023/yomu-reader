@@ -302,6 +302,16 @@ describe('Greasy Fork split manifest', () => {
         expect(viteConfigSource).toContain("alias['../../languages/target-runtime'] = targetRuntimeCompanion;");
     });
 
+    it('keeps target-language labels on the canonical i18n companion alias', () => {
+        const targetLanguageName = readFileSync(
+            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
+            'utf8',
+        );
+        expect(targetLanguageName).toContain("from '../app/i18n';");
+        expect(targetLanguageName).not.toContain("from './i18n';");
+        expect(targetLanguageName).not.toContain('dictionaries/catalog-browse');
+    });
+
     it('keeps core pronunciation behind the companion-backed target runtime', () => {
         const pronunciationSource = readFileSync(
             path.join(repoRoot, 'src/reader/popup/pronunciation.ts'),
