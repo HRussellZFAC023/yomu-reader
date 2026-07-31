@@ -1,4 +1,5 @@
 import { targetLookupCandidateRulesMatch } from '../../languages/morphology';
+import { genericLookupTextVariants } from '../../languages/lookup-normalization';
 import { dictionaryEnabled, dictionaryPriority } from './ranking';
 import type { DictionaryPreference } from '../../app/types';
 import type { LanguageLookupCandidate, LearningTargetModule } from '../../languages/types';
@@ -14,6 +15,38 @@ export interface TermMatchCandidatePosition {
 }
 
 export type TermMatchCandidates = Map<string, TermMatchCandidatePosition[]>;
+
+export interface TargetTermMatchLookupCandidate {
+    key: string;
+    deinflected: LanguageLookupCandidate;
+}
+
+/**
+ * The exact expression/reading keys queried for one target-owned surface.
+ *
+ * Keep this pure seam shared by the production IndexedDB lookup and the
+ * authoritative published-archive scanner. The scanner can then discard rows
+ * which the production matcher provably cannot request without copying the
+ * target's morphology or Unicode-normalisation rules.
+ */
+export function targetTermMatchLookupCandidates(
+    target: LearningTargetModule,
+    surface: string,
+): readonly TargetTermMatchLookupCandidate[] {
+    const result: TargetTermMatchLookupCandidate[] = [];
+    for (const deinflected of target.lookupCandidates(surface)) {
+        if (!target.isLookupableText(deinflected.term)) continue;
+        for (const key of genericLookupTextVariants(deinflected.term)) {
+            result.push({ key, deinflected });
+        }
+    }
+    return result;
+}
+
+/** Whether production asks the reading index in addition to expression. */
+export function targetTermMatchQueriesReadingIndex(target: LearningTargetModule): boolean {
+    return target.lookupSweepMode !== 'left-to-right-longest-exact';
+}
 
 interface RankedDictionaryEntry {
     dictionary: string;

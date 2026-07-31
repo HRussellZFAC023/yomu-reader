@@ -10,6 +10,16 @@ const DEFLATE_METHOD = 8;
 const encoder = new TextEncoder();
 
 export function yomitanZipBlob(files: Record<string, unknown>, options: { compression?: 'store' | 'deflate' } = {}): Blob {
+    return new Blob(
+        [arrayBufferSlice(yomitanZipBytes(files, options))],
+        { type: 'application/zip' },
+    );
+}
+
+export function yomitanZipBytes(
+    files: Record<string, unknown>,
+    options: { compression?: 'store' | 'deflate' } = {},
+): Uint8Array {
     const localParts: Uint8Array[] = [];
     const centralParts: Uint8Array[] = [];
     let offset = 0;
@@ -26,10 +36,18 @@ export function yomitanZipBlob(files: Record<string, unknown>, options: { compre
 
     const centralOffset = offset;
     const centralSize = centralParts.reduce((size, part) => size + part.length, 0);
-    return new Blob(
-        [...localParts, ...centralParts, endRecord(Object.keys(files).length, centralSize, centralOffset)].map(arrayBufferSlice),
-        { type: 'application/zip' },
-    );
+    const parts = [
+        ...localParts,
+        ...centralParts,
+        endRecord(Object.keys(files).length, centralSize, centralOffset),
+    ];
+    const bytes = new Uint8Array(parts.reduce((size, part) => size + part.length, 0));
+    let writeOffset = 0;
+    for (const part of parts) {
+        bytes.set(part, writeOffset);
+        writeOffset += part.length;
+    }
+    return bytes;
 }
 
 function zipFixtureData(value: unknown): Uint8Array {

@@ -1,0 +1,551 @@
+[
+  {
+    "language": "pl",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "pl-01",
+        "text": "W poniedziałek Maria poszła wcześnie rano na targ.",
+        "contentWords": ["poniedziałek", "Maria", "poszła", "wcześnie", "rano", "targ"]
+      },
+      {
+        "id": "pl-02",
+        "text": "Kupiła świeży chleb, dwa jabłka i butelkę wody.",
+        "contentWords": ["Kupiła", "świeży", "chleb", "dwa", "jabłka", "butelkę", "wody"]
+      },
+      {
+        "id": "pl-03",
+        "text": "Sprzedawca przywitał ją i zapytał o jej rodzinę.",
+        "contentWords": ["Sprzedawca", "przywitał", "zapytał", "rodzinę"]
+      },
+      {
+        "id": "pl-04",
+        "text": "Maria powiedziała, że jej dzieci uczyły się w domu.",
+        "contentWords": ["Maria", "powiedziała", "dzieci", "uczyły", "domu"]
+      },
+      {
+        "id": "pl-05",
+        "text": "Po zakupach przeszła przez park.",
+        "contentWords": ["zakupach", "przeszła", "park"]
+      },
+      {
+        "id": "pl-06",
+        "text": "Mały pies bawił się niedaleko jeziora.",
+        "contentWords": ["Mały", "pies", "bawił", "niedaleko", "jeziora"]
+      },
+      {
+        "id": "pl-07",
+        "text": "Usiadła pod drzewem i przeczytała nową książkę.",
+        "contentWords": ["Usiadła", "drzewem", "przeczytała", "nową", "książkę"]
+      },
+      {
+        "id": "pl-08",
+        "text": "Kiedy zaczął padać deszcz, otworzyła niebieski parasol.",
+        "contentWords": ["zaczął", "padać", "deszcz", "otworzyła", "niebieski", "parasol"]
+      },
+      {
+        "id": "pl-09",
+        "text": "Przed kolacją wróciła do domu autobusem.",
+        "contentWords": ["kolacją", "wróciła", "domu", "autobusem"]
+      },
+      {
+        "id": "pl-10",
+        "text": "Wieczorem cała rodzina jadła razem i rozmawiała o minionym dniu.",
+        "contentWords": ["Wieczorem", "rodzina", "jadła", "razem", "rozmawiała", "minionym", "dniu"]
+      }
+    ]
+  },
+  {
+    "language": "pt",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "pt-01",
+        "text": "Na segunda-feira, a Maria foi cedo ao mercado.",
+        "contentWords": ["segunda-feira", "Maria", "foi", "cedo", "mercado"]
+      },
+      {
+        "id": "pt-02",
+        "text": "Comprou pão fresco, duas maçãs e uma garrafa de água.",
+        "contentWords": ["Comprou", "pão", "fresco", "duas", "maçãs", "garrafa", "água"]
+      },
+      {
+        "id": "pt-03",
+        "text": "O vendedor cumprimentou-a e perguntou pela família.",
+        "contentWords": ["vendedor", "cumprimentou-a", "perguntou", "família"]
+      },
+      {
+        "id": "pt-04",
+        "text": "A Maria disse que os filhos estavam a estudar em casa.",
+        "contentWords": ["Maria", "disse", "filhos", "estavam", "estudar", "casa"]
+      },
+      {
+        "id": "pt-05",
+        "text": "Depois das compras, caminhou pelo parque.",
+        "contentWords": ["Depois", "compras", "caminhou", "parque"]
+      },
+      {
+        "id": "pt-06",
+        "text": "Um cão pequeno brincava perto do lago.",
+        "contentWords": ["cão", "pequeno", "brincava", "perto", "lago"]
+      },
+      {
+        "id": "pt-07",
+        "text": "Sentou-se debaixo de uma árvore e leu um livro novo.",
+        "contentWords": ["Sentou-se", "debaixo", "árvore", "leu", "livro", "novo"]
+      },
+      {
+        "id": "pt-08",
+        "text": "Quando começou a chover, abriu o guarda-chuva azul.",
+        "contentWords": ["começou", "chover", "abriu", "guarda-chuva", "azul"]
+      },
+      {
+        "id": "pt-09",
+        "text": "Antes do jantar, voltou para casa de autocarro.",
+        "contentWords": ["jantar", "voltou", "casa", "autocarro"]
+      },
+      {
+        "id": "pt-10",
+        "text": "À noite, a família inteira jantou junta e falou sobre o dia.",
+        "contentWords": ["noite", "família", "inteira", "jantou", "junta", "falou", "dia"]
+      }
+    ]
+  },
+  {
+    "language": "ro",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "ro-01",
+        "text": "Luni, Maria a mers devreme la piață.",
+        "contentWords": ["Luni", "Maria", "mers", "devreme", "piață"]
+      },
+      {
+        "id": "ro-02",
+        "text": "A cumpărat pâine proaspătă, două mere și o sticlă cu apă.",
+        "contentWords": ["cumpărat", "pâine", "proaspătă", "două", "mere", "sticlă", "apă"]
+      },
+      {
+        "id": "ro-03",
+        "text": "Vânzătorul a salutat-o și a întrebat-o despre familie.",
+        "contentWords": ["Vânzătorul", "salutat-o", "întrebat-o", "familie"]
+      },
+      {
+        "id": "ro-04",
+        "text": "Maria a spus că copiii ei învățau acasă.",
+        "contentWords": ["Maria", "spus", "copiii", "învățau", "acasă"]
+      },
+      {
+        "id": "ro-05",
+        "text": "După cumpărături, a trecut prin parc.",
+        "contentWords": ["cumpărături", "trecut", "parc"]
+      },
+      {
+        "id": "ro-06",
+        "text": "Un câine mic se juca lângă lac.",
+        "contentWords": ["câine", "mic", "juca", "lângă", "lac"]
+      },
+      {
+        "id": "ro-07",
+        "text": "S-a așezat sub un copac și a citit o carte nouă.",
+        "contentWords": ["așezat", "copac", "citit", "carte", "nouă"]
+      },
+      {
+        "id": "ro-08",
+        "text": "Când a început ploaia, a deschis umbrela albastră.",
+        "contentWords": ["început", "ploaia", "deschis", "umbrela", "albastră"]
+      },
+      {
+        "id": "ro-09",
+        "text": "Înainte de cină, s-a întors acasă cu autobuzul.",
+        "contentWords": ["cină", "întors", "acasă", "autobuzul"]
+      },
+      {
+        "id": "ro-10",
+        "text": "Seara, toată familia a mâncat împreună și a vorbit despre ziua care trecuse.",
+        "contentWords": ["Seara", "familia", "mâncat", "împreună", "vorbit", "ziua", "trecuse"]
+      }
+    ]
+  },
+  {
+    "language": "sh",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "sh-01",
+        "text": "U ponedjeljak je Marija rano otišla na pijacu.",
+        "contentWords": ["ponedjeljak", "Marija", "rano", "otišla", "pijacu"]
+      },
+      {
+        "id": "sh-02",
+        "text": "Kupila je svjež hljeb, dvije jabuke i bocu vode.",
+        "contentWords": ["Kupila", "svjež", "hljeb", "dvije", "jabuke", "bocu", "vode"]
+      },
+      {
+        "id": "sh-03",
+        "text": "Prodavač ju je pozdravio i pitao za porodicu.",
+        "contentWords": ["Prodavač", "pozdravio", "pitao", "porodicu"]
+      },
+      {
+        "id": "sh-04",
+        "text": "Marija je rekla da njena djeca uče kod kuće.",
+        "contentWords": ["Marija", "rekla", "djeca", "uče", "kuće"]
+      },
+      {
+        "id": "sh-05",
+        "text": "Poslije kupovine prošetala je kroz park.",
+        "contentWords": ["Poslije", "kupovine", "prošetala", "park"]
+      },
+      {
+        "id": "sh-06",
+        "text": "Mali pas se igrao blizu jezera.",
+        "contentWords": ["Mali", "pas", "igrao", "blizu", "jezera"]
+      },
+      {
+        "id": "sh-07",
+        "text": "Sjela je pod drvo i pročitala novu knjigu.",
+        "contentWords": ["Sjela", "drvo", "pročitala", "novu", "knjigu"]
+      },
+      {
+        "id": "sh-08",
+        "text": "Kada je počela kiša, otvorila je plavi kišobran.",
+        "contentWords": ["počela", "kiša", "otvorila", "plavi", "kišobran"]
+      },
+      {
+        "id": "sh-09",
+        "text": "Prije večere vratila se kući autobusom.",
+        "contentWords": ["večere", "vratila", "kući", "autobusom"]
+      },
+      {
+        "id": "sh-10",
+        "text": "Navečer je cijela porodica jela zajedno i razgovarala o proteklom danu.",
+        "contentWords": ["Navečer", "porodica", "jela", "zajedno", "razgovarala", "proteklom", "danu"]
+      }
+    ]
+  },
+  {
+    "language": "sv",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "sv-01",
+        "text": "På måndagen gick Maria tidigt till marknaden.",
+        "contentWords": ["måndagen", "gick", "Maria", "tidigt", "marknaden"]
+      },
+      {
+        "id": "sv-02",
+        "text": "Hon köpte färskt bröd, två äpplen och en flaska vatten.",
+        "contentWords": ["köpte", "färskt", "bröd", "två", "äpplen", "flaska", "vatten"]
+      },
+      {
+        "id": "sv-03",
+        "text": "Försäljaren hälsade vänligt och frågade hur hennes familj mådde.",
+        "contentWords": ["Försäljaren", "hälsade", "vänligt", "frågade", "familj", "mådde"]
+      },
+      {
+        "id": "sv-04",
+        "text": "Maria berättade att hennes barn studerade hemma.",
+        "contentWords": ["Maria", "berättade", "barn", "studerade", "hemma"]
+      },
+      {
+        "id": "sv-05",
+        "text": "Efter inköpen promenerade hon genom parken.",
+        "contentWords": ["inköpen", "promenerade", "parken"]
+      },
+      {
+        "id": "sv-06",
+        "text": "En liten hund lekte nära sjön.",
+        "contentWords": ["liten", "hund", "lekte", "nära", "sjön"]
+      },
+      {
+        "id": "sv-07",
+        "text": "Hon satte sig under ett träd och läste en ny bok.",
+        "contentWords": ["satte", "träd", "läste", "ny", "bok"]
+      },
+      {
+        "id": "sv-08",
+        "text": "När det började regna öppnade hon sitt blå paraply.",
+        "contentWords": ["började", "regna", "öppnade", "blå", "paraply"]
+      },
+      {
+        "id": "sv-09",
+        "text": "Före middagen tog hon bussen hem.",
+        "contentWords": ["middagen", "tog", "bussen", "hem"]
+      },
+      {
+        "id": "sv-10",
+        "text": "På kvällen åt hela familjen tillsammans och pratade om dagen.",
+        "contentWords": ["kvällen", "åt", "familjen", "tillsammans", "pratade", "dagen"]
+      }
+    ]
+  },
+  {
+    "language": "tl",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "tl-01",
+        "text": "Noong Lunes, maagang pumunta si Maria sa palengke.",
+        "contentWords": ["Lunes", "maagang", "pumunta", "Maria", "palengke"]
+      },
+      {
+        "id": "tl-02",
+        "text": "Bumili siya ng sariwang tinapay, dalawang mansanas, at isang bote ng tubig.",
+        "contentWords": ["Bumili", "sariwang", "tinapay", "dalawang", "mansanas", "isang", "bote", "tubig"]
+      },
+      {
+        "id": "tl-03",
+        "text": "Binati siya ng tindero at tinanong tungkol sa kanyang pamilya.",
+        "contentWords": ["Binati", "tindero", "tinanong", "pamilya"]
+      },
+      {
+        "id": "tl-04",
+        "text": "Sinabi ni Maria na nag-aaral sa bahay ang kanyang mga anak.",
+        "contentWords": ["Sinabi", "Maria", "nag-aaral", "bahay", "anak"]
+      },
+      {
+        "id": "tl-05",
+        "text": "Pagkatapos mamili, naglakad siya sa parke.",
+        "contentWords": ["mamili", "naglakad", "parke"]
+      },
+      {
+        "id": "tl-06",
+        "text": "Isang maliit na aso ang naglalaro malapit sa lawa.",
+        "contentWords": ["Isang", "maliit", "aso", "naglalaro", "malapit", "lawa"]
+      },
+      {
+        "id": "tl-07",
+        "text": "Umupo siya sa ilalim ng puno at nagbasa ng bagong libro.",
+        "contentWords": ["Umupo", "ilalim", "puno", "nagbasa", "bagong", "libro"]
+      },
+      {
+        "id": "tl-08",
+        "text": "Nang magsimulang umulan, binuksan niya ang asul na payong.",
+        "contentWords": ["magsimulang", "umulan", "binuksan", "asul", "payong"]
+      },
+      {
+        "id": "tl-09",
+        "text": "Bumalik siya sa bahay sakay ng bus bago maghapunan.",
+        "contentWords": ["Bumalik", "bahay", "bus", "maghapunan"]
+      },
+      {
+        "id": "tl-10",
+        "text": "Pagsapit ng gabi, sabay-sabay na kumain ang buong pamilya at nagkuwentuhan tungkol sa araw nila.",
+        "contentWords": ["gabi", "sabay-sabay", "kumain", "buong", "pamilya", "nagkuwentuhan", "araw"]
+      }
+    ]
+  },
+  {
+    "language": "tr",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "tr-01",
+        "text": "Pazartesi günü Maria erkenden pazara gitti.",
+        "contentWords": ["Pazartesi", "günü", "Maria", "erkenden", "pazara", "gitti"]
+      },
+      {
+        "id": "tr-02",
+        "text": "Taze ekmek, iki elma ve bir şişe su aldı.",
+        "contentWords": ["Taze", "ekmek", "iki", "elma", "şişe", "su", "aldı"]
+      },
+      {
+        "id": "tr-03",
+        "text": "Satıcı onu selamladı ve ailesini sordu.",
+        "contentWords": ["Satıcı", "selamladı", "ailesini", "sordu"]
+      },
+      {
+        "id": "tr-04",
+        "text": "Maria çocuklarının evde ders çalıştığını söyledi.",
+        "contentWords": ["Maria", "çocuklarının", "evde", "ders", "çalıştığını", "söyledi"]
+      },
+      {
+        "id": "tr-05",
+        "text": "Alışverişten sonra parkın içinden yürüdü.",
+        "contentWords": ["Alışverişten", "parkın", "içinden", "yürüdü"]
+      },
+      {
+        "id": "tr-06",
+        "text": "Küçük bir köpek gölün yakınında oynuyordu.",
+        "contentWords": ["Küçük", "köpek", "gölün", "yakınında", "oynuyordu"]
+      },
+      {
+        "id": "tr-07",
+        "text": "Bir ağacın altına oturup yeni bir kitap okudu.",
+        "contentWords": ["ağacın", "altına", "oturup", "yeni", "kitap", "okudu"]
+      },
+      {
+        "id": "tr-08",
+        "text": "Yağmur yağmaya başlayınca mavi şemsiyesini açtı.",
+        "contentWords": ["Yağmur", "yağmaya", "başlayınca", "mavi", "şemsiyesini", "açtı"]
+      },
+      {
+        "id": "tr-09",
+        "text": "Akşam yemeğinden önce otobüsle eve döndü.",
+        "contentWords": ["Akşam", "yemeğinden", "otobüsle", "eve", "döndü"]
+      },
+      {
+        "id": "tr-10",
+        "text": "Akşam bütün aile birlikte yemek yedi ve günün nasıl geçtiğini konuştu.",
+        "contentWords": ["Akşam", "bütün", "aile", "birlikte", "yemek", "yedi", "günün", "geçtiğini", "konuştu"]
+      }
+    ]
+  },
+  {
+    "language": "vi",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "vi-01",
+        "text": "Sáng thứ Hai, Maria đi chợ từ sớm.",
+        "contentWords": ["Sáng", "thứ Hai", "Maria", "đi", "chợ", "sớm"]
+      },
+      {
+        "id": "vi-02",
+        "text": "Cô mua bánh mì tươi, hai quả táo và một chai nước.",
+        "contentWords": ["mua", "bánh mì", "tươi", "hai", "quả táo", "chai", "nước"]
+      },
+      {
+        "id": "vi-03",
+        "text": "Người bán hàng chào cô và hỏi thăm gia đình cô.",
+        "contentWords": ["Người bán hàng", "chào", "hỏi thăm", "gia đình"]
+      },
+      {
+        "id": "vi-04",
+        "text": "Maria nói rằng các con của cô đang học ở nhà.",
+        "contentWords": ["Maria", "nói", "con", "học", "nhà"]
+      },
+      {
+        "id": "vi-05",
+        "text": "Mua sắm xong, cô đi bộ qua công viên.",
+        "contentWords": ["Mua sắm", "đi bộ", "công viên"]
+      },
+      {
+        "id": "vi-06",
+        "text": "Một chú chó nhỏ đang chơi gần hồ.",
+        "contentWords": ["chó", "nhỏ", "chơi", "gần", "hồ"]
+      },
+      {
+        "id": "vi-07",
+        "text": "Cô ngồi dưới gốc cây và đọc một cuốn sách mới.",
+        "contentWords": ["ngồi", "gốc cây", "đọc", "cuốn sách", "mới"]
+      },
+      {
+        "id": "vi-08",
+        "text": "Khi trời bắt đầu mưa, cô mở chiếc ô màu xanh.",
+        "contentWords": ["bắt đầu", "mưa", "mở", "chiếc ô", "màu xanh"]
+      },
+      {
+        "id": "vi-09",
+        "text": "Cô đi xe buýt về nhà trước bữa tối.",
+        "contentWords": ["đi", "xe buýt", "về", "nhà", "bữa tối"]
+      },
+      {
+        "id": "vi-10",
+        "text": "Buổi tối, cả gia đình cùng ăn và kể cho nhau nghe về ngày hôm đó.",
+        "contentWords": ["Buổi tối", "gia đình", "ăn", "kể", "ngày"]
+      }
+    ]
+  },
+  {
+    "language": "ja",
+    "source": {
+      "kind": "project-authored-translation",
+      "story": "maria-market-v1",
+      "license": "MIT",
+      "reviewStatus": "machine-drafted-2026-07-31"
+    },
+    "sentences": [
+      {
+        "id": "ja-01",
+        "text": "月曜日の朝、マリアは早く市場へ行きました。",
+        "contentWords": ["月曜日", "朝", "マリア", "早く", "市場", "行きました"]
+      },
+      {
+        "id": "ja-02",
+        "text": "新鮮なパンとりんごを二つ、それに水を一本買いました。",
+        "contentWords": ["新鮮", "パン", "りんご", "二つ", "水", "一本", "買いました"]
+      },
+      {
+        "id": "ja-03",
+        "text": "店員は彼女に挨拶し、家族のことを尋ねました。",
+        "contentWords": ["店員", "彼女", "挨拶", "家族", "尋ねました"]
+      },
+      {
+        "id": "ja-04",
+        "text": "マリアは子どもたちが家で勉強していると話しました。",
+        "contentWords": ["マリア", "子どもたち", "家", "勉強", "話しました"]
+      },
+      {
+        "id": "ja-05",
+        "text": "買い物のあと、彼女は公園を歩きました。",
+        "contentWords": ["買い物", "彼女", "公園", "歩きました"]
+      },
+      {
+        "id": "ja-06",
+        "text": "小さな犬が湖の近くで遊んでいました。",
+        "contentWords": ["小さな", "犬", "湖", "近く", "遊んでいました"]
+      },
+      {
+        "id": "ja-07",
+        "text": "彼女は木の下に座り、新しい本を読みました。",
+        "contentWords": ["彼女", "木", "下", "座り", "新しい", "本", "読みました"]
+      },
+      {
+        "id": "ja-08",
+        "text": "雨が降り始めると、青い傘を開きました。",
+        "contentWords": ["雨", "降り始める", "青い", "傘", "開きました"]
+      },
+      {
+        "id": "ja-09",
+        "text": "夕食前にバスで家へ帰りました。",
+        "contentWords": ["夕食", "バス", "家", "帰りました"]
+      },
+      {
+        "id": "ja-10",
+        "text": "夜は家族全員で食事をし、その日のことを話しました。",
+        "contentWords": ["夜", "家族", "全員", "食事", "その日", "話しました"]
+      }
+    ]
+  }
+]

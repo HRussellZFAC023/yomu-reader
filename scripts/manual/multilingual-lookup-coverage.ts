@@ -177,6 +177,8 @@ const corpus: Record<TargetId, readonly CorpusSentence[]> = {
     ],
 };
 
+export const sixTargetLookupCorpus = corpus;
+
 function cliValue(flag: string): string | undefined {
     const index = process.argv.indexOf(flag);
     return index >= 0 ? process.argv[index + 1] : undefined;
@@ -238,7 +240,11 @@ async function measureTarget(language: TargetId, cacheDir: string): Promise<Targ
     const store = new YomitanDictionaryStore();
     await store.clear();
     await store.importFile(
-        new File([bytes], `${dictionary}.zip`, { type: 'application/zip' }),
+        new File(
+            [bytes as Uint8Array<ArrayBuffer>],
+            `${dictionary}.zip`,
+            { type: 'application/zip' },
+        ) as unknown as globalThis.File,
         undefined,
         '',
         {
@@ -416,4 +422,9 @@ async function main(): Promise<void> {
     }
 }
 
-await main();
+const invokedAsNpmHarness = process.env.npm_lifecycle_event === 'manual:multilingual-lookup-coverage';
+const invokedWithScriptArg = process.argv.slice(1)
+    .some(argument => resolve(argument) === fileURLToPath(import.meta.url));
+if (invokedAsNpmHarness || invokedWithScriptArg) {
+    await main();
+}

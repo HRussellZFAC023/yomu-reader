@@ -18,6 +18,8 @@ import {
     readIndexRequestValues,
     requestTermMatchIndex,
     sortedTermMatchExpressions,
+    targetTermMatchLookupCandidates,
+    targetTermMatchQueriesReadingIndex,
     termMatchesForEntries,
     type TermMatchCandidates,
 } from './term-match';
@@ -666,17 +668,10 @@ export class YomitanDictionaryStore {
         start: number,
         candidates: TermMatchCandidates,
     ): void {
-        for (const deinflected of target.lookupCandidates(surface)) {
-            if (!target.isLookupableText(deinflected.term)) continue;
-            // Dictionary imports and direct lookups cross the same Unicode
-            // boundary. Keep the raw target candidate as a fallback for legacy
-            // rows, but index the canonical spelling too. Surface coordinates
-            // and the target's morphological analysis remain untouched.
-            for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
-                const positions = candidates.get(lookupTerm) ?? [];
-                positions.push({ start, end: start + surface.length, surface, deinflected });
-                candidates.set(lookupTerm, positions);
-            }
+        for (const { key, deinflected } of targetTermMatchLookupCandidates(target, surface)) {
+            const positions = candidates.get(key) ?? [];
+            positions.push({ start, end: start + surface.length, surface, deinflected });
+            candidates.set(key, positions);
         }
     }
 
@@ -694,8 +689,8 @@ export class YomitanDictionaryStore {
             const readingIndex = store.index('reading');
             const results: YomitanTermMatch[] = [];
             const expressions = sortedTermMatchExpressions(candidates);
-            const exactExpressionsOnly = target.lookupSweepMode === 'left-to-right-longest-exact';
-            let pending = expressions.length * (exactExpressionsOnly ? 1 : 2);
+            const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
+            let pending = expressions.length * (queriesReadingIndex ? 2 : 1);
             const finish = () => {
                 if (--pending <= 0) resolve(results);
             };
@@ -704,7 +699,7 @@ export class YomitanDictionaryStore {
             };
             for (const expression of expressions) {
                 requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-                if (!exactExpressionsOnly) {
+                if (queriesReadingIndex) {
                     requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
                 }
             }

@@ -9,6 +9,8 @@ const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workfl
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
+const amoSourceBuildTemplate = readFileSync(join(process.cwd(), 'scripts/amo/SOURCE_BUILD.template.md'), 'utf8');
+const nodeVersion = readFileSync(join(process.cwd(), '.nvmrc'), 'utf8').trim();
 
 /** Whether a manifest pathspec stages a given path: exact, inside a directory, or matched by git's wildcard. */
 function covers(entry: string, path: string): boolean {
@@ -191,7 +193,10 @@ describe('release workflow safety', () => {
 
     it('pins and submits the exact Firefox reviewer source bundle', () => {
         expect(releaseWorkflow).toContain(`ref: ${USER_SCRIPT_COMPILER_COMMIT}`);
-        expect(releaseWorkflow).toContain('node-version: 24.14.0');
+        expect(nodeVersion).toBe('24.16.0');
+        expect(releaseWorkflow).toContain("node-version-file: '.nvmrc'");
+        expect(releaseWorkflow).not.toMatch(/\bnode-version:\s/);
+        expect(amoSourceBuildTemplate).toContain(`- Node.js ${nodeVersion}`);
         expect(releaseWorkflow).toContain('npm install --global npm@11.9.0');
         expect(releaseWorkflow).toContain('node scripts/build-amo-source-package.mjs');
         expect(releaseWorkflow).toContain('dist/extension/source/yomureader.com-firefox-source.zip');

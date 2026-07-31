@@ -5,7 +5,7 @@ This source bundle is for the Firefox Add-ons review of Yomu __YOMU_TAG__ (versi
 ## Build environment
 
 - Ubuntu 24.04.4 LTS (ARM64 or x64)
-- Node.js 24.14.0
+- Node.js 24.16.0
 - npm 11.9.0
 - No API keys, network services, or private packages are needed
 

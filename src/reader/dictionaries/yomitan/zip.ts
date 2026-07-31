@@ -72,9 +72,19 @@ export class ZipArchive {
 
 export async function readZipArchive(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<ZipArchive> {
     const bytes = await readBlobBytes(file, onProgress);
-    const files = readZipCentralDirectory(bytes);
-    onProgress?.({ phase: 'directory', loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
-    return new ZipArchive(bytes, files);
+    const archive = readZipArchiveBytes(bytes);
+    onProgress?.({
+        phase: 'directory',
+        loaded: bytes.byteLength,
+        total: file.size || bytes.byteLength,
+        entries: archive.entries().length,
+    });
+    return archive;
+}
+
+/** Parse already-read ZIP bytes without another Blob/cross-realm copy. */
+export function readZipArchiveBytes(bytes: Uint8Array): ZipArchive {
+    return new ZipArchive(bytes, readZipCentralDirectory(bytes));
 }
 
 async function readBlobBytes(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<Uint8Array> {
