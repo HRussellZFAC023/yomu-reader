@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearManagedStoredValues,
@@ -16,6 +18,7 @@ import {
 import { endSettingsResetGuard } from '../../src/reader/settings/index';
 import { PitchSrsStore } from '../../src/reader/newtab/pitch-srs';
 import { flushPersistedOcrCache, persistOcrCacheSoon } from '../../src/reader/ocr/ocr-cache-store';
+import { enumerateLocalYomuSrsStorageKeys } from '../../src/reader/srs/local-yomu-store';
 
 // The registry is the single source of truth for managed state; this test is the
 // enforcement. It seeds EVERY registered store (plus dynamically discovered
@@ -47,6 +50,36 @@ const DYNAMIC_DISCOVERY_KEYS = [
     'yomu:some-future-cache:v1',
     'yomu.someFuturePreference.v1',
 ];
+
+function readerTypeScriptFiles(directory = path.join(process.cwd(), 'src/reader')): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const target = path.join(directory, entry.name);
+        if (entry.isDirectory()) return readerTypeScriptFiles(target);
+        return entry.isFile() && entry.name.endsWith('.ts') ? [target] : [];
+    });
+}
+
+function sourceManagedStorageSamples(): string[] {
+    const samples = new Set<string>();
+    const declarationPattern = /(?:export\s+)?const\s+([A-Z0-9_]*(?:KEY|PREFIX)[A-Z0-9_]*)\s*=\s*(['"])(yomu[^'"\n]*|jpdb[^'"\n]*|__yomu[^'"\n]*)\2/gu;
+    for (const file of readerTypeScriptFiles()) {
+        const source = readFileSync(file, 'utf8');
+        for (const match of source.matchAll(declarationPattern)) {
+            const [, identifier, , value] = match;
+            if (identifier.includes('PREFIX')) {
+                samples.add(`${value}source-inventory-probe`);
+                continue;
+            }
+            const escapedIdentifier = identifier.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+            const directWrite = new RegExp(
+                `(?:gmStorageSet(?:Sync)?|localStorage\\.setItem|sessionStorage\\.setItem)\\(\\s*${escapedIdentifier}\\b`,
+                'u',
+            );
+            if (directWrite.test(source)) samples.add(value);
+        }
+    }
+    return [...samples].sort();
+}
 
 describe('factory reset invariant — nothing managed survives resetAllData', () => {
     beforeEach(() => {
@@ -91,23 +124,12 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         expect(localStorage.getItem('foreign-site-token')).toBe('keep-me');
     });
 
-    it('clears every registered + discovered key on the hosted web-storage path (no GM_listValues)', async () => {
-        // Hosted origin (no usable GM_listValues): exact GM keys must still be reached
-        // via the registry's exact-key net; prefix-family keys land in localStorage
-        // (the storage layer mirrors GM writes to localStorage on the hosted origin)
-        // where the managed-prefix sweep nets them.
-        const store = new Map<string, unknown>();
-        for (const entry of managedStateEntries()) {
-            if (entry.kind === 'gm' && entry.key) store.set(entry.key, { sentinel: true });
-        }
-        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => (store.has(key) ? store.get(key) : fallback)));
-        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { store.delete(key); }));
-        vi.stubGlobal('GM_listValues', undefined);
-
-        // localStorage-resident keys, mirrored prefix-family keys, and discovery keys.
+    it('clears hosted web storage when no shared GM backend exists', async () => {
+        // A standalone hosted app has only per-origin web storage. This remains a
+        // complete inventory because there is no hidden shared GM store.
         const localSeed = [
+            ...seededKeysForKind(['gm']),
             ...seededKeysForKind(['local']),
-            ...managedStateEntries().filter(e => e.kind === 'gm' && e.prefix).map(e => sampleKeyForPrefix(e.prefix as string)),
             ...DYNAMIC_DISCOVERY_KEYS,
         ];
         for (const key of localSeed) localStorage.setItem(key, JSON.stringify({ sentinel: true }));
@@ -118,9 +140,6 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
 
         await clearManagedStoredValues();
 
-        // Every exact registered GM key must be gone even without listValues.
-        expect([...store.keys()]).toEqual([]);
-
         const remainingLocal: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -128,6 +147,56 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         }
         expect(remainingLocal).toEqual(['foreign-site-token']);
         expect(sessionStorage.length).toBe(0);
+    });
+
+    it('refuses a partial GM reset when listValues is unavailable', async () => {
+        const store = new Map<string, unknown>([
+            ['yomu:srs-local:v2:index', { version: 2, revision: 1, cardIds: ['sentinel'], tombstoneIds: [] }],
+            ['yomu:srs-local:v2:card:sentinel', { spelling: '読む' }],
+            ['yomu-dictionary-archives', {
+                jitendex: { title: 'Jitendex', filename: 'jitendex.zip', size: 4, chunkCount: 1 },
+            }],
+            ['yomu-dictionary-archive:jitendex:0', 'bytes'],
+        ]);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=reset',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+            origin: 'https://www.youtube.com',
+        });
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => store.has(key) ? store.get(key) : fallback));
+        vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { store.delete(key); }));
+        vi.stubGlobal('GM_listValues', undefined);
+
+        await expect(clearManagedStoredValues()).rejects.toMatchObject({
+            name: 'ManagedStateResetError',
+            yomuUiCopyKey: 'factoryResetStorageIncomplete',
+        });
+
+        expect([...store.keys()].sort()).toEqual([
+            'yomu-dictionary-archive:jitendex:0',
+            'yomu-dictionary-archives',
+            'yomu:srs-local:v2:card:sentinel',
+            'yomu:srs-local:v2:index',
+        ]);
+    });
+
+    it('derives local SRS prefix keys from the owner index', async () => {
+        const store = new Map<string, unknown>([
+            ['yomu:srs-local:v2:index', {
+                version: 2,
+                revision: 1,
+                cardIds: ['読む'],
+                tombstoneIds: ['消す'],
+            }],
+        ]);
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => store.has(key) ? store.get(key) : fallback));
+
+        await expect(enumerateLocalYomuSrsStorageKeys()).resolves.toEqual([
+            'yomu:srs-local:v2:index',
+            `yomu:srs-local:v2:card:${encodeURIComponent('読む')}`,
+            `yomu:srs-local:v2:tombstone:${encodeURIComponent('消す')}`,
+        ]);
     });
 
     it('clears the managed IndexedDB databases', async () => {
@@ -148,14 +217,12 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         }
     });
 
-    it('reports no unregistered managed keys for the reader-owned prefixes', () => {
-        // The safety-net invariant: keys the prefix/GM sweep catches must all be
-        // registered. Any reader-owned key that is NOT in the registry is a store
-        // that escaped registration. (This mirrors the runtime warning path.)
-        const swept = new Set<string>([
-            ...seededKeysForKind(['gm', 'local', 'session']),
-        ]);
-        expect(unregisteredManagedStorageKeys(swept)).toEqual([]);
+    it('registers managed storage targets discovered from writer source', () => {
+        const sourceSamples = sourceManagedStorageSamples();
+        expect(sourceSamples).toContain('yomu-dictionary-archives');
+        expect(sourceSamples).toContain('yomu-dictionary-archive:source-inventory-probe');
+        expect(sourceSamples).toContain('yomu-dictionary-replication-state');
+        expect(unregisteredManagedStorageKeys(sourceSamples)).toEqual([]);
     });
 });
 

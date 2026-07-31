@@ -30,14 +30,18 @@ export interface ManagedStateEntry {
     readonly key?: string;
     /**
      * Dynamic key family — every key the store may write starts with this prefix
-     * (e.g. 'yomu-mining-context:'). Used by the invariant test to seed and by the
-     * reset sweep as an exact-list fallback is impossible for these.
+     * (e.g. 'yomu-mining-context:').
      */
     readonly prefix?: string;
+    /**
+     * Authoritative fallback for a dynamic family when the storage backend cannot
+     * list its keys. The owning store derives these keys from its own index.
+     */
+    readonly enumerate?: () => Promise<string[]>;
 }
 
 const entries: ManagedStateEntry[] = [];
-const registeredKeys = new Set<string>();
+const registeredEntryIndexes = new Map<string, number>();
 
 let resetWritesSuppressed = false;
 
@@ -48,8 +52,19 @@ let resetWritesSuppressed = false;
 // fallow-ignore-next-line unused-export
 export function registerManagedState(entry: ManagedStateEntry): void {
     const identity = managedStateIdentity(entry);
-    if (registeredKeys.has(identity)) return;
-    registeredKeys.add(identity);
+    const existingIndex = registeredEntryIndexes.get(identity);
+    if (existingIndex !== undefined) {
+        const existing = entries[existingIndex];
+        if (existing.owner !== entry.owner) {
+            throw new Error(`Managed state ${identity} has conflicting owners: ${existing.owner}, ${entry.owner}.`);
+        }
+        if (existing.enumerate && entry.enumerate && existing.enumerate !== entry.enumerate) {
+            throw new Error(`Managed state ${identity} has conflicting enumerators.`);
+        }
+        if (!existing.enumerate && entry.enumerate) entries[existingIndex] = { ...existing, enumerate: entry.enumerate };
+        return;
+    }
+    registeredEntryIndexes.set(identity, entries.length);
     entries.push(entry);
 }
 

@@ -5,6 +5,7 @@ import { OnboardingController } from '../app/onboarding';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import { ensureLocalDictionariesReplicated } from '../dictionaries/replication';
+import { enumerateDictionaryArchiveStorageKeys } from '../dictionaries/archive-cache';
 import {
     nestedSettingsParseAlreadyRendered,
     nestedSettingsTextParsePlan,
@@ -39,4 +40,8 @@ registerYomuCompanion('settings', {
         settingsForSettingsFormParse,
     },
 });
-registerYomuCompanion('localDictionaries', { YomitanDictionaryStore, ensureLocalDictionariesReplicated });
+registerYomuCompanion('localDictionaries', {
+    YomitanDictionaryStore,
+    ensureLocalDictionariesReplicated,
+    enumerateDictionaryArchiveStorageKeys,
+});

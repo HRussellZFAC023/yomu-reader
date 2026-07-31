@@ -30,6 +30,7 @@ const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 const YOMU_LOCAL_SRS_V2_INDEX_KEY = 'yomu:srs-local:v2:index';
 const YOMU_LOCAL_SRS_V2_CARD_PREFIX = 'yomu:srs-local:v2:card:';
 const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = 'yomu:srs-local:v2:tombstone:';
+const MANAGED_IDB_DELETE_TIMEOUT_MS = 2_000;
 const MANAGED_CACHE_NAME_PREFIXES = [
     'yomu-newtab-',
     'yomu-pdf-reader-',
@@ -56,6 +57,15 @@ export interface GmStorageLeaseOptions {
     readonly leaseMs?: number;
     readonly pollMs?: number;
     readonly timeoutMs?: number;
+}
+
+export class ManagedStateResetError extends Error {
+    readonly yomuUiCopyKey = 'factoryResetStorageIncomplete';
+
+    constructor(diagnostic: string, options: ErrorOptions = {}) {
+        super(diagnostic, options);
+        this.name = 'ManagedStateResetError';
+    }
 }
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };
@@ -142,6 +152,16 @@ export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
         localStorageSet(key, fallback);
     }
     return fallback;
+}
+
+/** Raw, non-promoting read used by owner-defined factory-reset enumerators. */
+export async function gmStorageGetForResetEnumeration<T>(key: string, fallback: T): Promise<T> {
+    const getValue = asyncGmGetValue();
+    if (getValue) return await getValue<T>(key, fallback);
+    if (asyncGmSetValue() || asyncGmDeleteValue()) {
+        throw new ManagedStateResetError(`Managed storage cannot read the index "${key}".`);
+    }
+    return localStorageGet(key, fallback);
 }
 
 /**
@@ -419,6 +439,39 @@ export async function gmStorageDelete(key: string): Promise<void> {
     removeSessionStorageKey(key);
 }
 
+async function deleteManagedStoredValue(key: string): Promise<void> {
+    const getValue = asyncGmGetValue();
+    const deleteValue = asyncGmDeleteValue();
+    if (getValue && !deleteValue) {
+        throw new ManagedStateResetError(`Managed storage cannot delete "${key}".`);
+    }
+    if (deleteValue) {
+        try {
+            await deleteValue(key);
+        } catch (error) {
+            throw new ManagedStateResetError(`Managed storage failed to delete "${key}".`, { cause: error });
+        }
+    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
+
+    if (getValue) {
+        let stored: unknown;
+        try {
+            stored = await getValue<unknown | typeof MISSING>(key, MISSING);
+        } catch (error) {
+            throw new ManagedStateResetError(`Managed storage could not verify deletion of "${key}".`, { cause: error });
+        }
+        if (!isMissingSentinel(stored)) {
+            throw new ManagedStateResetError(`Managed storage still contains "${key}" after deletion.`);
+        }
+    }
+    if (resetWebStorageHasKey(localStorage, key, 'localStorage')
+        || resetWebStorageHasKey(sessionStorage, key, 'sessionStorage')) {
+        throw new ManagedStateResetError(`Web storage still contains "${key}" after deletion.`);
+    }
+}
+
 /** Delete secret material from GM storage and scrub any legacy web fallback. */
 export async function gmPrivateStorageDelete(key: string): Promise<void> {
     assertPrivateStorageKey(key);
@@ -614,9 +667,7 @@ export async function clearManagedStoredValues(): Promise<number> {
     const keys = await allStorageKeys();
     let count = 0;
     for (const key of keys) {
-        await gmStorageDelete(key);
-        removeLocalStorageKey(key);
-        removeSessionStorageKey(key);
+        await deleteManagedStoredValue(key);
         count++;
     }
     await clearManagedIndexedDatabases();
@@ -625,16 +676,23 @@ export async function clearManagedStoredValues(): Promise<number> {
     return count;
 }
 
+export async function managedStoredKeysStillPresent(): Promise<string[]> {
+    return allStorageKeys();
+}
+
 export async function clearManagedBrowserCaches(): Promise<number> {
     if (typeof caches === 'undefined') return 0;
     try {
         const keys = await caches.keys();
         const managedKeys = keys.filter(isManagedBrowserCacheName);
         const deleted = await Promise.all(managedKeys.map(key => caches.delete(key)));
-        return deleted.filter(Boolean).length;
+        const failed = managedKeys.filter((_key, index) => !deleted[index]);
+        if (failed.length) throw new ManagedStateResetError(`Managed browser caches remained: ${failed.join(', ')}`);
+        return deleted.length;
     } catch (error) {
         debugStorageError('Cache API clear failed', 'managed-caches', error);
-        return 0;
+        if (error instanceof ManagedStateResetError) throw error;
+        throw new ManagedStateResetError('Managed browser caches could not be cleared.', { cause: error });
     }
 }
 
@@ -644,10 +702,13 @@ export async function unregisterManagedServiceWorkers(): Promise<number> {
         const registrations = await navigator.serviceWorker.getRegistrations();
         const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
         const unregistered = await Promise.all(managedRegistrations.map(registration => registration.unregister()));
-        return unregistered.filter(Boolean).length;
+        const failed = managedRegistrations.filter((_registration, index) => !unregistered[index]);
+        if (failed.length) throw new ManagedStateResetError('Managed service workers remained registered.');
+        return unregistered.length;
     } catch (error) {
         debugStorageError('Service worker unregister failed', 'managed-service-workers', error);
-        return 0;
+        if (error instanceof ManagedStateResetError) throw error;
+        throw new ManagedStateResetError('Managed service workers could not be unregistered.', { cause: error });
     }
 }
 
@@ -813,10 +874,19 @@ function storageKeyMatchesPrefix(key: string, prefixes: string[]): boolean {
 
 async function allStorageKeys(): Promise<string[]> {
     const keys = new Set<string>();
-    await addGmStorageKeys(keys);
-    collectWebStorageKeys(localStorage, keys);
-    collectWebStorageKeys(sessionStorage, keys);
+    const gmEnumeration = await addGmStorageKeys(keys);
+    collectWebStorageKeys(localStorage, keys, 'localStorage');
+    collectWebStorageKeys(sessionStorage, keys, 'sessionStorage');
     await addKnownStoredKeys(keys);
+    if (!gmEnumeration.complete) {
+        const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
+        if (incompleteOwners.length) {
+            throw new ManagedStateResetError([
+                gmEnumeration.diagnostic,
+                `Missing authoritative prefix inventory: ${incompleteOwners.join(', ')}`,
+            ].filter(Boolean).join(' '));
+        }
+    }
     warnUnregisteredManagedKeys(keys);
     return [...keys].sort();
 }
@@ -848,32 +918,82 @@ function warnUnregisteredManagedKeys(keys: Set<string>): void {
     }
 }
 
-async function addGmStorageKeys(keys: Set<string>): Promise<void> {
+interface GmStorageEnumerationResult {
+    readonly complete: boolean;
+    readonly diagnostic?: string;
+}
+
+async function addGmStorageKeys(keys: Set<string>): Promise<GmStorageEnumerationResult> {
     const listValues = asyncGmListValues();
-    if (!listValues) return;
+    if (!listValues) {
+        const hasGmBackend = Boolean(asyncGmGetValue() || asyncGmSetValue() || asyncGmDeleteValue());
+        return hasGmBackend
+            ? { complete: false, diagnostic: 'GM_listValues is unavailable.' }
+            : { complete: true };
+    }
     try {
         for (const key of await listValues()) keys.add(key);
+        return { complete: true };
     } catch (error) {
         debugStorageError('GM storage list failed', 'GM_listValues', error);
+        return { complete: false, diagnostic: 'GM_listValues failed.' };
     }
+}
+
+async function addDeclaredGmPrefixKeys(keys: Set<string>): Promise<string[]> {
+    const incompleteOwners: string[] = [];
+    for (const entry of managedStateEntries()) {
+        if (entry.kind !== 'gm' || !entry.prefix) continue;
+        if (!entry.enumerate) {
+            incompleteOwners.push(entry.owner);
+            continue;
+        }
+        try {
+            const enumerated = await entry.enumerate();
+            if (enumerated.some(key => !key.startsWith(entry.prefix as string))) {
+                incompleteOwners.push(entry.owner);
+                continue;
+            }
+            for (const key of enumerated) keys.add(key);
+        } catch (error) {
+            debugStorageError('Managed prefix enumeration failed', entry.owner, error);
+            incompleteOwners.push(entry.owner);
+        }
+    }
+    return [...new Set(incompleteOwners)].sort();
 }
 
 async function addKnownStoredKeys(keys: Set<string>): Promise<void> {
     // The registry is the single source of truth for managed exact keys.
     for (const key of registeredManagedStorageKeys()) {
-        if (await storedValueExists(key)) keys.add(key);
+        if (await resetStoredValueExists(key)) keys.add(key);
     }
 }
 
-function collectWebStorageKeys(storage: Storage, keys: Set<string>): void {
+function collectWebStorageKeys(storage: Storage, keys: Set<string>, label: string): void {
     try {
         for (let index = 0; index < storage.length; index++) {
             const key = storage.key(index);
             if (key && isManagedStorageKey(key)) keys.add(key);
         }
-    } catch {
-        // Ignore storage enumeration failures.
+    } catch (error) {
+        throw new ManagedStateResetError(`Factory reset could not enumerate ${label}.`, { cause: error });
     }
+}
+
+async function resetStoredValueExists(key: string): Promise<boolean> {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+        let stored: unknown;
+        try {
+            stored = await getValue<unknown | typeof MISSING>(key, MISSING);
+        } catch (error) {
+            throw new ManagedStateResetError(`Factory reset could not inspect "${key}".`, { cause: error });
+        }
+        if (!isMissingSentinel(stored)) return true;
+    }
+    return resetWebStorageHasKey(localStorage, key, 'localStorage')
+        || resetWebStorageHasKey(sessionStorage, key, 'sessionStorage');
 }
 
 function localStorageGet<T>(key: string, fallback: T): T {
@@ -945,6 +1065,14 @@ function webStorageHasKey(storage: Storage, key: string): boolean {
         return storage.getItem(key) !== null;
     } catch {
         return false;
+    }
+}
+
+function resetWebStorageHasKey(storage: Storage, key: string, label: string): boolean {
+    try {
+        return storage.getItem(key) !== null;
+    } catch (error) {
+        throw new ManagedStateResetError(`Factory reset could not verify ${label} key "${key}".`, { cause: error });
     }
 }
 
@@ -1020,21 +1148,35 @@ function isManagedServiceWorkerOrigin(url: URL): boolean {
 
 function deleteIndexedDbDatabase(name: string): Promise<void> {
     if (typeof indexedDB === 'undefined') return Promise.resolve();
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
+        let blockedCause: unknown;
+        let settled = false;
+        const finish = (complete: () => void): void => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            complete();
+        };
+        const timeout = setTimeout(() => finish(() => reject(new ManagedStateResetError(
+            blockedCause
+                ? `IndexedDB deletion remained blocked for "${name}". Close other よむ tabs and retry.`
+                : `IndexedDB deletion timed out for "${name}".`,
+            { cause: blockedCause },
+        ))), MANAGED_IDB_DELETE_TIMEOUT_MS);
         try {
             const request = indexedDB.deleteDatabase(name);
-            request.onsuccess = () => resolve();
+            request.onsuccess = () => finish(resolve);
             request.onerror = error => {
                 debugStorageError('IndexedDB delete failed', name, error);
-                resolve();
+                finish(() => reject(new ManagedStateResetError(`IndexedDB failed to delete "${name}".`, { cause: error })));
             };
             request.onblocked = error => {
                 debugStorageError('IndexedDB delete blocked', name, error);
-                resolve();
+                blockedCause = error;
             };
         } catch (error) {
             debugStorageError('IndexedDB delete threw', name, error);
-            resolve();
+            finish(() => reject(new ManagedStateResetError(`IndexedDB could not delete "${name}".`, { cause: error })));
         }
     });
 }

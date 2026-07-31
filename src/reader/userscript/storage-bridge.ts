@@ -177,7 +177,7 @@ function gmStorageAccessors(): GmStorageAccessors | null {
         getValue,
         setValue,
         deleteValue: deleteValue ?? (() => undefined),
-        listValues: listValues ?? (() => []),
+        listValues: listValues ?? (() => { throw new Error('GM_listValues is unavailable.'); }),
     };
 }
 

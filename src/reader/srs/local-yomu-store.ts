@@ -1,8 +1,10 @@
 import {
     gmStorageDelete,
     gmStorageGet,
+    gmStorageGetForResetEnumeration,
     gmStorageSet,
 } from '../app/storage';
+import { registerManagedState } from '../app/managed-state-registry';
 import {
     mergeStoredYomuSrsDecks,
     normalizeStoredYomuSrsDeck,
@@ -14,6 +16,13 @@ const LEGACY_DECK_KEY = 'yomu:srs-local:v1';
 const DECK_INDEX_KEY = 'yomu:srs-local:v2:index';
 const CARD_KEY_PREFIX = 'yomu:srs-local:v2:card:';
 const TOMBSTONE_KEY_PREFIX = 'yomu:srs-local:v2:tombstone:';
+
+registerManagedState({
+    owner: 'srs/local-yomu-store',
+    kind: 'gm',
+    prefix: 'yomu:srs-local:v2:',
+    enumerate: enumerateLocalYomuSrsStorageKeys,
+});
 
 interface StoredYomuSrsIndex {
     readonly version: 2;
@@ -32,6 +41,18 @@ export class LocalYomuSrsStorageError extends Error {
 export function isLocalYomuSrsStorageError(error: unknown): error is LocalYomuSrsStorageError {
     return error instanceof LocalYomuSrsStorageError
         || Boolean(error && typeof error === 'object' && (error as { name?: unknown }).name === 'LocalYomuSrsStorageError');
+}
+
+export async function enumerateLocalYomuSrsStorageKeys(): Promise<string[]> {
+    const rawIndex = await gmStorageGetForResetEnumeration<unknown>(DECK_INDEX_KEY, null);
+    if (rawIndex === null || rawIndex === undefined) return [];
+    const index = normalizeIndex(rawIndex);
+    if (!index) throw new Error('The local SRS index is unreadable.');
+    return [
+        DECK_INDEX_KEY,
+        ...index.cardIds.map(cardStorageKey),
+        ...index.tombstoneIds.map(tombstoneStorageKey),
+    ];
 }
 
 /**

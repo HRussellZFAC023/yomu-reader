@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     clearManagedStoredValues,
+    clearFactoryResetSignal,
     createFactoryResetSignal,
     exportManagedStoredValues,
     gmStorageDelete,
@@ -161,7 +162,7 @@ describe('storage reset', () => {
         });
     });
 
-    it('factory reset deletes known GM keys even when GM_listValues is unavailable', async () => {
+    it('factory reset fails closed before deleting when GM_listValues is genuinely unavailable', async () => {
         const gmValues = new Map<string, unknown>([
             ['jpdb-popup-reader-settings', {
                 apiKey: 'secret',
@@ -179,11 +180,14 @@ describe('storage reset', () => {
         sessionStorage.setItem('jpdb-reader-transcript-panel-size', JSON.stringify({ sideWidth: 900 }));
         localStorage.setItem('unrelated-site-setting', 'keep me');
 
-        await clearManagedStoredValues();
+        await expect(clearManagedStoredValues()).rejects.toMatchObject({
+            name: 'ManagedStateResetError',
+            yomuUiCopyKey: 'factoryResetStorageIncomplete',
+        });
 
-        expect(gmValues.size).toBe(0);
-        expect(localStorage.getItem('jpdb-popup-reader-settings')).toBeNull();
-        expect(sessionStorage.getItem('jpdb-reader-transcript-panel-size')).toBeNull();
+        expect(gmValues.get('jpdb-popup-reader-settings')).toMatchObject({ apiKey: 'secret' });
+        expect(localStorage.getItem('jpdb-popup-reader-settings')).not.toBeNull();
+        expect(sessionStorage.getItem('jpdb-reader-transcript-panel-size')).not.toBeNull();
         expect(localStorage.getItem('unrelated-site-setting')).toBe('keep me');
     });
 
@@ -300,13 +304,13 @@ describe('storage reset', () => {
         expect(removeValueChangeListener).toHaveBeenCalledWith(21);
     });
 
-    it('factory reset deletes its coordination signal when GM_listValues is unavailable', async () => {
+    it('can delete its coordination signal without GM_listValues', async () => {
         const gmValues = new Map<string, unknown>([
             ['yomu:factory-reset-signal', createFactoryResetSignal('complete', 'reset-test')],
         ]);
         stubGmStorage(gmValues);
 
-        await clearManagedStoredValues();
+        await clearFactoryResetSignal();
 
         expect(gmValues.size).toBe(0);
     });

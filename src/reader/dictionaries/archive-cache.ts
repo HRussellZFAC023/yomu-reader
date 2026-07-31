@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import { gmStorageDelete, gmStorageGet, gmStorageSet } from '../app/storage';
+import { gmStorageDelete, gmStorageGet, gmStorageGetForResetEnumeration, gmStorageSet } from '../app/storage';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportIntegrity } from './yomitan/types';
 
@@ -43,6 +43,22 @@ interface DictionaryArchiveInput {
 export async function listDictionaryArchives(): Promise<DictionaryArchiveIndex> {
     const index = await gmStorageGet<DictionaryArchiveIndex | null>(ARCHIVE_INDEX_KEY, null);
     return index && typeof index === 'object' ? index : {};
+}
+
+export async function enumerateDictionaryArchiveStorageKeys(): Promise<string[]> {
+    const stored = await gmStorageGetForResetEnumeration<unknown>(ARCHIVE_INDEX_KEY, null);
+    if (stored !== null && (typeof stored !== 'object' || Array.isArray(stored))) {
+        throw new Error('The dictionary archive index is unreadable.');
+    }
+    const archives = (stored ?? {}) as DictionaryArchiveIndex;
+    const keys: string[] = [];
+    for (const [identity, meta] of Object.entries(archives)) {
+        if (!Number.isSafeInteger(meta.chunkCount) || meta.chunkCount < 0) {
+            throw new Error(`Dictionary archive metadata is unreadable for ${identity}.`);
+        }
+        for (let chunk = 0; chunk < meta.chunkCount; chunk++) keys.push(archiveChunkKey(identity, chunk));
+    }
+    return keys;
 }
 
 export async function persistDictionaryArchive(input: DictionaryArchiveInput): Promise<void> {

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deleteDictionaryArchive, listDictionaryArchives, persistDictionaryArchive, readDictionaryArchiveFile } from '../../src/reader/dictionaries/archive-cache';
+import {
+    deleteDictionaryArchive,
+    enumerateDictionaryArchiveStorageKeys,
+    listDictionaryArchives,
+    persistDictionaryArchive,
+    readDictionaryArchiveFile,
+} from '../../src/reader/dictionaries/archive-cache';
 import { ReaderApp } from '../../src/reader/app/main';
 import { registerYomuCompanion } from '../../src/reader/companions/registry';
 import { ensureLocalDictionariesReplicated, type DictionaryReplicationOptions, type DictionaryReplicationStore } from '../../src/reader/dictionaries/replication';
@@ -57,7 +63,11 @@ beforeEach(() => {
 
 afterEach(() => {
     removeGmShim();
-    registerYomuCompanion('localDictionaries', { YomitanDictionaryStore, ensureLocalDictionariesReplicated });
+    registerYomuCompanion('localDictionaries', {
+        YomitanDictionaryStore,
+        ensureLocalDictionariesReplicated,
+        enumerateDictionaryArchiveStorageKeys,
+    });
     document.body.innerHTML = '';
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -74,6 +84,9 @@ describe('dictionary archive cache', () => {
         const file = await readDictionaryArchiveFile('jitendex.org');
         expect(file).not.toBeNull();
         expect(await fileBytes(file!)).toEqual(bytes);
+        expect(await enumerateDictionaryArchiveStorageKeys()).toEqual([
+            'yomu-dictionary-archive:jitendex.org:0',
+        ]);
     });
 
     it('stores only the URL for downloadable dictionaries', async () => {
@@ -114,7 +127,11 @@ describe('ensureLocalDictionariesReplicated', () => {
             options.onReplicated(['Jitendex.org [2026-06-06]']);
             return ['Jitendex.org [2026-06-06]'];
         });
-        registerYomuCompanion('localDictionaries', { YomitanDictionaryStore, ensureLocalDictionariesReplicated: replicate });
+        registerYomuCompanion('localDictionaries', {
+            YomitanDictionaryStore,
+            ensureLocalDictionariesReplicated: replicate,
+            enumerateDictionaryArchiveStorageKeys,
+        });
         vi.stubGlobal('requestIdleCallback', (callback: IdleRequestCallback) => {
             callback({ didTimeout: false, timeRemaining: () => 50 });
             return 1;

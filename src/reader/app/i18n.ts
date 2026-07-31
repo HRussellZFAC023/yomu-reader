@@ -975,9 +975,8 @@ const COPY = {
         factoryReset: 'Factory Reset',
         factoryResetConfirm: 'Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.',
         factoryResetFailed: 'Reset failed.',
-        factoryResetDictionaryWarning: 'Settings reset. Close other tabs.',
+        factoryResetStorageIncomplete: 'Reset stopped because not every saved item could be found or deleted. Close other よむ tabs and retry. If it still fails, clear よむ storage in your userscript manager.',
         factoryResetOtherTabReloading: 'よむ reset elsewhere. Reloading...',
-        factoryResetDeleteSettingsFailed: 'Could not delete settings.',
         issues: 'Issues',
         donate: 'Donate',
         discord: 'Discord',
@@ -2462,9 +2461,8 @@ docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
 factoryResetFailed	リセットに失敗しました。
-factoryResetDictionaryWarning	設定をリセットしました。他のタブを閉じてください。
+factoryResetStorageIncomplete	保存データをすべて検出または削除できなかったため、リセットを中止しました。ほかのよむタブを閉じて再試行してください。解決しない場合は、ユーザースクリプトマネージャーでよむのストレージを消去してください。
 factoryResetOtherTabReloading	別タブでリセット。再読み込み...
-factoryResetDeleteSettingsFailed	設定を削除できません。他のタブを閉じてください。
 issues	Issue
 donate	寄付
 discord	Discord

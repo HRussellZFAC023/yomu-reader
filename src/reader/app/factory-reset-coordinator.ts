@@ -7,12 +7,13 @@ import {
     beginSettingsResetGuard,
     deleteSettingsStorage,
     endSettingsResetGuard,
-    settingsStorageKeysStillPresent,
 } from '../settings/index';
 import {
     clearManagedStoredValues,
     clearFactoryResetSignal,
     createFactoryResetSignal,
+    ManagedStateResetError,
+    managedStoredKeysStillPresent,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
     type FactoryResetSignal,
@@ -96,26 +97,17 @@ export class FactoryResetCoordinator {
             await delay(FACTORY_RESET_PREPARE_DELAY_MS);
             await clearManagedStoredValues();
             await deleteSettingsStorage();
-            await this.assertSettingsStorageDeleted();
-            await this.resetDictionaryDatabaseBestEffort();
+            await this.assertManagedStateDeleted();
+            await this.dependencies.resetDictionaryDatabase();
             await publishFactoryResetSignal(createFactoryResetSignal('complete', resetSignal.id));
             await clearFactoryResetSignal();
             this.dependencies.reload();
         } catch (error) {
             this.activeResetId = '';
+            await clearFactoryResetSignal().catch(signalError => log.warn('Factory reset signal cleanup failed', signalError));
             endSettingsResetGuard();
             log.warn('All-data reset failed', error);
             this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), 'factoryResetFailed', error));
-        }
-    }
-
-    private async resetDictionaryDatabaseBestEffort(): Promise<unknown> {
-        try {
-            return await this.dependencies.resetDictionaryDatabase();
-        } catch (error) {
-            log.warn('Dictionary reset failed post-settings', error);
-            this.dependencies.toast(this.text('factoryResetDictionaryWarning'));
-            return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
         }
     }
 
@@ -136,11 +128,11 @@ export class FactoryResetCoordinator {
         }
     }
 
-    private async assertSettingsStorageDeleted(): Promise<void> {
-        const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
-        if (!settingsKeysStillPresent.length) return;
-        log.warn('Settings keys remained after reset', { settingsKeysStillPresent });
-        throw new Error(this.text('factoryResetDeleteSettingsFailed'));
+    private async assertManagedStateDeleted(): Promise<void> {
+        const managedKeysStillPresent = await managedStoredKeysStillPresent();
+        if (!managedKeysStillPresent.length) return;
+        log.warn('Managed keys remained after reset', { managedKeysStillPresent });
+        throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(', ')}`);
     }
 
     private text(key: Parameters<typeof uiText>[1], values: Record<string, string> = {}): string {

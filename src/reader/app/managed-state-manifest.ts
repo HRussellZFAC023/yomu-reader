@@ -1,4 +1,11 @@
 import { registerManagedStates, type ManagedStateEntry } from './managed-state-registry';
+import { yomuLocalDictionaries } from '../companions/registry';
+
+async function enumerateDictionaryArchiveStorageKeys(): Promise<string[]> {
+    const enumerate = yomuLocalDictionaries()?.enumerateDictionaryArchiveStorageKeys;
+    if (!enumerate) throw new Error('The local-dictionary companion cannot enumerate archive storage.');
+    return enumerate();
+}
 
 // The declared inventory of every Yomu-managed persistent store, sourced from a
 // full grep of gmStorageSet/localStorage.setItem/sessionStorage.setItem/
@@ -61,6 +68,14 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     // store's own deleteDatabase during reset; registered so the invariant test
     // asserts it and the reset sweep nets it as a fallback.
     { owner: 'dictionaries/yomitan', kind: 'idb', key: 'jpdb-popup-reader-yomitan' },
+    { owner: 'dictionaries/archive-cache', kind: 'gm', key: 'yomu-dictionary-archives' },
+    {
+        owner: 'dictionaries/archive-cache',
+        kind: 'gm',
+        prefix: 'yomu-dictionary-archive:',
+        enumerate: enumerateDictionaryArchiveStorageKeys,
+    },
+    { owner: 'dictionaries/replication', kind: 'local', key: 'yomu-dictionary-replication-state' },
 
     // OCR result cache.
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v1' },

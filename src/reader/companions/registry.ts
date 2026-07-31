@@ -174,6 +174,7 @@ interface YomuCompanionRegistry {
         // cross-origin archive cache; ships with the settings-surface
         // companion because core has no local dictionaries without it.
         ensureLocalDictionariesReplicated?: typeof import('../dictionaries/replication').ensureLocalDictionariesReplicated;
+        enumerateDictionaryArchiveStorageKeys?: typeof import('../dictionaries/archive-cache').enumerateDictionaryArchiveStorageKeys;
     };
     anki?: {
         AnkiConnectClient: AnkiConnectClientClass;
