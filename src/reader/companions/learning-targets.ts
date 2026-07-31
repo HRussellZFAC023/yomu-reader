@@ -2,6 +2,8 @@ import {
     activeLearningTarget,
     activeLearningTargetLanguage,
     adoptLearningTargetLanguage,
+    defaultLearningTargetModule,
+    learningTargetModuleFor,
     normalizeLearningTargetLanguage,
     registeredLearningTargetModules,
 } from '../languages/target-runtime';
@@ -11,6 +13,8 @@ registerYomuCompanion('learningTargets', {
     activeLearningTarget,
     activeLearningTargetLanguage,
     adoptLearningTargetLanguage,
+    defaultLearningTargetModule,
+    learningTargetModuleFor,
     normalizeLearningTargetLanguage,
     registeredLearningTargetModules,
 });

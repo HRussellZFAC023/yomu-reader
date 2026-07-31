@@ -7,6 +7,7 @@ import {
 } from '../../../src/reader/languages/active';
 import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
 import { KOREAN_LEARNING_TARGET } from '../../../src/reader/languages/korean';
+import { createLearningTargetGrammar } from '../../../src/reader/languages/grammar';
 import { createLearningTargetModule } from '../../../src/reader/languages/module';
 import {
     DEFAULT_LEARNING_TARGET_LANGUAGE,
@@ -47,10 +48,11 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 7 added a target-owned bounded subsegment lookup strategy,
-        // keeping Korean particle rules out of shared lookup machinery.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(7);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(7)).toBe(true);
+        // Revision 8 puts grammar detection and its level scale behind the
+        // target Module instead of a Japanese registry in shared Study code.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(8);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(8)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(7)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(false);
@@ -79,6 +81,7 @@ describe('LearningTargetModule contract revision', () => {
             'compareLookupCandidates',
             'direction',
             'featureSemantics',
+            'grammar',
             'id',
             'interfaceVersion',
             'isLookupableText',
@@ -95,6 +98,66 @@ describe('LearningTargetModule contract revision', () => {
             'typing',
             'typography',
         ]);
+    });
+
+    it('derives grammar capability from checked rules on the target scale', () => {
+        const grammar = createLearningTargetGrammar({
+            levelScale: { id: 'cefr', levels: ['A1', 'A2'] },
+            rules: [{
+                ruleId: 'sw-copula-ni',
+                level: 'A1',
+                name: 'ni',
+                patternSource: '\\bni\\b',
+                priority: 10,
+                confidence: 'high',
+                url: 'https://example.test/swahili-copula',
+            }],
+        });
+        const target = createLearningTargetModule({
+            id: 'swahili-grammar-test',
+            language: 'sw',
+            grammar,
+            featureSemantics: {
+                characterSystem: 'latin',
+                phoneticScripts: ['latin'],
+                pronunciation: 'none',
+                readingAnnotation: 'none',
+            },
+        });
+
+        expect(target.capabilities.grammar).toBe(true);
+        expect(target.grammar.levelScale).toEqual({ id: 'cefr', levels: ['A1', 'A2'] });
+        expect(target.grammar.detect('Mimi ni mwanafunzi.')).toEqual([expect.objectContaining({
+            ruleId: 'sw-copula-ni',
+            level: 'A1',
+            match: 'ni',
+            index: 5,
+        })]);
+
+        const referenceOnly = createLearningTargetModule({
+            id: 'reference-only-test',
+            language: 'sw',
+            grammar: createLearningTargetGrammar({ referenceUrl: 'https://example.test/swahili-grammar' }),
+            featureSemantics: target.featureSemantics,
+        });
+        expect(referenceOnly.capabilities.grammar).toBe(false);
+        expect(referenceOnly.grammar.rules).toEqual([]);
+        expect(referenceOnly.grammar.referenceUrl).toBe('https://example.test/swahili-grammar');
+    });
+
+    it('rejects a grammar rule outside its target level scale', () => {
+        expect(() => createLearningTargetGrammar({
+            levelScale: { id: 'cefr', levels: ['A1'] },
+            rules: [{
+                ruleId: 'bad-level',
+                level: 'N5',
+                name: 'bad',
+                patternSource: 'bad',
+                priority: 10,
+                confidence: 'high',
+                url: '',
+            }],
+        })).toThrow(/outside the cefr scale/);
     });
 });
 
@@ -116,6 +179,12 @@ describe('Japanese behind the contract', () => {
             inputNormalizer: 'romaji-kana',
             answerNormalizer: 'japanese-kana',
         });
+        expect(JAPANESE_LEARNING_TARGET.capabilities.grammar).toBe(true);
+        expect(JAPANESE_LEARNING_TARGET.grammar.levelScale).toEqual({
+            id: 'jlpt',
+            levels: ['Core', 'N5', 'N4', 'N3', 'N2', 'N1'],
+        });
+        expect(JAPANESE_LEARNING_TARGET.grammar.rules).toHaveLength(307);
         expect(JAPANESE_LEARNING_TARGET.collationLocale).toBe('ja'); // subtitle-batch-mining
         expect(JAPANESE_LEARNING_TARGET.subtitles.languageTag).toBe('ja'); // subtitle-track-metadata
         expect(JAPANESE_LEARNING_TARGET.subtitles.languageAliases).toEqual([]);
@@ -159,6 +228,8 @@ describe('a second target needs registration and nothing else', () => {
         // Honest about morphology while exposing dictionary-supplied Hangul
         // reading annotations and IPA pronunciation.
         expect(KOREAN_LEARNING_TARGET.capabilities.morphology).toBe(false);
+        expect(KOREAN_LEARNING_TARGET.capabilities.grammar).toBe(false);
+        expect(KOREAN_LEARNING_TARGET.grammar.rules).toEqual([]);
         expect(KOREAN_LEARNING_TARGET.capabilities['reading-annotation']).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.pronunciation).toBe(true);
         expect(KOREAN_LEARNING_TARGET.featureSemantics).toMatchObject({

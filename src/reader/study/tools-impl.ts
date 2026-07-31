@@ -1,6 +1,7 @@
 import { DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { grammarRuleText, uiText, type UiCopyKey } from '../app/i18n';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { requestJson as requestReaderJson } from '../network/http';
 import {
     renderStudyEmpty,
@@ -10,11 +11,10 @@ import {
 } from './section-render';
 import type { InterfaceLanguage } from '../app/types';
 import {
-    readGrammarPreferences,
-    setGrammarRuleKnown as persistGrammarRuleKnown,
-    setKnownGrammarVisible as persistKnownGrammarVisible,
+    readTargetGrammarPreferences,
+    setTargetGrammarRuleKnown as persistGrammarRuleKnown,
+    setTargetKnownGrammarVisible as persistKnownGrammarVisible,
 } from './grammar-knowledge';
-import { YOMU_GRAMMAR_REGISTRY } from './grammar-registry';
 import { translateText } from '../translation/google';
 
 export interface GrammarHint {
@@ -37,17 +37,7 @@ export interface GrammarExample {
     note?: string;
 }
 
-export type GrammarLevel = 'Core' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
-
-interface GrammarPattern {
-    ruleId: string;
-    level: GrammarLevel;
-    pattern: RegExp;
-    name: string;
-    url: string;
-    confidence: GrammarHint['confidence'];
-    priority: number;
-}
+export type GrammarLevel = string;
 
 interface GrammarRuleData {
     kind: string;
@@ -56,8 +46,6 @@ interface GrammarRuleData {
     url?: string;
     examples: GrammarExample[];
 }
-
-type RankedGrammarHint = GrammarHint & { priority: number };
 
 interface GroupedGrammarHint {
     hint: GrammarHint;
@@ -83,43 +71,12 @@ export interface LocalGrammarRuleSummary {
     exampleCount: number;
 }
 
-const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
-const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
-const MAX_LOCAL_GRAMMAR_HINTS = 12;
-const GRAMMAR_HINT_CACHE_LIMIT = 240;
 const TRANSLATION_TIMEOUT_MS = 5000;
 const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15000;
 const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
 const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
 const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 
-function gp(
-    ruleId: string,
-    level: GrammarLevel,
-    name: string,
-    source: string,
-    url = '',
-    confidence: GrammarHint['confidence'] = 'medium',
-    priority = 30,
-): GrammarPattern {
-    return { ruleId, level, pattern: new RegExp(source, 'gu'), name, url, confidence, priority };
-}
-
-function grammarPatternFromRule(rule: (typeof YOMU_GRAMMAR_REGISTRY)[number]): GrammarPattern {
-    return gp(
-        rule.ruleId,
-        rule.level,
-        rule.name,
-        rule.patternSource.replaceAll('{F}', FORM_CHUNK).replaceAll('{P}', PARTICLE_CHUNK),
-        rule.url,
-        rule.confidence,
-        rule.priority,
-    );
-}
-
-const GRAMMAR_PATTERNS: GrammarPattern[] = YOMU_GRAMMAR_REGISTRY.map(grammarPatternFromRule);
-
-const grammarHintCache = new Map<string, GrammarHint[]>();
 let grammarRuleDataPromise: Promise<Record<string, GrammarRuleData>> | undefined;
 
 export function resetGrammarRuleDataCacheForTests(): void {
@@ -127,57 +84,36 @@ export function resetGrammarRuleDataCacheForTests(): void {
 }
 
 export function listLocalGrammarRuleExamples(): LocalGrammarRuleExample[] {
-    return YOMU_GRAMMAR_REGISTRY.flatMap(rule => rule.examples.map(example => ({
-        ruleId: rule.ruleId,
-        name: rule.name,
-        level: rule.level,
-        example,
-    })));
+    // Runtime target inventories deliberately carry no bulky example corpus.
+    return [];
 }
 
 export function listLocalGrammarRules(): LocalGrammarRuleSummary[] {
-    return YOMU_GRAMMAR_REGISTRY.map(rule => ({
+    return activeLearningTarget().grammar.rules.map(rule => ({
         ruleId: rule.ruleId,
         name: rule.name,
         level: rule.level,
-        exampleCount: rule.examples.length,
+        exampleCount: 0,
     }));
 }
 
 export function detectGrammarHints(sentence: string): GrammarHint[] {
-    const normalized = sentence.normalize('NFKC').replace(/\s+/g, '');
-    const cached = grammarHintCache.get(normalized);
-    if (cached) return cached;
-
-    const seenMatches = new Set<string>();
-    const seenNames = new Map<string, number>();
-    const selected: RankedGrammarHint[] = [];
-    const ranked = GRAMMAR_PATTERNS
-        .flatMap(item => grammarMatches(item, normalized))
-        .sort(compareRankedGrammarHints);
-    for (const item of ranked) {
-        const key = `${item.ruleId}:${item.match}:${item.index}`;
-        if (seenMatches.has(key)) continue;
-        const count = seenNames.get(item.ruleId) ?? 0;
-        if (count >= 2) continue;
-        if (selected.some(existing => shouldSuppressOverlappingGrammarHint(existing, item))) continue;
-        seenMatches.add(key);
-        seenNames.set(item.ruleId, count + 1);
-        selected.push(item);
-        if (selected.length >= MAX_LOCAL_GRAMMAR_HINTS) break;
-    }
-    const hints = selected
-        .sort(compareGrammarHints)
-        .map(({ priority: _priority, ...hint }) => hint);
-    cacheGrammarHints(normalized, hints);
-    return hints;
+    return activeLearningTarget().grammar.detect(sentence).map(match => ({
+        ...match,
+        kind: 'Grammar',
+        short: match.name,
+        detail: match.name,
+        examples: [],
+    }));
 }
 
 export function preloadGrammarResources(sentence: string, language: InterfaceLanguage = 'en'): GrammarHint[] {
     const hints = detectGrammarHints(sentence);
-    if (hints.length) void loadGrammarRuleData().catch(() => undefined);
-    if (language === 'ja' && hints.length) {
-        void grammarRuleText(language, hints[0].ruleId).catch(() => undefined);
+    const grammar = activeLearningTarget().grammar;
+    const copyId = hints.length ? grammar.ruleCopyId(hints[0].ruleId) : null;
+    if (copyId) void loadGrammarRuleData().catch(() => undefined);
+    if (language === 'ja' && copyId) {
+        void grammarRuleText(language, copyId).catch(() => undefined);
     }
     return hints;
 }
@@ -186,79 +122,12 @@ export function preloadJapaneseSentenceTranslation(sentence: string, language = 
     void translateJapaneseSentence(sentence, language).catch(() => undefined);
 }
 
-function cacheGrammarHints(key: string, hints: GrammarHint[]): void {
-    if (!key) return;
-    grammarHintCache.set(key, hints);
-    if (grammarHintCache.size <= GRAMMAR_HINT_CACHE_LIMIT) return;
-    const oldest = grammarHintCache.keys().next().value;
-    if (typeof oldest === 'string') grammarHintCache.delete(oldest);
-}
-
-function compareRankedGrammarHints(a: RankedGrammarHint, b: RankedGrammarHint): number {
-    return a.priority - b.priority
-        || a.index - b.index
-        || b.match.length - a.match.length
-        || a.name.localeCompare(b.name);
-}
-
-function compareGrammarHints(a: GrammarHint, b: GrammarHint): number {
-    return a.index - b.index || a.name.localeCompare(b.name);
-}
-
-function shouldSuppressOverlappingGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    if (!grammarHintRangesOverlap(existing, next)) return false;
-    if (sameGrammarHintLocation(existing, next)) return true;
-    if (shouldKeepOverlappingGrammarHint(existing, next)) return false;
-    return shouldSuppressLooseGrammarHint(existing, next)
-        || shouldSuppressContainedGrammarHint(existing, next);
-}
-
-function sameGrammarHintLocation(existing: GrammarHint, next: GrammarHint): boolean {
-    return existing.match === next.match && existing.index === next.index;
-}
-
-function grammarHintRangesOverlap(a: GrammarHint, b: GrammarHint): boolean {
-    const aEnd = a.index + a.match.length;
-    const bEnd = b.index + b.match.length;
-    return a.index < bEnd && b.index < aEnd;
-}
-
-function shouldKeepOverlappingGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    return isCopulaPriorityException(existing, next) || areBothHighConfidenceGrammarHints(existing, next);
-}
-
-function isCopulaPriorityException(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    return existing.ruleId === 'copula-desu-da' && next.priority < 50;
-}
-
-function areBothHighConfidenceGrammarHints(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    return existing.priority < 40 && next.priority < 40;
-}
-
-function shouldSuppressLooseGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    return next.priority >= 40 && existing.priority < next.priority;
-}
-
-function shouldSuppressContainedGrammarHint(existing: RankedGrammarHint, next: RankedGrammarHint): boolean {
-    return grammarHintContains(existing, next)
-        && existing.priority <= next.priority
-        && existing.match.length > next.match.length;
-}
-
-function grammarHintContains(outer: GrammarHint, inner: GrammarHint): boolean {
-    return inner.index >= outer.index && grammarHintEnd(inner) <= grammarHintEnd(outer);
-}
-
-function grammarHintEnd(hint: GrammarHint): number {
-    return hint.index + hint.match.length;
-}
-
 export function setGrammarRuleKnown(ruleId: string, known: boolean): GrammarPreferences {
-    return persistGrammarRuleKnown(ruleId, known);
+    return persistGrammarRuleKnown(activeLearningTarget(), ruleId, known);
 }
 
 export function setKnownGrammarVisible(showKnown: boolean): GrammarPreferences {
-    return persistKnownGrammarVisible(showKnown);
+    return persistKnownGrammarVisible(activeLearningTarget(), showKnown);
 }
 
 // A "sentence" reaching translation can be OCR or page noise (code
@@ -305,7 +174,7 @@ function normalizeSentenceForTranslationRequest(sentence: string): string {
         .replace(/[」』]/g, '"');
 }
 
-export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readGrammarPreferences(), language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<string> {
+export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readTargetGrammarPreferences(activeLearningTarget()), language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<string> {
     if (!hints.length) return '';
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
@@ -337,6 +206,12 @@ function groupGrammarHintsByRule(hints: GrammarHint[]): GroupedGrammarHint[] {
         groups.set(hint.ruleId, { hint, count: 1 });
     }
     return Array.from(groups.values());
+}
+
+function grammarSummary(visibleCount: number, hiddenKnownCount: number, language: InterfaceLanguage): string {
+    const shown = `${visibleCount} ${uiText(language, 'grammarShown')}`;
+    if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, 'grammarKnownHidden')}`;
+    return shown;
 }
 
 function renderGrammarSentence(sentence: string, language: InterfaceLanguage, audioEnabled: boolean): string {
@@ -445,12 +320,13 @@ function renderGrammarRepeatCount(count: number): string {
 
 async function grammarHintDetails(hint: GrammarHint, language: InterfaceLanguage): Promise<GrammarRuleData> {
     const fallback = grammarHintFallbackData(hint, language);
-    const englishData = await loadGrammarRuleData()
-        .then(data => data[hint.ruleId])
-        .catch(() => undefined);
+    const copyId = activeLearningTarget().grammar.ruleCopyId(hint.ruleId);
+    const englishData = copyId
+        ? await loadGrammarRuleData().then(data => data[copyId]).catch(() => undefined)
+        : undefined;
     const base = englishData ? { ...fallback, ...englishData } : fallback;
     if (language !== 'ja') return base;
-    const ruleCopy = await grammarRuleText(language, hint.ruleId);
+    const ruleCopy = copyId ? await grammarRuleText(language, copyId) : undefined;
     if (ruleCopy) return { ...base, ...ruleCopy };
     const name = grammarDisplayName(hint, language);
     return {
@@ -509,133 +385,6 @@ function renderGrammarExample(example: GrammarExample, language: InterfaceLangua
 
 function renderGrammarHintGuide(url: string, language: InterfaceLanguage): string {
     return url ? `<a class="jpdb-reader-study-guide" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(uiText(language, 'grammarGuide'))}</a>` : '';
-}
-
-const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
-const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
-const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
-const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
-const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
-const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
-const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
-const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
-
-interface GrammarMatchContext {
-    rawMatch: string;
-    before: string;
-    following: string;
-}
-
-type GrammarMatchSkipPredicate = (context: GrammarMatchContext) => boolean;
-
-const GRAMMAR_MATCH_SKIP_PREDICATES: Readonly<Record<string, GrammarMatchSkipPredicate>> = {
-    'appearance-sou': ({ rawMatch }) => rawMatch === 'そう' || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
-    'hearsay-sou-da': ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
-    'volitional-you': ({ rawMatch }) => rawMatch === 'よう' || rawMatch === 'さよう',
-    'similarity-you-da': ({ rawMatch }) => rawMatch.startsWith('さよう'),
-    'conditional-nara': ({ rawMatch }) => rawMatch.endsWith('さようなら'),
-    'desire-tai': ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
-    'without-naide': ({ rawMatch, following }) => rawMatch.endsWith('ないで') && following.startsWith('す'),
-    'negative-nai': ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
-    'method-kata': shouldSkipMethodKataMatch,
-    'suffix-ge': ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
-    'state-mama': ({ rawMatch, before }) => rawMatch.includes('わがまま') || (rawMatch === 'まま' && before.endsWith('わが')),
-    'difficulty-gatai': ({ rawMatch }) => rawMatch.endsWith('ありがたい'),
-    'substitution-kawari-ni': ({ rawMatch }) => rawMatch.endsWith('おかわりに'),
-    'suffix-meku': ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
-    'possibility-eru-enai': ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith('心得'),
-    'suffix-gimi': ({ rawMatch }) => rawMatch.endsWith('不気味'),
-    'fresh-tate': ({ rawMatch }) => rawMatch === 'たて',
-    'elapsed-buri-ni': ({ rawMatch }) => rawMatch.endsWith('すぶりに'),
-    'ease-yasui-nikui': ({ rawMatch }) => rawMatch === 'やすい',
-    'examples-toka': ({ following }) => following.startsWith('言') || following.startsWith('聞') || following.startsWith('思'),
-    'explanation-no-da': ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
-    'skill-no-ga-suki': shouldSkipPronounPossessiveNominalizerMatch,
-    'nominalizer-no': shouldSkipPronounPossessiveNominalizerMatch,
-    'sensation-ga-suru': ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
-    'standard-ni-shite-wa': ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
-    'emphasis-sae': ({ rawMatch }) => rawMatch.endsWith('ささえ'),
-    'emphasis-koso': ({ rawMatch }) => rawMatch.endsWith('ようこそ'),
-    'evidence-rashii-mitai': ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch),
-};
-
-function shouldSkipGrammarMatch(item: GrammarPattern, sentence: string, match: RegExpMatchArray): boolean {
-    const predicate = GRAMMAR_MATCH_SKIP_PREDICATES[item.ruleId];
-    if (!predicate) return false;
-    return predicate(grammarMatchContext(sentence, match));
-}
-
-function grammarMatchContext(sentence: string, match: RegExpMatchArray): GrammarMatchContext {
-    const rawMatch = match[0];
-    const start = match.index ?? 0;
-    const end = start + rawMatch.length;
-    return {
-        rawMatch,
-        before: sentence.slice(Math.max(0, start - 4), start),
-        following: sentence.slice(end, end + 6),
-    };
-}
-
-function shouldSkipMethodKataMatch({ rawMatch, before, following }: GrammarMatchContext): boolean {
-    return LEXICAL_METHOD_KATA_RE.test(rawMatch)
-        || (rawMatch === '方' && (following.startsWith('法') || before.endsWith('の') || /[夕地親行]/u.test(before.slice(-1))));
-}
-
-function shouldSkipPronounPossessiveNominalizerMatch({ rawMatch }: GrammarMatchContext): boolean {
-    return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
-}
-
-function grammarMatches(item: GrammarPattern, sentence: string): RankedGrammarHint[] {
-    return Array.from(sentence.matchAll(item.pattern))
-        .filter(match => !shouldSkipGrammarMatch(item, sentence, match))
-        .map(match => {
-            const rawMatch = match[0];
-            const learnerFacingMatch = learnerMatch(item.name, rawMatch);
-            const learnerOffset = rawMatch.lastIndexOf(learnerFacingMatch);
-            const indexOffset = learnerOffset > 0 ? learnerOffset : 0;
-            return {
-                ruleId: item.ruleId,
-                name: item.name,
-                level: item.level,
-                kind: 'Grammar',
-                short: item.name,
-                detail: item.name,
-                url: item.url,
-                match: learnerFacingMatch,
-                confidence: item.confidence,
-                index: (match.index ?? 0) + indexOffset,
-                priority: item.priority,
-                examples: [],
-            };
-        })
-        .filter(hint => hint.match.length > 0);
-}
-
-function grammarSummary(visibleCount: number, hiddenKnownCount: number, language: InterfaceLanguage): string {
-    const shown = `${visibleCount} ${uiText(language, 'grammarShown')}`;
-    if (hiddenKnownCount) return `${shown} · ${hiddenKnownCount} ${uiText(language, 'grammarKnownHidden')}`;
-    return shown;
-}
-
-const LEARNER_MATCH_ENDING_NAMES = new Set([
-    'たい', 'ない', 'ました', 'ます', 'た', 'よう', 'そう', '方', 'やすい / にくい', 'すぎる',
-    'れる / られる', 'させる', 'させられる', 'がち', '気味', 'げ', 'っぽい', 'めく',
-]);
-
-const LEARNER_MATCH_HELPER_NAMES = new Set([
-    'てください', 'ていただけませんか', 'ないでください', 'させてください', 'てほしい', 'てくれる / てもらう',
-    'てしまう', 'てみる', 'ておく', 'ている', 'てある', 'てくる', 'ていく', 'てから',
-]);
-
-function learnerMatch(name: string, rawMatch: string): string {
-    let match = rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u, '');
-    if (LEARNER_MATCH_HELPER_NAMES.has(name)) {
-        const afterClauseBoundary = match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u, '');
-        if (afterClauseBoundary) match = afterClauseBoundary;
-    }
-    if (!LEARNER_MATCH_ENDING_NAMES.has(name)) return match;
-    const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, '');
-    return afterLastParticle || match;
 }
 
 async function loadGrammarRuleData(): Promise<Record<string, GrammarRuleData>> {

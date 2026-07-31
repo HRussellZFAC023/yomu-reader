@@ -8,6 +8,7 @@ import {
 import { deinflectJapaneseTerm, termRulesMatch } from '../lookup/deinflect';
 import { KANA, KANJI_LIKE_WITH_COUNTERS, PROLONGED_SOUND_MARK } from '../lookup/japanese-script';
 import { createLearningTargetModule } from './module';
+import { JAPANESE_GRAMMAR } from './japanese-grammar';
 import type { LanguageTextSegment, LearningTargetModule } from './types';
 
 const JAPANESE_POINTER_WORD_RE = new RegExp(
@@ -39,7 +40,6 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
         pronunciation: true,
         frequency: true,
         examples: true,
-        grammar: true,
         audio: true,
         'text-to-speech': true,
         ocr: true,
@@ -56,6 +56,7 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
         pronunciation: 'pitch-accent',
         readingAnnotation: 'furigana',
     },
+    grammar: JAPANESE_GRAMMAR,
     typography: {
         contentLocale: 'ja',
         readingAnnotationMode: 'ruby',

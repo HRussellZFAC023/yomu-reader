@@ -15,7 +15,7 @@ import {
     type GrammarHint,
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import { outputLanguageOf } from '../languages';
+import { activeLearningTarget, outputLanguageOf } from '../languages';
 
 const log = Logger.scope('StudySources');
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
@@ -247,7 +247,7 @@ export class StudySourceController {
     }
 
     private studyCacheKey(sentence: string): string {
-        return `${this.settings().interfaceLanguage}\u0001${outputLanguageOf(this.settings())}\u0001${sentence.trim()}`;
+        return `${activeLearningTarget().id}\u0001${this.settings().interfaceLanguage}\u0001${outputLanguageOf(this.settings())}\u0001${sentence.trim()}`;
     }
 
     private applyTranslation(

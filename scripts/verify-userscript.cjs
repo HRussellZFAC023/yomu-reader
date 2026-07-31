@@ -456,9 +456,13 @@ function assertKanjiStudySplitBoundary() {
     ['installKanjiPracticeDoodle', 'function installKanjiPracticeDoodle('],
     ['installKanjiDoodle', 'function installKanjiDoodle('],
     ['assessKanjiStrokes', 'function assessKanjiStrokes('],
-    ['grammar pattern table', 'const GRAMMAR_PATTERNS'],
-    ['grammar pattern parser', 'function grammarPatternFromRule'],
+    ['Japanese grammar pattern table', 'const GRAMMAR_PATTERN_DATA'],
+    ['Japanese grammar pattern parser', 'function parseGrammarRule'],
     ['grammar false-positive filters', 'const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE'],
+    ['Spanish target grammar module', 'const SPANISH_GRAMMAR'],
+    ['French target grammar module', 'const FRENCH_GRAMMAR'],
+    ['German target grammar module', 'const GERMAN_GRAMMAR'],
+    ['Russian target grammar module', 'const RUSSIAN_GRAMMAR'],
     ['grammar hint example renderer', 'function renderGrammarHintExamples'],
   ];
 

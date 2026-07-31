@@ -17,6 +17,10 @@ import {
     publicJitenBackoffRemainingMs as publicJitenBackoffRemainingMsFacade,
 } from '../../src/reader/dictionaries/jiten-public-vocabulary-companion';
 import { renderJitenDefinitionSource as renderJitenDefinitionSourceFacade } from '../../src/reader/jiten/jiten-definition-source-render-companion';
+import {
+    defaultLearningTargetModule as defaultLearningTargetModuleFacade,
+    learningTargetModuleFor as learningTargetModuleForFacade,
+} from '../../src/reader/languages/target-runtime-companion';
 
 import { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
@@ -211,6 +215,26 @@ describe('Jiten companion facades', () => {
     });
 });
 
+describe('learning-target companion facade', () => {
+    it('resolves concrete target modules through the registered runtime', () => {
+        const fallback = { id: 'fallback-target' };
+        const selected = { id: 'selected-target' };
+        const defaultLearningTargetModule = vi.fn(() => fallback);
+        const learningTargetModuleFor = vi.fn(() => selected);
+        setCompanions({
+            learningTargets: {
+                defaultLearningTargetModule,
+                learningTargetModuleFor,
+            },
+        });
+
+        expect(defaultLearningTargetModuleFacade()).toBe(fallback);
+        expect(learningTargetModuleForFacade('es')).toBe(selected);
+        expect(defaultLearningTargetModule).toHaveBeenCalledOnce();
+        expect(learningTargetModuleFor).toHaveBeenCalledWith('es');
+    });
+});
+
 // ---------------------------------------------------------------------------
 // The split only holds if the three moving parts agree: a companion library in
 // the manifest, an entry that registers it, and a build alias that swaps each
@@ -262,6 +286,15 @@ describe('Greasy Fork split manifest', () => {
         expect(viteConfigSource).toContain("alias['./target-runtime'] = targetRuntimeCompanion;");
         expect(viteConfigSource).toContain("alias['../languages/target-runtime'] = targetRuntimeCompanion;");
         expect(viteConfigSource).toContain("alias['../../languages/target-runtime'] = targetRuntimeCompanion;");
+    });
+
+    it('keeps core pronunciation behind the companion-backed target runtime', () => {
+        const pronunciationSource = readFileSync(
+            path.join(repoRoot, 'src/reader/popup/pronunciation.ts'),
+            'utf8',
+        );
+        expect(pronunciationSource).toContain("from '../languages/target-runtime';");
+        expect(pronunciationSource).not.toContain("from '../languages/registry';");
     });
 
     it('removes only the generated IIFE wrapper indent from the injected runtime', () => {

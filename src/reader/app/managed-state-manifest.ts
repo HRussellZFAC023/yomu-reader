@@ -76,6 +76,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
 
     // Study / grammar / mining stores.
     { owner: 'study/grammar-knowledge', kind: 'gm', key: 'yomu.grammarPreferences.v1' },
+    { owner: 'study/grammar-knowledge', kind: 'gm', prefix: 'yomu.grammarPreferences.v1:' },
     { owner: 'study/mining-context', kind: 'gm', prefix: 'yomu-mining-context:' },
     { owner: 'dictionaries/uchisen-carousel', kind: 'gm', prefix: 'yomu-jpdb-uchisen-index:' },
 

@@ -2,6 +2,7 @@ import { icuWordSegments } from './icu-segmentation';
 import { boundedLookupCandidates, type LookupRewrite } from './lookup-candidates';
 import { normalizeGenericLookupText } from './lookup-normalization';
 import { canonicalLanguageTag, languageSubtag, localeDirection } from './locale';
+import { EMPTY_LEARNING_TARGET_GRAMMAR } from './grammar';
 import {
     LEARNING_TARGET_CAPABILITY_IDS,
     LEARNING_TARGET_MODULE_INTERFACE_VERSION,
@@ -11,6 +12,7 @@ import {
     type LearningTargetAudio,
     type LearningTargetCapabilities,
     type LearningTargetFeatureSemantics,
+    type LearningTargetGrammar,
     type LearningTargetModule,
     type LearningTargetModuleInterfaceVersion,
     type LearningTargetOcr,
@@ -33,7 +35,9 @@ export interface LearningTargetSpec {
     /** Defaults to the current contract revision. */
     interfaceVersion?: LearningTargetModuleInterfaceVersion;
     /** Defaults to every capability off; declare only what the module has. */
-    capabilities?: Partial<LearningTargetCapabilities>;
+    capabilities?: Partial<Omit<LearningTargetCapabilities, 'grammar'>>;
+    /** Target-owned grammar Adapter; capability is derived from its checked rules. */
+    grammar?: LearningTargetGrammar;
     direction?: TextDirection;
     collationLocale?: LanguageTag;
     typography?: Partial<LearningTargetTypography>;
@@ -68,9 +72,10 @@ const NO_CAPABILITIES: LearningTargetCapabilities = Object.freeze(
 ) as LearningTargetCapabilities;
 
 function learningTargetCapabilities(
-    declared: Partial<LearningTargetCapabilities> = {},
+    declared: Partial<Omit<LearningTargetCapabilities, 'grammar'>> = {},
+    hasGrammarRules = false,
 ): LearningTargetCapabilities {
-    return Object.freeze({ ...NO_CAPABILITIES, ...declared });
+    return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
 }
 
 /**
@@ -87,6 +92,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
     const detects = detectorFor(spec.detectsText);
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
     const segment = spec.segment ?? ((text: string) => defaultSegment(text, language));
+    const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
 
     return Object.freeze({
         interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
@@ -94,7 +100,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         language,
         direction,
         collationLocale: spec.collationLocale ?? language,
-        capabilities: learningTargetCapabilities(spec.capabilities),
+        capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
         featureSemantics: Object.freeze({
             ...spec.featureSemantics,
             phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts]),
@@ -125,6 +131,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
             languageTag: spec.subtitles?.languageTag ?? base,
             languageAliases: Object.freeze([...(spec.subtitles?.languageAliases ?? [])]),
         }),
+        grammar,
 
         lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
         ...(spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {}),

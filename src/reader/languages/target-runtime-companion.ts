@@ -19,6 +19,14 @@ export function adoptLearningTargetLanguage(value: unknown): LearningTargetModul
     return runtime().adoptLearningTargetLanguage(value);
 }
 
+export function defaultLearningTargetModule(): LearningTargetModule {
+    return runtime().defaultLearningTargetModule();
+}
+
+export function learningTargetModuleFor(language: unknown): LearningTargetModule | null {
+    return runtime().learningTargetModuleFor(language);
+}
+
 export function normalizeLearningTargetLanguage(value: unknown): string {
     return runtime().normalizeLearningTargetLanguage(value);
 }

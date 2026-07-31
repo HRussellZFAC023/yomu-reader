@@ -3,7 +3,7 @@ import { uiText } from '../app/i18n';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { escapeHtml } from '../dom/index';
 import { extractIpaPronunciations } from '../lookup/ipa-pronunciation';
-import { defaultLearningTargetModule, learningTargetModuleFor } from '../languages/registry';
+import { defaultLearningTargetModule, learningTargetModuleFor } from '../languages/target-runtime';
 import {
     alignedExpressionComponentPitches,
     renderExpressionComponentPitches,

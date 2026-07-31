@@ -21,7 +21,8 @@ export interface GrammarExample {
     note?: string;
 }
 
-export type GrammarLevel = 'Core' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+/** Opaque level name from the active target's declared scale. */
+export type GrammarLevel = string;
 
 export interface GrammarPreferences {
     knownRuleIds: string[];

@@ -99,6 +99,8 @@ type LearningTargetRuntime = Pick<
     | 'activeLearningTarget'
     | 'activeLearningTargetLanguage'
     | 'adoptLearningTargetLanguage'
+    | 'defaultLearningTargetModule'
+    | 'learningTargetModuleFor'
     | 'normalizeLearningTargetLanguage'
     | 'registeredLearningTargetModules'
 >;

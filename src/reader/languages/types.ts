@@ -22,7 +22,7 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -31,7 +31,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -223,6 +223,47 @@ export interface LearningTargetSubtitles {
     languageAliases: readonly string[];
 }
 
+export type LearningTargetGrammarConfidence = 'high' | 'medium';
+
+/** The target-owned vocabulary used to order and display grammar difficulty. */
+export interface LearningTargetGrammarLevelScale {
+    /** Stable machine-readable name, for example `jlpt` or `cefr`. */
+    readonly id: string;
+    /** Easiest-to-hardest level names accepted by this target's rule inventory. */
+    readonly levels: readonly string[];
+}
+
+/** Public metadata for one checked grammar rule. Detection details stay private. */
+export interface LearningTargetGrammarRule {
+    readonly ruleId: string;
+    readonly level: string;
+    readonly name: string;
+    readonly url: string;
+}
+
+/** One target-owned grammar match, in the detector's normalized coordinates. */
+export interface LearningTargetGrammarMatch extends LearningTargetGrammarRule {
+    readonly match: string;
+    readonly confidence: LearningTargetGrammarConfidence;
+    readonly index: number;
+}
+
+/**
+ * Grammar Adapter at the learning-target seam.
+ *
+ * `rules` being non-empty is the sole grammar-capability claim. A target may
+ * still carry `referenceUrl` with no detector, which is an honest reference-
+ * only state rather than a pretend grammar implementation.
+ */
+export interface LearningTargetGrammar {
+    readonly levelScale: LearningTargetGrammarLevelScale | null;
+    readonly rules: readonly LearningTargetGrammarRule[];
+    readonly referenceUrl: string;
+    detect(sentence: string): readonly LearningTargetGrammarMatch[];
+    /** Optional key into Yomu's hosted explanatory-copy files. */
+    ruleCopyId(ruleId: string): string | null;
+}
+
 /**
  * The versioned seam between shared Reader/Study flows and target-language
  * behaviour. Callers ask this Module for language operations, facts, and
@@ -241,6 +282,7 @@ export interface LearningTargetSubtitles {
  *   audio + TTS           -> audio
  *   OCR                   -> ocr
  *   subtitles             -> subtitles
+ *   grammar               -> grammar
  *   mining                -> normalizeReading, collationLocale
  *   SRS                   -> normalizeReading, capabilities.srs/grading
  */
@@ -263,6 +305,7 @@ export interface LearningTargetModule {
     readonly audio: LearningTargetAudio;
     readonly ocr: LearningTargetOcr;
     readonly subtitles: LearningTargetSubtitles;
+    readonly grammar: LearningTargetGrammar;
 
     /**
      * Whether this target's own segmentation is where a dictionary lookup may

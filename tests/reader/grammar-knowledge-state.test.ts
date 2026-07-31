@@ -3,9 +3,13 @@ import {
     GRAMMAR_PREFERENCES_KEY,
     readGrammarKnowledge,
     readGrammarPreferences,
+    readTargetGrammarPreferences,
     setGrammarRuleKnowledge,
     setGrammarRuleKnown,
+    setTargetGrammarRuleKnown,
 } from '../../src/reader/study/grammar-knowledge';
+import { createLearningTargetGrammar } from '../../src/reader/languages/grammar';
+import { createLearningTargetModule } from '../../src/reader/languages/module';
 
 describe('shared grammar knowledge state', () => {
     beforeEach(() => {
@@ -74,5 +78,39 @@ describe('shared grammar knowledge state', () => {
 
         expect(localStorage.getItem(GRAMMAR_PREFERENCES_KEY)).toBe(before);
         expect(readGrammarKnowledge().entries['particle-wa']).toEqual({ knowledge: 'known', ...fact });
+    });
+
+    it('keeps the same rule id independent across learning targets', () => {
+        const swahili = createLearningTargetModule({
+            id: 'swahili-grammar-knowledge-test',
+            language: 'sw',
+            grammar: createLearningTargetGrammar({
+                levelScale: { id: 'cefr', levels: ['A1'] },
+                rules: [{
+                    ruleId: 'particle-wa',
+                    level: 'A1',
+                    name: 'wa',
+                    patternSource: '\\bwa\\b',
+                    priority: 10,
+                    confidence: 'high',
+                    url: '',
+                }],
+            }),
+            featureSemantics: {
+                characterSystem: 'latin',
+                phoneticScripts: ['latin'],
+                pronunciation: 'none',
+                readingAnnotation: 'none',
+            },
+        });
+
+        setTargetGrammarRuleKnown(swahili, 'particle-wa', true);
+        expect(readTargetGrammarPreferences(swahili).knownRuleIds).toEqual(['particle-wa']);
+        expect(readGrammarPreferences().knownRuleIds).toEqual([]);
+
+        setGrammarRuleKnown('particle-wa', true);
+        expect(readGrammarPreferences().knownRuleIds).toEqual(['particle-wa']);
+        expect(readTargetGrammarPreferences(swahili).knownRuleIds).toEqual(['particle-wa']);
+        expect(localStorage.getItem(`${GRAMMAR_PREFERENCES_KEY}:sw`)).not.toBeNull();
     });
 });
