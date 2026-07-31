@@ -263,7 +263,7 @@ import type {
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
-import { gmStorageGet, gmStorageSet, managedSessionStorage } from '../app/storage';
+import { managedSessionStorage } from '../app/storage';
 import { nextExplicitUiLanguage, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { isNewTabCopyKey, newTabText, type NewTabCopyKey } from './i18n';
 import {
@@ -1232,10 +1232,7 @@ export class NewTabController {
             this.searchController.renderSearch(root);
             return;
         }
-        if (this.state.route === 'stats') {
-            this.renderStats(root);
-            return;
-        }
+        if (this.state.route === 'stats') return this.renderStats(root);
         this.applyWords(root, false);
     }
 
