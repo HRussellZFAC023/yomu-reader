@@ -1,5146 +1,5 @@
 (function() {
   "use strict";
-  const CORE_COLOR_TOKENS = {
-    black: "#000000",
-    white: "#ffffff",
-    transparentBlack: "rgba(0, 0, 0, 0)"
-  };
-  const BRAND_COLOR_TOKENS = {
-    accent: "#5ea780",
-    consoleAccent: "#247a58"
-  };
-  const READER_THEME_COLOR_TOKENS = {
-    dark: {
-      bg: "#181b20",
-      surface: "#20242b",
-      surface2: "#282e37",
-      accentText: "#11161d"
-    },
-    light: {
-      bg: "#fbfcfe",
-      surface: "#f4f7fa",
-      surface2: "#e8edf3",
-      text: "#17202a",
-      accentText: CORE_COLOR_TOKENS.white
-    }
-  };
-  const OVERLAY_COLOR_TOKENS = {
-    text: CORE_COLOR_TOKENS.white,
-    outline: CORE_COLOR_TOKENS.black,
-    background: READER_THEME_COLOR_TOKENS.dark.bg
-  };
-  const OCR_OVERLAY_COLOR_TOKENS = {
-    text: READER_THEME_COLOR_TOKENS.light.text,
-    outline: CORE_COLOR_TOKENS.white
-  };
-  const DEFAULT_WORD_COLOR_TOKENS = {
-    new: "#ffffff",
-    learning: "#ffd166",
-    known: "#7bd88f",
-    due: "#5fb3b3",
-    failed: "#ff6b6b",
-    ignored: "#b8a7ff"
-  };
-  const DEFAULT_PITCH_COLOR_TOKENS = {
-    heiban: "#359eff",
-    atamadaka: "#fe4b74",
-    nakadaka: "#fba840",
-    odaka: "#57ccb7",
-    unknown: "#94a3b8"
-  };
-  const LOOKUP_PILL_COLOR_TOKENS = {
-    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
-    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
-    bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-    "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
-    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
-    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
-    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
-    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
-    nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
-    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
-    anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
-    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
-  };
-  const DOODLE_COLOR_TOKENS = {
-    ink: "#141820"
-  };
-  const PAGE_WORD_COLOR_TOKENS = {
-    unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const ANKI_CARD_COLOR_TOKENS = {
-    text: "#f4f7fb",
-    background: "#15181e",
-    muted: "#bac3d0",
-    sentenceBorder: "#323843",
-    sentenceBackground: "#1e232b",
-    sentenceText: "#d8dee8",
-    highlight: "#7ad119",
-    sectionBorder: "#303641",
-    sectionBackground: "#1b2028",
-    headingText: "#c2cad7",
-    labelText: "#92a0b3",
-    expressionText: CORE_COLOR_TOKENS.white,
-    readingText: "#aab4c2",
-    chipBorder: "#4b5565",
-    chipText: "#cdd5e1",
-    metaLabelText: "#8f9aaa",
-    tableBorder: "#353c47"
-  };
-  const UNIFIED_IDEOGRAPH_RE = /^\p{Unified_Ideograph}$/u;
-  const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
-  function isUnifiedIdeograph(value) {
-    return UNIFIED_IDEOGRAPH_RE.test(value);
-  }
-  function hanIdeographSegments(text2) {
-    return [...text2.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length
-    }));
-  }
-  const HIRAGANA = "぀-ゟ";
-  const KATAKANA = "゠-ヿ";
-  const KANA = "぀-ヿ";
-  const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
-  const KANJI = "㐀-鿿";
-  const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
-  const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
-  const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
-  const ITERATION_MARK = "々";
-  const ITERATION_MARKS = `${ITERATION_MARK}〆`;
-  const KANA_COUNTERS = "ヵヶ";
-  const PROLONGED_SOUND_MARK = "ー";
-  const KATAKANA_MIDDLE_DOT = "・";
-  const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
-  const COMBINING_KANA_MARKS = "゙゚";
-  const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
-  const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
-  const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
-  const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
-  const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
-  const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
-  const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
-  const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
-  const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
-  const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
-  const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
-  const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-  const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
-  const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
-  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
-  const KANJI_RE$1 = new RegExp(KANJI_PATTERN, "u");
-  const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
-  const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
-  const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
-  const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
-  const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, "u");
-  function isJapaneseKanjiCharacter(value) {
-    return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
-  }
-  const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
-  const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
-    "Adlm",
-    "Arab",
-    "Hebr",
-    "Nkoo",
-    "Rohg",
-    "Syrc",
-    "Thaa"
-  ]);
-  const RTL_LANGUAGES = /* @__PURE__ */ new Set([
-    "ar",
-    "dv",
-    "fa",
-    "he",
-    "ku",
-    "ps",
-    "ur",
-    "yi"
-  ]);
-  function canonicalLanguageTag(value) {
-    if (typeof value !== "string") return null;
-    const candidate = value.trim().replace(/_/g, "-");
-    if (!candidate || candidate.length > 255) return null;
-    try {
-      return Intl.getCanonicalLocales(candidate)[0] ?? null;
-    } catch {
-      return null;
-    }
-  }
-  function languageSubtag(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return null;
-    try {
-      return new Intl.Locale(canonical).language;
-    } catch {
-      return canonical.split("-")[0]?.toLowerCase() ?? null;
-    }
-  }
-  function languageDisplayName(language2, locale = "en") {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
-  }
-  function localeDirection(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return "ltr";
-    try {
-      const locale = new Intl.Locale(canonical);
-      const script = locale.script || locale.maximize().script;
-      if (script && RTL_SCRIPTS$1.has(script)) return "rtl";
-      return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
-    } catch {
-      return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
-    }
-  }
-  function localeFallbackChain(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return [];
-    try {
-      const locale = new Intl.Locale(canonical);
-      const chain = [locale.baseName];
-      if (locale.script) chain.push(`${locale.language}-${locale.script}`);
-      chain.push(locale.language);
-      return uniqueCanonicalTags(chain);
-    } catch {
-      return [canonical];
-    }
-  }
-  function uniqueCanonicalTags(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const tags = [];
-    for (const value of values) {
-      const canonical = canonicalLanguageTag(value);
-      if (!canonical || seen.has(canonical)) continue;
-      seen.add(canonical);
-      tags.push(canonical);
-    }
-    return tags;
-  }
-  const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
-  function cardHighlightTargets(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = optionalJapaneseCardReading(card);
-    return uniqueCardHighlightValues([spelling, reading]);
-  }
-  function normalizedJapaneseCardReading(spelling, reading) {
-    const cleanSpelling = cleanCardHighlightValue(spelling);
-    const cleanReading = cleanCardHighlightValue(reading);
-    return cleanReading && JAPANESE_TEXT_RE$2.test(cleanReading) ? cleanReading : cleanSpelling;
-  }
-  function cleanCardHighlightValue(value) {
-    return (value ?? "").replace(/\s+/g, " ").trim();
-  }
-  function compactCardHighlightValue(value) {
-    return cleanCardHighlightValue(value).replace(/\s+/g, "");
-  }
-  function optionalJapaneseCardReading(card) {
-    const spelling = cleanCardHighlightValue(card.spelling);
-    const reading = normalizedJapaneseCardReading(spelling, card.reading);
-    return reading && reading !== spelling ? reading : "";
-  }
-  function uniqueCardHighlightValues(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.map(cleanCardHighlightValue).filter((value) => {
-      if (!value || seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
-  }
-  const GODAN_ROWS = [
-    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-  ];
-  const ICHIDAN_RULES = [
-    ["ながら", "る", "simultaneous action"],
-    ["ました", "る", "polite past"],
-    ["ませんでした", "る", "polite negative past"],
-    ["ません", "る", "polite negative"],
-    ["ましょう", "る", "polite volitional"],
-    ["ます", "る", "polite"],
-    ["なかった", "る", "negative past"],
-    ["なくて", "る", "negative te-form"],
-    ["なければ", "る", "negative conditional"],
-    ["ない", "る", "negative"],
-    ["ず", "る", "negative archaic"],
-    ["たかった", "る", "desiderative past"],
-    ["たくなかった", "る", "desiderative negative past"],
-    ["たくない", "る", "desiderative negative"],
-    ["たい", "る", "desiderative"],
-    ["なさい", "る", "polite request"],
-    ["すぎる", "る", "excessive"],
-    ["られなかった", "る", "potential/passive negative past"],
-    ["られない", "る", "potential/passive negative"],
-    ["られて", "る", "potential/passive te-form"],
-    ["られた", "る", "potential/passive past"],
-    ["られる", "る", "potential/passive"],
-    ["させられた", "る", "causative passive past"],
-    ["させられる", "る", "causative passive"],
-    ["させない", "る", "causative negative"],
-    ["させて", "る", "causative te-form"],
-    ["させた", "る", "causative past"],
-    ["させる", "る", "causative"],
-    ["れば", "る", "conditional"],
-    ["よう", "る", "volitional"],
-    ["ろ", "る", "imperative"],
-    ["て", "る", "te-form"],
-    ["た", "る", "past"]
-  ];
-  const I_ADJECTIVE_RULES = [
-    ["くなかった", "い", "negative past"],
-    ["くありませんでした", "い", "polite negative past"],
-    ["くありません", "い", "polite negative"],
-    ["かった", "い", "past"],
-    ["くない", "い", "negative"],
-    ["くて", "い", "te-form"],
-    ["ければ", "い", "conditional"],
-    ["そう", "い", "looks"],
-    ["すぎる", "い", "excessive"],
-    ["く", "い", "adverbial"]
-  ];
-  const SURU_RULES = [
-    ["しながら", "する", "simultaneous action"],
-    ["しませんでした", "する", "polite negative past"],
-    ["しません", "する", "polite negative"],
-    ["しました", "する", "polite past"],
-    ["しましょう", "する", "polite volitional"],
-    ["します", "する", "polite"],
-    ["しなかった", "する", "negative past"],
-    ["しなくて", "する", "negative te-form"],
-    ["しなければ", "する", "negative conditional"],
-    ["しない", "する", "negative"],
-    ["せず", "する", "negative archaic"],
-    ["しなさい", "する", "polite request"],
-    ["しすぎる", "する", "excessive"],
-    ["された", "する", "passive past"],
-    ["されて", "する", "passive te-form"],
-    ["される", "する", "passive"],
-    ["させた", "する", "causative past"],
-    ["させて", "する", "causative te-form"],
-    ["させる", "する", "causative"],
-    ["できなかった", "する", "potential negative past"],
-    ["できない", "する", "potential negative"],
-    ["できた", "する", "potential past"],
-    ["できて", "する", "potential te-form"],
-    ["できる", "する", "potential"],
-    ["すれば", "する", "conditional"],
-    ["しよう", "する", "volitional"],
-    ["しろ", "する", "imperative"],
-    ["せよ", "する", "imperative"],
-    ["した", "する", "past"],
-    ["して", "する", "te-form"]
-  ];
-  const KURU_RULES = [
-    ["来ながら", "来る", "simultaneous action"],
-    ["来ませんでした", "来る", "polite negative past"],
-    ["来ません", "来る", "polite negative"],
-    ["来ました", "来る", "polite past"],
-    ["来ます", "来る", "polite"],
-    ["来なかった", "来る", "negative past"],
-    ["来なくて", "来る", "negative te-form"],
-    ["来ない", "来る", "negative"],
-    ["来なさい", "来る", "polite request"],
-    ["来すぎる", "来る", "excessive"],
-    ["来られた", "来る", "potential/passive past"],
-    ["来られて", "来る", "potential/passive te-form"],
-    ["来られる", "来る", "potential/passive"],
-    ["来れば", "来る", "conditional"],
-    ["来よう", "来る", "volitional"],
-    ["来い", "来る", "imperative"],
-    ["来た", "来る", "past"],
-    ["来て", "来る", "te-form"],
-    ["きながら", "くる", "simultaneous action"],
-    ["きませんでした", "くる", "polite negative past"],
-    ["きません", "くる", "polite negative"],
-    ["きました", "くる", "polite past"],
-    ["きます", "くる", "polite"],
-    ["こなかった", "くる", "negative past"],
-    ["こなくて", "くる", "negative te-form"],
-    ["こない", "くる", "negative"],
-    ["こず", "くる", "negative archaic"],
-    ["きなさい", "くる", "polite request"],
-    ["きすぎる", "くる", "excessive"],
-    ["こられた", "くる", "potential/passive past"],
-    ["こられて", "くる", "potential/passive te-form"],
-    ["こられる", "くる", "potential/passive"],
-    ["くれば", "くる", "conditional"],
-    ["こよう", "くる", "volitional"],
-    ["こい", "くる", "imperative"],
-    ["きた", "くる", "past"],
-    ["きて", "くる", "te-form"]
-  ];
-  const TE_ASPECT_SUFFIXES = [
-    ["いる", "progressive"],
-    ["います", "polite progressive"],
-    ["いました", "polite progressive past"],
-    ["いません", "polite progressive negative"],
-    ["いませんでした", "polite progressive negative past"],
-    ["いた", "progressive past"],
-    ["いて", "progressive te-form"],
-    ["いない", "progressive negative"],
-    ["いなかった", "progressive negative past"],
-    ["いれば", "progressive conditional"],
-    ["る", "contracted progressive"],
-    ["ます", "contracted polite progressive"],
-    ["ました", "contracted polite progressive past"],
-    ["た", "contracted progressive past"],
-    ["て", "contracted progressive te-form"],
-    ["ない", "contracted progressive negative"],
-    ["なかった", "contracted progressive negative past"]
-  ];
-  const TE_COMPLETION_SUFFIXES = [
-    ["しまう", "completion"],
-    ["しまった", "completion past"],
-    ["しまって", "completion te-form"],
-    ["しまわない", "completion negative"],
-    ["しまいます", "polite completion"],
-    ["しまいました", "polite completion past"]
-  ];
-  const CONTRACTED_COMPLETION_SUFFIXES = [
-    ["う", "contracted completion"],
-    ["った", "contracted completion past"],
-    ["って", "contracted completion te-form"],
-    ["わない", "contracted completion negative"],
-    ["います", "contracted polite completion"],
-    ["いました", "contracted polite completion past"]
-  ];
-  const RULES = [
-    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-    ...teCompoundRules("て", "る", ["v1"]),
-    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
-  const DEINFLECTION_CACHE_MAX = 4e3;
-  const deinflectionCache = /* @__PURE__ */ new Map();
-  function deinflectJapaneseTerm(source) {
-    const cached = deinflectionCache.get(source);
-    if (cached) return cached;
-    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
-    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
-    const queue = [results[0]];
-    expandDeinflectionQueue(queue, results, seen);
-    const sorted = sortDeinflectedTerms(results);
-    if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
-      const oldest = deinflectionCache.keys().next().value;
-      if (oldest !== void 0) deinflectionCache.delete(oldest);
-    }
-    deinflectionCache.set(source, sorted);
-    return sorted;
-  }
-  function expandDeinflectionQueue(queue, results, seen) {
-    for (let index = 0; index < queue.length; index++) {
-      expandDeinflectedTerm(queue[index], queue, results, seen);
-    }
-  }
-  function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isTerminalDeinflection(current)) return;
-    for (const rule of RULES) {
-      rememberExpandedDeinflection(current, rule, queue, results, seen);
-    }
-  }
-  function isTerminalDeinflection(current) {
-    return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
-  }
-  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
-    const next = deinflectedCandidate(current, rule);
-    if (!next) return;
-    if (!rememberDeinflectedCandidate(next, seen)) return;
-    results.push(next);
-    queue.push(next);
-  }
-  function sortDeinflectedTerms(results) {
-    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-  }
-  function deinflectedCandidate(current, rule) {
-    if (!canApplyDeinflectionRule(current.term, rule)) return null;
-    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-    if (!term || term === current.term) return null;
-    return {
-      term,
-      rules: rule.rules,
-      reasons: [...current.reasons, rule.reason],
-      depth: current.depth + 1
-    };
-  }
-  function canApplyDeinflectionRule(term, rule) {
-    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
-  }
-  function rememberDeinflectedCandidate(candidate, seen) {
-    const key = candidateKey(candidate);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }
-  function termRulesMatch(entryRules, candidateRules) {
-    if (!candidateRules.length) return true;
-    const entryRuleSet = entryRulesSet(entryRules);
-    return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
-  }
-  function entryRulesSet(entryRules) {
-    return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
-  }
-  function termRuleMatches(rule, entryRuleSet) {
-    return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
-  }
-  const TERM_RULE_MATCHERS = [
-    (rule, entryRuleSet) => entryRuleSet.has(rule),
-    (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
-    (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
-    (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
-    (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
-  ];
-  function godanRules(row) {
-    const rules = row.rules;
-    return [
-      ...teCompoundRules(row.te, row.ending, rules),
-      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
-      { from: row.i, to: row.ending, reason: "continuative stem", rules },
-      { from: row.te, to: row.ending, reason: "te-form", rules },
-      { from: row.ta, to: row.ending, reason: "past", rules },
-      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
-      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-      { from: row.e, to: row.ending, reason: "imperative", rules }
-    ];
-  }
-  function teCompoundRules(te, to, rules) {
-    return [
-      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...contractedCompletionRules(te, to, rules)
-    ];
-  }
-  function contractedCompletionRules(te, to, rules) {
-    const stem = contractedCompletionStem(te);
-    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-  }
-  function contractedCompletionStem(te) {
-    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-    return "";
-  }
-  function candidateKey(candidate) {
-    return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
-  }
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  function uniqueStrings(values, options = {}) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values) {
-      const normalized = options.trim ? value?.trim() : value;
-      if (normalized === void 0 || normalized === null) continue;
-      if (options.dropEmpty && !normalized) continue;
-      if (seen.has(normalized)) continue;
-      seen.add(normalized);
-      result.push(normalized);
-    }
-    return result;
-  }
-  function uniqueNonEmptyStrings$1(values) {
-    return uniqueStrings(values, { dropEmpty: true });
-  }
-  function uniqueTrimmedStrings(values) {
-    return uniqueStrings(values, { trim: true, dropEmpty: true });
-  }
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  function codePointBoundaryAtOrBefore(text2, offset) {
-    const clamped = Math.max(0, Math.min(offset, text2.length));
-    if (clamped > 0 && clamped < text2.length && isLowSurrogate$1(text2.charCodeAt(clamped)) && isHighSurrogate$1(text2.charCodeAt(clamped - 1))) {
-      return clamped - 1;
-    }
-    return clamped;
-  }
-  function codePointBoundaryAtOrAfter(text2, offset) {
-    const before = codePointBoundaryAtOrBefore(text2, offset);
-    return before === offset ? before : Math.min(text2.length, before + 2);
-  }
-  function codePointSafePrefix(text2, maxUtf16Units) {
-    return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
-  }
-  function lookupSpansStartingInRange(text2, segment, from, to, maxCodePoints) {
-    const offsets = codePointOffsets(text2, segment.start, segment.end);
-    const spans = [];
-    for (let startIndex = 0; startIndex < offsets.length - 1; startIndex++) {
-      const start = offsets[startIndex];
-      if (start < from || start >= to) continue;
-      const lastEndIndex = Math.min(offsets.length - 1, startIndex + maxCodePoints);
-      for (let endIndex = lastEndIndex; endIndex > startIndex; endIndex--) {
-        const end = offsets[endIndex];
-        spans.push({
-          term: text2.slice(start, end),
-          start,
-          end,
-          codePoints: endIndex - startIndex
-        });
-      }
-    }
-    return spans;
-  }
-  function codePointOffsets(text2, start, end) {
-    const safeStart = codePointBoundaryAtOrAfter(text2, start);
-    const safeEnd = codePointBoundaryAtOrBefore(text2, end);
-    const offsets = [safeStart];
-    let offset = safeStart;
-    for (const character of text2.slice(safeStart, safeEnd)) {
-      offset += character.length;
-      offsets.push(offset);
-    }
-    return offsets;
-  }
-  function isHighSurrogate$1(value) {
-    return value >= 55296 && value <= 56319;
-  }
-  function isLowSurrogate$1(value) {
-    return value >= 56320 && value <= 57343;
-  }
-  const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
-    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
-    "gu"
-  );
-  const JAPANESE_TEXT_RUN_RE = new RegExp(
-    `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
-    "gu"
-  );
-  const JAPANESE_CHARACTER_RE = new RegExp(
-    `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-    "u"
-  );
-  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
-  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-  const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
-    `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-    "u"
-  );
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-  const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
-  const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
-  const SEGMENT_SEPARATORS = "・･゠·•";
-  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
-  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
-  const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
-  const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
-    `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
-    "u"
-  );
-  const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
-    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
-    "u"
-  );
-  const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
-  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-  const SURU_STEM_SEGMENT_RE = new RegExp(
-    `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-    "u"
-  );
-  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
-  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-  const KANA_I_ADJECTIVE_END_RE = /い$/u;
-  const SMALL_TSU_RE = /っ/u;
-  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = new RegExp(
-    `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-    "u"
-  );
-  function normalizeFallbackTerm(text2) {
-    return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
-  }
-  function bareFallbackCardFromText(text2, language2 = activeLearningTargetLanguage()) {
-    const spelling = normalizeFallbackTerm(text2);
-    const id = -stablePositiveHashId(`fallback
-${language2}
-${spelling}`);
-    const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
-    return {
-      vid: id,
-      sid: id,
-      rid: 0,
-      spelling,
-      reading: "",
-      language: language2,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
-      // placeholder default, so tag it provisional.
-      provisionalState: true,
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "fallback",
-      ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
-    };
-  }
-  let cachedSegmenterConstructor;
-  let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text2) {
-    return segmentJapaneseText(text2);
-  }
-  function segmentJapaneseText(text2) {
-    const segmenter = japaneseWordSegmenter();
-    if (!segmenter) {
-      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-        const start = match.index ?? 0;
-        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
-      });
-    }
-    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-      const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter, text2);
-    });
-  }
-  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
-    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
-      surface: segment.segment,
-      start: offset + segment.index,
-      end: offset + segment.index + segment.segment.length
-    }));
-    if (segments.at(-1)?.end !== offset + text2.length) {
-      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
-    }
-    return finalizeJapaneseRunSegments(segments, sourceText);
-  }
-  function finalizeJapaneseRunSegments(segments, sourceText) {
-    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
-    const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
-    );
-    return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(normalizedSegments),
-      sourceText
-    );
-  }
-  function splitTrailingPoliteParticleSegments(segments) {
-    return segments.flatMap((segment, index) => {
-      if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
-      const previous = segments[index - 1]?.surface ?? "";
-      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
-      const particleStart = segment.end - 1;
-      const stem = segment.surface.slice(0, -1);
-      return [
-        ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
-        { surface: "ね", start: particleStart, end: segment.end }
-      ];
-    });
-  }
-  function splitSeparatorSegments(segments) {
-    if (!segments.some((segment) => SEGMENT_SEPARATOR_RE.test(segment.surface))) return segments;
-    return segments.flatMap(splitSeparatorSegment);
-  }
-  function splitSeparatorSegment(segment) {
-    if (!SEGMENT_SEPARATOR_RE.test(segment.surface)) return [segment];
-    const pieces = [];
-    let cursor = 0;
-    for (const match of segment.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
-      const index = match.index ?? 0;
-      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment, cursor, index));
-      cursor = index + match[0].length;
-    }
-    if (cursor < segment.surface.length) pieces.push(separatorFreeSegmentSlice(segment, cursor, segment.surface.length));
-    return pieces;
-  }
-  function separatorFreeSegmentSlice(segment, from, to) {
-    return {
-      surface: segment.surface.slice(from, to),
-      start: segment.start + from,
-      end: segment.start + to
-    };
-  }
-  function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = contiguousKanaMergeSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function mergeContiguousKatakanaSegments(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const first2 = segments[index];
-      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
-        merged.push(first2);
-        index += 1;
-        continue;
-      }
-      let surface = first2.surface;
-      let runEnd = index + 1;
-      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
-        surface += segments[runEnd].surface;
-        runEnd += 1;
-      }
-      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
-      index = runEnd;
-    }
-    return merged;
-  }
-  function contiguousKanaMergeSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
-    const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
-    const runEnd = contiguousKanaRunEnd(segments, startIndex);
-    if (runEnd - startIndex < 2) return null;
-    let surface = first2.surface;
-    let lastIndex = startIndex;
-    for (let index = startIndex + 1; index < runEnd; index += 1) {
-      const current = segments[index];
-      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-      surface += current.surface;
-      lastIndex = index;
-    }
-    if (lastIndex === startIndex) return null;
-    return {
-      segment: { surface, start: first2.start, end: segments[lastIndex].end },
-      nextIndex: lastIndex + 1
-    };
-  }
-  function contiguousKanaRunEnd(segments, startIndex) {
-    let index = startIndex + 1;
-    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-      index += 1;
-    }
-    return index;
-  }
-  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-    let surface = "";
-    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-    return surface;
-  }
-  function isPureKanaSegment(surface) {
-    return HIRAGANA_SEGMENT_RE.test(surface);
-  }
-  function isKanaContentWordSpan(span) {
-    if (isKanaInflectableBaseShape(span)) return true;
-    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
-  }
-  function isKanaInflectableBaseShape(span) {
-    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-  }
-  function splitNumericCounterPrefixSegments(segments, sourceText) {
-    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
-  }
-  function splitNumericCounterPrefixSegment(segment, sourceText) {
-    const first2 = Array.from(segment.surface)[0] ?? "";
-    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
-    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
-    const second = Array.from(segment.surface)[1] ?? "";
-    if (second === "間") return [segment];
-    return [
-      { surface: first2, start: segment.start, end: segment.start + first2.length },
-      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
-    ];
-  }
-  function splitLeadingParticleSegments(segments) {
-    return segments.flatMap(splitLeadingParticleSegment);
-  }
-  function splitLeadingParticleSegment(segment) {
-    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
-      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
-      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
-    });
-    if (!prefix) return [segment];
-    return [
-      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
-      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
-    ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first2.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
-  }
-  function mergeInflectedFallbackSegments(segments, sourceText) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index, sourceText);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-    const first2 = segments[startIndex];
-    if (!first2 || isBoundarySegment(first2.surface)) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
-      if (!current) break;
-      surface += current.surface;
-      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
-    }
-    return best;
-  }
-  function fallbackInflectionScanEnd(segments, startIndex) {
-    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-  }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
-    const current = segments[index];
-    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
-    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
-    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
-    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
-    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-    return current;
-  }
-  function isPoliteNegativePastContinuation(segments, index, surface) {
-    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
-  }
-  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
-    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
-    return segments[index]?.start === expectedStart;
-  }
-  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
-    if (index === startIndex) return null;
-    const lookupTerms = fallbackLookupTermsForText(surface);
-    if (lookupTerms.length <= 1) return null;
-    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-    return {
-      segment: { surface, start: first2.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  function isBoundarySegment(surface) {
-    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-  }
-  function isInflectionContinuationSegment(surface) {
-    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-  }
-  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
-  }
-  function isNumericCounterFallbackStem(segment, sourceText) {
-    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
-  }
-  function numericRangeImmediatelyBefore(sourceText, start) {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-  }
-  function hasUsefulFallbackDeinflection(surface) {
-    return fallbackLookupTermsForText(surface).length > 1;
-  }
-  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-    const first2 = segments[startIndex]?.surface ?? "";
-    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
-    const suffix = surface.slice(first2.length);
-    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
-    return true;
-  }
-  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
-    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
-  }
-  function japaneseWordSegmenter() {
-    const Segmenter = intlSegmenter();
-    if (!Segmenter) {
-      cachedSegmenterConstructor = null;
-      cachedJapaneseWordSegmenter = null;
-      return null;
-    }
-    if (cachedSegmenterConstructor !== Segmenter) {
-      cachedSegmenterConstructor = Segmenter;
-      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-    }
-    return cachedJapaneseWordSegmenter ?? null;
-  }
-  function isUsefulJapaneseSegment(segment) {
-    const surface = segment.segment.trim();
-    return JAPANESE_CHARACTER_RE.test(surface);
-  }
-  function intlSegmenter() {
-    const candidate = Intl.Segmenter;
-    return typeof candidate === "function" ? candidate : null;
-  }
-  function fallbackJapaneseRunSegment(text2, offset) {
-    const surface = text2.trim();
-    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-    const start = offset + text2.indexOf(surface);
-    return [{ surface, start, end: start + surface.length }];
-  }
-  function fallbackLookupTermsForText(text2) {
-    const source = normalizeFallbackTerm(text2);
-    if (!source) return [];
-    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueNonEmptyStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-  }
-  function fallbackLookupTermsForCard(card) {
-    const terms = uniqueNonEmptyStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
-    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
-  }
-  function isUsefulFallbackLookupCandidate(candidate) {
-    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
-  }
-  function compareJapaneseLookupCandidates(a, b) {
-    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
-  function fallbackRulePriority(candidate) {
-    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-    if (candidate.rules.some((rule) => rule === "v1")) return 1;
-    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-    return 3;
-  }
-  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
-    const [source, ...candidates] = terms;
-    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueNonEmptyStrings$1(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
-  }
-  function hasAmbiguousContinuativeStemCandidate(source) {
-    return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
-  }
-  function isTerminalDictionaryFallbackTerm(term) {
-    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-  function wordSegmenter(locale) {
-    const cached = SEGMENTER_BY_LOCALE.get(locale);
-    if (cached !== void 0) return cached;
-    let segmenter = null;
-    try {
-      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-      }
-    } catch {
-      segmenter = null;
-    }
-    SEGMENTER_BY_LOCALE.set(locale, segmenter);
-    return segmenter;
-  }
-  function icuWordSegments(text2, locale) {
-    const segmenter = wordSegmenter(locale);
-    if (!segmenter) return null;
-    const segments = [];
-    for (const segment of segmenter.segment(text2)) {
-      if (!segment.isWordLike) continue;
-      segments.push({
-        text: segment.segment,
-        start: segment.index,
-        end: segment.index + segment.segment.length
-      });
-    }
-    return segments;
-  }
-  function normalizeGenericLookupText(text2) {
-    return text2.split(/([\u0e33\u0eb3])/u).map((part) => part === "ำ" || part === "ຳ" ? part : part.normalize("NFKC")).join("").replace(/\s+/gu, " ").trim();
-  }
-  function genericLookupTextVariants(text2) {
-    const source = text2.replace(/\s+/gu, " ").trim();
-    return [...new Set([normalizeGenericLookupText(source), source].filter(Boolean))];
-  }
-  function normalizeImportedLookupTerm(entry) {
-    const expression = normalizeGenericLookupText(entry.expression);
-    const reading = normalizeGenericLookupText(entry.reading);
-    return expression === entry.expression && reading === entry.reading ? entry : { ...entry, expression, reading };
-  }
-  function normalizeImportedLookupMeta(entry) {
-    if (typeof entry.expression !== "string") return entry;
-    const expression = normalizeGenericLookupText(entry.expression);
-    return expression === entry.expression ? entry : { ...entry, expression };
-  }
-  const LOOKUP_CANDIDATE_LIMIT = 12;
-  function boundedLookupCandidates(text2, language2, normalizeText, rewrites) {
-    const surface = normalizeText(text2);
-    if (!surface) return [];
-    const candidates = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (term, depth, reasons) => {
-      if (!term || seen.has(term) || candidates.length >= LOOKUP_CANDIDATE_LIMIT) return;
-      seen.add(term);
-      candidates.push({ term, rules: [], reasons, depth });
-    };
-    add(surface, 0, []);
-    const folded = localeLowerCase(surface, language2);
-    const foldedDepth = folded === surface ? 0 : 1;
-    add(folded, 1, ["case fold"]);
-    for (const legacySurface of genericLookupTextVariants(text2).slice(1)) {
-      add(legacySurface, 1, ["source-form fallback"]);
-      const legacyFolded = localeLowerCase(legacySurface, language2);
-      add(legacyFolded, 2, ["source-form fallback", "case fold"]);
-    }
-    for (const rewrite of rewrites) {
-      if (candidates.length >= LOOKUP_CANDIDATE_LIMIT) break;
-      const rewritten = applyLookupRewrite(folded, rewrite);
-      if (rewritten) {
-        add(
-          rewritten,
-          foldedDepth + 1,
-          foldedDepth ? ["case fold", rewrite.reason] : [rewrite.reason]
-        );
-      }
-    }
-    return candidates;
-  }
-  function localeLowerCase(text2, language2) {
-    try {
-      return text2.toLocaleLowerCase(language2);
-    } catch {
-      return text2.toLowerCase();
-    }
-  }
-  function applyLookupRewrite(term, rewrite) {
-    const prefix = rewrite.prefix ?? "";
-    const suffix = rewrite.suffix ?? "";
-    if (prefix && !term.startsWith(prefix)) return null;
-    if (suffix && !term.endsWith(suffix)) return null;
-    if (term.length < prefix.length + suffix.length) return null;
-    const stem = term.slice(prefix.length, suffix ? -suffix.length : void 0);
-    if (rewrite.blockedStemSuffix && stem.endsWith(rewrite.blockedStemSuffix)) return null;
-    if ([...stem].length < rewrite.minStemLength) return null;
-    return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
-  }
-  const MAX_GRAMMAR_HINTS = 12;
-  const MAX_OCCURRENCES_PER_RULE = 2;
-  const GRAMMAR_CACHE_LIMIT = 240;
-  function createLearningTargetGrammar(spec = {}) {
-    const ruleSpecs = [...spec.rules ?? []];
-    const levelScale = normalizedLevelScale(spec.levelScale, ruleSpecs);
-    const compiled = compileGrammarRules(ruleSpecs, levelScale, spec.expandPatternSource);
-    const rules = Object.freeze(compiled.map(({ spec: rule }) => Object.freeze({
-      ruleId: rule.ruleId,
-      level: rule.level,
-      name: rule.name,
-      ...rule.displayNames ? { displayNames: Object.freeze({ ...rule.displayNames }) } : {},
-      url: rule.url
-    })));
-    const normalizeSentence = spec.normalizeSentence ?? defaultNormalizeGrammarSentence;
-    const cache2 = /* @__PURE__ */ new Map();
-    const copyIds = new Map(ruleSpecs.flatMap((rule) => {
-      const copyId = spec.ruleCopyIdFor?.(rule) ?? rule.ruleCopyId;
-      return copyId ? [[rule.ruleId, copyId]] : [];
-    }));
-    return Object.freeze({
-      levelScale,
-      rules,
-      referenceUrl: spec.referenceUrl?.trim() ?? "",
-      detect(sentence) {
-        const normalized = normalizeSentence(sentence);
-        if (!normalized) return [];
-        const cached = cache2.get(normalized);
-        if (cached) return cached;
-        const selected = selectGrammarMatches(compiled, normalized, spec);
-        const matches = Object.freeze(selected.sort(compareGrammarMatches).map(({ priority: _priority, ...match }) => Object.freeze(match)));
-        cache2.set(normalized, matches);
-        if (cache2.size > GRAMMAR_CACHE_LIMIT) {
-          const oldest = cache2.keys().next().value;
-          if (typeof oldest === "string") cache2.delete(oldest);
-        }
-        return matches;
-      },
-      ruleCopyId(ruleId) {
-        return copyIds.get(ruleId) ?? null;
-      }
-    });
-  }
-  function normalizedLevelScale(value, rules) {
-    if (!value) {
-      if (rules.length) throw new TypeError("Grammar rules require a target-owned level scale.");
-      return null;
-    }
-    const id = value.id.trim();
-    const levels = value.levels.map((level) => level.trim()).filter(Boolean);
-    if (!id || !levels.length || new Set(levels).size !== levels.length) {
-      throw new TypeError("Grammar level scales require a stable id and unique level names.");
-    }
-    return Object.freeze({ id, levels: Object.freeze(levels) });
-  }
-  function compileGrammarRules(rules, levelScale, expandPatternSource) {
-    const ids = /* @__PURE__ */ new Set();
-    const levels = new Set(levelScale?.levels ?? []);
-    return Object.freeze(rules.map((rule) => {
-      if (!rule.ruleId.trim() || !rule.name.trim() || !rule.patternSource || !Number.isFinite(rule.priority)) {
-        throw new TypeError(`Invalid grammar rule: ${rule.ruleId || "(missing id)"}`);
-      }
-      if (ids.has(rule.ruleId)) throw new TypeError(`Duplicate grammar rule id: ${rule.ruleId}`);
-      if (!levels.has(rule.level)) {
-        throw new TypeError(`Grammar rule ${rule.ruleId} uses ${rule.level}, outside the ${levelScale?.id ?? "missing"} scale.`);
-      }
-      ids.add(rule.ruleId);
-      const source = expandPatternSource?.(rule.patternSource) ?? rule.patternSource;
-      return Object.freeze({ spec: rule, pattern: new RegExp(source, "gu") });
-    }));
-  }
-  function defaultNormalizeGrammarSentence(sentence) {
-    return sentence.normalize("NFKC");
-  }
-  function selectGrammarMatches(rules, sentence, spec) {
-    const seenMatches = /* @__PURE__ */ new Set();
-    const seenRuleCounts = /* @__PURE__ */ new Map();
-    const selected = [];
-    const ranked = rules.flatMap((rule) => grammarMatches(rule, sentence, spec)).sort(compareRankedGrammarMatches);
-    for (const item of ranked) {
-      const key = `${item.ruleId}:${item.match}:${item.index}`;
-      if (seenMatches.has(key)) continue;
-      const count = seenRuleCounts.get(item.ruleId) ?? 0;
-      if (count >= MAX_OCCURRENCES_PER_RULE) continue;
-      if (selected.some((existing) => shouldSuppressOverlappingMatch(existing, item, spec))) continue;
-      seenMatches.add(key);
-      seenRuleCounts.set(item.ruleId, count + 1);
-      selected.push(item);
-      if (selected.length >= MAX_GRAMMAR_HINTS) break;
-    }
-    return selected;
-  }
-  function grammarMatches(rule, sentence, detector) {
-    return Array.from(sentence.matchAll(rule.pattern)).filter((match) => !detector.shouldSkipMatch?.(rule.spec, grammarMatchContext(sentence, match))).map((match) => rankedGrammarMatch(rule.spec, match, detector.learnerFacingMatch)).filter((match) => Boolean(match));
-  }
-  function rankedGrammarMatch(rule, match, learnerFacingMatch) {
-    const rawMatch = match[0];
-    const learnerMatch = learnerFacingMatch?.(rule, rawMatch) ?? rawMatch;
-    if (!learnerMatch) return null;
-    const learnerOffset = rawMatch.lastIndexOf(learnerMatch);
-    const indexOffset = learnerOffset > 0 ? learnerOffset : 0;
-    return {
-      ruleId: rule.ruleId,
-      name: rule.name,
-      level: rule.level,
-      ...rule.displayNames ? { displayNames: rule.displayNames } : {},
-      match: learnerMatch,
-      confidence: rule.confidence,
-      index: (match.index ?? 0) + indexOffset,
-      url: rule.url,
-      priority: rule.priority
-    };
-  }
-  function grammarMatchContext(sentence, match) {
-    const rawMatch = match[0];
-    const start = match.index ?? 0;
-    const end = start + rawMatch.length;
-    return {
-      rawMatch,
-      before: sentence.slice(Math.max(0, start - 4), start),
-      following: sentence.slice(end, end + 6)
-    };
-  }
-  function compareRankedGrammarMatches(a, b) {
-    return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
-  }
-  function compareGrammarMatches(a, b) {
-    return a.index - b.index || a.name.localeCompare(b.name);
-  }
-  function shouldSuppressOverlappingMatch(existing, next, spec) {
-    if (!grammarMatchRangesOverlap(existing, next)) return false;
-    if (existing.match === next.match && existing.index === next.index) return true;
-    if (spec.keepOverlappingMatches?.(existing, next)) return false;
-    if (existing.priority < 40 && next.priority < 40) return false;
-    return next.priority >= 40 && existing.priority < next.priority || grammarMatchContains(existing, next) && existing.priority <= next.priority && existing.match.length > next.match.length;
-  }
-  function grammarMatchRangesOverlap(a, b) {
-    const aEnd = a.index + a.match.length;
-    const bEnd = b.index + b.match.length;
-    return a.index < bEnd && b.index < aEnd;
-  }
-  function grammarMatchContains(outer, inner) {
-    return inner.index >= outer.index && inner.index + inner.match.length <= outer.index + outer.match.length;
-  }
-  const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
-  const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-  const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
-  function isSupportedLanguageProfileSchemaVersion(value) {
-    return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
-  }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
-  function isSupportedLearningTargetModuleInterfaceVersion(value) {
-    return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
-  }
-  const LEARNING_TARGET_CAPABILITY_IDS = [
-    "term-lookup",
-    "character-lookup",
-    "segmentation",
-    "morphology",
-    "reading-annotation",
-    "pronunciation",
-    "frequency",
-    "examples",
-    "grammar",
-    "audio",
-    "text-to-speech",
-    "ocr",
-    "subtitles",
-    "mining",
-    "srs",
-    "grading",
-    "typing",
-    "handwriting"
-  ];
-  const NO_CAPABILITIES = Object.freeze(
-    Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-  );
-  function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
-    return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
-  }
-  function createLearningTargetModule(spec) {
-    const language2 = canonicalLanguageTag(spec.language) ?? spec.language;
-    const base = languageSubtag(language2) ?? language2;
-    const regionalTag = maximizedLocaleTag(language2);
-    const direction = spec.direction ?? localeDirection(language2);
-    const detects = detectorFor(spec.detectsText);
-    const normalizeText = spec.normalizeText ?? defaultNormalizeText;
-    const segment = spec.segment ?? ((text2) => defaultSegment(text2, language2));
-    const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
-    return Object.freeze({
-      interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
-      id: spec.id,
-      language: language2,
-      direction,
-      collationLocale: spec.collationLocale ?? language2,
-      capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
-      featureSemantics: Object.freeze({
-        ...spec.featureSemantics,
-        phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
-      }),
-      typography: Object.freeze({
-        contentLocale: language2,
-        direction,
-        readingAnnotationMode: "none",
-        supportsVerticalWriting: false,
-        ...spec.typography
-      }),
-      typing: Object.freeze({
-        inputNormalizer: "preserve",
-        answerNormalizer: "target-text",
-        ...spec.typing
-      }),
-      audio: Object.freeze({
-        speechSynthesisLocale: regionalTag,
-        templateLanguageToken: base,
-        ...spec.audio
-      }),
-      ocr: Object.freeze({
-        defaultLanguage: regionalTag,
-        languageHint: base,
-        ...spec.ocr
-      }),
-      subtitles: Object.freeze({
-        languageTag: spec.subtitles?.languageTag ?? base,
-        languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
-      }),
-      grammar,
-      lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
-      ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
-      ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
-      lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
-      normalizeText,
-      isLookupableText(text2) {
-        return Boolean(text2) && detects(text2);
-      },
-      segment,
-      pointerWordSegments: spec.pointerWordSegments ?? segment,
-      lookupCandidates: spec.lookupCandidates ?? ((text2) => boundedLookupCandidates(text2, language2, normalizeText, spec.lookupRewrites ?? [])),
-      compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
-      matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
-      normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
-    });
-  }
-  function maximizedLocaleTag(language2) {
-    try {
-      const locale = new Intl.Locale(language2);
-      if (locale.region) return `${locale.language}-${locale.region}`;
-      const region = locale.maximize().region;
-      return region ? `${locale.language}-${region}` : locale.language;
-    } catch {
-      return language2;
-    }
-  }
-  function detectorFor(value) {
-    if (typeof value === "function") return value;
-    if (value instanceof RegExp) return (text2) => value.test(text2);
-    return () => false;
-  }
-  function defaultNormalizeText(text2) {
-    return normalizeGenericLookupText(text2);
-  }
-  function defaultSegment(text2, language2) {
-    return icuWordSegments(text2, language2) ?? whitespaceSegments(text2);
-  }
-  function whitespaceSegments(text2) {
-    const segments = [];
-    const pattern = /\S+/gu;
-    let match = pattern.exec(text2);
-    while (match) {
-      segments.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-      match = pattern.exec(text2);
-    }
-    return segments;
-  }
-  function defaultCompareLookupCandidates(a, b) {
-    return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
-    if (!candidateRules.length) return true;
-    const entryRuleSet = new Set((entryRules ?? "").split(/\s+/u).filter(Boolean));
-    return candidateRules.some((rule) => entryRuleSet.has(rule));
-  }
-  function defaultNormalizeReading(spelling, reading) {
-    return (reading ?? "").trim() || spelling.trim();
-  }
-  const GRAMMAR_PATTERN_DATA = String.raw`
-potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/
-potential-dekiru	N4	できる	{P}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	8	h
-obligation-nakereba-naranai	N4	なければならない	{F}(?:なければならない|なければなりません|なくてはならない|なくてはなりません|なくてはいけない|なくてはいけません|なければいけない|なければいけません|なきゃ(?:いけない|だめ)?|なくちゃ(?:いけない|だめ)?|ないといけない|ねばならない)	4	h	@g/nakereba-naranai/
-permission-not-required-nakutemo-ii	N5	なくてもいい	{F}なくても(?:いい|よい|大丈夫)(?:です)?	4	h
-prohibition-tewa-ikenai	N4	てはいけない	{F}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)なら(?:ない|ません)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)	5	h	@g/tewa-ikenai/
-permission-temo-ii	N5	てもいい	{F}[てで]も(?:いい|よい|よかった|よくない|よくありません|大丈夫(?:です)?|かまわない|かまいません|構わない|構いません)(?:です)?	5	h	@g/temoii/
-request-te-kudasai	N5	てください	{F}[てで]ください(?:ませんか)?	6	h
-polite-request-te-itadakemasen-ka	N4	ていただけませんか	{F}[てで](?:いただけませんか|くださいませんか)	6	h
-request-naide-kudasai	N5	ないでください	{F}ないでください	5	h
-advice-hou-ga-ii	N4	方がいい	{F}ほうが(?:いい|よい)(?:です)?	6	h
-command-nasai	N4	なさい	{F}なさい	6	h
-experience-ta-koto-ga-aru	N4	たことがある	{F}たことが(?:あ(?:る|ります|った|りました|りません|りませんでした)|ない|なかった|ありません|ありませんでした)	6	h	@g/ta-koto-ga-aru/
-completion-te-shimau	N4	てしまう	(?:{F}[てで]しま(?:う|います|った|いました|わない|いません|わなかった|いませんでした)|{F}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|ちゃわない|ちゃいません|ちゃわなかった|ちゃいませんでした|じゃう|じゃいます|じゃった|じゃいました|じゃわない|じゃいません|じゃわなかった|じゃいませんでした))	6	h	@g/te-shimau/
-attempt-te-miru	N4	てみる	{F}[てで]み(?:る|ます|た|ました|たい|ない|ません|なかった|ませんでした)	6	h	@g/te-miru/
-preparation-te-oku	N4	ておく	(?:{F}[てで]お(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした)|{F}(?:とく|ときます|といた|ときました|とかない|ときません|とかなかった|ときませんでした|どく|どきます|どいた|どきました|どかない|どきません|どかなかった|どきませんでした))	6	h	@g/teoku/
-desire-other-te-hoshii	N4	てほしい	{F}[てで]ほし(?:い|いです|かった|かったです|くない|くありません|くなかった|くありませんでした)	7	h
-benefactive-te-kureru-morau	N4	てくれる / てもらう	{F}[てで](?:くれ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|くださ(?:る|います|った|いました|らない|いません|らなかった|いませんでした)|あげ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|や(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|もら(?:う|います|った|いました|わない|いません|わなかった|いませんでした|え(?:る|ます|た|ました|ない|ません|なかった|ませんでした))|いただ(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした|け(?:る|ます|た|ました|ない|ません|なかった|ませんでした)))	8	m	@g/te-kureru/
-change-you-ni-naru	N4	ようになる	{F}ようにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています|っていない|っていません)	8	h	@g/you-ni-naru/
-habit-you-ni-suru	N4	ようにする	{F}ように(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	8	h	@g/you-ni-suru/
-verb-suru	N5	する	(?:{P}を)?{P}(?:す(?:る|れば|るな|るの|ること|るため|る前|る後)|し(?:ます|ました|ません|ませんでした|た|て|ない|なかった|なければ|よう|ろ)|され(?:る|ます|た|ました)|させ(?:る|ます|た|ました)|でき(?:る|ます|た|ました|ない|ません))	1d	h	@g/suru/
-choice-ni-suru	N4	にする	{P}に(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
-change-ku-suru	N4	くする	{P}く(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
-change-ku-naru-ni-naru	N5	くなる / になる	(?:{P}くな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}(?<!よう)にな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}とな(?:る|ります|った|りました))	a	h
-copula-desu-da	N5	です / だ	(?:です|でした|だ|だった)(?=$|[、。！？!?よねな])	17	h	@g/desu/
-negative-copula-dewa-nai	N5	ではない / じゃない	(?:では|じゃ)(?:ない|ありません|なかった|ありませんでした)	c	h
-formal-copula-de-aru	N3	である	であ(?:る|ります|った|りました)	k	h
-voice-causative-passive	N3	させられる	{F}(?:させられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]され(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	8	m	@g/verb-causative-form-saseru/
-voice-causative	N4	させる	{F}(?:させ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-causative-form-saseru/
-voice-passive-potential	N4	れる / られる	{F}(?:られ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまわ]れ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-passive-form-rareru/
-evidence-rashii-mitai	N4	らしい / みたい	(?:{F}らし(?:い|かった|くない|く)|{F}みたい(?:だ|です|でした|じゃない|ではない|に|な)?(?=$|[、。！？!?ねよ]))	9	m	@g/rashii/
-modality-kamoshirenai	N4	かもしれない	(?:かもしれない|かもしれません|かも)	9	h	@g/kamoshirenai/
-modality-deshou-darou	N5	でしょう / だろう	(?:でしょう|でしょうか|だろう|だろうか)	a	h	@g/deshou/
-quotation-to-omou	N4	と思う	{F}と思(?:う|います|った|いました|っている|っています|わない|いません|わなかった|いませんでした)	a	h	@g/to-omou/
-attempt-you-to-suru	N3	ようとする	{F}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	b	m	@g/verb-volitional-form-you/
-plan-tsumori-yotei	N4	つもり / 予定	{F}(?:つもり|予定)(?:だ|です|だった|でした)?	c	m	@g/tsumori/
-expectation-hazu	N4	はず	{F}はず(?:だ|です|だった|でした|がない|はない)?	c	h	@g/hazu/
-reasoning-wake	N3	わけ	{F}わけ(?:ではない|じゃない|がない|にはいかない|だ|です)?	o	m	@g/wake/
-reasoning-wake-dewa-nai	N3	わけではない	{F}わけ(?:では|じゃ)(?:ない|ありません)	b	h
-impossibility-wake-ga-nai	N3	わけがない	{F}わけが(?:ない|ありません)	b	h
-constraint-wake-ni-wa-ikanai	N3	わけにはいかない	{F}わけにはい(?:かない|きません)	b	h
-purpose-tame-ni	N4	ために	{F}ために	c	h	@g/tame-ni/
-purpose-you-ni	N4	ように	{F}ように	s	m	@g/you-ni/
-timing-tokoro	N4	ところ	{F}ところ(?:だ|です|だった|でした|で|に)?	e	m	@j/tokoro-bakari/
-simultaneous-nagara	N4	ながら	{F}(?<!残念)ながら	e	h	@g/nagara/
-state-mama	N3	まま	{F}まま	f	m	@g/mama/
-list-tari	N5	たり	(?:[^、。！？!?\\s]{1,30}?[だた]り[^、。！？!?\\s]{1,30}?[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした)?|{F}[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした))	g	m	@g/tari/
-limitation-bakari	N4	ばかり	{F}ばかり	g	m	@j/tokoro-bakari/
-recent-ta-bakari	N4	たばかり	{F}たばかり(?:だ|です|だった|でした)?	c	h	@j/tokoro-bakari/
-limitation-dake-shika	N5	だけ / しか	{F}(?:だけ|しか)	i	m	@g/dake/
-degree-hodo-kurai	N4	ほど / くらい	{F}(?:ほど|くらい|ぐらい)	i	m	@g/hodo/
-role-toshite	N3	として	{F}として	i	h
-relation-ni-yotte	N3	によって	{F}によ(?:って|る)	i
-topic-ni-tsuite	N3	について	{F}について	i	h
-target-ni-taishite	N3	に対して	{F}に対(?:して|する|し)	i
-concession-ni-mo-kakawarazu	N2	にもかかわらず	{F}にもかかわらず	i	h
-concession-kuse-ni	N3	くせに	{F}くせに	i
-suffix-tachi	N5	たち / 達	{P}(?:たち|(?<!友)達)	1e
-particle-wa	N5	は	{P}は(?!ず)	1j	h	@g/particle-wa/
-particle-ga	N5	が	{P}が	1j	h	@g/particle-ga/
-particle-wo	N5	を	{P}を	1j	h	@g/particle-wo/
-particle-de	N5	で	{P}(?<![まん])で(?!き|す|し)	1j	m	@g/particle-de/
-particle-ni	N5	に	{P}に(?!なる)	1j	m	@g/particle-ni/
-particle-e	N5	へ	{P}へ	1j
-particle-to	N5	と	{P}(?<![っッこコ])と(?!して|いう|思)	1j	m	@g/particle-to/
-particle-no	N5	の	{P}の	1j	m	@g/particle-no-noun-modifier/
-particle-mo	N5	も	{P}も	1j
-particle-ya	N5	や	{P}や	1j
-aspect-te-iru	N5	ている	{F}[てで](?:いる|います|いた|いました|いない|いません|いなかった|いませんでした|る|た)	14	h	@g/verb-continuous-form-teiru/
-aspect-te-aru	N4	てある	{F}[てで]あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)	c	h
-aspect-te-kuru	N4	てくる	{F}[てで](?:くる|きます|きた|きました|こない|きません|こなかった|きませんでした)	k
-aspect-te-iku	N4	ていく	{F}[てで]い(?:く|きます|った|きました|かない|きません|かなかった|きませんでした)	k
-desire-tai	N5	たい	{F}(?:たい(?:です)?|たく(?:ない|ありません|なかった|ありませんでした)|たかった(?:です)?)	18	h	@g/tai-form/
-ease-yasui-nikui	N4	やすい / にくい	{F}(?:やすい|にくい|づらい)	m	h
-excess-sugiru	N4	すぎる	{F}すぎ(?:る|ます|た|ました|て|ない|ません|なかった|ませんでした|だ|です)	m	h
-method-kata	N5	方	{F}方	1c
-negative-nai	N5	ない	{F}(?:ない|ません|なかった|ませんでした)	1a	m	@g/verb-negative-nai-form/
-polite-past-mashita	N5	ました	{F}ました	18	h	@g/masu/
-polite-masu	N5	ます	{F}ます	19	m	@g/masu/
-conditional-tara	N4	たら	{F}たら	h	h	@g/conditional-form-tara/
-conditional-ba	N4	ば	{F}(?:えば|ければ)	i	h	@g/verb-conditional-form-ba/
-conditional-ba-ii	N4	ばいい / ばよかった	{F}(?:えば|ければ|[えけげせてねべめれ]ば)(?:いい|よい|よかった)(?:です)?	d
-conditional-nara	N4	なら	{F}なら(?:ば)?	i	h
-conditional-to	N4	と	{F}と(?=、)	12
-concession-temo-demo	N4	ても / でも	{F}[てで]も	s	m	@g/temo/
-reason-node	N4	ので	(?:なので|ので)(?!は)	m	h	@g/conjunctive-particle-node/
-reason-kara	N5	から	{F}から	z	m	@g/particle-kara/
-appearance-sou	N4	そう	{F}そう(?:に|な)?	u	m	@g/verb-sou/
-hearsay-sou-da	N4	そうだ	{F}(?:る|い|だ|た|ない)そう(?:だ|です)	j
-volitional-you	N5	よう	{F}(?:よう|ろう)	19	m	@g/verb-volitional-form-you/
-concession-noni	N4	のに	のに	k	h	@g/conjunctive-particle-noni/
-nominalizer-koto	N5	こと	こと(?:が|を|に|は|も)	16	m	@g/koto/
-plain-past-ta	N5	た	(?:{F}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)|(?<!で)した)(?![いらり])	1b
-sequence-te-kara	N5	てから	{F}[てで]から	d	h
-time-mae-ni	N5	前に	{F}前に	m
-time-ato-de-ni	N5	後で / 後に	{F}後(?:で|に)	m
-time-toki	N5	とき	{F}とき	m
-limit-made-made-ni	N5	まで / までに	{F}まで(?:に)?	s
-comparison-yori-nohou	N5	より / の方が	{F}(?:より|のほうが|の方が)	u
-superlative-ichiban	N5	一番	一番	m	h
-question-ka-douka	N4	かどうか	{F}かどうか	d	h
-purpose-masu-stem-ni-iku	N5	に行く / に来る	{F}[いきぎしじちにびみりえけげせてねべめ見寝出]に(?:行(?:く|きます|った|きました)|来(?:る|ます|た|ました)|帰(?:る|ります|った|りました))	e	h
-nominalizer-no	N5	の	{F}の(?=[はがをにも])	i	m	@g/no-nominalizer/
-quotation-to-iu	N4	という	{F}という	e
-casual-tte	N4	って	{F}って(?=(?:言|聞|思|呼|書|いう|こと|、|。|？|!|！|$))	o
-explanation-n-desu	N5	んです / のです	{F}(?:ん|の)です	m
-explanation-no-da	N4	のだ / んだ	{F}(?:の|ん)(?:だ|だった|じゃない|ではない)	m
-existence-ga-aru-iru	N5	がある / がいる	{P}が(?:あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|い(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	o	h
-skill-ga-suki-jouzu-heta	N5	が好き / が上手 / が下手	{P}が(?:好き|すき|上手|じょうず|下手|へた)(?:だ|です|ではない|じゃない)?	i	h
-skill-no-ga-suki	N5	のが好き	{F}のが(?:好き|すき|嫌い|きらい|上手|じょうず|下手|へた|得意|苦手)(?:だ|です|ではない|じゃない)?	g	h
-invitation-mashou	N5	ましょう / ましょうか	{F}ましょう(?:か)?	c	h
-invitation-masen-ka	N5	ませんか	{F}ませんか	b	h
-relief-te-yokatta	N4	てよかった	{F}[てで]よかった(?:です)?	a	h
-without-zuni	N4	ずに	{F}ずに	c	h
-without-naide	N4	ないで	{F}ないで(?!ください)	g	h
-apology-te-sumimasen	N4	てすみません	{F}[てで]すみません	a	h
-necessity-ga-hitsuyou	N4	が必要	{P}が必要(?:だ|です|だった|でした)?	f	h
-sensation-ga-suru	N4	がする	{P}が(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	d	h
-case-baai	N4	場合	{F}場合(?:は|には)?	g	h
-examples-nado	N4	など	{P}など	g	h
-examples-toka	N4	とか	{F}とか(?:{F}とか)?	i
-hearsay-to-iwarete-iru	N4	と言われている	{F}と言われてい(?:る|ます|ない|ません)|{F}と言われ(?:た|ました)	a	h
-hearsay-to-kiita	N4	と聞いた	{F}と聞(?:いた|きました|いている|いています)	c	h
-similarity-you-da	N4	ようだ / ような	{F}よう(?:だ|です|な|に)	t
-permission-sasete-kudasai	N4	させてください	{F}させてください	5	h
-decision-koto-ni-suru	N4	ことにする	{F}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	9	h
-arrangement-koto-ni-naru	N4	ことになる	{F}ことにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)	9	h
-honorific-o-go-ni-naru-suru	N3	お〜になる / お〜する	(?:お|ご){F}(?:になる|になります|する|します|いたす|いたします|ください)	8
-polite-gozaimasu	N5	ございます	{F}ござい(?:ます|ました|ません|ませんでした)	u
-advice-beki	N3	べき	{F}べき(?:だ|です|ではない|じゃない)?	f	h
-time-aida-aida-ni	N4	間 / 間に	{F}間(?:に|は)?	m
-time-uchi-ni	N3	うちに	{F}うちに	e
-time-saichuu-ni	N3	最中に	{F}最中に	g	h
-repetition-tabi-ni	N3	たびに	{F}たびに	e	h
-incidental-tsuide-ni	N3	ついでに	{F}ついでに	e
-phase-compound-verb	N4	始める / 続ける / 終わる	{F}(?:(?:始め|続け)(?:る|ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした)|(?:出し|終わ)(?:る|ます|た|ました))	i
-state-ppanashi	N3	っぱなし	{F}っぱなし	e	h
-covered-darake	N3	だらけ	{F}だらけ	f	h
-fresh-tate	N3	たて	{F}たて	i
-elapsed-buri-ni	N3	ぶりに	{F}ぶりに	e	h
-interval-goto-ni	N3	ごとに	{F}ごとに	e	h
-interval-oki-ni	N3	おきに	{F}おきに	f	h
-emphasis-kara-koso	N3	からこそ	{F}からこそ	c	h
-source-ni-yoru-to	N3	によると / によれば	{F}によ(?:ると|れば)	c	h
-topic-ni-kansuru	N3	に関する	{F}に関する	d	h
-context-ni-okeru	N3	における	{F}における	d	h
-standard-ni-shite-wa	N3	にしては	{F}にしては	e	h
-simultaneous-to-douji-ni	N3	と同時に	{F}と同時に	c	h
-supposition-to-shitara	N3	としたら / とすれば	{F}と(?:したら|すれば|すると)	d	h
-almost-tokoro-datta	N3	ところだった	{F}ところ(?:だった|でした)	c	h
-nonlimiting-wa-mochiron	N3	はもちろん	{F}はもちろん	e	h
-pretend-furi-wo-suru	N3	ふりをする	{F}ふりを(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています))	c	h
-instant-ta-totan-ni	N3	たとたんに	{F}たとたん(?:に)?	c	h
-difficulty-gatai	N3	がたい	{F}がたい	i	h
-only-shika-nai	N3	しかない	{F}しか(?:ない|ありません|なかった|ありませんでした)	c	h
-emphasis-sae	N3	さえ / でさえ	[^、。！？!?\s]{1,24}(?:で)?さえ	i
-emphasis-koso	N3	こそ	{P}こそ	i
-try-te-goran	N3	てごらん	{F}[てで]ごらん	d	h
-cause-sei-okage-de	N3	せいで / おかげで	{F}(?:せい|おかげ)で	e	h
-manner-toori	N3	とおり	{F}(?:とおり|通り)(?:に|だ|です)?	g	h
-certainty-ni-chigai-nai	N3	に違いない	{F}に違い(?:ない|ありません)	f	h
-certainty-ni-kimatte-iru	N3	に決まっている	{F}に決まってい(?:る|ます)	f	h
-qualification-to-wa-kagiranai	N3	とは限らない	{F}とは限(?:らない|りません)	f	h
-contrast-ippou-de	N3	一方で	{F}一方(?:で)?	g
-contrast-hanmen	N3	反面	{F}反面	g
-substitution-kawari-ni	N3	かわりに	{F}かわりに	g
-topic-ni-kanshite	N3	に関して	{F}に関して	h	h
-comparison-ni-kurabete	N3	に比べて	{F}に比べて	h	h
-basis-ni-motozuite	N3	に基づいて	{F}に基づいて	h	h
-following-ni-sotte	N3	に沿って	{F}に沿って	h
-following-change-ni-shitagatte	N3	に従って	{F}に従って	h
-change-ni-tsurete	N3	につれて	{F}につれて	h
-together-to-tomo-ni	N3	とともに	{F}とともに	h
-context-ni-oite	N3	において	{F}において	h	h
-means-wo-tsuujite-tooshite	N3	を通じて / を通して	{F}を通(?:じて|して)	h
-representative-wo-hajime	N3	をはじめ	{F}をはじめ	h
-limit-ni-kagiru-kagirazu	N3	に限る / に限らず	{F}に限(?:る|ります|らない|らず|って)	h
-suffix-gachi	N3	がち	{F}がち	o
-suffix-gimi	N3	気味	{F}気味	o
-suffix-ge	N3	げ	{F}げ	o
-suffix-ppoi	N3	っぽい	{F}っぽい	o
-negative-youni-nai	N3	ようがない	{F}ようが(?:ない|ありません)	g	h
-impossible-kkonai	N3	っこない	{F}っこない	i
-condition-kara-ni-wa	N2	からには	{F}からには	c	h
-qualification-kara-to-itte	N2	からといって	{F}からといって	c	h
-condition-nai-kagiri	N2	ない限り	{F}ない限り	c	h
-condition-ijou-wa	N2	以上は	{F}以上は	b	h
-condition-ue-wa	N2	上は	{F}上は	c	h
-sequence-ue-de	N2	上で	{F}上で	d	h
-addition-ue-ni	N2	上に	{F}上に	d	h
-viewpoint-kara-miru-to	N2	から見ると / からすると	{F}から(?:見ると|見れば|すると|すれば|言うと|言えば)	g
-starting-kara-shite	N2	からして	{F}からして	g
-concession-ni-shitemo-toshitemo	N2	にしても / としても	{F}(?:にしても|としても)	e	h
-concession-ni-shiro-ni-seyo	N2	にしろ / にせよ	{F}に(?:しろ|せよ)	e	h
-after-all-ageku	N2	あげく	{F}あげく(?:に)?	d	h
-after-effort-sue-ni	N2	末に	{F}末に	d	h
-only-ni-suginai	N2	にすぎない	{F}にすぎ(?:ない|ません)	e	h
-essence-ni-hoka-naranai	N2	にほかならない	{F}にほかならない	e	h
-necessity-zaru-wo-enai	N2	ざるを得ない	{F}ざるを得(?:ない|ません)	a	h
-compulsion-zu-ni-wa-irarenai	N2	ずにはいられない	{F}(?:ずには|ないでは)いられ(?:ない|ません|なかった|ませんでした)	a	h
-possibility-eru-enai	N2	得る / 得ない	{F}得(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	k
-risk-kanenai	N2	かねない	{F}かね(?:ない|ません)	e	h
-difficulty-kaneru	N2	かねる	{F}かね(?:る|ます|た|ました)	e	h
-emotion-te-naranai	N2	てならない	{F}[てで]ならない	e
-emotion-te-tamaranai	N2	てたまらない	{F}[てで]たまらない	e
-emotion-te-shouganai	N2	てしょうがない	{F}[てで](?:しょうがない|仕方がない)	e
-timing-shidai	N2	次第	{F}次第	g
-time-sai-ni	N2	際に	{F}際に	g	h
-occasion-ni-atatte	N2	にあたって	{F}にあたって	g	h
-occasion-ni-saishite	N2	に際して	{F}に際して	g	h
-prior-ni-sakidatte	N2	に先立って	{F}に先立って	g	h
-trigger-wo-kikkake-ni	N2	をきっかけに	{F}をきっかけに	g	h
-trigger-wo-keiki-ni	N2	を契機に	{F}を契機に	g
-span-ni-watatte	N2	にわたって	{F}にわたって	h	h
-accompany-ni-tomonatte	N2	に伴って	{F}に伴って	h	h
-response-ni-oujite	N2	に応じて	{F}に応じて	h
-basis-wo-fumaete	N2	を踏まえて	{F}を踏まえて	h	h
-merit-dake-atte	N2	だけあって	{F}だけあって	g
-because-dake-ni	N2	だけに	{F}だけに	g
-concession-youga-maiga	N1	ようが / まいが	{F}(?:ろうが|ようが){F}まいが	8	h
-concession-nagara-mo	N2	ながらも	{F}ながらも	g
-continuation-tsutsu	N2	つつ / つつある	{F}つつ(?:ある)?	i
-cause-bakari-ni	N2	ばかりに	{F}ばかりに	f	h
-contrast-dokoro-ka	N2	どころか	{F}どころか	f	h
-impossible-dokoro-dewa-nai	N2	どころではない	{F}どころではない	f	h
-nonlimiting-dake-denaku	N3	だけでなく	{F}だけでなく	k	h
-regardless-ni-kakawarazu	N2	にかかわらず	{F}にかかわらず	g	h
-contrary-ni-hanshite	N2	に反して	{F}に反して	g	h
-addition-ni-kuwaete	N2	に加えて	{F}に加えて	g	h
-target-ni-kotaete	N2	に応えて	{F}に(?:応|こた)えて	h
-center-wo-chuushin-ni	N2	を中心に	{F}を中心に	h	h
-regardless-wo-toyazu	N2	を問わず	{F}を問わず	g	h
-topic-wo-megutte	N2	をめぐって	{F}をめぐって	g	h
-direction-muke-muki	N3	向け / 向き	{F}向(?:け|き)	m
-relative-wari-ni	N2	わりに	{F}わりに	i
-memory-kke	N2	っけ	{F}っけ	s
-quote-to-iu-yori	N2	というより	{F}というより	i
-example-to-itta	N2	といった	{F}といった(?=[^、。！？!?\\s])	k
-topic-to-ieba	N2	といえば	{F}といえば	k
-thing-mono-da	N2	ものだ	{F}もの(?:だ|です)	o
-cause-mono-dakara	N2	ものだから	{F}ものだから	g
-concession-mono-no	N2	ものの	{F}ものの	g	h
-advice-koto-da	N2	ことだ	{F}こと(?:だ|です)	m
-unnecessary-koto-wa-nai	N2	ことはない	{F}ことは(?:ない|ありません)	e	h
-double-negative-nai-koto-wa-nai	N2	ないことはない	{F}ないことは(?:ない|ありません)	d	h
-explanation-to-iu-koto-da	N2	ということだ	{F}ということ(?:だ|です)	g
-nature-to-iu-mono-da	N2	というものだ	{F}というもの(?:だ|です)	g
-not-nature-to-iu-mono-dewa-nai	N2	というものではない	{F}というものでは(?:ない|ありません)	f
-wish-nai-mono-ka	N2	ないものか	{F}ないものか	g
-instant-ga-hayai-ka	N1	が早いか	{F}が早いか	8	h
-instant-ya-inaya	N1	や否や	{F}や否や	8	h
-instant-nari	N1	なり	{F}なり	c
-repetition-soba-kara	N1	そばから	{F}そばから	a	h
-unexpected-ka-to-omoi-kiya	N1	かと思いきや	{F}かと思いきや	a	h
-incidental-katagata	N1	かたがた	{F}かたがた	e
-incidental-gatera	N1	がてら	{F}がてら	e
-starting-wo-kawakiri-ni	N1	を皮切りに	{F}を皮切りに	e	h
-endpoint-wo-kagiri-ni	N1	を限りに	{F}を限りに	e	h
-means-wo-motte	N1	をもって	{F}をもって	e	h
-turning-wo-sakai-ni	N1	を境に	{F}を境に	f
-range-ni-itaru-made	N1	に至るまで	{F}に至るまで	e	h
-stage-ni-itatte	N1	に至って	{F}に至って(?:は|も)?	f
-context-ni-atte	N1	にあって	{F}にあって	g
-standard-ni-sokushite	N1	に即して	{F}に即して	f	h
-exclusive-wo-oite	N1	をおいて	{F}をおいて	d	h
-defiance-wo-mono-to-mo-sezu	N1	をものともせず	{F}をものともせず	c	h
-forced-wo-yogi-naku-sareru	N1	を余儀なくされる	{F}を余儀なくされ(?:る|ます|た|ました)	a	h
-force-wo-yogi-naku-saseru	N1	を余儀なくさせる	{F}を余儀なくさせ(?:る|ます|た|ました)	a	h
-emotion-ni-taenai	N1	に堪えない	{F}に堪え(?:ない|ません)	e
-reluctance-ni-shinobinai	N1	に忍びない	{F}に忍びない	d	h
-easy-inference-ni-katagunai	N1	に難くない	{F}に難くない	d	h
-worthy-ni-ataru	N1	に値する	{F}に値する	d	h
-sufficient-ni-taru	N1	に足る	{F}に足る	d
-utmost-no-itari	N1	の至り	{F}の至り	g
-extreme-kiwamaru-kiwamarinai	N1	極まる / 極まりない	{F}(?:極まる|極まりない)	g
-deep-wish-te-yamanai	N1	てやまない	{F}[てで]や(?:まない|みません)	c	h
-since-te-kara-to-iu-mono	N1	てからというもの	{F}[てで]からというもの	a	h
-consequence-zu-ni-wa-okanai	N1	ずにはおかない	{F}(?:ずには|ないでは)おかない	a	h
-consequence-zu-ni-wa-sumanai	N1	ずにはすまない	{F}(?:ずには|ないでは)すまない	a	h
-prohibition-bekarazu	N1	べからず	{F}べからず	c	h
-improper-majiki	N1	まじき	{F}まじき	c	h
-role-taru-mono	N1	たるもの	{F}たるもの	c	h
-surprise-tomo-arou-mono-ga	N1	ともあろうものが	{F}ともあろうものが	c	h
-stage-tomo-naru-to	N1	ともなると	{F}ともなると	e
-any-de-are	N1	であれ	{F}であれ	g
-pair-to-ii-to-ii	N1	といい	[^、。！？!?\\s]{1,24}といい[^、。！？!?\\s]{1,24}といい	i
-concession-to-wa-ie	N1	とはいえ	{F}とはいえ	e	h
-without-nakushite	N1	なくして	{F}なくして	d	h
-basis-atte-no	N1	あっての	{F}あっての	d
-unique-nara-dewa	N1	ならでは	{F}ならでは	d	h
-covered-mamire	N1	まみれ	{F}まみれ	k
-full-zukume	N1	ずくめ	{F}ずくめ	k
-depending-ikan	N1	いかん	{F}いかん(?:だ|で|によって|にかかわらず)?	g
-result-shimatsu-da	N1	始末だ	{F}始末(?:だ|です)	i
-rhetorical-denakute-nandarou	N1	でなくてなんだろう	{F}でなくてなんだろう	i
-extreme-to-ittara-nai	N1	といったらない	{F}といったらない	i
-extreme-tara-aryashinai	N1	たらありゃしない	{F}たらありゃしない	i
-best-ni-koshita-koto-wa-nai	N2	に越したことはない	{F}に越したことは(?:ない|ありません)	e	h
-excess-ni-mo-hodo-ga-aru	N1	にもほどがある	{F}にもほどがある	e	h
-emphatic-no-nanno	N1	のなんの	{F}のなんの	m
-minimal-tari-tomo	N1	たりとも	{F}たりとも	e	h
-minimal-dani	N1	だに	{F}だに	k
-minimal-sura	N1	すら	{F}すら	k
-comparison-gotoki	N1	ごとき	{F}ごとき	k
-suffix-meku	N1	めく	{F}め(?:く|いて|き)	k
-unnecessary-made-mo-nai	N1	までもない	{F}までもない	e	h
-unnecessary-ni-wa-oyobanai	N1	には及ばない	{F}には及(?:ばない|びません)	g
-situation-tokoro-wo	N1	ところを	{F}ところを	e	h
-`;
-  function expandGrammarGuideUrl(url) {
-    if (!url) return "";
-    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
-  }
-  function parseGrammarRule(row) {
-    const [ruleId, level, name, patternSource, priority, confidence = "m", url = ""] = row.split("	");
-    if (!ruleId || !name || !patternSource || !priority) throw new TypeError(`Invalid Yomu grammar registry row: ${row}`);
-    if (!["Core", "N5", "N4", "N3", "N2", "N1"].includes(level)) {
-      throw new TypeError(`Invalid Yomu grammar level for ${ruleId}: ${level}`);
-    }
-    return Object.freeze({
-      ruleId,
-      level,
-      name,
-      patternSource,
-      priority: parseInt(priority, 36),
-      confidence: confidence === "h" ? "high" : "medium",
-      url: expandGrammarGuideUrl(url),
-      // Per-rule examples ship only as test fixtures (tests/reader/fixtures/
-      // grammar-rule-examples.ts); the reader render path uses remote copy JSON.
-      examples: Object.freeze([])
-    });
-  }
-  function createGrammarRegistry() {
-    const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
-    const ids = new Set(rules.map((rule) => rule.ruleId));
-    if (ids.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
-    return Object.freeze(rules);
-  }
-  const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
-  new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
-  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
-  const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
-  const JAPANESE_GRAMMAR = createLearningTargetGrammar({
-    levelScale: {
-      id: "jlpt",
-      levels: ["Core", "N5", "N4", "N3", "N2", "N1"]
-    },
-    referenceUrl: "https://www.tofugu.com/japanese-grammar/",
-    rules: YOMU_GRAMMAR_REGISTRY,
-    normalizeSentence: (sentence) => sentence.normalize("NFKC").replace(/\s+/g, ""),
-    expandPatternSource: (source) => source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
-    shouldSkipMatch: (rule, context) => shouldSkipJapaneseGrammarMatch(rule.ruleId, context),
-    learnerFacingMatch: (rule, rawMatch) => japaneseLearnerMatch(rule.name, rawMatch),
-    keepOverlappingMatches: (existing, next) => existing.ruleId === "copula-desu-da" && next.priority < 50,
-    // The two hosted copy files are the established Japanese inventory. Other
-    // targets omit this hook, so a coincidentally equal rule id cannot inherit
-    // Japanese prose.
-    ruleCopyIdFor: (rule) => rule.ruleId
-  });
-  const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
-  const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
-  const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
-  const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
-  const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
-  const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
-  const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
-  const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
-  const GRAMMAR_MATCH_SKIP_PREDICATES = {
-    "appearance-sou": ({ rawMatch }) => rawMatch === "そう" || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
-    "hearsay-sou-da": ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
-    "volitional-you": ({ rawMatch }) => rawMatch === "よう" || rawMatch === "さよう",
-    "similarity-you-da": ({ rawMatch }) => rawMatch.startsWith("さよう"),
-    "conditional-nara": ({ rawMatch }) => rawMatch.endsWith("さようなら"),
-    "desire-tai": ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
-    "without-naide": ({ rawMatch, following }) => rawMatch.endsWith("ないで") && following.startsWith("す"),
-    "negative-nai": ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
-    "method-kata": shouldSkipMethodKataMatch,
-    "suffix-ge": ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
-    "state-mama": ({ rawMatch, before }) => rawMatch.includes("わがまま") || rawMatch === "まま" && before.endsWith("わが"),
-    "difficulty-gatai": ({ rawMatch }) => rawMatch.endsWith("ありがたい"),
-    "substitution-kawari-ni": ({ rawMatch }) => rawMatch.endsWith("おかわりに"),
-    "suffix-meku": ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
-    "possibility-eru-enai": ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith("心得"),
-    "suffix-gimi": ({ rawMatch }) => rawMatch.endsWith("不気味"),
-    "fresh-tate": ({ rawMatch }) => rawMatch === "たて",
-    "elapsed-buri-ni": ({ rawMatch }) => rawMatch.endsWith("すぶりに"),
-    "ease-yasui-nikui": ({ rawMatch }) => rawMatch === "やすい",
-    "examples-toka": ({ following }) => following.startsWith("言") || following.startsWith("聞") || following.startsWith("思"),
-    "explanation-no-da": ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
-    "skill-no-ga-suki": shouldSkipPronounPossessiveNominalizerMatch,
-    "nominalizer-no": shouldSkipPronounPossessiveNominalizerMatch,
-    "sensation-ga-suru": ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
-    "standard-ni-shite-wa": ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
-    "emphasis-sae": ({ rawMatch }) => rawMatch.endsWith("ささえ"),
-    "emphasis-koso": ({ rawMatch }) => rawMatch.endsWith("ようこそ"),
-    "evidence-rashii-mitai": ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch)
-  };
-  function shouldSkipJapaneseGrammarMatch(ruleId, context) {
-    return GRAMMAR_MATCH_SKIP_PREDICATES[ruleId]?.(context) ?? false;
-  }
-  function shouldSkipMethodKataMatch({
-    rawMatch,
-    before,
-    following
-  }) {
-    return LEXICAL_METHOD_KATA_RE.test(rawMatch) || rawMatch === "方" && (following.startsWith("法") || before.endsWith("の") || /[夕地親行]/u.test(before.slice(-1)));
-  }
-  function shouldSkipPronounPossessiveNominalizerMatch({
-    rawMatch
-  }) {
-    return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
-  }
-  const LEARNER_MATCH_ENDING_NAMES = /* @__PURE__ */ new Set([
-    "たい",
-    "ない",
-    "ました",
-    "ます",
-    "た",
-    "よう",
-    "そう",
-    "方",
-    "やすい / にくい",
-    "すぎる",
-    "れる / られる",
-    "させる",
-    "させられる",
-    "がち",
-    "気味",
-    "げ",
-    "っぽい",
-    "めく"
-  ]);
-  const LEARNER_MATCH_HELPER_NAMES = /* @__PURE__ */ new Set([
-    "てください",
-    "ていただけませんか",
-    "ないでください",
-    "させてください",
-    "てほしい",
-    "てくれる / てもらう",
-    "てしまう",
-    "てみる",
-    "ておく",
-    "ている",
-    "てある",
-    "てくる",
-    "ていく",
-    "てから"
-  ]);
-  function japaneseLearnerMatch(name, rawMatch) {
-    let match = rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u, "");
-    if (LEARNER_MATCH_HELPER_NAMES.has(name)) {
-      const afterClauseBoundary = match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u, "");
-      if (afterClauseBoundary) match = afterClauseBoundary;
-    }
-    if (!LEARNER_MATCH_ENDING_NAMES.has(name)) return match;
-    const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
-    return afterLastParticle || match;
-  }
-  const JAPANESE_POINTER_WORD_RE = new RegExp(
-    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
-    "gu"
-  );
-  const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
-    id: "japanese-v1",
-    language: "ja",
-    direction: "ltr",
-    collationLocale: "ja",
-    capabilities: {
-      "term-lookup": true,
-      "character-lookup": true,
-      segmentation: true,
-      morphology: true,
-      "reading-annotation": true,
-      pronunciation: true,
-      frequency: true,
-      examples: true,
-      audio: true,
-      "text-to-speech": true,
-      ocr: true,
-      subtitles: true,
-      mining: true,
-      srs: true,
-      grading: true,
-      typing: true,
-      handwriting: true
-    },
-    featureSemantics: {
-      characterSystem: "kanji",
-      phoneticScripts: ["hiragana", "katakana"],
-      pronunciation: "pitch-accent",
-      readingAnnotation: "furigana"
-    },
-    grammar: JAPANESE_GRAMMAR,
-    typography: {
-      contentLocale: "ja",
-      readingAnnotationMode: "ruby",
-      supportsVerticalWriting: true
-    },
-    typing: {
-      inputNormalizer: "romaji-kana",
-      answerNormalizer: "japanese-kana"
-    },
-    audio: {
-      speechSynthesisLocale: "ja-JP",
-      templateLanguageToken: "ja"
-    },
-    ocr: {
-      defaultLanguage: "ja-JP",
-      languageHint: "ja"
-    },
-    subtitles: {
-      languageTag: "ja",
-      languageAliases: []
-    },
-    detectsText: HAS_JAPANESE,
-    normalizeText: normalizeJapaneseTargetText,
-    // Japanese writes no word boundaries, so its segmenter infers them. That is
-    // good enough to decide where a reading is drawn and not good enough to
-    // decide where a dictionary term may begin, which is why the term engine
-    // sweeps every position for this target and lets the dictionary arbitrate.
-    lookupStartsAtSegmentBoundary: false,
-    segment(text2) {
-      return segmentJapaneseText(text2).map((segment) => ({
-        text: segment.surface,
-        start: segment.start,
-        end: segment.end
-      }));
-    },
-    pointerWordSegments: japanesePointerWordSegments,
-    // Morphology is the deinflector itself, verbatim and unnormalized: the
-    // dictionary engine hands over raw substrings of the page and needs the
-    // candidates to line up with those substrings character for character.
-    // Anything that wants normalized input calls normalizeText first.
-    lookupCandidates: deinflectJapaneseTerm,
-    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
-    // beats i-adjective. Shared verbatim with the Japanese fallback path so
-    // both doors into the deinflector return the same order.
-    compareLookupCandidates: compareJapaneseLookupCandidates,
-    matchesLookupCandidateRules: termRulesMatch,
-    normalizeReading(spelling, reading) {
-      return normalizedJapaneseCardReading(spelling, reading);
-    }
-  });
-  function normalizeJapaneseTargetText(text2) {
-    return normalizeFallbackTerm(text2.normalize("NFKC"));
-  }
-  function japanesePointerWordSegments(text2) {
-    return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
-      text: match[0],
-      start: match.index,
-      end: match.index + match[0].length
-    }));
-  }
-  const CEFR_GRAMMAR_LEVEL_SCALE = Object.freeze({
-    id: "cefr",
-    levels: Object.freeze(["A1", "A2", "B1", "B2", "C1", "C2"])
-  });
-  const EAQUALS_PDF = "https://www.eaquals.org/wp-content/uploads/Inventaire_ONLINE_full.pdf";
-  const EAQUALS_A1 = `${EAQUALS_PDF}#page=58`;
-  const EAQUALS_A1_EXAMPLES = `${EAQUALS_PDF}#page=66`;
-  const EAQUALS_A1_EXISTENCE = `${EAQUALS_PDF}#page=67`;
-  const A1_PROGRESSIVE_INFINITIVE = String.raw`(?:manger|préparer|étudier)`;
-  const A1_NEAR_FUTURE_INFINITIVE = String.raw`(?:manger|regarder|jouer)`;
-  const A1_RECENT_PAST_INFINITIVE = String.raw`(?:finir|manger)`;
-  const A1_IL_FAUT_INFINITIVE = String.raw`(?:bien\s+apprendre|apprendre|crier)`;
-  const A1_POLITE_CONDITIONAL = String.raw`(?:[Jj]e\s+voudrais|[Jj]['’]aimerais|[Oo]n\s+pourrait\s+avoir\s+l['’]addition)`;
-  const A1_EXISTENTIAL_COMPLEMENT = String.raw`(?:un\s+canapé|un\s+fauteuil|une\s+table|cinq\s+personnes|beaucoup\s+de\s+restaurants|du\s+soleil)`;
-  const FRENCH_GRAMMAR = createLearningTargetGrammar({
-    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-    referenceUrl: EAQUALS_A1,
-    rules: [
-      {
-        ruleId: "fr-present-progressive",
-        level: "A1",
-        name: "Present progressive (être en train de)",
-        displayNames: { en: "Present progressive (être en train de)", ja: "être en train de ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+suis|[Tt]u\s+es|[Ii]l\s+est|[Ee]lle\s+est|[Nn]ous\s+sommes|[Vv]ous\s+êtes|[Ii]ls\s+sont|[Ee]lles\s+sont)\s+en\s+train\s+d(?:e\s+|['’])${A1_PROGRESSIVE_INFINITIVE}(?!\p{L})`,
-        priority: 10,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-near-future",
-        level: "A1",
-        name: "Near future (aller + infinitive)",
-        displayNames: { en: "Near future (aller + infinitive)", ja: "aller ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+vais|[Tt]u\s+vas|[Ii]l\s+va|[Ee]lle\s+va|[Nn]ous\s+allons|[Vv]ous\s+allez|[Ii]ls\s+vont|[Ee]lles\s+vont)\s+${A1_NEAR_FUTURE_INFINITIVE}(?!\p{L})`,
-        priority: 12,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-recent-past",
-        level: "A1",
-        name: "Recent past (venir de + infinitive)",
-        displayNames: { en: "Recent past (venir de + infinitive)", ja: "venir de ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+viens|[Tt]u\s+viens|[Ii]l\s+vient|[Ee]lle\s+vient|[Nn]ous\s+venons|[Vv]ous\s+venez|[Ii]ls\s+viennent|[Ee]lles\s+viennent)\s+d(?:e\s+|['’])${A1_RECENT_PAST_INFINITIVE}(?!\p{L})`,
-        priority: 14,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-est-ce-que-question",
-        level: "A1",
-        name: "Question with est-ce que",
-        displayNames: { en: "Question with est-ce que", ja: "est-ce que 疑問文" },
-        patternSource: String.raw`(?<!\p{L})[Ee]st-ce\s+qu(?:e(?!\p{L})|['’])`,
-        priority: 16,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-ne-pas-negation",
-        level: "A1",
-        name: "Negation with ne … pas/jamais",
-        displayNames: { en: "Negation with ne … pas/jamais", ja: "ne … pas / jamais の否定" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e|[Tt]u|[Ii]l|[Ee]lle|[Nn]ous|[Vv]ous|[Ii]ls|[Ee]lles)\s+n(?:e\s+|['’])\p{L}+(?:\s+\p{L}+){0,2}\s+(?:pas|jamais)(?!\p{L})`,
-        priority: 18,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-il-faut-infinitive",
-        level: "A1",
-        name: "Obligation with il faut",
-        displayNames: { en: "Obligation with il faut", ja: "il faut ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})[Ii]l\s+faut\s+${A1_IL_FAUT_INFINITIVE}(?!\p{L})`,
-        priority: 20,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-polite-conditional",
-        level: "A1",
-        name: "Polite conditional",
-        displayNames: { en: "Polite conditional", ja: "丁寧表現の条件法" },
-        patternSource: String.raw`(?<!\p{L})${A1_POLITE_CONDITIONAL}(?!\p{L})`,
-        priority: 22,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-existential-il-y-a",
-        level: "A1",
-        name: "Existence with il y a",
-        displayNames: { en: "Existence with il y a", ja: "存在を表す il y a" },
-        patternSource: String.raw`(?<!\p{L})[Ii]l\s+y\s+a\s+${A1_EXISTENTIAL_COMPLEMENT}(?!\p{L})`,
-        priority: 24,
-        confidence: "high",
-        url: EAQUALS_A1_EXISTENCE
-      }
-    ]
-  });
-  const GOETHE_A1 = "https://lernen.goethe.de/deutschonline/A1/PDF/DE/deutschonline_Ihr_Kurs_im_U%CC%88berblick.pdf";
-  const DW_A1 = "https://static.dw.com/downloads/59835913/grammatikuebersicht-nicos-weg-a1.pdf";
-  const GOETHE_GRAMMAR = "https://www.goethe.de/ins/de/de/m/prf/grm.html";
-  const CLOCK_HOUR = String.raw`(?:(?:[01]?\d|2[0-3])|eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)`;
-  const COLON_TIME = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d`;
-  const CLOCK_RANGE = String.raw`(?:${CLOCK_HOUR}\s+Uhr\s+bis\s+${CLOCK_HOUR}(?:\s+Uhr)?|${CLOCK_HOUR}\s+bis\s+${CLOCK_HOUR}\s+Uhr|${COLON_TIME}\s+bis\s+${COLON_TIME})`;
-  const EQUAL_COMPARISON_WORD = String.raw`(?:schlecht|groß|klein|alt|jung|schnell|langsam|hoch|niedrig|lang|kurz)`;
-  const COMPARISON_SUBJECT = String.raw`(?:der|die|das|ein|eine|einen|einem|einer|mein|meine|dein|deine|sein|seine|ihr|ihre|unser|unsere)\s+\p{L}+`;
-  const CHECKED_MODAL_INFINITIVE$1 = String.raw`(?:gehen|kommen|sein)`;
-  const MODAL_CLAUSE_GAP$1 = String.raw`(?:(?![,;:]|(?<!\p{L})(?:aber|dass|denn|oder|sondern|und)(?!\p{L}))[^.!?…\n]){0,80}?`;
-  const GERMAN_GRAMMAR = createLearningTargetGrammar({
-    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-    referenceUrl: GOETHE_GRAMMAR,
-    rules: [
-      {
-        ruleId: "de-a1-es-gibt",
-        level: "A1",
-        name: "Existence with es gibt",
-        displayNames: { en: "Existence with es gibt", ja: "存在を表す es gibt" },
-        patternSource: String.raw`(?<!\p{L})[Ee]s\s+gibt(?!\p{L})`,
-        priority: 10,
-        confidence: "high",
-        url: `${GOETHE_A1}#page=5`
-      },
-      {
-        ruleId: "de-a1-modal-infinitive",
-        level: "A1",
-        name: "Modal verb + infinitive",
-        displayNames: { en: "Modal verb + infinitive", ja: "法助動詞 ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Kk]ann|[Kk]annst|[Kk]önnen|[Kk]önnt|[Mm]uss|[Mm]usst|[Mm]üssen|[Mm]üsst|[Ww]ill|[Ww]illst|[Ww]ollen|[Ww]ollt)(?!\p{L})${MODAL_CLAUSE_GAP$1}(?<!\p{L})${CHECKED_MODAL_INFINITIVE$1}(?=\s*(?:[.!?…]|$))`,
-        priority: 12,
-        confidence: "high",
-        url: `${GOETHE_A1}#page=7`
-      },
-      {
-        ruleId: "de-a1-von-bis",
-        level: "A1",
-        name: "Time range with von … bis",
-        displayNames: { en: "Time range with von … bis", ja: "von … bis の時間範囲" },
-        patternSource: String.raw`(?<!\p{L})[Vv]on\s+${CLOCK_RANGE}(?=\s*(?:[,.!?…]|$))`,
-        priority: 14,
-        confidence: "high",
-        url: `${DW_A1}#page=3`
-      },
-      {
-        ruleId: "de-a1-so-wie",
-        level: "A1",
-        name: "Equal comparison with so … wie",
-        displayNames: { en: "Equal comparison with so … wie", ja: "so … wie の同等比較" },
-        patternSource: String.raw`(?<!\p{L})(?:[Ii]st|[Ss]ind|[Ww]ar|[Ww]aren)\s+so\s+${EQUAL_COMPARISON_WORD}\s+wie\s+${COMPARISON_SUBJECT}(?!\p{L})`,
-        priority: 16,
-        confidence: "high",
-        url: `${DW_A1}#page=5`
-      },
-      {
-        ruleId: "de-a1-comparative-als",
-        level: "A1",
-        name: "Comparison with als",
-        displayNames: { en: "Comparison with als", ja: "比較級 ＋ als" },
-        patternSource: String.raw`(?<!\p{L})(?:[Bb]esser|[Ss]chlechter|[Mm]ehr|[Ww]eniger|[Gg]rößer|[Kk]leiner|[Ää]lter|[Jj]ünger|[Ss]chneller|[Ll]angsamer|[Hh]öher|[Nn]iedriger|[Ll]änger|[Kk]ürzer)\s+als(?!\p{L})`,
-        priority: 18,
-        confidence: "high",
-        url: `${DW_A1}#page=5`
-      },
-      {
-        ruleId: "de-a1-aber-denn",
-        level: "A1",
-        name: "Linking clauses with aber or denn",
-        displayNames: { en: "Linking clauses with aber or denn", ja: "aber / denn の接続" },
-        patternSource: String.raw`[,;]\s*(?:aber|denn)(?!\p{L})`,
-        priority: 20,
-        confidence: "high",
-        url: `${GOETHE_A1}#page=19`
-      },
-      {
-        ruleId: "de-a1-einladen",
-        level: "A1",
-        name: "Separable einladen",
-        displayNames: { en: "Separable einladen", ja: "分離動詞 einladen" },
-        patternSource: String.raw`(?<!\p{L})(?:[Ll]ade|[Ll]ädst|[Ll]ädt|[Ll]aden|[Ll]adet)(?!\p{L})[^.!?…\n]{0,80}?(?<!\p{L})ein(?=\s*(?:[.!?…]|$))`,
-        priority: 22,
-        confidence: "high",
-        url: `${GOETHE_A1}#page=8`
-      }
-    ]
-  });
-  const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
-  const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
-  const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
-  const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
-  const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
-  const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
-  const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
-    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-    referenceUrl: CORNELL_GRAMMAR,
-    rules: [
-      {
-        ruleId: "ru-a1-kto-chto-eto",
-        level: "A1",
-        name: "Кто/что это? identification question",
-        displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
-        patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
-        priority: 10,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=19`
-      },
-      {
-        ruleId: "ru-a1-possessive-starter",
-        level: "A1",
-        name: "Possession with это + possessive",
-        displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
-        patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
-        priority: 12,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=19`
-      },
-      {
-        ruleId: "ru-a1-request-imperative",
-        level: "A1",
-        name: "Requests with дай(те), скажи(те), покажи(те)",
-        displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
-        patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
-        priority: 14,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=20`
-      },
-      {
-        ruleId: "ru-a1-dative-nravitsya",
-        level: "A1",
-        name: "нравится with a dative experiencer",
-        displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
-        patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
-        priority: 16,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=21`
-      },
-      {
-        ruleId: "ru-a1-potomu-chto",
-        level: "A1",
-        name: "Reason with потому что",
-        displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
-        patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
-        priority: 18,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=22`
-      },
-      {
-        ruleId: "ru-a1-gde-mozhno-infinitive",
-        level: "A1",
-        name: "Где можно + infinitive",
-        displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
-        priority: 20,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=22`
-      },
-      {
-        ruleId: "ru-a1-want-can-infinitive",
-        level: "A1",
-        name: "хотеть/мочь + infinitive",
-        displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
-        priority: 22,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=23`
-      },
-      {
-        ruleId: "ru-a1-need-infinitive",
-        level: "A1",
-        name: "Necessity with надо/нужно",
-        displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
-        patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
-        priority: 24,
-        confidence: "high",
-        url: `${RANEPA_A1}#page=24`
-      }
-    ]
-  });
-  const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
-  const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
-  const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
-  const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
-  const SPANISH_GRAMMAR = createLearningTargetGrammar({
-    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-    referenceUrl: CERVANTES_A1_A2,
-    rules: [
-      {
-        ruleId: "es-me-gusta-infinitive",
-        level: "A1",
-        name: "gustar + infinitive",
-        displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-        priority: 10,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p1223a1`
-      },
-      {
-        ruleId: "es-existential-hay",
-        level: "A1",
-        name: "Existence with hay",
-        displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
-        patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
-        priority: 12,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p133a1`
-      },
-      {
-        ruleId: "es-causal-porque",
-        level: "A1",
-        name: "Reason with porque",
-        displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
-        patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
-        priority: 14,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p1534a1`
-      },
-      {
-        ruleId: "es-negation-no",
-        level: "A1",
-        name: "Verb negation with no",
-        displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
-        patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
-        priority: 16,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p133a1`
-      },
-      {
-        ruleId: "es-present-perfect",
-        level: "A2",
-        name: "Present perfect",
-        displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
-        patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
-        priority: 18,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p916a2`
-      },
-      {
-        ruleId: "es-estar-gerundio",
-        level: "A2",
-        name: "Progressive with estar",
-        displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
-        patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
-        priority: 20,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p942a2`
-      },
-      {
-        ruleId: "es-tener-que",
-        level: "A2",
-        name: "Obligation with tener que",
-        displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-        priority: 22,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p121a2`
-      },
-      {
-        ruleId: "es-ir-a-infinitive",
-        level: "A2",
-        name: "Near future with ir a",
-        displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-        priority: 24,
-        confidence: "high",
-        url: `${CERVANTES_A1_A2}#p121a2`
-      }
-    ]
-  });
-  function referenceOnly(referenceUrl) {
-    return createLearningTargetGrammar({ referenceUrl });
-  }
-  const GRAMMAR_BY_TARGET = Object.freeze({
-    sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-    grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-    ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-    yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-    zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-    da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-    nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-    en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-    fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
-    fr: FRENCH_GRAMMAR,
-    de: GERMAN_GRAMMAR,
-    el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-    hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-    id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-    it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-    km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-    ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-    lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-    la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-    mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-    fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-    pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-    pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-    ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
-    ru: RUSSIAN_GRAMMAR,
-    sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
-    es: SPANISH_GRAMMAR,
-    sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-    tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-    th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-    tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-    vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
-  });
-  function grammarForRosterTarget(language2) {
-    return GRAMMAR_BY_TARGET[language2];
-  }
-  const KOREAN_SEGMENT_SUFFIXES = [
-    "에게서",
-    "이라고",
-    "으로",
-    "에서",
-    "에게",
-    "한테",
-    "까지",
-    "부터",
-    "처럼",
-    "보다",
-    "에는",
-    "라고",
-    "하고",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "의",
-    "에",
-    "와",
-    "과",
-    "로",
-    "도",
-    "만"
-  ];
-  const REWRITES = {
-    es: [
-      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
-      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
-      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
-      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
-    ],
-    de: [
-      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
-      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
-      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
-    ],
-    ru: [
-      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
-      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
-      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
-    ],
-    ar: [
-      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
-      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
-      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
-      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
-      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
-      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
-      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
-      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
-      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
-      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
-      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
-      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
-    ]
-  };
-  function lookupRewritesForTarget(target) {
-    return REWRITES[target] ?? [];
-  }
-  function koreanLookupSubsegments(segment, maxLength) {
-    const candidates = /* @__PURE__ */ new Set();
-    if (segment.length <= maxLength) candidates.add(segment);
-    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
-      if (!segment.endsWith(suffix)) continue;
-      const stem = segment.slice(0, -suffix.length);
-      if (stem && stem.length <= maxLength) candidates.add(stem);
-    }
-    return [...candidates];
-  }
-  const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
-  const KOREAN_LEARNING_TARGET = createLearningTargetModule({
-    id: "korean-thin-v1",
-    language: "ko",
-    capabilities: {
-      "term-lookup": true,
-      segmentation: true,
-      "reading-annotation": true,
-      pronunciation: true,
-      "text-to-speech": true,
-      ocr: true,
-      subtitles: true,
-      typing: true
-    },
-    featureSemantics: {
-      characterSystem: "hangul",
-      phoneticScripts: ["hangul"],
-      pronunciation: "ipa",
-      readingAnnotation: "hangul"
-    },
-    grammar: grammarForRosterTarget("ko"),
-    typography: {
-      readingAnnotationMode: "ruby"
-    },
-    subtitles: {
-      languageAliases: ["kor", "korean"]
-    },
-    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
-    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
-    lookupStartsAtSegmentBoundary: false,
-    lookupSubsegments: koreanLookupSubsegments,
-    detectsText: HAS_HANGUL
-  });
-  const ENGLISH_FALLBACK_MESSAGES = {
-    setupTitle: "Set up Yomu in your language",
-    learnerLanguageLabel: "Your language",
-    targetLanguageLabel: "Language you are learning",
-    targetJapanese: "Japanese",
-    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-    automaticTranslationLabel: "Translate automatically into {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-    setupProgress: "Language setup {current} of {total}",
-    continueAction: "Continue",
-    originalDefinitionLabel: "Original {language}",
-    // D43: a locale that is in scope but not yet selectable says why, in its own
-    // language, so the person who came looking for it can read the answer. The
-    // interface never offers one of these and then quietly speaks English.
-    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
-    interfaceTranslationPending: "Translation is still in progress."
-  };
-  function defineLocaleCatalog(locale, reviewStatus, messages) {
-    return Object.freeze({
-      locale,
-      reviewStatus,
-      sourceLocale: "en",
-      messages: Object.freeze(messages)
-    });
-  }
-  const arCatalog = defineLocaleCatalog("ar", "machine-draft", {
-    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-    learnerLanguageLabel: "لغتك",
-    targetLanguageLabel: "اللغة التي تتعلمها",
-    targetJapanese: "اليابانية",
-    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-    continueAction: "متابعة",
-    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
-    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
-    interfaceTranslationPending: "الترجمة قيد التقدم."
-  });
-  const daCatalog = defineLocaleCatalog("da", "machine-draft", {
-    setupTitle: "Opsæt よむ på dit sprog",
-    learnerLanguageLabel: "Dit sprog",
-    targetLanguageLabel: "Det sprog, du lærer",
-    targetJapanese: "Japansk",
-    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-    automaticTranslationLabel: "Oversæt automatisk til {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-    setupProgress: "Sprogopsætning: {current} af {total}",
-    continueAction: "Fortsæt",
-    originalDefinitionLabel: "Original på {language}",
-    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
-    interfaceTranslationPending: "Oversættelsen er stadig i gang."
-  });
-  const deCatalog = defineLocaleCatalog("de", "machine-draft", {
-    setupTitle: "よむ in deiner Sprache einrichten",
-    learnerLanguageLabel: "Deine Sprache",
-    targetLanguageLabel: "Sprache, die du lernst",
-    targetJapanese: "Japanisch",
-    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-    setupProgress: "Sprache einrichten: {current} von {total}",
-    continueAction: "Weiter",
-    originalDefinitionLabel: "Originaldefinition auf {language}",
-    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
-    interfaceTranslationPending: "Die Übersetzung läuft noch."
-  });
-  const elCatalog = defineLocaleCatalog("el", "machine-draft", {
-    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-    learnerLanguageLabel: "Η γλώσσα σας",
-    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-    targetJapanese: "Ιαπωνικά",
-    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-    continueAction: "Συνέχεια",
-    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
-    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
-    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
-  });
-  const enCatalog = defineLocaleCatalog(
-    "en",
-    "source-approved",
-    ENGLISH_FALLBACK_MESSAGES
-  );
-  const esCatalog = defineLocaleCatalog("es", "machine-draft", {
-    setupTitle: "Configura Yomu en tu idioma",
-    learnerLanguageLabel: "Tu idioma",
-    targetLanguageLabel: "Idioma que estás aprendiendo",
-    targetJapanese: "Japonés",
-    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-    automaticTranslationLabel: "Traducir automáticamente al {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-    setupProgress: "Configuración del idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definición original ({language})",
-    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
-    interfaceTranslationPending: "La traducción sigue en curso."
-  });
-  const faCatalog = defineLocaleCatalog("fa", "machine-draft", {
-    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-    learnerLanguageLabel: "زبان شما",
-    targetLanguageLabel: "زبانی که یاد می‌گیرید",
-    targetJapanese: "ژاپنی",
-    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-    continueAction: "ادامه",
-    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
-    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
-    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
-  });
-  const fiCatalog = defineLocaleCatalog("fi", "machine-draft", {
-    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-    learnerLanguageLabel: "Oma kielesi",
-    targetLanguageLabel: "Opiskelemasi kieli",
-    targetJapanese: "Japani",
-    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-    automaticTranslationLabel: "Käännä automaattisesti: {language}",
-    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-    continueAction: "Jatka",
-    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
-    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
-    interfaceTranslationPending: "Käännös on vielä kesken."
-  });
-  const frCatalog = defineLocaleCatalog("fr", "machine-draft", {
-    setupTitle: "Configurez よむ dans votre langue",
-    learnerLanguageLabel: "Votre langue",
-    targetLanguageLabel: "Langue que vous apprenez",
-    targetJapanese: "Japonais",
-    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-    automaticTranslationLabel: "Traduire automatiquement en {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-    setupProgress: "Configuration de la langue : {current} sur {total}",
-    continueAction: "Continuer",
-    originalDefinitionLabel: "Définition originale en {language}",
-    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
-    interfaceTranslationPending: "La traduction est en cours."
-  });
-  const grcCatalog = defineLocaleCatalog("grc", "machine-draft", {
-    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-    targetJapanese: "Ἰαπωνική",
-    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-    continueAction: "Πρόβαινε",
-    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
-    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
-    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
-  });
-  const huCatalog = defineLocaleCatalog("hu", "machine-draft", {
-    setupTitle: "A よむ beállítása az Ön nyelvén",
-    learnerLanguageLabel: "Az Ön nyelve",
-    targetLanguageLabel: "A tanult nyelv",
-    targetJapanese: "Japán",
-    recommendedDictionariesTitle: "Ajánlott japán szótárak",
-    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-    setupProgress: "Nyelvi beállítás: {current}/{total}",
-    continueAction: "Folytatás",
-    originalDefinitionLabel: "Eredeti meghatározás ({language})",
-    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
-    interfaceTranslationPending: "A fordítás még folyamatban van."
-  });
-  const idCatalog = defineLocaleCatalog("id", "machine-draft", {
-    setupTitle: "Siapkan Yomu dalam bahasa Anda",
-    learnerLanguageLabel: "Bahasa Anda",
-    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-    targetJapanese: "Bahasa Jepang",
-    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-    setupProgress: "Penyiapan bahasa {current} dari {total}",
-    continueAction: "Lanjutkan",
-    originalDefinitionLabel: "Definisi asli dalam {language}",
-    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
-    interfaceTranslationPending: "Penerjemahan masih berlangsung."
-  });
-  const itCatalog = defineLocaleCatalog("it", "machine-draft", {
-    setupTitle: "Configura よむ nella tua lingua",
-    learnerLanguageLabel: "La tua lingua",
-    targetLanguageLabel: "Lingua che stai imparando",
-    targetJapanese: "Giapponese",
-    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-    automaticTranslationLabel: "Traduci automaticamente in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-    setupProgress: "Configurazione della lingua: {current} di {total}",
-    continueAction: "Continua",
-    originalDefinitionLabel: "Definizione originale in {language}",
-    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
-    interfaceTranslationPending: "La traduzione è ancora in corso."
-  });
-  const kmCatalog = defineLocaleCatalog("km", "machine-draft", {
-    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-    learnerLanguageLabel: "ភាសារបស់អ្នក",
-    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-    targetJapanese: "ភាសាជប៉ុន",
-    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-    continueAction: "បន្ត",
-    originalDefinitionLabel: "និយមន័យដើម ({language})",
-    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
-    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
-  });
-  const koCatalog = defineLocaleCatalog("ko", "machine-draft", {
-    setupTitle: "내 언어로 よむ 설정하기",
-    learnerLanguageLabel: "사용 언어",
-    targetLanguageLabel: "학습할 언어",
-    targetJapanese: "일본어",
-    recommendedDictionariesTitle: "추천 일본어 사전",
-    automaticTranslationLabel: "{language}로 자동 번역",
-    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-    setupProgress: "언어 설정: {total}단계 중 {current}단계",
-    continueAction: "계속",
-    originalDefinitionLabel: "원문({language})",
-    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
-    interfaceTranslationPending: "번역이 아직 진행 중입니다."
-  });
-  const laCatalog = defineLocaleCatalog("la", "machine-draft", {
-    setupTitle: "Configura よむ in lingua tua",
-    learnerLanguageLabel: "Lingua tua",
-    targetLanguageLabel: "Lingua quam discis",
-    targetJapanese: "Lingua Iaponica",
-    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-    automaticTranslationLabel: "Automatice verte in {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-    setupProgress: "Configuratio linguae: {current} ex {total}",
-    continueAction: "Perge",
-    originalDefinitionLabel: "Definitio originalis ({language})",
-    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
-    interfaceTranslationPending: "Translatio adhuc geritur."
-  });
-  const loCatalog = defineLocaleCatalog("lo", "machine-draft", {
-    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-    continueAction: "ສືບຕໍ່",
-    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
-    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
-    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
-  });
-  const mnCatalog = defineLocaleCatalog("mn", "machine-draft", {
-    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-    learnerLanguageLabel: "Таны хэл",
-    targetLanguageLabel: "Таны сурч буй хэл",
-    targetJapanese: "Япон хэл",
-    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-    setupProgress: "Хэлний тохиргоо: {current}/{total}",
-    continueAction: "Үргэлжлүүлэх",
-    originalDefinitionLabel: "Эх тайлбар ({language})",
-    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
-    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
-  });
-  const nlCatalog = defineLocaleCatalog("nl", "machine-draft", {
-    setupTitle: "Stel よむ in jouw taal in",
-    learnerLanguageLabel: "Jouw taal",
-    targetLanguageLabel: "Taal die je leert",
-    targetJapanese: "Japans",
-    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-    automaticTranslationLabel: "Automatisch vertalen naar {language}",
-    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-    setupProgress: "Taal instellen: {current} van {total}",
-    continueAction: "Doorgaan",
-    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
-    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
-    interfaceTranslationPending: "De vertaling is nog bezig."
-  });
-  const plCatalog = defineLocaleCatalog("pl", "machine-draft", {
-    setupTitle: "Skonfiguruj Yomu w swoim języku",
-    learnerLanguageLabel: "Twój język",
-    targetLanguageLabel: "Język, którego się uczysz",
-    targetJapanese: "Japoński",
-    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-    setupProgress: "Konfiguracja języka: {current} z {total}",
-    continueAction: "Kontynuuj",
-    originalDefinitionLabel: "Oryginalna definicja ({language})",
-    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
-    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
-  });
-  const ptCatalog = defineLocaleCatalog("pt", "machine-draft", {
-    setupTitle: "Configure o Yomu no seu idioma",
-    learnerLanguageLabel: "O seu idioma",
-    targetLanguageLabel: "Idioma que está a aprender",
-    targetJapanese: "Japonês",
-    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-    automaticTranslationLabel: "Traduzir automaticamente para {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-    setupProgress: "Configuração do idioma: {current} de {total}",
-    continueAction: "Continuar",
-    originalDefinitionLabel: "Definição original ({language})",
-    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
-    interfaceTranslationPending: "A tradução ainda está em andamento."
-  });
-  const roCatalog = defineLocaleCatalog("ro", "machine-draft", {
-    setupTitle: "Configurează Yomu în limba ta",
-    learnerLanguageLabel: "Limba ta",
-    targetLanguageLabel: "Limba pe care o înveți",
-    targetJapanese: "Japoneză",
-    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-    automaticTranslationLabel: "Tradu automat în {language}",
-    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-    setupProgress: "Configurarea limbii: {current} din {total}",
-    continueAction: "Continuă",
-    originalDefinitionLabel: "Definiția originală în {language}",
-    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
-    interfaceTranslationPending: "Traducerea este încă în curs."
-  });
-  const ruCatalog = defineLocaleCatalog("ru", "machine-draft", {
-    setupTitle: "Настройте Yomu на своём языке",
-    learnerLanguageLabel: "Ваш язык",
-    targetLanguageLabel: "Язык, который вы изучаете",
-    targetJapanese: "Японский",
-    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-    automaticTranslationLabel: "Автоматически переводить на {language}",
-    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-    setupProgress: "Настройка языка: {current} из {total}",
-    continueAction: "Продолжить",
-    originalDefinitionLabel: "Оригинал определения ({language})",
-    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
-    interfaceTranslationPending: "Перевод ещё выполняется."
-  });
-  const shCatalog = defineLocaleCatalog("sh", "machine-draft", {
-    setupTitle: "Podesite Yomu na svom jeziku",
-    learnerLanguageLabel: "Vaš jezik",
-    targetLanguageLabel: "Jezik koji učite",
-    targetJapanese: "Japanski",
-    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-    automaticTranslationLabel: "Automatski prevod na jezik {language}",
-    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-    setupProgress: "Podešavanje jezika: {current} od {total}",
-    continueAction: "Nastavi",
-    originalDefinitionLabel: "Originalna definicija ({language})",
-    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
-    interfaceTranslationPending: "Prijevod je još u toku."
-  });
-  const sqCatalog = defineLocaleCatalog("sq", "machine-draft", {
-    setupTitle: "Konfiguro よむ në gjuhën tënde",
-    learnerLanguageLabel: "Gjuha jote",
-    targetLanguageLabel: "Gjuha që po mëson",
-    targetJapanese: "Japonisht",
-    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-    automaticTranslationLabel: "Përkthe automatikisht në {language}",
-    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-    continueAction: "Vazhdo",
-    originalDefinitionLabel: "Origjinali në {language}",
-    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
-    interfaceTranslationPending: "Përkthimi është në vazhdim."
-  });
-  const svCatalog = defineLocaleCatalog("sv", "machine-draft", {
-    setupTitle: "Ställ in よむ på ditt språk",
-    learnerLanguageLabel: "Ditt språk",
-    targetLanguageLabel: "Språket du lär dig",
-    targetJapanese: "Japanska",
-    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-    automaticTranslationLabel: "Översätt automatiskt till {language}",
-    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-    setupProgress: "Språkinställning: {current} av {total}",
-    continueAction: "Fortsätt",
-    originalDefinitionLabel: "Ursprunglig definition på {language}",
-    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
-    interfaceTranslationPending: "Översättningen pågår fortfarande."
-  });
-  const thCatalog = defineLocaleCatalog("th", "machine-draft", {
-    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-    learnerLanguageLabel: "ภาษาของคุณ",
-    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-    targetJapanese: "ภาษาญี่ปุ่น",
-    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-    continueAction: "ดำเนินการต่อ",
-    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
-    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
-    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
-  });
-  const tlCatalog = defineLocaleCatalog("tl", "machine-draft", {
-    setupTitle: "I-set up ang Yomu sa iyong wika",
-    learnerLanguageLabel: "Iyong wika",
-    targetLanguageLabel: "Wikang pinag-aaralan mo",
-    targetJapanese: "Wikang Hapon",
-    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-    setupProgress: "Pag-set up ng wika: {current} sa {total}",
-    continueAction: "Magpatuloy",
-    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
-    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
-    interfaceTranslationPending: "Isinasalin pa ito."
-  });
-  const trCatalog = defineLocaleCatalog("tr", "machine-draft", {
-    setupTitle: "Yomu'yu dilinizde ayarlayın",
-    learnerLanguageLabel: "Diliniz",
-    targetLanguageLabel: "Öğrendiğiniz dil",
-    targetJapanese: "Japonca",
-    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-    setupProgress: "Dil ayarı: {current}/{total}",
-    continueAction: "Devam et",
-    originalDefinitionLabel: "Orijinal tanım ({language})",
-    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
-    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
-  });
-  const viCatalog = defineLocaleCatalog("vi", "machine-draft", {
-    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-    learnerLanguageLabel: "Ngôn ngữ của bạn",
-    targetLanguageLabel: "Ngôn ngữ bạn đang học",
-    targetJapanese: "Tiếng Nhật",
-    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-    automaticTranslationLabel: "Tự động dịch sang {language}",
-    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-    continueAction: "Tiếp tục",
-    originalDefinitionLabel: "Định nghĩa gốc ({language})",
-    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
-    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
-  });
-  const yueCatalog = defineLocaleCatalog("yue", "machine-draft", {
-    setupTitle: "用你嘅語言設定よむ",
-    learnerLanguageLabel: "你嘅語言",
-    targetLanguageLabel: "你學緊嘅語言",
-    targetJapanese: "日文",
-    recommendedDictionariesTitle: "推薦嘅日文字典",
-    automaticTranslationLabel: "自動翻譯做{language}",
-    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-    setupProgress: "語言設定：第{current}步，共{total}步",
-    continueAction: "繼續",
-    originalDefinitionLabel: "原文（{language}）",
-    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
-    interfaceTranslationPending: "翻譯仲進行中。"
-  });
-  const zhCatalog = defineLocaleCatalog("zh", "machine-draft", {
-    setupTitle: "用您的语言设置よむ",
-    learnerLanguageLabel: "您的语言",
-    targetLanguageLabel: "您正在学习的语言",
-    targetJapanese: "日语",
-    recommendedDictionariesTitle: "推荐日语词典",
-    automaticTranslationLabel: "自动翻译为{language}",
-    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-    setupProgress: "语言设置：第{current}步，共{total}步",
-    continueAction: "继续",
-    originalDefinitionLabel: "{language}原文",
-    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
-    interfaceTranslationPending: "翻译仍在进行中。"
-  });
-  const LOCALE_CATALOGS = Object.freeze({
-    sq: sqCatalog,
-    grc: grcCatalog,
-    ar: arCatalog,
-    yue: yueCatalog,
-    zh: zhCatalog,
-    da: daCatalog,
-    nl: nlCatalog,
-    en: enCatalog,
-    fi: fiCatalog,
-    fr: frCatalog,
-    de: deCatalog,
-    el: elCatalog,
-    hu: huCatalog,
-    id: idCatalog,
-    it: itCatalog,
-    km: kmCatalog,
-    ko: koCatalog,
-    lo: loCatalog,
-    la: laCatalog,
-    mn: mnCatalog,
-    fa: faCatalog,
-    pl: plCatalog,
-    pt: ptCatalog,
-    ro: roCatalog,
-    ru: ruCatalog,
-    sh: shCatalog,
-    es: esCatalog,
-    sv: svCatalog,
-    tl: tlCatalog,
-    th: thCatalog,
-    tr: trCatalog,
-    vi: viCatalog
-  });
-  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
-  new Set(MESSAGE_NAMESPACES);
-  function messageNamespaceOf(id) {
-    return id.slice(0, id.indexOf("."));
-  }
-  const containsAny = (path, needles) => {
-    const lowered = path.toLowerCase();
-    return needles.some((needle) => lowered.includes(needle));
-  };
-  const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path.startsWith(prefix));
-  const COPY_TIER_RULES = Object.freeze([
-    {
-      rule: "destructive-and-irreversible",
-      category: "destructive-actions",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "delete",
-        "remove",
-        "reset",
-        "clear",
-        "overwrite",
-        "restore",
-        "import",
-        "unlink",
-        "revoke",
-        "discard",
-        "wipe",
-        "purge",
-        "forget",
-        "blacklist",
-        "suspend",
-        "conflict",
-        "replaceall"
-      ])
-    },
-    {
-      rule: "privacy-permissions-credentials-and-account",
-      category: "privacy-and-credentials",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "privacy",
-        "permission",
-        "consent",
-        "apikey",
-        "apitoken",
-        "credential",
-        "password",
-        "secret",
-        "token",
-        "account",
-        "signin",
-        "signout",
-        "login",
-        "logout",
-        "sync",
-        "proxy",
-        "remote",
-        "cloud",
-        "upload",
-        "network",
-        "sentto"
-      ])
-    },
-    {
-      rule: "first-run-setup-and-language-choice",
-      category: "first-run-and-language-choice",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "setup" || containsAny(path, ["onboarding", "welcome", "firstrun"]) || containsAny(path, [
-        "interfacelanguage",
-        "interfacelocale",
-        "learnerlanguage",
-        "targetlanguage",
-        "outputlanguage",
-        "settingslanguage",
-        "languageprofile"
-      ])
-    },
-    {
-      rule: "degraded-empty-and-unavailable-states",
-      category: "degraded-and-empty-states",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "errors" || startsWithAny(path, ["no", "cannot", "could"]) || containsAny(path, [
-        "unavailable",
-        "unsupported",
-        "offline",
-        "empty",
-        "failed",
-        "failure",
-        "error",
-        "retry",
-        "missing",
-        "notfound",
-        "degraded",
-        "unlicensed",
-        "blocked",
-        "pending",
-        "expired",
-        "timeout"
-      ])
-    },
-    {
-      rule: "lookup-primary-actions",
-      category: "lookup-primary-actions",
-      tier: "human-critical",
-      matches: (_id, path) => startsWithAny(path, ["add", "save", "mine", "lookup", "play", "state", "open", "copy"]) || containsAny(path, [
-        "revealtranslation",
-        "showtranslation",
-        "hidetranslation",
-        "playaudio",
-        "opensource",
-        "opendictionary",
-        "markknown",
-        "marklearning",
-        "knownstate"
-      ])
-    },
-    {
-      rule: "study-loop-and-grading",
-      category: "study-loop",
-      tier: "human-critical",
-      matches: (_id, path) => startsWithAny(path, ["grade", "study", "review", "due", "session", "reveal"]) || containsAny(path, ["duetoday", "sessioncomplete", "nothingdue"])
-    },
-    {
-      rule: "accessible-names-and-announcements",
-      category: "accessibility-names",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "a11y" || /(?:arialabel|screenreader|announce)/i.test(path) || /(?:^|[a-z])(?:AriaLabel|Announcement)$/.test(path)
-    },
-    {
-      rule: "install-update-support-membership-and-claims",
-      category: "product-claims-and-commerce",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "update",
-        "install",
-        "store",
-        "support",
-        "membership",
-        "patreon",
-        "payment",
-        "subscribe",
-        "donate",
-        "price",
-        "academyaccess",
-        "feedback"
-      ])
-    },
-    {
-      rule: "learner-facing-docs-entry-pages",
-      category: "critical-docs",
-      tier: "human-critical",
-      matches: (id) => messageNamespaceOf(id) === "docs" && /^docs\.(?:index|install|installation|getting-started|start|guide\.first)\b/.test(id)
-    },
-    {
-      // The documented default. Setting help, tooltips, status detail,
-      // reference tables, older changelog prose and deep technical docs may
-      // ship as labelled machine drafts while native review catches up.
-      rule: "default-supplementary-copy",
-      category: "supplementary",
-      tier: "machine-draft-ok",
-      matches: () => true
-    }
-  ]);
-  Object.freeze(
-    COPY_TIER_RULES.map((rule) => rule.rule)
-  );
-  const locales = [
-    {
-      tag: "en",
-      reviewStatus: "source-approved",
-      rtlVerified: true,
-      humanReview: {
-        reviewer: "source locale",
-        evidence: "English is the source of record for every message ID."
-      },
-      available: true,
-      blockers: []
-    },
-    {
-      tag: "ja",
-      reviewStatus: "native-reviewed",
-      rtlVerified: true,
-      humanReview: {
-        reviewer: "owner",
-        evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
-      },
-      available: true,
-      blockers: []
-    },
-    {
-      tag: "ar",
-      reviewStatus: "machine-draft",
-      rtlVerified: false,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "rtl-verification-pending",
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fa",
-      reviewStatus: "machine-draft",
-      rtlVerified: false,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "rtl-verification-pending",
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sq",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "grc",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "yue",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "zh",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "da",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "nl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fi",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "fr",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "de",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "el",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "hu",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "id",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "it",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "km",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ko",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "lo",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "la",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "mn",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "pl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "pt",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ro",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "ru",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sh",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "es",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "sv",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "tl",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "th",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "tr",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    },
-    {
-      tag: "vi",
-      reviewStatus: "machine-draft",
-      rtlVerified: true,
-      humanReview: null,
-      available: false,
-      blockers: [
-        "translation-incomplete",
-        "human-review-pending"
-      ]
-    }
-  ];
-  const rtlGate = {
-    items: [
-      {
-        id: "direction-propagation",
-        done: true,
-        note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
-      },
-      {
-        id: "logical-css-properties",
-        done: false,
-        note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
-      },
-      {
-        id: "bidi-isolation",
-        done: false,
-        note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
-      },
-      {
-        id: "font-stacks",
-        done: true,
-        note: "Per-script interface font stacks in the locale manifest."
-      },
-      {
-        id: "geometry-verification",
-        done: false,
-        note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
-      },
-      {
-        id: "viewport-and-zoom-matrix",
-        done: false,
-        note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
-      },
-      {
-        id: "real-app-screenshots",
-        done: false,
-        note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
-      },
-      {
-        id: "owner-acceptance",
-        done: false,
-        note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
-      }
-    ]
-  };
-  const interfaceLocaleLedger = {
-    locales,
-    rtlGate
-  };
-  const languages = [
-    {
-      id: "sq",
-      runtimeLocale: "sq",
-      englishName: "Albanian",
-      nativeName: "Shqip",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "grc",
-      runtimeLocale: "grc",
-      englishName: "Ancient Greek",
-      nativeName: "Ἑλληνιστί",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ar",
-      runtimeLocale: "ar",
-      englishName: "Arabic",
-      nativeName: "العربية",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "yue",
-      runtimeLocale: "yue-Hant",
-      englishName: "Cantonese",
-      nativeName: "粵語",
-      defaultScript: "Hant",
-      scripts: [
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "zh",
-      runtimeLocale: "zh-Hans",
-      englishName: "Chinese",
-      nativeName: "中文（简体）",
-      defaultScript: "Hans",
-      scripts: [
-        "Hans",
-        "Hant"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "da",
-      runtimeLocale: "da",
-      englishName: "Danish",
-      nativeName: "Dansk",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "nl",
-      runtimeLocale: "nl",
-      englishName: "Dutch",
-      nativeName: "Nederlands",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "en",
-      runtimeLocale: "en",
-      englishName: "English",
-      nativeName: "English",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fi",
-      runtimeLocale: "fi",
-      englishName: "Finnish",
-      nativeName: "Suomi",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fr",
-      runtimeLocale: "fr",
-      englishName: "French",
-      nativeName: "Français",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "de",
-      runtimeLocale: "de",
-      englishName: "German",
-      nativeName: "Deutsch",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "el",
-      runtimeLocale: "el",
-      englishName: "Greek",
-      nativeName: "Ελληνικά",
-      defaultScript: "Grek",
-      scripts: [
-        "Grek"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "hu",
-      runtimeLocale: "hu",
-      englishName: "Hungarian",
-      nativeName: "Magyar",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "id",
-      runtimeLocale: "id",
-      englishName: "Indonesian",
-      nativeName: "Bahasa Indonesia",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "it",
-      runtimeLocale: "it",
-      englishName: "Italian",
-      nativeName: "Italiano",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "km",
-      runtimeLocale: "km",
-      englishName: "Khmer",
-      nativeName: "ខ្មែរ",
-      defaultScript: "Khmr",
-      scripts: [
-        "Khmr"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ko",
-      runtimeLocale: "ko",
-      englishName: "Korean",
-      nativeName: "한국어",
-      defaultScript: "Kore",
-      scripts: [
-        "Kore"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "lo",
-      runtimeLocale: "lo",
-      englishName: "Lao",
-      nativeName: "ລາວ",
-      defaultScript: "Laoo",
-      scripts: [
-        "Laoo"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "la",
-      runtimeLocale: "la",
-      englishName: "Latin",
-      nativeName: "Latina",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "mn",
-      runtimeLocale: "mn-Cyrl",
-      englishName: "Mongolian",
-      nativeName: "Монгол",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl",
-        "Mong"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "fa",
-      runtimeLocale: "fa",
-      englishName: "Persian",
-      nativeName: "فارسی",
-      defaultScript: "Arab",
-      scripts: [
-        "Arab"
-      ],
-      direction: "rtl"
-    },
-    {
-      id: "pl",
-      runtimeLocale: "pl",
-      englishName: "Polish",
-      nativeName: "Polski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "pt",
-      runtimeLocale: "pt",
-      englishName: "Portuguese",
-      nativeName: "Português",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ro",
-      runtimeLocale: "ro",
-      englishName: "Romanian",
-      nativeName: "Română",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "ru",
-      runtimeLocale: "ru",
-      englishName: "Russian",
-      nativeName: "Русский",
-      defaultScript: "Cyrl",
-      scripts: [
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sh",
-      runtimeLocale: "sr-Latn",
-      englishName: "Serbo-Croatian",
-      nativeName: "Srpskohrvatski",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn",
-        "Cyrl"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "es",
-      runtimeLocale: "es",
-      englishName: "Spanish",
-      nativeName: "Español",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "sv",
-      runtimeLocale: "sv",
-      englishName: "Swedish",
-      nativeName: "Svenska",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tl",
-      runtimeLocale: "fil",
-      englishName: "Tagalog",
-      nativeName: "Tagalog",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "th",
-      runtimeLocale: "th",
-      englishName: "Thai",
-      nativeName: "ไทย",
-      defaultScript: "Thai",
-      scripts: [
-        "Thai"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "tr",
-      runtimeLocale: "tr",
-      englishName: "Turkish",
-      nativeName: "Türkçe",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    },
-    {
-      id: "vi",
-      runtimeLocale: "vi",
-      englishName: "Vietnamese",
-      nativeName: "Tiếng Việt",
-      defaultScript: "Latn",
-      scripts: [
-        "Latn"
-      ],
-      direction: "ltr"
-    }
-  ];
-  const languageConfig = {
-    languages
-  };
-  const LEARNER_LANGUAGE_IDS = [
-    "sq",
-    "grc",
-    "ar",
-    "yue",
-    "zh",
-    "da",
-    "nl",
-    "en",
-    "fi",
-    "fr",
-    "de",
-    "el",
-    "hu",
-    "id",
-    "it",
-    "km",
-    "ko",
-    "lo",
-    "la",
-    "mn",
-    "fa",
-    "pl",
-    "pt",
-    "ro",
-    "ru",
-    "sh",
-    "es",
-    "sv",
-    "tl",
-    "th",
-    "tr",
-    "vi"
-  ];
-  const configuredLanguages = languageConfig.languages;
-  const LEARNER_LANGUAGES = Object.freeze(
-    configuredLanguages.map(
-      (language2) => Object.freeze({
-        ...language2,
-        scripts: Object.freeze([...language2.scripts])
-      })
-    )
-  );
-  const LANGUAGE_BY_ID = new Map(
-    LEARNER_LANGUAGES.map((language2) => [language2.id, language2])
-  );
-  function learnerLanguageById(id) {
-    const language2 = LANGUAGE_BY_ID.get(id);
-    if (!language2) throw new Error(`Unknown Slice 1 learner language: ${id}`);
-    return language2;
-  }
-  function isLearnerLanguageId(value) {
-    return LEARNER_LANGUAGE_IDS.includes(value);
-  }
-  function resolveLearnerLanguage(value) {
-    if (!value) return learnerLanguageById("en");
-    const normalized = value.trim().toLowerCase();
-    const direct = normalized.split("-")[0];
-    if (isLearnerLanguageId(direct)) return learnerLanguageById(direct);
-    if (direct === "fil") return learnerLanguageById("tl");
-    if (direct === "sr" || direct === "hr" || direct === "bs")
-      return learnerLanguageById("sh");
-    return learnerLanguageById("en");
-  }
-  const JAPANESE_INTERFACE_LOCALE = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    direction: "ltr"
-  });
-  const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
-  const SCRIPT_FONT_STACKS = Object.freeze({
-    Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
-    Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
-    Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
-    Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
-    Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
-    Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
-    Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
-    Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
-    Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
-  });
-  const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
-  function scriptFontStack(script) {
-    return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
-  }
-  function directionForScript(script) {
-    return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
-  }
-  const LEDGER_ROWS = new Map(
-    interfaceLocaleLedger.locales.map((row) => [row.tag, row])
-  );
-  function fallbackChainFor(tag, id) {
-    const chain = [];
-    const push = (value) => {
-      if (value !== tag && !chain.includes(value)) chain.push(value);
-    };
-    const base = tag.split("-")[0];
-    push(base);
-    push(id);
-    if (id === "sh") {
-      push("sr");
-      push("hr");
-      push("bs");
-    }
-    if (id === "tl") push("fil");
-    if (id !== "en") push("en");
-    return Object.freeze(chain);
-  }
-  function buildLocale(source) {
-    const ledger = LEDGER_ROWS.get(source.id);
-    if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
-    return Object.freeze({
-      tag: source.runtimeLocale,
-      id: source.id,
-      fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
-      nativeName: source.nativeName,
-      englishName: source.englishName,
-      script: source.defaultScript,
-      // languages.json and the script table must agree; the script is the
-      // source of truth so one new RTL locale cannot arrive marked ltr.
-      direction: directionForScript(source.defaultScript),
-      fontStack: scriptFontStack(source.defaultScript),
-      reviewStatus: ledger.reviewStatus,
-      available: ledger.available,
-      blockers: Object.freeze([...ledger.blockers])
-    });
-  }
-  const INTERFACE_LOCALES = Object.freeze(
-    [
-      ...LEARNER_LANGUAGES.map(
-        (language2) => buildLocale({ ...language2, direction: language2.direction })
-      ),
-      buildLocale(JAPANESE_INTERFACE_LOCALE)
-    ].sort((left, right) => {
-      const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
-      return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
-    })
-  );
-  const LOCALE_BY_KEY = new Map([
-    ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
-    ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
-  ]);
-  function interfaceLocaleByTag(tag) {
-    return LOCALE_BY_KEY.get(tag);
-  }
-  const ENGLISH_INTERFACE_LOCALE = (() => {
-    const english = LOCALE_BY_KEY.get("en");
-    if (!english) throw new Error("The interface manifest must always contain English");
-    return english;
-  })();
-  function availableInterfaceLocales() {
-    return INTERFACE_LOCALES.filter((locale) => locale.available);
-  }
-  Object.freeze(
-    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-  );
-  Object.freeze(
-    interfaceLocaleLedger.rtlGate.items.map(
-      (item) => Object.freeze({ ...item })
-    )
-  );
-  const READER_INTERFACE_DIR_ATTRIBUTE = "data-yomu-interface-dir";
-  const READER_INTERFACE_LOCALE_ATTRIBUTE = "data-yomu-interface-locale";
-  const FIRST_STRONG_ISOLATE = "⁨";
-  const POP_DIRECTIONAL_ISOLATE = "⁩";
-  function interfaceDirectionOf(tag) {
-    return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
-  }
-  function isRtlInterface(tag) {
-    return interfaceDirectionOf(tag) === "rtl";
-  }
-  function applyInterfaceLocaleToRoot(root, locale) {
-    if (!root) return;
-    root.setAttribute("lang", locale.tag);
-    root.setAttribute("dir", locale.direction);
-    root.setAttribute(READER_INTERFACE_DIR_ATTRIBUTE, locale.direction);
-    root.setAttribute(READER_INTERFACE_LOCALE_ATTRIBUTE, locale.tag);
-    root.style?.setProperty("--jpdb-reader-interface-font", locale.fontStack);
-  }
-  function applyInterfaceLocaleToDocument(doc, locale) {
-    const root = doc?.documentElement;
-    if (!root) return;
-    applyInterfaceLocaleToRoot(root, locale);
-  }
-  function isolate(value) {
-    if (!value) return value;
-    return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
-  }
-  function formatIsolated(message, values) {
-    return Object.entries(values).reduce(
-      (text2, [name, value]) => text2.replaceAll(`{${name}}`, isolate(String(value))),
-      message
-    );
-  }
-  const JAPANESE_SETUP_MESSAGES = Object.freeze({
-    setupTitle: "よむをあなたの言語で設定",
-    learnerLanguageLabel: "あなたの言語",
-    targetLanguageLabel: "学習する言語",
-    targetJapanese: "日本語",
-    recommendedDictionariesTitle: "おすすめの日本語辞書",
-    automaticTranslationLabel: "{language}へ自動翻訳",
-    dictionaryCountAndSize: "{count, plural, one {辞書 #冊} other {辞書 #冊}} · {size}",
-    setupProgress: "言語設定 {current} / {total}",
-    continueAction: "次へ",
-    originalDefinitionLabel: "{language}の原文",
-    interfaceRtlVerificationPending: "右から左へのレイアウト確認が進行中です。",
-    interfaceTranslationPending: "翻訳が進行中です。"
-  });
-  function setupMessageIdFor(key) {
-    return `setup.${key}`;
-  }
-  function setupPackFor(tag) {
-    const id = interfaceLocaleByTag(tag)?.id ?? tag;
-    const messages = id === "ja" ? JAPANESE_SETUP_MESSAGES : LOCALE_CATALOGS[id]?.messages;
-    if (!messages) return void 0;
-    return Object.freeze(
-      Object.fromEntries(
-        Object.entries(messages).map(([key, value]) => [`setup.${key}`, value])
-      )
-    );
-  }
-  function matchAvailable(tag) {
-    const locale = interfaceLocaleByTag(tag);
-    if (locale?.available) return locale;
-    const base = tag.split("-")[0].toLowerCase();
-    const byBase = interfaceLocaleByTag(base);
-    if (byBase?.available) return byBase;
-    return INTERFACE_LOCALES.find(
-      (candidate) => candidate.available && candidate.fallbacks.includes(base)
-    );
-  }
-  function resolveInterfaceLocale(requested, options = {}) {
-    const raw = (requested ?? "auto").trim();
-    if (!raw || raw === "auto") {
-      for (const preference of options.browserLocales ?? []) {
-        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
-        if (match) {
-          return { locale: match, requested: "auto", substituted: false, blockers: [] };
-        }
-      }
-      return {
-        locale: ENGLISH_INTERFACE_LOCALE,
-        requested: "auto",
-        substituted: false,
-        blockers: []
-      };
-    }
-    const exact = interfaceLocaleByTag(raw);
-    if (exact?.available) {
-      return { locale: exact, requested: raw, substituted: false, blockers: [] };
-    }
-    if (exact) {
-      return {
-        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
-        requested: raw,
-        substituted: true,
-        blockers: exact.blockers
-      };
-    }
-    const byFallback = matchAvailable(raw);
-    if (byFallback) {
-      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
-    }
-    return {
-      locale: ENGLISH_INTERFACE_LOCALE,
-      requested: raw,
-      substituted: true,
-      blockers: []
-    };
-  }
-  function resolveMessage(id, locale, packs) {
-    for (const tag of [locale.tag, ...locale.fallbacks]) {
-      const value = packs[tag]?.[id];
-      if (typeof value === "string" && value.length > 0) {
-        return { id, value, resolvedFrom: tag, missing: false };
-      }
-    }
-    return { id, value: id, resolvedFrom: "none", missing: true };
-  }
-  const OCR_LANGUAGE_HINTS = Object.freeze({
-    fil: "tl",
-    yue: "zh",
-    grc: "el"
-  });
-  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-    LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
-      const lookupRewrites = lookupRewritesForTarget(language2.id);
-      const readingAnnotation = language2.id === "zh" || language2.id === "yue";
-      const usesHanScript = language2.scripts.some((script) => script === "Hans" || script === "Hant");
-      return createLearningTargetModule({
-        id: `${language2.id}-roster-v1`,
-        language: language2.runtimeLocale,
-        direction: language2.direction,
-        capabilities: {
-          "term-lookup": true,
-          morphology: lookupRewrites.length > 0,
-          segmentation: true,
-          "reading-annotation": readingAnnotation,
-          pronunciation: true,
-          "text-to-speech": true,
-          subtitles: true,
-          typing: true
-        },
-        featureSemantics: {
-          characterSystem: language2.defaultScript,
-          phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
-          pronunciation: "ipa",
-          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
-        },
-        grammar: grammarForRosterTarget(language2.id),
-        typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
-        ocr: ocrHintFor(language2.runtimeLocale),
-        detectsText: scriptDetector(language2.scripts),
-        lookupRewrites,
-        ...usesHanScript ? {
-          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
-          // Let the installed dictionary arbitrate inside a real Han
-          // run, and accept expression hits only.
-          lookupStartsAtSegmentBoundary: false,
-          lookupRunSegments: hanIdeographSegments,
-          lookupSweepMode: "left-to-right-longest-exact",
-          pointerWordSegments: hanIdeographSegments
-        } : {}
-      });
-    })
-  );
-  function ocrHintFor(runtimeLocale) {
-    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
-    return hint ? { languageHint: hint } : void 0;
-  }
-  function scriptDetector(scripts) {
-    return new RegExp(
-      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
-      "u"
-    );
-  }
-  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  let registryRevision = 0;
-  function learningTargetRegistryRevision() {
-    return registryRevision;
-  }
-  function registerLearningTargetModule(module) {
-    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-      throw new Error(
-        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
-      );
-    }
-    const base = languageSubtag(module.language);
-    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-    stack.push(module);
-    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    registryRevision++;
-    return module;
-  }
-  function learningTargetModuleFor(language2) {
-    const canonical = canonicalLanguageTag(language2);
-    const base = languageSubtag(canonical);
-    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
-  }
-  function normalizeLearningTargetLanguage(value) {
-    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-  }
-  function registeredLearningTargetModules() {
-    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap((stack) => stack.at(-1) ?? []);
-  }
-  function defaultLearningTargetModule() {
-    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-  }
-  function registerBuiltInLearningTargetModule(module) {
-    registerLearningTargetModule(module);
-  }
-  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
-  let targetSelectionGeneration = 0;
-  let cachedTarget = null;
-  let cachedForLanguage = "";
-  let cachedForRegistryRevision = -1;
-  function activeLearningTarget() {
-    const revision2 = learningTargetRegistryRevision();
-    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision2) {
-      return cachedTarget;
-    }
-    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
-    cachedForLanguage = requestedTargetLanguage;
-    cachedForRegistryRevision = revision2;
-    return cachedTarget;
-  }
-  function activeLearningTargetLanguage() {
-    return activeLearningTarget().language;
-  }
-  function activeLearningTargetGeneration() {
-    return targetSelectionGeneration;
-  }
-  function setActiveLearningTargetLanguage(value) {
-    const module = learningTargetModuleFor(value);
-    if (!module) return null;
-    if (requestedTargetLanguage !== module.language) targetSelectionGeneration += 1;
-    requestedTargetLanguage = module.language;
-    return module;
-  }
-  function adoptLearningTargetLanguage(value) {
-    const requested = setActiveLearningTargetLanguage(value);
-    if (requested) return requested;
-    const fallback = defaultLearningTargetModule();
-    return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
-  }
-  function isTargetLanguageText(text2) {
-    return activeLearningTarget().isLookupableText(text2);
-  }
-  function segmentTargetLanguageText(text2) {
-    return activeLearningTarget().segment(text2);
-  }
-  const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "music.youtube.com",
-    "studio.youtube.com",
-    "kids.youtube.com",
-    "gaming.youtube.com",
-    "youtu.be"
-  ]);
-  function isYouTubeAppHostname(hostname = location.hostname) {
-    return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
-  }
-  const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
-  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  function safeElementMatches(element2, selector) {
-    try {
-      return element2.matches(selector);
-    } catch {
-      return false;
-    }
-  }
-  function safeQuerySelector(root, selector) {
-    try {
-      return root.querySelector(selector);
-    } catch {
-      return null;
-    }
-  }
-  function safeComputedStyle$1(element2) {
-    try {
-      return getComputedStyle(element2);
-    } catch {
-      return element2.style;
-    }
-  }
-  function compactLength(value) {
-    return Array.from(value.replace(/\s+/g, "")).length;
-  }
-  function cssPixels(value) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function elementClassName(element2) {
-    return String(element2.className || "");
-  }
-  function hasLineClamp(style) {
-    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
-    return Boolean(clamp2 && clamp2 !== "none" && clamp2 !== "0");
-  }
-  function isEllipsisTextRow(style) {
-    if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
-    if (style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box") return true;
-    return style.minWidth === "0px";
-  }
-  function clipsOverflow(style) {
-    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
-  }
-  function hasDefiniteCssSize(value) {
-    const normalized = value.trim().toLowerCase();
-    return Boolean(normalized && normalized !== "auto" && normalized !== "none" && normalized !== "normal" && normalized !== "initial" && normalized !== "inherit" && normalized !== "unset");
-  }
-  function hasClippedTextConstraint(style) {
-    if (!clipsOverflow(style)) return false;
-    return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
-  }
-  function isPositionedTextOverlay(style) {
-    return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
-  }
-  function isVerticalWritingMode(writingMode) {
-    return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
-  }
-  const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
-  const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2e3;
-  const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
-  const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
-  const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
-  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
-  let constrainedRowStyleGeneration = 0;
-  function noteConstrainedRowLayoutSettled() {
-    constrainedRowStyleGeneration += 1;
-  }
-  function constrainedRowStyleFacts(element2) {
-    const now = Date.now();
-    const memo = constrainedRowStyleFactMemo.get(element2);
-    if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
-    const style = safeComputedStyle$1(element2);
-    const clamped = hasLineClamp(style);
-    const ellipsisRow = isEllipsisTextRow(style);
-    const clips = clipsOverflow(style);
-    const clippedConstraint = hasClippedTextConstraint(style);
-    let clippedShortRow = false;
-    let activelyTruncatedPreview = false;
-    if (clips && !clamped && !ellipsisRow) {
-      const height = element2.getBoundingClientRect().height;
-      clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
-      const clientHeight = element2.clientHeight;
-      activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
-    }
-    const facts = {
-      clamped,
-      ellipsisRow,
-      clippedConstraint,
-      clippedShortRow,
-      activelyTruncatedPreview
-    };
-    constrainedRowStyleFactMemo.set(element2, { at: now, gen: constrainedRowStyleGeneration, facts });
-    return facts;
-  }
-  function closestRubyFragileConstrainedRow(element2) {
-    let current = element2;
-    for (let depth = 0; current && depth < 12; depth += 1) {
-      const facts = constrainedRowStyleFacts(current);
-      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
-      current = composedAncestorElement(current);
-    }
-    return null;
-  }
-  function composedAncestorElement(element2) {
-    if (element2.assignedSlot) return element2.assignedSlot;
-    if (element2.parentElement) return element2.parentElement;
-    const root = element2.getRootNode();
-    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-  }
-  function boxStyleIsClipCapable(box) {
-    const facts = constrainedRowStyleFacts(box);
-    return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
-  }
-  function isClipConstrainedRow(element2) {
-    const facts = constrainedRowStyleFacts(element2);
-    return facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview;
-  }
-  function contentClipRowShowsRestReadings(decoration, clipRow) {
-    if (decoration !== "prose-full") return false;
-    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
-    if (!clipRowHasGrowableShape(clipRow)) return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (!facts.clamped && !facts.ellipsisRow) return false;
-    const clampLines = Number.parseInt(safeComputedStyle$1(clipRow).getPropertyValue("-webkit-line-clamp"), 10);
-    if (Number.isFinite(clampLines) && clampLines > 1) return false;
-    const parentDisplay = clipRow.parentElement ? safeComputedStyle$1(clipRow.parentElement).display : "";
-    return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
-  }
-  const CLAMP_ROW_SHELL_ANCESTOR_LIMIT = 6;
-  function clampRowAllowsInFlowRestRuby(decoration, clipRow) {
-    if (decoration !== "prose-full" && decoration !== "content-ruby") return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (!facts.clamped) return false;
-    if (!clipRowHasGrowableShape(clipRow)) return false;
-    return !clampRowHasFixedClippingShell(clipRow);
-  }
-  function clipRowHasGrowableShape(clipRow) {
-    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (facts.clippedShortRow || facts.activelyTruncatedPreview) return false;
-    const style = safeComputedStyle$1(clipRow);
-    if (hasDefiniteCssSize(style.maxHeight)) return false;
-    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
-  }
-  function clampRowHasFixedClippingShell(clipRow) {
-    let current = composedAncestorElement(clipRow);
-    for (let depth = 0; current && current !== document.body && depth < CLAMP_ROW_SHELL_ANCESTOR_LIMIT; depth += 1) {
-      if (ancestorPinsClampRowGrowth(current)) return true;
-      current = composedAncestorElement(current);
-    }
-    return false;
-  }
-  function ancestorPinsClampRowGrowth(ancestor) {
-    const style = safeComputedStyle$1(ancestor);
-    const definiteSize = hasDefiniteCssSize(style.maxHeight) || hasDefiniteCssSize(ancestor.style.height) || hasDefiniteCssSize(ancestor.style.maxHeight);
-    const clips = style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
-    if (definiteSize && clips) return true;
-    const display = style.display;
-    const trackParent = display.includes("flex") || display.includes("grid") || display.startsWith("table");
-    return trackParent && (definiteSize || clips);
-  }
-  const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
-  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-  const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
-  const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
-  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
-  function isLikelyProseElement(element2) {
-    if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
-    return isLikelyProseClass(element2) || isConversationTextClass(element2);
-  }
-  function isReadableProseContext(element2) {
-    let current = element2;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-      if (isConversationTextClass(current)) return true;
-      current = current.parentElement;
-    }
-    return false;
-  }
-  function isLikelyProseClass(element2) {
-    return PROSE_CLASS_RE.test(elementClassName(element2));
-  }
-  function isConversationTextClass(element2) {
-    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
-  }
-  function isLikelyProseLink(link, element2) {
-    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
-  }
-  function isProseFullContext(element2) {
-    let current = element2;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-      current = current.parentElement;
-    }
-    return false;
-  }
-  function isExplicitControlLink(link) {
-    return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
-  }
-  function linkHasControlMedia(link) {
-    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
-  }
-  function linkHasControlShape(link, text2) {
-    const style = safeComputedStyle$1(link);
-    const rect = link.getBoundingClientRect();
-    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
-  }
-  function hasControlLinkStyle(style) {
-    return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
-  }
-  function hasControlLinkDisplay(display) {
-    return display.includes("flex") || display.includes("grid") || display === "inline-block";
-  }
-  function hasVisibleControlLinkBox(style) {
-    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
-  }
-  function hasVisibleBorderSide(style, width) {
-    return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
-  }
-  function hasShortControlLinkText(link, text2) {
-    return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
-  }
-  function hasControlLinkWidth(rect) {
-    return rect.width > 0 && rect.width < 360;
-  }
-  function hasUiBox(style) {
-    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
-  }
-  function hasInlineControlShape(display) {
-    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
-  }
-  const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-  const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-  const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
-  const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-  function isPassiveInteractionElement(element2) {
-    if (element2.closest(READER_ROOT_SELECTOR)) return false;
-    if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
-    if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
-    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
-    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
-  }
-  function isCompactPassiveInteractionElement(element2) {
-    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-    return element2.childElementCount <= 4;
-  }
-  function isCompactPassiveChromeElement(element2) {
-    if (isLikelyProseElement(element2)) return false;
-    return isCompactPassiveInteractionElement(element2);
-  }
-  function readableContextPassiveChromeElement(element2) {
-    const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
-    if (interaction) {
-      if (isConversationTextClass(interaction)) return null;
-      if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
-      if (isCompactPassiveInteractionElement(interaction)) return interaction;
-    }
-    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
-    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
-  }
-  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-  const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
-  const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-  const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
-  const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
-  const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
-  const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
-  const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-  const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
-  const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-  function compactScanRubySuppression(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return { suppress: false, marks: [] };
-    const marks = [];
-    const notice = compactConstrainedNotificationElement(parent);
-    if (notice) marks.push({ element: notice, atomic: true });
-    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent) ?? compactMetadataChromeElement(parent) ?? compactVisualLabelElement(parent);
-    if (chrome) marks.push({ element: chrome, atomic: true });
-    return { suppress: Boolean(chrome || notice), marks };
-  }
-  function compactVisualLabelElement(parent) {
-    const chromeContext = isCompactInteractiveChromeContext(parent);
-    if (isReadableProseContext(parent) && !chromeContext) return null;
-    let current = parent;
-    for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
-      if (!UI_CLASS_RE.test(elementClassName(current))) continue;
-      const text2 = compactInteractiveChromeText(current);
-      if (!isCompactInteractiveChromeText(text2)) continue;
-      if (hasCompactInteractiveChromeGeometry(current)) return current;
-      const rect = current.getBoundingClientRect();
-      if (chromeContext && rect.width === 0 && rect.height === 0) return current;
-    }
-    return null;
-  }
-  const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
-  function compactMetadataChromeElement(parent) {
-    let current = parent;
-    for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
-      const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
-      if (!explicit || isConversationTextClass(current)) continue;
-      const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
-      if (!isCompactInteractiveChromeText(text2)) continue;
-      const rect = current.getBoundingClientRect();
-      if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
-    }
-    return null;
-  }
-  function applyPassiveChromeMarks(marks) {
-    for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
-  }
-  function markPassiveChromeElement(element2, atomic = false) {
-    if (element2.dataset.jpdbReaderPassiveChrome !== "true") {
-      element2.dataset.jpdbReaderPassiveChrome = "true";
-    }
-    if (atomic && element2.dataset.jpdbReaderPassiveAtomic !== "true") {
-      element2.dataset.jpdbReaderPassiveAtomic = "true";
-    }
-    if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
-      element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
-    }
-  }
-  function hasExplicitAccessibleName(element2) {
-    return Boolean(
-      element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
-    );
-  }
-  function passiveChromeAccessibleLabel(element2) {
-    return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
-  }
-  function compactInteractiveChromeElement(parent) {
-    const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
-    if (!chrome) return null;
-    const text2 = compactInteractiveChromeText(chrome);
-    if (!isCompactInteractiveChromeText(text2)) return null;
-    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-      return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
-    }
-    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
-  }
-  function compactInteractiveChromeText(element2) {
-    return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  }
-  function compactPassiveChromeElement(parent) {
-    if (isReadableProseContext(parent)) return null;
-    if (!isCompactInteractiveChromeContext(parent)) return null;
-    const text2 = compactInteractiveChromeText(parent);
-    if (!isCompactInteractiveChromeText(text2)) return null;
-    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
-  }
-  function compactPassiveInteractionRubyElement(parent) {
-    if (isReadableProseContext(parent)) return null;
-    const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (!interaction) return null;
-    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
-    if (isLikelyProseElement(interaction)) return null;
-    if (!isCompactPassiveInteractionElement(interaction)) return null;
-    const style = safeComputedStyle$1(interaction);
-    if (isVerticalWritingMode(style.writingMode)) return interaction;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
-    if (isCompactInteractiveChromeContext(interaction)) return interaction;
-    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
-  }
-  function isCompactInteractiveChromeText(text2) {
-    const length = compactLength(text2);
-    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text2);
-  }
-  function isCompactInteractiveChromeLink(link, parent, text2) {
-    if (isLikelyProseLink(link, parent)) return false;
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
-  }
-  function isCompactInteractiveChromeControl(control, parent) {
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
-    if (safeElementMatches(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
-    if (safeElementMatches(control, '[role="combobox"]') && !isNonEditableListboxTrigger(control)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
-  }
-  function isCompactInteractiveChromeContext(element2) {
-    return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
-  }
-  function hasCompactInteractiveChromeGeometry(element2) {
-    const style = safeComputedStyle$1(element2);
-    const rect = element2.getBoundingClientRect();
-    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
-    if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
-    return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
-  }
-  function hasCompactInteractiveChromeRubyRisk(element2) {
-    const style = safeComputedStyle$1(element2);
-    if (isVerticalWritingMode(style.writingMode)) return true;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-    if (isCompactInteractiveChromeContext(element2)) return true;
-    if (safeElementMatches(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
-    if (!hasCompactInteractiveChromeGeometry(element2)) return false;
-    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
-    return clipsOverflow(style) && style.whiteSpace === "nowrap";
-  }
-  function compactConstrainedNotificationElement(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
-    let current = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-      if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
-      if (isConstrainedNotificationContainer(current, parent)) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-  function isConstrainedNotificationContainer(container, textElement) {
-    if (!safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR)) return false;
-    if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
-    return hasNotificationActionPeer(container, textElement);
-  }
-  function hasConstrainedNotificationGeometry(container, textElement) {
-    const rect = container.getBoundingClientRect();
-    const textRect = textElement.getBoundingClientRect();
-    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
-  }
-  function notificationContainerLooksLikePageSection(container) {
-    const rect = container.getBoundingClientRect();
-    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
-    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
-  }
-  function hasNotificationActionPeer(container, textElement) {
-    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
-    if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
-    if (container === textElement) return false;
-    const row = container.parentElement;
-    if (!row) return false;
-    return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
-  }
-  function isYouTubeHost$1() {
-    return isYouTubeAppHostname();
-  }
-  function isNavigationChromeContext(element2) {
-    return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-  }
-  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
-  const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
-  const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-  const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
-  function isEditableComposingContext(element2) {
-    if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
-    const combobox = element2.closest('[role="combobox"]');
-    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
-    if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
-    if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
-    return isComboboxOwnedPopup(element2);
-  }
-  const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
-  function isNonEditableListboxTrigger(element2) {
-    if (!(element2 instanceof HTMLElement)) return false;
-    if (!safeElementMatches(element2, '[role="combobox"]')) return false;
-    const tag = element2.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-    const autocomplete = element2.getAttribute("aria-autocomplete");
-    if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
-    if (safeElementMatches(element2, '[contenteditable]:not([contenteditable="false"])')) return false;
-    return !safeQuerySelector(element2, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
-  }
-  const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
-  let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
-  const COMBOBOX_OWNED_ID_TTL_MS = 250;
-  function resetDecorationPolicyCachesForTest() {
-    constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
-    comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
-    reviewCardFrontPredicate = null;
-  }
-  function comboboxOwnedIds(root) {
-    const now = Date.now();
-    const memo = comboboxOwnedIdMemo.get(root);
-    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
-    const ids = /* @__PURE__ */ new Set();
-    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
-      for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
-        for (const attribute of ["aria-owns", "aria-controls"]) {
-          for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
-            if (token) ids.add(token);
-          }
-        }
-      }
-    }
-    comboboxOwnedIdMemo.set(root, { at: now, ids });
-    return ids;
-  }
-  function isComboboxOwnedPopup(element2) {
-    const ids = comboboxOwnedIds(element2.getRootNode());
-    if (!ids.size) return false;
-    let current = element2;
-    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (current.id && ids.has(current.id)) return true;
-    }
-    return false;
-  }
-  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-  const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
-  const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
-  const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
-  const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-  function interactivePassiveControl(element2) {
-    const temporalMetadata = element2.closest("time,[datetime]");
-    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
-    const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
-    if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
-    const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
-    if (siblingOwnedControl) return siblingOwnedControl;
-    const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
-    if (!link) return null;
-    if (isCompactLinkedCardMetadata(link, element2)) return link;
-    if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
-    return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
-  }
-  const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
-  function siblingOwnedInteractiveControl(element2) {
-    if (!(element2 instanceof HTMLElement)) return null;
-    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-    const chromeContext = isCompactInteractiveChromeContext(element2);
-    if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
-    let current = element2.parentElement;
-    for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
-      const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate) => !candidate.contains(element2) && !element2.contains(candidate));
-      if (controls.length !== 1) continue;
-      const classFacts = `${element2.className} ${current.className}`;
-      const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
-      if (!uiContext) continue;
-      const rect = current.getBoundingClientRect();
-      const measuredCompact = rect.height > 0 && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
-      if (measuredCompact || rect.height === 0) return current;
-    }
-    return null;
-  }
-  function isCompactTemporalMetadata(element2) {
-    return isCompactMetadataElement(element2);
-  }
-  const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
-  const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
-  function isCompactLinkedCardMetadata(link, element2) {
-    const textElement = element2 instanceof HTMLElement ? element2 : element2.parentElement;
-    return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
-  }
-  function isLinkedCardMetadataElement(link, textElement) {
-    if (textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
-    const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
-    if (!heading) return false;
-    return [
-      !heading.contains(textElement),
-      !isLikelyProseElement(textElement),
-      isCompactMetadataElement(textElement)
-    ].every(Boolean);
-  }
-  function isCompactMetadataElement(element2) {
-    const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    const height = element2.getBoundingClientRect().height;
-    return [
-      isTargetLanguageText(text2),
-      compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
-      height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
-    ].every(Boolean);
-  }
-  function isMediaTextContentControl(control) {
-    if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
-    if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-    const media = safeQuerySelector(control, "img,picture,video,canvas");
-    if (!media || !(media instanceof HTMLElement)) return false;
-    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? "") > 2;
-  }
-  const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
-  function mediaElementIsThumbnailSized(media) {
-    const rect = media.getBoundingClientRect();
-    if (rect.width <= 0 && rect.height <= 0) return true;
-    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
-  }
-  let reviewCardFrontPredicate = null;
-  function setReviewCardFrontPredicate(predicate) {
-    reviewCardFrontPredicate = predicate;
-  }
-  function classifyDecoration(element2) {
-    if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
-    if (isEditableComposingContext(element2)) return "skip";
-    if (reviewCardFrontPredicate?.(element2)) return "skip";
-    const control = interactivePassiveControl(element2);
-    if (control) {
-      if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
-      return "interactive-passive";
-    }
-    if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
-    if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
-    if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
-    return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
-  }
-  function decorationSuppressesRuby(state2) {
-    return state2 === "interactive-passive";
-  }
-  function stampDecorationState(host, state2) {
-    if (host.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state2) {
-      host.setAttribute(DECORATION_STATE_ATTRIBUTE, state2);
-    }
-  }
-  function decorationStateForWord(word) {
-    const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
-    const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
-    return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
-  }
-  const decorationPolicy = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-    __proto__: null,
-    COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR,
-    COMPACT_PASSIVE_CHROME_SELECTOR,
-    COMPACT_PASSIVE_INTERACTION_SELECTOR,
-    CONSTRAINED_ROW_VERDICT_TTL_MS,
-    PASSIVE_INTERACTION_BOUNDARY_SELECTOR,
-    PASSIVE_INTERACTION_SELECTOR,
-    UI_CLASS_RE,
-    applyPassiveChromeMarks,
-    boxStyleIsClipCapable,
-    clampRowAllowsInFlowRestRuby,
-    classifyDecoration,
-    closestRubyFragileConstrainedRow,
-    compactInteractiveChromeElement,
-    compactLength,
-    compactPassiveChromeElement,
-    compactScanRubySuppression,
-    composedAncestorElement,
-    contentClipRowShowsRestReadings,
-    cssPixels,
-    decorationStateForWord,
-    decorationSuppressesRuby,
-    hasClippedTextConstraint,
-    hasDefiniteCssSize,
-    hasInlineControlShape,
-    hasLineClamp,
-    hasUiBox,
-    interactivePassiveControl,
-    isClipConstrainedRow,
-    isCompactInteractiveChromeText,
-    isCompactPassiveChromeElement,
-    isCompactPassiveInteractionElement,
-    isEllipsisTextRow,
-    isExplicitControlLink,
-    isLikelyProseElement,
-    isLikelyProseLink,
-    isNavigationChromeContext,
-    isNonEditableListboxTrigger,
-    isPassiveInteractionElement,
-    isPositionedTextOverlay,
-    isReadableProseContext,
-    isYouTubeHost: isYouTubeHost$1,
-    linkHasControlMedia,
-    linkHasControlShape,
-    noteConstrainedRowLayoutSettled,
-    resetDecorationPolicyCachesForTest,
-    safeComputedStyle: safeComputedStyle$1,
-    safeElementMatches,
-    selectorPairs,
-    setReviewCardFrontPredicate,
-    stampDecorationState
-  }, Symbol.toStringTag, { value: "Module" }));
-  const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
-  function registerDecorationPolicyRuntimeApi(api) {
-    Object.defineProperty(globalThis, DECORATION_POLICY_RUNTIME_API_SLOT, {
-      configurable: true,
-      enumerable: false,
-      value: api,
-      writable: true
-    });
-  }
-  registerDecorationPolicyRuntimeApi(decorationPolicy);
   function scopedDocument(scope = {}) {
     if (scope.document) return scope.document;
     return typeof document === "undefined" ? null : document;
@@ -5409,9 +268,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function syncProjectedReadingStyle(record2) {
     const { clone, source } = record2;
-    const sourceStyle = safeComputedStyle(source);
+    const sourceStyle = safeComputedStyle$1(source);
     const base = source.closest(".jpdb-reader-word") ?? source;
-    const baseStyle = safeComputedStyle(base);
+    const baseStyle = safeComputedStyle$1(base);
     clone.textContent = source.textContent ?? "";
     clone.dataset.yomuExpression = base.dataset.expression ?? base.dataset.surface ?? "";
     clone.style.setProperty("font-family", sourceStyle.fontFamily || baseStyle.fontFamily, "important");
@@ -5557,7 +416,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       record2.naturalReadingWidth = measured / scale;
       return record2.naturalReadingWidth;
     }
-    const fontSize = Number.parseFloat(safeComputedStyle(record2.clone).fontSize);
+    const fontSize = Number.parseFloat(safeComputedStyle$1(record2.clone).fontSize);
     return Number.isFinite(fontSize) ? fontSize * (record2.clone.textContent ?? "").length : 0;
   }
   function projectionPaintOrigin(record2, context) {
@@ -5951,7 +810,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Number.isFinite(rect.left) && Number.isFinite(rect.top) && Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 0 && rect.height > 0;
   }
   function sourceAllowsProjectedReading(record2) {
-    const style = safeComputedStyle(record2.source);
+    const style = safeComputedStyle$1(record2.source);
     if (style.visibility === "collapse" || style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return false;
     if (style.visibility !== "hidden") return true;
     return Boolean(record2.source.closest(".yomu-furi-hover") && anchorRevealsHoverReading(record2.anchor));
@@ -5991,7 +850,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function projectedReadingFootprint(record2, sourceRect) {
     const cloneRect = record2.clone.getBoundingClientRect();
-    const sourceStyle = safeComputedStyle(record2.source);
+    const sourceStyle = safeComputedStyle$1(record2.source);
     const measuredWidth = cloneRect.width || record2.footprintWidth;
     const measuredHeight = cloneRect.height || record2.footprintHeight;
     const width = measuredWidth || sourceRect.width;
@@ -6046,7 +905,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const { chrome } = probe;
     if (!chrome || !composedContains(chrome, element2)) return false;
     if (elementRendersOwnContent(element2)) return false;
-    return elementSurfaceAlpha(safeComputedStyle(element2)) < OPAQUE_SURFACE_ALPHA;
+    return elementSurfaceAlpha(safeComputedStyle$1(element2)) < OPAQUE_SURFACE_ALPHA;
   }
   function elementRendersOwnContent(element2) {
     if ((element2.textContent ?? "").trim() !== "") return true;
@@ -6074,7 +933,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function elementPaintsOccludingSurface(element2, cache2) {
     const cached = cache2.get(element2);
     if (cached !== void 0) return cached;
-    const style = safeComputedStyle(element2);
+    const style = safeComputedStyle$1(element2);
     const paints = style.visibility !== "hidden" && elementSurfaceAlpha(style) > 0;
     cache2.set(element2, paints);
     return paints;
@@ -6152,14 +1011,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return node instanceof ShadowRoot ? node.host : null;
   }
   function memoizedComputedStyle(element2, cache2) {
-    if (!cache2) return safeComputedStyle(element2);
+    if (!cache2) return safeComputedStyle$1(element2);
     const cached = cache2.get(element2);
     if (cached) return cached;
-    const style = safeComputedStyle(element2);
+    const style = safeComputedStyle$1(element2);
     cache2.set(element2, style);
     return style;
   }
-  function safeComputedStyle(element2) {
+  function safeComputedStyle$1(element2) {
     try {
       return element2.ownerDocument.defaultView?.getComputedStyle(element2) ?? {};
     } catch {
@@ -7804,6 +2663,981 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isBlobLike(value) {
     return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
+  }
+  const locales = [
+    {
+      tag: "en",
+      reviewStatus: "source-approved",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "source locale",
+        evidence: "English is the source of record for every message ID."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ja",
+      reviewStatus: "native-reviewed",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "owner",
+        evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ar",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fa",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sq",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "grc",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "yue",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "zh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "da",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "nl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "de",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "el",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "hu",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "id",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "it",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "km",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ko",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "lo",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "la",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "mn",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pt",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ro",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ru",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "es",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sv",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "th",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "vi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    }
+  ];
+  const rtlGate = {
+    items: [
+      {
+        id: "direction-propagation",
+        done: true,
+        note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
+      },
+      {
+        id: "logical-css-properties",
+        done: false,
+        note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
+      },
+      {
+        id: "bidi-isolation",
+        done: false,
+        note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
+      },
+      {
+        id: "font-stacks",
+        done: true,
+        note: "Per-script interface font stacks in the locale manifest."
+      },
+      {
+        id: "geometry-verification",
+        done: false,
+        note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
+      },
+      {
+        id: "viewport-and-zoom-matrix",
+        done: false,
+        note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
+      },
+      {
+        id: "real-app-screenshots",
+        done: false,
+        note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
+      },
+      {
+        id: "owner-acceptance",
+        done: false,
+        note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
+      }
+    ]
+  };
+  const interfaceLocaleLedger = {
+    locales,
+    rtlGate
+  };
+  const languages = [
+    {
+      id: "sq",
+      runtimeLocale: "sq",
+      englishName: "Albanian",
+      nativeName: "Shqip",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "grc",
+      runtimeLocale: "grc",
+      englishName: "Ancient Greek",
+      nativeName: "Ἑλληνιστί",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ar",
+      runtimeLocale: "ar",
+      englishName: "Arabic",
+      nativeName: "العربية",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "yue",
+      runtimeLocale: "yue-Hant",
+      englishName: "Cantonese",
+      nativeName: "粵語",
+      defaultScript: "Hant",
+      scripts: [
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "zh",
+      runtimeLocale: "zh-Hans",
+      englishName: "Chinese",
+      nativeName: "中文（简体）",
+      defaultScript: "Hans",
+      scripts: [
+        "Hans",
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "da",
+      runtimeLocale: "da",
+      englishName: "Danish",
+      nativeName: "Dansk",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "nl",
+      runtimeLocale: "nl",
+      englishName: "Dutch",
+      nativeName: "Nederlands",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "en",
+      runtimeLocale: "en",
+      englishName: "English",
+      nativeName: "English",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fi",
+      runtimeLocale: "fi",
+      englishName: "Finnish",
+      nativeName: "Suomi",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fr",
+      runtimeLocale: "fr",
+      englishName: "French",
+      nativeName: "Français",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "de",
+      runtimeLocale: "de",
+      englishName: "German",
+      nativeName: "Deutsch",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "el",
+      runtimeLocale: "el",
+      englishName: "Greek",
+      nativeName: "Ελληνικά",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "hu",
+      runtimeLocale: "hu",
+      englishName: "Hungarian",
+      nativeName: "Magyar",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "id",
+      runtimeLocale: "id",
+      englishName: "Indonesian",
+      nativeName: "Bahasa Indonesia",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "it",
+      runtimeLocale: "it",
+      englishName: "Italian",
+      nativeName: "Italiano",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "km",
+      runtimeLocale: "km",
+      englishName: "Khmer",
+      nativeName: "ខ្មែរ",
+      defaultScript: "Khmr",
+      scripts: [
+        "Khmr"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ko",
+      runtimeLocale: "ko",
+      englishName: "Korean",
+      nativeName: "한국어",
+      defaultScript: "Kore",
+      scripts: [
+        "Kore"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "lo",
+      runtimeLocale: "lo",
+      englishName: "Lao",
+      nativeName: "ລາວ",
+      defaultScript: "Laoo",
+      scripts: [
+        "Laoo"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "la",
+      runtimeLocale: "la",
+      englishName: "Latin",
+      nativeName: "Latina",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "mn",
+      runtimeLocale: "mn-Cyrl",
+      englishName: "Mongolian",
+      nativeName: "Монгол",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl",
+        "Mong"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fa",
+      runtimeLocale: "fa",
+      englishName: "Persian",
+      nativeName: "فارسی",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "pl",
+      runtimeLocale: "pl",
+      englishName: "Polish",
+      nativeName: "Polski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "pt",
+      runtimeLocale: "pt",
+      englishName: "Portuguese",
+      nativeName: "Português",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ro",
+      runtimeLocale: "ro",
+      englishName: "Romanian",
+      nativeName: "Română",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ru",
+      runtimeLocale: "ru",
+      englishName: "Russian",
+      nativeName: "Русский",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sh",
+      runtimeLocale: "sr-Latn",
+      englishName: "Serbo-Croatian",
+      nativeName: "Srpskohrvatski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn",
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "es",
+      runtimeLocale: "es",
+      englishName: "Spanish",
+      nativeName: "Español",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sv",
+      runtimeLocale: "sv",
+      englishName: "Swedish",
+      nativeName: "Svenska",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tl",
+      runtimeLocale: "fil",
+      englishName: "Tagalog",
+      nativeName: "Tagalog",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "th",
+      runtimeLocale: "th",
+      englishName: "Thai",
+      nativeName: "ไทย",
+      defaultScript: "Thai",
+      scripts: [
+        "Thai"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tr",
+      runtimeLocale: "tr",
+      englishName: "Turkish",
+      nativeName: "Türkçe",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "vi",
+      runtimeLocale: "vi",
+      englishName: "Vietnamese",
+      nativeName: "Tiếng Việt",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    }
+  ];
+  const languageConfig = {
+    languages
+  };
+  const LEARNER_LANGUAGE_IDS = [
+    "sq",
+    "grc",
+    "ar",
+    "yue",
+    "zh",
+    "da",
+    "nl",
+    "en",
+    "fi",
+    "fr",
+    "de",
+    "el",
+    "hu",
+    "id",
+    "it",
+    "km",
+    "ko",
+    "lo",
+    "la",
+    "mn",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "sh",
+    "es",
+    "sv",
+    "tl",
+    "th",
+    "tr",
+    "vi"
+  ];
+  const configuredLanguages = languageConfig.languages;
+  const LEARNER_LANGUAGES = Object.freeze(
+    configuredLanguages.map(
+      (language2) => Object.freeze({
+        ...language2,
+        scripts: Object.freeze([...language2.scripts])
+      })
+    )
+  );
+  const LANGUAGE_BY_ID = new Map(
+    LEARNER_LANGUAGES.map((language2) => [language2.id, language2])
+  );
+  function learnerLanguageById(id) {
+    const language2 = LANGUAGE_BY_ID.get(id);
+    if (!language2) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+    return language2;
+  }
+  function isLearnerLanguageId(value) {
+    return LEARNER_LANGUAGE_IDS.includes(value);
+  }
+  function resolveLearnerLanguage(value) {
+    if (!value) return learnerLanguageById("en");
+    const normalized = value.trim().toLowerCase();
+    const direct = normalized.split("-")[0];
+    if (isLearnerLanguageId(direct)) return learnerLanguageById(direct);
+    if (direct === "fil") return learnerLanguageById("tl");
+    if (direct === "sr" || direct === "hr" || direct === "bs")
+      return learnerLanguageById("sh");
+    return learnerLanguageById("en");
+  }
+  const JAPANESE_INTERFACE_LOCALE = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    direction: "ltr"
+  });
+  const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
+  const SCRIPT_FONT_STACKS = Object.freeze({
+    Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
+    Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
+    Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+    Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+    Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+    Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
+    Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
+    Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
+    Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+  });
+  const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
+  function scriptFontStack(script) {
+    return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+  }
+  function directionForScript(script) {
+    return RTL_SCRIPTS$1.has(script) ? "rtl" : "ltr";
+  }
+  const LEDGER_ROWS = new Map(
+    interfaceLocaleLedger.locales.map((row) => [row.tag, row])
+  );
+  function fallbackChainFor(tag, id) {
+    const chain = [];
+    const push = (value) => {
+      if (value !== tag && !chain.includes(value)) chain.push(value);
+    };
+    const base = tag.split("-")[0];
+    push(base);
+    push(id);
+    if (id === "sh") {
+      push("sr");
+      push("hr");
+      push("bs");
+    }
+    if (id === "tl") push("fil");
+    if (id !== "en") push("en");
+    return Object.freeze(chain);
+  }
+  function buildLocale(source) {
+    const ledger = LEDGER_ROWS.get(source.id);
+    if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
+    return Object.freeze({
+      tag: source.runtimeLocale,
+      id: source.id,
+      fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
+      nativeName: source.nativeName,
+      englishName: source.englishName,
+      script: source.defaultScript,
+      // languages.json and the script table must agree; the script is the
+      // source of truth so one new RTL locale cannot arrive marked ltr.
+      direction: directionForScript(source.defaultScript),
+      fontStack: scriptFontStack(source.defaultScript),
+      reviewStatus: ledger.reviewStatus,
+      available: ledger.available,
+      blockers: Object.freeze([...ledger.blockers])
+    });
+  }
+  const INTERFACE_LOCALES = Object.freeze(
+    [
+      ...LEARNER_LANGUAGES.map(
+        (language2) => buildLocale({ ...language2, direction: language2.direction })
+      ),
+      buildLocale(JAPANESE_INTERFACE_LOCALE)
+    ].sort((left, right) => {
+      const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
+      return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
+    })
+  );
+  const LOCALE_BY_KEY = new Map([
+    ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
+    ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
+  ]);
+  function interfaceLocaleByTag(tag) {
+    return LOCALE_BY_KEY.get(tag);
+  }
+  const ENGLISH_INTERFACE_LOCALE = (() => {
+    const english = LOCALE_BY_KEY.get("en");
+    if (!english) throw new Error("The interface manifest must always contain English");
+    return english;
+  })();
+  function availableInterfaceLocales() {
+    return INTERFACE_LOCALES.filter((locale) => locale.available);
+  }
+  Object.freeze(
+    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+  );
+  Object.freeze(
+    interfaceLocaleLedger.rtlGate.items.map(
+      (item) => Object.freeze({ ...item })
+    )
+  );
+  const READER_INTERFACE_DIR_ATTRIBUTE = "data-yomu-interface-dir";
+  const READER_INTERFACE_LOCALE_ATTRIBUTE = "data-yomu-interface-locale";
+  const FIRST_STRONG_ISOLATE = "⁨";
+  const POP_DIRECTIONAL_ISOLATE = "⁩";
+  function interfaceDirectionOf(tag) {
+    return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
+  }
+  function isRtlInterface(tag) {
+    return interfaceDirectionOf(tag) === "rtl";
+  }
+  function applyInterfaceLocaleToRoot(root, locale) {
+    if (!root) return;
+    root.setAttribute("lang", locale.tag);
+    root.setAttribute("dir", locale.direction);
+    root.setAttribute(READER_INTERFACE_DIR_ATTRIBUTE, locale.direction);
+    root.setAttribute(READER_INTERFACE_LOCALE_ATTRIBUTE, locale.tag);
+    root.style?.setProperty("--jpdb-reader-interface-font", locale.fontStack);
+  }
+  function applyInterfaceLocaleToDocument(doc, locale) {
+    const root = doc?.documentElement;
+    if (!root) return;
+    applyInterfaceLocaleToRoot(root, locale);
+  }
+  function isolate(value) {
+    if (!value) return value;
+    return `${FIRST_STRONG_ISOLATE}${value}${POP_DIRECTIONAL_ISOLATE}`;
+  }
+  function formatIsolated(message, values) {
+    return Object.entries(values).reduce(
+      (text2, [name, value]) => text2.replaceAll(`{${name}}`, isolate(String(value))),
+      message
+    );
   }
   const GRAMMAR_UI_COPY = {
     en: {
@@ -10465,6 +6299,100 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isGrammarRuleCopyRecord(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
+  const CORE_COLOR_TOKENS = {
+    black: "#000000",
+    white: "#ffffff",
+    transparentBlack: "rgba(0, 0, 0, 0)"
+  };
+  const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
+    consoleAccent: "#247a58"
+  };
+  const READER_THEME_COLOR_TOKENS = {
+    dark: {
+      bg: "#181b20",
+      surface: "#20242b",
+      surface2: "#282e37",
+      accentText: "#11161d"
+    },
+    light: {
+      bg: "#fbfcfe",
+      surface: "#f4f7fa",
+      surface2: "#e8edf3",
+      text: "#17202a",
+      accentText: CORE_COLOR_TOKENS.white
+    }
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white,
+    outline: CORE_COLOR_TOKENS.black,
+    background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const OCR_OVERLAY_COLOR_TOKENS = {
+    text: READER_THEME_COLOR_TOKENS.light.text,
+    outline: CORE_COLOR_TOKENS.white
+  };
+  const DEFAULT_WORD_COLOR_TOKENS = {
+    new: "#ffffff",
+    learning: "#ffd166",
+    known: "#7bd88f",
+    due: "#5fb3b3",
+    failed: "#ff6b6b",
+    ignored: "#b8a7ff"
+  };
+  const DEFAULT_PITCH_COLOR_TOKENS = {
+    heiban: "#359eff",
+    atamadaka: "#fe4b74",
+    nakadaka: "#fba840",
+    odaka: "#57ccb7",
+    unknown: "#94a3b8"
+  };
+  const LOOKUP_PILL_COLOR_TOKENS = {
+    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
+    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+    "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
+    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
+    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
+    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
+    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
+    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+    nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
+    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
+    anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
+    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
+  };
+  const DOODLE_COLOR_TOKENS = {
+    ink: "#141820"
+  };
+  const PAGE_WORD_COLOR_TOKENS = {
+    unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
+  const ANKI_CARD_COLOR_TOKENS = {
+    text: "#f4f7fb",
+    background: "#15181e",
+    muted: "#bac3d0",
+    sentenceBorder: "#323843",
+    sentenceBackground: "#1e232b",
+    sentenceText: "#d8dee8",
+    highlight: "#7ad119",
+    sectionBorder: "#303641",
+    sectionBackground: "#1b2028",
+    headingText: "#c2cad7",
+    labelText: "#92a0b3",
+    expressionText: CORE_COLOR_TOKENS.white,
+    readingText: "#aab4c2",
+    chipBorder: "#4b5565",
+    chipText: "#cdd5e1",
+    metaLabelText: "#8f9aaa",
+    tableBorder: "#353c47"
+  };
   const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
     showFurigana: true,
     furiganaMode: "all",
@@ -13970,6 +9898,57 @@ recommendedJiten	Jiten由来の頻度バッジです。
       classes2.add(`${source}-deck-${slug}`);
     });
   }
+  const UNIFIED_IDEOGRAPH_RE = /^\p{Unified_Ideograph}$/u;
+  const UNIFIED_IDEOGRAPH_RUN_RE = /\p{Unified_Ideograph}+/gu;
+  function isUnifiedIdeograph(value) {
+    return UNIFIED_IDEOGRAPH_RE.test(value);
+  }
+  function hanIdeographSegments(text2) {
+    return [...text2.matchAll(UNIFIED_IDEOGRAPH_RUN_RE)].map((match) => ({
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    }));
+  }
+  const HIRAGANA = "぀-ゟ";
+  const KATAKANA = "゠-ヿ";
+  const KANA = "぀-ヿ";
+  const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
+  const KANJI = "㐀-鿿";
+  const UNIFIED_IDEOGRAPH = "\\p{Unified_Ideograph}";
+  const SUPPLEMENTARY_KANJI_PATTERN = `(?:(?![\\u0000-\\uFFFF])${UNIFIED_IDEOGRAPH})`;
+  const KANJI_PATTERN = `(?:[${KANJI}]|${SUPPLEMENTARY_KANJI_PATTERN})`;
+  const ITERATION_MARK = "々";
+  const ITERATION_MARKS = `${ITERATION_MARK}〆`;
+  const KANA_COUNTERS = "ヵヶ";
+  const PROLONGED_SOUND_MARK = "ー";
+  const KATAKANA_MIDDLE_DOT = "・";
+  const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
+  const COMBINING_KANA_MARKS = "゙゚";
+  const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
+  const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
+  const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
+  const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
+  const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+  const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
+  const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
+  const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
+  const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
+  const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
+  const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
+  const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
+  const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
+  const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+  const KANJI_RE$1 = new RegExp(KANJI_PATTERN, "u");
+  const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
+  const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
+  const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
+  const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
+  const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, "u");
+  function isJapaneseKanjiCharacter(value) {
+    return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
+  }
   const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
   const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   const PRONUNCIATION_KANA = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]+$`, "u");
@@ -14305,6 +10284,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return cards;
   }
+  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+  function wordSegmenter(locale) {
+    const cached = SEGMENTER_BY_LOCALE.get(locale);
+    if (cached !== void 0) return cached;
+    let segmenter = null;
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+      }
+    } catch {
+      segmenter = null;
+    }
+    SEGMENTER_BY_LOCALE.set(locale, segmenter);
+    return segmenter;
+  }
+  function icuWordSegments(text2, locale) {
+    const segmenter = wordSegmenter(locale);
+    if (!segmenter) return null;
+    const segments = [];
+    for (const segment of segmenter.segment(text2)) {
+      if (!segment.isWordLike) continue;
+      segments.push({
+        text: segment.segment,
+        start: segment.index,
+        end: segment.index + segment.segment.length
+      });
+    }
+    return segments;
+  }
   const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   const TRAILING_KANJI_RUN_RE = new RegExp(`((?:${KANJI_PATTERN}|[々〻ヶ])+)$`, "u");
   function annotatedWordRubies(spelling, annotated) {
@@ -14548,6 +10556,3988 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
     return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
+  const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const RTL_SCRIPTS = /* @__PURE__ */ new Set([
+    "Adlm",
+    "Arab",
+    "Hebr",
+    "Nkoo",
+    "Rohg",
+    "Syrc",
+    "Thaa"
+  ]);
+  const RTL_LANGUAGES = /* @__PURE__ */ new Set([
+    "ar",
+    "dv",
+    "fa",
+    "he",
+    "ku",
+    "ps",
+    "ur",
+    "yi"
+  ]);
+  function canonicalLanguageTag(value) {
+    if (typeof value !== "string") return null;
+    const candidate = value.trim().replace(/_/g, "-");
+    if (!candidate || candidate.length > 255) return null;
+    try {
+      return Intl.getCanonicalLocales(candidate)[0] ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function languageSubtag(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return null;
+    try {
+      return new Intl.Locale(canonical).language;
+    } catch {
+      return canonical.split("-")[0]?.toLowerCase() ?? null;
+    }
+  }
+  function languageDisplayName(language2, locale = "en") {
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+    } catch {
+      return language2;
+    }
+  }
+  function localeDirection(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return "ltr";
+    try {
+      const locale = new Intl.Locale(canonical);
+      const script = locale.script || locale.maximize().script;
+      if (script && RTL_SCRIPTS.has(script)) return "rtl";
+      return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
+    } catch {
+      return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
+    }
+  }
+  function localeFallbackChain(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return [];
+    try {
+      const locale = new Intl.Locale(canonical);
+      const chain = [locale.baseName];
+      if (locale.script) chain.push(`${locale.language}-${locale.script}`);
+      chain.push(locale.language);
+      return uniqueCanonicalTags(chain);
+    } catch {
+      return [canonical];
+    }
+  }
+  function uniqueCanonicalTags(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const tags = [];
+    for (const value of values) {
+      const canonical = canonicalLanguageTag(value);
+      if (!canonical || seen.has(canonical)) continue;
+      seen.add(canonical);
+      tags.push(canonical);
+    }
+    return tags;
+  }
+  const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
+  function cardHighlightTargets(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = optionalJapaneseCardReading(card);
+    return uniqueCardHighlightValues([spelling, reading]);
+  }
+  function normalizedJapaneseCardReading(spelling, reading) {
+    const cleanSpelling = cleanCardHighlightValue(spelling);
+    const cleanReading = cleanCardHighlightValue(reading);
+    return cleanReading && JAPANESE_TEXT_RE$2.test(cleanReading) ? cleanReading : cleanSpelling;
+  }
+  function cleanCardHighlightValue(value) {
+    return (value ?? "").replace(/\s+/g, " ").trim();
+  }
+  function compactCardHighlightValue(value) {
+    return cleanCardHighlightValue(value).replace(/\s+/g, "");
+  }
+  function optionalJapaneseCardReading(card) {
+    const spelling = cleanCardHighlightValue(card.spelling);
+    const reading = normalizedJapaneseCardReading(spelling, card.reading);
+    return reading && reading !== spelling ? reading : "";
+  }
+  function uniqueCardHighlightValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.map(cleanCardHighlightValue).filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
+  const GODAN_ROWS = [
+    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+  ];
+  const ICHIDAN_RULES = [
+    ["ながら", "る", "simultaneous action"],
+    ["ました", "る", "polite past"],
+    ["ませんでした", "る", "polite negative past"],
+    ["ません", "る", "polite negative"],
+    ["ましょう", "る", "polite volitional"],
+    ["ます", "る", "polite"],
+    ["なかった", "る", "negative past"],
+    ["なくて", "る", "negative te-form"],
+    ["なければ", "る", "negative conditional"],
+    ["ない", "る", "negative"],
+    ["ず", "る", "negative archaic"],
+    ["たかった", "る", "desiderative past"],
+    ["たくなかった", "る", "desiderative negative past"],
+    ["たくない", "る", "desiderative negative"],
+    ["たい", "る", "desiderative"],
+    ["なさい", "る", "polite request"],
+    ["すぎる", "る", "excessive"],
+    ["られなかった", "る", "potential/passive negative past"],
+    ["られない", "る", "potential/passive negative"],
+    ["られて", "る", "potential/passive te-form"],
+    ["られた", "る", "potential/passive past"],
+    ["られる", "る", "potential/passive"],
+    ["させられた", "る", "causative passive past"],
+    ["させられる", "る", "causative passive"],
+    ["させない", "る", "causative negative"],
+    ["させて", "る", "causative te-form"],
+    ["させた", "る", "causative past"],
+    ["させる", "る", "causative"],
+    ["れば", "る", "conditional"],
+    ["よう", "る", "volitional"],
+    ["ろ", "る", "imperative"],
+    ["て", "る", "te-form"],
+    ["た", "る", "past"]
+  ];
+  const I_ADJECTIVE_RULES = [
+    ["くなかった", "い", "negative past"],
+    ["くありませんでした", "い", "polite negative past"],
+    ["くありません", "い", "polite negative"],
+    ["かった", "い", "past"],
+    ["くない", "い", "negative"],
+    ["くて", "い", "te-form"],
+    ["ければ", "い", "conditional"],
+    ["そう", "い", "looks"],
+    ["すぎる", "い", "excessive"],
+    ["く", "い", "adverbial"]
+  ];
+  const SURU_RULES = [
+    ["しながら", "する", "simultaneous action"],
+    ["しませんでした", "する", "polite negative past"],
+    ["しません", "する", "polite negative"],
+    ["しました", "する", "polite past"],
+    ["しましょう", "する", "polite volitional"],
+    ["します", "する", "polite"],
+    ["しなかった", "する", "negative past"],
+    ["しなくて", "する", "negative te-form"],
+    ["しなければ", "する", "negative conditional"],
+    ["しない", "する", "negative"],
+    ["せず", "する", "negative archaic"],
+    ["しなさい", "する", "polite request"],
+    ["しすぎる", "する", "excessive"],
+    ["された", "する", "passive past"],
+    ["されて", "する", "passive te-form"],
+    ["される", "する", "passive"],
+    ["させた", "する", "causative past"],
+    ["させて", "する", "causative te-form"],
+    ["させる", "する", "causative"],
+    ["できなかった", "する", "potential negative past"],
+    ["できない", "する", "potential negative"],
+    ["できた", "する", "potential past"],
+    ["できて", "する", "potential te-form"],
+    ["できる", "する", "potential"],
+    ["すれば", "する", "conditional"],
+    ["しよう", "する", "volitional"],
+    ["しろ", "する", "imperative"],
+    ["せよ", "する", "imperative"],
+    ["した", "する", "past"],
+    ["して", "する", "te-form"]
+  ];
+  const KURU_RULES = [
+    ["来ながら", "来る", "simultaneous action"],
+    ["来ませんでした", "来る", "polite negative past"],
+    ["来ません", "来る", "polite negative"],
+    ["来ました", "来る", "polite past"],
+    ["来ます", "来る", "polite"],
+    ["来なかった", "来る", "negative past"],
+    ["来なくて", "来る", "negative te-form"],
+    ["来ない", "来る", "negative"],
+    ["来なさい", "来る", "polite request"],
+    ["来すぎる", "来る", "excessive"],
+    ["来られた", "来る", "potential/passive past"],
+    ["来られて", "来る", "potential/passive te-form"],
+    ["来られる", "来る", "potential/passive"],
+    ["来れば", "来る", "conditional"],
+    ["来よう", "来る", "volitional"],
+    ["来い", "来る", "imperative"],
+    ["来た", "来る", "past"],
+    ["来て", "来る", "te-form"],
+    ["きながら", "くる", "simultaneous action"],
+    ["きませんでした", "くる", "polite negative past"],
+    ["きません", "くる", "polite negative"],
+    ["きました", "くる", "polite past"],
+    ["きます", "くる", "polite"],
+    ["こなかった", "くる", "negative past"],
+    ["こなくて", "くる", "negative te-form"],
+    ["こない", "くる", "negative"],
+    ["こず", "くる", "negative archaic"],
+    ["きなさい", "くる", "polite request"],
+    ["きすぎる", "くる", "excessive"],
+    ["こられた", "くる", "potential/passive past"],
+    ["こられて", "くる", "potential/passive te-form"],
+    ["こられる", "くる", "potential/passive"],
+    ["くれば", "くる", "conditional"],
+    ["こよう", "くる", "volitional"],
+    ["こい", "くる", "imperative"],
+    ["きた", "くる", "past"],
+    ["きて", "くる", "te-form"]
+  ];
+  const TE_ASPECT_SUFFIXES = [
+    ["いる", "progressive"],
+    ["います", "polite progressive"],
+    ["いました", "polite progressive past"],
+    ["いません", "polite progressive negative"],
+    ["いませんでした", "polite progressive negative past"],
+    ["いた", "progressive past"],
+    ["いて", "progressive te-form"],
+    ["いない", "progressive negative"],
+    ["いなかった", "progressive negative past"],
+    ["いれば", "progressive conditional"],
+    ["る", "contracted progressive"],
+    ["ます", "contracted polite progressive"],
+    ["ました", "contracted polite progressive past"],
+    ["た", "contracted progressive past"],
+    ["て", "contracted progressive te-form"],
+    ["ない", "contracted progressive negative"],
+    ["なかった", "contracted progressive negative past"]
+  ];
+  const TE_COMPLETION_SUFFIXES = [
+    ["しまう", "completion"],
+    ["しまった", "completion past"],
+    ["しまって", "completion te-form"],
+    ["しまわない", "completion negative"],
+    ["しまいます", "polite completion"],
+    ["しまいました", "polite completion past"]
+  ];
+  const CONTRACTED_COMPLETION_SUFFIXES = [
+    ["う", "contracted completion"],
+    ["った", "contracted completion past"],
+    ["って", "contracted completion te-form"],
+    ["わない", "contracted completion negative"],
+    ["います", "contracted polite completion"],
+    ["いました", "contracted polite completion past"]
+  ];
+  const RULES = [
+    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+    ...teCompoundRules("て", "る", ["v1"]),
+    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+  ];
+  const DEINFLECTION_CACHE_MAX = 4e3;
+  const deinflectionCache = /* @__PURE__ */ new Map();
+  function deinflectJapaneseTerm(source) {
+    const cached = deinflectionCache.get(source);
+    if (cached) return cached;
+    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
+    const queue = [results[0]];
+    expandDeinflectionQueue(queue, results, seen);
+    const sorted = sortDeinflectedTerms(results);
+    if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
+      const oldest = deinflectionCache.keys().next().value;
+      if (oldest !== void 0) deinflectionCache.delete(oldest);
+    }
+    deinflectionCache.set(source, sorted);
+    return sorted;
+  }
+  function expandDeinflectionQueue(queue, results, seen) {
+    for (let index = 0; index < queue.length; index++) {
+      expandDeinflectedTerm(queue[index], queue, results, seen);
+    }
+  }
+  function expandDeinflectedTerm(current, queue, results, seen) {
+    if (isTerminalDeinflection(current)) return;
+    for (const rule of RULES) {
+      rememberExpandedDeinflection(current, rule, queue, results, seen);
+    }
+  }
+  function isTerminalDeinflection(current) {
+    return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
+  }
+  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
+    const next = deinflectedCandidate(current, rule);
+    if (!next) return;
+    if (!rememberDeinflectedCandidate(next, seen)) return;
+    results.push(next);
+    queue.push(next);
+  }
+  function sortDeinflectedTerms(results) {
+    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+  }
+  function deinflectedCandidate(current, rule) {
+    if (!canApplyDeinflectionRule(current.term, rule)) return null;
+    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
+    if (!term || term === current.term) return null;
+    return {
+      term,
+      rules: rule.rules,
+      reasons: [...current.reasons, rule.reason],
+      depth: current.depth + 1
+    };
+  }
+  function canApplyDeinflectionRule(term, rule) {
+    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+  }
+  function rememberDeinflectedCandidate(candidate, seen) {
+    const key = candidateKey(candidate);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }
+  function termRulesMatch(entryRules, candidateRules) {
+    if (!candidateRules.length) return true;
+    const entryRuleSet = entryRulesSet(entryRules);
+    return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+  }
+  function entryRulesSet(entryRules) {
+    return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
+  }
+  function termRuleMatches(rule, entryRuleSet) {
+    return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
+  }
+  const TERM_RULE_MATCHERS = [
+    (rule, entryRuleSet) => entryRuleSet.has(rule),
+    (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
+    (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
+    (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
+    (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
+  ];
+  function godanRules(row) {
+    const rules = row.rules;
+    return [
+      ...teCompoundRules(row.te, row.ending, rules),
+      { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+      { from: row.i, to: row.ending, reason: "continuative stem", rules },
+      { from: row.te, to: row.ending, reason: "te-form", rules },
+      { from: row.ta, to: row.ending, reason: "past", rules },
+      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
+      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+      { from: row.e, to: row.ending, reason: "imperative", rules }
+    ];
+  }
+  function teCompoundRules(te, to, rules) {
+    return [
+      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...contractedCompletionRules(te, to, rules)
+    ];
+  }
+  function contractedCompletionRules(te, to, rules) {
+    const stem = contractedCompletionStem(te);
+    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+  }
+  function contractedCompletionStem(te) {
+    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+    return "";
+  }
+  function candidateKey(candidate) {
+    return `${candidate.term}
+${candidate.rules.join(" ")}
+${candidate.depth}`;
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function uniqueStrings(values, options = {}) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const normalized = options.trim ? value?.trim() : value;
+      if (normalized === void 0 || normalized === null) continue;
+      if (options.dropEmpty && !normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  }
+  function uniqueNonEmptyStrings$1(values) {
+    return uniqueStrings(values, { dropEmpty: true });
+  }
+  function uniqueTrimmedStrings(values) {
+    return uniqueStrings(values, { trim: true, dropEmpty: true });
+  }
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stablePositiveHashId(value) {
+    return stableHash32(value) || 1;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
+  }
+  function codePointBoundaryAtOrBefore(text2, offset) {
+    const clamped = Math.max(0, Math.min(offset, text2.length));
+    if (clamped > 0 && clamped < text2.length && isLowSurrogate$1(text2.charCodeAt(clamped)) && isHighSurrogate$1(text2.charCodeAt(clamped - 1))) {
+      return clamped - 1;
+    }
+    return clamped;
+  }
+  function codePointBoundaryAtOrAfter(text2, offset) {
+    const before = codePointBoundaryAtOrBefore(text2, offset);
+    return before === offset ? before : Math.min(text2.length, before + 2);
+  }
+  function codePointSafePrefix(text2, maxUtf16Units) {
+    return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
+  }
+  function lookupSpansStartingInRange(text2, segment, from, to, maxCodePoints) {
+    const offsets = codePointOffsets(text2, segment.start, segment.end);
+    const spans = [];
+    for (let startIndex = 0; startIndex < offsets.length - 1; startIndex++) {
+      const start = offsets[startIndex];
+      if (start < from || start >= to) continue;
+      const lastEndIndex = Math.min(offsets.length - 1, startIndex + maxCodePoints);
+      for (let endIndex = lastEndIndex; endIndex > startIndex; endIndex--) {
+        const end = offsets[endIndex];
+        spans.push({
+          term: text2.slice(start, end),
+          start,
+          end,
+          codePoints: endIndex - startIndex
+        });
+      }
+    }
+    return spans;
+  }
+  function codePointOffsets(text2, start, end) {
+    const safeStart = codePointBoundaryAtOrAfter(text2, start);
+    const safeEnd = codePointBoundaryAtOrBefore(text2, end);
+    const offsets = [safeStart];
+    let offset = safeStart;
+    for (const character of text2.slice(safeStart, safeEnd)) {
+      offset += character.length;
+      offsets.push(offset);
+    }
+    return offsets;
+  }
+  function isHighSurrogate$1(value) {
+    return value >= 55296 && value <= 56319;
+  }
+  function isLowSurrogate$1(value) {
+    return value >= 56320 && value <= 57343;
+  }
+  const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
+    "gu"
+  );
+  const JAPANESE_TEXT_RUN_RE = new RegExp(
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    "gu"
+  );
+  const JAPANESE_CHARACTER_RE = new RegExp(
+    `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
+  const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
+    `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
+  const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+  const SEGMENT_SEPARATORS = "・･゠·•";
+  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
+  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
+  const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^${KANJI_PATTERN}$`, "u");
+  const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(
+    `^${KANJI_PATTERN}[${HIRAGANA_WITH_PROLONGED}]*$`,
+    "u"
+  );
+  const KANJI_KANA_KANJI_SPAN_RE = new RegExp(
+    `${KANJI_LIKE_WITH_COUNTERS_PATTERN}[${HIRAGANA_WITH_PROLONGED}]+${KANJI_LIKE_WITH_COUNTERS_PATTERN}`,
+    "u"
+  );
+  const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
+  const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
+  const SURU_STEM_SEGMENT_RE = new RegExp(
+    `(?:[${KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
+  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+  const KANA_I_ADJECTIVE_END_RE = /い$/u;
+  const SMALL_TSU_RE = /っ/u;
+  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+  const NON_HIRAGANA_SCRIPT_RE = new RegExp(
+    `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
+    "u"
+  );
+  function normalizeFallbackTerm(text2) {
+    return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
+  }
+  function bareFallbackCardFromText(text2, language2 = activeLearningTargetLanguage()) {
+    const spelling = normalizeFallbackTerm(text2);
+    const id = -stablePositiveHashId(`fallback
+${language2}
+${spelling}`);
+    const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
+    return {
+      vid: id,
+      sid: id,
+      rid: 0,
+      spelling,
+      reading: "",
+      language: language2,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      // Segmented fallback has no dictionary or SRS backing: not-in-deck is a
+      // placeholder default, so tag it provisional.
+      provisionalState: true,
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "fallback",
+      ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
+    };
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function fallbackJapaneseSegments(text2) {
+    return segmentJapaneseText(text2);
+  }
+  function segmentJapaneseText(text2) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
+      });
+    }
+    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
+    });
+  }
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
+    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
+      surface: segment.segment,
+      start: offset + segment.index,
+      end: offset + segment.index + segment.segment.length
+    }));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
+    const normalizedSegments = splitTrailingPoliteParticleSegments(
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
+    );
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(normalizedSegments),
+      sourceText
+    );
+  }
+  function splitTrailingPoliteParticleSegments(segments) {
+    return segments.flatMap((segment, index) => {
+      if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
+      const previous = segments[index - 1]?.surface ?? "";
+      if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
+      const particleStart = segment.end - 1;
+      const stem = segment.surface.slice(0, -1);
+      return [
+        ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
+        { surface: "ね", start: particleStart, end: segment.end }
+      ];
+    });
+  }
+  function splitSeparatorSegments(segments) {
+    if (!segments.some((segment) => SEGMENT_SEPARATOR_RE.test(segment.surface))) return segments;
+    return segments.flatMap(splitSeparatorSegment);
+  }
+  function splitSeparatorSegment(segment) {
+    if (!SEGMENT_SEPARATOR_RE.test(segment.surface)) return [segment];
+    const pieces = [];
+    let cursor = 0;
+    for (const match of segment.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+      const index = match.index ?? 0;
+      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment, cursor, index));
+      cursor = index + match[0].length;
+    }
+    if (cursor < segment.surface.length) pieces.push(separatorFreeSegmentSlice(segment, cursor, segment.surface.length));
+    return pieces;
+  }
+  function separatorFreeSegmentSlice(segment, from, to) {
+    return {
+      surface: segment.surface.slice(from, to),
+      start: segment.start + from,
+      end: segment.start + to
+    };
+  }
+  function mergeContiguousKanaSegments(segments) {
+    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = contiguousKanaMergeSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function mergeContiguousKatakanaSegments(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const first2 = segments[index];
+      if (!KATAKANA_SEGMENT_RE.test(first2.surface)) {
+        merged.push(first2);
+        index += 1;
+        continue;
+      }
+      let surface = first2.surface;
+      let runEnd = index + 1;
+      while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+        surface += segments[runEnd].surface;
+        runEnd += 1;
+      }
+      merged.push(runEnd - index > 1 ? { surface, start: first2.start, end: segments[runEnd - 1].end } : first2);
+      index = runEnd;
+    }
+    return merged;
+  }
+  function contiguousKanaMergeSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
+    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first2.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+      const current = segments[index];
+      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      surface += current.surface;
+      lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+      segment: { surface, start: first2.start, end: segments[lastIndex].end },
+      nextIndex: lastIndex + 1
+    };
+  }
+  function contiguousKanaRunEnd(segments, startIndex) {
+    let index = startIndex + 1;
+    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+      index += 1;
+    }
+    return index;
+  }
+  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+    let surface = "";
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+  }
+  function isPureKanaSegment(surface) {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+  }
+  function isKanaContentWordSpan(span) {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+  }
+  function isKanaInflectableBaseShape(span) {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment, sourceText) {
+    const first2 = Array.from(segment.surface)[0] ?? "";
+    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    const second = Array.from(segment.surface)[1] ?? "";
+    if (second === "間") return [segment];
+    return [
+      { surface: first2, start: segment.start, end: segment.start + first2.length },
+      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
+    ];
+  }
+  function splitLeadingParticleSegments(segments) {
+    return segments.flatMap(splitLeadingParticleSegment);
+  }
+  function splitLeadingParticleSegment(segment) {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
+      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+    });
+    if (!prefix) return [segment];
+    return [
+      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
+    ];
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first2.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
+  }
+  function mergeInflectedFallbackSegments(segments, sourceText) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
+    const first2 = segments[startIndex];
+    if (!first2 || isBoundarySegment(first2.surface)) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
+      if (!current) break;
+      surface += current.surface;
+      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
+    }
+    return best;
+  }
+  function fallbackInflectionScanEnd(segments, startIndex) {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+  }
+  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
+    const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+    if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+    if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+  }
+  function isPoliteNegativePastContinuation(segments, index, surface) {
+    return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
+  }
+  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
+    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+  }
+  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+      segment: { surface, start: first2.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  function isBoundarySegment(surface) {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+  }
+  function isInflectionContinuationSegment(surface) {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+  }
+  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+    return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
+  }
+  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+    const first2 = segments[startIndex]?.surface ?? "";
+    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
+    const suffix = surface.slice(first2.length);
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
+    return true;
+  }
+  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment) {
+    const surface = segment.segment.trim();
+    return JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function intlSegmenter() {
+    const candidate = Intl.Segmenter;
+    return typeof candidate === "function" ? candidate : null;
+  }
+  function fallbackJapaneseRunSegment(text2, offset) {
+    const surface = text2.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text2.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function fallbackLookupTermsForText(text2) {
+    const source = normalizeFallbackTerm(text2);
+    if (!source) return [];
+    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
+    return uniqueNonEmptyStrings$1([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+  }
+  function fallbackLookupTermsForCard(card) {
+    const terms = uniqueNonEmptyStrings$1([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+    return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
+  }
+  function isUsefulFallbackLookupCandidate(candidate) {
+    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
+  }
+  function compareJapaneseLookupCandidates(a, b) {
+    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
+  function fallbackRulePriority(candidate) {
+    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+    if (candidate.rules.some((rule) => rule === "v1")) return 1;
+    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+    return 3;
+  }
+  function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
+    const [source, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueNonEmptyStrings$1(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
+  }
+  function hasAmbiguousContinuativeStemCandidate(source) {
+    return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
+  function normalizeGenericLookupText(text2) {
+    return text2.split(/([\u0e33\u0eb3])/u).map((part) => part === "ำ" || part === "ຳ" ? part : part.normalize("NFKC")).join("").replace(/\s+/gu, " ").trim();
+  }
+  function genericLookupTextVariants(text2) {
+    const source = text2.replace(/\s+/gu, " ").trim();
+    return [...new Set([normalizeGenericLookupText(source), source].filter(Boolean))];
+  }
+  function normalizeImportedLookupTerm(entry) {
+    const expression = normalizeGenericLookupText(entry.expression);
+    const reading = normalizeGenericLookupText(entry.reading);
+    return expression === entry.expression && reading === entry.reading ? entry : { ...entry, expression, reading };
+  }
+  function normalizeImportedLookupMeta(entry) {
+    if (typeof entry.expression !== "string") return entry;
+    const expression = normalizeGenericLookupText(entry.expression);
+    return expression === entry.expression ? entry : { ...entry, expression };
+  }
+  const LOOKUP_CANDIDATE_LIMIT = 12;
+  function boundedLookupCandidates(text2, language2, normalizeText, rewrites) {
+    const surface = normalizeText(text2);
+    if (!surface) return [];
+    const candidates = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (term, depth, reasons) => {
+      if (!term || seen.has(term) || candidates.length >= LOOKUP_CANDIDATE_LIMIT) return;
+      seen.add(term);
+      candidates.push({ term, rules: [], reasons, depth });
+    };
+    add(surface, 0, []);
+    const folded = localeLowerCase(surface, language2);
+    const foldedDepth = folded === surface ? 0 : 1;
+    add(folded, 1, ["case fold"]);
+    for (const legacySurface of genericLookupTextVariants(text2).slice(1)) {
+      add(legacySurface, 1, ["source-form fallback"]);
+      const legacyFolded = localeLowerCase(legacySurface, language2);
+      add(legacyFolded, 2, ["source-form fallback", "case fold"]);
+    }
+    for (const rewrite of rewrites) {
+      if (candidates.length >= LOOKUP_CANDIDATE_LIMIT) break;
+      const rewritten = applyLookupRewrite(folded, rewrite);
+      if (rewritten) {
+        add(
+          rewritten,
+          foldedDepth + 1,
+          foldedDepth ? ["case fold", rewrite.reason] : [rewrite.reason]
+        );
+      }
+    }
+    return candidates;
+  }
+  function localeLowerCase(text2, language2) {
+    try {
+      return text2.toLocaleLowerCase(language2);
+    } catch {
+      return text2.toLowerCase();
+    }
+  }
+  function applyLookupRewrite(term, rewrite) {
+    const prefix = rewrite.prefix ?? "";
+    const suffix = rewrite.suffix ?? "";
+    if (prefix && !term.startsWith(prefix)) return null;
+    if (suffix && !term.endsWith(suffix)) return null;
+    if (term.length < prefix.length + suffix.length) return null;
+    const stem = term.slice(prefix.length, suffix ? -suffix.length : void 0);
+    if (rewrite.blockedStemSuffix && stem.endsWith(rewrite.blockedStemSuffix)) return null;
+    if ([...stem].length < rewrite.minStemLength) return null;
+    return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
+  }
+  const MAX_GRAMMAR_HINTS = 12;
+  const MAX_OCCURRENCES_PER_RULE = 2;
+  const GRAMMAR_CACHE_LIMIT = 240;
+  function createLearningTargetGrammar(spec = {}) {
+    const ruleSpecs = [...spec.rules ?? []];
+    const levelScale = normalizedLevelScale(spec.levelScale, ruleSpecs);
+    const compiled = compileGrammarRules(ruleSpecs, levelScale, spec.expandPatternSource);
+    const rules = Object.freeze(compiled.map(({ spec: rule }) => Object.freeze({
+      ruleId: rule.ruleId,
+      level: rule.level,
+      name: rule.name,
+      ...rule.displayNames ? { displayNames: Object.freeze({ ...rule.displayNames }) } : {},
+      url: rule.url
+    })));
+    const normalizeSentence = spec.normalizeSentence ?? defaultNormalizeGrammarSentence;
+    const cache2 = /* @__PURE__ */ new Map();
+    const copyIds = new Map(ruleSpecs.flatMap((rule) => {
+      const copyId = spec.ruleCopyIdFor?.(rule) ?? rule.ruleCopyId;
+      return copyId ? [[rule.ruleId, copyId]] : [];
+    }));
+    return Object.freeze({
+      levelScale,
+      rules,
+      referenceUrl: spec.referenceUrl?.trim() ?? "",
+      detect(sentence) {
+        const normalized = normalizeSentence(sentence);
+        if (!normalized) return [];
+        const cached = cache2.get(normalized);
+        if (cached) return cached;
+        const selected = selectGrammarMatches(compiled, normalized, spec);
+        const matches = Object.freeze(selected.sort(compareGrammarMatches).map(({ priority: _priority, ...match }) => Object.freeze(match)));
+        cache2.set(normalized, matches);
+        if (cache2.size > GRAMMAR_CACHE_LIMIT) {
+          const oldest = cache2.keys().next().value;
+          if (typeof oldest === "string") cache2.delete(oldest);
+        }
+        return matches;
+      },
+      ruleCopyId(ruleId) {
+        return copyIds.get(ruleId) ?? null;
+      }
+    });
+  }
+  function normalizedLevelScale(value, rules) {
+    if (!value) {
+      if (rules.length) throw new TypeError("Grammar rules require a target-owned level scale.");
+      return null;
+    }
+    const id = value.id.trim();
+    const levels = value.levels.map((level) => level.trim()).filter(Boolean);
+    if (!id || !levels.length || new Set(levels).size !== levels.length) {
+      throw new TypeError("Grammar level scales require a stable id and unique level names.");
+    }
+    return Object.freeze({ id, levels: Object.freeze(levels) });
+  }
+  function compileGrammarRules(rules, levelScale, expandPatternSource) {
+    const ids = /* @__PURE__ */ new Set();
+    const levels = new Set(levelScale?.levels ?? []);
+    return Object.freeze(rules.map((rule) => {
+      if (!rule.ruleId.trim() || !rule.name.trim() || !rule.patternSource || !Number.isFinite(rule.priority)) {
+        throw new TypeError(`Invalid grammar rule: ${rule.ruleId || "(missing id)"}`);
+      }
+      if (ids.has(rule.ruleId)) throw new TypeError(`Duplicate grammar rule id: ${rule.ruleId}`);
+      if (!levels.has(rule.level)) {
+        throw new TypeError(`Grammar rule ${rule.ruleId} uses ${rule.level}, outside the ${levelScale?.id ?? "missing"} scale.`);
+      }
+      ids.add(rule.ruleId);
+      const source = expandPatternSource?.(rule.patternSource) ?? rule.patternSource;
+      return Object.freeze({ spec: rule, pattern: new RegExp(source, "gu") });
+    }));
+  }
+  function defaultNormalizeGrammarSentence(sentence) {
+    return sentence.normalize("NFKC");
+  }
+  function selectGrammarMatches(rules, sentence, spec) {
+    const seenMatches = /* @__PURE__ */ new Set();
+    const seenRuleCounts = /* @__PURE__ */ new Map();
+    const selected = [];
+    const ranked = rules.flatMap((rule) => grammarMatches(rule, sentence, spec)).sort(compareRankedGrammarMatches);
+    for (const item of ranked) {
+      const key = `${item.ruleId}:${item.match}:${item.index}`;
+      if (seenMatches.has(key)) continue;
+      const count = seenRuleCounts.get(item.ruleId) ?? 0;
+      if (count >= MAX_OCCURRENCES_PER_RULE) continue;
+      if (selected.some((existing) => shouldSuppressOverlappingMatch(existing, item, spec))) continue;
+      seenMatches.add(key);
+      seenRuleCounts.set(item.ruleId, count + 1);
+      selected.push(item);
+      if (selected.length >= MAX_GRAMMAR_HINTS) break;
+    }
+    return selected;
+  }
+  function grammarMatches(rule, sentence, detector) {
+    return Array.from(sentence.matchAll(rule.pattern)).filter((match) => !detector.shouldSkipMatch?.(rule.spec, grammarMatchContext(sentence, match))).map((match) => rankedGrammarMatch(rule.spec, match, detector.learnerFacingMatch)).filter((match) => Boolean(match));
+  }
+  function rankedGrammarMatch(rule, match, learnerFacingMatch) {
+    const rawMatch = match[0];
+    const learnerMatch = learnerFacingMatch?.(rule, rawMatch) ?? rawMatch;
+    if (!learnerMatch) return null;
+    const learnerOffset = rawMatch.lastIndexOf(learnerMatch);
+    const indexOffset = learnerOffset > 0 ? learnerOffset : 0;
+    return {
+      ruleId: rule.ruleId,
+      name: rule.name,
+      level: rule.level,
+      ...rule.displayNames ? { displayNames: rule.displayNames } : {},
+      match: learnerMatch,
+      confidence: rule.confidence,
+      index: (match.index ?? 0) + indexOffset,
+      url: rule.url,
+      priority: rule.priority
+    };
+  }
+  function grammarMatchContext(sentence, match) {
+    const rawMatch = match[0];
+    const start = match.index ?? 0;
+    const end = start + rawMatch.length;
+    return {
+      rawMatch,
+      before: sentence.slice(Math.max(0, start - 4), start),
+      following: sentence.slice(end, end + 6)
+    };
+  }
+  function compareRankedGrammarMatches(a, b) {
+    return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
+  }
+  function compareGrammarMatches(a, b) {
+    return a.index - b.index || a.name.localeCompare(b.name);
+  }
+  function shouldSuppressOverlappingMatch(existing, next, spec) {
+    if (!grammarMatchRangesOverlap(existing, next)) return false;
+    if (existing.match === next.match && existing.index === next.index) return true;
+    if (spec.keepOverlappingMatches?.(existing, next)) return false;
+    if (existing.priority < 40 && next.priority < 40) return false;
+    return next.priority >= 40 && existing.priority < next.priority || grammarMatchContains(existing, next) && existing.priority <= next.priority && existing.match.length > next.match.length;
+  }
+  function grammarMatchRangesOverlap(a, b) {
+    const aEnd = a.index + a.match.length;
+    const bEnd = b.index + b.match.length;
+    return a.index < bEnd && b.index < aEnd;
+  }
+  function grammarMatchContains(outer, inner) {
+    return inner.index >= outer.index && inner.index + inner.match.length <= outer.index + outer.match.length;
+  }
+  const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
+  const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+  const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+  function isSupportedLanguageProfileSchemaVersion(value) {
+    return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+  }
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+  function isSupportedLearningTargetModuleInterfaceVersion(value) {
+    return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
+  }
+  const LEARNING_TARGET_CAPABILITY_IDS = [
+    "term-lookup",
+    "character-lookup",
+    "segmentation",
+    "morphology",
+    "reading-annotation",
+    "pronunciation",
+    "frequency",
+    "examples",
+    "grammar",
+    "audio",
+    "text-to-speech",
+    "ocr",
+    "subtitles",
+    "mining",
+    "srs",
+    "grading",
+    "typing",
+    "handwriting"
+  ];
+  const NO_CAPABILITIES = Object.freeze(
+    Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
+  );
+  function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+    return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
+  }
+  function createLearningTargetModule(spec) {
+    const language2 = canonicalLanguageTag(spec.language) ?? spec.language;
+    const base = languageSubtag(language2) ?? language2;
+    const regionalTag = maximizedLocaleTag(language2);
+    const direction = spec.direction ?? localeDirection(language2);
+    const detects = detectorFor(spec.detectsText);
+    const normalizeText = spec.normalizeText ?? defaultNormalizeText;
+    const segment = spec.segment ?? ((text2) => defaultSegment(text2, language2));
+    const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+    return Object.freeze({
+      interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
+      id: spec.id,
+      language: language2,
+      direction,
+      collationLocale: spec.collationLocale ?? language2,
+      capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+      featureSemantics: Object.freeze({
+        ...spec.featureSemantics,
+        phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
+      }),
+      typography: Object.freeze({
+        contentLocale: language2,
+        direction,
+        readingAnnotationMode: "none",
+        supportsVerticalWriting: false,
+        ...spec.typography
+      }),
+      typing: Object.freeze({
+        inputNormalizer: "preserve",
+        answerNormalizer: "target-text",
+        ...spec.typing
+      }),
+      audio: Object.freeze({
+        speechSynthesisLocale: regionalTag,
+        templateLanguageToken: base,
+        ...spec.audio
+      }),
+      ocr: Object.freeze({
+        defaultLanguage: regionalTag,
+        languageHint: base,
+        ...spec.ocr
+      }),
+      subtitles: Object.freeze({
+        languageTag: spec.subtitles?.languageTag ?? base,
+        languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
+      }),
+      grammar,
+      lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+      ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
+      ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
+      lookupSweepMode: spec.lookupSweepMode ?? "global-ranked",
+      normalizeText,
+      isLookupableText(text2) {
+        return Boolean(text2) && detects(text2);
+      },
+      segment,
+      pointerWordSegments: spec.pointerWordSegments ?? segment,
+      lookupCandidates: spec.lookupCandidates ?? ((text2) => boundedLookupCandidates(text2, language2, normalizeText, spec.lookupRewrites ?? [])),
+      compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
+      matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
+      normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
+    });
+  }
+  function maximizedLocaleTag(language2) {
+    try {
+      const locale = new Intl.Locale(language2);
+      if (locale.region) return `${locale.language}-${locale.region}`;
+      const region = locale.maximize().region;
+      return region ? `${locale.language}-${region}` : locale.language;
+    } catch {
+      return language2;
+    }
+  }
+  function detectorFor(value) {
+    if (typeof value === "function") return value;
+    if (value instanceof RegExp) return (text2) => value.test(text2);
+    return () => false;
+  }
+  function defaultNormalizeText(text2) {
+    return normalizeGenericLookupText(text2);
+  }
+  function defaultSegment(text2, language2) {
+    return icuWordSegments(text2, language2) ?? whitespaceSegments(text2);
+  }
+  function whitespaceSegments(text2) {
+    const segments = [];
+    const pattern = /\S+/gu;
+    let match = pattern.exec(text2);
+    while (match) {
+      segments.push({ text: match[0], start: match.index, end: match.index + match[0].length });
+      match = pattern.exec(text2);
+    }
+    return segments;
+  }
+  function defaultCompareLookupCandidates(a, b) {
+    return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
+    if (!candidateRules.length) return true;
+    const entryRuleSet = new Set((entryRules ?? "").split(/\s+/u).filter(Boolean));
+    return candidateRules.some((rule) => entryRuleSet.has(rule));
+  }
+  function defaultNormalizeReading(spelling, reading) {
+    return (reading ?? "").trim() || spelling.trim();
+  }
+  const GRAMMAR_PATTERN_DATA = String.raw`
+potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/
+potential-dekiru	N4	できる	{P}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	8	h
+obligation-nakereba-naranai	N4	なければならない	{F}(?:なければならない|なければなりません|なくてはならない|なくてはなりません|なくてはいけない|なくてはいけません|なければいけない|なければいけません|なきゃ(?:いけない|だめ)?|なくちゃ(?:いけない|だめ)?|ないといけない|ねばならない)	4	h	@g/nakereba-naranai/
+permission-not-required-nakutemo-ii	N5	なくてもいい	{F}なくても(?:いい|よい|大丈夫)(?:です)?	4	h
+prohibition-tewa-ikenai	N4	てはいけない	{F}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)なら(?:ない|ません)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)	5	h	@g/tewa-ikenai/
+permission-temo-ii	N5	てもいい	{F}[てで]も(?:いい|よい|よかった|よくない|よくありません|大丈夫(?:です)?|かまわない|かまいません|構わない|構いません)(?:です)?	5	h	@g/temoii/
+request-te-kudasai	N5	てください	{F}[てで]ください(?:ませんか)?	6	h
+polite-request-te-itadakemasen-ka	N4	ていただけませんか	{F}[てで](?:いただけませんか|くださいませんか)	6	h
+request-naide-kudasai	N5	ないでください	{F}ないでください	5	h
+advice-hou-ga-ii	N4	方がいい	{F}ほうが(?:いい|よい)(?:です)?	6	h
+command-nasai	N4	なさい	{F}なさい	6	h
+experience-ta-koto-ga-aru	N4	たことがある	{F}たことが(?:あ(?:る|ります|った|りました|りません|りませんでした)|ない|なかった|ありません|ありませんでした)	6	h	@g/ta-koto-ga-aru/
+completion-te-shimau	N4	てしまう	(?:{F}[てで]しま(?:う|います|った|いました|わない|いません|わなかった|いませんでした)|{F}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|ちゃわない|ちゃいません|ちゃわなかった|ちゃいませんでした|じゃう|じゃいます|じゃった|じゃいました|じゃわない|じゃいません|じゃわなかった|じゃいませんでした))	6	h	@g/te-shimau/
+attempt-te-miru	N4	てみる	{F}[てで]み(?:る|ます|た|ました|たい|ない|ません|なかった|ませんでした)	6	h	@g/te-miru/
+preparation-te-oku	N4	ておく	(?:{F}[てで]お(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした)|{F}(?:とく|ときます|といた|ときました|とかない|ときません|とかなかった|ときませんでした|どく|どきます|どいた|どきました|どかない|どきません|どかなかった|どきませんでした))	6	h	@g/teoku/
+desire-other-te-hoshii	N4	てほしい	{F}[てで]ほし(?:い|いです|かった|かったです|くない|くありません|くなかった|くありませんでした)	7	h
+benefactive-te-kureru-morau	N4	てくれる / てもらう	{F}[てで](?:くれ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|くださ(?:る|います|った|いました|らない|いません|らなかった|いませんでした)|あげ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|や(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|もら(?:う|います|った|いました|わない|いません|わなかった|いませんでした|え(?:る|ます|た|ました|ない|ません|なかった|ませんでした))|いただ(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした|け(?:る|ます|た|ました|ない|ません|なかった|ませんでした)))	8	m	@g/te-kureru/
+change-you-ni-naru	N4	ようになる	{F}ようにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています|っていない|っていません)	8	h	@g/you-ni-naru/
+habit-you-ni-suru	N4	ようにする	{F}ように(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	8	h	@g/you-ni-suru/
+verb-suru	N5	する	(?:{P}を)?{P}(?:す(?:る|れば|るな|るの|ること|るため|る前|る後)|し(?:ます|ました|ません|ませんでした|た|て|ない|なかった|なければ|よう|ろ)|され(?:る|ます|た|ました)|させ(?:る|ます|た|ました)|でき(?:る|ます|た|ました|ない|ません))	1d	h	@g/suru/
+choice-ni-suru	N4	にする	{P}に(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
+change-ku-suru	N4	くする	{P}く(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
+change-ku-naru-ni-naru	N5	くなる / になる	(?:{P}くな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}(?<!よう)にな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}とな(?:る|ります|った|りました))	a	h
+copula-desu-da	N5	です / だ	(?:です|でした|だ|だった)(?=$|[、。！？!?よねな])	17	h	@g/desu/
+negative-copula-dewa-nai	N5	ではない / じゃない	(?:では|じゃ)(?:ない|ありません|なかった|ありませんでした)	c	h
+formal-copula-de-aru	N3	である	であ(?:る|ります|った|りました)	k	h
+voice-causative-passive	N3	させられる	{F}(?:させられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]され(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	8	m	@g/verb-causative-form-saseru/
+voice-causative	N4	させる	{F}(?:させ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-causative-form-saseru/
+voice-passive-potential	N4	れる / られる	{F}(?:られ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまわ]れ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-passive-form-rareru/
+evidence-rashii-mitai	N4	らしい / みたい	(?:{F}らし(?:い|かった|くない|く)|{F}みたい(?:だ|です|でした|じゃない|ではない|に|な)?(?=$|[、。！？!?ねよ]))	9	m	@g/rashii/
+modality-kamoshirenai	N4	かもしれない	(?:かもしれない|かもしれません|かも)	9	h	@g/kamoshirenai/
+modality-deshou-darou	N5	でしょう / だろう	(?:でしょう|でしょうか|だろう|だろうか)	a	h	@g/deshou/
+quotation-to-omou	N4	と思う	{F}と思(?:う|います|った|いました|っている|っています|わない|いません|わなかった|いませんでした)	a	h	@g/to-omou/
+attempt-you-to-suru	N3	ようとする	{F}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	b	m	@g/verb-volitional-form-you/
+plan-tsumori-yotei	N4	つもり / 予定	{F}(?:つもり|予定)(?:だ|です|だった|でした)?	c	m	@g/tsumori/
+expectation-hazu	N4	はず	{F}はず(?:だ|です|だった|でした|がない|はない)?	c	h	@g/hazu/
+reasoning-wake	N3	わけ	{F}わけ(?:ではない|じゃない|がない|にはいかない|だ|です)?	o	m	@g/wake/
+reasoning-wake-dewa-nai	N3	わけではない	{F}わけ(?:では|じゃ)(?:ない|ありません)	b	h
+impossibility-wake-ga-nai	N3	わけがない	{F}わけが(?:ない|ありません)	b	h
+constraint-wake-ni-wa-ikanai	N3	わけにはいかない	{F}わけにはい(?:かない|きません)	b	h
+purpose-tame-ni	N4	ために	{F}ために	c	h	@g/tame-ni/
+purpose-you-ni	N4	ように	{F}ように	s	m	@g/you-ni/
+timing-tokoro	N4	ところ	{F}ところ(?:だ|です|だった|でした|で|に)?	e	m	@j/tokoro-bakari/
+simultaneous-nagara	N4	ながら	{F}(?<!残念)ながら	e	h	@g/nagara/
+state-mama	N3	まま	{F}まま	f	m	@g/mama/
+list-tari	N5	たり	(?:[^、。！？!?\\s]{1,30}?[だた]り[^、。！？!?\\s]{1,30}?[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした)?|{F}[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした))	g	m	@g/tari/
+limitation-bakari	N4	ばかり	{F}ばかり	g	m	@j/tokoro-bakari/
+recent-ta-bakari	N4	たばかり	{F}たばかり(?:だ|です|だった|でした)?	c	h	@j/tokoro-bakari/
+limitation-dake-shika	N5	だけ / しか	{F}(?:だけ|しか)	i	m	@g/dake/
+degree-hodo-kurai	N4	ほど / くらい	{F}(?:ほど|くらい|ぐらい)	i	m	@g/hodo/
+role-toshite	N3	として	{F}として	i	h
+relation-ni-yotte	N3	によって	{F}によ(?:って|る)	i
+topic-ni-tsuite	N3	について	{F}について	i	h
+target-ni-taishite	N3	に対して	{F}に対(?:して|する|し)	i
+concession-ni-mo-kakawarazu	N2	にもかかわらず	{F}にもかかわらず	i	h
+concession-kuse-ni	N3	くせに	{F}くせに	i
+suffix-tachi	N5	たち / 達	{P}(?:たち|(?<!友)達)	1e
+particle-wa	N5	は	{P}は(?!ず)	1j	h	@g/particle-wa/
+particle-ga	N5	が	{P}が	1j	h	@g/particle-ga/
+particle-wo	N5	を	{P}を	1j	h	@g/particle-wo/
+particle-de	N5	で	{P}(?<![まん])で(?!き|す|し)	1j	m	@g/particle-de/
+particle-ni	N5	に	{P}に(?!なる)	1j	m	@g/particle-ni/
+particle-e	N5	へ	{P}へ	1j
+particle-to	N5	と	{P}(?<![っッこコ])と(?!して|いう|思)	1j	m	@g/particle-to/
+particle-no	N5	の	{P}の	1j	m	@g/particle-no-noun-modifier/
+particle-mo	N5	も	{P}も	1j
+particle-ya	N5	や	{P}や	1j
+aspect-te-iru	N5	ている	{F}[てで](?:いる|います|いた|いました|いない|いません|いなかった|いませんでした|る|た)	14	h	@g/verb-continuous-form-teiru/
+aspect-te-aru	N4	てある	{F}[てで]あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)	c	h
+aspect-te-kuru	N4	てくる	{F}[てで](?:くる|きます|きた|きました|こない|きません|こなかった|きませんでした)	k
+aspect-te-iku	N4	ていく	{F}[てで]い(?:く|きます|った|きました|かない|きません|かなかった|きませんでした)	k
+desire-tai	N5	たい	{F}(?:たい(?:です)?|たく(?:ない|ありません|なかった|ありませんでした)|たかった(?:です)?)	18	h	@g/tai-form/
+ease-yasui-nikui	N4	やすい / にくい	{F}(?:やすい|にくい|づらい)	m	h
+excess-sugiru	N4	すぎる	{F}すぎ(?:る|ます|た|ました|て|ない|ません|なかった|ませんでした|だ|です)	m	h
+method-kata	N5	方	{F}方	1c
+negative-nai	N5	ない	{F}(?:ない|ません|なかった|ませんでした)	1a	m	@g/verb-negative-nai-form/
+polite-past-mashita	N5	ました	{F}ました	18	h	@g/masu/
+polite-masu	N5	ます	{F}ます	19	m	@g/masu/
+conditional-tara	N4	たら	{F}たら	h	h	@g/conditional-form-tara/
+conditional-ba	N4	ば	{F}(?:えば|ければ)	i	h	@g/verb-conditional-form-ba/
+conditional-ba-ii	N4	ばいい / ばよかった	{F}(?:えば|ければ|[えけげせてねべめれ]ば)(?:いい|よい|よかった)(?:です)?	d
+conditional-nara	N4	なら	{F}なら(?:ば)?	i	h
+conditional-to	N4	と	{F}と(?=、)	12
+concession-temo-demo	N4	ても / でも	{F}[てで]も	s	m	@g/temo/
+reason-node	N4	ので	(?:なので|ので)(?!は)	m	h	@g/conjunctive-particle-node/
+reason-kara	N5	から	{F}から	z	m	@g/particle-kara/
+appearance-sou	N4	そう	{F}そう(?:に|な)?	u	m	@g/verb-sou/
+hearsay-sou-da	N4	そうだ	{F}(?:る|い|だ|た|ない)そう(?:だ|です)	j
+volitional-you	N5	よう	{F}(?:よう|ろう)	19	m	@g/verb-volitional-form-you/
+concession-noni	N4	のに	のに	k	h	@g/conjunctive-particle-noni/
+nominalizer-koto	N5	こと	こと(?:が|を|に|は|も)	16	m	@g/koto/
+plain-past-ta	N5	た	(?:{F}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)|(?<!で)した)(?![いらり])	1b
+sequence-te-kara	N5	てから	{F}[てで]から	d	h
+time-mae-ni	N5	前に	{F}前に	m
+time-ato-de-ni	N5	後で / 後に	{F}後(?:で|に)	m
+time-toki	N5	とき	{F}とき	m
+limit-made-made-ni	N5	まで / までに	{F}まで(?:に)?	s
+comparison-yori-nohou	N5	より / の方が	{F}(?:より|のほうが|の方が)	u
+superlative-ichiban	N5	一番	一番	m	h
+question-ka-douka	N4	かどうか	{F}かどうか	d	h
+purpose-masu-stem-ni-iku	N5	に行く / に来る	{F}[いきぎしじちにびみりえけげせてねべめ見寝出]に(?:行(?:く|きます|った|きました)|来(?:る|ます|た|ました)|帰(?:る|ります|った|りました))	e	h
+nominalizer-no	N5	の	{F}の(?=[はがをにも])	i	m	@g/no-nominalizer/
+quotation-to-iu	N4	という	{F}という	e
+casual-tte	N4	って	{F}って(?=(?:言|聞|思|呼|書|いう|こと|、|。|？|!|！|$))	o
+explanation-n-desu	N5	んです / のです	{F}(?:ん|の)です	m
+explanation-no-da	N4	のだ / んだ	{F}(?:の|ん)(?:だ|だった|じゃない|ではない)	m
+existence-ga-aru-iru	N5	がある / がいる	{P}が(?:あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|い(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	o	h
+skill-ga-suki-jouzu-heta	N5	が好き / が上手 / が下手	{P}が(?:好き|すき|上手|じょうず|下手|へた)(?:だ|です|ではない|じゃない)?	i	h
+skill-no-ga-suki	N5	のが好き	{F}のが(?:好き|すき|嫌い|きらい|上手|じょうず|下手|へた|得意|苦手)(?:だ|です|ではない|じゃない)?	g	h
+invitation-mashou	N5	ましょう / ましょうか	{F}ましょう(?:か)?	c	h
+invitation-masen-ka	N5	ませんか	{F}ませんか	b	h
+relief-te-yokatta	N4	てよかった	{F}[てで]よかった(?:です)?	a	h
+without-zuni	N4	ずに	{F}ずに	c	h
+without-naide	N4	ないで	{F}ないで(?!ください)	g	h
+apology-te-sumimasen	N4	てすみません	{F}[てで]すみません	a	h
+necessity-ga-hitsuyou	N4	が必要	{P}が必要(?:だ|です|だった|でした)?	f	h
+sensation-ga-suru	N4	がする	{P}が(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	d	h
+case-baai	N4	場合	{F}場合(?:は|には)?	g	h
+examples-nado	N4	など	{P}など	g	h
+examples-toka	N4	とか	{F}とか(?:{F}とか)?	i
+hearsay-to-iwarete-iru	N4	と言われている	{F}と言われてい(?:る|ます|ない|ません)|{F}と言われ(?:た|ました)	a	h
+hearsay-to-kiita	N4	と聞いた	{F}と聞(?:いた|きました|いている|いています)	c	h
+similarity-you-da	N4	ようだ / ような	{F}よう(?:だ|です|な|に)	t
+permission-sasete-kudasai	N4	させてください	{F}させてください	5	h
+decision-koto-ni-suru	N4	ことにする	{F}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	9	h
+arrangement-koto-ni-naru	N4	ことになる	{F}ことにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)	9	h
+honorific-o-go-ni-naru-suru	N3	お〜になる / お〜する	(?:お|ご){F}(?:になる|になります|する|します|いたす|いたします|ください)	8
+polite-gozaimasu	N5	ございます	{F}ござい(?:ます|ました|ません|ませんでした)	u
+advice-beki	N3	べき	{F}べき(?:だ|です|ではない|じゃない)?	f	h
+time-aida-aida-ni	N4	間 / 間に	{F}間(?:に|は)?	m
+time-uchi-ni	N3	うちに	{F}うちに	e
+time-saichuu-ni	N3	最中に	{F}最中に	g	h
+repetition-tabi-ni	N3	たびに	{F}たびに	e	h
+incidental-tsuide-ni	N3	ついでに	{F}ついでに	e
+phase-compound-verb	N4	始める / 続ける / 終わる	{F}(?:(?:始め|続け)(?:る|ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした)|(?:出し|終わ)(?:る|ます|た|ました))	i
+state-ppanashi	N3	っぱなし	{F}っぱなし	e	h
+covered-darake	N3	だらけ	{F}だらけ	f	h
+fresh-tate	N3	たて	{F}たて	i
+elapsed-buri-ni	N3	ぶりに	{F}ぶりに	e	h
+interval-goto-ni	N3	ごとに	{F}ごとに	e	h
+interval-oki-ni	N3	おきに	{F}おきに	f	h
+emphasis-kara-koso	N3	からこそ	{F}からこそ	c	h
+source-ni-yoru-to	N3	によると / によれば	{F}によ(?:ると|れば)	c	h
+topic-ni-kansuru	N3	に関する	{F}に関する	d	h
+context-ni-okeru	N3	における	{F}における	d	h
+standard-ni-shite-wa	N3	にしては	{F}にしては	e	h
+simultaneous-to-douji-ni	N3	と同時に	{F}と同時に	c	h
+supposition-to-shitara	N3	としたら / とすれば	{F}と(?:したら|すれば|すると)	d	h
+almost-tokoro-datta	N3	ところだった	{F}ところ(?:だった|でした)	c	h
+nonlimiting-wa-mochiron	N3	はもちろん	{F}はもちろん	e	h
+pretend-furi-wo-suru	N3	ふりをする	{F}ふりを(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています))	c	h
+instant-ta-totan-ni	N3	たとたんに	{F}たとたん(?:に)?	c	h
+difficulty-gatai	N3	がたい	{F}がたい	i	h
+only-shika-nai	N3	しかない	{F}しか(?:ない|ありません|なかった|ありませんでした)	c	h
+emphasis-sae	N3	さえ / でさえ	[^、。！？!?\s]{1,24}(?:で)?さえ	i
+emphasis-koso	N3	こそ	{P}こそ	i
+try-te-goran	N3	てごらん	{F}[てで]ごらん	d	h
+cause-sei-okage-de	N3	せいで / おかげで	{F}(?:せい|おかげ)で	e	h
+manner-toori	N3	とおり	{F}(?:とおり|通り)(?:に|だ|です)?	g	h
+certainty-ni-chigai-nai	N3	に違いない	{F}に違い(?:ない|ありません)	f	h
+certainty-ni-kimatte-iru	N3	に決まっている	{F}に決まってい(?:る|ます)	f	h
+qualification-to-wa-kagiranai	N3	とは限らない	{F}とは限(?:らない|りません)	f	h
+contrast-ippou-de	N3	一方で	{F}一方(?:で)?	g
+contrast-hanmen	N3	反面	{F}反面	g
+substitution-kawari-ni	N3	かわりに	{F}かわりに	g
+topic-ni-kanshite	N3	に関して	{F}に関して	h	h
+comparison-ni-kurabete	N3	に比べて	{F}に比べて	h	h
+basis-ni-motozuite	N3	に基づいて	{F}に基づいて	h	h
+following-ni-sotte	N3	に沿って	{F}に沿って	h
+following-change-ni-shitagatte	N3	に従って	{F}に従って	h
+change-ni-tsurete	N3	につれて	{F}につれて	h
+together-to-tomo-ni	N3	とともに	{F}とともに	h
+context-ni-oite	N3	において	{F}において	h	h
+means-wo-tsuujite-tooshite	N3	を通じて / を通して	{F}を通(?:じて|して)	h
+representative-wo-hajime	N3	をはじめ	{F}をはじめ	h
+limit-ni-kagiru-kagirazu	N3	に限る / に限らず	{F}に限(?:る|ります|らない|らず|って)	h
+suffix-gachi	N3	がち	{F}がち	o
+suffix-gimi	N3	気味	{F}気味	o
+suffix-ge	N3	げ	{F}げ	o
+suffix-ppoi	N3	っぽい	{F}っぽい	o
+negative-youni-nai	N3	ようがない	{F}ようが(?:ない|ありません)	g	h
+impossible-kkonai	N3	っこない	{F}っこない	i
+condition-kara-ni-wa	N2	からには	{F}からには	c	h
+qualification-kara-to-itte	N2	からといって	{F}からといって	c	h
+condition-nai-kagiri	N2	ない限り	{F}ない限り	c	h
+condition-ijou-wa	N2	以上は	{F}以上は	b	h
+condition-ue-wa	N2	上は	{F}上は	c	h
+sequence-ue-de	N2	上で	{F}上で	d	h
+addition-ue-ni	N2	上に	{F}上に	d	h
+viewpoint-kara-miru-to	N2	から見ると / からすると	{F}から(?:見ると|見れば|すると|すれば|言うと|言えば)	g
+starting-kara-shite	N2	からして	{F}からして	g
+concession-ni-shitemo-toshitemo	N2	にしても / としても	{F}(?:にしても|としても)	e	h
+concession-ni-shiro-ni-seyo	N2	にしろ / にせよ	{F}に(?:しろ|せよ)	e	h
+after-all-ageku	N2	あげく	{F}あげく(?:に)?	d	h
+after-effort-sue-ni	N2	末に	{F}末に	d	h
+only-ni-suginai	N2	にすぎない	{F}にすぎ(?:ない|ません)	e	h
+essence-ni-hoka-naranai	N2	にほかならない	{F}にほかならない	e	h
+necessity-zaru-wo-enai	N2	ざるを得ない	{F}ざるを得(?:ない|ません)	a	h
+compulsion-zu-ni-wa-irarenai	N2	ずにはいられない	{F}(?:ずには|ないでは)いられ(?:ない|ません|なかった|ませんでした)	a	h
+possibility-eru-enai	N2	得る / 得ない	{F}得(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	k
+risk-kanenai	N2	かねない	{F}かね(?:ない|ません)	e	h
+difficulty-kaneru	N2	かねる	{F}かね(?:る|ます|た|ました)	e	h
+emotion-te-naranai	N2	てならない	{F}[てで]ならない	e
+emotion-te-tamaranai	N2	てたまらない	{F}[てで]たまらない	e
+emotion-te-shouganai	N2	てしょうがない	{F}[てで](?:しょうがない|仕方がない)	e
+timing-shidai	N2	次第	{F}次第	g
+time-sai-ni	N2	際に	{F}際に	g	h
+occasion-ni-atatte	N2	にあたって	{F}にあたって	g	h
+occasion-ni-saishite	N2	に際して	{F}に際して	g	h
+prior-ni-sakidatte	N2	に先立って	{F}に先立って	g	h
+trigger-wo-kikkake-ni	N2	をきっかけに	{F}をきっかけに	g	h
+trigger-wo-keiki-ni	N2	を契機に	{F}を契機に	g
+span-ni-watatte	N2	にわたって	{F}にわたって	h	h
+accompany-ni-tomonatte	N2	に伴って	{F}に伴って	h	h
+response-ni-oujite	N2	に応じて	{F}に応じて	h
+basis-wo-fumaete	N2	を踏まえて	{F}を踏まえて	h	h
+merit-dake-atte	N2	だけあって	{F}だけあって	g
+because-dake-ni	N2	だけに	{F}だけに	g
+concession-youga-maiga	N1	ようが / まいが	{F}(?:ろうが|ようが){F}まいが	8	h
+concession-nagara-mo	N2	ながらも	{F}ながらも	g
+continuation-tsutsu	N2	つつ / つつある	{F}つつ(?:ある)?	i
+cause-bakari-ni	N2	ばかりに	{F}ばかりに	f	h
+contrast-dokoro-ka	N2	どころか	{F}どころか	f	h
+impossible-dokoro-dewa-nai	N2	どころではない	{F}どころではない	f	h
+nonlimiting-dake-denaku	N3	だけでなく	{F}だけでなく	k	h
+regardless-ni-kakawarazu	N2	にかかわらず	{F}にかかわらず	g	h
+contrary-ni-hanshite	N2	に反して	{F}に反して	g	h
+addition-ni-kuwaete	N2	に加えて	{F}に加えて	g	h
+target-ni-kotaete	N2	に応えて	{F}に(?:応|こた)えて	h
+center-wo-chuushin-ni	N2	を中心に	{F}を中心に	h	h
+regardless-wo-toyazu	N2	を問わず	{F}を問わず	g	h
+topic-wo-megutte	N2	をめぐって	{F}をめぐって	g	h
+direction-muke-muki	N3	向け / 向き	{F}向(?:け|き)	m
+relative-wari-ni	N2	わりに	{F}わりに	i
+memory-kke	N2	っけ	{F}っけ	s
+quote-to-iu-yori	N2	というより	{F}というより	i
+example-to-itta	N2	といった	{F}といった(?=[^、。！？!?\\s])	k
+topic-to-ieba	N2	といえば	{F}といえば	k
+thing-mono-da	N2	ものだ	{F}もの(?:だ|です)	o
+cause-mono-dakara	N2	ものだから	{F}ものだから	g
+concession-mono-no	N2	ものの	{F}ものの	g	h
+advice-koto-da	N2	ことだ	{F}こと(?:だ|です)	m
+unnecessary-koto-wa-nai	N2	ことはない	{F}ことは(?:ない|ありません)	e	h
+double-negative-nai-koto-wa-nai	N2	ないことはない	{F}ないことは(?:ない|ありません)	d	h
+explanation-to-iu-koto-da	N2	ということだ	{F}ということ(?:だ|です)	g
+nature-to-iu-mono-da	N2	というものだ	{F}というもの(?:だ|です)	g
+not-nature-to-iu-mono-dewa-nai	N2	というものではない	{F}というものでは(?:ない|ありません)	f
+wish-nai-mono-ka	N2	ないものか	{F}ないものか	g
+instant-ga-hayai-ka	N1	が早いか	{F}が早いか	8	h
+instant-ya-inaya	N1	や否や	{F}や否や	8	h
+instant-nari	N1	なり	{F}なり	c
+repetition-soba-kara	N1	そばから	{F}そばから	a	h
+unexpected-ka-to-omoi-kiya	N1	かと思いきや	{F}かと思いきや	a	h
+incidental-katagata	N1	かたがた	{F}かたがた	e
+incidental-gatera	N1	がてら	{F}がてら	e
+starting-wo-kawakiri-ni	N1	を皮切りに	{F}を皮切りに	e	h
+endpoint-wo-kagiri-ni	N1	を限りに	{F}を限りに	e	h
+means-wo-motte	N1	をもって	{F}をもって	e	h
+turning-wo-sakai-ni	N1	を境に	{F}を境に	f
+range-ni-itaru-made	N1	に至るまで	{F}に至るまで	e	h
+stage-ni-itatte	N1	に至って	{F}に至って(?:は|も)?	f
+context-ni-atte	N1	にあって	{F}にあって	g
+standard-ni-sokushite	N1	に即して	{F}に即して	f	h
+exclusive-wo-oite	N1	をおいて	{F}をおいて	d	h
+defiance-wo-mono-to-mo-sezu	N1	をものともせず	{F}をものともせず	c	h
+forced-wo-yogi-naku-sareru	N1	を余儀なくされる	{F}を余儀なくされ(?:る|ます|た|ました)	a	h
+force-wo-yogi-naku-saseru	N1	を余儀なくさせる	{F}を余儀なくさせ(?:る|ます|た|ました)	a	h
+emotion-ni-taenai	N1	に堪えない	{F}に堪え(?:ない|ません)	e
+reluctance-ni-shinobinai	N1	に忍びない	{F}に忍びない	d	h
+easy-inference-ni-katagunai	N1	に難くない	{F}に難くない	d	h
+worthy-ni-ataru	N1	に値する	{F}に値する	d	h
+sufficient-ni-taru	N1	に足る	{F}に足る	d
+utmost-no-itari	N1	の至り	{F}の至り	g
+extreme-kiwamaru-kiwamarinai	N1	極まる / 極まりない	{F}(?:極まる|極まりない)	g
+deep-wish-te-yamanai	N1	てやまない	{F}[てで]や(?:まない|みません)	c	h
+since-te-kara-to-iu-mono	N1	てからというもの	{F}[てで]からというもの	a	h
+consequence-zu-ni-wa-okanai	N1	ずにはおかない	{F}(?:ずには|ないでは)おかない	a	h
+consequence-zu-ni-wa-sumanai	N1	ずにはすまない	{F}(?:ずには|ないでは)すまない	a	h
+prohibition-bekarazu	N1	べからず	{F}べからず	c	h
+improper-majiki	N1	まじき	{F}まじき	c	h
+role-taru-mono	N1	たるもの	{F}たるもの	c	h
+surprise-tomo-arou-mono-ga	N1	ともあろうものが	{F}ともあろうものが	c	h
+stage-tomo-naru-to	N1	ともなると	{F}ともなると	e
+any-de-are	N1	であれ	{F}であれ	g
+pair-to-ii-to-ii	N1	といい	[^、。！？!?\\s]{1,24}といい[^、。！？!?\\s]{1,24}といい	i
+concession-to-wa-ie	N1	とはいえ	{F}とはいえ	e	h
+without-nakushite	N1	なくして	{F}なくして	d	h
+basis-atte-no	N1	あっての	{F}あっての	d
+unique-nara-dewa	N1	ならでは	{F}ならでは	d	h
+covered-mamire	N1	まみれ	{F}まみれ	k
+full-zukume	N1	ずくめ	{F}ずくめ	k
+depending-ikan	N1	いかん	{F}いかん(?:だ|で|によって|にかかわらず)?	g
+result-shimatsu-da	N1	始末だ	{F}始末(?:だ|です)	i
+rhetorical-denakute-nandarou	N1	でなくてなんだろう	{F}でなくてなんだろう	i
+extreme-to-ittara-nai	N1	といったらない	{F}といったらない	i
+extreme-tara-aryashinai	N1	たらありゃしない	{F}たらありゃしない	i
+best-ni-koshita-koto-wa-nai	N2	に越したことはない	{F}に越したことは(?:ない|ありません)	e	h
+excess-ni-mo-hodo-ga-aru	N1	にもほどがある	{F}にもほどがある	e	h
+emphatic-no-nanno	N1	のなんの	{F}のなんの	m
+minimal-tari-tomo	N1	たりとも	{F}たりとも	e	h
+minimal-dani	N1	だに	{F}だに	k
+minimal-sura	N1	すら	{F}すら	k
+comparison-gotoki	N1	ごとき	{F}ごとき	k
+suffix-meku	N1	めく	{F}め(?:く|いて|き)	k
+unnecessary-made-mo-nai	N1	までもない	{F}までもない	e	h
+unnecessary-ni-wa-oyobanai	N1	には及ばない	{F}には及(?:ばない|びません)	g
+situation-tokoro-wo	N1	ところを	{F}ところを	e	h
+`;
+  function expandGrammarGuideUrl(url) {
+    if (!url) return "";
+    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
+  }
+  function parseGrammarRule(row) {
+    const [ruleId, level, name, patternSource, priority, confidence = "m", url = ""] = row.split("	");
+    if (!ruleId || !name || !patternSource || !priority) throw new TypeError(`Invalid Yomu grammar registry row: ${row}`);
+    if (!["Core", "N5", "N4", "N3", "N2", "N1"].includes(level)) {
+      throw new TypeError(`Invalid Yomu grammar level for ${ruleId}: ${level}`);
+    }
+    return Object.freeze({
+      ruleId,
+      level,
+      name,
+      patternSource,
+      priority: parseInt(priority, 36),
+      confidence: confidence === "h" ? "high" : "medium",
+      url: expandGrammarGuideUrl(url),
+      // Per-rule examples ship only as test fixtures (tests/reader/fixtures/
+      // grammar-rule-examples.ts); the reader render path uses remote copy JSON.
+      examples: Object.freeze([])
+    });
+  }
+  function createGrammarRegistry() {
+    const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
+    const ids = new Set(rules.map((rule) => rule.ruleId));
+    if (ids.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
+    return Object.freeze(rules);
+  }
+  const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
+  new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
+  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
+  const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
+  const JAPANESE_GRAMMAR = createLearningTargetGrammar({
+    levelScale: {
+      id: "jlpt",
+      levels: ["Core", "N5", "N4", "N3", "N2", "N1"]
+    },
+    referenceUrl: "https://www.tofugu.com/japanese-grammar/",
+    rules: YOMU_GRAMMAR_REGISTRY,
+    normalizeSentence: (sentence) => sentence.normalize("NFKC").replace(/\s+/g, ""),
+    expandPatternSource: (source) => source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
+    shouldSkipMatch: (rule, context) => shouldSkipJapaneseGrammarMatch(rule.ruleId, context),
+    learnerFacingMatch: (rule, rawMatch) => japaneseLearnerMatch(rule.name, rawMatch),
+    keepOverlappingMatches: (existing, next) => existing.ruleId === "copula-desu-da" && next.priority < 50,
+    // The two hosted copy files are the established Japanese inventory. Other
+    // targets omit this hook, so a coincidentally equal rule id cannot inherit
+    // Japanese prose.
+    ruleCopyIdFor: (rule) => rule.ruleId
+  });
+  const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
+  const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
+  const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
+  const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
+  const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
+  const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
+  const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
+  const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
+  const GRAMMAR_MATCH_SKIP_PREDICATES = {
+    "appearance-sou": ({ rawMatch }) => rawMatch === "そう" || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
+    "hearsay-sou-da": ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
+    "volitional-you": ({ rawMatch }) => rawMatch === "よう" || rawMatch === "さよう",
+    "similarity-you-da": ({ rawMatch }) => rawMatch.startsWith("さよう"),
+    "conditional-nara": ({ rawMatch }) => rawMatch.endsWith("さようなら"),
+    "desire-tai": ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
+    "without-naide": ({ rawMatch, following }) => rawMatch.endsWith("ないで") && following.startsWith("す"),
+    "negative-nai": ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
+    "method-kata": shouldSkipMethodKataMatch,
+    "suffix-ge": ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
+    "state-mama": ({ rawMatch, before }) => rawMatch.includes("わがまま") || rawMatch === "まま" && before.endsWith("わが"),
+    "difficulty-gatai": ({ rawMatch }) => rawMatch.endsWith("ありがたい"),
+    "substitution-kawari-ni": ({ rawMatch }) => rawMatch.endsWith("おかわりに"),
+    "suffix-meku": ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
+    "possibility-eru-enai": ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith("心得"),
+    "suffix-gimi": ({ rawMatch }) => rawMatch.endsWith("不気味"),
+    "fresh-tate": ({ rawMatch }) => rawMatch === "たて",
+    "elapsed-buri-ni": ({ rawMatch }) => rawMatch.endsWith("すぶりに"),
+    "ease-yasui-nikui": ({ rawMatch }) => rawMatch === "やすい",
+    "examples-toka": ({ following }) => following.startsWith("言") || following.startsWith("聞") || following.startsWith("思"),
+    "explanation-no-da": ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
+    "skill-no-ga-suki": shouldSkipPronounPossessiveNominalizerMatch,
+    "nominalizer-no": shouldSkipPronounPossessiveNominalizerMatch,
+    "sensation-ga-suru": ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
+    "standard-ni-shite-wa": ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
+    "emphasis-sae": ({ rawMatch }) => rawMatch.endsWith("ささえ"),
+    "emphasis-koso": ({ rawMatch }) => rawMatch.endsWith("ようこそ"),
+    "evidence-rashii-mitai": ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch)
+  };
+  function shouldSkipJapaneseGrammarMatch(ruleId, context) {
+    return GRAMMAR_MATCH_SKIP_PREDICATES[ruleId]?.(context) ?? false;
+  }
+  function shouldSkipMethodKataMatch({
+    rawMatch,
+    before,
+    following
+  }) {
+    return LEXICAL_METHOD_KATA_RE.test(rawMatch) || rawMatch === "方" && (following.startsWith("法") || before.endsWith("の") || /[夕地親行]/u.test(before.slice(-1)));
+  }
+  function shouldSkipPronounPossessiveNominalizerMatch({
+    rawMatch
+  }) {
+    return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
+  }
+  const LEARNER_MATCH_ENDING_NAMES = /* @__PURE__ */ new Set([
+    "たい",
+    "ない",
+    "ました",
+    "ます",
+    "た",
+    "よう",
+    "そう",
+    "方",
+    "やすい / にくい",
+    "すぎる",
+    "れる / られる",
+    "させる",
+    "させられる",
+    "がち",
+    "気味",
+    "げ",
+    "っぽい",
+    "めく"
+  ]);
+  const LEARNER_MATCH_HELPER_NAMES = /* @__PURE__ */ new Set([
+    "てください",
+    "ていただけませんか",
+    "ないでください",
+    "させてください",
+    "てほしい",
+    "てくれる / てもらう",
+    "てしまう",
+    "てみる",
+    "ておく",
+    "ている",
+    "てある",
+    "てくる",
+    "ていく",
+    "てから"
+  ]);
+  function japaneseLearnerMatch(name, rawMatch) {
+    let match = rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u, "");
+    if (LEARNER_MATCH_HELPER_NAMES.has(name)) {
+      const afterClauseBoundary = match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u, "");
+      if (afterClauseBoundary) match = afterClauseBoundary;
+    }
+    if (!LEARNER_MATCH_ENDING_NAMES.has(name)) return match;
+    const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
+    return afterLastParticle || match;
+  }
+  const JAPANESE_POINTER_WORD_RE = new RegExp(
+    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    "gu"
+  );
+  const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
+    id: "japanese-v1",
+    language: "ja",
+    direction: "ltr",
+    collationLocale: "ja",
+    capabilities: {
+      "term-lookup": true,
+      "character-lookup": true,
+      segmentation: true,
+      morphology: true,
+      "reading-annotation": true,
+      pronunciation: true,
+      frequency: true,
+      examples: true,
+      audio: true,
+      "text-to-speech": true,
+      ocr: true,
+      subtitles: true,
+      mining: true,
+      srs: true,
+      grading: true,
+      typing: true,
+      handwriting: true
+    },
+    featureSemantics: {
+      characterSystem: "kanji",
+      phoneticScripts: ["hiragana", "katakana"],
+      pronunciation: "pitch-accent",
+      readingAnnotation: "furigana"
+    },
+    grammar: JAPANESE_GRAMMAR,
+    typography: {
+      contentLocale: "ja",
+      readingAnnotationMode: "ruby",
+      supportsVerticalWriting: true
+    },
+    typing: {
+      inputNormalizer: "romaji-kana",
+      answerNormalizer: "japanese-kana"
+    },
+    audio: {
+      speechSynthesisLocale: "ja-JP",
+      templateLanguageToken: "ja"
+    },
+    ocr: {
+      defaultLanguage: "ja-JP",
+      languageHint: "ja"
+    },
+    subtitles: {
+      languageTag: "ja",
+      languageAliases: []
+    },
+    detectsText: HAS_JAPANESE,
+    normalizeText: normalizeJapaneseTargetText,
+    // Japanese writes no word boundaries, so its segmenter infers them. That is
+    // good enough to decide where a reading is drawn and not good enough to
+    // decide where a dictionary term may begin, which is why the term engine
+    // sweeps every position for this target and lets the dictionary arbitrate.
+    lookupStartsAtSegmentBoundary: false,
+    segment(text2) {
+      return segmentJapaneseText(text2).map((segment) => ({
+        text: segment.surface,
+        start: segment.start,
+        end: segment.end
+      }));
+    },
+    pointerWordSegments: japanesePointerWordSegments,
+    // Morphology is the deinflector itself, verbatim and unnormalized: the
+    // dictionary engine hands over raw substrings of the page and needs the
+    // candidates to line up with those substrings character for character.
+    // Anything that wants normalized input calls normalizeText first.
+    lookupCandidates: deinflectJapaneseTerm,
+    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
+    // beats i-adjective. Shared verbatim with the Japanese fallback path so
+    // both doors into the deinflector return the same order.
+    compareLookupCandidates: compareJapaneseLookupCandidates,
+    matchesLookupCandidateRules: termRulesMatch,
+    normalizeReading(spelling, reading) {
+      return normalizedJapaneseCardReading(spelling, reading);
+    }
+  });
+  function normalizeJapaneseTargetText(text2) {
+    return normalizeFallbackTerm(text2.normalize("NFKC"));
+  }
+  function japanesePointerWordSegments(text2) {
+    return [...text2.matchAll(JAPANESE_POINTER_WORD_RE)].map((match) => ({
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length
+    }));
+  }
+  const CEFR_GRAMMAR_LEVEL_SCALE = Object.freeze({
+    id: "cefr",
+    levels: Object.freeze(["A1", "A2", "B1", "B2", "C1", "C2"])
+  });
+  const EAQUALS_PDF = "https://www.eaquals.org/wp-content/uploads/Inventaire_ONLINE_full.pdf";
+  const EAQUALS_A1 = `${EAQUALS_PDF}#page=58`;
+  const EAQUALS_A1_EXAMPLES = `${EAQUALS_PDF}#page=66`;
+  const EAQUALS_A1_EXISTENCE = `${EAQUALS_PDF}#page=67`;
+  const A1_PROGRESSIVE_INFINITIVE = String.raw`(?:manger|préparer|étudier)`;
+  const A1_NEAR_FUTURE_INFINITIVE = String.raw`(?:manger|regarder|jouer)`;
+  const A1_RECENT_PAST_INFINITIVE = String.raw`(?:finir|manger)`;
+  const A1_IL_FAUT_INFINITIVE = String.raw`(?:bien\s+apprendre|apprendre|crier)`;
+  const A1_POLITE_CONDITIONAL = String.raw`(?:[Jj]e\s+voudrais|[Jj]['’]aimerais|[Oo]n\s+pourrait\s+avoir\s+l['’]addition)`;
+  const A1_EXISTENTIAL_COMPLEMENT = String.raw`(?:un\s+canapé|un\s+fauteuil|une\s+table|cinq\s+personnes|beaucoup\s+de\s+restaurants|du\s+soleil)`;
+  const FRENCH_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: EAQUALS_A1,
+    rules: [
+      {
+        ruleId: "fr-present-progressive",
+        level: "A1",
+        name: "Present progressive (être en train de)",
+        displayNames: { en: "Present progressive (être en train de)", ja: "être en train de ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+suis|[Tt]u\s+es|[Ii]l\s+est|[Ee]lle\s+est|[Nn]ous\s+sommes|[Vv]ous\s+êtes|[Ii]ls\s+sont|[Ee]lles\s+sont)\s+en\s+train\s+d(?:e\s+|['’])${A1_PROGRESSIVE_INFINITIVE}(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-near-future",
+        level: "A1",
+        name: "Near future (aller + infinitive)",
+        displayNames: { en: "Near future (aller + infinitive)", ja: "aller ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+vais|[Tt]u\s+vas|[Ii]l\s+va|[Ee]lle\s+va|[Nn]ous\s+allons|[Vv]ous\s+allez|[Ii]ls\s+vont|[Ee]lles\s+vont)\s+${A1_NEAR_FUTURE_INFINITIVE}(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-recent-past",
+        level: "A1",
+        name: "Recent past (venir de + infinitive)",
+        displayNames: { en: "Recent past (venir de + infinitive)", ja: "venir de ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+viens|[Tt]u\s+viens|[Ii]l\s+vient|[Ee]lle\s+vient|[Nn]ous\s+venons|[Vv]ous\s+venez|[Ii]ls\s+viennent|[Ee]lles\s+viennent)\s+d(?:e\s+|['’])${A1_RECENT_PAST_INFINITIVE}(?!\p{L})`,
+        priority: 14,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-est-ce-que-question",
+        level: "A1",
+        name: "Question with est-ce que",
+        displayNames: { en: "Question with est-ce que", ja: "est-ce que 疑問文" },
+        patternSource: String.raw`(?<!\p{L})[Ee]st-ce\s+qu(?:e(?!\p{L})|['’])`,
+        priority: 16,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-ne-pas-negation",
+        level: "A1",
+        name: "Negation with ne … pas/jamais",
+        displayNames: { en: "Negation with ne … pas/jamais", ja: "ne … pas / jamais の否定" },
+        patternSource: String.raw`(?<!\p{L})(?:[Jj]e|[Tt]u|[Ii]l|[Ee]lle|[Nn]ous|[Vv]ous|[Ii]ls|[Ee]lles)\s+n(?:e\s+|['’])\p{L}+(?:\s+\p{L}+){0,2}\s+(?:pas|jamais)(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-il-faut-infinitive",
+        level: "A1",
+        name: "Obligation with il faut",
+        displayNames: { en: "Obligation with il faut", ja: "il faut ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Ii]l\s+faut\s+${A1_IL_FAUT_INFINITIVE}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-polite-conditional",
+        level: "A1",
+        name: "Polite conditional",
+        displayNames: { en: "Polite conditional", ja: "丁寧表現の条件法" },
+        patternSource: String.raw`(?<!\p{L})${A1_POLITE_CONDITIONAL}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: EAQUALS_A1_EXAMPLES
+      },
+      {
+        ruleId: "fr-existential-il-y-a",
+        level: "A1",
+        name: "Existence with il y a",
+        displayNames: { en: "Existence with il y a", ja: "存在を表す il y a" },
+        patternSource: String.raw`(?<!\p{L})[Ii]l\s+y\s+a\s+${A1_EXISTENTIAL_COMPLEMENT}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: EAQUALS_A1_EXISTENCE
+      }
+    ]
+  });
+  const GOETHE_A1 = "https://lernen.goethe.de/deutschonline/A1/PDF/DE/deutschonline_Ihr_Kurs_im_U%CC%88berblick.pdf";
+  const DW_A1 = "https://static.dw.com/downloads/59835913/grammatikuebersicht-nicos-weg-a1.pdf";
+  const GOETHE_GRAMMAR = "https://www.goethe.de/ins/de/de/m/prf/grm.html";
+  const CLOCK_HOUR = String.raw`(?:(?:[01]?\d|2[0-3])|eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)`;
+  const COLON_TIME = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d`;
+  const CLOCK_RANGE = String.raw`(?:${CLOCK_HOUR}\s+Uhr\s+bis\s+${CLOCK_HOUR}(?:\s+Uhr)?|${CLOCK_HOUR}\s+bis\s+${CLOCK_HOUR}\s+Uhr|${COLON_TIME}\s+bis\s+${COLON_TIME})`;
+  const EQUAL_COMPARISON_WORD = String.raw`(?:schlecht|groß|klein|alt|jung|schnell|langsam|hoch|niedrig|lang|kurz)`;
+  const COMPARISON_SUBJECT = String.raw`(?:der|die|das|ein|eine|einen|einem|einer|mein|meine|dein|deine|sein|seine|ihr|ihre|unser|unsere)\s+\p{L}+`;
+  const CHECKED_MODAL_INFINITIVE$1 = String.raw`(?:gehen|kommen|sein)`;
+  const MODAL_CLAUSE_GAP$1 = String.raw`(?:(?![,;:]|(?<!\p{L})(?:aber|dass|denn|oder|sondern|und)(?!\p{L}))[^.!?…\n]){0,80}?`;
+  const GERMAN_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: GOETHE_GRAMMAR,
+    rules: [
+      {
+        ruleId: "de-a1-es-gibt",
+        level: "A1",
+        name: "Existence with es gibt",
+        displayNames: { en: "Existence with es gibt", ja: "存在を表す es gibt" },
+        patternSource: String.raw`(?<!\p{L})[Ee]s\s+gibt(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: `${GOETHE_A1}#page=5`
+      },
+      {
+        ruleId: "de-a1-modal-infinitive",
+        level: "A1",
+        name: "Modal verb + infinitive",
+        displayNames: { en: "Modal verb + infinitive", ja: "法助動詞 ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Kk]ann|[Kk]annst|[Kk]önnen|[Kk]önnt|[Mm]uss|[Mm]usst|[Mm]üssen|[Mm]üsst|[Ww]ill|[Ww]illst|[Ww]ollen|[Ww]ollt)(?!\p{L})${MODAL_CLAUSE_GAP$1}(?<!\p{L})${CHECKED_MODAL_INFINITIVE$1}(?=\s*(?:[.!?…]|$))`,
+        priority: 12,
+        confidence: "high",
+        url: `${GOETHE_A1}#page=7`
+      },
+      {
+        ruleId: "de-a1-von-bis",
+        level: "A1",
+        name: "Time range with von … bis",
+        displayNames: { en: "Time range with von … bis", ja: "von … bis の時間範囲" },
+        patternSource: String.raw`(?<!\p{L})[Vv]on\s+${CLOCK_RANGE}(?=\s*(?:[,.!?…]|$))`,
+        priority: 14,
+        confidence: "high",
+        url: `${DW_A1}#page=3`
+      },
+      {
+        ruleId: "de-a1-so-wie",
+        level: "A1",
+        name: "Equal comparison with so … wie",
+        displayNames: { en: "Equal comparison with so … wie", ja: "so … wie の同等比較" },
+        patternSource: String.raw`(?<!\p{L})(?:[Ii]st|[Ss]ind|[Ww]ar|[Ww]aren)\s+so\s+${EQUAL_COMPARISON_WORD}\s+wie\s+${COMPARISON_SUBJECT}(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${DW_A1}#page=5`
+      },
+      {
+        ruleId: "de-a1-comparative-als",
+        level: "A1",
+        name: "Comparison with als",
+        displayNames: { en: "Comparison with als", ja: "比較級 ＋ als" },
+        patternSource: String.raw`(?<!\p{L})(?:[Bb]esser|[Ss]chlechter|[Mm]ehr|[Ww]eniger|[Gg]rößer|[Kk]leiner|[Ää]lter|[Jj]ünger|[Ss]chneller|[Ll]angsamer|[Hh]öher|[Nn]iedriger|[Ll]änger|[Kk]ürzer)\s+als(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${DW_A1}#page=5`
+      },
+      {
+        ruleId: "de-a1-aber-denn",
+        level: "A1",
+        name: "Linking clauses with aber or denn",
+        displayNames: { en: "Linking clauses with aber or denn", ja: "aber / denn の接続" },
+        patternSource: String.raw`[,;]\s*(?:aber|denn)(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${GOETHE_A1}#page=19`
+      },
+      {
+        ruleId: "de-a1-einladen",
+        level: "A1",
+        name: "Separable einladen",
+        displayNames: { en: "Separable einladen", ja: "分離動詞 einladen" },
+        patternSource: String.raw`(?<!\p{L})(?:[Ll]ade|[Ll]ädst|[Ll]ädt|[Ll]aden|[Ll]adet)(?!\p{L})[^.!?…\n]{0,80}?(?<!\p{L})ein(?=\s*(?:[.!?…]|$))`,
+        priority: 22,
+        confidence: "high",
+        url: `${GOETHE_A1}#page=8`
+      }
+    ]
+  });
+  const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
+  const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
+  const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
+  const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
+  const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
+  const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
+  const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CORNELL_GRAMMAR,
+    rules: [
+      {
+        ruleId: "ru-a1-kto-chto-eto",
+        level: "A1",
+        name: "Кто/что это? identification question",
+        displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
+        patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
+        priority: 10,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-possessive-starter",
+        level: "A1",
+        name: "Possession with это + possessive",
+        displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
+        patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-request-imperative",
+        level: "A1",
+        name: "Requests with дай(те), скажи(те), покажи(те)",
+        displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
+        patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
+        priority: 14,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=20`
+      },
+      {
+        ruleId: "ru-a1-dative-nravitsya",
+        level: "A1",
+        name: "нравится with a dative experiencer",
+        displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
+        patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=21`
+      },
+      {
+        ruleId: "ru-a1-potomu-chto",
+        level: "A1",
+        name: "Reason with потому что",
+        displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
+        patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-gde-mozhno-infinitive",
+        level: "A1",
+        name: "Где можно + infinitive",
+        displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-want-can-infinitive",
+        level: "A1",
+        name: "хотеть/мочь + infinitive",
+        displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=23`
+      },
+      {
+        ruleId: "ru-a1-need-infinitive",
+        level: "A1",
+        name: "Necessity with надо/нужно",
+        displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
+        patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=24`
+      }
+    ]
+  });
+  const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
+  const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
+  const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
+  const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
+  const SPANISH_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CERVANTES_A1_A2,
+    rules: [
+      {
+        ruleId: "es-me-gusta-infinitive",
+        level: "A1",
+        name: "gustar + infinitive",
+        displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1223a1`
+      },
+      {
+        ruleId: "es-existential-hay",
+        level: "A1",
+        name: "Existence with hay",
+        displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
+        patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-causal-porque",
+        level: "A1",
+        name: "Reason with porque",
+        displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
+        patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
+        priority: 14,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1534a1`
+      },
+      {
+        ruleId: "es-negation-no",
+        level: "A1",
+        name: "Verb negation with no",
+        displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
+        patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-present-perfect",
+        level: "A2",
+        name: "Present perfect",
+        displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
+        patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p916a2`
+      },
+      {
+        ruleId: "es-estar-gerundio",
+        level: "A2",
+        name: "Progressive with estar",
+        displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
+        patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p942a2`
+      },
+      {
+        ruleId: "es-tener-que",
+        level: "A2",
+        name: "Obligation with tener que",
+        displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      },
+      {
+        ruleId: "es-ir-a-infinitive",
+        level: "A2",
+        name: "Near future with ir a",
+        displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      }
+    ]
+  });
+  function referenceOnly(referenceUrl) {
+    return createLearningTargetGrammar({ referenceUrl });
+  }
+  const GRAMMAR_BY_TARGET = Object.freeze({
+    sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
+    grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
+    ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
+    yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
+    zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
+    da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
+    nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
+    en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
+    fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
+    fr: FRENCH_GRAMMAR,
+    de: GERMAN_GRAMMAR,
+    el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
+    hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
+    id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
+    it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
+    km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
+    ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
+    lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
+    la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
+    mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
+    fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
+    pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
+    pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
+    ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
+    ru: RUSSIAN_GRAMMAR,
+    sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
+    es: SPANISH_GRAMMAR,
+    sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
+    tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
+    th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
+    tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
+    vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
+  });
+  function grammarForRosterTarget(language2) {
+    return GRAMMAR_BY_TARGET[language2];
+  }
+  const KOREAN_SEGMENT_SUFFIXES = [
+    "에게서",
+    "이라고",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "에는",
+    "라고",
+    "하고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "에",
+    "와",
+    "과",
+    "로",
+    "도",
+    "만"
+  ];
+  const REWRITES = {
+    es: [
+      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+    ],
+    de: [
+      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+    ],
+    ru: [
+      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+    ],
+    ar: [
+      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+    ]
+  };
+  function lookupRewritesForTarget(target) {
+    return REWRITES[target] ?? [];
+  }
+  function koreanLookupSubsegments(segment, maxLength) {
+    const candidates = /* @__PURE__ */ new Set();
+    if (segment.length <= maxLength) candidates.add(segment);
+    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+      if (!segment.endsWith(suffix)) continue;
+      const stem = segment.slice(0, -suffix.length);
+      if (stem && stem.length <= maxLength) candidates.add(stem);
+    }
+    return [...candidates];
+  }
+  const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
+  const KOREAN_LEARNING_TARGET = createLearningTargetModule({
+    id: "korean-thin-v1",
+    language: "ko",
+    capabilities: {
+      "term-lookup": true,
+      segmentation: true,
+      "reading-annotation": true,
+      pronunciation: true,
+      "text-to-speech": true,
+      ocr: true,
+      subtitles: true,
+      typing: true
+    },
+    featureSemantics: {
+      characterSystem: "hangul",
+      phoneticScripts: ["hangul"],
+      pronunciation: "ipa",
+      readingAnnotation: "hangul"
+    },
+    grammar: grammarForRosterTarget("ko"),
+    typography: {
+      readingAnnotationMode: "ruby"
+    },
+    subtitles: {
+      languageAliases: ["kor", "korean"]
+    },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
+    detectsText: HAS_HANGUL
+  });
+  const ENGLISH_FALLBACK_MESSAGES = {
+    setupTitle: "Set up Yomu in your language",
+    learnerLanguageLabel: "Your language",
+    targetLanguageLabel: "Language you are learning",
+    targetJapanese: "Japanese",
+    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
+    automaticTranslationLabel: "Translate automatically into {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
+    setupProgress: "Language setup {current} of {total}",
+    continueAction: "Continue",
+    originalDefinitionLabel: "Original {language}",
+    // D43: a locale that is in scope but not yet selectable says why, in its own
+    // language, so the person who came looking for it can read the answer. The
+    // interface never offers one of these and then quietly speaks English.
+    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+    interfaceTranslationPending: "Translation is still in progress."
+  };
+  function defineLocaleCatalog(locale, reviewStatus, messages) {
+    return Object.freeze({
+      locale,
+      reviewStatus,
+      sourceLocale: "en",
+      messages: Object.freeze(messages)
+    });
+  }
+  const arCatalog = defineLocaleCatalog("ar", "machine-draft", {
+    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
+    learnerLanguageLabel: "لغتك",
+    targetLanguageLabel: "اللغة التي تتعلمها",
+    targetJapanese: "اليابانية",
+    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
+    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
+    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
+    continueAction: "متابعة",
+    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+    interfaceTranslationPending: "الترجمة قيد التقدم."
+  });
+  const daCatalog = defineLocaleCatalog("da", "machine-draft", {
+    setupTitle: "Opsæt よむ på dit sprog",
+    learnerLanguageLabel: "Dit sprog",
+    targetLanguageLabel: "Det sprog, du lærer",
+    targetJapanese: "Japansk",
+    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
+    automaticTranslationLabel: "Oversæt automatisk til {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
+    setupProgress: "Sprogopsætning: {current} af {total}",
+    continueAction: "Fortsæt",
+    originalDefinitionLabel: "Original på {language}",
+    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+    interfaceTranslationPending: "Oversættelsen er stadig i gang."
+  });
+  const deCatalog = defineLocaleCatalog("de", "machine-draft", {
+    setupTitle: "よむ in deiner Sprache einrichten",
+    learnerLanguageLabel: "Deine Sprache",
+    targetLanguageLabel: "Sprache, die du lernst",
+    targetJapanese: "Japanisch",
+    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
+    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
+    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
+    setupProgress: "Sprache einrichten: {current} von {total}",
+    continueAction: "Weiter",
+    originalDefinitionLabel: "Originaldefinition auf {language}",
+    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+    interfaceTranslationPending: "Die Übersetzung läuft noch."
+  });
+  const elCatalog = defineLocaleCatalog("el", "machine-draft", {
+    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
+    learnerLanguageLabel: "Η γλώσσα σας",
+    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
+    targetJapanese: "Ιαπωνικά",
+    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
+    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
+    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
+    continueAction: "Συνέχεια",
+    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
+  });
+  const enCatalog = defineLocaleCatalog(
+    "en",
+    "source-approved",
+    ENGLISH_FALLBACK_MESSAGES
+  );
+  const esCatalog = defineLocaleCatalog("es", "machine-draft", {
+    setupTitle: "Configura Yomu en tu idioma",
+    learnerLanguageLabel: "Tu idioma",
+    targetLanguageLabel: "Idioma que estás aprendiendo",
+    targetJapanese: "Japonés",
+    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
+    automaticTranslationLabel: "Traducir automáticamente al {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
+    setupProgress: "Configuración del idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definición original ({language})",
+    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+    interfaceTranslationPending: "La traducción sigue en curso."
+  });
+  const faCatalog = defineLocaleCatalog("fa", "machine-draft", {
+    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
+    learnerLanguageLabel: "زبان شما",
+    targetLanguageLabel: "زبانی که یاد می‌گیرید",
+    targetJapanese: "ژاپنی",
+    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
+    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
+    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
+    continueAction: "ادامه",
+    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
+  });
+  const fiCatalog = defineLocaleCatalog("fi", "machine-draft", {
+    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
+    learnerLanguageLabel: "Oma kielesi",
+    targetLanguageLabel: "Opiskelemasi kieli",
+    targetJapanese: "Japani",
+    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
+    automaticTranslationLabel: "Käännä automaattisesti: {language}",
+    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
+    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
+    continueAction: "Jatka",
+    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+    interfaceTranslationPending: "Käännös on vielä kesken."
+  });
+  const frCatalog = defineLocaleCatalog("fr", "machine-draft", {
+    setupTitle: "Configurez よむ dans votre langue",
+    learnerLanguageLabel: "Votre langue",
+    targetLanguageLabel: "Langue que vous apprenez",
+    targetJapanese: "Japonais",
+    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
+    automaticTranslationLabel: "Traduire automatiquement en {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
+    setupProgress: "Configuration de la langue : {current} sur {total}",
+    continueAction: "Continuer",
+    originalDefinitionLabel: "Définition originale en {language}",
+    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+    interfaceTranslationPending: "La traduction est en cours."
+  });
+  const grcCatalog = defineLocaleCatalog("grc", "machine-draft", {
+    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
+    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
+    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
+    targetJapanese: "Ἰαπωνική",
+    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
+    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
+    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
+    continueAction: "Πρόβαινε",
+    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
+  });
+  const huCatalog = defineLocaleCatalog("hu", "machine-draft", {
+    setupTitle: "A よむ beállítása az Ön nyelvén",
+    learnerLanguageLabel: "Az Ön nyelve",
+    targetLanguageLabel: "A tanult nyelv",
+    targetJapanese: "Japán",
+    recommendedDictionariesTitle: "Ajánlott japán szótárak",
+    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
+    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
+    setupProgress: "Nyelvi beállítás: {current}/{total}",
+    continueAction: "Folytatás",
+    originalDefinitionLabel: "Eredeti meghatározás ({language})",
+    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+    interfaceTranslationPending: "A fordítás még folyamatban van."
+  });
+  const idCatalog = defineLocaleCatalog("id", "machine-draft", {
+    setupTitle: "Siapkan Yomu dalam bahasa Anda",
+    learnerLanguageLabel: "Bahasa Anda",
+    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
+    targetJapanese: "Bahasa Jepang",
+    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
+    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
+    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
+    setupProgress: "Penyiapan bahasa {current} dari {total}",
+    continueAction: "Lanjutkan",
+    originalDefinitionLabel: "Definisi asli dalam {language}",
+    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+    interfaceTranslationPending: "Penerjemahan masih berlangsung."
+  });
+  const itCatalog = defineLocaleCatalog("it", "machine-draft", {
+    setupTitle: "Configura よむ nella tua lingua",
+    learnerLanguageLabel: "La tua lingua",
+    targetLanguageLabel: "Lingua che stai imparando",
+    targetJapanese: "Giapponese",
+    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
+    automaticTranslationLabel: "Traduci automaticamente in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
+    setupProgress: "Configurazione della lingua: {current} di {total}",
+    continueAction: "Continua",
+    originalDefinitionLabel: "Definizione originale in {language}",
+    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+    interfaceTranslationPending: "La traduzione è ancora in corso."
+  });
+  const kmCatalog = defineLocaleCatalog("km", "machine-draft", {
+    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
+    learnerLanguageLabel: "ភាសារបស់អ្នក",
+    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
+    targetJapanese: "ភាសាជប៉ុន",
+    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
+    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
+    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
+    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
+    continueAction: "បន្ត",
+    originalDefinitionLabel: "និយមន័យដើម ({language})",
+    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
+  });
+  const koCatalog = defineLocaleCatalog("ko", "machine-draft", {
+    setupTitle: "내 언어로 よむ 설정하기",
+    learnerLanguageLabel: "사용 언어",
+    targetLanguageLabel: "학습할 언어",
+    targetJapanese: "일본어",
+    recommendedDictionariesTitle: "추천 일본어 사전",
+    automaticTranslationLabel: "{language}로 자동 번역",
+    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
+    setupProgress: "언어 설정: {total}단계 중 {current}단계",
+    continueAction: "계속",
+    originalDefinitionLabel: "원문({language})",
+    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+    interfaceTranslationPending: "번역이 아직 진행 중입니다."
+  });
+  const laCatalog = defineLocaleCatalog("la", "machine-draft", {
+    setupTitle: "Configura よむ in lingua tua",
+    learnerLanguageLabel: "Lingua tua",
+    targetLanguageLabel: "Lingua quam discis",
+    targetJapanese: "Lingua Iaponica",
+    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
+    automaticTranslationLabel: "Automatice verte in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
+    setupProgress: "Configuratio linguae: {current} ex {total}",
+    continueAction: "Perge",
+    originalDefinitionLabel: "Definitio originalis ({language})",
+    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+    interfaceTranslationPending: "Translatio adhuc geritur."
+  });
+  const loCatalog = defineLocaleCatalog("lo", "machine-draft", {
+    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
+    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
+    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
+    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
+    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
+    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
+    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
+    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
+    continueAction: "ສືບຕໍ່",
+    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
+  });
+  const mnCatalog = defineLocaleCatalog("mn", "machine-draft", {
+    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
+    learnerLanguageLabel: "Таны хэл",
+    targetLanguageLabel: "Таны сурч буй хэл",
+    targetJapanese: "Япон хэл",
+    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
+    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
+    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
+    setupProgress: "Хэлний тохиргоо: {current}/{total}",
+    continueAction: "Үргэлжлүүлэх",
+    originalDefinitionLabel: "Эх тайлбар ({language})",
+    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
+  });
+  const nlCatalog = defineLocaleCatalog("nl", "machine-draft", {
+    setupTitle: "Stel よむ in jouw taal in",
+    learnerLanguageLabel: "Jouw taal",
+    targetLanguageLabel: "Taal die je leert",
+    targetJapanese: "Japans",
+    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
+    automaticTranslationLabel: "Automatisch vertalen naar {language}",
+    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
+    setupProgress: "Taal instellen: {current} van {total}",
+    continueAction: "Doorgaan",
+    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+    interfaceTranslationPending: "De vertaling is nog bezig."
+  });
+  const plCatalog = defineLocaleCatalog("pl", "machine-draft", {
+    setupTitle: "Skonfiguruj Yomu w swoim języku",
+    learnerLanguageLabel: "Twój język",
+    targetLanguageLabel: "Język, którego się uczysz",
+    targetJapanese: "Japoński",
+    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
+    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
+    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
+    setupProgress: "Konfiguracja języka: {current} z {total}",
+    continueAction: "Kontynuuj",
+    originalDefinitionLabel: "Oryginalna definicja ({language})",
+    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
+  });
+  const ptCatalog = defineLocaleCatalog("pt", "machine-draft", {
+    setupTitle: "Configure o Yomu no seu idioma",
+    learnerLanguageLabel: "O seu idioma",
+    targetLanguageLabel: "Idioma que está a aprender",
+    targetJapanese: "Japonês",
+    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
+    automaticTranslationLabel: "Traduzir automaticamente para {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
+    setupProgress: "Configuração do idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definição original ({language})",
+    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+    interfaceTranslationPending: "A tradução ainda está em andamento."
+  });
+  const roCatalog = defineLocaleCatalog("ro", "machine-draft", {
+    setupTitle: "Configurează Yomu în limba ta",
+    learnerLanguageLabel: "Limba ta",
+    targetLanguageLabel: "Limba pe care o înveți",
+    targetJapanese: "Japoneză",
+    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
+    automaticTranslationLabel: "Tradu automat în {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
+    setupProgress: "Configurarea limbii: {current} din {total}",
+    continueAction: "Continuă",
+    originalDefinitionLabel: "Definiția originală în {language}",
+    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+    interfaceTranslationPending: "Traducerea este încă în curs."
+  });
+  const ruCatalog = defineLocaleCatalog("ru", "machine-draft", {
+    setupTitle: "Настройте Yomu на своём языке",
+    learnerLanguageLabel: "Ваш язык",
+    targetLanguageLabel: "Язык, который вы изучаете",
+    targetJapanese: "Японский",
+    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
+    automaticTranslationLabel: "Автоматически переводить на {language}",
+    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
+    setupProgress: "Настройка языка: {current} из {total}",
+    continueAction: "Продолжить",
+    originalDefinitionLabel: "Оригинал определения ({language})",
+    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+    interfaceTranslationPending: "Перевод ещё выполняется."
+  });
+  const shCatalog = defineLocaleCatalog("sh", "machine-draft", {
+    setupTitle: "Podesite Yomu na svom jeziku",
+    learnerLanguageLabel: "Vaš jezik",
+    targetLanguageLabel: "Jezik koji učite",
+    targetJapanese: "Japanski",
+    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
+    automaticTranslationLabel: "Automatski prevod na jezik {language}",
+    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
+    setupProgress: "Podešavanje jezika: {current} od {total}",
+    continueAction: "Nastavi",
+    originalDefinitionLabel: "Originalna definicija ({language})",
+    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+    interfaceTranslationPending: "Prijevod je još u toku."
+  });
+  const sqCatalog = defineLocaleCatalog("sq", "machine-draft", {
+    setupTitle: "Konfiguro よむ në gjuhën tënde",
+    learnerLanguageLabel: "Gjuha jote",
+    targetLanguageLabel: "Gjuha që po mëson",
+    targetJapanese: "Japonisht",
+    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
+    automaticTranslationLabel: "Përkthe automatikisht në {language}",
+    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
+    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
+    continueAction: "Vazhdo",
+    originalDefinitionLabel: "Origjinali në {language}",
+    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+    interfaceTranslationPending: "Përkthimi është në vazhdim."
+  });
+  const svCatalog = defineLocaleCatalog("sv", "machine-draft", {
+    setupTitle: "Ställ in よむ på ditt språk",
+    learnerLanguageLabel: "Ditt språk",
+    targetLanguageLabel: "Språket du lär dig",
+    targetJapanese: "Japanska",
+    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
+    automaticTranslationLabel: "Översätt automatiskt till {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
+    setupProgress: "Språkinställning: {current} av {total}",
+    continueAction: "Fortsätt",
+    originalDefinitionLabel: "Ursprunglig definition på {language}",
+    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+    interfaceTranslationPending: "Översättningen pågår fortfarande."
+  });
+  const thCatalog = defineLocaleCatalog("th", "machine-draft", {
+    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
+    learnerLanguageLabel: "ภาษาของคุณ",
+    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
+    targetJapanese: "ภาษาญี่ปุ่น",
+    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
+    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
+    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
+    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
+    continueAction: "ดำเนินการต่อ",
+    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
+  });
+  const tlCatalog = defineLocaleCatalog("tl", "machine-draft", {
+    setupTitle: "I-set up ang Yomu sa iyong wika",
+    learnerLanguageLabel: "Iyong wika",
+    targetLanguageLabel: "Wikang pinag-aaralan mo",
+    targetJapanese: "Wikang Hapon",
+    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
+    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
+    setupProgress: "Pag-set up ng wika: {current} sa {total}",
+    continueAction: "Magpatuloy",
+    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+    interfaceTranslationPending: "Isinasalin pa ito."
+  });
+  const trCatalog = defineLocaleCatalog("tr", "machine-draft", {
+    setupTitle: "Yomu'yu dilinizde ayarlayın",
+    learnerLanguageLabel: "Diliniz",
+    targetLanguageLabel: "Öğrendiğiniz dil",
+    targetJapanese: "Japonca",
+    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
+    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
+    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
+    setupProgress: "Dil ayarı: {current}/{total}",
+    continueAction: "Devam et",
+    originalDefinitionLabel: "Orijinal tanım ({language})",
+    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
+  });
+  const viCatalog = defineLocaleCatalog("vi", "machine-draft", {
+    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
+    learnerLanguageLabel: "Ngôn ngữ của bạn",
+    targetLanguageLabel: "Ngôn ngữ bạn đang học",
+    targetJapanese: "Tiếng Nhật",
+    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
+    automaticTranslationLabel: "Tự động dịch sang {language}",
+    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
+    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
+    continueAction: "Tiếp tục",
+    originalDefinitionLabel: "Định nghĩa gốc ({language})",
+    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
+  });
+  const yueCatalog = defineLocaleCatalog("yue", "machine-draft", {
+    setupTitle: "用你嘅語言設定よむ",
+    learnerLanguageLabel: "你嘅語言",
+    targetLanguageLabel: "你學緊嘅語言",
+    targetJapanese: "日文",
+    recommendedDictionariesTitle: "推薦嘅日文字典",
+    automaticTranslationLabel: "自動翻譯做{language}",
+    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
+    setupProgress: "語言設定：第{current}步，共{total}步",
+    continueAction: "繼續",
+    originalDefinitionLabel: "原文（{language}）",
+    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+    interfaceTranslationPending: "翻譯仲進行中。"
+  });
+  const zhCatalog = defineLocaleCatalog("zh", "machine-draft", {
+    setupTitle: "用您的语言设置よむ",
+    learnerLanguageLabel: "您的语言",
+    targetLanguageLabel: "您正在学习的语言",
+    targetJapanese: "日语",
+    recommendedDictionariesTitle: "推荐日语词典",
+    automaticTranslationLabel: "自动翻译为{language}",
+    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
+    setupProgress: "语言设置：第{current}步，共{total}步",
+    continueAction: "继续",
+    originalDefinitionLabel: "{language}原文",
+    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+    interfaceTranslationPending: "翻译仍在进行中。"
+  });
+  const LOCALE_CATALOGS = Object.freeze({
+    sq: sqCatalog,
+    grc: grcCatalog,
+    ar: arCatalog,
+    yue: yueCatalog,
+    zh: zhCatalog,
+    da: daCatalog,
+    nl: nlCatalog,
+    en: enCatalog,
+    fi: fiCatalog,
+    fr: frCatalog,
+    de: deCatalog,
+    el: elCatalog,
+    hu: huCatalog,
+    id: idCatalog,
+    it: itCatalog,
+    km: kmCatalog,
+    ko: koCatalog,
+    lo: loCatalog,
+    la: laCatalog,
+    mn: mnCatalog,
+    fa: faCatalog,
+    pl: plCatalog,
+    pt: ptCatalog,
+    ro: roCatalog,
+    ru: ruCatalog,
+    sh: shCatalog,
+    es: esCatalog,
+    sv: svCatalog,
+    tl: tlCatalog,
+    th: thCatalog,
+    tr: trCatalog,
+    vi: viCatalog
+  });
+  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+  new Set(MESSAGE_NAMESPACES);
+  function messageNamespaceOf(id) {
+    return id.slice(0, id.indexOf("."));
+  }
+  const containsAny = (path, needles) => {
+    const lowered = path.toLowerCase();
+    return needles.some((needle) => lowered.includes(needle));
+  };
+  const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path.startsWith(prefix));
+  const COPY_TIER_RULES = Object.freeze([
+    {
+      rule: "destructive-and-irreversible",
+      category: "destructive-actions",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "delete",
+        "remove",
+        "reset",
+        "clear",
+        "overwrite",
+        "restore",
+        "import",
+        "unlink",
+        "revoke",
+        "discard",
+        "wipe",
+        "purge",
+        "forget",
+        "blacklist",
+        "suspend",
+        "conflict",
+        "replaceall"
+      ])
+    },
+    {
+      rule: "privacy-permissions-credentials-and-account",
+      category: "privacy-and-credentials",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "privacy",
+        "permission",
+        "consent",
+        "apikey",
+        "apitoken",
+        "credential",
+        "password",
+        "secret",
+        "token",
+        "account",
+        "signin",
+        "signout",
+        "login",
+        "logout",
+        "sync",
+        "proxy",
+        "remote",
+        "cloud",
+        "upload",
+        "network",
+        "sentto"
+      ])
+    },
+    {
+      rule: "first-run-setup-and-language-choice",
+      category: "first-run-and-language-choice",
+      tier: "human-critical",
+      matches: (id, path) => messageNamespaceOf(id) === "setup" || containsAny(path, ["onboarding", "welcome", "firstrun"]) || containsAny(path, [
+        "interfacelanguage",
+        "interfacelocale",
+        "learnerlanguage",
+        "targetlanguage",
+        "outputlanguage",
+        "settingslanguage",
+        "languageprofile"
+      ])
+    },
+    {
+      rule: "degraded-empty-and-unavailable-states",
+      category: "degraded-and-empty-states",
+      tier: "human-critical",
+      matches: (id, path) => messageNamespaceOf(id) === "errors" || startsWithAny(path, ["no", "cannot", "could"]) || containsAny(path, [
+        "unavailable",
+        "unsupported",
+        "offline",
+        "empty",
+        "failed",
+        "failure",
+        "error",
+        "retry",
+        "missing",
+        "notfound",
+        "degraded",
+        "unlicensed",
+        "blocked",
+        "pending",
+        "expired",
+        "timeout"
+      ])
+    },
+    {
+      rule: "lookup-primary-actions",
+      category: "lookup-primary-actions",
+      tier: "human-critical",
+      matches: (_id, path) => startsWithAny(path, ["add", "save", "mine", "lookup", "play", "state", "open", "copy"]) || containsAny(path, [
+        "revealtranslation",
+        "showtranslation",
+        "hidetranslation",
+        "playaudio",
+        "opensource",
+        "opendictionary",
+        "markknown",
+        "marklearning",
+        "knownstate"
+      ])
+    },
+    {
+      rule: "study-loop-and-grading",
+      category: "study-loop",
+      tier: "human-critical",
+      matches: (_id, path) => startsWithAny(path, ["grade", "study", "review", "due", "session", "reveal"]) || containsAny(path, ["duetoday", "sessioncomplete", "nothingdue"])
+    },
+    {
+      rule: "accessible-names-and-announcements",
+      category: "accessibility-names",
+      tier: "human-critical",
+      matches: (id, path) => messageNamespaceOf(id) === "a11y" || /(?:arialabel|screenreader|announce)/i.test(path) || /(?:^|[a-z])(?:AriaLabel|Announcement)$/.test(path)
+    },
+    {
+      rule: "install-update-support-membership-and-claims",
+      category: "product-claims-and-commerce",
+      tier: "human-critical",
+      matches: (_id, path) => containsAny(path, [
+        "update",
+        "install",
+        "store",
+        "support",
+        "membership",
+        "patreon",
+        "payment",
+        "subscribe",
+        "donate",
+        "price",
+        "academyaccess",
+        "feedback"
+      ])
+    },
+    {
+      rule: "learner-facing-docs-entry-pages",
+      category: "critical-docs",
+      tier: "human-critical",
+      matches: (id) => messageNamespaceOf(id) === "docs" && /^docs\.(?:index|install|installation|getting-started|start|guide\.first)\b/.test(id)
+    },
+    {
+      // The documented default. Setting help, tooltips, status detail,
+      // reference tables, older changelog prose and deep technical docs may
+      // ship as labelled machine drafts while native review catches up.
+      rule: "default-supplementary-copy",
+      category: "supplementary",
+      tier: "machine-draft-ok",
+      matches: () => true
+    }
+  ]);
+  Object.freeze(
+    COPY_TIER_RULES.map((rule) => rule.rule)
+  );
+  const JAPANESE_SETUP_MESSAGES = Object.freeze({
+    setupTitle: "よむをあなたの言語で設定",
+    learnerLanguageLabel: "あなたの言語",
+    targetLanguageLabel: "学習する言語",
+    targetJapanese: "日本語",
+    recommendedDictionariesTitle: "おすすめの日本語辞書",
+    automaticTranslationLabel: "{language}へ自動翻訳",
+    dictionaryCountAndSize: "{count, plural, one {辞書 #冊} other {辞書 #冊}} · {size}",
+    setupProgress: "言語設定 {current} / {total}",
+    continueAction: "次へ",
+    originalDefinitionLabel: "{language}の原文",
+    interfaceRtlVerificationPending: "右から左へのレイアウト確認が進行中です。",
+    interfaceTranslationPending: "翻訳が進行中です。"
+  });
+  function setupMessageIdFor(key) {
+    return `setup.${key}`;
+  }
+  function setupPackFor(tag) {
+    const id = interfaceLocaleByTag(tag)?.id ?? tag;
+    const messages = id === "ja" ? JAPANESE_SETUP_MESSAGES : LOCALE_CATALOGS[id]?.messages;
+    if (!messages) return void 0;
+    return Object.freeze(
+      Object.fromEntries(
+        Object.entries(messages).map(([key, value]) => [`setup.${key}`, value])
+      )
+    );
+  }
+  function matchAvailable(tag) {
+    const locale = interfaceLocaleByTag(tag);
+    if (locale?.available) return locale;
+    const base = tag.split("-")[0].toLowerCase();
+    const byBase = interfaceLocaleByTag(base);
+    if (byBase?.available) return byBase;
+    return INTERFACE_LOCALES.find(
+      (candidate) => candidate.available && candidate.fallbacks.includes(base)
+    );
+  }
+  function resolveInterfaceLocale(requested, options = {}) {
+    const raw = (requested ?? "auto").trim();
+    if (!raw || raw === "auto") {
+      for (const preference of options.browserLocales ?? []) {
+        const match = typeof preference === "string" ? matchAvailable(preference) : void 0;
+        if (match) {
+          return { locale: match, requested: "auto", substituted: false, blockers: [] };
+        }
+      }
+      return {
+        locale: ENGLISH_INTERFACE_LOCALE,
+        requested: "auto",
+        substituted: false,
+        blockers: []
+      };
+    }
+    const exact = interfaceLocaleByTag(raw);
+    if (exact?.available) {
+      return { locale: exact, requested: raw, substituted: false, blockers: [] };
+    }
+    if (exact) {
+      return {
+        locale: matchAvailable(raw) ?? ENGLISH_INTERFACE_LOCALE,
+        requested: raw,
+        substituted: true,
+        blockers: exact.blockers
+      };
+    }
+    const byFallback = matchAvailable(raw);
+    if (byFallback) {
+      return { locale: byFallback, requested: raw, substituted: false, blockers: [] };
+    }
+    return {
+      locale: ENGLISH_INTERFACE_LOCALE,
+      requested: raw,
+      substituted: true,
+      blockers: []
+    };
+  }
+  function resolveMessage(id, locale, packs) {
+    for (const tag of [locale.tag, ...locale.fallbacks]) {
+      const value = packs[tag]?.[id];
+      if (typeof value === "string" && value.length > 0) {
+        return { id, value, resolvedFrom: tag, missing: false };
+      }
+    }
+    return { id, value: id, resolvedFrom: "none", missing: true };
+  }
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
+  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
+    LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
+      const lookupRewrites = lookupRewritesForTarget(language2.id);
+      const readingAnnotation = language2.id === "zh" || language2.id === "yue";
+      const usesHanScript = language2.scripts.some((script) => script === "Hans" || script === "Hant");
+      return createLearningTargetModule({
+        id: `${language2.id}-roster-v1`,
+        language: language2.runtimeLocale,
+        direction: language2.direction,
+        capabilities: {
+          "term-lookup": true,
+          morphology: lookupRewrites.length > 0,
+          segmentation: true,
+          "reading-annotation": readingAnnotation,
+          pronunciation: true,
+          "text-to-speech": true,
+          subtitles: true,
+          typing: true
+        },
+        featureSemantics: {
+          characterSystem: language2.defaultScript,
+          phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
+          pronunciation: "ipa",
+          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
+        },
+        grammar: grammarForRosterTarget(language2.id),
+        typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
+        ocr: ocrHintFor(language2.runtimeLocale),
+        detectsText: scriptDetector(language2.scripts),
+        lookupRewrites,
+        ...usesHanScript ? {
+          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+          // Let the installed dictionary arbitrate inside a real Han
+          // run, and accept expression hits only.
+          lookupStartsAtSegmentBoundary: false,
+          lookupRunSegments: hanIdeographSegments,
+          lookupSweepMode: "left-to-right-longest-exact",
+          pointerWordSegments: hanIdeographSegments
+        } : {}
+      });
+    })
+  );
+  function ocrHintFor(runtimeLocale) {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint ? { languageHint: hint } : void 0;
+  }
+  function scriptDetector(scripts) {
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
+  }
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  let registryRevision = 0;
+  function learningTargetRegistryRevision() {
+    return registryRevision;
+  }
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
+    registryRevision++;
+    return module;
+  }
+  function learningTargetModuleFor(language2) {
+    const canonical = canonicalLanguageTag(language2);
+    const base = languageSubtag(canonical);
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
+  }
+  function normalizeLearningTargetLanguage(value) {
+    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function registeredLearningTargetModules() {
+    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap((stack) => stack.at(-1) ?? []);
+  }
+  function defaultLearningTargetModule() {
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  function registerBuiltInLearningTargetModule(module) {
+    registerLearningTargetModule(module);
+  }
+  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
+  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+  let targetSelectionGeneration = 0;
+  let cachedTarget = null;
+  let cachedForLanguage = "";
+  let cachedForRegistryRevision = -1;
+  function activeLearningTarget() {
+    const revision2 = learningTargetRegistryRevision();
+    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision2) {
+      return cachedTarget;
+    }
+    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
+    cachedForLanguage = requestedTargetLanguage;
+    cachedForRegistryRevision = revision2;
+    return cachedTarget;
+  }
+  function activeLearningTargetLanguage() {
+    return activeLearningTarget().language;
+  }
+  function activeLearningTargetGeneration() {
+    return targetSelectionGeneration;
+  }
+  function setActiveLearningTargetLanguage(value) {
+    const module = learningTargetModuleFor(value);
+    if (!module) return null;
+    if (requestedTargetLanguage !== module.language) targetSelectionGeneration += 1;
+    requestedTargetLanguage = module.language;
+    return module;
+  }
+  function adoptLearningTargetLanguage(value) {
+    const requested = setActiveLearningTargetLanguage(value);
+    if (requested) return requested;
+    const fallback = defaultLearningTargetModule();
+    return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
+  }
+  function isTargetLanguageText(text2) {
+    return activeLearningTarget().isLookupableText(text2);
+  }
+  function segmentTargetLanguageText(text2) {
+    return activeLearningTarget().segment(text2);
+  }
+  const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "music.youtube.com",
+    "studio.youtube.com",
+    "kids.youtube.com",
+    "gaming.youtube.com",
+    "youtu.be"
+  ]);
+  function isYouTubeAppHostname(hostname = location.hostname) {
+    return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+  }
+  const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  function safeElementMatches(element2, selector) {
+    try {
+      return element2.matches(selector);
+    } catch {
+      return false;
+    }
+  }
+  function safeQuerySelector(root, selector) {
+    try {
+      return root.querySelector(selector);
+    } catch {
+      return null;
+    }
+  }
+  function safeComputedStyle(element2) {
+    try {
+      return getComputedStyle(element2);
+    } catch {
+      return element2.style;
+    }
+  }
+  function compactLength(value) {
+    return Array.from(value.replace(/\s+/g, "")).length;
+  }
+  function cssPixels(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function elementClassName(element2) {
+    return String(element2.className || "");
+  }
+  function hasLineClamp(style) {
+    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
+    return Boolean(clamp2 && clamp2 !== "none" && clamp2 !== "0");
+  }
+  function isEllipsisTextRow(style) {
+    if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
+    if (style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box") return true;
+    return style.minWidth === "0px";
+  }
+  function clipsOverflow(style) {
+    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
+  }
+  function hasDefiniteCssSize(value) {
+    const normalized = value.trim().toLowerCase();
+    return Boolean(normalized && normalized !== "auto" && normalized !== "none" && normalized !== "normal" && normalized !== "initial" && normalized !== "inherit" && normalized !== "unset");
+  }
+  function hasClippedTextConstraint(style) {
+    if (!clipsOverflow(style)) return false;
+    return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
+  }
+  function isPositionedTextOverlay(style) {
+    return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
+  }
+  function isVerticalWritingMode(writingMode) {
+    return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
+  }
+  const CONSTRAINED_ROW_VERDICT_TTL_MS = 250;
+  const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2e3;
+  const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+  const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
+  const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
+  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+  let constrainedRowStyleGeneration = 0;
+  function noteConstrainedRowLayoutSettled() {
+    constrainedRowStyleGeneration += 1;
+  }
+  function constrainedRowStyleFacts(element2) {
+    const now = Date.now();
+    const memo = constrainedRowStyleFactMemo.get(element2);
+    if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
+    const style = safeComputedStyle(element2);
+    const clamped = hasLineClamp(style);
+    const ellipsisRow = isEllipsisTextRow(style);
+    const clips = clipsOverflow(style);
+    const clippedConstraint = hasClippedTextConstraint(style);
+    let clippedShortRow = false;
+    let activelyTruncatedPreview = false;
+    if (clips && !clamped && !ellipsisRow) {
+      const height = element2.getBoundingClientRect().height;
+      clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+      const clientHeight = element2.clientHeight;
+      activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
+    }
+    const facts = {
+      clamped,
+      ellipsisRow,
+      clippedConstraint,
+      clippedShortRow,
+      activelyTruncatedPreview
+    };
+    constrainedRowStyleFactMemo.set(element2, { at: now, gen: constrainedRowStyleGeneration, facts });
+    return facts;
+  }
+  function closestRubyFragileConstrainedRow(element2) {
+    let current = element2;
+    for (let depth = 0; current && depth < 12; depth += 1) {
+      const facts = constrainedRowStyleFacts(current);
+      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
+      current = composedAncestorElement(current);
+    }
+    return null;
+  }
+  function composedAncestorElement(element2) {
+    if (element2.assignedSlot) return element2.assignedSlot;
+    if (element2.parentElement) return element2.parentElement;
+    const root = element2.getRootNode();
+    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+  }
+  function boxStyleIsClipCapable(box) {
+    const facts = constrainedRowStyleFacts(box);
+    return facts.clamped || facts.ellipsisRow || facts.clippedConstraint;
+  }
+  function isClipConstrainedRow(element2) {
+    const facts = constrainedRowStyleFacts(element2);
+    return facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview;
+  }
+  function contentClipRowShowsRestReadings(decoration, clipRow) {
+    if (decoration !== "prose-full") return false;
+    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (!facts.clamped && !facts.ellipsisRow) return false;
+    const clampLines = Number.parseInt(safeComputedStyle(clipRow).getPropertyValue("-webkit-line-clamp"), 10);
+    if (Number.isFinite(clampLines) && clampLines > 1) return false;
+    const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
+    return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
+  }
+  const CLAMP_ROW_SHELL_ANCESTOR_LIMIT = 6;
+  function clampRowAllowsInFlowRestRuby(decoration, clipRow) {
+    if (decoration !== "prose-full" && decoration !== "content-ruby") return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (!facts.clamped) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
+    return !clampRowHasFixedClippingShell(clipRow);
+  }
+  function clipRowHasGrowableShape(clipRow) {
+    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow || facts.activelyTruncatedPreview) return false;
+    const style = safeComputedStyle(clipRow);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+  }
+  function clampRowHasFixedClippingShell(clipRow) {
+    let current = composedAncestorElement(clipRow);
+    for (let depth = 0; current && current !== document.body && depth < CLAMP_ROW_SHELL_ANCESTOR_LIMIT; depth += 1) {
+      if (ancestorPinsClampRowGrowth(current)) return true;
+      current = composedAncestorElement(current);
+    }
+    return false;
+  }
+  function ancestorPinsClampRowGrowth(ancestor) {
+    const style = safeComputedStyle(ancestor);
+    const definiteSize = hasDefiniteCssSize(style.maxHeight) || hasDefiniteCssSize(ancestor.style.height) || hasDefiniteCssSize(ancestor.style.maxHeight);
+    const clips = style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+    if (definiteSize && clips) return true;
+    const display = style.display;
+    const trackParent = display.includes("flex") || display.includes("grid") || display.startsWith("table");
+    return trackParent && (definiteSize || clips);
+  }
+  const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
+  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+  const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
+  const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
+  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  function isLikelyProseElement(element2) {
+    if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
+    return isLikelyProseClass(element2) || isConversationTextClass(element2);
+  }
+  function isReadableProseContext(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      if (isConversationTextClass(current)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isLikelyProseClass(element2) {
+    return PROSE_CLASS_RE.test(elementClassName(element2));
+  }
+  function isConversationTextClass(element2) {
+    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
+  }
+  function isLikelyProseLink(link, element2) {
+    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
+  }
+  function isProseFullContext(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isExplicitControlLink(link) {
+    return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
+  }
+  function linkHasControlMedia(link) {
+    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+  }
+  function linkHasControlShape(link, text2) {
+    const style = safeComputedStyle(link);
+    const rect = link.getBoundingClientRect();
+    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
+  }
+  function hasControlLinkStyle(style) {
+    return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
+  }
+  function hasControlLinkDisplay(display) {
+    return display.includes("flex") || display.includes("grid") || display === "inline-block";
+  }
+  function hasVisibleControlLinkBox(style) {
+    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+  }
+  function hasVisibleBorderSide(style, width) {
+    return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
+  }
+  function hasShortControlLinkText(link, text2) {
+    return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+  }
+  function hasControlLinkWidth(rect) {
+    return rect.width > 0 && rect.width < 360;
+  }
+  function hasUiBox(style) {
+    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
+  }
+  function hasInlineControlShape(display) {
+    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
+  }
+  const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+  const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+  function isPassiveInteractionElement(element2) {
+    if (element2.closest(READER_ROOT_SELECTOR)) return false;
+    if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
+    if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
+    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
+  }
+  function isCompactPassiveInteractionElement(element2) {
+    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+    if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+    return element2.childElementCount <= 4;
+  }
+  function isCompactPassiveChromeElement(element2) {
+    if (isLikelyProseElement(element2)) return false;
+    return isCompactPassiveInteractionElement(element2);
+  }
+  function readableContextPassiveChromeElement(element2) {
+    const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
+    if (interaction) {
+      if (isConversationTextClass(interaction)) return null;
+      if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
+      if (isCompactPassiveInteractionElement(interaction)) return interaction;
+    }
+    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
+    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
+  }
+  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
+  const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
+  const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
+  const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
+  const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
+  const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
+  const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
+  const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
+  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  function compactScanRubySuppression(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return { suppress: false, marks: [] };
+    const marks = [];
+    const notice = compactConstrainedNotificationElement(parent);
+    if (notice) marks.push({ element: notice, atomic: true });
+    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent) ?? compactMetadataChromeElement(parent) ?? compactVisualLabelElement(parent);
+    if (chrome) marks.push({ element: chrome, atomic: true });
+    return { suppress: Boolean(chrome || notice), marks };
+  }
+  function compactVisualLabelElement(parent) {
+    const chromeContext = isCompactInteractiveChromeContext(parent);
+    if (isReadableProseContext(parent) && !chromeContext) return null;
+    let current = parent;
+    for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
+      if (!UI_CLASS_RE.test(elementClassName(current))) continue;
+      const text2 = compactInteractiveChromeText(current);
+      if (!isCompactInteractiveChromeText(text2)) continue;
+      if (hasCompactInteractiveChromeGeometry(current)) return current;
+      const rect = current.getBoundingClientRect();
+      if (chromeContext && rect.width === 0 && rect.height === 0) return current;
+    }
+    return null;
+  }
+  const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
+  function compactMetadataChromeElement(parent) {
+    let current = parent;
+    for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
+      const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
+      if (!explicit || isConversationTextClass(current)) continue;
+      const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+      if (!isCompactInteractiveChromeText(text2)) continue;
+      const rect = current.getBoundingClientRect();
+      if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
+    }
+    return null;
+  }
+  function applyPassiveChromeMarks(marks) {
+    for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
+  }
+  function markPassiveChromeElement(element2, atomic = false) {
+    if (element2.dataset.jpdbReaderPassiveChrome !== "true") {
+      element2.dataset.jpdbReaderPassiveChrome = "true";
+    }
+    if (atomic && element2.dataset.jpdbReaderPassiveAtomic !== "true") {
+      element2.dataset.jpdbReaderPassiveAtomic = "true";
+    }
+    if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
+      element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
+    }
+  }
+  function hasExplicitAccessibleName(element2) {
+    return Boolean(
+      element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
+    );
+  }
+  function passiveChromeAccessibleLabel(element2) {
+    return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
+  }
+  function compactInteractiveChromeElement(parent) {
+    const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
+    if (!chrome) return null;
+    const text2 = compactInteractiveChromeText(chrome);
+    if (!isCompactInteractiveChromeText(text2)) return null;
+    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
+      return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
+    }
+    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
+  }
+  function compactInteractiveChromeText(element2) {
+    return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  }
+  function compactPassiveChromeElement(parent) {
+    if (isReadableProseContext(parent)) return null;
+    if (!isCompactInteractiveChromeContext(parent)) return null;
+    const text2 = compactInteractiveChromeText(parent);
+    if (!isCompactInteractiveChromeText(text2)) return null;
+    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+  }
+  function compactPassiveInteractionRubyElement(parent) {
+    if (isReadableProseContext(parent)) return null;
+    const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (!interaction) return null;
+    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+    if (isLikelyProseElement(interaction)) return null;
+    if (!isCompactPassiveInteractionElement(interaction)) return null;
+    const style = safeComputedStyle(interaction);
+    if (isVerticalWritingMode(style.writingMode)) return interaction;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+    if (isCompactInteractiveChromeContext(interaction)) return interaction;
+    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
+  }
+  function isCompactInteractiveChromeText(text2) {
+    const length = compactLength(text2);
+    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text2);
+  }
+  function isCompactInteractiveChromeLink(link, parent, text2) {
+    if (isLikelyProseLink(link, parent)) return false;
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
+  }
+  function isCompactInteractiveChromeControl(control, parent) {
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control)) return false;
+    if (safeElementMatches(control, '[role="button"]') && control.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control)) return false;
+    if (safeElementMatches(control, '[role="combobox"]') && !isNonEditableListboxTrigger(control)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(control) || hasCompactInteractiveChromeGeometry(control) || safeElementMatches(control, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(control);
+  }
+  function isCompactInteractiveChromeContext(element2) {
+    return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+  }
+  function hasCompactInteractiveChromeGeometry(element2) {
+    const style = safeComputedStyle(element2);
+    const rect = element2.getBoundingClientRect();
+    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+    if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
+    return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
+  }
+  function hasCompactInteractiveChromeRubyRisk(element2) {
+    const style = safeComputedStyle(element2);
+    if (isVerticalWritingMode(style.writingMode)) return true;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+    if (isCompactInteractiveChromeContext(element2)) return true;
+    if (safeElementMatches(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
+    if (!hasCompactInteractiveChromeGeometry(element2)) return false;
+    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
+    return clipsOverflow(style) && style.whiteSpace === "nowrap";
+  }
+  function compactConstrainedNotificationElement(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+      if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
+      if (isConstrainedNotificationContainer(current, parent)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function isConstrainedNotificationContainer(container, textElement) {
+    if (!safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR)) return false;
+    if (!hasConstrainedNotificationGeometry(container, textElement)) return false;
+    return hasNotificationActionPeer(container, textElement);
+  }
+  function hasConstrainedNotificationGeometry(container, textElement) {
+    const rect = container.getBoundingClientRect();
+    const textRect = textElement.getBoundingClientRect();
+    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
+  }
+  function notificationContainerLooksLikePageSection(container) {
+    const rect = container.getBoundingClientRect();
+    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
+    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
+  }
+  function hasNotificationActionPeer(container, textElement) {
+    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
+    if (Array.from(container.querySelectorAll(selector)).some((action) => !action.contains(textElement))) return true;
+    if (container === textElement) return false;
+    const row = container.parentElement;
+    if (!row) return false;
+    return Array.from(row.querySelectorAll(selector)).some((action) => !container.contains(action));
+  }
+  function isYouTubeHost$1() {
+    return isYouTubeAppHostname();
+  }
+  function isNavigationChromeContext(element2) {
+    return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
+  }
+  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+  const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
+  const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
+  function isEditableComposingContext(element2) {
+    if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    const combobox = element2.closest('[role="combobox"]');
+    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
+    if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+    if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
+    return isComboboxOwnedPopup(element2);
+  }
+  const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
+  function isNonEditableListboxTrigger(element2) {
+    if (!(element2 instanceof HTMLElement)) return false;
+    if (!safeElementMatches(element2, '[role="combobox"]')) return false;
+    const tag = element2.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    const autocomplete = element2.getAttribute("aria-autocomplete");
+    if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
+    if (safeElementMatches(element2, '[contenteditable]:not([contenteditable="false"])')) return false;
+    return !safeQuerySelector(element2, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
+  }
+  const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
+  let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
+  const COMBOBOX_OWNED_ID_TTL_MS = 250;
+  function resetDecorationPolicyCachesForTest() {
+    constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+    comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
+    reviewCardFrontPredicate = null;
+  }
+  function comboboxOwnedIds(root) {
+    const now = Date.now();
+    const memo = comboboxOwnedIdMemo.get(root);
+    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+    const ids = /* @__PURE__ */ new Set();
+    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
+      for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
+        for (const attribute of ["aria-owns", "aria-controls"]) {
+          for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
+            if (token) ids.add(token);
+          }
+        }
+      }
+    }
+    comboboxOwnedIdMemo.set(root, { at: now, ids });
+    return ids;
+  }
+  function isComboboxOwnedPopup(element2) {
+    const ids = comboboxOwnedIds(element2.getRootNode());
+    if (!ids.size) return false;
+    let current = element2;
+    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+      if (current.id && ids.has(current.id)) return true;
+    }
+    return false;
+  }
+  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
+  const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
+  const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
+  const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+  function interactivePassiveControl(element2) {
+    const temporalMetadata = element2.closest("time,[datetime]");
+    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
+    const control = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
+    if (control && !isConversationTextClass(control) && !isMediaTextContentControl(control)) return control;
+    const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
+    if (siblingOwnedControl) return siblingOwnedControl;
+    const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
+    if (!link) return null;
+    if (isCompactLinkedCardMetadata(link, element2)) return link;
+    if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
+    return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+  }
+  const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
+  function siblingOwnedInteractiveControl(element2) {
+    if (!(element2 instanceof HTMLElement)) return null;
+    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+    const chromeContext = isCompactInteractiveChromeContext(element2);
+    if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
+    let current = element2.parentElement;
+    for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+      if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
+      const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate) => !candidate.contains(element2) && !element2.contains(candidate));
+      if (controls.length !== 1) continue;
+      const classFacts = `${element2.className} ${current.className}`;
+      const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
+      if (!uiContext) continue;
+      const rect = current.getBoundingClientRect();
+      const measuredCompact = rect.height > 0 && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
+      if (measuredCompact || rect.height === 0) return current;
+    }
+    return null;
+  }
+  function isCompactTemporalMetadata(element2) {
+    return isCompactMetadataElement(element2);
+  }
+  const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
+  const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
+  function isCompactLinkedCardMetadata(link, element2) {
+    const textElement = element2 instanceof HTMLElement ? element2 : element2.parentElement;
+    return Boolean(textElement && isLinkedCardMetadataElement(link, textElement));
+  }
+  function isLinkedCardMetadataElement(link, textElement) {
+    if (textElement.closest("h1,h2,h3,h4,h5,h6")) return false;
+    const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
+    if (!heading) return false;
+    return [
+      !heading.contains(textElement),
+      !isLikelyProseElement(textElement),
+      isCompactMetadataElement(textElement)
+    ].every(Boolean);
+  }
+  function isCompactMetadataElement(element2) {
+    const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const height = element2.getBoundingClientRect().height;
+    return [
+      isTargetLanguageText(text2),
+      compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+      height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
+    ].every(Boolean);
+  }
+  function isMediaTextContentControl(control) {
+    if (!safeElementMatches(control, 'a[href],[role="link"],[role="button"]')) return false;
+    if (control.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
+    const media = safeQuerySelector(control, "img,picture,video,canvas");
+    if (!media || !(media instanceof HTMLElement)) return false;
+    return mediaElementIsThumbnailSized(media) && compactLength(control.textContent ?? "") > 2;
+  }
+  const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+  function mediaElementIsThumbnailSized(media) {
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return true;
+    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
+  }
+  let reviewCardFrontPredicate = null;
+  function setReviewCardFrontPredicate(predicate) {
+    reviewCardFrontPredicate = predicate;
+  }
+  function classifyDecoration(element2) {
+    if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
+    if (isEditableComposingContext(element2)) return "skip";
+    if (reviewCardFrontPredicate?.(element2)) return "skip";
+    const control = interactivePassiveControl(element2);
+    if (control) {
+      if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
+      return "interactive-passive";
+    }
+    if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
+    if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
+    if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
+    return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+  }
+  function decorationSuppressesRuby(state2) {
+    return state2 === "interactive-passive";
+  }
+  function stampDecorationState(host, state2) {
+    if (host.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state2) {
+      host.setAttribute(DECORATION_STATE_ATTRIBUTE, state2);
+    }
+  }
+  function decorationStateForWord(word) {
+    const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
+    const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
+    return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
+  }
+  const decorationPolicy = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+    __proto__: null,
+    COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR,
+    COMPACT_PASSIVE_CHROME_SELECTOR,
+    COMPACT_PASSIVE_INTERACTION_SELECTOR,
+    CONSTRAINED_ROW_VERDICT_TTL_MS,
+    PASSIVE_INTERACTION_BOUNDARY_SELECTOR,
+    PASSIVE_INTERACTION_SELECTOR,
+    UI_CLASS_RE,
+    applyPassiveChromeMarks,
+    boxStyleIsClipCapable,
+    clampRowAllowsInFlowRestRuby,
+    classifyDecoration,
+    closestRubyFragileConstrainedRow,
+    compactInteractiveChromeElement,
+    compactLength,
+    compactPassiveChromeElement,
+    compactScanRubySuppression,
+    composedAncestorElement,
+    contentClipRowShowsRestReadings,
+    cssPixels,
+    decorationStateForWord,
+    decorationSuppressesRuby,
+    hasClippedTextConstraint,
+    hasDefiniteCssSize,
+    hasInlineControlShape,
+    hasLineClamp,
+    hasUiBox,
+    interactivePassiveControl,
+    isClipConstrainedRow,
+    isCompactInteractiveChromeText,
+    isCompactPassiveChromeElement,
+    isCompactPassiveInteractionElement,
+    isEllipsisTextRow,
+    isExplicitControlLink,
+    isLikelyProseElement,
+    isLikelyProseLink,
+    isNavigationChromeContext,
+    isNonEditableListboxTrigger,
+    isPassiveInteractionElement,
+    isPositionedTextOverlay,
+    isReadableProseContext,
+    isYouTubeHost: isYouTubeHost$1,
+    linkHasControlMedia,
+    linkHasControlShape,
+    noteConstrainedRowLayoutSettled,
+    resetDecorationPolicyCachesForTest,
+    safeComputedStyle,
+    safeElementMatches,
+    selectorPairs,
+    setReviewCardFrontPredicate,
+    stampDecorationState
+  }, Symbol.toStringTag, { value: "Module" }));
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
   const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -19699,7 +19689,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return false;
   }
   function hasVisibleTextStyle(element2) {
-    return isVisibleStyle(safeComputedStyle$1(element2));
+    return isVisibleStyle(safeComputedStyle(element2));
   }
   function hasVisibleTextMirror(element2) {
     return Array.from(element2.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
@@ -19864,7 +19854,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const LAYOUT_SENSITIVE_MAX_BOX_HEIGHT = 96;
   function isLayoutSensitiveTextBox(element2) {
-    const style = safeComputedStyle$1(element2);
+    const style = safeComputedStyle(element2);
     if (isReadablePrimaryDisplayHeadingElement(element2)) return false;
     if (hasLineClamp(style)) return true;
     if (isEllipsisTextRow(style)) return true;
@@ -20338,7 +20328,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     styleOf(element2) {
       let style = this.styleCache.get(element2);
       if (!style) {
-        style = safeComputedStyle$1(element2);
+        style = safeComputedStyle(element2);
         this.styleCache.set(element2, style);
       }
       return style;
@@ -20517,7 +20507,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const plan = nonDestructiveHostRenderPlan(host, target, nonOverlappingTokens(tokens, target.text));
     const text2 = plan.text;
     const safeTokens = plan.tokens;
-    const renderPlan = preservesWhitespace(safeComputedStyle$1(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
+    const renderPlan = preservesWhitespace(safeComputedStyle(host).whiteSpace) ? { text: text2, tokens: safeTokens } : whitespaceCollapsedNonDestructiveRender(text2, safeTokens, plan.whitespaceJoints);
     const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby, false, target.decoration);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const { clipRow, detachedReadings } = textMirrorClipMode(
@@ -21034,7 +21024,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         baselineChanged = true;
       }
       const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
-      const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle$1(host), Boolean(state2.reservedLineHeight)) : "";
+      const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state2.reservedLineHeight)) : "";
       if (baselineChanged || lineHeight !== state2.reservedLineHeight) {
         updates.push({ mirror, host, state: state2, lineHeight });
       }
@@ -21091,7 +21081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function styleDetachedReadingElements(root, host) {
     const detachedRubies = Array.from(root.querySelectorAll(".jpdb-reader-detached-ruby"));
     if (!detachedRubies.length) return;
-    const hostStyle = safeComputedStyle$1(host);
+    const hostStyle = safeComputedStyle(host);
     const hostFontSize = Number.parseFloat(hostStyle.fontSize) || 16;
     const readingFontSize = Math.min(10, Math.max(6, hostFontSize * 0.46));
     for (const wrapper of detachedRubies) {
@@ -21406,7 +21396,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state2?.layer.isConnected ? state2.layer : null;
   }
   function styleCanvasFallbackTextLayer(layer, canvas, hasRuby, n) {
-    const style = safeComputedStyle$1(canvas);
+    const style = safeComputedStyle(canvas);
     layer.style.setProperty("position", "absolute");
     layer.style.setProperty("left", `${canvas.offsetLeft}px`);
     layer.style.setProperty("top", `${canvas.offsetTop}px`);
@@ -21428,7 +21418,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (n) layer.style.setProperty("opacity", "0");
   }
   function mountCanvasTextLayer(canvas, host, layer, n) {
-    const hostStyle = safeComputedStyle$1(host);
+    const hostStyle = safeComputedStyle(host);
     const state2 = {
       layer,
       canvasVisibility: canvas.style.getPropertyValue("visibility"),
@@ -21457,7 +21447,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text2);
   }
   function styleControlTextMirror(mirror, host, placeholderOverlay) {
-    const style = safeComputedStyle$1(host);
+    const style = safeComputedStyle(host);
     mirror.style.setProperty("font", style.font);
     mirror.style.setProperty("color", style.color);
     const state2 = {
@@ -21474,7 +21464,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     state2.placeholderHidden = true;
     const parent = host.parentElement;
     if (parent) {
-      const parentStyle = safeComputedStyle$1(parent);
+      const parentStyle = safeComputedStyle(parent);
       state2.parent = parent;
       state2.parentPosition = parent.style.getPropertyValue("position");
       state2.parentPositionPriority = parent.style.getPropertyPriority("position");
@@ -21567,7 +21557,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function sourceTextSpansMultipleLines(host) {
     const source = hostOriginalTextWithNodeOffsets(host);
-    const style = safeComputedStyle$1(host);
+    const style = safeComputedStyle(host);
     if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
     const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
@@ -21576,7 +21566,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
   }
   function styleTextMirrorHost(host) {
-    const computed = safeComputedStyle$1(host);
+    const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
       sourceText: "",
@@ -21592,7 +21582,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return state2;
   }
   function styleTextMirror(mirror, host, hasRuby = false) {
-    const style = safeComputedStyle$1(host);
+    const style = safeComputedStyle(host);
     mirror.style.setProperty("position", "absolute");
     mirror.style.setProperty("inset", "0 0 auto 0");
     mirror.style.setProperty("box-sizing", "border-box");
@@ -21872,7 +21862,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function pageConcealsTextMirrorHost(host) {
     for (let element2 = host; element2; element2 = element2.parentElement) {
-      const style = safeComputedStyle$1(element2);
+      const style = safeComputedStyle(element2);
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
       if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
       if (style.contentVisibility === "hidden") return true;
@@ -22054,7 +22044,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     replaceTextNodeRange(fragment2.node, fragment2.start, fragment2.end, wrapDirectFlexGridTextRun(replacement, fragment2.node.parentElement));
   }
   function wrapDirectFlexGridTextRun(replacement, parent) {
-    const display = parent ? safeComputedStyle$1(parent).display : "";
+    const display = parent ? safeComputedStyle(parent).display : "";
     if (!display.includes("flex") && !display.includes("grid")) return replacement;
     const fragment2 = document.createDocumentFragment();
     const run = document.createElement("span");
@@ -22989,7 +22979,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isVisible(element2) {
     const rect = element2.getBoundingClientRect();
     if (!isVisibleRect(rect)) return false;
-    const style = safeComputedStyle$1(element2);
+    const style = safeComputedStyle(element2);
     return isVisibleStyle(style);
   }
   function isVisibleRect(rect) {
@@ -22999,7 +22989,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return style.visibility !== "hidden" && style.display !== "none" && Number(style.opacity || "1") > 0;
   }
   function isParagraphBoundary(element2) {
-    const display = safeComputedStyle$1(element2).display;
+    const display = safeComputedStyle(element2).display;
     if (element2.tagName === "BR") return true;
     if (isInlineDisplay(display)) return false;
     if (BLOCK_TAGS.has(element2.tagName)) return true;
@@ -23020,7 +23010,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isShortCenteredDisplayHeading(element2, text2) {
     const heading = closestDisplayHeading(element2);
     if (!heading) return false;
-    const style = safeComputedStyle$1(heading);
+    const style = safeComputedStyle(heading);
     const headingText = heading.textContent?.trim() || text2;
     if (isReadablePrimaryDisplayHeadingText(element2, text2)) return false;
     return style.textAlign === "center" && compactLength(headingText) <= 40;
@@ -122603,6 +122593,16 @@ ${reading}`);
     renderWanikaniDefinitionMount,
     createWanikaniSrsAdapter
   });
+  const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
+  function registerDecorationPolicyRuntimeApi(api) {
+    Object.defineProperty(globalThis, DECORATION_POLICY_RUNTIME_API_SLOT, {
+      configurable: true,
+      enumerable: false,
+      value: api,
+      writable: true
+    });
+  }
+  registerDecorationPolicyRuntimeApi(decorationPolicy);
   const log$8 = Logger.scope("AnkiNewTab");
   const ANKI_CARD_INFO_CHUNK_SIZE = 250;
   const ANKI_CARD_INFO_STREAM_CHUNK_SIZE = 40;
