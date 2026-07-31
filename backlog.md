@@ -1154,6 +1154,24 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       dictionary Worker's edge-cache wrapper onto `/audio/*` and the R2-index path, and put the support
       banner reads behind the Cache API so a banner impression is not two D1 reads.
 - [ ] **A35.20 — HIGH: Academy payload still needs hosted JS minification and better zone compression.**
+      **MEASURED 2026-07-31, and both remaining legs now have a specific answer.**
+      - **Compression: confirmed, quantified, and it is a negotiation bug rather than a missing feature.**
+        Brotli and zstd both work when requested alone, so the zone can produce them — but with a realistic
+        browser header (`accept-encoding: gzip, deflate, br, zstd`) it serves **gzip**. Transferred bytes for
+        the same object: gzip **3,484,388**, br **3,111,707** (-10.7%), zstd **3,066,162** (-12.0%). So every
+        visitor pays about **418 KB extra** on a 3 MB script for no reason. Most likely cause is the origin
+        returning an already-gzipped variant that Cloudflare passes through rather than recompressing;
+        needs a dashboard/zone check, which is a codex task (memory `yomu-deploys-via-codex`).
+      - **Minification is BLOCKED by design, and the ticket did not know it.** Turning on `minify` in
+        `config/vite/academy.config.ts` would break provenance tests that deliberately grep the *shipped*
+        bundle for readable source expressions — `tests/academy/learning-voice-playback.test.ts:645-649`
+        asserts `docs/public/academy/app.js` contains `value.role === "academy-character"` and
+        `options.invalidEntry === "skip"`, and `tests/academy/n3-mock-listening.test.ts:295` diffs the public
+        bundle against `git show HEAD:` . Those exist to prove the runtime ships the accepted parser, which
+        is content-governance for a cast with likeness consent, so they are not simply deletable.
+        **The real fix is to stop proving provenance by substring-matching minifiable code:** assert against
+        a build-time provenance manifest or a source map, then minification is free. Until then `minify:
+        false` is load-bearing and should be commented as such rather than looking like an oversight.
       The audio and runtime-art legs closed on 2026-07-30; the script/compression legs below remain open.
       - **Closed:** the 13 Persona BGM files were re-encoded from 377,876,845 B of FLAC to 55,844,890 B
         of ~128 kbps VBR Opus. The 14 short Shinday WAV effects remain unchanged at 795,670 B, so the
