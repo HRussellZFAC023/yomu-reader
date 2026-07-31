@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.8.58] - 2026-07-31
+
+### Added
+
+- Grammar detection now follows the active learning target, with JLPT levels for Japanese and CEFR levels for other checked inventories.
+- Spanish, French, German, and Russian now include conservative starter rules, while every other target keeps a checked grammar reference visible.
+
+### Fixed
+
+- Grammar checks now keep an honest result card visible when no local rule matches or local detection is unavailable.
+
 ## [1.8.57] - 2026-07-31
 
 ### Changed

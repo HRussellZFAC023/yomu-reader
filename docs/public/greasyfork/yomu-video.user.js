@@ -1522,13 +1522,158 @@ function applyLookupRewrite(term, rewrite) {
   if ([...stem].length < rewrite.minStemLength) return null;
   return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
 }
+const MAX_GRAMMAR_HINTS = 12;
+const MAX_OCCURRENCES_PER_RULE = 2;
+const GRAMMAR_CACHE_LIMIT = 240;
+function createLearningTargetGrammar(spec = {}) {
+  const ruleSpecs = [...spec.rules ?? []];
+  const levelScale = normalizedLevelScale(spec.levelScale, ruleSpecs);
+  const compiled = compileGrammarRules(ruleSpecs, levelScale, spec.expandPatternSource);
+  const rules = Object.freeze(compiled.map(({ spec: rule }) => Object.freeze({
+  ruleId: rule.ruleId,
+  level: rule.level,
+  name: rule.name,
+  ...rule.displayNames ? { displayNames: Object.freeze({ ...rule.displayNames }) } : {},
+  url: rule.url
+  })));
+  const normalizeSentence = spec.normalizeSentence ?? defaultNormalizeGrammarSentence;
+  const cache = /* @__PURE__ */ new Map();
+  const copyIds = new Map(ruleSpecs.flatMap((rule) => {
+  const copyId = spec.ruleCopyIdFor?.(rule) ?? rule.ruleCopyId;
+  return copyId ? [[rule.ruleId, copyId]] : [];
+  }));
+  return Object.freeze({
+  levelScale,
+  rules,
+  referenceUrl: spec.referenceUrl?.trim() ?? "",
+  detect(sentence) {
+    const normalized = normalizeSentence(sentence);
+    if (!normalized) return [];
+    const cached = cache.get(normalized);
+    if (cached) return cached;
+    const selected = selectGrammarMatches(compiled, normalized, spec);
+    const matches = Object.freeze(selected.sort(compareGrammarMatches).map(({ priority: _priority, ...match }) => Object.freeze(match)));
+    cache.set(normalized, matches);
+    if (cache.size > GRAMMAR_CACHE_LIMIT) {
+      const oldest = cache.keys().next().value;
+      if (typeof oldest === "string") cache.delete(oldest);
+    }
+    return matches;
+  },
+  ruleCopyId(ruleId) {
+    return copyIds.get(ruleId) ?? null;
+  }
+  });
+}
+function normalizedLevelScale(value, rules) {
+  if (!value) {
+  if (rules.length) throw new TypeError("Grammar rules require a target-owned level scale.");
+  return null;
+  }
+  const id = value.id.trim();
+  const levels = value.levels.map((level) => level.trim()).filter(Boolean);
+  if (!id || !levels.length || new Set(levels).size !== levels.length) {
+  throw new TypeError("Grammar level scales require a stable id and unique level names.");
+  }
+  return Object.freeze({ id, levels: Object.freeze(levels) });
+}
+function compileGrammarRules(rules, levelScale, expandPatternSource) {
+  const ids = /* @__PURE__ */ new Set();
+  const levels = new Set(levelScale?.levels ?? []);
+  return Object.freeze(rules.map((rule) => {
+  if (!rule.ruleId.trim() || !rule.name.trim() || !rule.patternSource || !Number.isFinite(rule.priority)) {
+    throw new TypeError(`Invalid grammar rule: ${rule.ruleId || "(missing id)"}`);
+  }
+  if (ids.has(rule.ruleId)) throw new TypeError(`Duplicate grammar rule id: ${rule.ruleId}`);
+  if (!levels.has(rule.level)) {
+    throw new TypeError(`Grammar rule ${rule.ruleId} uses ${rule.level}, outside the ${levelScale?.id ?? "missing"} scale.`);
+  }
+  ids.add(rule.ruleId);
+  const source = expandPatternSource?.(rule.patternSource) ?? rule.patternSource;
+  return Object.freeze({ spec: rule, pattern: new RegExp(source, "gu") });
+  }));
+}
+function defaultNormalizeGrammarSentence(sentence) {
+  return sentence.normalize("NFKC");
+}
+function selectGrammarMatches(rules, sentence, spec) {
+  const seenMatches = /* @__PURE__ */ new Set();
+  const seenRuleCounts = /* @__PURE__ */ new Map();
+  const selected = [];
+  const ranked = rules.flatMap((rule) => grammarMatches(rule, sentence, spec)).sort(compareRankedGrammarMatches);
+  for (const item of ranked) {
+  const key = `${item.ruleId}:${item.match}:${item.index}`;
+  if (seenMatches.has(key)) continue;
+  const count = seenRuleCounts.get(item.ruleId) ?? 0;
+  if (count >= MAX_OCCURRENCES_PER_RULE) continue;
+  if (selected.some((existing) => shouldSuppressOverlappingMatch(existing, item, spec))) continue;
+  seenMatches.add(key);
+  seenRuleCounts.set(item.ruleId, count + 1);
+  selected.push(item);
+  if (selected.length >= MAX_GRAMMAR_HINTS) break;
+  }
+  return selected;
+}
+function grammarMatches(rule, sentence, detector) {
+  return Array.from(sentence.matchAll(rule.pattern)).filter((match) => !detector.shouldSkipMatch?.(rule.spec, grammarMatchContext(sentence, match))).map((match) => rankedGrammarMatch(rule.spec, match, detector.learnerFacingMatch)).filter((match) => Boolean(match));
+}
+function rankedGrammarMatch(rule, match, learnerFacingMatch) {
+  const rawMatch = match[0];
+  const learnerMatch = learnerFacingMatch?.(rule, rawMatch) ?? rawMatch;
+  if (!learnerMatch) return null;
+  const learnerOffset = rawMatch.lastIndexOf(learnerMatch);
+  const indexOffset = learnerOffset > 0 ? learnerOffset : 0;
+  return {
+  ruleId: rule.ruleId,
+  name: rule.name,
+  level: rule.level,
+  ...rule.displayNames ? { displayNames: rule.displayNames } : {},
+  match: learnerMatch,
+  confidence: rule.confidence,
+  index: (match.index ?? 0) + indexOffset,
+  url: rule.url,
+  priority: rule.priority
+  };
+}
+function grammarMatchContext(sentence, match) {
+  const rawMatch = match[0];
+  const start = match.index ?? 0;
+  const end = start + rawMatch.length;
+  return {
+  rawMatch,
+  before: sentence.slice(Math.max(0, start - 4), start),
+  following: sentence.slice(end, end + 6)
+  };
+}
+function compareRankedGrammarMatches(a, b) {
+  return a.priority - b.priority || a.index - b.index || b.match.length - a.match.length || a.name.localeCompare(b.name);
+}
+function compareGrammarMatches(a, b) {
+  return a.index - b.index || a.name.localeCompare(b.name);
+}
+function shouldSuppressOverlappingMatch(existing, next, spec) {
+  if (!grammarMatchRangesOverlap(existing, next)) return false;
+  if (existing.match === next.match && existing.index === next.index) return true;
+  if (spec.keepOverlappingMatches?.(existing, next)) return false;
+  if (existing.priority < 40 && next.priority < 40) return false;
+  return next.priority >= 40 && existing.priority < next.priority || grammarMatchContains(existing, next) && existing.priority <= next.priority && existing.match.length > next.match.length;
+}
+function grammarMatchRangesOverlap(a, b) {
+  const aEnd = a.index + a.match.length;
+  const bEnd = b.index + b.match.length;
+  return a.index < bEnd && b.index < aEnd;
+}
+function grammarMatchContains(outer, inner) {
+  return inner.index >= outer.index && inner.index + inner.match.length <= outer.index + outer.match.length;
+}
+const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -1555,8 +1700,8 @@ const LEARNING_TARGET_CAPABILITY_IDS = [
 const NO_CAPABILITIES = Object.freeze(
   Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
 );
-function learningTargetCapabilities(declared = {}) {
-  return Object.freeze({ ...NO_CAPABILITIES, ...declared });
+function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+  return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
 }
 function createLearningTargetModule(spec) {
   const language = canonicalLanguageTag(spec.language) ?? spec.language;
@@ -1566,13 +1711,14 @@ function createLearningTargetModule(spec) {
   const detects = detectorFor(spec.detectsText);
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
   const segment = spec.segment ?? ((text) => defaultSegment(text, language));
+  const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
   language,
   direction,
   collationLocale: spec.collationLocale ?? language,
-  capabilities: learningTargetCapabilities(spec.capabilities),
+  capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
   featureSemantics: Object.freeze({
     ...spec.featureSemantics,
     phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -1603,6 +1749,7 @@ function createLearningTargetModule(spec) {
     languageTag: spec.subtitles?.languageTag ?? base,
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
+  grammar,
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
   normalizeText,
@@ -1659,6 +1806,464 @@ function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
 function defaultNormalizeReading(spelling, reading) {
   return (reading ?? "").trim() || spelling.trim();
 }
+const GRAMMAR_PATTERN_DATA = String.raw`
+potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/
+potential-dekiru	N4	できる	{P}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	8	h
+obligation-nakereba-naranai	N4	なければならない	{F}(?:なければならない|なければなりません|なくてはならない|なくてはなりません|なくてはいけない|なくてはいけません|なければいけない|なければいけません|なきゃ(?:いけない|だめ)?|なくちゃ(?:いけない|だめ)?|ないといけない|ねばならない)	4	h	@g/nakereba-naranai/
+permission-not-required-nakutemo-ii	N5	なくてもいい	{F}なくても(?:いい|よい|大丈夫)(?:です)?	4	h
+prohibition-tewa-ikenai	N4	てはいけない	{F}(?:(?:[てで]は|ちゃ|じゃ)いけ(?:ない|ません|なかった|ませんでした)|(?:[てで]は|ちゃ|じゃ)なら(?:ない|ません)|(?:[てで]は|ちゃ|じゃ)だめ(?:だ|です)?)	5	h	@g/tewa-ikenai/
+permission-temo-ii	N5	てもいい	{F}[てで]も(?:いい|よい|よかった|よくない|よくありません|大丈夫(?:です)?|かまわない|かまいません|構わない|構いません)(?:です)?	5	h	@g/temoii/
+request-te-kudasai	N5	てください	{F}[てで]ください(?:ませんか)?	6	h
+polite-request-te-itadakemasen-ka	N4	ていただけませんか	{F}[てで](?:いただけませんか|くださいませんか)	6	h
+request-naide-kudasai	N5	ないでください	{F}ないでください	5	h
+advice-hou-ga-ii	N4	方がいい	{F}ほうが(?:いい|よい)(?:です)?	6	h
+command-nasai	N4	なさい	{F}なさい	6	h
+experience-ta-koto-ga-aru	N4	たことがある	{F}たことが(?:あ(?:る|ります|った|りました|りません|りませんでした)|ない|なかった|ありません|ありませんでした)	6	h	@g/ta-koto-ga-aru/
+completion-te-shimau	N4	てしまう	(?:{F}[てで]しま(?:う|います|った|いました|わない|いません|わなかった|いませんでした)|{F}(?:ちゃう|ちゃいます|ちゃった|ちゃいました|ちゃわない|ちゃいません|ちゃわなかった|ちゃいませんでした|じゃう|じゃいます|じゃった|じゃいました|じゃわない|じゃいません|じゃわなかった|じゃいませんでした))	6	h	@g/te-shimau/
+attempt-te-miru	N4	てみる	{F}[てで]み(?:る|ます|た|ました|たい|ない|ません|なかった|ませんでした)	6	h	@g/te-miru/
+preparation-te-oku	N4	ておく	(?:{F}[てで]お(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした)|{F}(?:とく|ときます|といた|ときました|とかない|ときません|とかなかった|ときませんでした|どく|どきます|どいた|どきました|どかない|どきません|どかなかった|どきませんでした))	6	h	@g/teoku/
+desire-other-te-hoshii	N4	てほしい	{F}[てで]ほし(?:い|いです|かった|かったです|くない|くありません|くなかった|くありませんでした)	7	h
+benefactive-te-kureru-morau	N4	てくれる / てもらう	{F}[てで](?:くれ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|くださ(?:る|います|った|いました|らない|いません|らなかった|いませんでした)|あげ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|や(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|もら(?:う|います|った|いました|わない|いません|わなかった|いませんでした|え(?:る|ます|た|ました|ない|ません|なかった|ませんでした))|いただ(?:く|きます|いた|きました|かない|きません|かなかった|きませんでした|け(?:る|ます|た|ました|ない|ません|なかった|ませんでした)))	8	m	@g/te-kureru/
+change-you-ni-naru	N4	ようになる	{F}ようにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています|っていない|っていません)	8	h	@g/you-ni-naru/
+habit-you-ni-suru	N4	ようにする	{F}ように(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	8	h	@g/you-ni-suru/
+verb-suru	N5	する	(?:{P}を)?{P}(?:す(?:る|れば|るな|るの|ること|るため|る前|る後)|し(?:ます|ました|ません|ませんでした|た|て|ない|なかった|なければ|よう|ろ)|され(?:る|ます|た|ました)|させ(?:る|ます|た|ました)|でき(?:る|ます|た|ました|ない|ません))	1d	h	@g/suru/
+choice-ni-suru	N4	にする	{P}に(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
+change-ku-suru	N4	くする	{P}く(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	a	h
+change-ku-naru-ni-naru	N5	くなる / になる	(?:{P}くな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}(?<!よう)にな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)|{P}とな(?:る|ります|った|りました))	a	h
+copula-desu-da	N5	です / だ	(?:です|でした|だ|だった)(?=$|[、。！？!?よねな])	17	h	@g/desu/
+negative-copula-dewa-nai	N5	ではない / じゃない	(?:では|じゃ)(?:ない|ありません|なかった|ありませんでした)	c	h
+formal-copula-de-aru	N3	である	であ(?:る|ります|った|りました)	k	h
+voice-causative-passive	N3	させられる	{F}(?:させられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せられ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]され(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	8	m	@g/verb-causative-form-saseru/
+voice-causative	N4	させる	{F}(?:させ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまらわ]せ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-causative-form-saseru/
+voice-passive-potential	N4	れる / られる	{F}(?:られ(?:る|ます|た|ました|ない|ません|なかった|ませんでした)|[かがさざただなばまわ]れ(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	9	m	@g/verb-passive-form-rareru/
+evidence-rashii-mitai	N4	らしい / みたい	(?:{F}らし(?:い|かった|くない|く)|{F}みたい(?:だ|です|でした|じゃない|ではない|に|な)?(?=$|[、。！？!?ねよ]))	9	m	@g/rashii/
+modality-kamoshirenai	N4	かもしれない	(?:かもしれない|かもしれません|かも)	9	h	@g/kamoshirenai/
+modality-deshou-darou	N5	でしょう / だろう	(?:でしょう|でしょうか|だろう|だろうか)	a	h	@g/deshou/
+quotation-to-omou	N4	と思う	{F}と思(?:う|います|った|いました|っている|っています|わない|いません|わなかった|いませんでした)	a	h	@g/to-omou/
+attempt-you-to-suru	N3	ようとする	{F}ようと(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	b	m	@g/verb-volitional-form-you/
+plan-tsumori-yotei	N4	つもり / 予定	{F}(?:つもり|予定)(?:だ|です|だった|でした)?	c	m	@g/tsumori/
+expectation-hazu	N4	はず	{F}はず(?:だ|です|だった|でした|がない|はない)?	c	h	@g/hazu/
+reasoning-wake	N3	わけ	{F}わけ(?:ではない|じゃない|がない|にはいかない|だ|です)?	o	m	@g/wake/
+reasoning-wake-dewa-nai	N3	わけではない	{F}わけ(?:では|じゃ)(?:ない|ありません)	b	h
+impossibility-wake-ga-nai	N3	わけがない	{F}わけが(?:ない|ありません)	b	h
+constraint-wake-ni-wa-ikanai	N3	わけにはいかない	{F}わけにはい(?:かない|きません)	b	h
+purpose-tame-ni	N4	ために	{F}ために	c	h	@g/tame-ni/
+purpose-you-ni	N4	ように	{F}ように	s	m	@g/you-ni/
+timing-tokoro	N4	ところ	{F}ところ(?:だ|です|だった|でした|で|に)?	e	m	@j/tokoro-bakari/
+simultaneous-nagara	N4	ながら	{F}(?<!残念)ながら	e	h	@g/nagara/
+state-mama	N3	まま	{F}まま	f	m	@g/mama/
+list-tari	N5	たり	(?:[^、。！？!?\\s]{1,30}?[だた]り[^、。！？!?\\s]{1,30}?[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした)?|{F}[だた]り(?:する|します|した|しました|しない|しません|しなかった|しませんでした))	g	m	@g/tari/
+limitation-bakari	N4	ばかり	{F}ばかり	g	m	@j/tokoro-bakari/
+recent-ta-bakari	N4	たばかり	{F}たばかり(?:だ|です|だった|でした)?	c	h	@j/tokoro-bakari/
+limitation-dake-shika	N5	だけ / しか	{F}(?:だけ|しか)	i	m	@g/dake/
+degree-hodo-kurai	N4	ほど / くらい	{F}(?:ほど|くらい|ぐらい)	i	m	@g/hodo/
+role-toshite	N3	として	{F}として	i	h
+relation-ni-yotte	N3	によって	{F}によ(?:って|る)	i
+topic-ni-tsuite	N3	について	{F}について	i	h
+target-ni-taishite	N3	に対して	{F}に対(?:して|する|し)	i
+concession-ni-mo-kakawarazu	N2	にもかかわらず	{F}にもかかわらず	i	h
+concession-kuse-ni	N3	くせに	{F}くせに	i
+suffix-tachi	N5	たち / 達	{P}(?:たち|(?<!友)達)	1e
+particle-wa	N5	は	{P}は(?!ず)	1j	h	@g/particle-wa/
+particle-ga	N5	が	{P}が	1j	h	@g/particle-ga/
+particle-wo	N5	を	{P}を	1j	h	@g/particle-wo/
+particle-de	N5	で	{P}(?<![まん])で(?!き|す|し)	1j	m	@g/particle-de/
+particle-ni	N5	に	{P}に(?!なる)	1j	m	@g/particle-ni/
+particle-e	N5	へ	{P}へ	1j
+particle-to	N5	と	{P}(?<![っッこコ])と(?!して|いう|思)	1j	m	@g/particle-to/
+particle-no	N5	の	{P}の	1j	m	@g/particle-no-noun-modifier/
+particle-mo	N5	も	{P}も	1j
+particle-ya	N5	や	{P}や	1j
+aspect-te-iru	N5	ている	{F}[てで](?:いる|います|いた|いました|いない|いません|いなかった|いませんでした|る|た)	14	h	@g/verb-continuous-form-teiru/
+aspect-te-aru	N4	てある	{F}[てで]あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)	c	h
+aspect-te-kuru	N4	てくる	{F}[てで](?:くる|きます|きた|きました|こない|きません|こなかった|きませんでした)	k
+aspect-te-iku	N4	ていく	{F}[てで]い(?:く|きます|った|きました|かない|きません|かなかった|きませんでした)	k
+desire-tai	N5	たい	{F}(?:たい(?:です)?|たく(?:ない|ありません|なかった|ありませんでした)|たかった(?:です)?)	18	h	@g/tai-form/
+ease-yasui-nikui	N4	やすい / にくい	{F}(?:やすい|にくい|づらい)	m	h
+excess-sugiru	N4	すぎる	{F}すぎ(?:る|ます|た|ました|て|ない|ません|なかった|ませんでした|だ|です)	m	h
+method-kata	N5	方	{F}方	1c
+negative-nai	N5	ない	{F}(?:ない|ません|なかった|ませんでした)	1a	m	@g/verb-negative-nai-form/
+polite-past-mashita	N5	ました	{F}ました	18	h	@g/masu/
+polite-masu	N5	ます	{F}ます	19	m	@g/masu/
+conditional-tara	N4	たら	{F}たら	h	h	@g/conditional-form-tara/
+conditional-ba	N4	ば	{F}(?:えば|ければ)	i	h	@g/verb-conditional-form-ba/
+conditional-ba-ii	N4	ばいい / ばよかった	{F}(?:えば|ければ|[えけげせてねべめれ]ば)(?:いい|よい|よかった)(?:です)?	d
+conditional-nara	N4	なら	{F}なら(?:ば)?	i	h
+conditional-to	N4	と	{F}と(?=、)	12
+concession-temo-demo	N4	ても / でも	{F}[てで]も	s	m	@g/temo/
+reason-node	N4	ので	(?:なので|ので)(?!は)	m	h	@g/conjunctive-particle-node/
+reason-kara	N5	から	{F}から	z	m	@g/particle-kara/
+appearance-sou	N4	そう	{F}そう(?:に|な)?	u	m	@g/verb-sou/
+hearsay-sou-da	N4	そうだ	{F}(?:る|い|だ|た|ない)そう(?:だ|です)	j
+volitional-you	N5	よう	{F}(?:よう|ろう)	19	m	@g/verb-volitional-form-you/
+concession-noni	N4	のに	のに	k	h	@g/conjunctive-particle-noni/
+nominalizer-koto	N5	こと	こと(?:が|を|に|は|も)	16	m	@g/koto/
+plain-past-ta	N5	た	(?:{F}(?:かった|だった|った|いた|いだ|(?<!で)した|んだ|[きぎしじちにびみりえけげせてねべめれ]た|[来見寝出]た)|(?<!で)した)(?![いらり])	1b
+sequence-te-kara	N5	てから	{F}[てで]から	d	h
+time-mae-ni	N5	前に	{F}前に	m
+time-ato-de-ni	N5	後で / 後に	{F}後(?:で|に)	m
+time-toki	N5	とき	{F}とき	m
+limit-made-made-ni	N5	まで / までに	{F}まで(?:に)?	s
+comparison-yori-nohou	N5	より / の方が	{F}(?:より|のほうが|の方が)	u
+superlative-ichiban	N5	一番	一番	m	h
+question-ka-douka	N4	かどうか	{F}かどうか	d	h
+purpose-masu-stem-ni-iku	N5	に行く / に来る	{F}[いきぎしじちにびみりえけげせてねべめ見寝出]に(?:行(?:く|きます|った|きました)|来(?:る|ます|た|ました)|帰(?:る|ります|った|りました))	e	h
+nominalizer-no	N5	の	{F}の(?=[はがをにも])	i	m	@g/no-nominalizer/
+quotation-to-iu	N4	という	{F}という	e
+casual-tte	N4	って	{F}って(?=(?:言|聞|思|呼|書|いう|こと|、|。|？|!|！|$))	o
+explanation-n-desu	N5	んです / のです	{F}(?:ん|の)です	m
+explanation-no-da	N4	のだ / んだ	{F}(?:の|ん)(?:だ|だった|じゃない|ではない)	m
+existence-ga-aru-iru	N5	がある / がいる	{P}が(?:あ(?:る|ります|った|りました|らない|りません|らなかった|りませんでした)|い(?:る|ます|た|ました|ない|ません|なかった|ませんでした))	o	h
+skill-ga-suki-jouzu-heta	N5	が好き / が上手 / が下手	{P}が(?:好き|すき|上手|じょうず|下手|へた)(?:だ|です|ではない|じゃない)?	i	h
+skill-no-ga-suki	N5	のが好き	{F}のが(?:好き|すき|嫌い|きらい|上手|じょうず|下手|へた|得意|苦手)(?:だ|です|ではない|じゃない)?	g	h
+invitation-mashou	N5	ましょう / ましょうか	{F}ましょう(?:か)?	c	h
+invitation-masen-ka	N5	ませんか	{F}ませんか	b	h
+relief-te-yokatta	N4	てよかった	{F}[てで]よかった(?:です)?	a	h
+without-zuni	N4	ずに	{F}ずに	c	h
+without-naide	N4	ないで	{F}ないで(?!ください)	g	h
+apology-te-sumimasen	N4	てすみません	{F}[てで]すみません	a	h
+necessity-ga-hitsuyou	N4	が必要	{P}が必要(?:だ|です|だった|でした)?	f	h
+sensation-ga-suru	N4	がする	{P}が(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています|ない|ません|なかった|ませんでした))	d	h
+case-baai	N4	場合	{F}場合(?:は|には)?	g	h
+examples-nado	N4	など	{P}など	g	h
+examples-toka	N4	とか	{F}とか(?:{F}とか)?	i
+hearsay-to-iwarete-iru	N4	と言われている	{F}と言われてい(?:る|ます|ない|ません)|{F}と言われ(?:た|ました)	a	h
+hearsay-to-kiita	N4	と聞いた	{F}と聞(?:いた|きました|いている|いています)	c	h
+similarity-you-da	N4	ようだ / ような	{F}よう(?:だ|です|な|に)	t
+permission-sasete-kudasai	N4	させてください	{F}させてください	5	h
+decision-koto-ni-suru	N4	ことにする	{F}ことに(?:す(?:る|ます|た|ました|ている|ています)|し(?:ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした))	9	h
+arrangement-koto-ni-naru	N4	ことになる	{F}ことにな(?:る|ります|った|りました|らない|りません|らなかった|りませんでした|っている|っています)	9	h
+honorific-o-go-ni-naru-suru	N3	お〜になる / お〜する	(?:お|ご){F}(?:になる|になります|する|します|いたす|いたします|ください)	8
+polite-gozaimasu	N5	ございます	{F}ござい(?:ます|ました|ません|ませんでした)	u
+advice-beki	N3	べき	{F}べき(?:だ|です|ではない|じゃない)?	f	h
+time-aida-aida-ni	N4	間 / 間に	{F}間(?:に|は)?	m
+time-uchi-ni	N3	うちに	{F}うちに	e
+time-saichuu-ni	N3	最中に	{F}最中に	g	h
+repetition-tabi-ni	N3	たびに	{F}たびに	e	h
+incidental-tsuide-ni	N3	ついでに	{F}ついでに	e
+phase-compound-verb	N4	始める / 続ける / 終わる	{F}(?:(?:始め|続け)(?:る|ます|た|ました|ている|ています|ていない|ていません|ない|ません|なかった|ませんでした)|(?:出し|終わ)(?:る|ます|た|ました))	i
+state-ppanashi	N3	っぱなし	{F}っぱなし	e	h
+covered-darake	N3	だらけ	{F}だらけ	f	h
+fresh-tate	N3	たて	{F}たて	i
+elapsed-buri-ni	N3	ぶりに	{F}ぶりに	e	h
+interval-goto-ni	N3	ごとに	{F}ごとに	e	h
+interval-oki-ni	N3	おきに	{F}おきに	f	h
+emphasis-kara-koso	N3	からこそ	{F}からこそ	c	h
+source-ni-yoru-to	N3	によると / によれば	{F}によ(?:ると|れば)	c	h
+topic-ni-kansuru	N3	に関する	{F}に関する	d	h
+context-ni-okeru	N3	における	{F}における	d	h
+standard-ni-shite-wa	N3	にしては	{F}にしては	e	h
+simultaneous-to-douji-ni	N3	と同時に	{F}と同時に	c	h
+supposition-to-shitara	N3	としたら / とすれば	{F}と(?:したら|すれば|すると)	d	h
+almost-tokoro-datta	N3	ところだった	{F}ところ(?:だった|でした)	c	h
+nonlimiting-wa-mochiron	N3	はもちろん	{F}はもちろん	e	h
+pretend-furi-wo-suru	N3	ふりをする	{F}ふりを(?:す(?:る|ます|た|ました)|し(?:ます|た|ました|ている|ています))	c	h
+instant-ta-totan-ni	N3	たとたんに	{F}たとたん(?:に)?	c	h
+difficulty-gatai	N3	がたい	{F}がたい	i	h
+only-shika-nai	N3	しかない	{F}しか(?:ない|ありません|なかった|ありませんでした)	c	h
+emphasis-sae	N3	さえ / でさえ	[^、。！？!?\s]{1,24}(?:で)?さえ	i
+emphasis-koso	N3	こそ	{P}こそ	i
+try-te-goran	N3	てごらん	{F}[てで]ごらん	d	h
+cause-sei-okage-de	N3	せいで / おかげで	{F}(?:せい|おかげ)で	e	h
+manner-toori	N3	とおり	{F}(?:とおり|通り)(?:に|だ|です)?	g	h
+certainty-ni-chigai-nai	N3	に違いない	{F}に違い(?:ない|ありません)	f	h
+certainty-ni-kimatte-iru	N3	に決まっている	{F}に決まってい(?:る|ます)	f	h
+qualification-to-wa-kagiranai	N3	とは限らない	{F}とは限(?:らない|りません)	f	h
+contrast-ippou-de	N3	一方で	{F}一方(?:で)?	g
+contrast-hanmen	N3	反面	{F}反面	g
+substitution-kawari-ni	N3	かわりに	{F}かわりに	g
+topic-ni-kanshite	N3	に関して	{F}に関して	h	h
+comparison-ni-kurabete	N3	に比べて	{F}に比べて	h	h
+basis-ni-motozuite	N3	に基づいて	{F}に基づいて	h	h
+following-ni-sotte	N3	に沿って	{F}に沿って	h
+following-change-ni-shitagatte	N3	に従って	{F}に従って	h
+change-ni-tsurete	N3	につれて	{F}につれて	h
+together-to-tomo-ni	N3	とともに	{F}とともに	h
+context-ni-oite	N3	において	{F}において	h	h
+means-wo-tsuujite-tooshite	N3	を通じて / を通して	{F}を通(?:じて|して)	h
+representative-wo-hajime	N3	をはじめ	{F}をはじめ	h
+limit-ni-kagiru-kagirazu	N3	に限る / に限らず	{F}に限(?:る|ります|らない|らず|って)	h
+suffix-gachi	N3	がち	{F}がち	o
+suffix-gimi	N3	気味	{F}気味	o
+suffix-ge	N3	げ	{F}げ	o
+suffix-ppoi	N3	っぽい	{F}っぽい	o
+negative-youni-nai	N3	ようがない	{F}ようが(?:ない|ありません)	g	h
+impossible-kkonai	N3	っこない	{F}っこない	i
+condition-kara-ni-wa	N2	からには	{F}からには	c	h
+qualification-kara-to-itte	N2	からといって	{F}からといって	c	h
+condition-nai-kagiri	N2	ない限り	{F}ない限り	c	h
+condition-ijou-wa	N2	以上は	{F}以上は	b	h
+condition-ue-wa	N2	上は	{F}上は	c	h
+sequence-ue-de	N2	上で	{F}上で	d	h
+addition-ue-ni	N2	上に	{F}上に	d	h
+viewpoint-kara-miru-to	N2	から見ると / からすると	{F}から(?:見ると|見れば|すると|すれば|言うと|言えば)	g
+starting-kara-shite	N2	からして	{F}からして	g
+concession-ni-shitemo-toshitemo	N2	にしても / としても	{F}(?:にしても|としても)	e	h
+concession-ni-shiro-ni-seyo	N2	にしろ / にせよ	{F}に(?:しろ|せよ)	e	h
+after-all-ageku	N2	あげく	{F}あげく(?:に)?	d	h
+after-effort-sue-ni	N2	末に	{F}末に	d	h
+only-ni-suginai	N2	にすぎない	{F}にすぎ(?:ない|ません)	e	h
+essence-ni-hoka-naranai	N2	にほかならない	{F}にほかならない	e	h
+necessity-zaru-wo-enai	N2	ざるを得ない	{F}ざるを得(?:ない|ません)	a	h
+compulsion-zu-ni-wa-irarenai	N2	ずにはいられない	{F}(?:ずには|ないでは)いられ(?:ない|ません|なかった|ませんでした)	a	h
+possibility-eru-enai	N2	得る / 得ない	{F}得(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	k
+risk-kanenai	N2	かねない	{F}かね(?:ない|ません)	e	h
+difficulty-kaneru	N2	かねる	{F}かね(?:る|ます|た|ました)	e	h
+emotion-te-naranai	N2	てならない	{F}[てで]ならない	e
+emotion-te-tamaranai	N2	てたまらない	{F}[てで]たまらない	e
+emotion-te-shouganai	N2	てしょうがない	{F}[てで](?:しょうがない|仕方がない)	e
+timing-shidai	N2	次第	{F}次第	g
+time-sai-ni	N2	際に	{F}際に	g	h
+occasion-ni-atatte	N2	にあたって	{F}にあたって	g	h
+occasion-ni-saishite	N2	に際して	{F}に際して	g	h
+prior-ni-sakidatte	N2	に先立って	{F}に先立って	g	h
+trigger-wo-kikkake-ni	N2	をきっかけに	{F}をきっかけに	g	h
+trigger-wo-keiki-ni	N2	を契機に	{F}を契機に	g
+span-ni-watatte	N2	にわたって	{F}にわたって	h	h
+accompany-ni-tomonatte	N2	に伴って	{F}に伴って	h	h
+response-ni-oujite	N2	に応じて	{F}に応じて	h
+basis-wo-fumaete	N2	を踏まえて	{F}を踏まえて	h	h
+merit-dake-atte	N2	だけあって	{F}だけあって	g
+because-dake-ni	N2	だけに	{F}だけに	g
+concession-youga-maiga	N1	ようが / まいが	{F}(?:ろうが|ようが){F}まいが	8	h
+concession-nagara-mo	N2	ながらも	{F}ながらも	g
+continuation-tsutsu	N2	つつ / つつある	{F}つつ(?:ある)?	i
+cause-bakari-ni	N2	ばかりに	{F}ばかりに	f	h
+contrast-dokoro-ka	N2	どころか	{F}どころか	f	h
+impossible-dokoro-dewa-nai	N2	どころではない	{F}どころではない	f	h
+nonlimiting-dake-denaku	N3	だけでなく	{F}だけでなく	k	h
+regardless-ni-kakawarazu	N2	にかかわらず	{F}にかかわらず	g	h
+contrary-ni-hanshite	N2	に反して	{F}に反して	g	h
+addition-ni-kuwaete	N2	に加えて	{F}に加えて	g	h
+target-ni-kotaete	N2	に応えて	{F}に(?:応|こた)えて	h
+center-wo-chuushin-ni	N2	を中心に	{F}を中心に	h	h
+regardless-wo-toyazu	N2	を問わず	{F}を問わず	g	h
+topic-wo-megutte	N2	をめぐって	{F}をめぐって	g	h
+direction-muke-muki	N3	向け / 向き	{F}向(?:け|き)	m
+relative-wari-ni	N2	わりに	{F}わりに	i
+memory-kke	N2	っけ	{F}っけ	s
+quote-to-iu-yori	N2	というより	{F}というより	i
+example-to-itta	N2	といった	{F}といった(?=[^、。！？!?\\s])	k
+topic-to-ieba	N2	といえば	{F}といえば	k
+thing-mono-da	N2	ものだ	{F}もの(?:だ|です)	o
+cause-mono-dakara	N2	ものだから	{F}ものだから	g
+concession-mono-no	N2	ものの	{F}ものの	g	h
+advice-koto-da	N2	ことだ	{F}こと(?:だ|です)	m
+unnecessary-koto-wa-nai	N2	ことはない	{F}ことは(?:ない|ありません)	e	h
+double-negative-nai-koto-wa-nai	N2	ないことはない	{F}ないことは(?:ない|ありません)	d	h
+explanation-to-iu-koto-da	N2	ということだ	{F}ということ(?:だ|です)	g
+nature-to-iu-mono-da	N2	というものだ	{F}というもの(?:だ|です)	g
+not-nature-to-iu-mono-dewa-nai	N2	というものではない	{F}というものでは(?:ない|ありません)	f
+wish-nai-mono-ka	N2	ないものか	{F}ないものか	g
+instant-ga-hayai-ka	N1	が早いか	{F}が早いか	8	h
+instant-ya-inaya	N1	や否や	{F}や否や	8	h
+instant-nari	N1	なり	{F}なり	c
+repetition-soba-kara	N1	そばから	{F}そばから	a	h
+unexpected-ka-to-omoi-kiya	N1	かと思いきや	{F}かと思いきや	a	h
+incidental-katagata	N1	かたがた	{F}かたがた	e
+incidental-gatera	N1	がてら	{F}がてら	e
+starting-wo-kawakiri-ni	N1	を皮切りに	{F}を皮切りに	e	h
+endpoint-wo-kagiri-ni	N1	を限りに	{F}を限りに	e	h
+means-wo-motte	N1	をもって	{F}をもって	e	h
+turning-wo-sakai-ni	N1	を境に	{F}を境に	f
+range-ni-itaru-made	N1	に至るまで	{F}に至るまで	e	h
+stage-ni-itatte	N1	に至って	{F}に至って(?:は|も)?	f
+context-ni-atte	N1	にあって	{F}にあって	g
+standard-ni-sokushite	N1	に即して	{F}に即して	f	h
+exclusive-wo-oite	N1	をおいて	{F}をおいて	d	h
+defiance-wo-mono-to-mo-sezu	N1	をものともせず	{F}をものともせず	c	h
+forced-wo-yogi-naku-sareru	N1	を余儀なくされる	{F}を余儀なくされ(?:る|ます|た|ました)	a	h
+force-wo-yogi-naku-saseru	N1	を余儀なくさせる	{F}を余儀なくさせ(?:る|ます|た|ました)	a	h
+emotion-ni-taenai	N1	に堪えない	{F}に堪え(?:ない|ません)	e
+reluctance-ni-shinobinai	N1	に忍びない	{F}に忍びない	d	h
+easy-inference-ni-katagunai	N1	に難くない	{F}に難くない	d	h
+worthy-ni-ataru	N1	に値する	{F}に値する	d	h
+sufficient-ni-taru	N1	に足る	{F}に足る	d
+utmost-no-itari	N1	の至り	{F}の至り	g
+extreme-kiwamaru-kiwamarinai	N1	極まる / 極まりない	{F}(?:極まる|極まりない)	g
+deep-wish-te-yamanai	N1	てやまない	{F}[てで]や(?:まない|みません)	c	h
+since-te-kara-to-iu-mono	N1	てからというもの	{F}[てで]からというもの	a	h
+consequence-zu-ni-wa-okanai	N1	ずにはおかない	{F}(?:ずには|ないでは)おかない	a	h
+consequence-zu-ni-wa-sumanai	N1	ずにはすまない	{F}(?:ずには|ないでは)すまない	a	h
+prohibition-bekarazu	N1	べからず	{F}べからず	c	h
+improper-majiki	N1	まじき	{F}まじき	c	h
+role-taru-mono	N1	たるもの	{F}たるもの	c	h
+surprise-tomo-arou-mono-ga	N1	ともあろうものが	{F}ともあろうものが	c	h
+stage-tomo-naru-to	N1	ともなると	{F}ともなると	e
+any-de-are	N1	であれ	{F}であれ	g
+pair-to-ii-to-ii	N1	といい	[^、。！？!?\\s]{1,24}といい[^、。！？!?\\s]{1,24}といい	i
+concession-to-wa-ie	N1	とはいえ	{F}とはいえ	e	h
+without-nakushite	N1	なくして	{F}なくして	d	h
+basis-atte-no	N1	あっての	{F}あっての	d
+unique-nara-dewa	N1	ならでは	{F}ならでは	d	h
+covered-mamire	N1	まみれ	{F}まみれ	k
+full-zukume	N1	ずくめ	{F}ずくめ	k
+depending-ikan	N1	いかん	{F}いかん(?:だ|で|によって|にかかわらず)?	g
+result-shimatsu-da	N1	始末だ	{F}始末(?:だ|です)	i
+rhetorical-denakute-nandarou	N1	でなくてなんだろう	{F}でなくてなんだろう	i
+extreme-to-ittara-nai	N1	といったらない	{F}といったらない	i
+extreme-tara-aryashinai	N1	たらありゃしない	{F}たらありゃしない	i
+best-ni-koshita-koto-wa-nai	N2	に越したことはない	{F}に越したことは(?:ない|ありません)	e	h
+excess-ni-mo-hodo-ga-aru	N1	にもほどがある	{F}にもほどがある	e	h
+emphatic-no-nanno	N1	のなんの	{F}のなんの	m
+minimal-tari-tomo	N1	たりとも	{F}たりとも	e	h
+minimal-dani	N1	だに	{F}だに	k
+minimal-sura	N1	すら	{F}すら	k
+comparison-gotoki	N1	ごとき	{F}ごとき	k
+suffix-meku	N1	めく	{F}め(?:く|いて|き)	k
+unnecessary-made-mo-nai	N1	までもない	{F}までもない	e	h
+unnecessary-ni-wa-oyobanai	N1	には及ばない	{F}には及(?:ばない|びません)	g
+situation-tokoro-wo	N1	ところを	{F}ところを	e	h
+`;
+function expandGrammarGuideUrl(url) {
+  if (!url) return "";
+  return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
+}
+function parseGrammarRule(row) {
+  const [ruleId, level, name, patternSource, priority, confidence = "m", url = ""] = row.split("	");
+  if (!ruleId || !name || !patternSource || !priority) throw new TypeError(`Invalid Yomu grammar registry row: ${row}`);
+  if (!["Core", "N5", "N4", "N3", "N2", "N1"].includes(level)) {
+  throw new TypeError(`Invalid Yomu grammar level for ${ruleId}: ${level}`);
+  }
+  return Object.freeze({
+  ruleId,
+  level,
+  name,
+  patternSource,
+  priority: parseInt(priority, 36),
+  confidence: confidence === "h" ? "high" : "medium",
+  url: expandGrammarGuideUrl(url),
+  // Per-rule examples ship only as test fixtures (tests/reader/fixtures/
+  // grammar-rule-examples.ts); the reader render path uses remote copy JSON.
+  examples: Object.freeze([])
+  });
+}
+function createGrammarRegistry() {
+  const rules = GRAMMAR_PATTERN_DATA.trim().split("\n").map(parseGrammarRule);
+  const ids = new Set(rules.map((rule) => rule.ruleId));
+  if (ids.size !== rules.length) throw new TypeError("Yomu grammar registry contains duplicate rule ids.");
+  return Object.freeze(rules);
+}
+const YOMU_GRAMMAR_REGISTRY = createGrammarRegistry();
+new Map(YOMU_GRAMMAR_REGISTRY.map((rule) => [rule.ruleId, rule]));
+const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
+const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
+const JAPANESE_GRAMMAR = createLearningTargetGrammar({
+  levelScale: {
+  id: "jlpt",
+  levels: ["Core", "N5", "N4", "N3", "N2", "N1"]
+  },
+  referenceUrl: "https://www.tofugu.com/japanese-grammar/",
+  rules: YOMU_GRAMMAR_REGISTRY,
+  normalizeSentence: (sentence) => sentence.normalize("NFKC").replace(/\s+/g, ""),
+  expandPatternSource: (source) => source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
+  shouldSkipMatch: (rule, context) => shouldSkipJapaneseGrammarMatch(rule.ruleId, context),
+  learnerFacingMatch: (rule, rawMatch) => japaneseLearnerMatch(rule.name, rawMatch),
+  keepOverlappingMatches: (existing, next) => existing.ruleId === "copula-desu-da" && next.priority < 50,
+  // The two hosted copy files are the established Japanese inventory. Other
+  // targets omit this hook, so a coincidentally equal rule id cannot inherit
+  // Japanese prose.
+  ruleCopyIdFor: (rule) => rule.ruleId
+});
+const BARE_MITAI_DESIRE_FALSE_POSITIVE_RE = /(?:読み|飲み|住み|休み|頼み|望み|悩み|包み|噛み|組み|編み|摘み|進み|歩み|楽しみ|悲しみ|苦しみ|試み)たい$/u;
+const LEXICAL_DESIRE_TAI_RE = /^(?:いたい|痛い|冷たい|重たい|やたい)(?:です)?$/u;
+const LEXICAL_NEGATIVE_NAI_RE = /(?:少ない|危ない|まかない|何気ない|さりげない|なにげない)$/u;
+const LEXICAL_METHOD_KATA_RE = /(?:夕方|地方|親方|行方|方法|の方)$/u;
+const LEXICAL_SUFFIX_GE_RE = /(?:からあげ|おかげ|さりげ|なにげ)$/u;
+const LEXICAL_SUFFIX_MEKU_RE = /(?:きめき|きらめく|ひらめき|うごめく)$/u;
+const LEXICAL_POSSIBILITY_ERU_RE = /^(?:得る|得ます|得た|得ました|得ない|得ません|得なかった|得ませんでした)$/u;
+const PRONOUN_POSSESSIVE_NOMINALIZER_RE = /(?:私|僕|俺|彼|彼女|誰|何)の$/u;
+const GRAMMAR_MATCH_SKIP_PREDICATES = {
+  "appearance-sou": ({ rawMatch }) => rawMatch === "そう" || /(?:かわいそう|ごちそう)$/u.test(rawMatch),
+  "hearsay-sou-da": ({ rawMatch }) => /(?:かわいそう|ごちそう)/u.test(rawMatch),
+  "volitional-you": ({ rawMatch }) => rawMatch === "よう" || rawMatch === "さよう",
+  "similarity-you-da": ({ rawMatch }) => rawMatch.startsWith("さよう"),
+  "conditional-nara": ({ rawMatch }) => rawMatch.endsWith("さようなら"),
+  "desire-tai": ({ rawMatch }) => LEXICAL_DESIRE_TAI_RE.test(rawMatch),
+  "without-naide": ({ rawMatch, following }) => rawMatch.endsWith("ないで") && following.startsWith("す"),
+  "negative-nai": ({ rawMatch }) => LEXICAL_NEGATIVE_NAI_RE.test(rawMatch),
+  "method-kata": shouldSkipMethodKataMatch,
+  "suffix-ge": ({ rawMatch }) => LEXICAL_SUFFIX_GE_RE.test(rawMatch),
+  "state-mama": ({ rawMatch, before }) => rawMatch.includes("わがまま") || rawMatch === "まま" && before.endsWith("わが"),
+  "difficulty-gatai": ({ rawMatch }) => rawMatch.endsWith("ありがたい"),
+  "substitution-kawari-ni": ({ rawMatch }) => rawMatch.endsWith("おかわりに"),
+  "suffix-meku": ({ rawMatch }) => LEXICAL_SUFFIX_MEKU_RE.test(rawMatch),
+  "possibility-eru-enai": ({ rawMatch }) => LEXICAL_POSSIBILITY_ERU_RE.test(rawMatch) || rawMatch.startsWith("心得"),
+  "suffix-gimi": ({ rawMatch }) => rawMatch.endsWith("不気味"),
+  "fresh-tate": ({ rawMatch }) => rawMatch === "たて",
+  "elapsed-buri-ni": ({ rawMatch }) => rawMatch.endsWith("すぶりに"),
+  "ease-yasui-nikui": ({ rawMatch }) => rawMatch === "やすい",
+  "examples-toka": ({ following }) => following.startsWith("言") || following.startsWith("聞") || following.startsWith("思"),
+  "explanation-no-da": ({ rawMatch }) => /(?:私|僕|俺|彼|彼女|誰|何)の(?:だ|だった|じゃない|ではない)$/u.test(rawMatch),
+  "skill-no-ga-suki": shouldSkipPronounPossessiveNominalizerMatch,
+  "nominalizer-no": shouldSkipPronounPossessiveNominalizerMatch,
+  "sensation-ga-suru": ({ rawMatch }) => /(?:彼|彼女|私|僕|俺|君|あなた|先生|友だち|子ども)がす/u.test(rawMatch),
+  "standard-ni-shite-wa": ({ following }) => /^(?:いけ|なら|だめ)/u.test(following),
+  "emphasis-sae": ({ rawMatch }) => rawMatch.endsWith("ささえ"),
+  "emphasis-koso": ({ rawMatch }) => rawMatch.endsWith("ようこそ"),
+  "evidence-rashii-mitai": ({ rawMatch }) => BARE_MITAI_DESIRE_FALSE_POSITIVE_RE.test(rawMatch)
+};
+function shouldSkipJapaneseGrammarMatch(ruleId, context) {
+  return GRAMMAR_MATCH_SKIP_PREDICATES[ruleId]?.(context) ?? false;
+}
+function shouldSkipMethodKataMatch({
+  rawMatch,
+  before,
+  following
+}) {
+  return LEXICAL_METHOD_KATA_RE.test(rawMatch) || rawMatch === "方" && (following.startsWith("法") || before.endsWith("の") || /[夕地親行]/u.test(before.slice(-1)));
+}
+function shouldSkipPronounPossessiveNominalizerMatch({
+  rawMatch
+}) {
+  return PRONOUN_POSSESSIVE_NOMINALIZER_RE.test(rawMatch);
+}
+const LEARNER_MATCH_ENDING_NAMES = /* @__PURE__ */ new Set([
+  "たい",
+  "ない",
+  "ました",
+  "ます",
+  "た",
+  "よう",
+  "そう",
+  "方",
+  "やすい / にくい",
+  "すぎる",
+  "れる / られる",
+  "させる",
+  "させられる",
+  "がち",
+  "気味",
+  "げ",
+  "っぽい",
+  "めく"
+]);
+const LEARNER_MATCH_HELPER_NAMES = /* @__PURE__ */ new Set([
+  "てください",
+  "ていただけませんか",
+  "ないでください",
+  "させてください",
+  "てほしい",
+  "てくれる / てもらう",
+  "てしまう",
+  "てみる",
+  "ておく",
+  "ている",
+  "てある",
+  "てくる",
+  "ていく",
+  "てから"
+]);
+function japaneseLearnerMatch(name, rawMatch) {
+  let match = rawMatch.replace(/^(?:そして|それで|でも|また|しかし|それに|つまり|ただし|だから)/u, "");
+  if (LEARNER_MATCH_HELPER_NAMES.has(name)) {
+  const afterClauseBoundary = match.replace(/^.*(?:[、。！？!?]|たら|なら|ので|から)/u, "");
+  if (afterClauseBoundary) match = afterClauseBoundary;
+  }
+  if (!LEARNER_MATCH_ENDING_NAMES.has(name)) return match;
+  const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "");
+  return afterLastParticle || match;
+}
 const JAPANESE_POINTER_WORD_RE = new RegExp(
   `[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`,
   "gu"
@@ -1677,7 +2282,6 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   pronunciation: true,
   frequency: true,
   examples: true,
-  grammar: true,
   audio: true,
   "text-to-speech": true,
   ocr: true,
@@ -1694,6 +2298,7 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   pronunciation: "pitch-accent",
   readingAnnotation: "furigana"
   },
+  grammar: JAPANESE_GRAMMAR,
   typography: {
   contentLocale: "ja",
   readingAnnotationMode: "ruby",
@@ -1753,6 +2358,414 @@ function japanesePointerWordSegments(text) {
   start: match.index,
   end: match.index + match[0].length
   }));
+}
+const CEFR_GRAMMAR_LEVEL_SCALE = Object.freeze({
+  id: "cefr",
+  levels: Object.freeze(["A1", "A2", "B1", "B2", "C1", "C2"])
+});
+const EAQUALS_PDF = "https://www.eaquals.org/wp-content/uploads/Inventaire_ONLINE_full.pdf";
+const EAQUALS_A1 = `${EAQUALS_PDF}#page=58`;
+const EAQUALS_A1_EXAMPLES = `${EAQUALS_PDF}#page=66`;
+const EAQUALS_A1_EXISTENCE = `${EAQUALS_PDF}#page=67`;
+const A1_PROGRESSIVE_INFINITIVE = String.raw`(?:manger|préparer|étudier)`;
+const A1_NEAR_FUTURE_INFINITIVE = String.raw`(?:manger|regarder|jouer)`;
+const A1_RECENT_PAST_INFINITIVE = String.raw`(?:finir|manger)`;
+const A1_IL_FAUT_INFINITIVE = String.raw`(?:bien\s+apprendre|apprendre|crier)`;
+const A1_POLITE_CONDITIONAL = String.raw`(?:[Jj]e\s+voudrais|[Jj]['’]aimerais|[Oo]n\s+pourrait\s+avoir\s+l['’]addition)`;
+const A1_EXISTENTIAL_COMPLEMENT = String.raw`(?:un\s+canapé|un\s+fauteuil|une\s+table|cinq\s+personnes|beaucoup\s+de\s+restaurants|du\s+soleil)`;
+const FRENCH_GRAMMAR = createLearningTargetGrammar({
+  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+  referenceUrl: EAQUALS_A1,
+  rules: [
+  {
+    ruleId: "fr-present-progressive",
+    level: "A1",
+    name: "Present progressive (être en train de)",
+    displayNames: { en: "Present progressive (être en train de)", ja: "être en train de ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+suis|[Tt]u\s+es|[Ii]l\s+est|[Ee]lle\s+est|[Nn]ous\s+sommes|[Vv]ous\s+êtes|[Ii]ls\s+sont|[Ee]lles\s+sont)\s+en\s+train\s+d(?:e\s+|['’])${A1_PROGRESSIVE_INFINITIVE}(?!\p{L})`,
+    priority: 10,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-near-future",
+    level: "A1",
+    name: "Near future (aller + infinitive)",
+    displayNames: { en: "Near future (aller + infinitive)", ja: "aller ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+vais|[Tt]u\s+vas|[Ii]l\s+va|[Ee]lle\s+va|[Nn]ous\s+allons|[Vv]ous\s+allez|[Ii]ls\s+vont|[Ee]lles\s+vont)\s+${A1_NEAR_FUTURE_INFINITIVE}(?!\p{L})`,
+    priority: 12,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-recent-past",
+    level: "A1",
+    name: "Recent past (venir de + infinitive)",
+    displayNames: { en: "Recent past (venir de + infinitive)", ja: "venir de ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+viens|[Tt]u\s+viens|[Ii]l\s+vient|[Ee]lle\s+vient|[Nn]ous\s+venons|[Vv]ous\s+venez|[Ii]ls\s+viennent|[Ee]lles\s+viennent)\s+d(?:e\s+|['’])${A1_RECENT_PAST_INFINITIVE}(?!\p{L})`,
+    priority: 14,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-est-ce-que-question",
+    level: "A1",
+    name: "Question with est-ce que",
+    displayNames: { en: "Question with est-ce que", ja: "est-ce que 疑問文" },
+    patternSource: String.raw`(?<!\p{L})[Ee]st-ce\s+qu(?:e(?!\p{L})|['’])`,
+    priority: 16,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-ne-pas-negation",
+    level: "A1",
+    name: "Negation with ne … pas/jamais",
+    displayNames: { en: "Negation with ne … pas/jamais", ja: "ne … pas / jamais の否定" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e|[Tt]u|[Ii]l|[Ee]lle|[Nn]ous|[Vv]ous|[Ii]ls|[Ee]lles)\s+n(?:e\s+|['’])\p{L}+(?:\s+\p{L}+){0,2}\s+(?:pas|jamais)(?!\p{L})`,
+    priority: 18,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-il-faut-infinitive",
+    level: "A1",
+    name: "Obligation with il faut",
+    displayNames: { en: "Obligation with il faut", ja: "il faut ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})[Ii]l\s+faut\s+${A1_IL_FAUT_INFINITIVE}(?!\p{L})`,
+    priority: 20,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-polite-conditional",
+    level: "A1",
+    name: "Polite conditional",
+    displayNames: { en: "Polite conditional", ja: "丁寧表現の条件法" },
+    patternSource: String.raw`(?<!\p{L})${A1_POLITE_CONDITIONAL}(?!\p{L})`,
+    priority: 22,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-existential-il-y-a",
+    level: "A1",
+    name: "Existence with il y a",
+    displayNames: { en: "Existence with il y a", ja: "存在を表す il y a" },
+    patternSource: String.raw`(?<!\p{L})[Ii]l\s+y\s+a\s+${A1_EXISTENTIAL_COMPLEMENT}(?!\p{L})`,
+    priority: 24,
+    confidence: "high",
+    url: EAQUALS_A1_EXISTENCE
+  }
+  ]
+});
+const GOETHE_A1 = "https://lernen.goethe.de/deutschonline/A1/PDF/DE/deutschonline_Ihr_Kurs_im_U%CC%88berblick.pdf";
+const DW_A1 = "https://static.dw.com/downloads/59835913/grammatikuebersicht-nicos-weg-a1.pdf";
+const GOETHE_GRAMMAR = "https://www.goethe.de/ins/de/de/m/prf/grm.html";
+const CLOCK_HOUR = String.raw`(?:(?:[01]?\d|2[0-3])|eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)`;
+const COLON_TIME = String.raw`(?:[01]?\d|2[0-3]):[0-5]\d`;
+const CLOCK_RANGE = String.raw`(?:${CLOCK_HOUR}\s+Uhr\s+bis\s+${CLOCK_HOUR}(?:\s+Uhr)?|${CLOCK_HOUR}\s+bis\s+${CLOCK_HOUR}\s+Uhr|${COLON_TIME}\s+bis\s+${COLON_TIME})`;
+const EQUAL_COMPARISON_WORD = String.raw`(?:schlecht|groß|klein|alt|jung|schnell|langsam|hoch|niedrig|lang|kurz)`;
+const COMPARISON_SUBJECT = String.raw`(?:der|die|das|ein|eine|einen|einem|einer|mein|meine|dein|deine|sein|seine|ihr|ihre|unser|unsere)\s+\p{L}+`;
+const CHECKED_MODAL_INFINITIVE$1 = String.raw`(?:gehen|kommen|sein)`;
+const MODAL_CLAUSE_GAP$1 = String.raw`(?:(?![,;:]|(?<!\p{L})(?:aber|dass|denn|oder|sondern|und)(?!\p{L}))[^.!?…\n]){0,80}?`;
+const GERMAN_GRAMMAR = createLearningTargetGrammar({
+  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+  referenceUrl: GOETHE_GRAMMAR,
+  rules: [
+  {
+    ruleId: "de-a1-es-gibt",
+    level: "A1",
+    name: "Existence with es gibt",
+    displayNames: { en: "Existence with es gibt", ja: "存在を表す es gibt" },
+    patternSource: String.raw`(?<!\p{L})[Ee]s\s+gibt(?!\p{L})`,
+    priority: 10,
+    confidence: "high",
+    url: `${GOETHE_A1}#page=5`
+  },
+  {
+    ruleId: "de-a1-modal-infinitive",
+    level: "A1",
+    name: "Modal verb + infinitive",
+    displayNames: { en: "Modal verb + infinitive", ja: "法助動詞 ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Kk]ann|[Kk]annst|[Kk]önnen|[Kk]önnt|[Mm]uss|[Mm]usst|[Mm]üssen|[Mm]üsst|[Ww]ill|[Ww]illst|[Ww]ollen|[Ww]ollt)(?!\p{L})${MODAL_CLAUSE_GAP$1}(?<!\p{L})${CHECKED_MODAL_INFINITIVE$1}(?=\s*(?:[.!?…]|$))`,
+    priority: 12,
+    confidence: "high",
+    url: `${GOETHE_A1}#page=7`
+  },
+  {
+    ruleId: "de-a1-von-bis",
+    level: "A1",
+    name: "Time range with von … bis",
+    displayNames: { en: "Time range with von … bis", ja: "von … bis の時間範囲" },
+    patternSource: String.raw`(?<!\p{L})[Vv]on\s+${CLOCK_RANGE}(?=\s*(?:[,.!?…]|$))`,
+    priority: 14,
+    confidence: "high",
+    url: `${DW_A1}#page=3`
+  },
+  {
+    ruleId: "de-a1-so-wie",
+    level: "A1",
+    name: "Equal comparison with so … wie",
+    displayNames: { en: "Equal comparison with so … wie", ja: "so … wie の同等比較" },
+    patternSource: String.raw`(?<!\p{L})(?:[Ii]st|[Ss]ind|[Ww]ar|[Ww]aren)\s+so\s+${EQUAL_COMPARISON_WORD}\s+wie\s+${COMPARISON_SUBJECT}(?!\p{L})`,
+    priority: 16,
+    confidence: "high",
+    url: `${DW_A1}#page=5`
+  },
+  {
+    ruleId: "de-a1-comparative-als",
+    level: "A1",
+    name: "Comparison with als",
+    displayNames: { en: "Comparison with als", ja: "比較級 ＋ als" },
+    patternSource: String.raw`(?<!\p{L})(?:[Bb]esser|[Ss]chlechter|[Mm]ehr|[Ww]eniger|[Gg]rößer|[Kk]leiner|[Ää]lter|[Jj]ünger|[Ss]chneller|[Ll]angsamer|[Hh]öher|[Nn]iedriger|[Ll]änger|[Kk]ürzer)\s+als(?!\p{L})`,
+    priority: 18,
+    confidence: "high",
+    url: `${DW_A1}#page=5`
+  },
+  {
+    ruleId: "de-a1-aber-denn",
+    level: "A1",
+    name: "Linking clauses with aber or denn",
+    displayNames: { en: "Linking clauses with aber or denn", ja: "aber / denn の接続" },
+    patternSource: String.raw`[,;]\s*(?:aber|denn)(?!\p{L})`,
+    priority: 20,
+    confidence: "high",
+    url: `${GOETHE_A1}#page=19`
+  },
+  {
+    ruleId: "de-a1-einladen",
+    level: "A1",
+    name: "Separable einladen",
+    displayNames: { en: "Separable einladen", ja: "分離動詞 einladen" },
+    patternSource: String.raw`(?<!\p{L})(?:[Ll]ade|[Ll]ädst|[Ll]ädt|[Ll]aden|[Ll]adet)(?!\p{L})[^.!?…\n]{0,80}?(?<!\p{L})ein(?=\s*(?:[.!?…]|$))`,
+    priority: 22,
+    confidence: "high",
+    url: `${GOETHE_A1}#page=8`
+  }
+  ]
+});
+const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
+const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
+const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
+const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
+const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
+const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
+const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
+  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+  referenceUrl: CORNELL_GRAMMAR,
+  rules: [
+  {
+    ruleId: "ru-a1-kto-chto-eto",
+    level: "A1",
+    name: "Кто/что это? identification question",
+    displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
+    patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
+    priority: 10,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=19`
+  },
+  {
+    ruleId: "ru-a1-possessive-starter",
+    level: "A1",
+    name: "Possession with это + possessive",
+    displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
+    patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
+    priority: 12,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=19`
+  },
+  {
+    ruleId: "ru-a1-request-imperative",
+    level: "A1",
+    name: "Requests with дай(те), скажи(те), покажи(те)",
+    displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
+    patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
+    priority: 14,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=20`
+  },
+  {
+    ruleId: "ru-a1-dative-nravitsya",
+    level: "A1",
+    name: "нравится with a dative experiencer",
+    displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
+    patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
+    priority: 16,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=21`
+  },
+  {
+    ruleId: "ru-a1-potomu-chto",
+    level: "A1",
+    name: "Reason with потому что",
+    displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
+    patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
+    priority: 18,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=22`
+  },
+  {
+    ruleId: "ru-a1-gde-mozhno-infinitive",
+    level: "A1",
+    name: "Где можно + infinitive",
+    displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
+    priority: 20,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=22`
+  },
+  {
+    ruleId: "ru-a1-want-can-infinitive",
+    level: "A1",
+    name: "хотеть/мочь + infinitive",
+    displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
+    priority: 22,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=23`
+  },
+  {
+    ruleId: "ru-a1-need-infinitive",
+    level: "A1",
+    name: "Necessity with надо/нужно",
+    displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
+    patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
+    priority: 24,
+    confidence: "high",
+    url: `${RANEPA_A1}#page=24`
+  }
+  ]
+});
+const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
+const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
+const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
+const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
+const SPANISH_GRAMMAR = createLearningTargetGrammar({
+  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+  referenceUrl: CERVANTES_A1_A2,
+  rules: [
+  {
+    ruleId: "es-me-gusta-infinitive",
+    level: "A1",
+    name: "gustar + infinitive",
+    displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+    priority: 10,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p1223a1`
+  },
+  {
+    ruleId: "es-existential-hay",
+    level: "A1",
+    name: "Existence with hay",
+    displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
+    patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
+    priority: 12,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p133a1`
+  },
+  {
+    ruleId: "es-causal-porque",
+    level: "A1",
+    name: "Reason with porque",
+    displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
+    patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
+    priority: 14,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p1534a1`
+  },
+  {
+    ruleId: "es-negation-no",
+    level: "A1",
+    name: "Verb negation with no",
+    displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
+    patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
+    priority: 16,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p133a1`
+  },
+  {
+    ruleId: "es-present-perfect",
+    level: "A2",
+    name: "Present perfect",
+    displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
+    patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
+    priority: 18,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p916a2`
+  },
+  {
+    ruleId: "es-estar-gerundio",
+    level: "A2",
+    name: "Progressive with estar",
+    displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
+    patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
+    priority: 20,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p942a2`
+  },
+  {
+    ruleId: "es-tener-que",
+    level: "A2",
+    name: "Obligation with tener que",
+    displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+    priority: 22,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p121a2`
+  },
+  {
+    ruleId: "es-ir-a-infinitive",
+    level: "A2",
+    name: "Near future with ir a",
+    displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+    priority: 24,
+    confidence: "high",
+    url: `${CERVANTES_A1_A2}#p121a2`
+  }
+  ]
+});
+function referenceOnly(referenceUrl) {
+  return createLearningTargetGrammar({ referenceUrl });
+}
+const GRAMMAR_BY_TARGET = Object.freeze({
+  sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
+  grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
+  ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
+  yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
+  zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
+  da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
+  nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
+  en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
+  fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
+  fr: FRENCH_GRAMMAR,
+  de: GERMAN_GRAMMAR,
+  el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
+  hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
+  id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
+  it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
+  km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
+  ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
+  lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
+  la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
+  mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
+  fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
+  pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
+  pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
+  ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
+  ru: RUSSIAN_GRAMMAR,
+  sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
+  es: SPANISH_GRAMMAR,
+  sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
+  tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
+  th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
+  tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
+  vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
+});
+function grammarForRosterTarget(language) {
+  return GRAMMAR_BY_TARGET[language];
 }
 const KOREAN_SEGMENT_SUFFIXES = [
   "에게서",
@@ -1868,6 +2881,7 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   pronunciation: "ipa",
   readingAnnotation: "hangul"
   },
+  grammar: grammarForRosterTarget("ko"),
   typography: {
   readingAnnotationMode: "ruby"
   },
@@ -3465,6 +4479,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       pronunciation: "ipa",
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
+    grammar: grammarForRosterTarget(language.id),
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
@@ -4189,6 +5204,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
   // Study / grammar / mining stores.
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
+  { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
   { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
@@ -5723,6 +6739,52 @@ async function requestJson(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "json" });
   return value;
 }
+const GRAMMAR_UI_COPY = {
+  en: {
+  findingGrammar: "Finding grammar...",
+  grammarNoLocalMatch: "No built-in {language} grammar patterns matched this sentence.",
+  grammarDetectionPending: "Built-in {language} grammar detection is still being prepared.",
+  grammarReferenceOnly: "Built-in {language} grammar detection is still being prepared. Use the reference below.",
+  grammarCheckUnavailable: "Grammar could not be checked.",
+  grammarReference: "Open grammar reference",
+  grammarKnown: "Known",
+  grammarReview: "Review",
+  grammarDetails: "Details",
+  grammarFoundIn: "Found in",
+  grammarExample: "Example",
+  grammarGuide: "Guide",
+  grammarHideKnown: "Hide known",
+  grammarShowKnown: "Show known",
+  allDetectedGrammarKnown: "All detected grammar is marked known.",
+  grammarShown: "shown",
+  grammarKnownHidden: "known hidden",
+  grammarGenericShort: "Grammar point: {name}",
+  grammarGenericDetail: "Uses {name} in 「{match}」.",
+  grammarLevelCore: "Core"
+  },
+  ja: {
+  findingGrammar: "文法を検索中...",
+  grammarNoLocalMatch: "内蔵の{language}文法パターンはこの文に一致しませんでした。",
+  grammarDetectionPending: "内蔵の{language}文法検出は準備中です。",
+  grammarReferenceOnly: "内蔵の{language}文法検出は準備中です。下のリファレンスを利用できます。",
+  grammarCheckUnavailable: "文法を確認できませんでした。",
+  grammarReference: "文法リファレンスを開く",
+  grammarKnown: "既知",
+  grammarReview: "復習",
+  grammarDetails: "詳細",
+  grammarFoundIn: "検出箇所",
+  grammarExample: "例",
+  grammarGuide: "ガイド",
+  grammarHideKnown: "既知を隠す",
+  grammarShowKnown: "既知を表示",
+  allDetectedGrammarKnown: "検出文法はすべて既知です。",
+  grammarShown: "件表示",
+  grammarKnownHidden: "件の既知を非表示",
+  grammarGenericShort: "文法項目: {name}",
+  grammarGenericDetail: "「{match}」に「{name}」。",
+  grammarLevelCore: "基本"
+  }
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -6952,21 +8014,7 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  findingGrammar: "Finding grammar...",
-  grammarKnown: "Known",
-  grammarReview: "Review",
-  grammarDetails: "Details",
-  grammarFoundIn: "Found in",
-  grammarExample: "Example",
-  grammarGuide: "Guide",
-  grammarHideKnown: "Hide known",
-  grammarShowKnown: "Show known",
-  allDetectedGrammarKnown: "All detected grammar is marked known.",
-  grammarShown: "shown",
-  grammarKnownHidden: "known hidden",
-  grammarGenericShort: "Grammar point: {name}",
-  grammarGenericDetail: "Uses {name} in 「{match}」.",
-  grammarLevelCore: "Core",
+  ...GRAMMAR_UI_COPY.en,
   // D43 interface-locale picker. Yomu is in scope for 33 interface
   // languages and ships two. The picker names the other 31 and says what
   // each is waiting on, because a language that is listed and then
@@ -7012,7 +8060,8 @@ function parseUiCopyTable(rows) {
   });
   return copy;
 }
-const JA_COPY = parseUiCopyTable(String.raw`
+const JA_COPY = {
+  ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中
 interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
@@ -7522,22 +8571,9 @@ readSentenceAloud	文を読み上げ
 openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
-findingGrammar	文法を検索中...
-grammarKnown	既知
-grammarReview	復習
-grammarDetails	詳細
-grammarFoundIn	検出箇所
-grammarExample	例
-grammarGuide	ガイド
-grammarHideKnown	既知を隠す
-grammarShowKnown	既知を表示
-allDetectedGrammarKnown	検出文法はすべて既知です。
-grammarShown	件表示
-grammarKnownHidden	件の既知を非表示
-grammarGenericShort	文法項目: {name}
-grammarGenericDetail	「{match}」に「{name}」。
-grammarLevelCore	基本
-`);
+`),
+  ...GRAMMAR_UI_COPY.ja
+};
 const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション

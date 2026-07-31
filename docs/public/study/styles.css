@@ -12996,6 +12996,10 @@ mark.jpdb-reader-example-target {
 .jpdb-reader-study-empty {
   color: var(--jpdb-reader-text);
 }
+.jpdb-reader-grammar-availability {
+  display: grid;
+  gap: 8px;
+}
 .jpdb-reader-study-short,
 .jpdb-reader-study-empty,
 .jpdb-reader-study-detail,

@@ -2071,6 +2071,52 @@ function formatIsolated(message, values) {
   message
   );
 }
+const GRAMMAR_UI_COPY = {
+  en: {
+  findingGrammar: "Finding grammar...",
+  grammarNoLocalMatch: "No built-in {language} grammar patterns matched this sentence.",
+  grammarDetectionPending: "Built-in {language} grammar detection is still being prepared.",
+  grammarReferenceOnly: "Built-in {language} grammar detection is still being prepared. Use the reference below.",
+  grammarCheckUnavailable: "Grammar could not be checked.",
+  grammarReference: "Open grammar reference",
+  grammarKnown: "Known",
+  grammarReview: "Review",
+  grammarDetails: "Details",
+  grammarFoundIn: "Found in",
+  grammarExample: "Example",
+  grammarGuide: "Guide",
+  grammarHideKnown: "Hide known",
+  grammarShowKnown: "Show known",
+  allDetectedGrammarKnown: "All detected grammar is marked known.",
+  grammarShown: "shown",
+  grammarKnownHidden: "known hidden",
+  grammarGenericShort: "Grammar point: {name}",
+  grammarGenericDetail: "Uses {name} in 「{match}」.",
+  grammarLevelCore: "Core"
+  },
+  ja: {
+  findingGrammar: "文法を検索中...",
+  grammarNoLocalMatch: "内蔵の{language}文法パターンはこの文に一致しませんでした。",
+  grammarDetectionPending: "内蔵の{language}文法検出は準備中です。",
+  grammarReferenceOnly: "内蔵の{language}文法検出は準備中です。下のリファレンスを利用できます。",
+  grammarCheckUnavailable: "文法を確認できませんでした。",
+  grammarReference: "文法リファレンスを開く",
+  grammarKnown: "既知",
+  grammarReview: "復習",
+  grammarDetails: "詳細",
+  grammarFoundIn: "検出箇所",
+  grammarExample: "例",
+  grammarGuide: "ガイド",
+  grammarHideKnown: "既知を隠す",
+  grammarShowKnown: "既知を表示",
+  allDetectedGrammarKnown: "検出文法はすべて既知です。",
+  grammarShown: "件表示",
+  grammarKnownHidden: "件の既知を非表示",
+  grammarGenericShort: "文法項目: {name}",
+  grammarGenericDetail: "「{match}」に「{name}」。",
+  grammarLevelCore: "基本"
+  }
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -3300,21 +3346,7 @@ const COPY = {
   openSectionToTranslate: "Open this section to translate.",
   translationUnavailable: "Translation unavailable.",
   translating: "Translating...",
-  findingGrammar: "Finding grammar...",
-  grammarKnown: "Known",
-  grammarReview: "Review",
-  grammarDetails: "Details",
-  grammarFoundIn: "Found in",
-  grammarExample: "Example",
-  grammarGuide: "Guide",
-  grammarHideKnown: "Hide known",
-  grammarShowKnown: "Show known",
-  allDetectedGrammarKnown: "All detected grammar is marked known.",
-  grammarShown: "shown",
-  grammarKnownHidden: "known hidden",
-  grammarGenericShort: "Grammar point: {name}",
-  grammarGenericDetail: "Uses {name} in 「{match}」.",
-  grammarLevelCore: "Core",
+  ...GRAMMAR_UI_COPY.en,
   // D43 interface-locale picker. Yomu is in scope for 33 interface
   // languages and ships two. The picker names the other 31 and says what
   // each is waiting on, because a language that is listed and then
@@ -3360,7 +3392,8 @@ function parseUiCopyTable(rows) {
   });
   return copy;
 }
-const JA_COPY = parseUiCopyTable(String.raw`
+const JA_COPY = {
+  ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中
 interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
@@ -3870,22 +3903,9 @@ readSentenceAloud	文を読み上げ
 openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
-findingGrammar	文法を検索中...
-grammarKnown	既知
-grammarReview	復習
-grammarDetails	詳細
-grammarFoundIn	検出箇所
-grammarExample	例
-grammarGuide	ガイド
-grammarHideKnown	既知を隠す
-grammarShowKnown	既知を表示
-allDetectedGrammarKnown	検出文法はすべて既知です。
-grammarShown	件表示
-grammarKnownHidden	件の既知を非表示
-grammarGenericShort	文法項目: {name}
-grammarGenericDetail	「{match}」に「{name}」。
-grammarLevelCore	基本
-`);
+`),
+  ...GRAMMAR_UI_COPY.ja
+};
 const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
