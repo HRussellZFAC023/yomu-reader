@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.54] - 2026-07-30
+
+### Fixed
+
+- Offline dictionary lookup now preserves Thai and Lao SARA AM, and matches sentence-initial Latin and Cyrillic words. Spanish, German, Russian, Arabic, and Korean also try a bounded list of language-specific affix forms. Korean removes only listed particles; Chinese keeps whole-segment lookup.
+
 ## [1.8.53] - 2026-07-30
 
 ### Added
