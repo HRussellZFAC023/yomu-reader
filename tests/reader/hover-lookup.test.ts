@@ -1128,7 +1128,10 @@ describe('hover lookup', () => {
                 () => true,
             );
 
-            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard, expect.objectContaining({
+                target: expect.any(Object),
+                isCurrent: expect.any(Function),
+            }));
             expect(applyPublicVocabularyToRenderedWords).toHaveBeenCalledWith(fallbackCard, resolvedCard);
             expect(showCard).toHaveBeenCalledWith(
                 resolvedCard,

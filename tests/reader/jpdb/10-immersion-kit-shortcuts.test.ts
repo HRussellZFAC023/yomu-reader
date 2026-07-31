@@ -8,6 +8,7 @@ import {
     computeSubtitleDrawerLayout,
     configurePointerParseTest,
     createSubtitleVideoInsetAdapter,
+    currentJapaneseLookupScopeMatcher,
     expectDefaultPointerParse,
     installVisualViewportFixture,
     isEnglishSubtitleTrack,
@@ -1848,6 +1849,7 @@ describe('reader helpers', () => {
                 sentence,
                 'modal',
                 { userGesture: true },
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();

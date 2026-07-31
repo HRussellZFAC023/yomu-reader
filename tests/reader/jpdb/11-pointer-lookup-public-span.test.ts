@@ -3,6 +3,7 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
+import { RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS } from '../../../src/reader/app/main-helpers';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
@@ -11,10 +12,12 @@ import {
     card,
     configureRenderedWordTest,
     createPointerEvent,
+    currentJapaneseLookupScopeMatcher,
     defaultDictionaryLookupLinks,
     expectParserBackedRenderedKanaWord,
     jitenTestCard,
     jpdbPointerLookupCandidates,
+    japaneseLearningTargetMatcher,
     lookupCandidateFromPoint,
     pointerTextCandidate,
     pointerTextInternals,
@@ -304,6 +307,7 @@ describe('reader helpers', () => {
                     expect.objectContaining({ sentence: 'にほんごのじかん', anchor: word }),
                     expect.objectContaining({ trigger: 'click', userGesture: true }),
                     false,
+                    currentJapaneseLookupScopeMatcher(),
                 );
             } finally {
                 app.destroy();
@@ -346,6 +350,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence: '聞き取れませんでしたか。', anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -398,7 +403,7 @@ describe('reader helpers', () => {
 
             expect(parseJapanese).not.toHaveBeenCalled();
             expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(fallbackCardFromText).toHaveBeenCalledWith('で');
+            expect(fallbackCardFromText).toHaveBeenCalledWith('で', japaneseLearningTargetMatcher());
             expect(showCard).toHaveBeenCalledWith(
                 fallbackCard,
                 'ここで読む',
@@ -477,6 +482,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence, anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -537,6 +543,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence, anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -586,6 +593,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence: '青空を見る。', anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
             expect(lookupCard.pitchAccent).toEqual(['LHHL']);
         } finally {
@@ -701,6 +709,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -719,21 +728,28 @@ describe('reader helpers', () => {
         word.dataset.sentence = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
         word.dataset.expression = 'タップ';
         word.dataset.reading = 'タップ';
+        const publicLookupCard = vi.fn(() => new Promise<undefined>(() => undefined));
         const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
             cachedCards: [tapCard],
-            publicLookupCard: vi.fn(() => new Promise<undefined>(() => undefined)),
+            publicLookupCard,
         });
 
+        vi.useFakeTimers();
         try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
+            const lookup = internals.showWord(word, { trigger: 'click', userGesture: true });
+            await vi.advanceTimersByTimeAsync(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS);
+            await lookup;
 
+            expect(publicLookupCard).toHaveBeenCalled();
             expect(showRenderedWordCard).toHaveBeenCalledWith(
                 tapCard,
                 expect.objectContaining({ anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
+            vi.useRealTimers();
             app.destroy();
             document.body.replaceChildren();
         }
@@ -761,6 +777,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence: 'ほん', anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -794,6 +811,7 @@ describe('reader helpers', () => {
                 expect.objectContaining({ sentence: '日本語の本', anchor: word }),
                 expect.objectContaining({ trigger: 'click', userGesture: true }),
                 false,
+                currentJapaneseLookupScopeMatcher(),
             );
         } finally {
             app.destroy();
@@ -921,7 +939,7 @@ describe('reader helpers', () => {
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(fallbackCardFromText).toHaveBeenCalledWith('読んで');
+            expect(fallbackCardFromText).toHaveBeenCalledWith('読んで', japaneseLearningTargetMatcher());
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 expect.objectContaining({ spelling: '読んで', fallbackLookupTerms: ['読む'] }),
                 sentence,

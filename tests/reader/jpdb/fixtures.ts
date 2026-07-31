@@ -71,6 +71,21 @@ import { testEnSettings } from '../helpers/settings-fixture';
 // These tests assert English UI copy; pin the interface language for
 // deterministic string assertions regardless of the runtime default.
 export const DEFAULT_SETTINGS = testEnSettings();
+
+export function japaneseLearningTargetMatcher() {
+    return expect.objectContaining({
+        language: 'ja',
+        interfaceVersion: 9,
+        lookupSweepMode: 'global-ranked',
+    });
+}
+
+export function currentJapaneseLookupScopeMatcher() {
+    return expect.objectContaining({
+        target: japaneseLearningTargetMatcher(),
+        isCurrent: expect.any(Function),
+    });
+}
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../../src/reader/app/site-parsers';
 import { KANJI_STROKE_SOURCE_ID, KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
@@ -298,6 +313,7 @@ export type TestPointerTextInternals = {
         sentence: string,
         trigger: TestPointerTextTrigger,
         options: TestPointerTextOptions,
+        scope: unknown,
     ) => Promise<boolean>;
     showPointerTextCard: (
         lookupCard: JPDBCard,
@@ -320,6 +336,9 @@ export type TestRenderedWordInternals = {
     parser: { cacheCards(cards: JPDBCard[]): void };
     parseJapanese?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
     publicLookupCard: (term: string, exact?: boolean, options?: unknown) => Promise<JPDBCard | undefined>;
+    cardLookup: {
+        publicLookupCard: (term: string, exact?: boolean, options?: unknown) => Promise<JPDBCard | undefined>;
+    };
     jitenPublicVocabulary?: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
     dictionaries?: { lookup: (text: string, reading: string, limit: number, preferences?: unknown) => Promise<YomitanTermEntry[]> };
     showRenderedWordCard: (
@@ -327,6 +346,7 @@ export type TestRenderedWordInternals = {
         context?: unknown,
         options?: unknown,
         keepOpen?: boolean,
+        scope?: unknown,
     ) => Promise<void>;
     showWord(word: HTMLElement, options?: TestRenderedWordOptions): Promise<void>;
 };
@@ -648,7 +668,12 @@ export async function expectKanjiLocalFallbackAfterTimeout(
     await vi.advanceTimersByTimeAsync(timeoutMs);
     const [tokens] = await parsed;
 
-    expect(findTermMatches).toHaveBeenCalledWith('漢字を書く', expect.any(Number), DEFAULT_SETTINGS.dictionaryPreferences);
+    expect(findTermMatches).toHaveBeenCalledWith(
+        '漢字を書く',
+        expect.any(Number),
+        DEFAULT_SETTINGS.dictionaryPreferences,
+        japaneseLearningTargetMatcher(),
+    );
     expect(tokens[0].card.spelling).toBe('漢字');
 }
 
@@ -2054,7 +2079,7 @@ export function createFallbackShowCardBoundaryFixture(
     }));
     const mountInitialCardShell = vi.fn(async () => null);
     const internals = app as unknown as {
-        resolveLookupCard: typeof resolveLookupCard;
+        cardLookup: { resolveLookupCard: typeof resolveLookupCard };
         createPopover(): HTMLElement;
         navigation: { updateWord: typeof updateWord; clearKanji: typeof clearKanji };
         rememberCardMiningContext(): void;
@@ -2063,7 +2088,7 @@ export function createFallbackShowCardBoundaryFixture(
         mountInitialCardShell: typeof mountInitialCardShell;
         showCard(card: JPDBCard, sentence?: string): Promise<void>;
     };
-    internals.resolveLookupCard = resolveLookupCard;
+    internals.cardLookup.resolveLookupCard = resolveLookupCard;
     internals.createPopover = () => document.createElement('div');
     internals.navigation = { updateWord, clearKanji };
     internals.rememberCardMiningContext = vi.fn();
@@ -2252,6 +2277,7 @@ export function configureRenderedWordTest(app: ReaderApp, options: {
     internals.parser.cacheCards(options.cachedCards);
     if (options.parseJapanese) internals.parseJapanese = options.parseJapanese;
     internals.publicLookupCard = publicLookupCard;
+    internals.cardLookup.publicLookupCard = publicLookupCard;
     internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
     internals.showRenderedWordCard = showRenderedWordCard;
     return { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard };
@@ -2287,6 +2313,7 @@ export async function expectParserBackedRenderedKanaWord(options: {
         expect.objectContaining({ sentence, anchor: word }),
         expect.objectContaining({ trigger: 'click', userGesture: true }),
         false,
+        currentJapaneseLookupScopeMatcher(),
     );
 }
 
@@ -2357,7 +2384,9 @@ export function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
         parser: { cacheCards: typeof cacheCards };
         enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; jpdbPublicLookup?: boolean }): Promise<void>;
         enrichJpdbRelatedWords(root: ParentNode): void;
-        publicLookupFallbackCard(card: JPDBCard, options?: { publicLookupTermLimit?: number; jpdbPublicLookup?: boolean }): Promise<JPDBCard | undefined>;
+        cardLookup: {
+            publicLookupFallbackCard(card: JPDBCard, options?: { publicLookupTermLimit?: number; jpdbPublicLookup?: boolean }): Promise<JPDBCard | undefined>;
+        };
     };
     internals.settings = {
         ...DEFAULT_SETTINGS,

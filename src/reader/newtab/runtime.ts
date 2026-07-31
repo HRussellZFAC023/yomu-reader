@@ -76,7 +76,6 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import type { StudySessionClock } from './session-clock';
@@ -88,7 +87,6 @@ import {
     buildKanjiOriginGraph,
     buildRtkComponentSummaries,
     installOriginGraphInteractions,
-    pickTokenForSelection,
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
     renderKanjiKeywordLine,
@@ -102,7 +100,7 @@ import {
     targetSupportsCharacterLookup,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
-import { ReaderParser, jpdbFirstParseOptions } from '../lookup/parser';
+import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -136,7 +134,6 @@ import {
     KANJI_UCHISEN_SOURCE_ID,
     definitionSourceLabel,
 } from '../sources/sections';
-import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
 import {
     configuredPopoverMaxHeight,
@@ -146,9 +143,7 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
-import { adoptLearningTargetFromSettings } from '../languages/target-selection';
-import { activeLearningTarget, activeLearningTargetGeneration } from '../languages/target-runtime';
+import { outputLanguageOf } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
@@ -164,6 +159,13 @@ import { WanikaniLookupClient } from '../wanikani/wanikani-lookup';
 import { WanikaniSourceController } from '../wanikani/wanikani-source';
 
 import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
+import { NewTabTargetLookupResolver } from './target-lookup-resolver';
+import {
+    NewTabLookupTargetScope,
+    type LookupTargetSnapshot,
+} from './target-scope';
+import { NewTabTargetParseCache, type NewTabParseContentOptions } from './target-parse-cache';
+import { emptyKanjiLookupDetailPromises, type KanjiLookupDetailPromises } from './target-kanji-details';
 
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
@@ -223,41 +225,9 @@ interface NewTabKanjiLookupOptions {
     userGesture?: boolean;
 }
 
-interface NewTabParseContentOptions {
-    jpdbTimeoutMs?: number;
-    allowJpdbTimeoutFallback?: boolean;
-}
-
-interface KanjiLookupDetailPromises {
-    jpdbInfo: Promise<JpdbKanjiInfo | null>;
-    jitenInfo: Promise<JitenKanjiInfo | null>;
-    kanjiEntries: Promise<YomitanKanjiEntry[]>;
-    rtkInfo: Promise<RtkInfo | null>;
-    kanjiVGInfo: Promise<KanjiVGInfo | null>;
-    kanjiSourceInfo: Promise<KanjiSourceInfo | null>;
-}
-
-function emptyKanjiLookupDetailPromises(): KanjiLookupDetailPromises {
-    return {
-        jpdbInfo: Promise.resolve(null),
-        jitenInfo: Promise.resolve(null),
-        kanjiEntries: Promise.resolve([]),
-        rtkInfo: Promise.resolve(null),
-        kanjiVGInfo: Promise.resolve(null),
-        kanjiSourceInfo: Promise.resolve(null),
-    };
-}
-
 interface LookupPopoverScrollState {
     body?: HTMLElement;
     scrollTop: number;
-}
-
-interface LookupTargetSnapshot {
-    generation: number;
-    language: string;
-    runtimeGeneration: number;
-    target: ReturnType<typeof activeLearningTarget>;
 }
 
 type UchisenData = Awaited<ReturnType<typeof loadUchisenData>>;
@@ -406,12 +376,7 @@ export class NewTabRuntime {
     private activeLookupAnchor?: HTMLElement;
     private activeLookupHandlerController?: AbortController;
     private readonly lookupModal = new LookupModalAccessibility();
-    private lookupRenderRequest = 0;
-    private lookupTargetGeneration = 0;
-    private lookupTargetLanguage = targetLanguageOf(DEFAULT_SETTINGS);
-    private lookupRuntimeGeneration = activeLearningTargetGeneration();
-    private lookupRenderTarget?: LookupTargetSnapshot;
-    private parseContentCache = new Map<string, { expiresAt: number; promise: Promise<JPDBToken[][]> }>();
+    private readonly lookupTarget = new NewTabLookupTargetScope();
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private externalRefreshController?: AbortController;
@@ -489,6 +454,25 @@ export class NewTabRuntime {
         jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
         yomuLocalSrs: this.yomuLocalSrs,
+    });
+    private readonly targetLookup = new NewTabTargetLookupResolver({
+        getSettings: () => this.settings,
+        getDictionaries: () => this.dictionaries,
+        getParser: () => this.parser,
+        getJpdbVocabulary: () => this.jpdbVocabulary,
+        getJiten: () => this.jiten,
+        getJitenPublicVocabulary: () => this.jitenPublicVocabulary,
+        isJitenApiActive: () => this.isJitenApiActive(),
+        publicFallbackConcurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
+        warnPublicSearch: (term, error) => log.warn('Public JPDB fallback search failed', { term }, error),
+        targetScope: this.lookupTarget,
+    });
+    private readonly parseContentCache = new NewTabTargetParseCache({
+        getSettings: () => this.settings,
+        parse: (texts, options) => this.parser.parse(texts, options),
+        defaultTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
+        ttlMs: NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS,
+        limit: NEW_TAB_PARSE_CONTENT_CACHE_LIMIT,
     });
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
@@ -742,7 +726,7 @@ export class NewTabRuntime {
         this.dictionarySourceState.clear();
         this.cardRenderData.clear();
         this.parseContentCache.clear();
-        this.lookupRenderRequest++;
+        this.lookupTarget.invalidateRender();
         this.lastAutoAudioKey = '';
         this.lastAutoAudioAt = 0;
         await this.dictionaries.invalidateForFactoryReset();
@@ -919,44 +903,26 @@ export class NewTabRuntime {
     }
 
     private nextLookupRenderRequest(): number {
-        this.lookupRenderRequest += 1;
-        this.lookupRenderTarget = this.captureLookupTarget();
-        return this.lookupRenderRequest;
+        return this.lookupTarget.nextRender();
     }
 
     private isCurrentLookupRender(popover: HTMLElement, requestId: number): boolean {
-        return requestId === this.lookupRenderRequest
-            && Boolean(this.lookupRenderTarget && this.isCurrentLookupTarget(this.lookupRenderTarget))
+        return this.lookupTarget.isCurrentRender(requestId)
             && popover.isConnected
             && this.activeLookupPopover === popover;
     }
 
     private captureLookupTarget(): LookupTargetSnapshot {
-        return {
-            generation: this.lookupTargetGeneration,
-            language: this.lookupTargetLanguage,
-            runtimeGeneration: activeLearningTargetGeneration(),
-            target: activeLearningTarget(),
-        };
+        return this.lookupTarget.capture();
     }
 
     private isCurrentLookupTarget(snapshot: LookupTargetSnapshot): boolean {
-        return snapshot.generation === this.lookupTargetGeneration
-            && snapshot.language === this.lookupTargetLanguage
-            && snapshot.runtimeGeneration === activeLearningTargetGeneration()
-            && snapshot.target === activeLearningTarget();
+        return this.lookupTarget.isCurrent(snapshot);
     }
 
     private syncLookupTarget(settings: ReaderSettings): void {
-        const language = adoptLearningTargetFromSettings(settings).language;
-        const runtimeGeneration = activeLearningTargetGeneration();
-        if (language === this.lookupTargetLanguage
-            && runtimeGeneration === this.lookupRuntimeGeneration) return;
-        this.lookupTargetLanguage = language;
-        this.lookupRuntimeGeneration = runtimeGeneration;
-        this.lookupTargetGeneration += 1;
-        this.lookupRenderRequest += 1;
-        this.lookupRenderTarget = undefined;
+        if (!this.lookupTarget.sync(settings)) return;
+        this.parseContentCache.clear();
         this.newTab?.invalidateForTargetChange();
         // This closes only the lookup layer. A settings dialog underneath a
         // stacked lookup remains mounted and interactive.
@@ -1038,7 +1004,7 @@ export class NewTabRuntime {
         this.navigation.updateWord(card, sentence, 'modal', navigation, options.previousNavigationEntry);
         this.navigation.clearKanji();
         const { popover, reused } = this.lookupRenderSurface(options.reuseActivePopover === true);
-        if (requestId !== this.lookupRenderRequest) return;
+        if (!this.lookupTarget.isCurrentRender(requestId)) return;
         this.maybePreloadLookupCardAudio(card);
         const renderData = this.cardRenderData.load(card);
         const fallbackAnkiLookup: AnkiLookupResult = { state: 'not-in-deck', notes: [], primary: null, trusted: false };
@@ -1459,7 +1425,7 @@ export class NewTabRuntime {
         if (actionId) void this.performJpdbKanjiAction(actionId, card, kanji, sentence, button);
     }
 
-    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupRenderRequest): Promise<void> {
+    private async renderKanjiLookupDetails(popover: HTMLElement, card: JPDBCard, kanji: string, requestId = this.lookupTarget.currentRenderRequest()): Promise<void> {
         if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
         let jpdbInfo: JpdbKanjiInfo | null = null;
         let jitenInfo: JitenKanjiInfo | null = null;
@@ -2050,70 +2016,11 @@ export class NewTabRuntime {
         reading: string,
         lookupTarget = this.captureLookupTarget(),
     ): Promise<JPDBCard> {
-        const localEntry = await this.localLookupEntry(term, reading);
-        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
-        if (localEntry) return this.parser.localCardFromEntry(localEntry, lookupTarget.target);
-        const allowJapaneseProviders = usesJapaneseProviders();
-        const allowJpdbPublicLookup = allowJapaneseProviders && this.settings.jpdbDefinitionsEnabled;
-        const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : undefined;
-        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
-        if (publicCard) return publicCard;
-        const fallbackCard = this.parser.fallbackCardFromText(term, lookupTarget.target);
-        const fallbackPublicCard = allowJapaneseProviders
-            ? await this.publicLookupFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false })
-            : undefined;
-        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
-        if (fallbackPublicCard) return fallbackPublicCard;
-        const parsed = await this.parser.parse(
-            [term],
-            allowJapaneseProviders
-                ? jpdbFirstParseOptions()
-                : { skipApi: true, allowSegmentedFallback: true },
-        ).catch(() => [[]]);
-        if (!this.isCurrentLookupTarget(lookupTarget)) throw new Error('Lookup target changed.');
-        const token = pickTokenForSelection(parsed[0] ?? [], term);
-        if (token) return token.card;
-        return fallbackCard;
+        return this.targetLookup.lookup(term, reading, lookupTarget);
     }
 
-    private async publicLookupCard(term: string, exact = false): Promise<JPDBCard | undefined> {
-        if (!usesJapaneseProviders() || !this.settings.jpdbDefinitionsEnabled) return undefined;
-        const cards = await this.jpdbVocabulary.search(term, 1).catch(() => []);
-        if (!usesJapaneseProviders()) return undefined;
-        return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
-    }
-
-    private async publicLookupFallbackCard(card: JPDBCard, options: { jpdbPublicLookup?: boolean } = {}): Promise<JPDBCard | undefined> {
-        return (await this.publicLookupFallbackCards([card], options)).get(cardKey(card));
-    }
-
-    private async publicLookupFallbackCards(cards: readonly JPDBCard[], options: { jpdbPublicLookup?: boolean } = {}): Promise<Map<string, JPDBCard>> {
-        if (!usesJapaneseProviders() || (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent)) return new Map<string, JPDBCard>();
-        const resolved = await publicLookupFallbackCards(cards, {
-            jitenApiActive: () => usesJapaneseProviders() && this.isJitenApiActive(),
-            parse: terms => usesJapaneseProviders() ? this.jiten.parse(terms) : Promise.resolve(terms.map(() => [])),
-            lookupMany: terms => usesJapaneseProviders() ? this.jitenPublicVocabulary.lookupMany(terms) : Promise.resolve(new Map()),
-            publicSpellingCard: async term => {
-                if (!usesJapaneseProviders()) return undefined;
-                const found = await this.jpdbVocabulary.search(term, 1).catch(error => {
-                    log.warn('Public JPDB fallback search failed', { term }, error);
-                    return [];
-                });
-                return usesJapaneseProviders()
-                    ? found.find(candidate => candidate.spelling === term)
-                    : undefined;
-            },
-        }, {
-            concurrency: NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY,
-            jpdbPublicLookup: options.jpdbPublicLookup,
-        });
-        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
-    }
-
-    private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
-        if (!this.settings.localDictionariesEnabled) return undefined;
-        const entries = await this.dictionaries.lookup(term, reading || term, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []);
-        return entries[0];
+    private publicLookupFallbackCards(cards: readonly JPDBCard[], options: { jpdbPublicLookup?: boolean } = {}): Promise<Map<string, JPDBCard>> {
+        return this.targetLookup.publicFallbackCards(cards, options);
     }
 
     private mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): void {
@@ -2564,43 +2471,7 @@ export class NewTabRuntime {
     }
 
     private loadParsedNewTabContent(texts: string[], options: NewTabParseContentOptions = {}, publicJitenDetailLimit?: number): Promise<JPDBToken[][]> {
-        const allowJapaneseProviders = usesJapaneseProviders();
-        const parseOptions = {
-            jpdbTimeoutMs: options.jpdbTimeoutMs ?? NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-            allowJpdbTimeoutFallback: options.allowJpdbTimeoutFallback ?? false,
-            includeLocalPitch: false,
-            allowSegmentedFallback: true,
-            skipApi: !allowJapaneseProviders,
-            ...(allowJapaneseProviders && publicJitenDetailLimit !== undefined ? { publicJitenDetailLimit } : {}),
-        };
-        const key = parseContentCacheKey(texts, parseOptions, this.settings);
-        const now = Date.now();
-        const cached = this.parseContentCache.get(key);
-        if (cached && cached.expiresAt > now) {
-            this.parseContentCache.delete(key);
-            this.parseContentCache.set(key, cached);
-            return cached.promise;
-        }
-        if (cached) this.parseContentCache.delete(key);
-
-        const promise = this.parser.parse(texts, parseOptions).catch(error => {
-            if (this.parseContentCache.get(key)?.promise === promise) this.parseContentCache.delete(key);
-            throw error;
-        });
-        this.parseContentCache.set(key, { expiresAt: now + NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS, promise });
-        this.pruneParseContentCache(now);
-        return promise;
-    }
-
-    private pruneParseContentCache(now: number): void {
-        for (const [key, entry] of this.parseContentCache) {
-            if (entry.expiresAt <= now) this.parseContentCache.delete(key);
-        }
-        while (this.parseContentCache.size > NEW_TAB_PARSE_CONTENT_CACHE_LIMIT) {
-            const oldest = this.parseContentCache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            this.parseContentCache.delete(oldest);
-        }
+        return this.parseContentCache.load(texts, options, publicJitenDetailLimit);
     }
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {

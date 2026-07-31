@@ -2147,7 +2147,7 @@ describe('reader helpers', () => {
         const repositionLookupPopover = vi.fn();
         const internals = runtime as unknown as {
             activeLookupPopover: HTMLElement;
-            lookupRenderRequest: number;
+            nextLookupRenderRequest(): number;
             lookupPopoverRenderer: { render: typeof render };
             applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
             localizeLookupPopoverChrome: () => void;
@@ -2165,7 +2165,7 @@ describe('reader helpers', () => {
             ): void;
         };
         internals.activeLookupPopover = popover;
-        internals.lookupRenderRequest = 7;
+        const requestId = internals.nextLookupRenderRequest();
         internals.lookupPopoverRenderer = { render };
         internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
         internals.localizeLookupPopoverChrome = vi.fn();
@@ -2181,7 +2181,7 @@ describe('reader helpers', () => {
                 '動画を見る。',
                 data,
                 { hydrateAnkiLookup },
-                7,
+                requestId,
             );
 
             await vi.waitFor(() => expect(render).toHaveBeenCalled());
@@ -2247,7 +2247,7 @@ describe('reader helpers', () => {
         const repositionLookupPopover = vi.fn();
         const internals = runtime as unknown as {
             activeLookupPopover: HTMLElement;
-            lookupRenderRequest: number;
+            nextLookupRenderRequest(): number;
             lookupPopoverRenderer: { render: typeof render };
             applyAnkiLookupToRenderedWords: typeof applyAnkiLookupToRenderedWords;
             localizeLookupPopoverChrome: () => void;
@@ -2265,7 +2265,7 @@ describe('reader helpers', () => {
             ): void;
         };
         internals.activeLookupPopover = popover;
-        internals.lookupRenderRequest = 8;
+        const requestId = internals.nextLookupRenderRequest();
         internals.lookupPopoverRenderer = { render };
         internals.applyAnkiLookupToRenderedWords = applyAnkiLookupToRenderedWords;
         internals.localizeLookupPopoverChrome = vi.fn();
@@ -2281,7 +2281,7 @@ describe('reader helpers', () => {
                 'テストを始めてください。',
                 data,
                 { hydrateAnkiLookup },
-                8,
+                requestId,
             );
 
             await vi.waitFor(() => expect(render).toHaveBeenCalled());

@@ -920,7 +920,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
             await controller.dependencies.parseContent(studyRoot);
 
-            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenLastCalledWith(['大切です。'], { jpdbTimeoutMs: 15_000, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true, skipApi: false });
 
             parse.mockClear();
             const popover = document.createElement('div');
@@ -929,7 +929,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
 
             await internals.parseNewTabContent(popover);
 
-            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true, skipApi: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -953,7 +953,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
         try {
             await internals.parseNewTabContent(popover);
 
-            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenCalledWith(['日本語です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true, skipApi: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();
@@ -1210,7 +1210,7 @@ describe('new tab review — study shortcuts & hosted popup lookups', () => {
             await internals.parseNewTabContent(secondRoot);
 
             expect(parse).toHaveBeenCalledTimes(1);
-            expect(parse).toHaveBeenCalledWith(['大切です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true });
+            expect(parse).toHaveBeenCalledWith(['大切です。'], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: false, includeLocalPitch: false, allowSegmentedFallback: true, skipApi: false });
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

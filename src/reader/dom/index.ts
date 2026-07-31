@@ -76,7 +76,8 @@ import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './sh
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
-import { JAPANESE_CHARACTER_RE, bareFallbackCardFromText } from '../lookup/japanese-segments';
+import { bareFallbackCardFromText } from '../lookup/japanese-segments';
+import { uncoveredJapaneseRanges } from '../lookup/uncovered-japanese-ranges';
 import { isUnifiedIdeograph } from '../languages/han';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
@@ -2298,32 +2299,13 @@ function collectHostGapFallbackTokens(
     rangeEnd: number,
     additions: JPDBToken[],
 ): void {
-    let gapStart = -1;
-    for (let index = rangeStart; index < rangeEnd;) {
-        const codePoint = hostText.codePointAt(index);
-        if (codePoint === undefined) break;
-        const character = String.fromCodePoint(codePoint);
-        const codePointEnd = index + character.length;
-        const nextIndex = Math.min(rangeEnd, codePointEnd);
-        // JAPANESE_CHARACTER_RE (not HAS_JAPANESE_LETTER): the parser's own
-        // gap-fill counts ー/々 as Japanese, and splitting a katakana run at
-        // its prolonged-sound mark would shatter エージェント into エ+ジェント.
-        // Walk by Unicode code point while retaining UTF-16 offsets. Testing a
-        // supplementary kanji one surrogate at a time makes neither half look
-        // Japanese, leaving a bare hole exactly where this refill is needed.
-        const uncoveredJapanese = codePointEnd <= rangeEnd
-            && JAPANESE_CHARACTER_RE.test(character)
-            && !tokens.some(token => token.start < nextIndex && index < token.end)
-            && !additions.some(token => token.start < nextIndex && index < token.end);
-        if (uncoveredJapanese) {
-            if (gapStart < 0) gapStart = index;
-        } else if (gapStart >= 0) {
-            appendSegmentedHostFallbackTokens(hostText, gapStart, index, additions);
-            gapStart = -1;
-        }
-        index = nextIndex;
+    const isCovered = (start: number, end: number): boolean => (
+        tokens.some(token => token.start < end && start < token.end)
+        || additions.some(token => token.start < end && start < token.end)
+    );
+    for (const gap of uncoveredJapaneseRanges(hostText, rangeStart, rangeEnd, isCovered)) {
+        appendSegmentedHostFallbackTokens(hostText, gap.start, gap.end, additions);
     }
-    if (gapStart >= 0) appendSegmentedHostFallbackTokens(hostText, gapStart, rangeEnd, additions);
 }
 
 function appendSegmentedHostFallbackTokens(

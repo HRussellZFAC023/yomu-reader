@@ -1148,6 +1148,9 @@ describe('reader helpers', () => {
             expect(toast).not.toHaveBeenCalled();
             expect(lookupText).toHaveBeenCalledWith('読む', '読む', expect.objectContaining({
                 navigation: 'reset',
+            }), expect.objectContaining({
+                target: expect.any(Object),
+                isCurrent: expect.any(Function),
             }));
             expect(reparseVisiblePage).not.toHaveBeenCalled();
         } finally {
@@ -1387,7 +1390,10 @@ describe('reader helpers', () => {
 
         try {
             await internals.showCard(fallbackCard);
-            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard, expect.objectContaining({
+                target: expect.objectContaining({ language: 'ja', interfaceVersion: 9 }),
+                isCurrent: expect.any(Function),
+            }));
             expect(updateWord).toHaveBeenCalledWith(publicCard, undefined, 'modal', 'reset', undefined);
             expect(load).toHaveBeenCalledWith(publicCard);
             expect(mountInitialCardShell).toHaveBeenCalledWith(expect.any(HTMLElement), publicCard, undefined, undefined, expect.any(Object));
@@ -1718,7 +1724,7 @@ describe('reader helpers', () => {
         });
 
         try {
-            await expect(internals.publicLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
+            await expect(internals.cardLookup.publicLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
 
             expect(jitenLookupMany).toHaveBeenCalledTimes(1);
             const [terms] = jitenLookupMany.mock.calls[0] ?? [[]];
@@ -1742,14 +1748,16 @@ describe('reader helpers', () => {
         const publicLookupCard = vi.fn(async (term: string) => term === '当たり' ? publicCard : undefined);
         const internals = app as unknown as {
             jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
-            publicLookupCard: typeof publicLookupCard;
-            publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
+            cardLookup: {
+                publicLookupCard: typeof publicLookupCard;
+                publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
+            };
         };
         internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
-        internals.publicLookupCard = publicLookupCard;
+        internals.cardLookup.publicLookupCard = publicLookupCard;
 
         try {
-            await expect(internals.publicLookupFirstCandidateTerm(['外れ', '当たり'])).resolves.toBe(publicCard);
+            await expect(internals.cardLookup.publicLookupFirstCandidateTerm(['外れ', '当たり'])).resolves.toBe(publicCard);
 
             expect(jitenLookupMany).toHaveBeenCalledWith(['外れ', '当たり']);
             expect(publicLookupCard).toHaveBeenCalledWith('外れ', true, expect.objectContaining({ allowCandidateLookup: true }));
@@ -1784,12 +1792,12 @@ describe('reader helpers', () => {
         }] : []));
         const internals = app as unknown as {
             jiten: { parse: typeof parse };
-            jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined>;
+            cardLookup: { jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> };
         };
         internals.jiten = { parse };
 
         try {
-            await expect(internals.jitenLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
+            await expect(internals.cardLookup.jitenLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
 
             expect(parse).toHaveBeenCalledTimes(1);
             const [terms] = parse.mock.calls[0] ?? [[]];

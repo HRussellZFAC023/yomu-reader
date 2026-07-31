@@ -1,24 +1,18 @@
 import { activeLearningTarget, activeLearningTargetGeneration } from '../../languages/target-runtime';
 import { isUnifiedIdeograph } from '../../languages/han';
-import {
-    codePointBoundaryAtOrAfter,
-    codePointSafePrefix,
-    lookupSpansStartingInRange,
-} from '../../languages/lookup-spans';
+import { codePointBoundaryAtOrAfter, codePointSafePrefix } from '../../languages/lookup-spans';
 import {
     genericLookupTextVariants,
     normalizeGenericLookupText,
     normalizeImportedLookupMeta,
     normalizeImportedLookupTerm,
 } from '../../languages/lookup-normalization';
-import type { LanguageTextSegment, LearningTargetModule } from '../../languages/types';
+import type { LearningTargetModule } from '../../languages/types';
 import {
-    isSearchableTargetSurface,
     rankedDictionaryEntries,
     readIndexRequestValues,
     requestTermMatchIndex,
     sortedTermMatchExpressions,
-    targetTermMatchLookupCandidates,
     targetTermMatchQueriesReadingIndex,
     termMatchesForEntries,
     type TermMatchCandidates,
@@ -56,6 +50,7 @@ import {
     type ReaderDictionaryExport,
 } from './dictionary-type';
 import { readZipArchive, type ZipArchive } from './zip';
+import { InlineTermCandidateCollector } from './inline-term-candidates';
 import {
     bytesToBase64,
     countYomitanZipBanks,
@@ -147,9 +142,6 @@ const TERM_MATCH_WINDOW_CHARS = 240;
 // bounded. Well above real content: a whole expanded video description or a
 // long comment fits in one call.
 const TERM_MATCH_SOURCE_LIMIT = 4_000;
-// Longest surface the swept path will try at one position. A target with
-// written word boundaries never reaches this: its segments are its words.
-const TERM_MATCH_MAX_SURFACE_CODE_POINTS = 18;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -239,12 +231,7 @@ export class YomitanDictionaryStore {
     // Memo for one findTermMatches call: every window asks the active target
     // to segment the same source, and for an ICU-backed target that is a full
     // pass over the text each time.
-    private segmentedSourceText = '';
-    private segmentedSourceTarget = '';
-    private segmentedSourceSegments: readonly LanguageTextSegment[] = [];
-    private lookupRunSourceText = '';
-    private lookupRunSourceTarget = '';
-    private lookupRunSourceSegments: readonly LanguageTextSegment[] = [];
+    private readonly inlineTermCandidates = new InlineTermCandidateCollector();
 
     constructor(
         private readonly getCorsProxyUrl: () => string = () => '',
@@ -563,116 +550,8 @@ export class YomitanDictionaryStore {
         preferences: DictionaryPreference[],
         target: LearningTargetModule,
     ): Promise<YomitanTermMatch[]> {
-        const candidates = this.collectTermMatchCandidates(target, source, start, end);
+        const candidates = this.inlineTermCandidates.collect(target, source, start, end);
         return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
-    }
-
-    /**
-     * Surfaces worth a dictionary lookup in this window, and where each sits.
-     *
-     * Both halves used to be Japanese: the sweep only started on a kana/kanji
-     * character, and every surface it produced was expanded by the Japanese
-     * deinflector. That made the whole engine — a format that serves dozens of
-     * languages — unable to find a single word in any of them, whatever the
-     * reader had installed. Detection, boundaries and morphology now all come
-     * from the active target, so the engine holds entries and ranks them and
-     * asserts nothing about the language they are written in.
-     *
-     * Only start positions are confined to the window; surfaces still run past
-     * its end, so a term straddling a window boundary is found exactly as it
-     * would be in a single sweep of the whole text.
-     */
-    private collectTermMatchCandidates(
-        target: LearningTargetModule,
-        source: string,
-        from: number,
-        to: number,
-    ): TermMatchCandidates {
-        const candidates: TermMatchCandidates = new Map();
-        if (target.lookupStartsAtSegmentBoundary) {
-            // The target writes its own word boundaries, so its segments are
-            // the words. Looking up anything else would offer `ella` as a match
-            // inside `paella`.
-            for (const segment of this.segmentedSource(source, target)) {
-                if (segment.start < from || segment.start >= to) continue;
-                this.addTargetTermCandidates(target, segment.text, segment.start, candidates);
-            }
-            return candidates;
-        }
-        if (target.lookupSubsegments) {
-            this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
-            return candidates;
-        }
-        for (const segment of this.lookupRuns(source, target)) {
-            if (segment.end <= from || segment.start >= to) continue;
-            for (const span of lookupSpansStartingInRange(
-                source,
-                segment,
-                from,
-                to,
-                TERM_MATCH_MAX_SURFACE_CODE_POINTS,
-            )) {
-                if (!isSearchableTargetSurface(span.term, target)) continue;
-                this.addTargetTermCandidates(target, span.term, span.start, candidates);
-            }
-        }
-        return candidates;
-    }
-
-    private collectSuffixStrippedTermMatchCandidates(
-        target: LearningTargetModule,
-        source: string,
-        from: number,
-        to: number,
-        candidates: TermMatchCandidates,
-    ): void {
-        for (const segment of this.segmentedSource(source, target)) {
-            if (segment.start < from || segment.start >= to) continue;
-            for (const surface of target.lookupSubsegments!(segment.text, TERM_MATCH_MAX_SURFACE_CODE_POINTS)) {
-                if (!isSearchableTargetSurface(surface, target)) continue;
-                this.addTargetTermCandidates(target, surface, segment.start, candidates);
-            }
-        }
-    }
-
-    /**
-     * One segmentation per `findTermMatches` call rather than one per window:
-     * every window asks for the same answer over the same source, and a target
-     * whose segmenter is ICU pays a full pass for each question.
-     */
-    private segmentedSource(source: string, target: LearningTargetModule): readonly LanguageTextSegment[] {
-        if (this.segmentedSourceText !== source || this.segmentedSourceTarget !== target.id) {
-            this.segmentedSourceSegments = target.segment(source);
-            this.segmentedSourceText = source;
-            this.segmentedSourceTarget = target.id;
-        }
-        return this.segmentedSourceSegments;
-    }
-
-    private lookupRuns(source: string, target: LearningTargetModule): readonly LanguageTextSegment[] {
-        if (this.lookupRunSourceText !== source || this.lookupRunSourceTarget !== target.id) {
-            this.lookupRunSourceSegments = target.lookupRunSegments?.(source) ?? [{
-                text: source,
-                start: 0,
-                end: source.length,
-            }];
-            this.lookupRunSourceText = source;
-            this.lookupRunSourceTarget = target.id;
-        }
-        return this.lookupRunSourceSegments;
-    }
-
-    private addTargetTermCandidates(
-        target: LearningTargetModule,
-        surface: string,
-        start: number,
-        candidates: TermMatchCandidates,
-    ): void {
-        for (const { key, deinflected } of targetTermMatchLookupCandidates(target, surface)) {
-            const positions = candidates.get(key) ?? [];
-            positions.push({ start, end: start + surface.length, surface, deinflected });
-            candidates.set(key, positions);
-        }
     }
 
     private async lookupTermMatchCandidates(

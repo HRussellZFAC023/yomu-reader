@@ -58,7 +58,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
                 kanjiSourceInfo: Promise<unknown>;
             };
             performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string): Promise<void>;
-            publicLookupCard(term: string): Promise<JPDBCard | undefined>;
+            targetLookup: { publicCard(term: string): Promise<JPDBCard | undefined> };
             publicLookupFallbackCards(cards: JPDBCard[]): Promise<Map<string, JPDBCard>>;
         };
         internals.settings = {
@@ -81,7 +81,7 @@ describe('new tab review — hosted segmented fallback & lookup grade statuses',
             const details = internals.kanjiLookupDetailPromises('学');
             await expect(Promise.all(Object.values(details))).resolves.toEqual([null, null, [], null, null, null]);
             await internals.performJpdbKanjiAction('add', card, '学');
-            await expect(internals.publicLookupCard('学习')).resolves.toBeUndefined();
+            await expect(internals.targetLookup.publicCard('学习')).resolves.toBeUndefined();
             await expect(internals.publicLookupFallbackCards([card])).resolves.toEqual(new Map());
 
             expect(lookupKanji).not.toHaveBeenCalled();

@@ -133,7 +133,7 @@ describe('lookup target generations', () => {
             settings: ReaderSettings;
             parser: { cacheCards(cards: JPDBCard[]): void };
             jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
-            newScope(): unknown;
+            cardLookup: { captureTarget(): unknown };
             showPointerTextCard(...args: unknown[]): Promise<void>;
             showPublicJpdbPointerTextCandidate(
                 pointerCandidate: typeof candidate,
@@ -148,7 +148,7 @@ describe('lookup target generations', () => {
         app.parser = { cacheCards };
         app.jitenPublicVocabulary = { lookupMany: vi.fn(() => pending.promise) };
         app.showPointerTextCard = showPointerTextCard;
-        const scope = app.newScope();
+        const scope = app.cardLookup.captureTarget();
 
         const lookup = app.showPublicJpdbPointerTextCandidate(candidate, candidate.text, 'modal', { userGesture: true }, scope);
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
@@ -180,7 +180,7 @@ describe('lookup target generations', () => {
         };
         const app = new ReaderApp() as unknown as {
             parser: { cacheCards(cards: JPDBCard[]): void };
-            newScope(): unknown;
+            cardLookup: { captureTarget(): unknown };
             resolvePublicJpdbRenderedWordCandidate(terms: string[], boundWait: boolean): Promise<JPDBCard | undefined>;
             showRenderedWordCard(...args: unknown[]): Promise<void>;
             showPublicJpdbRenderedWordCandidate(
@@ -196,7 +196,7 @@ describe('lookup target generations', () => {
         app.parser = { cacheCards };
         app.resolvePublicJpdbRenderedWordCandidate = vi.fn(() => pending.promise);
         app.showRenderedWordCard = showRenderedWordCard;
-        const scope = app.newScope();
+        const scope = app.cardLookup.captureTarget();
 
         const lookup = app.showPublicJpdbRenderedWordCandidate(word, fragmentCard, context, {}, false, scope);
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
@@ -213,17 +213,19 @@ describe('lookup target generations', () => {
         const pending = deferred<Array<{ expression: string; reading: string; dictionary: string }>>();
         const showCard = vi.fn();
         const app = new ReaderApp() as unknown as {
-            newScope(): unknown;
+            cardLookup: {
+                captureTarget(): unknown;
+                showLocalLookupCard(context: { selected: string }, sentence: string, target: unknown): Promise<boolean>;
+            };
             localLookupEntries(selected: string): Promise<Array<{ expression: string; reading: string; dictionary: string }>>;
             showCard(...args: unknown[]): Promise<void>;
-            showLocalLookupCard(context: { selected: string }, sentence: string, target: unknown): Promise<boolean>;
             destroy(): void;
         };
         app.localLookupEntries = vi.fn(() => pending.promise);
         app.showCard = showCard;
-        const target = app.newScope();
+        const target = app.cardLookup.captureTarget();
 
-        const lookup = app.showLocalLookupCard({ selected: 'casa' }, 'casa', target);
+        const lookup = app.cardLookup.showLocalLookupCard({ selected: 'casa' }, 'casa', target);
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
         expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         pending.resolve([{ expression: 'casa', reading: 'casa', dictionary: 'Spanish' }]);

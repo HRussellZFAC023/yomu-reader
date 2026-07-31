@@ -15,6 +15,7 @@ import {
     createFallbackOcrImage,
     createKanjiLocalParserFixture,
     createPointerEvent,
+    currentJapaneseLookupScopeMatcher,
     dispatchPointerEvent,
     expectKanjiLocalFallbackAfterTimeout,
     expectSilentPageScan,
@@ -1061,7 +1062,7 @@ describe('reader helpers', () => {
                 navigation: 'reset',
                 trigger: 'modal',
                 userGesture: true,
-            })));
+            }), currentJapaneseLookupScopeMatcher()));
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

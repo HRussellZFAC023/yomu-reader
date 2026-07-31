@@ -16,7 +16,7 @@ afterEach(() => {
 interface ShowWordInternals {
     parser: { cacheCards(cards: JPDBCard[]): void };
     showWord(word: HTMLElement, options?: unknown): Promise<void>;
-    lookupUncachedPageWord: (word: HTMLElement, options: unknown) => Promise<boolean>;
+    lookupUncachedPageWord: (word: HTMLElement, options: unknown, scope: unknown) => Promise<boolean>;
     showRenderedWordCard: (...args: unknown[]) => Promise<void>;
 }
 
@@ -65,7 +65,14 @@ describe('settings word click lookup', () => {
         await internals.showWord(word, { trigger: 'click', userGesture: true });
 
         expect(reroute).toHaveBeenCalledTimes(1);
-        expect(reroute).toHaveBeenCalledWith(word, expect.objectContaining({ stackOverSettings: true }));
+        expect(reroute).toHaveBeenCalledWith(
+            word,
+            expect.objectContaining({ stackOverSettings: true, trigger: 'click', userGesture: true }),
+            expect.objectContaining({
+                target: expect.objectContaining({ language: 'ja', interfaceVersion: 9 }),
+                isCurrent: expect.any(Function),
+            }),
+        );
         expect(showCard).not.toHaveBeenCalled();
     });
 

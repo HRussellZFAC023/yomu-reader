@@ -1,10 +1,5 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
-import {
-    activeLearningTarget,
-    activeLearningTargetGeneration,
-    activeLearningTargetLanguage,
-} from '../languages/target-runtime';
-import { normalizeFallbackTerm } from '../lookup/japanese-segments';
+import { captureOcrTargetContext, ocrFallbackCardFromText } from './target-context';
 import { ocrRuntimeActive } from './mode';
 import {
     DARK_REGION_TRIGGER,
@@ -1359,14 +1354,9 @@ export class ImageOcrController {
     }
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false, expectedKey = state.key): Promise<void> {
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
-        const requireCurrentTarget = (): void => {
-            if (activeLearningTarget() !== target
-                || activeLearningTargetGeneration() !== targetGeneration) throw STALE_OCR_STATE;
-        };
+        const target = captureOcrTargetContext();
         this.requireCurrentContentState(state, expectedKey);
-        requireCurrentTarget();
+        target.requireCurrent(STALE_OCR_STATE);
         if (
             this.shouldPreserveReaderRasterResult(state)
             && state.overlay.querySelector('.jpdb-ocr-line')
@@ -1382,7 +1372,7 @@ export class ImageOcrController {
 
         const initialParsed = await this.parseOcrLines(result.lines);
         this.requireCurrentContentState(state, expectedKey);
-        requireCurrentTarget();
+        target.requireCurrent(STALE_OCR_STATE);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         if (!lines.length) {
             if (this.shouldPreserveReaderRasterResult(state)) {
@@ -1397,7 +1387,7 @@ export class ImageOcrController {
             ? await this.parseOcrLines(lines)
             : initialParsed;
         this.requireCurrentContentState(state, expectedKey);
-        requireCurrentTarget();
+        target.requireCurrent(STALE_OCR_STATE);
         const sentence = lines.map(line => line.text).join('\n');
         const vocabulary = ocrVocabularyCards(state.image);
         const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -1412,7 +1402,7 @@ export class ImageOcrController {
         const flatTokens = renderedTokens.flat();
         await this.options.enrichTokensBeforeRender?.(flatTokens);
         this.requireCurrentContentState(state, expectedKey);
-        requireCurrentTarget();
+        target.requireCurrent(STALE_OCR_STATE);
         applyOcrOverlayStyle(state.overlay, settings);
 
         const lineElements = lines.map((line, index) => (
@@ -3784,27 +3774,6 @@ function rangesOverlap(start: number, end: number, otherStart: number, otherEnd:
 
 function compareOcrTokens(first: JPDBToken, second: JPDBToken): number {
     return first.start - second.start || second.length - first.length;
-}
-
-function ocrFallbackCardFromText(text: string): JPDBCard {
-    const spelling = normalizeFallbackTerm(text);
-    const language = activeLearningTargetLanguage();
-    const id = -stablePositiveHashId(`ocr-fallback\n${language}\n${spelling}`);
-    return {
-        vid: id,
-        sid: id,
-        rid: 0,
-        spelling,
-        reading: '',
-        language,
-        frequencyRank: null,
-        partOfSpeech: [],
-        meanings: [],
-        cardState: ['not-in-deck'],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: 'fallback',
-    };
 }
 
 function createOcrLineElement(

@@ -88,7 +88,7 @@ import {
 } from '../languages/character-lookup';
 import { isolate } from '../locales/direction';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
-import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
+import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
     renderKanjiOrigins,
@@ -275,7 +275,6 @@ import {
     shouldShowNewTabSupportBannerImpression,
     type NewTabSupportStatus,
 } from './support-banner';
-import { NEW_TAB_CACHE_KEY } from './cache';
 import {
     JPDB_ALL_DECKS,
     NEW_TAB_DICTIONARY_FALLBACK_RANKS,
@@ -327,6 +326,8 @@ import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, 
 import { fingerprintWanikaniToken } from '../wanikani/wanikani';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
+import { NewTabTargetResources } from './target-resources';
+import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
 
 export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
@@ -339,8 +340,6 @@ const NEW_TAB_IMMERSION_EXAMPLE_LIMIT = 12;
 const NEW_TAB_IMMERSION_SEARCH_REQUEST_LIMIT = 10;
 const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
-const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
-const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const QUEUE_REFRESH_LOW_WATER = 20;
 const QUEUE_REFRESH_GRADE_INTERVAL = 10;
@@ -352,7 +351,6 @@ const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
 const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
 const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
-const NEW_TAB_WORD_PITCH_CACHE_LIMIT = 320;
 const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
@@ -712,7 +710,6 @@ export class NewTabController {
     private immersionExampleIndex = new BoundedMap<string, number>(NEW_TAB_IMMERSION_CACHE_LIMIT);
     private frontSentenceCache = new BoundedMap<string, Promise<string>>(NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT);
     private parsedSentenceCache = new Map<string, ParsedTokenCacheEntry>();
-    private wordPitchCache = new BoundedMap<string, Promise<string[]>>(NEW_TAB_WORD_PITCH_CACHE_LIMIT);
     private doodlePreviewCache = new BoundedMap<string, string>(NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT);
     private immersionPrefetchGeneration = 0;
     private installPrompt: BeforeInstallPromptEvent | null = null;
@@ -886,12 +883,20 @@ export class NewTabController {
     // constructor body — the review-source clients are read off `this.dependencies`,
     // a parameter property not yet set during field initialization.
     private readonly reviewSubmitter: NewTabReviewSubmitter;
+    private readonly targetResources: NewTabTargetResources;
 
     constructor(
         private readonly dependencies: NewTabControllerDependencies,
         private readonly options: NewTabControllerOptions = {},
     ) {
         this.initialStudyStepIdPending = options.initialStudyStepId ?? null;
+        this.targetResources = new NewTabTargetResources({
+            getSettings: () => this.dependencies.getSettings(),
+            parser: this.dependencies.parser,
+            dictionaries: this.dependencies.dictionaries,
+            jpdbPublicPitch: this.dependencies.jpdbPublicPitch,
+            localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => this.localSearchWithTimeout(promise, fallback),
+        });
         this.statsController = new NewTabStatsController({
             getSettings: () => this.dependencies.getSettings(),
             jpdb: this.dependencies.jpdb,
@@ -1156,16 +1161,7 @@ export class NewTabController {
         return label;
     }
 
-    invalidateForFactoryReset(): void {
-        this.loadGeneration++;
-        this.allWords = [];
-        this.visibleWords = [];
-        this.index = 0;
-        this.sourceLabel = '';
-        this.visiblePoolSignature = '';
-        this.navigationSupplementPromise = null;
-        this.reviewCountMode = false;
-        this.emptyLoadMessageKey = null;
+    private clearTargetBoundState(): void {
         this.searchController.reset();
         this.liveCards.clear();
         this.clearSourceResultCache();
@@ -1176,6 +1172,7 @@ export class NewTabController {
         this.immersionExampleIndex.clear();
         this.frontSentenceCache.clear();
         this.parsedSentenceCache.clear();
+        this.targetResources.clear();
         this.studySentenceOverrides.clear();
         this.nPlusOneSentenceRequests.clear();
         this.doodlePreviewCache.clear();
@@ -1186,30 +1183,27 @@ export class NewTabController {
         this.statsController.reset();
     }
 
+    invalidateForFactoryReset(): void {
+        this.loadGeneration++;
+        this.allWords = [];
+        this.visibleWords = [];
+        this.index = 0;
+        this.sourceLabel = '';
+        this.visiblePoolSignature = '';
+        this.navigationSupplementPromise = null;
+        this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
+        this.clearTargetBoundState();
+    }
+
     invalidateForTargetChange(): void {
         this.loadGeneration++;
         this.navigationGeneration++;
         this.immersionPrefetchGeneration++;
         this.resetLoadedSourceState();
         this.state.revealAnswer = false;
-        this.searchController.reset();
-        this.liveCards.clear();
+        this.clearTargetBoundState();
         this.pendingLiveJpdbGrade = null;
-        this.clearSourceResultCache();
-        this.keywordCache.clear();
-        this.kanjiDetailSource.clear();
-        this.uchisenDataCache.clear();
-        this.immersionCache.clear();
-        this.immersionExampleIndex.clear();
-        this.frontSentenceCache.clear();
-        this.parsedSentenceCache.clear();
-        this.wordPitchCache.clear();
-        this.studySentenceOverrides.clear();
-        this.nPlusOneSentenceRequests.clear();
-        this.doodlePreviewCache.clear();
-        this.studyStepStates.clear();
-        this.typeHandwritingProgress.clear();
-        this.studyHintDepth.clear();
         this.studyStepOverride = null;
         this.pinnedStudyPlan = null;
         this.browsePool = undefined;
@@ -1231,8 +1225,6 @@ export class NewTabController {
         this.listenAudioGeneration++;
         this.clearListenSpeakingScore();
         this.clearListenRecording();
-        this.immersionAudioPlayer.reset();
-        this.statsController.reset();
 
         const root = this.currentRoot();
         if (!root) return;
@@ -2903,38 +2895,18 @@ export class NewTabController {
     }
 
     private async withPortableUrlCard(cards: JPDBCard[]): Promise<JPDBCard[]> {
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
         const identity = this.portableCardIdentityFromLocation();
         if (!identity?.spelling || !this.isVocabularyStudyRoute()) return cards;
         if (cards.some(card => this.cardMatchesPortableIdentity(card, identity))) return cards;
-        const card = await this.lookupPortableUrlCard(identity, target, targetGeneration).catch(error => {
+        const card = await this.targetResources.lookupPortableCard(
+            identity,
+            this.dependencies.lookupStudyCard,
+            error => log.warn('Portable study URL lookup failed', { identity, error }),
+        ).catch(error => {
             log.warn('Could not resolve portable study URL card', { identity, error });
             return null;
         });
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) return cards;
         return card ? [this.portableUrlStudyCard(card, identity), ...cards] : cards;
-    }
-
-    private async lookupPortableUrlCard(
-        identity: PortableStudyCardIdentity,
-        target = activeLearningTarget(),
-        targetGeneration = activeLearningTargetGeneration(),
-    ): Promise<JPDBCard | null> {
-        const lookedUp = await this.dependencies.lookupStudyCard?.(identity.spelling, identity.reading).catch(error => {
-            if (activeLearningTarget() !== target
-                || activeLearningTargetGeneration() !== targetGeneration) throw error;
-            log.warn('Portable study URL lookup failed', { identity, error });
-            return null;
-        });
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) return null;
-        if (lookedUp) return lookedUp;
-        const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
-        return typeof fallbackCardFromText === 'function'
-            ? fallbackCardFromText.call(this.dependencies.parser, identity.spelling, target)
-            : null;
     }
 
     private portableUrlStudyCard(card: JPDBCard, identity: PortableStudyCardIdentity): JPDBCard {
@@ -3639,44 +3611,12 @@ export class NewTabController {
     }
 
     private async loadDictionaryWords(_onProgress?: (message: string) => void, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
-        const settings = this.dependencies.getSettings();
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
-        const cardLimit = Math.max(1, Math.floor(limit));
-        if (!settings.localDictionariesEnabled) {
-            return {
-                cards: [],
-                sourceLabel: this.text('dictionary'),
-                reviewCountMode: false,
-            };
-        }
-        try {
-            if (!await this.hasLocalDictionaries()) {
-                return {
-                    cards: [],
-                    sourceLabel: this.text('dictionary'),
-                    reviewCountMode: false,
-                };
-            }
-
-            const entries = await this.loadDictionaryFallbackEntries(settings, cardLimit);
-            if (activeLearningTarget() !== target
-                || activeLearningTargetGeneration() !== targetGeneration) {
-                return {
-                    cards: [],
-                    sourceLabel: this.text('dictionary'),
-                    reviewCountMode: false,
-                };
-            }
-            const cards = entries.map(entry => this.dependencies.parser.localCardFromEntry(entry, target));
-            return {
-                cards,
-                sourceLabel: this.text('dictionary'),
-                reviewCountMode: false,
-            };
-        } catch {
-            return { cards: [], sourceLabel: this.text('dictionary'), reviewCountMode: false };
-        }
+        const cards = await this.targetResources.loadDictionaryCards(
+            limit,
+            () => this.hasLocalDictionaries(),
+            (settings, cardLimit) => this.loadDictionaryFallbackEntries(settings, cardLimit),
+        ).catch(() => []);
+        return { cards, sourceLabel: this.text('dictionary'), reviewCountMode: false };
     }
 
     private async loadFreshStudyWords(
@@ -4446,16 +4386,14 @@ export class NewTabController {
 
     private async loadMoreForNavigation(root: HTMLElement, direction: 1 | -1, source: NavigationExpansionSource): Promise<void> {
         const currentKey = this.currentVisibleWordKey();
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
+        const target = captureActiveTarget();
         this.setStatus(root, this.text(this.currentCardRendersAsKanji() ? 'noKanjiCardsYet' : 'noWordsYet'));
         const promise = this.appendNavigationSupplement(root, direction, currentKey, source);
         this.navigationSupplementPromise = promise;
         try {
             await promise;
         } catch (error) {
-            if (activeLearningTarget() !== target
-                || activeLearningTargetGeneration() !== targetGeneration) return;
+            if (!isCurrentActiveTarget(target)) return;
             log.warn('New-tab supplement failed', { source }, error);
             if (root.isConnected && this.visibleWords.length) this.moveVisibleWord(root, direction);
             else if (root.isConnected) this.setStatus(root, this.text('couldNotLoadWords'));
@@ -4465,12 +4403,10 @@ export class NewTabController {
     }
 
     private async appendNavigationSupplement(root: HTMLElement, direction: 1 | -1, currentKey: string, source: NavigationExpansionSource): Promise<void> {
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
+        const target = captureActiveTarget();
         const beforeSignature = this.newTabPoolSignature(this.studyPoolForCurrentMode());
         const cards = await this.loadNavigationSupplementCards(source);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration) return;
+        if (!isCurrentActiveTarget(target)) return;
         if (!cards.length) {
             this.moveVisibleWord(root, direction);
             return;
@@ -6813,23 +6749,22 @@ export class NewTabController {
         const renderSources = this.dependencies.renderStudyDefinitionSources;
         if (!loadDetails || !renderSources) return;
         const key = cardKey(card);
-        const targetLanguage = activeLearningTargetLanguage();
-        const targetGeneration = activeLearningTargetGeneration();
+        const target = captureActiveTarget();
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         meaning.dataset.newtabStudyRevealDetailsRequest = requestId;
         let data = await loadDetails(card).catch(() => null);
-        if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, targetLanguage, targetGeneration)) return;
+        if (!data || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, target)) return;
         if (usesJapaneseProviders() && !data.bunproDefinitionInfo && this.dependencies.hydrateBunproDefinitionInfo) {
             const info = await this.dependencies.hydrateBunproDefinitionInfo(card).catch(() => null);
             if (info) data = { ...data, bunproDefinitionInfo: info };
-            if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, targetLanguage, targetGeneration)) return;
+            if (!this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, target)) return;
         }
         let html = renderSources(card, data, card.sentence || card.spelling);
         if (usesJapaneseProviders() && this.studyDefinitionSourcesMissing(html)) {
             const fallback = await this.lookupStudyRevealDefinitionCard(card);
-            if (!fallback || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, targetLanguage, targetGeneration)) return;
+            if (!fallback || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, target)) return;
             const fallbackData = await loadDetails(fallback).catch(() => null);
-            if (!fallbackData || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, targetLanguage, targetGeneration)) return;
+            if (!fallbackData || !this.isCurrentStudyRevealDefinitionRequest(meaning, key, requestId, target)) return;
             html = renderSources(fallback, fallbackData, card.sentence || fallback.sentence || fallback.spelling);
         }
         if (this.studyDefinitionSourcesMissing(html)) return;
@@ -6846,11 +6781,9 @@ export class NewTabController {
         meaning: HTMLElement,
         cardKeyValue: string,
         requestId: string,
-        targetLanguage: string,
-        targetGeneration: number,
+        target: ActiveTargetSnapshot,
     ): boolean {
-        return activeLearningTargetLanguage() === targetLanguage
-            && activeLearningTargetGeneration() === targetGeneration
+        return isCurrentActiveTarget(target)
             && meaning.isConnected
             && meaning.dataset.newtabStudyRevealDetailsRequest === requestId
             && this.state.revealAnswer
@@ -7278,7 +7211,7 @@ export class NewTabController {
             usesJapaneseProviders()
                 ? this.dependencies.loadCardRenderData?.(card).then(data => data.localEntries).catch(() => [] as YomitanTermEntry[])
                     ?? Promise.resolve([] as YomitanTermEntry[])
-                : this.loadNPlusOneLocalEntries(card),
+                : this.targetResources.loadLocalEntries(card),
             this.dependencies.getSettings().immersionKitEnabled
                 ? this.loadImmersionExamples(card).catch(() => [] as ImmersionKitExample[])
                 : Promise.resolve([] as ImmersionKitExample[]),
@@ -7293,22 +7226,6 @@ export class NewTabController {
         })));
         scored.sort((a, b) => b.score - a.score);
         return scored[0]?.sentence ?? '';
-    }
-
-    private loadNPlusOneLocalEntries(card: JPDBCard): Promise<YomitanTermEntry[]> {
-        const settings = this.dependencies.getSettings();
-        if (!settings.localDictionariesEnabled || typeof this.dependencies.dictionaries.lookup !== 'function') {
-            return Promise.resolve([]);
-        }
-        return this.localSearchWithTimeout(
-            this.dependencies.dictionaries.lookup(
-                card.spelling,
-                newTabCardReading(card),
-                settings.localDictionaryMaxResults,
-                settings.dictionaryPreferences,
-            ),
-            [] as YomitanTermEntry[],
-        );
     }
 
     private async nPlusOneSentenceScore(card: JPDBCard, sentence: string): Promise<number> {
@@ -8234,17 +8151,15 @@ export class NewTabController {
 
     private renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void {
         if (!targetCanLookupCharacter(kanji)) return;
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
-        const isCurrentTarget = () => activeLearningTarget() === target
-            && activeLearningTargetGeneration() === targetGeneration;
+        const target = captureActiveTarget();
+        const isCurrentTarget = () => isCurrentActiveTarget(target);
         const settings = this.dependencies.getSettings();
         const mount = root.querySelector<HTMLElement>('[data-newtab-kanji-immersion-mount]');
         const details = mount?.querySelector<HTMLDetailsElement>('[data-newtab-kanji-immersion-details]');
         const body = mount?.querySelector<HTMLElement>('[data-newtab-kanji-immersion-body]');
         if (!mount || !details || !body || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return;
 
-        const card = this.newTabKanjiImmersionCard(kanji, target);
+        const card = this.newTabKanjiImmersionCard(kanji, target.target);
         const key = this.newTabKanjiImmersionKey(kanji);
         let started = false;
         const load = () => {
@@ -10180,39 +10095,14 @@ export class NewTabController {
     }
 
     private async writeOfflineCache(cards: JPDBCard[], sourceLabel: string): Promise<void> {
-        const settings = this.dependencies.getSettings();
-        if (!settings.newTabOfflineEnabled) return;
-        const limit = Math.max(0, settings.newTabOfflineLimit || 0);
-        if (!limit) return;
-        const target = activeLearningTarget();
-        await gmStorageSet(NEW_TAB_CACHE_KEY, {
-            at: Date.now(),
-            targetLanguage: target.language,
-            sourceLabel,
-            cards: cards.slice(0, limit),
-        }).catch(() => undefined);
+        await this.targetResources.writeOffline(cards, sourceLabel);
     }
 
     private async readOfflineCache(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> {
-        const settings = this.dependencies.getSettings();
-        if (!settings.newTabOfflineEnabled) return { cards: [], sourceLabel: '' };
-        const target = activeLearningTarget();
-        const targetGeneration = activeLearningTargetGeneration();
-        const cached = await gmStorageGet<{ cards?: JPDBCard[]; sourceLabel?: string; targetLanguage?: string } | null>(NEW_TAB_CACHE_KEY, null)
-            .catch(() => null);
-        if (activeLearningTarget() !== target
-            || activeLearningTargetGeneration() !== targetGeneration
-            || (cached?.targetLanguage ?? 'ja') !== target.language) {
-            return { cards: [], sourceLabel: '' };
-        }
+        const cached = await this.targetResources.readOffline();
         return {
-            cards: Array.isArray(cached?.cards)
-                ? cached.cards
-                    .filter(newTabCardMatchesActiveTarget)
-                    .map(normalizeNewTabCard)
-                    .slice(0, Math.max(0, settings.newTabOfflineLimit || 0))
-                : [],
-            sourceLabel: this.localizedSourceLabel(cached?.sourceLabel || this.text('cachedReviews')),
+            cards: cached.cards,
+            sourceLabel: this.localizedSourceLabel(cached.sourceLabel || this.text('cachedReviews')),
         };
     }
 
@@ -10256,7 +10146,7 @@ export class NewTabController {
 
     private async enrichWordPitch(root: HTMLElement, card: JPDBCard): Promise<void> {
         if (!this.shouldEnrichWordPitch(card)) return;
-        const key = this.wordPitchCacheKey(card);
+        const key = this.targetResources.wordPitchKey(card);
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         root.dataset.newtabPitchRequest = requestId;
         const pitchAccent = await this.loadWordPitch(card);
@@ -10295,71 +10185,7 @@ export class NewTabController {
     }
 
     private loadWordPitch(card: JPDBCard): Promise<string[]> {
-        if (!usesJapaneseProviders()) return Promise.resolve([]);
-        const key = this.wordPitchCacheKey(card);
-        const cached = this.wordPitchCache.get(key);
-        if (cached) return cached;
-        const promise = this.fetchWordPitch(card).catch(() => []);
-        this.wordPitchCache.set(key, promise);
-        return promise;
-    }
-
-    private async fetchWordPitch(card: JPDBCard): Promise<string[]> {
-        if (!usesJapaneseProviders()) return [];
-        const localPitch = this.fetchLocalWordPitch(card);
-        const quickLocalPitch = await Promise.race([
-            localPitch,
-            delayWithValue('', NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS),
-        ]);
-        if (!usesJapaneseProviders()) return [];
-        if (quickLocalPitch) return [quickLocalPitch];
-
-        const pitch = await firstNonEmptyPitch([
-            this.fetchPublicWordPitch(card),
-            Promise.race([
-                localPitch,
-                delayWithValue('', NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS),
-            ]).then(pitch => pitch ? [pitch] : []),
-        ]);
-        return usesJapaneseProviders() ? pitch : [];
-    }
-
-    private async fetchPublicWordPitch(card: JPDBCard): Promise<string[]> {
-        // Keyless public-pitch source: available to Jiten-only and no-key users too,
-        // so study/search cards still get a pitch graph without a JPDB API key.
-        if (!usesJapaneseProviders()) return [];
-        const pitch = await (this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]));
-        return usesJapaneseProviders() ? pitch : [];
-    }
-
-    private async fetchLocalWordPitch(card: JPDBCard): Promise<string> {
-        const settings = this.dependencies.getSettings();
-        if (!settings.localDictionariesEnabled) return '';
-        const lookupTermMeta = this.dependencies.dictionaries.lookupTermMeta;
-        if (typeof lookupTermMeta !== 'function') return '';
-        const metaEntries = await lookupTermMeta.call(this.dependencies.dictionaries, card.spelling, 12, settings.dictionaryPreferences).catch(() => []);
-        const reading = newTabCardReading(card);
-        const patterns = await localPitchPatternsFromMetaLookup(
-            card.spelling,
-            reading,
-            expression => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences),
-            { initialEntries: metaEntries },
-        ).catch(() => [] as string[]);
-        return patterns[0] ?? '';
-    }
-
-    private wordPitchCacheKey(card: JPDBCard): string {
-        const settings = this.dependencies.getSettings();
-        return JSON.stringify({
-            spelling: card.spelling,
-            reading: newTabCardReading(card),
-            local: settings.localDictionariesEnabled,
-            dictionaries: settings.dictionaryPreferences.map(preference => ({
-                name: preference.name,
-                enabled: preference.enabled,
-                priority: preference.priority,
-            })),
-        });
+        return this.targetResources.loadWordPitch(card);
     }
 
     private updateRenderedWordPitch(root: HTMLElement, card: JPDBCard): void {
@@ -10934,36 +10760,6 @@ function sentencePromptTarget(card: JPDBCard, sentence: string): string {
     const reading = newTabCardOptionalReading(card);
     if (sentence.includes(card.spelling)) return card.spelling;
     return reading && sentence.includes(reading) ? reading : '';
-}
-
-function firstNonEmptyPitch(promises: Promise<string[]>[]): Promise<string[]> {
-    if (!promises.length) return Promise.resolve([]);
-    return new Promise(resolve => {
-        let pending = promises.length;
-        let settled = false;
-        const finishEmpty = (): void => {
-            pending -= 1;
-            if (!settled && pending <= 0) {
-                settled = true;
-                resolve([]);
-            }
-        };
-        promises.forEach(promise => {
-            promise.then(pitch => {
-                if (settled) return;
-                if (pitch.length) {
-                    settled = true;
-                    resolve(pitch);
-                    return;
-                }
-                finishEmpty();
-            }).catch(() => finishEmpty());
-        });
-    });
-}
-
-function delayWithValue<T>(value: T, ms: number): Promise<T> {
-    return new Promise(resolve => window.setTimeout(() => resolve(value), ms));
 }
 
 function clearSessionProgressDataset(dataset: DOMStringMap): void {
