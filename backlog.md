@@ -180,11 +180,31 @@ classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per 
       reference, not from user research; the only streak mention in research is a 678-point community
       post *celebrating losing a 1,480-day streak*. Keep, but reshape the streak into an effort record
       with no punishing chain mechanic. Decide deliberately rather than copying.
-- [ ] **A20 — Status colour silently absent for keyless learners.** `settings/index.ts:1665-1672` has
+- [ ] **A20 — PARTLY STALE, re-measured 2026-07-31. The predicate claim holds; the conclusion does not
+      follow.** Confirmed: `src/reader/settings/index.ts` exports exactly two status-source predicates,
+      `shouldLookupAnkiStatus` (:1675) and `shouldLookupBunproWordStates` (:1679), and there is no local-SRS
+      branch beside them — `grep` for `shouldLookupLocal|localSrs|keyless` in that file returns nothing.
+      **But local state does reach rendered words, by another path.** `src/reader/app/main.ts:363` imports
+      `repaintYomuLocalSrsRenderedWords` from `srs/local-yomu-state` and calls it at `:952` and `:1481`, and
+      the SRS soft-tint shipped in 1.6.264 (memory `yomu-srs-tint-recycler-inflight`). So "a learner with no
+      API key sees no status colour" is not established by the predicate count alone.
+      **The precise open question, which grepping cannot answer:** the two call sites are reactive
+      (`onApiCardStateChanged`, and a card-state change), so a word the learner has graded locally gets
+      repainted — but nothing here shows local state colouring words on the FIRST parse of a page. That needs
+      a runtime check with a local deck and no credentials, not more reading. Deliberately not "fixed" on a
+      guess: changing colour gating without reproducing the gap risks breaking the tint that does work.
+      ORIGINAL: Status colour silently absent for keyless learners.** `settings/index.ts:1665-1672` has
       only two status-source predicates and no local-SRS branch, so a learner with no API key sees no
       status colour and no explanation — the same class of defect as A11's furigana default. Verified by
       hand at v1.8.23.
-- [ ] **A27.3 — Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
+- [x] **A27.3 — CLOSED 2026-07-31 as an owner decision, not a defect.** The ticket's own text records the
+      ruling ("OWNER RULING 2026-07-28: no store dispatch") and it was reaffirmed this session: asked directly
+      whether to cut 1.9.0 and submit to the stores, the owner chose **"Keep patching for now"**. So Chrome Web
+      Store and AMO serving 1.8.2 while Greasyfork serves current is a deliberate state, not staleness to
+      chase — and only a `v*.*.0` tag publishes to the stores anyway (memory
+      `yomu-browser-store-publishing`). Kept in memory as `yomu-stores-frozen-at-1-8-2` because it changes how
+      to read a store user's bug report: what they describe may be a fix they simply do not have.
+      Reopen when the owner decides to cut the minor. ORIGINAL: Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
       endpoints: Greasy Fork serves 1.8.25 and its executable body matches `dist/yomu.user.js`; the
       Chrome Web Store update endpoint and AMO API both serve 1.8.2. The A27 verification brief said
       the stores served 1.8.15, which is wrong. This is a distribution defect, not five reopened core
