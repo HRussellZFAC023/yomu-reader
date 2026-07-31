@@ -116645,8 +116645,9 @@ ${reading}`);
     }
     return null;
   }
-  function japaneseYouTubeFilterDecision(candidate) {
-    return isProbablyJapaneseYouTubeText(candidate.filterText) ? { candidate, kind: "show", reason: "japanese" } : null;
+  function japaneseYouTubeFilterDecision(candidate, options) {
+    const matches = options.matchesTargetLanguage ?? isProbablyJapaneseYouTubeText;
+    return matches(candidate.filterText) ? { candidate, kind: "show", reason: "japanese" } : null;
   }
   function nonJapaneseYouTubeFilterDecision(candidate, options) {
     return {
@@ -116664,6 +116665,10 @@ ${reading}`);
   ].join("|"), "g");
   function normalizeYouTubeTitleForLanguageCheck(text2) {
     return text2.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
+  }
+  function youTubeTargetLanguageDetector(isJapaneseTarget, isTargetText) {
+    if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
+    return (text2) => isTargetText(normalizeYouTubeTitleForLanguageCheck(text2));
   }
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
@@ -117025,6 +117030,19 @@ ${reading}`);
         this.scan();
       }, delay2);
     }
+    /**
+     * Which language this filter is FOR. It asked "is this Japanese?" and hid the rest,
+     * so a learner studying Russian had their Russian videos hidden as `non-japanese`
+     * with the filter at its default of on (A48). It asks the active study target now.
+     */
+    matchesTargetLanguage() {
+      const target = learningTargetModuleFor(targetLanguageOf(this.options.getSettings()));
+      if (!target) return isProbablyJapaneseYouTubeText;
+      return youTubeTargetLanguageDetector(
+        target.language.startsWith("ja"),
+        (text2) => target.isLookupableText(text2)
+      );
+    }
     scan() {
       const settings = this.options.getSettings();
       if (!youtubeImmersionFilterEnabled(settings)) {
@@ -117039,7 +117057,10 @@ ${reading}`);
       this.restoreCurrentShortsWatchItem();
       this.advancePastFilteredActiveShort();
       this.resetStaleAutoReveal();
-      const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+      const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
+        revealed: this.revealed,
+        matchesTargetLanguage: this.matchesTargetLanguage()
+      });
       if (this.shouldAutoRevealSearchResults(result)) {
         this.revealed = true;
         this.autoRevealedScope = this.currentNoticeScope();
@@ -117186,7 +117207,10 @@ ${reading}`);
         filterText: resolvedTitle,
         alwaysHidden: false
       };
-      const decision = classifyYouTubeFilterCandidates([candidate], { revealed: this.revealed }).decisions[0];
+      const decision = classifyYouTubeFilterCandidates([candidate], {
+        revealed: this.revealed,
+        matchesTargetLanguage: this.matchesTargetLanguage()
+      }).decisions[0];
       if (decision?.kind === "hide") this.advancePastFilteredShort(videoId || resolvedTitle || title);
     }
     restoreCurrentShortsWatchItem() {
@@ -117438,6 +117462,7 @@ ${reading}`);
     }
     shouldShowChannelShelf(filteredCount, settings) {
       if (!youtubeChannelRecommendationsEnabled(settings)) return false;
+      if (!languageFamilyIncludes("jp-only", targetLanguageOf(settings))) return false;
       if (this.revealed) return false;
       if (!shouldShowChannelRecommendationsForRoute()) return false;
       if (isYouTubeHomePage()) return false;

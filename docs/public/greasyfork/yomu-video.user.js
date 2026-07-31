@@ -23563,8 +23563,9 @@ function missingFilterTextYouTubeFilterDecision(candidate, options) {
   }
   return null;
 }
-function japaneseYouTubeFilterDecision(candidate) {
-  return isProbablyJapaneseYouTubeText(candidate.filterText) ? { candidate, kind: "show", reason: "japanese" } : null;
+function japaneseYouTubeFilterDecision(candidate, options) {
+  const matches = options.matchesTargetLanguage ?? isProbablyJapaneseYouTubeText;
+  return matches(candidate.filterText) ? { candidate, kind: "show", reason: "japanese" } : null;
 }
 function nonJapaneseYouTubeFilterDecision(candidate, options) {
   return {
@@ -23582,6 +23583,10 @@ const YOUTUBE_UI_METADATA_RE = new RegExp([
 ].join("|"), "g");
 function normalizeYouTubeTitleForLanguageCheck(text) {
   return text.replace(/fypシ゚/g, "").replace(/fypシ/g, "").replace(YOUTUBE_UI_METADATA_RE, "").replace(NIHONGO_TUBE_SYMBOL_RE, "").replace(/\s+/g, " ").trim();
+}
+function youTubeTargetLanguageDetector(isJapaneseTarget, isTargetText) {
+  if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
+  return (text) => isTargetText(normalizeYouTubeTitleForLanguageCheck(text));
 }
 function languageFamilyIncludes(family, language) {
   const base = languageSubtag(language) ?? language.toLowerCase();
@@ -23950,6 +23955,19 @@ class YoutubeImmersionFilter {
     this.scan();
   }, delay);
   }
+  /**
+   * Which language this filter is FOR. It asked "is this Japanese?" and hid the rest,
+   * so a learner studying Russian had their Russian videos hidden as `non-japanese`
+   * with the filter at its default of on (A48). It asks the active study target now.
+   */
+  matchesTargetLanguage() {
+  const target = learningTargetModuleFor(targetLanguageOf(this.options.getSettings()));
+  if (!target) return isProbablyJapaneseYouTubeText;
+  return youTubeTargetLanguageDetector(
+    target.language.startsWith("ja"),
+    (text) => target.isLookupableText(text)
+  );
+  }
   scan() {
   const settings = this.options.getSettings();
   if (!youtubeImmersionFilterEnabled(settings)) {
@@ -23964,7 +23982,10 @@ class YoutubeImmersionFilter {
   this.restoreCurrentShortsWatchItem();
   this.advancePastFilteredActiveShort();
   this.resetStaleAutoReveal();
-  const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
+  const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), {
+    revealed: this.revealed,
+    matchesTargetLanguage: this.matchesTargetLanguage()
+  });
   if (this.shouldAutoRevealSearchResults(result)) {
     this.revealed = true;
     this.autoRevealedScope = this.currentNoticeScope();
@@ -24111,7 +24132,10 @@ class YoutubeImmersionFilter {
     filterText: resolvedTitle,
     alwaysHidden: false
   };
-  const decision = classifyYouTubeFilterCandidates([candidate], { revealed: this.revealed }).decisions[0];
+  const decision = classifyYouTubeFilterCandidates([candidate], {
+    revealed: this.revealed,
+    matchesTargetLanguage: this.matchesTargetLanguage()
+  }).decisions[0];
   if (decision?.kind === "hide") this.advancePastFilteredShort(videoId || resolvedTitle || title);
   }
   restoreCurrentShortsWatchItem() {
@@ -24363,6 +24387,7 @@ class YoutubeImmersionFilter {
   }
   shouldShowChannelShelf(filteredCount, settings) {
   if (!youtubeChannelRecommendationsEnabled(settings)) return false;
+  if (!languageFamilyIncludes("jp-only", targetLanguageOf(settings))) return false;
   if (this.revealed) return false;
   if (!shouldShowChannelRecommendationsForRoute()) return false;
   if (isYouTubeHomePage()) return false;

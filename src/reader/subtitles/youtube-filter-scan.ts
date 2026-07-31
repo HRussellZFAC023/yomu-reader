@@ -29,7 +29,26 @@ export interface YouTubeFilterScanDecision {
     visibleVideoIds: Set<string>;
 }
 
-type YouTubeFilterDecisionRule = (candidate: YouTubeFilterCandidate, options: { revealed: boolean }) => YouTubeFilterDecision | null;
+/**
+ * Everything a decision needs. `matchesTargetLanguage` is what makes this filter work
+ * for a learner who is not studying Japanese (A48).
+ *
+ * The filter used to ask, literally, "is this text Japanese?" and hide everything else.
+ * For a learner studying Russian with the filter at its default of ON, that hid their
+ * Russian videos as `non-japanese` — the feature actively worked against them, which is
+ * the worst kind of default. It now asks the ACTIVE STUDY TARGET whether the text is
+ * its language, and Japanese is simply the target that happens to be default.
+ *
+ * Defaults to `isProbablyJapaneseYouTubeText` so any caller that has not been taught
+ * about targets keeps byte-identical Japanese behaviour rather than silently filtering
+ * on nothing.
+ */
+export interface YouTubeFilterOptions {
+    revealed: boolean;
+    matchesTargetLanguage?: (text: string) => boolean;
+}
+
+type YouTubeFilterDecisionRule = (candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions) => YouTubeFilterDecision | null;
 
 const YOUTUBE_FILTER_DECISION_RULES: YouTubeFilterDecisionRule[] = [
     alwaysHiddenYouTubeFilterDecision,
@@ -38,7 +57,7 @@ const YOUTUBE_FILTER_DECISION_RULES: YouTubeFilterDecisionRule[] = [
     japaneseYouTubeFilterDecision,
 ];
 
-export function classifyYouTubeFilterCandidates(candidates: YouTubeFilterCandidate[], options: { revealed: boolean }): YouTubeFilterScanDecision {
+export function classifyYouTubeFilterCandidates(candidates: YouTubeFilterCandidate[], options: YouTubeFilterOptions): YouTubeFilterScanDecision {
     const decisions: YouTubeFilterDecision[] = [];
     const visibleVideoIds = new Set<string>();
     let filteredCount = 0;
@@ -66,7 +85,7 @@ export function isProbablyJapaneseYouTubeText(text: string): boolean {
     return HIRAGANA_RE.test(compact) || KATAKANA_RE.test(compact) || HAN_RE.test(compact);
 }
 
-function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision {
+function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions): YouTubeFilterDecision {
     for (const rule of YOUTUBE_FILTER_DECISION_RULES) {
         const decision = rule(candidate, options);
         if (decision) return decision;
@@ -74,7 +93,7 @@ function classifyYouTubeFilterCandidate(candidate: YouTubeFilterCandidate, optio
     return nonJapaneseYouTubeFilterDecision(candidate, options);
 }
 
-function alwaysHiddenYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision | null {
+function alwaysHiddenYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions): YouTubeFilterDecision | null {
     if (candidate.alwaysHidden) {
         return {
             candidate,
@@ -89,7 +108,7 @@ function missingTitleYouTubeFilterDecision(candidate: YouTubeFilterCandidate): Y
     return candidate.title ? null : { candidate, kind: 'skip', reason: 'missing-title' };
 }
 
-function missingFilterTextYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision | null {
+function missingFilterTextYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions): YouTubeFilterDecision | null {
     if (!candidate.filterText) {
         return {
             candidate,
@@ -100,13 +119,17 @@ function missingFilterTextYouTubeFilterDecision(candidate: YouTubeFilterCandidat
     return null;
 }
 
-function japaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate): YouTubeFilterDecision | null {
-    return isProbablyJapaneseYouTubeText(candidate.filterText)
+// `reason: 'japanese'` is kept as the wire value so nothing downstream has to change,
+// but it now means "matches the active study target". Renaming it would ripple through
+// the filter's telemetry and tests for no behavioural gain; the meaning is recorded here.
+function japaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions): YouTubeFilterDecision | null {
+    const matches = options.matchesTargetLanguage ?? isProbablyJapaneseYouTubeText;
+    return matches(candidate.filterText)
         ? { candidate, kind: 'show', reason: 'japanese' }
         : null;
 }
 
-function nonJapaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: { revealed: boolean }): YouTubeFilterDecision {
+function nonJapaneseYouTubeFilterDecision(candidate: YouTubeFilterCandidate, options: YouTubeFilterOptions): YouTubeFilterDecision {
     return {
         candidate,
         kind: options.revealed ? 'show' : 'hide',
@@ -136,4 +159,25 @@ function normalizeYouTubeTitleForLanguageCheck(text: string): string {
         .replace(NIHONGO_TUBE_SYMBOL_RE, '')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+/**
+ * A detector for any study target, reusing the chrome stripping the Japanese path
+ * needs. `normalizeYouTubeTitleForLanguageCheck` removes YouTube's own UI furniture —
+ * view counts, upload age, live badges, the watch CTA, decorative kaomoji — so a card
+ * is judged on its title rather than on the surrounding interface. That mattered for
+ * Japanese (an English card whose only Japanese came from 「7.2万回視聴」had to classify
+ * as non-Japanese) and it matters the same way for every other target, because the
+ * chrome is rendered in the viewer's UI language whatever they are studying.
+ *
+ * Japanese keeps `isProbablyJapaneseYouTubeText` rather than the generic path, because
+ * that function also recognises English-titled Japanese-learning content
+ * ("comprehensible japanese", "JLPT N3") which no script detector can see.
+ */
+export function youTubeTargetLanguageDetector(
+    isJapaneseTarget: boolean,
+    isTargetText: (text: string) => boolean,
+): (text: string) => boolean {
+    if (isJapaneseTarget) return isProbablyJapaneseYouTubeText;
+    return text => isTargetText(normalizeYouTubeTitleForLanguageCheck(text));
 }
