@@ -1596,6 +1596,29 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       and serialise. Until then the operational rule is: **gate on a quiet machine, and never conclude a red
       is real without re-running the named files in isolation first.**
 
+- [ ] **A47 — STANDING OWNER RULE (2026-07-31): anything that exists for English or Japanese must be built
+      out for every language.** Verbatim: *"remember full support for every language not just japanese —
+      anything that is for english you must build out for every lang"*, and *"first class grammar support for
+      every language like how we have for jp rn"*. This is not a ticket that closes when one feature ships;
+      it is the standard every feature is now measured against, and A42's capability matrix is the scoreboard.
+      What that rule implies, from the 18 declared capabilities:
+      - **grammar** — Japanese has 307 curated rules with JLPT levels, detection patterns and guide URLs
+        (`src/reader/study/grammar-data.ts`); every other target shows a "Finding grammar…" card that then
+        vanishes. Dispatched as wave 19: architecture per-target first, honest degradation second, curated
+        data third — explicitly NOT machine-generated patterns, because a wrong grammar match teaches a
+        learner something false and that is worse than no match.
+      - **frequency** — 30 of 32 targets have no frequency dictionary, so no pill and no explanation.
+      - **audio / character-lookup / handwriting / examples / mining / srs / grading** — still undeclared for
+        generic targets, though the audit measured several as working anyway.
+      **The lesson from YouGlish, which applies to every one of these:** it was removed from all 32 targets
+      because a sweep found "a bot or quota page" everywhere. youglish.com returns HTTP 200 with a page
+      titled "Bot detection!" to any automated client, so that sweep — and the earlier one that called the
+      links verified — were both reading the same page. Neither "works" nor "broken" had been measured. The
+      fix was not to give up but to get the authoritative answer from the service itself: its own footer
+      enumerates its languages and its own links emit the URL shape. **A status code is not verification, and
+      "we could not verify it" is not the same as "it does not work" — do not delete a feature on the
+      strength of a failed measurement.** YouGlish now ships for the 20 targets it covers.
+
 #### Dropped in triage
 
 | Raw finding | Why it is not in A35 |
