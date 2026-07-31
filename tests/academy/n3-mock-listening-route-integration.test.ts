@@ -131,5 +131,14 @@ describe('N3 mock-listening learner rail integration', () => {
             expect(lessonShell.current?.querySelector<HTMLElement>('[data-activity-id]')?.dataset.activityId)
                 .toBe(packageRecord.activity.id);
         }
-    });
+        // A real budget for a test that really does this much work, not a number
+        // picked to make a red run go away (A45). Measured 2026-07-31: 1,978 ms on
+        // an idle machine against the 5,000 ms default — already 40% of budget
+        // before any contention, because this single case drives every N3 package
+        // through both a world flow and a lesson flow. Under `npm run test:academy`
+        // (350 files, forks competing for cores) it went past 5,000 ms and timed
+        // out, while passing alone. That is starvation, so the fix is headroom
+        // proportional to the measured cost — roughly 10x — which still fails fast
+        // if the flow ever genuinely hangs.
+    }, 20_000);
 });

@@ -510,7 +510,13 @@ release that fails one run in four is a release nobody can schedule.
 - [x] **A40.2 — the intra-file half is closed.** `afterEach` now removes the snapshot key, so a backup test
       can no longer change what a later restore observes. Defensible on its own, but a green run here is NOT
       evidence the sharded failure is gone and must not be recorded as such.
-- [ ] **A40.3 — the general problem.** Two files already carry this shape:
+- [x] **A40.3 — CLOSED 2026-07-31, NOT REPRODUCIBLE: both named files now pass standalone.** Measured on
+      current main: `tests/reader/youtube-filter.test.ts` 71/71 passing alone (the ticket recorded 8 failures
+      standalone on unmodified origin/main), and `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts`
+      53/53 passing alone. So the "only passes inside the shard" shape does not hold for either, and adding
+      them to `ISOLATED_PASS_FILES` would have been the wrong fix anyway — a file that fails ALONE and
+      passes in a shard needs to be made self-contained, not isolated, which is the opposite operation.
+      The remaining flake in this family was a different mechanism entirely and is closed as A45. ORIGINAL: — the general problem.** Two files already carry this shape:
       `tests/reader/youtube-filter.test.ts` fails 8 tests standalone on unmodified `origin/main` and only
       passes inside the shard, and `tests/reader/jpdb/05-audio-sources-tts-suppression.test.ts` shares module
       state across 53 cases (it hid a real persistence question — see `A38`). Per-file isolation in the runner
@@ -1451,6 +1457,18 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       **Still open next door:** memory `yomu-ipad-sheet-doubling-open` records the OPPOSITE symptom at
       1.6.248 (sheet ~2x the host) in the same autosizing code, never closed. Wave 17 is checking it while
       it has a tablet viewport up.
+
+- [x] **A45 — CLOSED 2026-07-31: an academy test was starved, not leaky, and now has a measured budget.**
+      `tests/academy/n3-mock-listening-route-integration.test.ts` timed out at 5,000 ms inside
+      `npm run test:academy` (350 files) while passing alone. Timed alone it takes **1,978 ms against the
+      5,000 ms default** — already 40% of its budget on an idle machine, because one `it` drives every N3
+      package through both a world flow and a lesson flow. Under fork contention that goes over. Given a
+      20,000 ms budget with the measurement written beside it, so the number is justified rather than chosen
+      to turn a red run green, and it still fails fast if the flow ever genuinely hangs.
+      Deliberately NOT added to `MOCK_ISOLATED_TESTS`: that list exists for `vi.mock` registration leakage
+      and is policed by a conformance test, so parking a timeout case in it would make the list lie.
+      Found while verifying that the Academy payload work (A35.20) had not regressed the suite — it had not;
+      the failing-file count held at 19 and `asset-inventory.test.ts` went from failing to passing.
 
 #### Dropped in triage
 
