@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import { ACADEMY_SRS_LABEL, SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, FURIGANA_HIDE_STATE_GROUPS, SETTINGS_CHANGE_EVENT, WORD_COLOR_HIDE_STATE_GROUPS, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
@@ -1646,7 +1646,7 @@ function isFuriganaMode(value: unknown): value is FuriganaMode {
     return value === 'auto' || value === 'all' || value === 'difficult-kanji' || value === 'known-status' || value === 'hover' || value === 'off';
 }
 
-const FURIGANA_STATE_GROUPS: ReadonlySet<string> = new Set(['new', 'learning', 'known', 'due', 'failed']);
+const FURIGANA_STATE_GROUPS: ReadonlySet<string> = new Set<string>(FURIGANA_HIDE_STATE_GROUPS);
 
 function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['furiganaHiddenStateGroups'] {
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
@@ -1656,11 +1656,11 @@ function normalizeFuriganaHiddenStateGroups(value: unknown): ReaderSettings['fur
 }
 
 function normalizeWordColorHiddenStateGroups(value: unknown): ReaderSettings['wordColorHiddenStateGroups'] {
-    // Same five-group taxonomy as furigana hiding, but the default is EMPTY
-    // (colour every state) so existing installs keep their current colouring.
+    // Furigana groups PLUS the ignored family (own colour, own picker): validating
+    // against the furigana set dropped it on load (#37). Default EMPTY = colour all.
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
     const groups = value.filter((item): item is ReaderSettings['wordColorHiddenStateGroups'][number] =>
-        typeof item === 'string' && FURIGANA_STATE_GROUPS.has(item));
+        typeof item === 'string' && (WORD_COLOR_HIDE_STATE_GROUPS as readonly string[]).includes(item));
     return [...new Set(groups)];
 }
 

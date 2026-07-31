@@ -1,5 +1,6 @@
 (function() {
 "use strict";
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
 const APP_SLUG = "yomu";
@@ -10932,6 +10933,7 @@ function clampNumber(value, min, max, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
 }
+new Set(FURIGANA_HIDE_STATE_GROUPS);
 function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();

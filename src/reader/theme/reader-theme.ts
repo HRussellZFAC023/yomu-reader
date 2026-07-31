@@ -9,6 +9,7 @@ import {
     effectiveSubtitleTextColorSource,
     sanitizeAccentColor,
 } from '../settings/index';
+import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import { contrastRatio, isHexColor, mixHex, readableOnAll } from './color-utils';
 import { READER_THEME_COLOR_TOKENS } from './color-tokens';
 import type { ReaderColorSource, ReaderSettings } from '../app/types';
@@ -41,7 +42,7 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     // new-words-only colour scope are all CSS-class driven so the settings
     // preview can mirror them on its own container.
     const hideGroups = theme.furiganaMode === 'known-status' ? new Set(settings.furiganaHiddenStateGroups) : new Set<string>();
-    for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
+    for (const group of FURIGANA_HIDE_STATE_GROUPS) {
         toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
     }
     toggleClassIfChanged(root, 'jpdb-reader-hide-known', theme.furiganaMode === 'known-status' && hideGroups.has('known'));
@@ -50,7 +51,7 @@ export function applyReaderTheme(settings: ReaderSettings, root: HTMLElement | n
     // Per-state colour opt-out (e.g. keep known words uncoloured while others
     // stay coloured). CSS-class driven so the settings preview mirrors it live.
     const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
-    for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
+    for (const group of WORD_COLOR_HIDE_STATE_GROUPS) {
         toggleClassIfChanged(root, `yomu-word-color-hide-${group}`, colorHideGroups.has(group));
     }
     // Jiten Reader parity: optionally keep JPDB-redundant words unstyled.

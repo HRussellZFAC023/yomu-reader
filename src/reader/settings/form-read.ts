@@ -2,6 +2,7 @@ import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLo
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
+import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app/constants';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
@@ -527,10 +528,10 @@ function readReadingDisplayFormSettings(
     return {
         showFurigana: furiganaMode !== 'off',
         furiganaMode,
-        furiganaHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`furiganaHide-${group}`)),
+        furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter(group => has(`furiganaHide-${group}`)),
         wordColorStates: readOption(get('wordColorStates'), ['all', 'new-only'] as const, 'all'),
         clampedRowReadings: readOption(get('clampedRowReadings'), ['show', 'hover'] as const, 'show'),
-        wordColorHiddenStateGroups: (['new', 'learning', 'known', 'due', 'failed'] as const).filter(group => has(`colorHide-${group}`)),
+        wordColorHiddenStateGroups: WORD_COLOR_HIDE_STATE_GROUPS.filter(group => has(`colorHide-${group}`)),
         showPitchAccent: has('showPitchAccent'),
         showLookupPillFrequency: has('showLookupPillFrequency'),
         suppressRedundantWordUi: has('suppressRedundantWordUi'),

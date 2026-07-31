@@ -181,8 +181,33 @@ describe('settings form localization', () => {
         expect(knownBox).not.toBeNull();
         knownBox.checked = true;
         dueBox.checked = true;
-        // form-read filters in fixed state order (new,learning,known,due,failed) → known before due.
+        // The form renders and the reader filters in ONE declared order now
+        // (WORD_COLOR_HIDE_STATE_GROUPS: known,due,failed,learning,new,ignored). It
+        // used to render in that order and read back in a different one — two copies
+        // of the same list, which is how the ignored family came to be missing from
+        // one of them. Order is not load-bearing (both consumers build a Set) but it
+        // is now consistent with what the user sees.
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordColorHiddenStateGroups).toEqual(['known', 'due']);
+    });
+
+    // GitHub #37 (mirrormc): every word state had a "hide color for" checkbox except
+    // the ignored/suspended/blacklisted family, which has its own colour and its own
+    // picker. `wordColorHiddenStateGroups` was typed with the FURIGANA taxonomy, a
+    // five-member union with no ignored member, so the control could not exist — and
+    // the normalizer would have dropped the value on load even if it had.
+    it('offers one hide-color switch for the ignored, suspended and blacklisted family', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        const ignoredBox = form.querySelector<HTMLInputElement>('input[name="colorHide-ignored"]');
+        expect(ignoredBox).not.toBeNull();
+        // One switch, not three: the three states share one colour and one picker, so
+        // three checkboxes would promise control the colour layer cannot express.
+        expect(form.querySelector('input[name="colorHide-suspended"]')).toBeNull();
+        expect(form.querySelector('input[name="colorHide-blacklisted"]')).toBeNull();
+
+        ignoredBox!.checked = true;
+        expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordColorHiddenStateGroups)
+            .toEqual(['ignored']);
     });
 
     it('splits the old Basics bucket into API, Appearance, and Sources sections', () => {

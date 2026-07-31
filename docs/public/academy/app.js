@@ -27203,6 +27203,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }
   }
+  const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
+  const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
   const APP_NAME = "よむ";
   const ACADEMY_SRS_LABEL = "Academy";
   const APP_SLUG = "yomu";
@@ -43383,7 +43385,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
   }
-  const FURIGANA_STATE_GROUPS = /* @__PURE__ */ new Set(["new", "learning", "known", "due", "failed"]);
+  const FURIGANA_STATE_GROUPS = new Set(FURIGANA_HIDE_STATE_GROUPS);
   function normalizeFuriganaHiddenStateGroups(value) {
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
     const groups = value.filter((item2) => typeof item2 === "string" && FURIGANA_STATE_GROUPS.has(item2));
@@ -43391,7 +43393,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function normalizeWordColorHiddenStateGroups(value) {
     if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
-    const groups = value.filter((item2) => typeof item2 === "string" && FURIGANA_STATE_GROUPS.has(item2));
+    const groups = value.filter((item2) => typeof item2 === "string" && WORD_COLOR_HIDE_STATE_GROUPS.includes(item2));
     return [...new Set(groups)];
   }
   function legacyBooleanSettingIs(settings, key2, expected) {
@@ -325910,14 +325912,14 @@ ${options.version}`;
     applyReaderFontSettings(settings, root);
     applyPopupFontSettings(settings, root);
     const hideGroups = theme.furiganaMode === "known-status" ? new Set(settings.furiganaHiddenStateGroups) : /* @__PURE__ */ new Set();
-    for (const group2 of ["new", "learning", "known", "due", "failed"]) {
+    for (const group2 of FURIGANA_HIDE_STATE_GROUPS) {
       toggleClassIfChanged(root, `yomu-furi-hide-${group2}`, hideGroups.has(group2));
     }
     toggleClassIfChanged(root, "jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
     toggleClassIfChanged(root, "yomu-furi-hover", theme.furiganaMode === "hover");
     toggleClassIfChanged(root, "yomu-word-color-new-only", settings.wordColorStates === "new-only");
     const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
-    for (const group2 of ["new", "learning", "known", "due", "failed"]) {
+    for (const group2 of WORD_COLOR_HIDE_STATE_GROUPS) {
       toggleClassIfChanged(root, `yomu-word-color-hide-${group2}`, colorHideGroups.has(group2));
     }
     toggleClassIfChanged(root, "jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));
@@ -362059,10 +362061,10 @@ ${options.version}`;
     return {
       showFurigana: furiganaMode !== "off",
       furiganaMode,
-      furiganaHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group2) => has(`furiganaHide-${group2}`)),
+      furiganaHiddenStateGroups: FURIGANA_HIDE_STATE_GROUPS.filter((group2) => has(`furiganaHide-${group2}`)),
       wordColorStates: readOption(get("wordColorStates"), ["all", "new-only"], "all"),
       clampedRowReadings: readOption(get("clampedRowReadings"), ["show", "hover"], "show"),
-      wordColorHiddenStateGroups: ["new", "learning", "known", "due", "failed"].filter((group2) => has(`colorHide-${group2}`)),
+      wordColorHiddenStateGroups: WORD_COLOR_HIDE_STATE_GROUPS.filter((group2) => has(`colorHide-${group2}`)),
       showPitchAccent: has("showPitchAccent"),
       showLookupPillFrequency: has("showLookupPillFrequency"),
       suppressRedundantWordUi: has("suppressRedundantWordUi"),
@@ -362465,6 +362467,36 @@ ${options.version}`;
   }
   function booleanAttributeHtml(attributes) {
     return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
+  }
+  function renderFuriganaHiddenStateGroupControls(settings) {
+    const language2 = settings.interfaceLanguage;
+    const selected2 = new Set(settings.furiganaHiddenStateGroups);
+    const boxes = FURIGANA_HIDE_STATE_GROUPS.map((group2) => checkbox(`furiganaHide-${group2}`, uiText(language2, CARD_STATE_LABEL_KEYS[group2]), selected2.has(group2))).join("");
+    const hidden = effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden";
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, "hideFuriganaFor")}</legend>${boxes}</fieldset>`;
+  }
+  function renderWordColorHiddenStateGroupControls(settings) {
+    const language2 = settings.interfaceLanguage;
+    const selected2 = new Set(settings.wordColorHiddenStateGroups);
+    const boxes = WORD_COLOR_HIDE_STATE_GROUPS.map((group2) => checkbox(
+      `colorHide-${group2}`,
+      uiText(language2, group2 === "ignored" ? "wordColorIgnored" : CARD_STATE_LABEL_KEYS[group2]),
+      selected2.has(group2)
+    )).join("");
+    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText$4(language2, "hideColorFor")}</legend>${boxes}</fieldset>`;
+  }
+  const HIDE_STATE_GROUP_CONTROL_LABELS = [
+    ...FURIGANA_HIDE_STATE_GROUPS.flatMap((group2) => {
+      const key2 = CARD_STATE_LABEL_KEYS[group2];
+      return [
+        [`furiganaHide-${group2}`, key2],
+        [`colorHide-${group2}`, key2]
+      ];
+    }),
+    ["colorHide-ignored", "wordColorIgnored"]
+  ];
+  function escapedUiText$4(language2, key2) {
+    return escapeHtml$2(uiText(language2, key2));
   }
   function updateSourceRowEditor(action2, control2) {
     const row2 = control2?.closest("[data-source-row]");
@@ -364691,13 +364723,6 @@ ${options.version}`;
   function isAnkiSubdeckOf(deck, parent) {
     return Boolean(parent && deck.startsWith(`${parent}::`));
   }
-  const FURIGANA_HIDE_GROUPS = [
-    "known",
-    "due",
-    "failed",
-    "learning",
-    "new"
-  ];
   const POPUP_MODE_OPTIONS = [
     ["auto", "auto"],
     ["sheet", "bottomSheet"],
@@ -364798,21 +364823,9 @@ ${options.version}`;
     ["1200000", "balanced"],
     ["2000000", "sharper"]
   ];
-  function renderFuriganaHiddenStateGroupControls(settings) {
-    const language2 = settings.interfaceLanguage;
-    const selected2 = new Set(settings.furiganaHiddenStateGroups);
-    const boxes = FURIGANA_HIDE_GROUPS.map((group2) => checkbox(`furiganaHide-${group2}`, uiText(language2, CARD_STATE_LABEL_KEYS[group2]), selected2.has(group2))).join("");
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden"}><legend>${escapedUiText(language2, "hideFuriganaFor")}</legend>${boxes}</fieldset>`;
-  }
   function renderFuriganaDifficultyNote(settings) {
     const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
     return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, "furiganaDifficultKanjiHelp")}</div>`;
-  }
-  function renderWordColorHiddenStateGroupControls(settings) {
-    const language2 = settings.interfaceLanguage;
-    const selected2 = new Set(settings.wordColorHiddenStateGroups);
-    const boxes = FURIGANA_HIDE_GROUPS.map((group2) => checkbox(`colorHide-${group2}`, uiText(language2, CARD_STATE_LABEL_KEYS[group2]), selected2.has(group2))).join("");
-    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText(language2, "hideColorFor")}</legend>${boxes}</fieldset>`;
   }
   function renderAppearancePreview(language2) {
     return `
@@ -366341,13 +366354,6 @@ ${options.version}`;
     ["shortcuts.gradeFail", "gradeFail"],
     ["shortcuts.gradePass", "gradePass"]
   ];
-  const HIDE_STATE_GROUP_CONTROL_LABELS = FURIGANA_HIDE_GROUPS.flatMap((group2) => {
-    const key2 = CARD_STATE_LABEL_KEYS[group2];
-    return [
-      [`furiganaHide-${group2}`, key2],
-      [`colorHide-${group2}`, key2]
-    ];
-  });
   const SETTINGS_CONTROL_LABELS = [
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key2) => [key2, key2]),
     ...SETTINGS_CONTROL_LABEL_ALIASES,
@@ -368738,7 +368744,7 @@ ${options.version}`;
         if (control2) control2.value = value;
       };
       const setGroups = (groups) => {
-        for (const group2 of ["new", "learning", "known", "due", "failed"]) {
+        for (const group2 of FURIGANA_HIDE_STATE_GROUPS) {
           const box = form2.querySelector(`input[name="furiganaHide-${group2}"]`);
           if (box) box.checked = groups.includes(group2);
         }

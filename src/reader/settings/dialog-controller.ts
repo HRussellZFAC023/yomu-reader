@@ -4,7 +4,7 @@ import { diagnoseAnkiConnectFailure } from '../anki/transport';
 import { copyText, openUrlInNewTab } from '../ui/browser';
 import { detectYomuUpdateFlow } from '../app/userscript-update';
 import { createAudioPreviewCard } from '../cards/utils';
-import { NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
+import { FURIGANA_HIDE_STATE_GROUPS, NEW_TAB_PAGE_URL, NEW_TAB_VERSION_URL, SETTINGS_CHANGE_EVENT, SETTINGS_TITLE } from '../app/constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { JpdbClient } from '../jpdb/jpdb';
 import { configureLogger, Logger } from '../app/logger';
@@ -1286,7 +1286,7 @@ export class SettingsDialogController {
             if (control) control.value = value;
         };
         const setGroups = (groups: string[]): void => {
-            for (const group of ['new', 'learning', 'known', 'due', 'failed']) {
+            for (const group of FURIGANA_HIDE_STATE_GROUPS) {
                 const box = form.querySelector<HTMLInputElement>(`input[name="furiganaHide-${group}"]`);
                 if (box) box.checked = groups.includes(group);
             }

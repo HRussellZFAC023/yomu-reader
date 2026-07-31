@@ -4925,6 +4925,7 @@ const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
   ocrOverlayTheme: "auto"
 };
 const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
 const APP_SLUG = "yomu";
@@ -11065,6 +11066,7 @@ function clampNumber$1(value, min, max, fallback) {
 function effectiveLegacyAutoFuriganaMode() {
   return "all";
 }
+new Set(FURIGANA_HIDE_STATE_GROUPS);
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;

@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.ae2f5b4702aa.user.js#sha256=ri9bRwKqY4tWYrBC42STUaxR1UjbJu2Ju5SwgCu8YDc=
-// @resource yomuCss  https://yomureader.com/yomu.b39ab436eadc.css#sha256=s5q0Nurcw7D/OR6gTfPEV9mfGAOlHpx7V0MioLlvtQA=
+// @require https://yomureader.com/greasyfork/yomu-runtime.b1238b206e54.user.js#sha256=sSOLIG5UMHuxu4UiMy+M5a6FE3BswJ8AyyalGZVQKIg=
+// @resource yomuCss  https://yomureader.com/yomu.25e8d11f407c.css#sha256=JejRH0B8pOC/+MjHcK1QcOn0/1uuMIrRHwshoj4sNto=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -2827,6 +2827,8 @@ class ConcurrencyGate {
   }
   }
 }
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
+const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
 const APP_NAME = "よむ";
 const APP_PUCK = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
@@ -8020,7 +8022,7 @@ function effectiveLegacyAutoFuriganaMode() {
 function isFuriganaMode(value) {
   return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
 }
-const FURIGANA_STATE_GROUPS = new Set(["new", "learning", "known", "due", "failed"]);
+const FURIGANA_STATE_GROUPS = new Set(FURIGANA_HIDE_STATE_GROUPS);
 function normalizeFuriganaHiddenStateGroups(value) {
   if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
   const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
@@ -8028,7 +8030,7 @@ function normalizeFuriganaHiddenStateGroups(value) {
 }
 function normalizeWordColorHiddenStateGroups(value) {
   if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
-  const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+  const groups = value.filter((item) => typeof item === "string" && WORD_COLOR_HIDE_STATE_GROUPS.includes(item));
   return [...new Set(groups)];
 }
 function legacyBooleanSettingIs(settings, key, expected) {
@@ -32902,14 +32904,14 @@ function applyReaderTheme(settings, root = document.documentElement) {
   applyReaderFontSettings(settings, root);
   applyPopupFontSettings(settings, root);
   const hideGroups = theme.furiganaMode === "known-status" ? new Set(settings.furiganaHiddenStateGroups) : new Set();
-  for (const group of ["new", "learning", "known", "due", "failed"]) {
+  for (const group of FURIGANA_HIDE_STATE_GROUPS) {
   toggleClassIfChanged(root, `yomu-furi-hide-${group}`, hideGroups.has(group));
   }
   toggleClassIfChanged(root, "jpdb-reader-hide-known", theme.furiganaMode === "known-status" && hideGroups.has("known"));
   toggleClassIfChanged(root, "yomu-furi-hover", theme.furiganaMode === "hover");
   toggleClassIfChanged(root, "yomu-word-color-new-only", settings.wordColorStates === "new-only");
   const colorHideGroups = new Set(settings.wordColorHiddenStateGroups);
-  for (const group of ["new", "learning", "known", "due", "failed"]) {
+  for (const group of WORD_COLOR_HIDE_STATE_GROUPS) {
   toggleClassIfChanged(root, `yomu-word-color-hide-${group}`, colorHideGroups.has(group));
   }
   toggleClassIfChanged(root, "jpdb-reader-suppress-redundant", Boolean(settings.suppressRedundantWordUi));

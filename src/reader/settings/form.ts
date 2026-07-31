@@ -1,6 +1,11 @@
+import {
+    HIDE_STATE_GROUP_CONTROL_LABELS,
+    renderFuriganaHiddenStateGroupControls,
+    renderWordColorHiddenStateGroupControls,
+} from './hide-state-groups';
 import { ANKI_CONNECT_ADDON_URL, BUNPRO_DEFINITION_SOURCE_ID, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
-import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
+import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
@@ -785,13 +790,6 @@ function isAnkiSubdeckOf(deck: string, parent: string): boolean {
     return Boolean(parent && deck.startsWith(`${parent}::`));
 }
 
-const FURIGANA_HIDE_GROUPS: readonly ReaderSettings['furiganaHiddenStateGroups'][number][] = [
-    'known',
-    'due',
-    'failed',
-    'learning',
-    'new',
-];
 
 // Single-source option taxonomies: each entry maps an option value to its i18n
 // key. renderSettingsForm localizes them on first paint (no English flash before
@@ -923,32 +921,11 @@ const OCR_MAX_IMAGE_PIXELS_OPTIONS = [
     ['2000000', 'sharper'],
 ] as const satisfies SettingsOptionTable;
 
-function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): string {
-    const language = settings.interfaceLanguage;
-    const selected = new Set(settings.furiganaHiddenStateGroups);
-    const boxes = FURIGANA_HIDE_GROUPS
-        .map(group => checkbox(`furiganaHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
-        .join('');
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>${escapedUiText(language, 'hideFuriganaFor')}</legend>${boxes}</fieldset>`;
-}
-
 // A11: "Hard kanji only" drops readings by a fixed easy-kanji list, so it needs
 // to say what a bare kanji means before anyone picks it.
 function renderFuriganaDifficultyNote(settings: ReaderSettings): string {
     const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? '' : ' hidden';
     return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, 'furiganaDifficultKanjiHelp')}</div>`;
-}
-
-function renderWordColorHiddenStateGroupControls(settings: ReaderSettings): string {
-    // Per-state colour/highlight opt-out (e.g. "no highlight on known words"),
-    // the colour analogue of the furigana hide groups. Always shown in the colour
-    // subsection: it stays meaningful whenever any colour channel is active.
-    const language = settings.interfaceLanguage;
-    const selected = new Set(settings.wordColorHiddenStateGroups);
-    const boxes = FURIGANA_HIDE_GROUPS
-        .map(group => checkbox(`colorHide-${group}`, uiText(language, CARD_STATE_LABEL_KEYS[group]), selected.has(group)))
-        .join('');
-    return `<fieldset class="jpdb-reader-radio-group" data-word-color-hide-groups><legend>${escapedUiText(language, 'hideColorFor')}</legend>${boxes}</fieldset>`;
 }
 
 // UT-47: a live sample sentence that mirrors the furigana/colour options.
@@ -2511,15 +2488,6 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['shortcuts.gradeFail', 'gradeFail'],
     ['shortcuts.gradePass', 'gradePass'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
-
-const HIDE_STATE_GROUP_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] =
-    FURIGANA_HIDE_GROUPS.flatMap(group => {
-        const key = CARD_STATE_LABEL_KEYS[group];
-        return [
-            [`furiganaHide-${group}`, key],
-            [`colorHide-${group}`, key],
-        ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
-    });
 
 const SETTINGS_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] = [
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map(key => [key, key] as const),

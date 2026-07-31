@@ -5711,6 +5711,7 @@ function promiseWithTimeout(promise, timeoutMs, message) {
   timeout
   ]).finally(() => window.clearTimeout(timeoutId));
 }
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
 const APP_NAME = "よむ";
 const ACADEMY_SRS_LABEL = "Academy";
 const DOCS_ORIGIN = "https://yomureader.com";
@@ -10647,6 +10648,7 @@ function clampNumber$1(value, min, max, fallback) {
 function effectiveLegacyAutoFuriganaMode() {
   return "all";
 }
+new Set(FURIGANA_HIDE_STATE_GROUPS);
 function effectiveFuriganaMode(settings) {
   if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
   if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;

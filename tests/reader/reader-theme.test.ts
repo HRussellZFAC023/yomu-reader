@@ -8,7 +8,7 @@ import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/r
 import { resetCssColorProbeForTests } from '../../src/reader/theme/color-rgba';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshContrastForChangedWords, refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
-import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_SETTINGS, loadSettings, normalizeReaderSettings, saveSettings, SETTINGS_STORAGE_KEYS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const SETTINGS_STORAGE_KEY = SETTINGS_STORAGE_KEYS[0];
@@ -174,6 +174,37 @@ describe('reader theme', () => {
         for (const group of ['new', 'learning', 'known', 'due', 'failed'] as const) {
             expect(root.classList.contains(`yomu-word-color-hide-${group}`)).toBe(false);
         }
+    });
+
+    // GitHub #37 (mirrormc): the colour opt-out borrowed the FURIGANA taxonomy, a
+    // five-member union with no ignored member, so the ignored/suspended/
+    // blacklisted/locked family had a colour and a colour picker but no switch. A
+    // learner with the common particles and Kaishi 1.5k blacklisted in Jiten had
+    // almost every word on the page coloured with no way to stop it.
+    it('keeps a stored ignored opt-out through a settings reload', () => {
+        // The normalizer validated against the five furigana groups, so even if the
+        // checkbox had existed, 'ignored' would have been filtered out of storage on
+        // every load and the switch would never have stuck.
+        expect(normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            wordColorHiddenStateGroups: ['ignored', 'known'],
+        }).wordColorHiddenStateGroups).toEqual(['ignored', 'known']);
+        // Junk is still rejected.
+        expect(normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            wordColorHiddenStateGroups: ['ignored', 'not-a-state'],
+        } as never).wordColorHiddenStateGroups).toEqual(['ignored']);
+    });
+
+    it('hides the ignored, suspended and blacklisted colour as one group', () => {
+        const root = document.documentElement;
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorHiddenStateGroups: ['ignored'] }, root);
+        expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(true);
+        // One switch, not three: these states already share one colour and one picker.
+        expect(root.classList.contains('yomu-word-color-hide-known')).toBe(false);
+
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key' }, root);
+        expect(root.classList.contains('yomu-word-color-hide-ignored')).toBe(false);
     });
 
     it('applies concrete default color channels', () => {

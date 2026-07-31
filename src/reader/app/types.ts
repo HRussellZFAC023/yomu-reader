@@ -101,6 +101,19 @@ export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' |
 
 export type FuriganaStateGroup = 'new' | 'learning' | 'known' | 'due' | 'failed';
 
+/**
+ * Word-state groups whose COLOUR can be opted out of.
+ *
+ * A superset of the furigana groups, because the colour layer has an
+ * ignored/suspended/blacklisted/locked family that furigana does not: those
+ * states share one colour and one picker. The colour opt-out was originally
+ * typed `FuriganaStateGroup[]`, borrowing the furigana taxonomy verbatim, which
+ * left that whole family structurally unreachable — a learner with the common
+ * particles and Kaishi 1.5k blacklisted had almost every word on the page
+ * coloured with no way to turn it off (GitHub #37).
+ */
+export type WordColorStateGroup = FuriganaStateGroup | 'ignored';
+
 export type WordColorStates = 'all' | 'new-only';
 
 export interface AudioSubSourceSetting {
@@ -459,7 +472,7 @@ export interface ReaderSettings {
     // Word-state groups whose colour/highlight/underline is suppressed while
     // everything else stays coloured (e.g. "no highlight on known words"). The
     // same five-group taxonomy as furigana hiding; empty = colour every state.
-    wordColorHiddenStateGroups: FuriganaStateGroup[];
+    wordColorHiddenStateGroups: WordColorStateGroup[];
     showPitchAccent: boolean;
     // When on, the live Jiten/JPDB frequency rank is shown inline inside that
     // site's lookup pill (e.g. "Jiten #18447") instead of as a separate pill.

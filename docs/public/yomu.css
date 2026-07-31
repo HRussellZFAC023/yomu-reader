@@ -1645,7 +1645,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 /* Per-group colour opt-out (settings: wordColorHiddenStateGroups) — the colour
-   analogue of the per-group furigana hiding above. The chosen word-state groups
+   analogue of the per-group furigana hiding above, plus one group furigana has no
+   equivalent for: the ignored/suspended/blacklisted/locked family. That family
+   shares one colour and one picker, so it gets one switch. Without it a learner
+   with the common particles and Kaishi 1.5k blacklisted had almost every word on
+   the page coloured and no way to stop it (GitHub #37). The chosen word-state groups
    keep the page's own colour and lose Yomu underline/highlight/box marking while
    every other state stays coloured (e.g. "no highlight on known words"). Applies
    on the page root AND the settings preview container so the preview restyles
@@ -1662,6 +1666,8 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   .jpdb-reader-word:is(.jpdb-failed, .jiten-failed, .anki-failed):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-learning
   .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .jiten-learning, .jiten-young, .anki-learning):not(.jpdb-reader-example-target),
+.yomu-word-color-hide-ignored
+  .jpdb-reader-word:is(.jpdb-suspended, .jpdb-blacklisted, .jpdb-locked, .jiten-suspended, .jiten-blacklisted, .jiten-locked, .anki-suspended):not(.jpdb-reader-example-target),
 .yomu-word-color-hide-new
   .jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .jiten-new, .anki-new):not(.jpdb-reader-example-target) {
   --jpdb-reader-word-underline: transparent;

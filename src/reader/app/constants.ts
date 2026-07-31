@@ -1,3 +1,18 @@
+/**
+ * Word-state groups whose furigana can be hidden, and the wider set whose COLOUR
+ * can be hidden.
+ *
+ * One declaration, because there used to be three: the settings form, the form
+ * reader and the theme each wrote their own copy of the group list, and the
+ * colour opt-out inherited the FURIGANA list -- so the ignored/suspended/
+ * blacklisted family had a colour and a picker but no way to switch its colour
+ * off (GitHub #37). Anything that iterates groups imports from here.
+ */
+export const FURIGANA_HIDE_STATE_GROUPS = ['known', 'due', 'failed', 'learning', 'new'] as const;
+
+/** The colour layer adds the ignored family, which shares one colour and one picker. */
+export const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, 'ignored'] as const;
+
 export const APP_NAME = 'よむ';
 export const APP_PUCK = 'よむ';
 export const ACADEMY_SRS_LABEL = 'Academy';
