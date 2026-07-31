@@ -522,7 +522,26 @@ release that fails one run in four is a release nobody can schedule.
       state across 53 cases (it hid a real persistence question — see `A38`). Per-file isolation in the runner
       would retire all three at once; decide whether that costs less than chasing each.
 
-### A41 — U46 hotlink findings the verifier recorded as non-blocking
+### A41 — CLOSED 2026-07-31: all four hotlink findings resolved, verified against the shipped config
+
+Measured on `config/multilingual/lookup-links.json` (32 targets) rather than taken from a wave report:
+
+- **YouGlish's 20 unverifiable links — resolved by removal.** `youglish` appears **zero** times in the
+  config. It could not be reproducibly verified, and the earlier "verified" sweep turned out to have been
+  measuring its own rate limiting, so shipping nothing beats shipping a link nobody checked.
+- **10 of 11 Linguee links unverified — resolved by shipping it OFF.** The shared entry now carries
+  `"enabled": false`, so it is present on its 12 targets but never enabled without an explicit choice, and
+  `tests/reader/settings-form/11-target-lookup-hotlinks.test.ts:214-218` pins the Danish template and asserts
+  German does not get one. Honest: nobody lands on an unverified link by default.
+- **ar / km / lo / th had no native dictionary — all four now do.** `ar: maajim`, `km: khmerdict`,
+  `lo: laoswords`, `th: longdo`. This was the item created by an invalidated delta-0 criterion, where Glosbe
+  had been dropped for Lao over a word-specific 404 while Thai kept the same link with the same failure.
+- **vi/tratu-soha is plaintext HTTP — now disclosed.** `plaintextHttpLink: 'Opens over plaintext HTTP.'`
+  (`app/i18n.ts:635`) with its Japanese, surfaced through `[data-lookup-link-transport]` in
+  `settings/form.ts:2157`. Vietnamese also gained `vdict` and `vtudien` alongside it. Copy states what
+  happens rather than listing what does not, per the owner's rule.
+
+ORIGINAL FINDINGS
 
 From the adversarial verification of the per-language hotlinks (full report in `scratchpad/u46-5-research.md`).
 None of these stop a patch release; all of them are things a later pass would otherwise rediscover.
