@@ -83,8 +83,8 @@ import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
 import { userFacingError, userFacingErrorText } from '../app/user-facing-errors';
 import {
-    LEARNING_TARGET_ROSTER,
     isLearningTargetRosterId,
+    learningTargetRosterEntry,
     type LearningTargetRosterId,
 } from '../languages';
 import { dictionaryLookupLinksForTarget } from './dictionary';
@@ -578,21 +578,9 @@ function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings
     return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
 }
 
-function selectedTargetLanguage(
-    form: HTMLFormElement,
-    settings: ReaderSettings,
-): LearningTargetRosterId {
+function selectedTargetLanguage(form: HTMLFormElement, settings: ReaderSettings): LearningTargetRosterId {
     const value = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value;
     return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
-}
-
-function targetLanguageDisplayName(
-    id: LearningTargetRosterId,
-    interfaceLanguage: InterfaceLanguage,
-): string {
-    const target = LEARNING_TARGET_ROSTER.find(language => language.id === id);
-    if (!target) return id;
-    return interfaceLanguage === 'ja' ? target.nativeName : target.englishName;
 }
 
 function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
@@ -1101,9 +1089,10 @@ export class SettingsDialogController {
                 showAvailability();
                 return;
             }
+            const target = learningTargetRosterEntry(selected);
             showAvailability(formatUiTemplate(
                 uiText(this.settings.interfaceLanguage, 'targetDictionaryUnavailable'),
-                { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) },
+                { language: this.settings.interfaceLanguage === 'ja' ? target.nativeName : target.englishName },
             ));
         } catch (error) {
             log.warn('Published dictionary coverage check failed', error);
