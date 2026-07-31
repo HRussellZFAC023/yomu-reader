@@ -50,6 +50,20 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </article>
 </main>
 
+<!-- The method, before the tools that serve it. The owner's brief for the site is a
+     narrative on how to learn a language rather than a feature list, so the page
+     states the approach once, in four lines, and hands off to /learn/ for the long
+     version. Deliberately short: this is a campaign page, not the guide. -->
+<section class="yomu-fits" aria-labelledby="yomu-method-title">
+  <h2 id="yomu-method-title">Learn it the way you learned your first one</h2>
+  <ul class="yomu-fits-list">
+    <li><strong>Read a little above what you know.</strong> Meet the language in something you wanted to read anyway, often, and slightly beyond you. Grammar tables can wait.</li>
+    <li><strong>Get the first two thousand words early.</strong> They cover roughly four fifths of ordinary text, so front-loading them makes everything after easier. Ten minutes a day does it.</li>
+    <li><strong>Then read a lot, and let the hard words go.</strong> Skip what you do not know and keep moving. Yomu collects what you skipped so you can come back to it later.</li>
+    <li><a href="/learn/">The whole approach, in order</a></li>
+  </ul>
+</section>
+
 <section class="yomu-band yomu-reveal" id="read" data-bleed="right" aria-labelledby="yomu-band-pages">
   <img class="yomu-band-ground" src="/home/ground-pages.webp" width="1400" height="788" alt="" aria-hidden="true" loading="lazy" decoding="async" data-yomu-ocr="ignore" />
   <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">本</p>
