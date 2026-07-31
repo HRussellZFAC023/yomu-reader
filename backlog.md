@@ -549,13 +549,13 @@ So the page is FOLLOWING the owner's own visual system, and the only way to remo
 that document. That is a brand decision, not an implementation one, which is why it is filed rather than
 done.
 
-- [ ] **A39.1 — pick a display face, or confirm system sans is deliberate.** If a face is chosen: ship it
+- [x] **A39.1 — CLOSED 2026-07-31: the sans stays, and the reason is now in VISUAL-SYSTEM.md so the next anti-slop audit cannot reopen it. Evidence is a session where the owner reviewed four homepage treatments and named colours, spacing, layout and copy as the faults — never typography — and rejected three serif display proposals as "making it worse". The accepted cost (system-ui is SF Pro on macOS, Segoe UI on Windows, so the headline is not glyph-identical cross-platform) and the remedy if ever revisited (one self-hosted subset face for headings only, never a CDN) are both recorded there. ORIGINAL: pick a display face, or confirm system sans is deliberate.** If a face is chosen: ship it
       self-hosted from `docs/public/fonts` (no CDN — the artifact CSP blocks external hosts and a silent
       fallback would be worse than the system stack), subset it, and pair one display face for headings with
       the existing stack for body. Then update VISUAL-SYSTEM.md so the two documents agree. If system sans
       stays, record WHY in VISUAL-SYSTEM.md so the next anti-slop audit does not reopen it. Note the
       Japanese stack is separate and already deliberate (`--ja-font`), so only the Latin face is in question.
-- [ ] **A39.2 — three bullets still lead with bold run-in labels**, which the same research lists as a
+- [x] **A39.2 — CLOSED 2026-07-31: accepted as the house pattern, recorded in VISUAL-SYSTEM.md. `.yomu-fits-list` uses bold run-in labels across the homepage, so a list without them reads as foreign; consistency with the page's own grammar beats the generic heuristic. ORIGINAL: three bullets still lead with bold run-in labels**, which the same research lists as a
       template tell. Cheap to rewrite as plain sentences; left alone because it is copy the owner may have a
       view on after seeing the shorter page.
 
@@ -1394,6 +1394,45 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       unconditional romaji→kana rewrite of every typed answer + missing `dir` on RTL inputs), w10 (the
       three hostile defaults), w11 (NFKC/case-folding/candidate ladder), w12 (target choice at onboarding
       + target-keyed dictionary routing + a readiness field the docs gate actually reads).
+
+- [ ] **A43 — the content-addressed retention manifest goes stale on every release, so it blocks the gate by
+      construction.** `config/ci/content-addressed-retention.json` records a window derived from git history
+      (latest 40 release tags, 40 recent hosted headers, plus v1.8.2 for the frozen store builds). Every
+      release moves that window, so the committed file stops matching and
+      `node scripts/prune-content-addressed-assets.mjs --check` fails the SECOND stage of `check:release`
+      for everyone. Measured twice on 2026-07-31: it was already failing on a clean detached worktree at
+      `origin/main` (fdf8682fc, last refreshed after v1.8.46 while main was 1.8.55), which blocked two
+      multilingual waves from gating their own work until I ran `npm run assets:prune`; the same class of
+      failure had blocked wave 6 earlier the same day, where it was misdiagnosed as "316 supported pinned
+      assets are missing from current main".
+      **Do:** either derive the window at run time so there is nothing to keep in sync, or have the release
+      script refresh and commit it as part of the version bump. A gate that fails on every release trains
+      people to run the fix-it command without reading it, which is exactly how a pinned companion gets
+      deleted by reflex — and that breaks every published userscript naming it
+      (memory `yomu-release-staging-add-u-trap`). Keep the missing-artifact guard that runs before any
+      deletion; it is the only thing standing between a stale manifest and a broken release.
+
+- [x] **A44 — CLOSED 2026-07-31: the lookup sheet collapsed to a 180px strip on tall screens.** Reported by
+      Canna on iPad ("the popover is super tiny"); her screenshot showed only the drag handle, a sliver of
+      the sentence and the five grade buttons, because the sheet grid is `auto minmax(0, 1fr) auto` and the
+      card body is the only row that can give. Two defects, both needed:
+      1. The floor read `Math.min(viewportHeight, MIN_SHEET_HEIGHT_PX, Math.max(140, 32%))`, and the 180px
+         constant inside that `Math.min` silently deleted the 32% term beside it. Measured: iPad 1024 gave a
+         180px floor where 32% is 328px; iPad Pro 1180 gave 180px against 378px.
+      2. The persisted height ratio could be poisoned permanently — a height clamped to that wrong floor
+         while the previous viewport was tall yields a tiny ratio, and a drag stores it, so every later
+         session opened tiny with no way back except clearing storage. A sub-floor ratio is now neither
+         stored nor honoured, which self-heals an install that already has one.
+      **NOT a recent regression**, which was the first suspicion: `git log -S` puts the `Math.min` mistake in
+      `c6d610462` (Release 0.6.27, 2026-06-06) — the 32% term was added alongside the 180 instead of
+      replacing it. What changed recently is only what drove the sheet onto that floor. The nearer suspect
+      was cleared too: wave 5's a11y commit is the most recent edit to `popup/shell.ts`, but no CSS keys off
+      `role` or `aria-modal`, so removing them from hover popovers cannot affect sizing.
+      Mutation-checked: with both fixes reverted the new tests report `expected 180 to be 328` and
+      `expected '180px' to be '717px'` — that second figure is the report itself.
+      **Still open next door:** memory `yomu-ipad-sheet-doubling-open` records the OPPOSITE symptom at
+      1.6.248 (sheet ~2x the host) in the same autosizing code, never closed. Wave 17 is checking it while
+      it has a tablet viewport up.
 
 #### Dropped in triage
 
