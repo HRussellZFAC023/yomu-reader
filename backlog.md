@@ -1458,17 +1458,24 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       1.6.248 (sheet ~2x the host) in the same autosizing code, never closed. Wave 17 is checking it while
       it has a tablet viewport up.
 
-- [x] **A45 — CLOSED 2026-07-31: an academy test was starved, not leaky, and now has a measured budget.**
-      `tests/academy/n3-mock-listening-route-integration.test.ts` timed out at 5,000 ms inside
-      `npm run test:academy` (350 files) while passing alone. Timed alone it takes **1,978 ms against the
-      5,000 ms default** — already 40% of its budget on an idle machine, because one `it` drives every N3
-      package through both a world flow and a lesson flow. Under fork contention that goes over. Given a
-      20,000 ms budget with the measurement written beside it, so the number is justified rather than chosen
-      to turn a red run green, and it still fails fast if the flow ever genuinely hangs.
+- [x] **A45 — CLOSED 2026-07-31: the academy suite was under-budgeted, not flaky. Fixed at the suite, not
+      per file.** The symptom was a rotating set of `Test timed out in 5000ms` failures that changed which
+      files they hit run to run, depending on which forks got starved — which reads like flakiness. It is an
+      integration suite driving whole world and lesson flows through jsdom, and Vitest's 5,000 ms per-test
+      default is simply too small for that. Measured alone on an idle machine:
+      `production-workflow-lifecycle.test.ts` **37,492 ms for 10 tests** (so it already exceeded the default
+      unloaded), `n3-mock-listening-route-integration` **1,978 ms**, `world-class-route.test.ts` **902 ms**
+      (fast, and only ever failed under contention).
+      Set `testTimeout: 30_000` once in `config/vite/academy.config.ts`, with the measurements in a comment
+      so the number is justified and the next person raises it only with new evidence. Started with a
+      per-file 20,000 ms override on one test and removed it — a per-file value would only have re-lowered
+      the suite default, and one file at a time is whack-a-mole against a suite-wide budget problem.
+      **Measured before → after over the full 350-file run:** timeouts **7 → 2**, failing files **19 → 18**,
+      failing tests **25 → 24**. The two remaining timeouts are both `sprite-performance-contract.test.ts`,
+      which is a pre-existing red that also fails when run alone and still exceeds 30 s — a genuine failure,
+      not starvation, and left in the known-red set rather than papered over with a bigger number.
       Deliberately NOT added to `MOCK_ISOLATED_TESTS`: that list exists for `vi.mock` registration leakage
-      and is policed by a conformance test, so parking a timeout case in it would make the list lie.
-      Found while verifying that the Academy payload work (A35.20) had not regressed the suite — it had not;
-      the failing-file count held at 19 and `asset-inventory.test.ts` went from failing to passing.
+      and a conformance test polices it, so parking timeout cases there would make the list lie.
 
 #### Dropped in triage
 

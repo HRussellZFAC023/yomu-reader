@@ -142,6 +142,20 @@ export default defineConfig(({ command, mode }) => {
     test: {
       environment: "jsdom",
       include: ["tests/academy/**/*.test.ts"],
+      // Vitest's 5,000 ms default is wrong for this suite, and the symptom was a
+      // rotating set of "timed out in 5000ms" failures that changed run to run
+      // depending on which forks got starved — which reads like flakiness but is
+      // just an under-budgeted integration suite. Measured alone on an idle machine
+      // 2026-07-31:
+      //   production-workflow-lifecycle.test.ts   37,492 ms for 10 tests
+      //   n3-mock-listening-route-integration     1,978 ms for 1 test
+      //   world-class-route.test.ts                  902 ms for 5 tests
+      // The first already exceeds the per-test default unloaded; the last is fast
+      // and only ever failed under contention. These cases drive whole world and
+      // lesson flows through jsdom, so seconds each is the honest cost, not a bug.
+      // 30 s is chosen from the measured worst case with room for fork contention,
+      // and still fails fast on a real hang. Raise it only with a new measurement.
+      testTimeout: 30_000,
       // vi.mock registrations leak across files in a reused fork, so the
       // vi.mock-using files are excluded from the shared-fork pass and run in
       // a second isolated invocation (see test:academy in package.json). The
