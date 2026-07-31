@@ -1604,6 +1604,18 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       information. `YOMU_CI_TEST_TIMEOUT_MS` exists and does let the run complete, but reaching for it is a
       workaround, not the fix — the 25-minute default is correct for a quiet machine and the real problem is
       that nothing reconciles the gate's 8 workers with N agent sessions on the same cores.
+      **ROOT CAUSE CONFIRMED — it is memory, not just CPU.** With the wall clock raised and workers at 4, the
+      suite completed and reported **zero test failures** (6,169 passed in the reuse pass, 419 in the isolated
+      pass) yet still exited 1, because one file never reported at all:
+      `tests/reader/multilingual-onboarding-settings.test.ts` and its 8 tests vanished when a worker died with
+      **`FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory`**. The file passes
+      8/8 alone. Load average was 36 on 10 cores with three agent sessions gating in their own worktrees.
+      So the failure mode is V8 heap exhaustion in a jsdom fork under memory pressure — precisely what
+      `defaultRegularMaxWorkers`'s own comment predicts ("oversubscribing memory-heavy jsdom forks, which is
+      what pushes a slow CI runner into thrash"). A lost worker is indistinguishable from a failure at the
+      exit code, which is the dangerous part: nothing in the summary says "a worker died", so the honest
+      signal has to be read out of the log. Worth making the runner detect a file that was asked for and
+      never reported, and say THAT rather than exiting 1 silently.
 
 - [ ] **A47 — STANDING OWNER RULE (2026-07-31): anything that exists for English or Japanese must be built
       out for every language.** Verbatim: *"remember full support for every language not just japanese —
