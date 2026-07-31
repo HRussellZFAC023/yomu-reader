@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.60
+// @version 1.8.61
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.0e03ba626fa1.user.js#sha256=DgO6Ym+hssNy6lxd+M2eR5wKbgfki2w3Ox9kuj7PSG0=
+// @require https://yomureader.com/greasyfork/yomu-runtime.202eec4a9cb4.user.js#sha256=IC7sSpy0PkDCzrgPLeBMu5DRry+O/E5nqrX/vrSnseA=
 // @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -50,6 +50,3283 @@
 (function () {
 'use strict';
 
+const MANAGED_STORAGE_KEY_PREFIXES = [
+  "yomu-",
+  "yomu:",
+  "yomu.",
+  "__yomu",
+  "jpdb-reader-",
+  "jpdb-popup-reader-"
+];
+const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
+const MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX = "yomu:web-storage-slot:v1:";
+const MANAGED_SLOT_KEY_PREFIXES = [
+  MANAGED_STATE_SLOT_KEY_PREFIX,
+  MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX
+];
+function isManagedStorageKey(key) {
+  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+function isPrivateManagedStorageKey(key) {
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function isBridgeManagedStorageKey(key) {
+  const logicalKey = logicalManagedStorageKey(key);
+  return logicalKey !== null && isManagedStorageKey(logicalKey) && !isPrivateManagedStorageKey(logicalKey);
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+  const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+  return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+  return null;
+  }
+}
+function isManagedStorageSlotKey(key) {
+  return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto"
+};
+const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+function isPromiseLike$1(value) {
+  return Boolean(value && typeof value.then === "function");
+}
+function promiseWithTimeout(promise, timeoutMs, message) {
+  let timeoutId = 0;
+  const timeout = new Promise((_resolve, reject) => {
+  timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([
+  promise,
+  timeout
+  ]).finally(() => window.clearTimeout(timeoutId));
+}
+async function runLimited(items, concurrency, worker) {
+  if (!items.length) return;
+  const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+  while (nextIndex < items.length) {
+    const index = nextIndex++;
+    await worker(items[index], index);
+  }
+  }));
+}
+async function mapLimited(items, concurrency, worker) {
+  const results = new Array(items.length);
+  await runLimited(items, concurrency, async (item, index) => {
+  results[index] = await worker(item, index);
+  });
+  return results;
+}
+class ConcurrencyGate {
+  constructor(limit) {
+  this.limit = limit;
+  }
+  active = 0;
+  queue = [];
+  async run(task) {
+  if (this.active >= this.limit) {
+    await new Promise((resolve) => this.queue.push(resolve));
+  }
+  this.active += 1;
+  try {
+    return await task();
+  } finally {
+    this.active -= 1;
+    this.queue.shift()?.();
+  }
+  }
+}
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
+const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
+const APP_NAME = "よむ";
+const APP_PUCK = "よむ";
+const ACADEMY_SRS_LABEL = "Academy";
+const APP_SLUG = "yomu";
+const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+const GITHUB_OWNER = "HRussellZFAC023";
+const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+const DOCS_ORIGIN = "https://yomureader.com";
+const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
+const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
+const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
+const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
+const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";
+const OPEN_SETTINGS_EVENT = "yomu-open-settings";
+const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
+const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
+const WANIKANI_DEFINITION_SOURCE_ID = "__wanikani__";
+const ANKI_SOURCE_ID = "__anki__";
+const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+function readTrustedYomuUrl(value) {
+  let url;
+  try {
+  url = new URL(value);
+  } catch {
+  return null;
+  }
+  if (url.username || url.password) return null;
+  const path = normalizeYomuHostedPath(url.pathname);
+  const originKind = trustedYomuOriginKind(url, path);
+  return originKind ? { url, path, originKind } : null;
+}
+function normalizeYomuHostedPath(pathname) {
+  const normalized = pathname.replace(/\/index\.html$/u, "/");
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+function isYomuRepositoryPath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+}
+function trustedYomuOriginKind(url, path) {
+  if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
+  if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
+  return "github-pages";
+  }
+  if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
+  return "loopback";
+  }
+  if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
+  return null;
+}
+function isYomuNewTabUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isTrustedStudyRoute(appUrl) : false;
+}
+function isYomuStudyRoutePath(pathname) {
+  const path = normalizeYomuHostedPath(pathname);
+  return path === "/study/" || path === "/newtab/";
+}
+function isTrustedStudyRoute(appUrl) {
+  const { originKind, path } = appUrl;
+  if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
+  if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
+  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
+}
+function isRepositoryStudyRoutePath(path) {
+  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
+}
+function isYomuHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
+}
+function isYomuPrivilegedHostedAppUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl || appUrl.originKind === "extension") return false;
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isYomuStorageBridgeHostedUrl(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  if (!appUrl) return false;
+  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
+  return isYomuPrivilegedHostedAppUrl(value);
+}
+function isYomuHostedPassivePage(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
+}
+function isYomuHostedVideoPlayerPage(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "video-player") : false;
+}
+function isYomuHostedPdfReaderPage(value) {
+  const appUrl = readTrustedYomuUrl(value);
+  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "pdf-reader") : false;
+}
+function isYomuHostedAppRoute(value, appUrl) {
+  return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
+}
+function isPassiveYomuRepositoryPage(value, appUrl) {
+  return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
+}
+function isYomuActiveAppRoute(value, appUrl) {
+  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
+}
+function isYomuRepositoryAppUrl(appUrl) {
+  if (appUrl.originKind === "docs") return true;
+  if (appUrl.originKind === "github-pages") return isYomuRepositoryPath(appUrl.path);
+  if (appUrl.originKind === "extension") return isYomuNewTabUrl(appUrl.url.href);
+  return isYomuLocalAppPath(appUrl.path);
+}
+function isExactHostedAppPath(appUrl, route) {
+  if (appUrl.originKind === "github-pages") {
+  return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+  }
+  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
+}
+function isYomuLocalAppPath(path) {
+  return path === "/" || isYomuRepositoryPath(path) || path === "/study/" || path === "/newtab/" || path === "/video-player/" || path === "/pdf-reader/" || path === "/academy/";
+}
+function bridgeEventId(event) {
+  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+}
+function bridgeRequestDetail(event) {
+  const detail = normalizedBridgeEventDetail$1(event);
+  const id = bridgeEventId(event);
+  const options = safeReadProperty(detail, "options");
+  return id && options ? { id, options } : void 0;
+}
+function bridgeResponseEventDetail(event) {
+  const detail = normalizedBridgeEventDetail$1(event);
+  const id = safeReadString(detail, "id");
+  const kind = safeReadString(detail, "kind");
+  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+  return {
+  id,
+  kind,
+  response: safeReadProperty(detail, "response"),
+  message: safeReadString(detail, "message")
+  };
+}
+function bridgeResponseDetail(id, kind, response, message) {
+  return {
+  id,
+  kind,
+  response: response ? bridgeResponse(response) : void 0,
+  message
+  };
+}
+function bridgeRequestOptions(options) {
+  return {
+  ...options,
+  headers: options.headers ? { ...options.headers } : void 0,
+  data: bridgeRequestBody(options.data)
+  };
+}
+function bridgeEventDetail(detail) {
+  if (detail === void 0) return void 0;
+  const json = bridgeEventJsonDetail(detail);
+  return json ?? detail;
+}
+function bridgeResponse(response) {
+  return {
+  status: safeReadNumber(response, "status") ?? 0,
+  response: bridgeBody(safeReadProperty(response, "response")),
+  responseText: safeReadString(response, "responseText"),
+  finalUrl: safeReadString(response, "finalUrl")
+  };
+}
+function bridgeBody(value) {
+  if (value instanceof ArrayBuffer) return value.slice(0);
+  if (ArrayBuffer.isView(value)) {
+  const bytes = value;
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  if (value instanceof Blob) return value.slice(0, value.size, value.type);
+  return value;
+}
+function bridgeRequestBody(value) {
+  return bridgeBody(value);
+}
+function bridgeEventJsonDetail(detail) {
+  let unsupported = false;
+  try {
+  const json = JSON.stringify(detail, (_key, value) => {
+    if (isUnsupportedBridgeJsonValue(value)) {
+      unsupported = true;
+      return void 0;
+    }
+    return value;
+  });
+  return unsupported || typeof json !== "string" ? void 0 : json;
+  } catch {
+  return void 0;
+  }
+}
+function normalizedBridgeEventDetail$1(event) {
+  const detail = safeEventDetail(event);
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function isUnsupportedBridgeJsonValue(value) {
+  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+}
+function isUnsupportedPrimitiveBridgeJsonValue(value) {
+  return typeof value === "function" || typeof value === "symbol";
+}
+function isArrayBufferBridgeJsonValue(value) {
+  if (typeof ArrayBuffer === "undefined") return false;
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+function isBlobBridgeJsonValue(value) {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+function isFormDataBridgeJsonValue(value) {
+  return typeof FormData !== "undefined" && value instanceof FormData;
+}
+function safeEventDetail(event) {
+  try {
+  return event.detail;
+  } catch {
+  return void 0;
+  }
+}
+function safeReadProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function safeReadString(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "string" ? value : void 0;
+}
+function safeReadNumber(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "number" ? value : void 0;
+}
+let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+function createWindowCustomEvent(type, detail, init = {}) {
+  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+  const documentEvent = createDocumentCustomEvent(type, eventInit);
+  if (documentEvent) return documentEvent;
+  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+  if (CustomEventConstructor) {
+  try {
+    return new CustomEventConstructor(type, eventInit);
+  } catch {
+  }
+  }
+  throw new Error(`Unable to create window custom event: ${type}`);
+}
+function cloneCustomEventDetail(detail) {
+  if (detail === void 0 || typeof window === "undefined") return detail;
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto) return detail;
+  try {
+  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+  } catch {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return void 0;
+  }
+  }
+}
+function dispatchWindowEvent(event) {
+  const target = window;
+  const directDispatch = readMethod(target, "dispatchEvent");
+  const directResult = callEventTargetMethod(directDispatch, target, event);
+  if (directResult.called) return directResult.result;
+  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+  if (initialResult.called) return initialResult.result;
+  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+  if (prototypeResult.called) return prototypeResult.result;
+  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+  if (unshadowedResult.called) return unshadowedResult.result;
+  return false;
+}
+function addWindowEventListener(type, listener, options) {
+  const target = window;
+  const directAdd = readMethod(target, "addEventListener");
+  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function removeWindowEventListener(type, listener, options) {
+  const target = window;
+  const directRemove = readMethod(target, "removeEventListener");
+  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function initialWindowMethod(key) {
+  if (typeof window === "undefined") return void 0;
+  return readMethod(window, key);
+}
+function dispatchWithPrototypeMethod(target, directDispatch, event) {
+  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+  if (prototypeDispatch === directDispatch) continue;
+  const result = callEventTargetMethod(prototypeDispatch, target, event);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+  if (prototypeAdd === directAdd) continue;
+  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+  if (prototypeRemove === directRemove) continue;
+  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function eventConstructor(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function createDocumentCustomEvent(type, init) {
+  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+  try {
+  const event = document.createEvent("CustomEvent");
+  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+  return event;
+  } catch {
+  return void 0;
+  }
+}
+function eventTargetPrototypeMethods(target, key) {
+  const methods = [];
+  const add = (method) => {
+  if (method && !methods.includes(method)) methods.push(method);
+  };
+  let prototype = Object.getPrototypeOf(target);
+  while (prototype) {
+  add(readOwnMethod(prototype, key));
+  prototype = Object.getPrototypeOf(prototype);
+  }
+  const WindowEventTarget = readProperty(window, "EventTarget");
+  add(readMethod(WindowEventTarget?.prototype, key));
+  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+  return methods;
+}
+function readMethod(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function readOwnMethod(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+  return readMethod(source, key);
+}
+function readProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function callEventTargetMethod(method, target, event) {
+  if (!method) return { called: false };
+  try {
+  return { called: true, result: method.call(target, event) };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callAddEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callRemoveEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callWithUnshadowedWindowDispatch(event) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("dispatchEvent", descriptor);
+  }
+}
+function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("addEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("addEventListener", descriptor);
+  }
+}
+function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("removeEventListener", descriptor);
+  }
+}
+function restoreWindowProperty(key, descriptor) {
+  try {
+  const target = window.wrappedJSObject || window;
+  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+  } catch {
+  }
+}
+function pageCompartmentDescriptor(descriptor, _target) {
+  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+function pageCompartmentValue(value, options = {}) {
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto || typeof window === "undefined") return value;
+  try {
+  return cloneInto(value, window, options);
+  } catch {
+  return value;
+  }
+}
+function safeWindowPropertyDescriptor(key) {
+  try {
+  const target = window.wrappedJSObject || window;
+  return Object.getOwnPropertyDescriptor(target, key);
+  } catch {
+  return void 0;
+  }
+}
+function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+  if (!descriptor) return false;
+  try {
+  return typeof descriptor.value !== "function";
+  } catch {
+  return false;
+  }
+}
+function normalizedPropertyDescriptor(descriptor) {
+  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+  if (!hasDataShape || !hasAccessorShape) return descriptor;
+  try {
+  return {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    value: descriptor.value,
+    writable: descriptor.writable
+  };
+  } catch {
+  return {
+    configurable: true,
+    value: void 0,
+    writable: true
+  };
+  }
+}
+const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+const BRIDGE_TIMEOUT_MS$1 = 1e4;
+let bridgeRequestListenerCleanup;
+function getUserscriptGmStorage() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+  return {
+  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
+  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
+  };
+}
+function installUserscriptGmStorageBridge() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (!shouldInstallUserscriptStorageBridge()) return;
+  const accessors = gmStorageAccessors();
+  if (!accessors) return;
+  const markerDataset = bridgeMarkerDataset$1();
+  if (!markerDataset) return;
+  if (hasInstalledUserscriptStorageBridge(markerDataset)) {
+  dispatchStorageBridgeReady();
+  return;
+  }
+  bridgeRequestListenerCleanup?.();
+  markerDataset[BRIDGE_MARKER$1] = "true";
+  const handledRequestIds = new Set();
+  bridgeRequestListenerCleanup = addBridgeEventListener$1(BRIDGE_REQUEST_EVENT$1, (event) => {
+  const detail = storageBridgeRequestDetail(event);
+  if (!detail || handledRequestIds.has(detail.id)) return;
+  rememberBridgeRequestId$1(handledRequestIds, detail.id);
+  void handleStorageBridgeRequest(detail, accessors);
+  });
+  dispatchStorageBridgeReady();
+}
+function installUserscriptGmStorageBridgeWhenReady() {
+  installUserscriptGmStorageBridge();
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  if (!shouldInstallUserscriptStorageBridge()) return;
+  if (hasInstalledUserscriptStorageBridge()) return;
+  scheduleUserscriptStorageBridgeRetry();
+}
+async function handleStorageBridgeRequest(detail, accessors) {
+  const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
+  try {
+  if (detail.op === "list") {
+    send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
+    return;
+  }
+  if (detail.op === "clear-private-managed") {
+    const privateKeys = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+    for (const key of privateKeys) await accessors.deleteValue(key);
+    const remaining = (await accessors.listValues()).filter(isPrivateManagedStorageKey);
+    if (remaining.length) throw new Error("Private managed storage could not be cleared.");
+    send({ ok: true });
+    return;
+  }
+  if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
+    send({ ok: false, found: false, message: "Unmanaged storage key." });
+    return;
+  }
+  if (detail.op === "get") {
+    const value = await accessors.getValue(detail.key, MISSING$1);
+    send(value === MISSING$1 ? { ok: true, found: false } : { ok: true, found: true, value });
+    return;
+  }
+  if (detail.op === "set") {
+    await accessors.setValue(detail.key, detail.value);
+    send({ ok: true });
+    return;
+  }
+  await accessors.deleteValue(detail.key);
+  send({ ok: true });
+  } catch (error) {
+  send({ ok: false, found: false, message: error instanceof Error ? error.message : String(error) });
+  }
+}
+function storageBridgeRequest(request) {
+  return new Promise((resolve, reject) => {
+  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    reject(new Error("Storage bridge request timed out."));
+  }, BRIDGE_TIMEOUT_MS$1);
+  let cleanupResponseListener = noop$1;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupResponseListener();
+  };
+  const onResponse = (event) => {
+    const detail = storageBridgeResponseDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.ok) resolve(detail);
+    else reject(new Error(detail.message || "Storage bridge request failed."));
+  };
+  cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
+  });
+}
+const MISSING$1 = { __yomuStorageBridgeMissing: true };
+function gmStorageAccessors() {
+  const getValue = directGmGetValue$1();
+  const setValue = directGmSetValue$1();
+  const deleteValue = directGmDeleteValue$1();
+  const listValues = directGmListValues();
+  if (!getValue || !setValue) return null;
+  return {
+  getValue,
+  setValue,
+  deleteValue: deleteValue ?? (() => void 0),
+  listValues: listValues ?? (() => {
+    throw new Error("GM_listValues is unavailable.");
+  })
+  };
+}
+function directGmGetValue$1() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function directGmSetValue$1() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function directGmDeleteValue$1() {
+  if (typeof GM_deleteValue === "function") return GM_deleteValue;
+  const modern = globalThis.GM?.deleteValue;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function directGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const direct = globalThis.GM_listValues;
+  if (typeof direct === "function") return direct;
+  const modern = globalThis.GM?.listValues;
+  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+}
+function shouldInstallUserscriptStorageBridge() {
+  try {
+  return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
+  } catch {
+  return false;
+  }
+}
+function scheduleUserscriptStorageBridgeRetry() {
+  const retry = () => {
+  if (hasInstalledUserscriptStorageBridge()) return;
+  installUserscriptGmStorageBridge();
+  };
+  if (typeof queueMicrotask === "function") {
+  queueMicrotask(retry);
+  } else {
+  void Promise.resolve().then(retry);
+  }
+  window.setTimeout(retry, 0);
+  window.setTimeout(retry, 250);
+  if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", retry, { once: true });
+  }
+}
+function hasInstalledUserscriptStorageBridge(markerDataset = bridgeMarkerDataset$1()) {
+  return Boolean(markerDataset?.[BRIDGE_MARKER$1] === "true" && bridgeRequestListenerCleanup);
+}
+function dispatchStorageBridgeReady() {
+  dispatchBridgeEvent$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT);
+}
+function storageBridgeRequestDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  if (!detail || typeof detail !== "object") return void 0;
+  const record = detail;
+  if (typeof record.id !== "string" || !isGmStorageOp(record.op)) return void 0;
+  return { id: record.id, op: record.op, key: typeof record.key === "string" ? record.key : void 0, value: record.value };
+}
+function storageBridgeResponseDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  if (!detail || typeof detail !== "object") return void 0;
+  const record = detail;
+  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  return {
+  id: record.id,
+  ok: record.ok,
+  found: typeof record.found === "boolean" ? record.found : void 0,
+  value: record.value,
+  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record.message === "string" ? record.message : void 0
+  };
+}
+function isGmStorageOp(value) {
+  return value === "get" || value === "set" || value === "delete" || value === "list" || value === "clear-private-managed";
+}
+function normalizedBridgeEventDetail(event) {
+  let detail;
+  try {
+  detail = event.detail;
+  } catch {
+  return void 0;
+  }
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function addBridgeEventListener$1(type, listener) {
+  const cleanups = [];
+  if (addWindowEventListener(type, listener)) {
+  cleanups.push(() => removeWindowEventListener(type, listener));
+  }
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+  }
+  return () => {
+  for (const cleanup of cleanups) cleanup();
+  };
+}
+function dispatchBridgeEvent$1(type, detail) {
+  const eventDetail = bridgeEventDetail(detail);
+  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget) {
+  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+  }
+  return dispatched;
+}
+function bridgeDocumentTarget$1() {
+  if (typeof document === "undefined") return void 0;
+  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+}
+function bridgeMarkerDataset$1() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
+function callAddEventListener$1(target, type, listener) {
+  try {
+  target.addEventListener(type, listener);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function callRemoveEventListener$1(target, type, listener) {
+  try {
+  target.removeEventListener(type, listener);
+  } catch {
+  }
+}
+function callDispatchEvent$1(target, event) {
+  try {
+  return target.dispatchEvent(event);
+  } catch {
+  return false;
+  }
+}
+function rememberBridgeRequestId$1(ids, id) {
+  ids.add(id);
+  if (ids.size <= 200) return;
+  const oldest = ids.values().next().value;
+  if (oldest) ids.delete(oldest);
+}
+function noop$1() {
+}
+const entries = [];
+const registeredEntryIndexes = new Map();
+let resetWritesSuppressed = false;
+function registerManagedState(entry) {
+  const identity = managedStateIdentity(entry);
+  const existingIndex = registeredEntryIndexes.get(identity);
+  if (existingIndex !== void 0) {
+  const existing = entries[existingIndex];
+  if (existing.owner !== entry.owner) {
+    throw new Error(`Managed state ${identity} has conflicting owners: ${existing.owner}, ${entry.owner}.`);
+  }
+  if (existing.enumerate && entry.enumerate && existing.enumerate !== entry.enumerate) {
+    throw new Error(`Managed state ${identity} has conflicting enumerators.`);
+  }
+  if (!existing.enumerate && entry.enumerate) entries[existingIndex] = { ...existing, enumerate: entry.enumerate };
+  return;
+  }
+  registeredEntryIndexes.set(identity, entries.length);
+  entries.push(entry);
+}
+function registerManagedStates(list) {
+  for (const entry of list) registerManagedState(entry);
+}
+function managedStateIdentity(entry) {
+  return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+}
+function managedStateEntries() {
+  return entries;
+}
+function registeredManagedStorageKeys() {
+  const keys = new Set();
+  for (const entry of entries) {
+  if (entry.kind !== "idb" && entry.key) keys.add(entry.key);
+  }
+  return [...keys];
+}
+function registeredManagedIndexedDbNames() {
+  const names = new Set();
+  for (const entry of entries) {
+  if (entry.kind === "idb" && entry.key) names.add(entry.key);
+  }
+  return [...names];
+}
+function beginManagedStateReset() {
+  resetWritesSuppressed = true;
+}
+function endManagedStateReset() {
+  resetWritesSuppressed = false;
+}
+function managedStateWritesSuppressed() {
+  return resetWritesSuppressed;
+}
+let sandboxCompanions = {};
+function yomuSettingsDialogController() {
+  return yomuCompanions().settings?.SettingsDialogController;
+}
+function yomuOnboardingController() {
+  return yomuCompanions().settings?.OnboardingController;
+}
+function yomuSettingsSurfaceCompanion() {
+  return yomuCompanions().settings;
+}
+function yomuAnkiCompanion() {
+  return yomuCompanions().anki;
+}
+function yomuAudioCompanion() {
+  return yomuCompanions().audio;
+}
+function yomuWanikaniCompanion() {
+  return yomuCompanions().wanikani;
+}
+function yomuJpdbCompanion() {
+  return yomuCompanions().jpdb;
+}
+function yomuJitenCompanion() {
+  return yomuCompanions().jiten;
+}
+function yomuVideoCompanionSlot() {
+  return yomuCompanions().video;
+}
+function yomuAnnotationsCompanion() {
+  return yomuCompanions().annotations;
+}
+function yomuSubtitlePlayerController() {
+  return yomuCompanions().video?.SubtitlePlayerController;
+}
+function yomuYoutubeImmersionFilter() {
+  return yomuCompanions().video?.YoutubeImmersionFilter;
+}
+function yomuImageOcrController() {
+  return yomuCompanions().ocr?.ImageOcrController;
+}
+function yomuNormalizeOcrRenderedText() {
+  return yomuCompanions().ocr?.normalizeOcrRenderedText;
+}
+function yomuLocalDictionaries() {
+  return yomuCompanions().localDictionaries;
+}
+function yomuLearningTargetRuntime() {
+  return yomuCompanions().learningTargets;
+}
+function yomuI18nCompanion() {
+  return yomuCompanions().i18n;
+}
+function yomuBunproCompanion() {
+  return yomuCompanions().bunpro;
+}
+function yomuKanjiStudyCompanion() {
+  return yomuCompanions().kanjiStudy;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+async function enumerateDictionaryArchiveStorageKeys() {
+  const enumerate = yomuLocalDictionaries()?.enumerateDictionaryArchiveStorageKeys;
+  if (!enumerate) throw new Error("The local-dictionary companion cannot enumerate archive storage.");
+  return enumerate();
+}
+const MANAGED_STATE_MANIFEST = [
+  { owner: "settings", kind: "gm", key: "jpdb-popup-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
+  { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
+  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
+  { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
+  { owner: "app/storage epoch slots", kind: "gm", prefix: "yomu:state-slot:v1:" },
+  { owner: "app/storage epoch lease", kind: "gm", prefix: "yomu:state-epoch-lease:v1:" },
+  { owner: "app/managed-web-storage", kind: "local", key: "yomu:web-storage-epoch:v1:local" },
+  { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
+  { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
+  { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
+  { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
+  { owner: "app/main", kind: "local", key: "yomu:jpdb-review-examples-visible:v1" },
+  { owner: "core/hosted-appearance-boot", kind: "local", key: "yomu-page-theme" },
+  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
+  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
+  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
+  { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
+  { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
+  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
+  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+  { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
+  { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+  { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
+  {
+  owner: "dictionaries/archive-cache",
+  kind: "gm",
+  prefix: "yomu-dictionary-archive:",
+  enumerate: enumerateDictionaryArchiveStorageKeys
+  },
+  { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
+  { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
+  { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
+  { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
+  { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
+  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
+  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
+  { owner: "sources/state", kind: "gm", key: "jpdb-reader-source-open-state" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
+  { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
+  { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
+  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+  { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
+  { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
+  { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
+  { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
+  { owner: "newtab/controller", kind: "local", key: "yomu-newtab-support-banner-dismissed" },
+  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
+  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
+];
+let manifestRegistered = false;
+function registerManagedStateManifest() {
+  if (manifestRegistered) return;
+  manifestRegistered = true;
+  registerManagedStates(MANAGED_STATE_MANIFEST);
+}
+registerManagedStateManifest();
+const MANAGED_STATE_EPOCH_KEY = "yomu:state-epoch";
+const MANAGED_STATE_ENVELOPE_VERSION = 1;
+const MANAGED_STATE_EPOCH_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-session.v1");
+const MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-canonical-session.v1");
+const INITIAL_MANAGED_STATE_EPOCH = Object.freeze({
+  version: 1,
+  generation: 0,
+  resetId: "legacy",
+  committedAt: 0
+});
+class StaleManagedStateEpochError extends Error {
+  constructor(expected, actual) {
+  super(`Managed state belongs to epoch ${managedStateEpochToken(expected)}, but the current epoch is ${managedStateEpochToken(actual)}.`);
+  this.expected = expected;
+  this.actual = actual;
+  this.name = "StaleManagedStateEpochError";
+  }
+  code = "YOMU_STALE_MANAGED_STATE_EPOCH";
+}
+function isStaleManagedStateEpochError(error) {
+  return Boolean(error && typeof error === "object" && error.code === "YOMU_STALE_MANAGED_STATE_EPOCH");
+}
+class ManagedStateEpochSession {
+  captured;
+  captureInFlight;
+  current() {
+  return this.captured;
+  }
+  async capture(readEpoch) {
+  if (this.captured) return this.captured;
+  if (!this.captureInFlight) {
+    this.captureInFlight = readEpoch().then(parseManagedStateEpoch).then((epoch) => {
+      this.captured = epoch;
+      return epoch;
+    }).finally(() => {
+      this.captureInFlight = void 0;
+    });
+  }
+  return this.captureInFlight;
+  }
+  captureSync(rawEpoch) {
+  const epoch = parseManagedStateEpoch(rawEpoch);
+  this.captured ??= epoch;
+  return this.captured;
+  }
+  async assertCurrent(readEpoch) {
+  const expected = await this.capture(readEpoch);
+  const actual = parseManagedStateEpoch(await readEpoch());
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  assertCurrentSync(rawEpoch) {
+  const expected = this.captureSync(rawEpoch);
+  const actual = parseManagedStateEpoch(rawEpoch);
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  /** Test-only lifecycle support for Vitest's reused JavaScript realm. */
+  resetForTests() {
+  this.captured = void 0;
+  this.captureInFlight = void 0;
+  }
+}
+function managedStateEpochSessionForRealm(root = globalThis) {
+  const slots = root;
+  const existing = slots[MANAGED_STATE_EPOCH_SESSION_SLOT];
+  if (isManagedStateEpochSession(existing)) return existing;
+  const session = new ManagedStateEpochSession();
+  slots[MANAGED_STATE_EPOCH_SESSION_SLOT] = session;
+  slots[MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT] ??= session;
+  return session;
+}
+function parseManagedStateEpoch(value) {
+  if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
+  if (!isPlainRecord$2(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  throw new Error("The managed-state epoch is malformed.");
+  }
+  return {
+  version: 1,
+  generation: value.generation,
+  resetId: value.resetId,
+  committedAt: value.committedAt
+  };
+}
+function nextManagedStateEpoch(current, resetId, committedAt = Date.now()) {
+  if (!resetId.trim()) throw new TypeError("A reset id is required to advance managed state.");
+  if (!Number.isSafeInteger(current.generation + 1)) throw new Error("The managed-state epoch cannot advance further.");
+  return {
+  version: 1,
+  generation: current.generation + 1,
+  resetId,
+  committedAt
+  };
+}
+function managedStateStoredValue(value, epoch) {
+  if (epoch.generation === 0) return value;
+  const envelope = {
+  __yomuManagedStateEnvelope: MANAGED_STATE_ENVELOPE_VERSION,
+  epoch: managedStateEpochToken(epoch),
+  value
+  };
+  return envelope;
+}
+function managedStateLogicalValue(stored, epoch, fallback) {
+  if (epoch.generation === 0) {
+  if (!isManagedStateEnvelope(stored)) return stored;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+  }
+  if (!isManagedStateEnvelope(stored)) return fallback;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+}
+function managedStateResetEnumerationValue(stored) {
+  if (!isPlainRecord$2(stored) || !Object.hasOwn(stored, "__yomuManagedStateEnvelope")) {
+  return stored;
+  }
+  if (!isManagedStateEnvelope(stored)) {
+  throw new Error("The managed-state envelope is malformed.");
+  }
+  return stored.value;
+}
+function managedStateEpochToken(epoch) {
+  return `${epoch.generation}:${epoch.resetId}`;
+}
+function managedStateEpochTokenRelation(storedToken, current) {
+  if (storedToken === managedStateEpochToken(current)) return "same";
+  const separator = storedToken.indexOf(":");
+  if (separator <= 0) return "malformed";
+  const generationText = storedToken.slice(0, separator);
+  if (!/^(?:0|[1-9]\d*)$/u.test(generationText)) return "malformed";
+  const storedGeneration = Number(generationText);
+  if (!Number.isSafeInteger(storedGeneration)) return "malformed";
+  if (storedGeneration < current.generation) return "older";
+  if (storedGeneration > current.generation) return "newer";
+  return "conflict";
+}
+function sameManagedStateEpoch(left, right) {
+  return left.generation === right.generation && left.resetId === right.resetId;
+}
+function assertManagedStateEpoch(expected, actual) {
+  if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
+}
+function isManagedStateEnvelope(value) {
+  return isPlainRecord$2(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+}
+function isManagedStateEpochSession(value) {
+  return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
+}
+function isPlainRecord$2(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+const AREA_MARKER_KEYS = {
+  local: "yomu:web-storage-epoch:v1:local",
+  session: "yomu:web-storage-epoch:v1:session"
+};
+const PRESERVED_LOCAL_CONTROL_KEYS = new Set([
+  MANAGED_STATE_EPOCH_KEY,
+  AREA_MARKER_KEYS.local
+]);
+let certifiedEpoch;
+let reconciliation;
+let reconciliationToken;
+function ensureManagedWebStorageEpochCurrent(epoch) {
+  if (certifiedEpoch) {
+  if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
+    return Promise.reject(new Error("Managed web storage is already certified for another epoch."));
+  }
+  try {
+    assertAreaCertificate("local", epoch);
+    assertAreaCertificate("session", epoch);
+    return Promise.resolve(epoch);
+  } catch {
+    certifiedEpoch = void 0;
+  }
+  }
+  const expectedToken = managedStateEpochToken(epoch);
+  if (reconciliation) {
+  return reconciliationToken === expectedToken ? reconciliation : Promise.reject(new Error("Managed web storage is reconciling another epoch."));
+  }
+  reconciliationToken = expectedToken;
+  reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch)).finally(() => {
+  reconciliation = void 0;
+  reconciliationToken = void 0;
+  });
+  return reconciliation;
+}
+function ensureManagedWebStorageEpochCurrentSync(epoch) {
+  if (certifiedEpoch) {
+  if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
+    throw new Error("Managed web storage is already certified for another epoch.");
+  }
+  try {
+    assertAreaCertificate("local", epoch);
+    assertAreaCertificate("session", epoch);
+    return epoch;
+  } catch {
+    certifiedEpoch = void 0;
+  }
+  }
+  reconcileArea("local", epoch);
+  reconcileArea("session", epoch);
+  certifiedEpoch = epoch;
+  return epoch;
+}
+function reconcileArea(area, epoch) {
+  const storage = storageArea(area);
+  const markerKey = AREA_MARKER_KEYS[area];
+  const expectedToken = managedStateEpochToken(epoch);
+  const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
+  if (marker === expectedToken) return;
+  if (marker !== null) {
+  const relation = managedStateEpochTokenRelation(marker, epoch);
+  if (relation === "newer" || relation === "conflict" || relation === "malformed") {
+    throw new Error(`${area}Storage belongs to a newer or conflicting managed-state epoch.`);
+  }
+  }
+  if (epoch.generation > 0) purgeManagedArea(storage, area);
+  writeAndVerify(storage, markerKey, expectedToken, `${area}Storage epoch marker`);
+}
+function purgeManagedArea(storage, area) {
+  const preserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : new Set([AREA_MARKER_KEYS.session]);
+  const keys = enumerateStorageKeys(storage, `${area}Storage`);
+  const managedKeys = keys.filter((key) => isManagedStorageKey(key) && !preserved.has(key));
+  for (const key of managedKeys) {
+  removeStorageValue(storage, key, `${area}Storage key "${key}"`);
+  if (readStorageValue(storage, key, `${area}Storage key "${key}"`) !== null) {
+    throw new Error(`${area}Storage retained managed key "${key}".`);
+  }
+  }
+  const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key) => isManagedStorageKey(key) && !preserved.has(key));
+  if (remaining.length) throw new Error(`${area}Storage retained managed keys: ${remaining.join(", ")}.`);
+}
+function enumerateStorageKeys(storage, label) {
+  let length;
+  try {
+  length = storage.length;
+  } catch (error) {
+  throw new Error(`${label} could not be enumerated.`, { cause: error });
+  }
+  if (!Number.isSafeInteger(length) || length < 0) throw new Error(`${label} reported an invalid length.`);
+  const keys = [];
+  const seen = new Set();
+  for (let index = 0; index < length; index++) {
+  let key;
+  try {
+    key = storage.key(index);
+  } catch (error) {
+    throw new Error(`${label} could not enumerate key ${index}.`, { cause: error });
+  }
+  if (key === null || seen.has(key)) throw new Error(`${label} enumeration was incomplete.`);
+  seen.add(key);
+  keys.push(key);
+  }
+  try {
+  if (storage.length !== length) throw new Error(`${label} changed during enumeration.`);
+  } catch (error) {
+  if (error instanceof Error && error.message.endsWith("changed during enumeration.")) throw error;
+  throw new Error(`${label} could not verify enumeration.`, { cause: error });
+  }
+  return keys;
+}
+const managedLocalStorage = managedStorageFacade("local");
+const managedSessionStorage = managedStorageFacade("session");
+function managedStorageFacade(area) {
+  return {
+  getItem(key) {
+    const { storage, epoch } = certifiedArea(area);
+    const raw = readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
+    if (raw === null || epoch.generation === 0) return raw;
+    try {
+      const unreadable = Symbol("unreadable-managed-web-storage");
+      const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    assertManagedLogicalKey(key);
+    const { storage, epoch } = certifiedArea(area);
+    const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
+    writeAndVerify(storage, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+    assertAreaCertificate(area, epoch);
+  },
+  removeItem(key) {
+    assertManagedLogicalKey(key);
+    const { storage, epoch } = certifiedArea(area);
+    const physicalKey = physicalStorageKey(key, epoch);
+    removeStorageValue(storage, physicalKey, `${area}Storage key "${key}"`);
+    if (readStorageValue(storage, physicalKey, `${area}Storage key "${key}"`) !== null) {
+      throw new Error(`${area}Storage retained managed key "${key}".`);
+    }
+    assertAreaCertificate(area, epoch);
+  }
+  };
+}
+function certifiedArea(area) {
+  const epoch = certifiedEpoch;
+  if (!epoch) throw new Error("Managed web storage has not passed its epoch barrier.");
+  assertAreaCertificate(area, epoch);
+  return { storage: storageArea(area), epoch };
+}
+function assertAreaCertificate(area, epoch) {
+  const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+  if (marker !== managedStateEpochToken(epoch)) {
+  throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
+  }
+}
+function physicalStorageKey(key, epoch) {
+  assertManagedLogicalKey(key);
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+function assertManagedLogicalKey(key) {
+  if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
+  throw new TypeError(`Managed web storage requires a logical Yomu key, received "${key}".`);
+  }
+}
+function storageArea(area) {
+  try {
+  const storage = area === "local" ? localStorage : sessionStorage;
+  if (!storage) throw new Error(`${area}Storage is unavailable.`);
+  return storage;
+  } catch (error) {
+  throw new Error(`${area}Storage is unavailable.`, { cause: error });
+  }
+}
+function readStorageValue(storage, key, label) {
+  try {
+  return storage.getItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be read.`, { cause: error });
+  }
+}
+function writeAndVerify(storage, key, value, label) {
+  try {
+  storage.setItem(key, value);
+  } catch (error) {
+  throw new Error(`${label} could not be written.`, { cause: error });
+  }
+  if (readStorageValue(storage, key, label) !== value) throw new Error(`${label} failed read-back verification.`);
+}
+function removeStorageValue(storage, key, label) {
+  try {
+  storage.removeItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be removed.`, { cause: error });
+  }
+}
+const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
+const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+async function withGmStorageLeaseCore(name, operation, options, environment) {
+  const { getValue, setValue, deleteValue, listValues } = environment.backend;
+  if (!getValue || !setValue || !deleteValue || !listValues) {
+  return withWebStorageLock(name, async () => {
+    const epoch2 = await environment.captureEpoch(getValue);
+    await environment.assertMutationFence(getValue, epoch2);
+    const result = await operation();
+    await environment.assertMutationFence(getValue, epoch2);
+    return result;
+  });
+  }
+  const epoch = await environment.captureEpoch(getValue);
+  await environment.assertMutationFence(getValue, epoch);
+  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
+  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
+  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
+  const owner = createStorageCoordinationId();
+  const claimId = createStorageCoordinationId();
+  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+  const key = `${prefix}${owner}`;
+  const startedAt = Date.now();
+  let claim = {
+  version: 1,
+  claimId,
+  owner,
+  epoch: environment.epochToken(epoch),
+  choosing: true,
+  ticket: 0,
+  leaseUntil: startedAt + leaseMs
+  };
+  const writeClaim = async (nextClaim) => {
+  await environment.assertMutationFence(getValue, epoch);
+  try {
+    await setValue(key, nextClaim);
+    await environment.assertMutationFence(getValue, epoch);
+    await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
+  } catch (error) {
+    await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
+      debugStorageLeaseError("GM storage lease rollback failed", key, cleanupError);
+    });
+    throw error;
+  }
+  };
+  await writeClaim(claim);
+  try {
+  const initialClaims = await readStorageLeaseClaims(
+    prefix,
+    listValues,
+    getValue,
+    environment.epochToken(epoch),
+    Date.now()
+  );
+  const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+  claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+  await writeClaim(claim);
+  while (true) {
+    await environment.assertMutationFence(getValue, epoch);
+    const now = Date.now();
+    if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+    const claims = await readStorageLeaseClaims(
+      prefix,
+      listValues,
+      getValue,
+      environment.epochToken(epoch),
+      now
+    );
+    const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+    if (!blocked) break;
+    if (claim.leaseUntil - now <= leaseMs / 2) {
+      claim = { ...claim, leaseUntil: now + leaseMs };
+      await writeClaim(claim);
+    }
+    await storageLeaseDelay(pollMs);
+  }
+  let renewalStopped = false;
+  let renewal = Promise.resolve();
+  let leaseLost;
+  let leaseWasLost = false;
+  const renewalTimer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (renewalStopped || leaseLost) return;
+      await assertStorageLeaseClaimOwned(key, claim, getValue);
+      claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+      await writeClaim(claim);
+    }).catch((error) => {
+      leaseLost = error;
+      leaseWasLost = true;
+      debugStorageLeaseError("GM storage lease renewal failed", key, error);
+    });
+  }, Math.max(250, Math.floor(leaseMs / 3)));
+  let result;
+  let operationError;
+  let operationFailed = false;
+  try {
+    await environment.assertMutationFence(getValue, epoch);
+    await assertStorageLeaseClaimOwned(key, claim, getValue);
+    result = await operation();
+    await environment.assertMutationFence(getValue, epoch);
+    await assertStorageLeaseClaimOwned(key, claim, getValue);
+  } catch (error) {
+    operationFailed = true;
+    operationError = error;
+  } finally {
+    renewalStopped = true;
+    clearInterval(renewalTimer);
+    await renewal;
+  }
+  if (operationFailed) throw operationError;
+  if (leaseWasLost) throw leaseLost;
+  return result;
+  } finally {
+  try {
+    await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue);
+  } catch (error) {
+    debugStorageLeaseError("GM storage lease release failed", key, error);
+  }
+  }
+}
+async function withManagedStateEpochControlLeaseCore(operation, environment) {
+  const { getValue, setValue, deleteValue, listValues } = environment.backend;
+  const available = [getValue, setValue, deleteValue, listValues].filter(Boolean).length;
+  if (available === 0) return withWebStorageLock("managed-state-epoch-control", operation);
+  if (!getValue || !setValue || !deleteValue || !listValues) {
+  throw new Error("Managed storage cannot serialize epoch reconciliation without GM_listValues.");
+  }
+  const leaseMs = 3e4;
+  const pollMs = 10;
+  const timeoutMs = 9e4;
+  const owner = createStorageCoordinationId();
+  const key = `${MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX}${owner}`;
+  const startedAt = Date.now();
+  let claim = {
+  version: 1,
+  claimId: createStorageCoordinationId(),
+  owner,
+  epoch: "epoch-control:v1",
+  choosing: true,
+  ticket: 0,
+  leaseUntil: startedAt + leaseMs
+  };
+  const writeClaim = async (nextClaim) => {
+  try {
+    await setValue(key, nextClaim);
+    await assertStorageLeaseClaimOwned(key, nextClaim, getValue);
+  } catch (error) {
+    await deleteStorageLeaseClaimIfOwned(key, nextClaim, getValue, deleteValue).catch((cleanupError) => {
+      debugStorageLeaseError("Raw GM storage lease rollback failed", key, cleanupError);
+    });
+    throw error;
+  }
+  };
+  await writeClaim(claim);
+  try {
+  const initialClaims = await readStorageLeaseClaims(
+    MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+    listValues,
+    getValue,
+    claim.epoch,
+    Date.now()
+  );
+  const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
+  claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+  await writeClaim(claim);
+  while (true) {
+    const now = Date.now();
+    if (now - startedAt >= timeoutMs) throw new Error("Timed out waiting for the managed-state epoch lease.");
+    const claims = await readStorageLeaseClaims(
+      MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+      listValues,
+      getValue,
+      claim.epoch,
+      now
+    );
+    const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+    if (!blocked) break;
+    if (claim.leaseUntil - now <= leaseMs / 2) {
+      claim = { ...claim, leaseUntil: now + leaseMs };
+      await writeClaim(claim);
+    }
+    await storageLeaseDelay(pollMs);
+  }
+  let stopped = false;
+  let lost = false;
+  let lostError;
+  let renewal = Promise.resolve();
+  const timer = setInterval(() => {
+    renewal = renewal.then(async () => {
+      if (stopped || lost) return;
+      await assertStorageLeaseClaimOwned(key, claim, getValue);
+      claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+      await writeClaim(claim);
+    }).catch((error) => {
+      lost = true;
+      lostError = error;
+    });
+  }, Math.floor(leaseMs / 3));
+  let result;
+  let failed = false;
+  let operationError;
+  try {
+    await assertStorageLeaseClaimOwned(key, claim, getValue);
+    result = await operation();
+    await assertStorageLeaseClaimOwned(key, claim, getValue);
+  } catch (error) {
+    failed = true;
+    operationError = error;
+  } finally {
+    stopped = true;
+    clearInterval(timer);
+    await renewal;
+  }
+  if (failed) throw operationError;
+  if (lost) throw lostError;
+  return result;
+  } finally {
+  await deleteStorageLeaseClaimIfOwned(key, claim, getValue, deleteValue).catch((error) => debugStorageLeaseError("Managed-state epoch lease release failed", key, error));
+  }
+}
+async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
+  const keys = (await listValues()).filter((key) => key.startsWith(prefix));
+  const values = await Promise.all(keys.map((key) => getValue(key, null)));
+  return values.flatMap((value) => {
+  const claim = parseStorageLeaseClaim(value);
+  return claim && claim.epoch === epochToken && claim.leaseUntil > now ? [claim] : [];
+  });
+}
+function parseStorageLeaseClaim(value) {
+  if (!isPlainRecord$1(value) || value.version !== 1 || typeof value.owner !== "string" || value.claimId !== void 0 && typeof value.claimId !== "string" || value.epoch !== void 0 && typeof value.epoch !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+  return {
+  version: 1,
+  claimId: value.claimId || value.owner,
+  owner: value.owner,
+  epoch: value.epoch || "0:legacy",
+  choosing: value.choosing,
+  ticket: value.ticket,
+  leaseUntil: value.leaseUntil
+  };
+}
+async function assertStorageLeaseClaimOwned(key, expected, getValue) {
+  const actual = parseStorageLeaseClaim(await getValue(key, null));
+  if (!actual || !sameStorageLeaseClaimIdentity(actual, expected)) {
+  throw new Error(`Storage lease ownership was lost: ${key}`);
+  }
+}
+async function deleteStorageLeaseClaimIfOwned(key, expected, getValue, deleteValue) {
+  const actual = parseStorageLeaseClaim(await getValue(key, null));
+  if (actual && sameStorageLeaseClaimIdentity(actual, expected)) await deleteValue(key);
+}
+function sameStorageLeaseClaimIdentity(left, right) {
+  return left.claimId === right.claimId && left.owner === right.owner && left.epoch === right.epoch;
+}
+function normalizedStorageLeaseName(name) {
+  const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+  if (!normalized) throw new TypeError("Storage lease name is required.");
+  return normalized;
+}
+function boundedLeaseOption(value, fallback, minimum, maximum) {
+  if (value === void 0) return fallback;
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+  return value;
+}
+function storageLeaseDelay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+async function withWebStorageLock(name, operation) {
+  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
+  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+}
+function isPlainRecord$1(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+function createStorageCoordinationId() {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+function debugStorageLeaseError(message, key, error) {
+  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
+}
+const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
+  "yomu:factory-reset-signal",
+  MANAGED_STATE_EPOCH_KEY,
+  "yomu:local-storage-provenance:v1",
+  "__yomu_cloud_settings_sync_pending_action"
+]);
+function isManagedStorageBackupKey(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
+}
+const MISSING = { __yomuStorageValueMissing: true };
+function isMissingSentinel(value) {
+  if (value === MISSING) return true;
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+}
+const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
+const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
+const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
+const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
+const MANAGED_IDB_DELETE_TIMEOUT_MS = 2e3;
+const MANAGED_CACHE_NAME_PREFIXES = [
+  "yomu-newtab-",
+  "yomu-pdf-reader-",
+  "yomu-video-player-",
+  "yomu-docs-shell-"
+];
+const FACTORY_RESET_CONTROL_STORAGE_KEYS = new Set([
+  FACTORY_RESET_SIGNAL_KEY,
+  MANAGED_STATE_EPOCH_KEY
+]);
+const managedStateEpochSession = managedStateEpochSessionForRealm();
+class ManagedStateResetError extends Error {
+  yomuUiCopyKey = "factoryResetStorageIncomplete";
+  epochMayHaveCommitted;
+  constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
+  super(diagnostic, options);
+  this.name = "ManagedStateResetError";
+  this.epochMayHaveCommitted = epochMayHaveCommitted;
+  }
+}
+function managedStateResetEpochMayHaveCommitted(error) {
+  return Boolean(error && typeof error === "object" && error.epochMayHaveCommitted === true);
+}
+async function rawAuthoritativeManagedStateEpoch(getValue) {
+  const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  return isMissingSentinel(stored) ? void 0 : stored;
+}
+async function authoritativeManagedStateEpoch(getValue) {
+  return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+}
+async function assertRealmManagedStateEpoch(getValue) {
+  const readEpoch = getValue ? async () => {
+  const epoch2 = await authoritativeManagedStateEpoch(getValue);
+  return epoch2.generation === 0 ? void 0 : epoch2;
+  } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
+  const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
+  if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
+  return epoch;
+}
+async function managedGmValue(getValue, key, fallback, epoch) {
+  const read = await readManagedGmValue(getValue, key, epoch);
+  return read.kind === "found" ? read.value : fallback;
+}
+async function readManagedGmValue(getValue, key, epoch) {
+  const storageKey = managedStateStorageKey(key, epoch);
+  const scoped = await getValue(storageKey, MISSING);
+  const readFromCurrentSlot = !isMissingSentinel(scoped);
+  const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
+  await assertRealmManagedStateEpoch(getValue);
+  if (isMissingSentinel(stored)) return { kind: "missing" };
+  const unreadable = Symbol("unreadable-managed-state");
+  const logical = managedStateLogicalValue(stored, epoch, unreadable);
+  if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+  if (isMissingSentinel(logical)) return { kind: "deleted" };
+  return { kind: "found", value: logical };
+}
+function managedStateStorageKey(key, epoch) {
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
+  await assertManagedStateMutationFence(getValue, epoch);
+  const stored = managedStateStoredValue(value, epoch);
+  const storageKey = managedStateStorageKey(key, epoch);
+  await setValue(storageKey, stored);
+  await assertManagedStateMutationFence(getValue, epoch);
+}
+async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
+  const storageKey = managedStateStorageKey(key, epoch);
+  if (managedStateWritesSuppressed()) {
+  if (!deleteValue) throw new Error("Managed storage cannot delete its value during factory reset.");
+  await deleteValue(storageKey);
+  if (storageKey !== key) await deleteValue(key);
+  await assertRealmManagedStateEpoch(getValue);
+  return;
+  }
+  if (storageKey === key) {
+  if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
+  await deleteValue(key);
+  await assertRealmManagedStateEpoch(getValue);
+  return;
+  }
+  if (!setValue) throw new Error("Managed storage cannot persist a deletion tombstone.");
+  await setValue(storageKey, managedStateStoredValue(MISSING, epoch));
+  await assertRealmManagedStateEpoch(getValue);
+  if (deleteValue) {
+  try {
+    await deleteValue(key);
+  } catch (error) {
+    debugStorageError("Managed GM logical-key delete mirror failed", key, error);
+  }
+  await assertRealmManagedStateEpoch(getValue);
+  }
+}
+function managedStateEpochFromSynchronousGetter(getValue) {
+  const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  if (isPromiseLike$1(stored)) return null;
+  const shared = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
+  managedStateEpochSession.assertCurrentSync(shared.generation === 0 ? void 0 : shared);
+  cacheManagedStateEpochForLocalFallback(shared);
+  return shared;
+}
+function managedStateEpochForSynchronousLocalRead() {
+  try {
+  const getValue = directGmGetValue();
+  if (getValue) {
+    const synchronous = managedStateEpochFromSynchronousGetter(getValue);
+    if (synchronous) return synchronous;
+    return managedStateEpochSession.current() ?? null;
+  }
+  if (asyncGmGetValue()) return managedStateEpochSession.current() ?? null;
+  return managedStateEpochSession.assertCurrentSync(
+    localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0)
+  );
+  } catch (error) {
+  debugStorageError("Managed state epoch sync read failed", MANAGED_STATE_EPOCH_KEY, error);
+  return null;
+  }
+}
+function hasAsyncGmStorageBackend() {
+  return asyncGmGetValue() !== null;
+}
+async function assertManagedStateMutationAllowed() {
+  const getValue = asyncGmGetValue();
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  await assertManagedStateMutationFence(getValue, epoch);
+  return epoch;
+}
+async function ensureManagedWebStorageCurrent() {
+  const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
+  await ensureManagedWebStorageEpochCurrent(epoch);
+}
+function ensureManagedWebStorageCurrentSync() {
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (!epoch) return false;
+  ensureManagedWebStorageEpochCurrentSync(epoch);
+  return true;
+}
+function localFallbackStoredValue(key, fallback) {
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return fallback;
+  return localStorageGet(key, fallback);
+}
+async function gmStorageGet(key, fallback) {
+  const getValue = asyncGmGetValue();
+  if (getValue) {
+  let epoch2;
+  try {
+    epoch2 = await assertRealmManagedStateEpoch(getValue);
+    const pendingPatch = pendingHostedLocalPatch(key, epoch2);
+    if (pendingPatch) {
+      const shared = await managedGmValue(getValue, key, void 0, epoch2);
+      const sharedRecord = isPlainRecord(shared) ? shared : {};
+      const reconciled = { ...sharedRecord, ...pendingPatch };
+      await gmStorageSet(key, reconciled);
+      return reconciled;
+    }
+    const read = await readManagedGmValue(getValue, key, epoch2);
+    if (read.kind === "found") return read.value;
+    if (read.kind === "deleted") return fallback;
+    const migrated = localMirrorBelongsToEpoch(key, epoch2) ? localStorageGet(key, MISSING) : MISSING;
+    if (!isMissingSentinel(migrated)) {
+      const promoted = sanitizedStrandedLocalValue(key, migrated);
+      await gmStorageSet(key, promoted);
+      return promoted;
+    }
+    return fallback;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage read failed", key, error);
+    if (epoch2 && localMirrorBelongsToEpoch(key, epoch2)) {
+      return localStorageGet(key, fallback);
+    }
+    return fallback;
+  }
+  }
+  const epoch = await assertRealmManagedStateEpoch(null);
+  const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
+  if (!isMissingSentinel(local)) return local;
+  if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
+  mirrorManagedValueToHostedStorage(key, fallback, epoch);
+  }
+  return fallback;
+}
+async function gmStorageGetForResetEnumeration(key, fallback) {
+  const getValue = asyncGmGetValue();
+  if (getValue) {
+  const before = await authoritativeManagedStateEpoch(getValue);
+  const storageKey = managedStateStorageKey(key, before);
+  let stored2 = await getValue(storageKey, MISSING);
+  const readFromCurrentSlot = !isMissingSentinel(stored2);
+  if (!readFromCurrentSlot && storageKey !== key) {
+    stored2 = await getValue(key, MISSING);
+  }
+  const after = await authoritativeManagedStateEpoch(getValue);
+  if (!sameManagedStateEpoch(before, after)) {
+    throw new ManagedStateResetError(`Managed storage changed epoch while enumerating "${key}".`);
+  }
+  if (isMissingSentinel(stored2)) return fallback;
+  const logical = managedStateResetEnumerationValue(stored2);
+  return isMissingSentinel(logical) ? fallback : logical;
+  }
+  if (asyncGmSetValue() || asyncGmDeleteValue()) {
+  throw new ManagedStateResetError(`Managed storage cannot read the index "${key}".`);
+  }
+  const stored = localStorageGet(key, MISSING);
+  return isMissingSentinel(stored) ? fallback : managedStateResetEnumerationValue(stored);
+}
+async function gmPrivateStorageGet(key, fallback) {
+  assertPrivateStorageKey(key);
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  if (!getValue) return fallback;
+  try {
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  return await managedGmValue(getValue, key, fallback, epoch);
+  } catch (error) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("Private GM storage read failed", key, error);
+  return fallback;
+  }
+}
+async function withGmStorageLease(name, operation, options = {}) {
+  return withGmStorageLeaseCore(name, operation, options, {
+  backend: gmStorageLeaseBackend(),
+  captureEpoch: assertRealmManagedStateEpoch,
+  assertMutationFence: assertManagedStateMutationFence,
+  epochToken: managedStateEpochToken
+  });
+}
+async function withManagedStateEpochControlLease(operation) {
+  return withManagedStateEpochControlLeaseCore(operation, {
+  backend: gmStorageLeaseBackend()
+  });
+}
+function gmStorageLeaseBackend() {
+  return {
+  getValue: asyncGmGetValue(),
+  setValue: asyncGmSetValue(),
+  deleteValue: asyncGmDeleteValue(),
+  listValues: asyncGmListValues()
+  };
+}
+function gmStorageGetSync(key, fallback) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  if (getValue) {
+  const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
+  if (!epoch2) return fallback;
+  const read = gmStorageSyncRead(key, getValue, epoch2);
+  if (read.kind === "found") return read.value;
+  if (read.kind === "deleted") return fallback;
+  }
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
+}
+function gmStorageGetSharedSync(key, fallback) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  if (!getValue) return fallback;
+  try {
+  const epoch = managedStateEpochFromSynchronousGetter(getValue);
+  if (!epoch) return fallback;
+  const storageKey = managedStateStorageKey(key, epoch);
+  let stored = getValue(storageKey, MISSING);
+  if (isPromiseLike$1(stored)) return fallback;
+  if (isMissingSentinel(stored) && storageKey !== key) {
+    stored = getValue(key, MISSING);
+  }
+  if (isPromiseLike$1(stored) || isMissingSentinel(stored)) return fallback;
+  const unreadable = Symbol("unreadable-managed-state");
+  const logical = managedStateLogicalValue(stored, epoch, unreadable);
+  return logical === unreadable || isMissingSentinel(logical) ? fallback : logical;
+  } catch (error) {
+  debugStorageError("Shared GM storage sync read failed", key, error);
+  return fallback;
+  }
+}
+function gmStorageSyncRead(key, getValue, epoch) {
+  try {
+  const storageKey = managedStateStorageKey(key, epoch);
+  let stored = getValue(storageKey, MISSING);
+  if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  const readFromCurrentSlot = !isMissingSentinel(stored);
+  if (isMissingSentinel(stored) && storageKey !== key) {
+    stored = getValue(key, MISSING);
+    if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  }
+  if (!isMissingSentinel(stored)) {
+    const unreadable = Symbol("unreadable-managed-state");
+    const value = managedStateLogicalValue(stored, epoch, unreadable);
+    if (value === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "fallback" };
+    if (isMissingSentinel(value)) return { kind: "deleted" };
+    return { kind: "found", value };
+  }
+  return migratedLocalStorageSyncValue(key, epoch);
+  } catch (error) {
+  debugStorageError("GM storage sync read failed", key, error);
+  return { kind: "fallback" };
+  }
+}
+function migratedLocalStorageSyncValue(key, epoch) {
+  if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
+  const migrated = localStorageGet(key, MISSING);
+  if (isMissingSentinel(migrated)) return { kind: "fallback" };
+  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  void gmStorageSet(key, promoted);
+  return { kind: "found", value: promoted };
+}
+const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
+const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
+function sanitizedStrandedLocalValue(key, value) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = { ...value };
+  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
+  return record;
+}
+function pendingHostedLocalPatch(key, epoch) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
+  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
+  const value = localStorageGet(key, void 0);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
+  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
+}
+function localFallbackValueForWrite(key, value) {
+  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const current = sanitizedStrandedLocalValue(key, value);
+  const previousValue = localStorageGet(key, void 0);
+  const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
+  const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
+  if (!previous) return value;
+  const changed = changedRecordFields(previous, current);
+  return {
+  ...value,
+  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
+  };
+}
+function changedRecordFields(previous, current) {
+  const changed = {};
+  for (const [field, value] of Object.entries(current)) {
+  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
+  }
+  return changed;
+}
+async function gmStorageSet(key, value) {
+  if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  if (setValue) {
+  let epoch2;
+  try {
+    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+    epoch2 = await assertRealmManagedStateEpoch(getValue);
+    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
+    mirrorManagedValueToHostedStorage(key, value, epoch2);
+    return;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage write failed", key, error);
+    try {
+      epoch2 ??= await assertRealmManagedStateEpoch(null);
+      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
+    } catch (fallbackError) {
+      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+    }
+    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+  }
+  }
+  const epoch = await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+async function gmPrivateStorageSet(key, value) {
+  assertPrivateStorageKey(key);
+  if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  const getValue = directGmGetValue();
+  const setValue = directGmSetValue();
+  if (!getValue || !setValue) throw new Error("Secure extension storage is unavailable.");
+  try {
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  await writeManagedGmValue(key, value, epoch, getValue, setValue);
+  } catch (error) {
+  if (isStaleManagedStateEpochError(error)) throw error;
+  debugStorageError("Private GM storage write failed", key, error);
+  throw new Error("Secure extension storage is unavailable.");
+  }
+}
+function gmStorageSetSync(key, value) {
+  if (managedStateWritesSuppressed()) {
+  debugStorageError("Managed state write suppressed during factory reset", key, null);
+  return;
+  }
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  let epoch = null;
+  if (getValue && setValue) {
+  try {
+    epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
+      return;
+    }
+    const stored = managedStateStoredValue(value, epoch);
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = setValue(storageKey, stored);
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        mirrorManagedValueToHostedStorage(key, value, epoch);
+      }).catch((error) => debugStorageError("GM storage async write failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    mirrorManagedValueToHostedStorage(key, value, epoch);
+    return;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) {
+      debugStorageError("Rejected stale managed state write", key, error);
+      return;
+    }
+    debugStorageError("GM storage sync write failed", key, error);
+  }
+  }
+  if ((!getValue || !setValue) && asyncGmSetValue()) {
+  void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
+  return;
+  }
+  try {
+  epoch ??= managedStateEpochForSynchronousLocalRead();
+  if (!epoch) return;
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+  } catch (error) {
+  debugStorageError("localStorage sync write failed", key, error);
+  }
+}
+async function gmStorageDelete(key) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  const deleteValue = asyncGmDeleteValue();
+  const hasBackend = Boolean(getValue || setValue || deleteValue);
+  if (hasBackend && !getValue) {
+  throw storageWriteError(key, "Managed storage cannot validate and delete the same backend value");
+  }
+  if (getValue) {
+  try {
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage delete failed", key, error);
+    throw storageWriteError(key, "GM storage delete failed", error);
+  }
+  } else {
+  await assertRealmManagedStateEpoch(null);
+  }
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+async function deleteManagedStoredValue(key) {
+  const getValue = asyncGmGetValue();
+  const deleteValue = asyncGmDeleteValue();
+  if (getValue && !deleteValue) {
+  throw new ManagedStateResetError(`Managed storage cannot delete "${key}".`);
+  }
+  const epoch = !isManagedStorageSlotKey(key) && getValue ? await authoritativeManagedStateEpoch(getValue) : null;
+  const targets = new Set([key]);
+  if (epoch) targets.add(managedStateStorageKey(key, epoch));
+  if (deleteValue) {
+  for (const target of targets) {
+    try {
+      await deleteValue(target);
+    } catch (error) {
+      throw new ManagedStateResetError(`Managed storage failed to delete "${target}".`, { cause: error });
+    }
+  }
+  }
+  for (const target of targets) {
+  removeLocalStorageKey(target);
+  removeSessionStorageKey(target);
+  }
+  if (getValue) {
+  for (const target of targets) {
+    let stored;
+    try {
+      stored = await getValue(target, MISSING);
+    } catch (error) {
+      throw new ManagedStateResetError(`Managed storage could not verify deletion of "${target}".`, { cause: error });
+    }
+    if (!isMissingSentinel(stored)) {
+      throw new ManagedStateResetError(`Managed storage still contains "${target}" after deletion.`);
+    }
+  }
+  }
+  for (const target of targets) {
+  if (resetWebStorageHasKey(localStorage, target, "localStorage") || resetWebStorageHasKey(sessionStorage, target, "sessionStorage")) {
+    throw new ManagedStateResetError(`Web storage still contains "${target}" after deletion.`);
+  }
+  }
+}
+async function gmPrivateStorageDelete(key) {
+  assertPrivateStorageKey(key);
+  const getValue = directGmGetValue();
+  const setValue = directGmSetValue();
+  const deleteValue = directGmDeleteValue();
+  if (!getValue || !setValue && !deleteValue) throw new Error("Secure extension storage is unavailable.");
+  if (getValue) {
+  try {
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("Private GM storage delete failed", key, error);
+    throw new Error("Secure extension storage is unavailable.");
+  }
+  }
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+}
+function assertPrivateStorageKey(key) {
+  if (!isPrivateManagedStorageKey(key)) throw new TypeError("Private storage requires a yomu:private: key.");
+}
+function gmStorageDeleteSync(key) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+  if (getValue && (setValue || deleteValue)) {
+  try {
+    const epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = storageKey === key ? deleteValue?.(key) : setValue?.(storageKey, managedStateStoredValue(MISSING, epoch));
+    if (result === void 0 && (storageKey === key ? !deleteValue : !setValue)) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        removeLocalManagedValue(key);
+      }).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    removeLocalManagedValue(key);
+    return;
+  } catch (error) {
+    debugStorageError("GM storage sync delete failed", key, error);
+    return;
+  }
+  }
+  if (asyncGmDeleteValue() || asyncGmSetValue()) {
+  void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+  return;
+  }
+  try {
+  if (!managedStateEpochForSynchronousLocalRead()) return;
+  removeLocalManagedValue(key);
+  } catch (error) {
+  debugStorageError("localStorage sync delete failed", key, error);
+  }
+}
+async function exportStoredValues(prefixes) {
+  await ensureManagedWebStorageCurrent();
+  const keys = (await storageKeys(prefixes)).filter(isManagedStorageBackupKey);
+  const entries2 = await Promise.all(keys.map(async (key) => [key, await storedBackupValue(key)]));
+  return Object.fromEntries(entries2.filter(([, value]) => !isMissingSentinel(value)));
+}
+async function storedBackupValue(key) {
+  const shared = await gmStorageGet(key, MISSING);
+  if (!isMissingSentinel(shared)) return shared;
+  try {
+  const serialized = managedLocalStorage.getItem(key);
+  return serialized === null ? MISSING : JSON.parse(serialized);
+  } catch {
+  return MISSING;
+  }
+}
+async function exportManagedStoredValues() {
+  return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
+}
+async function importStoredValues(values) {
+  let count = 0;
+  const entries2 = managedStoredValueEntries(values).sort(([left], [right]) => Number(left === YOMU_LOCAL_SRS_V2_INDEX_KEY) - Number(right === YOMU_LOCAL_SRS_V2_INDEX_KEY));
+  for (const [key, value] of entries2) {
+  const storedValue = key === YOMU_LOCAL_SRS_STORAGE_KEY ? await mergeYomuLocalSrsDeckImport(value) : await mergeYomuLocalSrsV2Import(key, value);
+  await gmStorageSet(key, storedValue);
+  count++;
+  }
+  return count;
+}
+async function mergeYomuLocalSrsV2Import(key, imported) {
+  if (key === YOMU_LOCAL_SRS_V2_INDEX_KEY) {
+  const existing = await gmStorageGet(key, null).catch(() => null);
+  if (!isPlainRecord(imported) || !isPlainRecord(existing)) return imported;
+  return {
+    version: 2,
+    revision: Math.max(
+      nonNegativeSafeInteger(existing.revision),
+      nonNegativeSafeInteger(imported.revision)
+    ) + 1,
+    cardIds: mergedStringIds(existing.cardIds, imported.cardIds),
+    tombstoneIds: mergedStringIds(existing.tombstoneIds, imported.tombstoneIds)
+  };
+  }
+  if (key.startsWith(YOMU_LOCAL_SRS_V2_CARD_PREFIX)) {
+  const id = decodeStoredYomuSrsId(key.slice(YOMU_LOCAL_SRS_V2_CARD_PREFIX.length));
+  const existing = await gmStorageGet(key, null).catch(() => null);
+  if (!id || !isPlainRecord(imported) || !isPlainRecord(existing)) return imported;
+  return mergeYomuLocalSrsCards(
+    { [id]: existing },
+    { [id]: imported }
+  )[id] ?? imported;
+  }
+  if (key.startsWith(YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX)) {
+  const existing = await gmStorageGet(key, null).catch(() => null);
+  return Math.max(nonNegativeSafeInteger(existing), nonNegativeSafeInteger(imported));
+  }
+  return imported;
+}
+function mergedStringIds(left, right) {
+  return [...new Set([
+  ...Array.isArray(left) ? left.filter((value) => typeof value === "string") : [],
+  ...Array.isArray(right) ? right.filter((value) => typeof value === "string") : []
+  ])].sort();
+}
+function nonNegativeSafeInteger(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : 0;
+}
+function decodeStoredYomuSrsId(value) {
+  try {
+  return decodeURIComponent(value);
+  } catch {
+  return null;
+  }
+}
+function managedStoredValueEntries(values) {
+  return isStorageImportRecord(values) ? Object.entries(values).filter(([key]) => isManagedStorageBackupKey(key)) : [];
+}
+function isStorageImportRecord(values) {
+  return Boolean(values && typeof values === "object" && !Array.isArray(values));
+}
+async function mergeYomuLocalSrsDeckImport(imported) {
+  const importedDeck = yomuLocalSrsDeckRecord(imported);
+  if (!importedDeck) return imported;
+  const existingDeck = yomuLocalSrsDeckRecord(await gmStorageGet(YOMU_LOCAL_SRS_STORAGE_KEY, null).catch(() => null));
+  if (!existingDeck) return importedDeck;
+  return {
+  version: 1,
+  cards: mergeYomuLocalSrsCards(existingDeck.cards, importedDeck.cards)
+  };
+}
+function yomuLocalSrsDeckRecord(value) {
+  if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.cards)) return null;
+  const cards = {};
+  for (const [id, card] of Object.entries(value.cards)) {
+  if (isPlainRecord(card)) cards[id] = card;
+  }
+  return { version: 1, cards };
+}
+function mergeYomuLocalSrsCards(existingCards, importedCards) {
+  const cards = { ...existingCards };
+  for (const [id, importedCard] of Object.entries(importedCards)) {
+  const existingCard = cards[id];
+  cards[id] = existingCard ? mergeYomuLocalSrsCard(existingCard, importedCard) : importedCard;
+  }
+  return cards;
+}
+function mergeYomuLocalSrsCard(existingCard, importedCard) {
+  return {
+  ...importedCard,
+  ...existingCard,
+  meanings: uniquePrimitiveStrings([
+    ...stringArray$1(importedCard.meanings),
+    ...stringArray$1(existingCard.meanings)
+  ]),
+  sentence: existingCard.sentence || importedCard.sentence,
+  sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
+  tags: uniquePrimitiveStrings([
+    ...stringArray$1(importedCard.tags),
+    ...stringArray$1(existingCard.tags)
+  ]),
+  createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
+  updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
+  };
+}
+function stringArray$1(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim().length > 0) : [];
+}
+function uniquePrimitiveStrings(values) {
+  return Array.from(new Set(values));
+}
+function minFiniteNumber(a, b) {
+  const values = [a, b].filter((value) => typeof value === "number" && Number.isFinite(value));
+  return values.length ? Math.min(...values) : void 0;
+}
+function maxFiniteNumber(a, b) {
+  const values = [a, b].filter((value) => typeof value === "number" && Number.isFinite(value));
+  return values.length ? Math.max(...values) : void 0;
+}
+function isPlainRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+async function clearManagedStoredValues() {
+  const keys = await allStorageKeys();
+  await clearBridgePrivateManagedValuesForReset();
+  let count = 0;
+  for (const key of keys) {
+  await deleteManagedStoredValue(key);
+  count++;
+  }
+  await clearManagedIndexedDatabases();
+  count += await clearManagedBrowserCaches();
+  count += await unregisterManagedServiceWorkers();
+  return count;
+}
+async function managedStoredKeysStillPresent() {
+  const keys = await allStorageKeys();
+  await clearBridgePrivateManagedValuesForReset();
+  return keys;
+}
+async function clearManagedBrowserCaches() {
+  if (typeof caches === "undefined") return 0;
+  try {
+  const keys = await caches.keys();
+  const managedKeys = keys.filter(isManagedBrowserCacheName);
+  const deleted = await Promise.all(managedKeys.map((key) => caches.delete(key)));
+  const failed = managedKeys.filter((_key, index) => !deleted[index]);
+  if (failed.length) throw new ManagedStateResetError(`Managed browser caches remained: ${failed.join(", ")}`);
+  return deleted.length;
+  } catch (error) {
+  debugStorageError("Cache API clear failed", "managed-caches", error);
+  if (error instanceof ManagedStateResetError) throw error;
+  throw new ManagedStateResetError("Managed browser caches could not be cleared.", { cause: error });
+  }
+}
+async function unregisterManagedServiceWorkers() {
+  if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
+  try {
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
+  const unregistered = await Promise.all(managedRegistrations.map((registration) => registration.unregister()));
+  const failed = managedRegistrations.filter((_registration, index) => !unregistered[index]);
+  if (failed.length) throw new ManagedStateResetError("Managed service workers remained registered.");
+  return unregistered.length;
+  } catch (error) {
+  debugStorageError("Service worker unregister failed", "managed-service-workers", error);
+  if (error instanceof ManagedStateResetError) throw error;
+  throw new ManagedStateResetError("Managed service workers could not be unregistered.", { cause: error });
+  }
+}
+async function setRawControlStorageValue(key, value) {
+  const setValue = asyncGmSetValue();
+  if (setValue) {
+  await setValue(key, value);
+  if (key === MANAGED_STATE_EPOCH_KEY || isHostedYomuOrigin()) localStorageSet(key, value);
+  return;
+  }
+  localStorageSetOrThrow(key, value);
+}
+async function deleteRawControlStorageValue(key) {
+  const getValue = asyncGmGetValue();
+  const deleteValue = asyncGmDeleteValue();
+  if (getValue && !deleteValue) throw new Error(`Managed storage cannot delete control key "${key}".`);
+  if (deleteValue) await deleteValue(key);
+  if (getValue) {
+  const stored = await getValue(key, MISSING);
+  if (!isMissingSentinel(stored)) throw new Error(`Managed storage retained control key "${key}".`);
+  }
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+}
+async function clearFactoryResetSignal() {
+  await deleteRawControlStorageValue(FACTORY_RESET_SIGNAL_KEY);
+}
+function createFactoryResetSignal(phase, id = createStorageCoordinationId()) {
+  return {
+  id,
+  phase,
+  at: Date.now(),
+  href: location.href
+  };
+}
+async function publishFactoryResetSignal(signal) {
+  const normalized = normalizeFactoryResetSignal(signal);
+  await setRawControlStorageValue(FACTORY_RESET_SIGNAL_KEY, normalized);
+  publishBroadcastFactoryResetSignal(normalized);
+}
+async function commitManagedStateResetEpoch(resetId) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  if (Boolean(getValue) !== Boolean(setValue)) {
+  throw new ManagedStateResetError("Managed storage cannot persist the reset epoch safely.");
+  }
+  let epochMayHaveCommitted = false;
+  try {
+  return await withManagedStateEpochControlLease(async () => {
+    const current = getValue && setValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+    const captured = managedStateEpochSession.current();
+    if (captured && !sameManagedStateEpoch(captured, current)) {
+      throw new StaleManagedStateEpochError(captured, current);
+    }
+    const next = nextManagedStateEpoch(current, resetId);
+    await setRawControlStorageValue(MANAGED_STATE_EPOCH_KEY, next);
+    epochMayHaveCommitted = true;
+    const persisted = getValue ? parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue)) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+    if (!sameManagedStateEpoch(next, persisted)) {
+      throw new ManagedStateResetError("Managed storage did not retain the new reset epoch.");
+    }
+    return next;
+  });
+  } catch (error) {
+  if (error instanceof ManagedStateResetError && error.epochMayHaveCommitted === epochMayHaveCommitted) throw error;
+  throw new ManagedStateResetError(
+    "Managed storage could not commit the reset epoch.",
+    { cause: error },
+    epochMayHaveCommitted
+  );
+  }
+}
+function subscribeToFactoryResetSignals(onSignal) {
+  const cleanups = [];
+  addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+  const signal = parseFactoryResetSignal(newValue);
+  if (signal) onSignal(signal, { remote, transport: "gm-storage" });
+  }, "GM factory reset listener failed");
+  if (typeof BroadcastChannel === "function") {
+  try {
+    const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+    channel.onmessage = (event) => {
+      const signal = parseFactoryResetSignal(event.data);
+      if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
+    };
+    cleanups.push(() => channel.close());
+  } catch (error) {
+    debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
+  }
+  }
+  addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
+  const signal = parseFactoryResetSignal(event.newValue);
+  if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
+  });
+  return () => runStorageCleanups(cleanups);
+}
+function subscribeToStoredValueChanges(key, onChange) {
+  const cleanups = [];
+  const subscriptionEpoch = managedStateEpochForSynchronousLocalRead();
+  const sharedKeys = new Set([key]);
+  if (subscriptionEpoch) sharedKeys.add(managedStateStorageKey(key, subscriptionEpoch));
+  let notificationQueue = Promise.resolve();
+  const enqueueManagedChange = (_stored, source) => {
+  notificationQueue = notificationQueue.then(() => notifyManagedStoredValueChange(key, source, onChange)).catch((error) => debugStorageError("Managed stored value listener failed", key, error));
+  };
+  for (const sharedKey of sharedKeys) {
+  addGmValueChangeCleanup(cleanups, sharedKey, (_key, _oldValue, newValue, remote) => {
+    enqueueManagedChange(newValue, { remote, transport: "gm-storage" });
+  }, "GM stored value listener failed");
+  }
+  addWebStorageCleanup(cleanups, key, (event) => {
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (!epoch || !localMirrorBelongsToEpoch(key, epoch)) return;
+  onChange(JSON.parse(event.newValue || "null"), { remote: true, transport: "web-storage" });
+  });
+  const extensionChanges = extensionStorageChangedEvent();
+  if (extensionChanges) {
+  const listener = (changes, areaName) => {
+    if (areaName !== "local") return;
+    for (const sharedKey of sharedKeys) {
+      if (!(sharedKey in changes)) continue;
+      enqueueManagedChange(
+        changes[sharedKey]?.newValue,
+        { remote: true, transport: "extension-storage" }
+      );
+    }
+  };
+  extensionChanges.addListener(listener);
+  cleanups.push(() => extensionChanges.removeListener(listener));
+  }
+  return () => runStorageCleanups(cleanups);
+}
+async function notifyManagedStoredValueChange(key, source, onChange) {
+  const getValue = asyncGmGetValue();
+  if (!getValue) return;
+  const epoch = await assertRealmManagedStateEpoch(getValue);
+  const read = await readManagedGmValue(getValue, key, epoch);
+  onChange(read.kind === "found" ? read.value : void 0, source);
+}
+function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
+  const ambientAddValueChangeListener = typeof GM_addValueChangeListener === "function" ? GM_addValueChangeListener : void 0;
+  const addValueChangeListener = ambientAddValueChangeListener ?? globalThis.GM_addValueChangeListener;
+  if (typeof addValueChangeListener !== "function") return;
+  try {
+  const listenerId = addValueChangeListener(key, listener);
+  cleanups.push(() => {
+    const ambientRemoveValueChangeListener = typeof GM_removeValueChangeListener === "function" ? GM_removeValueChangeListener : void 0;
+    const removeValueChangeListener = ambientRemoveValueChangeListener ?? globalThis.GM_removeValueChangeListener;
+    if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+  });
+  } catch (error) {
+  debugStorageError(errorLabel, key, error);
+  }
+}
+function addWebStorageCleanup(cleanups, key, listener) {
+  const onStorage = (event) => {
+  if (event.key !== key) return;
+  listener(event);
+  };
+  window.addEventListener("storage", onStorage);
+  cleanups.push(() => window.removeEventListener("storage", onStorage));
+}
+function runStorageCleanups(cleanups) {
+  while (cleanups.length) {
+  try {
+    cleanups.pop()?.();
+  } catch {
+  }
+  }
+}
+async function storageKeys(prefixes) {
+  const keys = new Set();
+  await addPrefixedGmStorageKeys(keys, prefixes);
+  addLocalStorageKeys(keys, prefixes);
+  await addKnownManagedStorageKeys(keys, prefixes);
+  return [...keys].sort();
+}
+async function addPrefixedGmStorageKeys(keys, prefixes) {
+  const listValues = asyncGmListValues();
+  if (!listValues) return;
+  try {
+  addMatchingStorageKeys(keys, await listValues(), prefixes);
+  } catch (error) {
+  debugStorageError("GM storage list failed", "GM_listValues", error);
+  }
+}
+function addLocalStorageKeys(keys, prefixes) {
+  try {
+  const candidates = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key) candidates.push(key);
+  }
+  addMatchingStorageKeys(keys, candidates, prefixes);
+  } catch {
+  }
+}
+async function addKnownManagedStorageKeys(keys, prefixes) {
+  for (const key of registeredManagedStorageKeys()) {
+  if (storageKeyMatchesPrefix(key, prefixes) && await storedValueExists(key)) keys.add(key);
+  }
+}
+function addMatchingStorageKeys(keys, candidates, prefixes) {
+  for (const key of candidates) {
+  const logicalKey = logicalManagedStorageKey(key);
+  if (logicalKey && storageKeyMatchesPrefix(logicalKey, prefixes)) keys.add(logicalKey);
+  }
+}
+function storageKeyMatchesPrefix(key, prefixes) {
+  return prefixes.some((prefix) => key.startsWith(prefix));
+}
+async function allStorageKeys() {
+  await preflightFactoryResetEpoch();
+  const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
+  const keys = new Set();
+  const gmEnumeration = await addGmStorageKeys(keys);
+  collectWebStorageKeys(localStorage, keys, "localStorage");
+  collectWebStorageKeys(sessionStorage, keys, "sessionStorage");
+  await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
+  if (!gmEnumeration.complete) {
+  const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
+  if (incompleteOwners.length) {
+    throw new ManagedStateResetError([
+      gmEnumeration.diagnostic,
+      `Missing authoritative prefix inventory: ${incompleteOwners.join(", ")}`
+    ].filter(Boolean).join(" "));
+  }
+  }
+  warnUnregisteredManagedKeys(keys);
+  return [...keys].filter((key) => !isFactoryResetControlStorageKey(key)).sort();
+}
+function bridgePrivateManagedResetAvailable() {
+  return !directGmGetValue() && Boolean(getUserscriptGmStorage());
+}
+async function clearBridgePrivateManagedValuesForReset() {
+  if (!bridgePrivateManagedResetAvailable()) return false;
+  const bridge = getUserscriptGmStorage();
+  if (!bridge) return false;
+  try {
+  await bridge.clearPrivateManagedValues();
+  return true;
+  } catch (error) {
+  throw new ManagedStateResetError("Factory reset could not clear private managed storage.", { cause: error });
+  }
+}
+function isFactoryResetControlStorageKey(key) {
+  return FACTORY_RESET_CONTROL_STORAGE_KEYS.has(key) || key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX);
+}
+async function preflightFactoryResetEpoch() {
+  try {
+  await assertRealmManagedStateEpoch(asyncGmGetValue());
+  } catch (error) {
+  throw new ManagedStateResetError("Factory reset cannot validate the current managed-state epoch.", { cause: error });
+  }
+}
+function unregisteredManagedStorageKeys(keys) {
+  const exactKeys = new Set(registeredManagedStorageKeys());
+  const prefixes = managedStateEntries().filter((entry) => entry.kind !== "idb" && entry.prefix).map((entry) => entry.prefix);
+  const unregistered = [];
+  for (const key of keys) {
+  if (isFactoryResetControlStorageKey(key)) continue;
+  const logicalKey = logicalManagedStorageKey(key) ?? key;
+  if (exactKeys.has(logicalKey)) continue;
+  if (prefixes.some((prefix) => logicalKey.startsWith(prefix))) continue;
+  unregistered.push(key);
+  }
+  return unregistered;
+}
+function warnUnregisteredManagedKeys(keys) {
+  const unregistered = unregisteredManagedStorageKeys(keys);
+  if (unregistered.length) {
+  debugStorageError("Managed key not in registry (unregistered store escaping reset)", unregistered.join(","), null);
+  }
+}
+async function addGmStorageKeys(keys) {
+  const listValues = asyncGmListValues();
+  if (!listValues) {
+  const hasGmBackend = Boolean(asyncGmGetValue() || asyncGmSetValue() || asyncGmDeleteValue());
+  return hasGmBackend ? { complete: false, diagnostic: "GM_listValues is unavailable." } : { complete: true };
+  }
+  try {
+  for (const key of await listValues()) keys.add(key);
+  return { complete: true };
+  } catch (error) {
+  debugStorageError("GM storage list failed", "GM_listValues", error);
+  return { complete: false, diagnostic: "GM_listValues failed." };
+  }
+}
+async function addDeclaredGmPrefixKeys(keys) {
+  const incompleteOwners = [];
+  for (const entry of managedStateEntries()) {
+  if (entry.kind !== "gm" || !entry.prefix) continue;
+  if (!entry.enumerate) {
+    incompleteOwners.push(entry.owner);
+    continue;
+  }
+  try {
+    const enumerated = await entry.enumerate();
+    if (enumerated.some((key) => !key.startsWith(entry.prefix))) {
+      incompleteOwners.push(entry.owner);
+      continue;
+    }
+    for (const key of enumerated) keys.add(key);
+  } catch (error) {
+    debugStorageError("Managed prefix enumeration failed", entry.owner, error);
+    incompleteOwners.push(entry.owner);
+  }
+  }
+  return [...new Set(incompleteOwners)].sort();
+}
+async function addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately) {
+  for (const key of registeredManagedStorageKeys()) {
+  if (bridgePrivateValuesHandledSeparately && isPrivateManagedStorageKey(key)) continue;
+  if (await resetStoredValueExists(key)) keys.add(key);
+  }
+}
+function collectWebStorageKeys(storage, keys, label) {
+  try {
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index);
+    if (key && isManagedStorageKey(key)) keys.add(key);
+  }
+  } catch (error) {
+  throw new ManagedStateResetError(`Factory reset could not enumerate ${label}.`, { cause: error });
+  }
+}
+async function resetStoredValueExists(key) {
+  const getValue = asyncGmGetValue();
+  if (getValue) {
+  try {
+    const epoch = await authoritativeManagedStateEpoch(getValue);
+    const storageKey = managedStateStorageKey(key, epoch);
+    const stored = await getValue(storageKey, MISSING);
+    if (!isMissingSentinel(stored)) return true;
+    if (storageKey !== key) {
+      const logical = await getValue(key, MISSING);
+      if (!isMissingSentinel(logical)) return true;
+    }
+  } catch (error) {
+    throw new ManagedStateResetError(`Factory reset could not inspect "${key}".`, { cause: error });
+  }
+  }
+  return resetWebStorageHasKey(localStorage, key, "localStorage") || resetWebStorageHasKey(sessionStorage, key, "sessionStorage");
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
+function removeLocalStorageKey(key) {
+  try {
+  localStorage.removeItem(key);
+  } catch {
+  }
+}
+function removeSessionStorageKey(key) {
+  try {
+  sessionStorage.removeItem(key);
+  } catch {
+  }
+}
+async function storedValueExists(key) {
+  const getValue = asyncGmGetValue();
+  if (getValue) {
+  try {
+    const epoch2 = await assertRealmManagedStateEpoch(getValue);
+    const read = await readManagedGmValue(getValue, key, epoch2);
+    if (read.kind === "found") return true;
+    if (read.kind === "deleted") return false;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage existence check failed", key, error);
+  }
+  }
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  return Boolean(epoch && localMirrorBelongsToEpoch(key, epoch) && (webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key)));
+}
+function webStorageHasKey(storage, key) {
+  try {
+  return storage.getItem(key) !== null;
+  } catch {
+  return false;
+  }
+}
+function resetWebStorageHasKey(storage, key, label) {
+  try {
+  return storage.getItem(key) !== null;
+  } catch (error) {
+  throw new ManagedStateResetError(`Factory reset could not verify ${label} key "${key}".`, { cause: error });
+  }
+}
+function mirrorManagedValueToHostedStorage(key, value, epoch) {
+  if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+  try {
+  writeLocalManagedValueOrThrow(key, value, epoch);
+  } catch (error) {
+  debugStorageError("Hosted localStorage mirror failed", key, error);
+  }
+}
+function cacheManagedStateEpochForLocalFallback(epoch) {
+  if (epoch.generation <= 0) {
+  removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+  return;
+  }
+  try {
+  const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (sameManagedStateEpoch(local, epoch)) return;
+  } catch {
+  }
+  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+}
+function cacheManagedValueForHostedStartup(key, value) {
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  if (epoch) mirrorManagedValueToHostedStorage(key, value, epoch);
+}
+function writeLocalManagedValueOrThrow(key, value, epoch) {
+  const serialized = localStorageSetOrThrow(key, value);
+  recordLocalMirrorProvenance(key, epoch, serialized);
+}
+function removeLocalManagedValue(key) {
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+function localMirrorBelongsToEpoch(key, epoch) {
+  const serialized = localStorageSerializedValue(key);
+  if (serialized === null) return false;
+  const entry = localMirrorProvenanceRecord()?.values[key];
+  if (!entry) return epoch.generation === 0;
+  return entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === localMirrorFingerprint(serialized);
+}
+function recordLocalMirrorProvenance(key, epoch, serialized) {
+  const current = localMirrorProvenanceRecord();
+  const next = {
+  version: 1,
+  values: {
+    ...current?.values ?? {},
+    [key]: {
+      epoch: managedStateEpochToken(epoch),
+      fingerprint: localMirrorFingerprint(serialized)
+    }
+  }
+  };
+  localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
+}
+function removeLocalMirrorProvenance(key) {
+  const current = localMirrorProvenanceRecord();
+  if (!current || !(key in current.values)) return;
+  const values = { ...current.values };
+  delete values[key];
+  if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
+  else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
+}
+function localMirrorProvenanceRecord() {
+  const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
+  if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
+  const values = {};
+  for (const [key, entry] of Object.entries(value.values)) {
+  if (!isPlainRecord(entry) || typeof entry.epoch !== "string" || typeof entry.fingerprint !== "string") continue;
+  values[key] = { epoch: entry.epoch, fingerprint: entry.fingerprint };
+  }
+  return { version: 1, values };
+}
+function localStorageSerializedValue(key) {
+  try {
+  return localStorage.getItem(key);
+  } catch {
+  return null;
+  }
+}
+function localMirrorFingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+  hash ^= serialized.charCodeAt(index);
+  hash = Math.imul(hash, 16777619);
+  }
+  return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+function shouldMirrorManagedValueToHostedStorage(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
+}
+function isHostedYomuOrigin() {
+  try {
+  const host = location.hostname;
+  const path = location.pathname;
+  if (location.origin === DOCS_ORIGIN) return true;
+  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  } catch {
+  return false;
+  }
+}
+async function clearManagedIndexedDatabases() {
+  await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
+}
+function isManagedBrowserCacheName(name) {
+  return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+function isManagedServiceWorkerRegistration(registration) {
+  return [
+  registration.scope,
+  registration.active?.scriptURL,
+  registration.installing?.scriptURL,
+  registration.waiting?.scriptURL
+  ].some(hasManagedYomuServiceWorkerPath);
+}
+function hasManagedYomuServiceWorkerPath(value) {
+  if (typeof value !== "string") return false;
+  try {
+  const url = new URL(value, location.href);
+  if (!isManagedServiceWorkerOrigin(url)) return false;
+  return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/study/") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
+  } catch {
+  return value.includes("/study/") || value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
+  }
+}
+function isManagedServiceWorkerOrigin(url) {
+  return url.origin === DOCS_ORIGIN || url.hostname === "hrussellzfac023.github.io" || /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname);
+}
+function deleteIndexedDbDatabase(name) {
+  if (typeof indexedDB === "undefined") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+  let blockedCause;
+  let settled = false;
+  const finish = (complete) => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(timeout);
+    complete();
+  };
+  const timeout = setTimeout(() => finish(() => reject(new ManagedStateResetError(
+    blockedCause ? `IndexedDB deletion remained blocked for "${name}". Close other よむ tabs and retry.` : `IndexedDB deletion timed out for "${name}".`,
+    { cause: blockedCause }
+  ))), MANAGED_IDB_DELETE_TIMEOUT_MS);
+  try {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = () => finish(resolve);
+    request.onerror = (error) => {
+      debugStorageError("IndexedDB delete failed", name, error);
+      finish(() => reject(new ManagedStateResetError(`IndexedDB failed to delete "${name}".`, { cause: error })));
+    };
+    request.onblocked = (error) => {
+      debugStorageError("IndexedDB delete blocked", name, error);
+      blockedCause = error;
+    };
+  } catch (error) {
+    debugStorageError("IndexedDB delete threw", name, error);
+    finish(() => reject(new ManagedStateResetError(`IndexedDB could not delete "${name}".`, { cause: error })));
+  }
+  });
+}
+function asyncGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  } : null;
+}
+function asyncGmSetValue() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key, value) => extension.set({ [key]: value });
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function directGmSetValue() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? (key, value) => extension.set({ [key]: value }) : null;
+}
+function asyncGmDeleteValue() {
+  if (typeof GM_deleteValue === "function") return GM_deleteValue;
+  const modern = globalThis.GM?.deleteValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key) => extension.remove(key);
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function directGmDeleteValue() {
+  if (typeof GM_deleteValue === "function") return GM_deleteValue;
+  const modern = globalThis.GM?.deleteValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? (key) => extension.remove(key) : null;
+}
+function asyncGmListValues() {
+  if (typeof GM_listValues === "function") return GM_listValues;
+  const directListValues = globalThis.GM_listValues;
+  if (typeof directListValues === "function") return directListValues;
+  const modern = globalThis.GM?.listValues;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? () => bridge.listValues() : null;
+}
+function extensionStorageArea() {
+  const candidate = globalThis;
+  const browser = candidate.browser;
+  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+  const chrome = candidate.chrome;
+  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+  return null;
+}
+function extensionStorageChangedEvent() {
+  const candidate = globalThis;
+  if (candidate.browser?.runtime?.id && candidate.browser.storage?.onChanged) return candidate.browser.storage.onChanged;
+  if (candidate.chrome?.runtime?.id && candidate.chrome.storage?.onChanged) return candidate.chrome.storage.onChanged;
+  return null;
+}
+function normalizeFactoryResetSignal(signal) {
+  return {
+  id: normalizedFactoryResetId(signal.id),
+  phase: normalizedFactoryResetPhase(signal.phase),
+  at: normalizedFactoryResetAt(signal.at),
+  href: normalizedFactoryResetHref(signal.href)
+  };
+}
+function normalizedFactoryResetId(id) {
+  return String(id || createStorageCoordinationId());
+}
+function normalizedFactoryResetPhase(phase) {
+  return phase === "complete" ? "complete" : "prepare";
+}
+function normalizedFactoryResetAt(at) {
+  return typeof at === "number" && Number.isFinite(at) ? at : Date.now();
+}
+function normalizedFactoryResetHref(href) {
+  return typeof href === "string" ? href : location.href;
+}
+function parseFactoryResetSignal(value) {
+  const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
+  if (!isFactoryResetSignalRecord(parsed)) return null;
+  const record = parsed;
+  if (!isValidFactoryResetPhase(record.phase)) return null;
+  return {
+  id: record.id,
+  phase: record.phase,
+  at: factoryResetSignalTime(record.at),
+  href: factoryResetSignalHref(record.href)
+  };
+}
+function factoryResetSignalTime(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
+}
+function factoryResetSignalHref(value) {
+  return typeof value === "string" ? value : "";
+}
+function isFactoryResetSignalRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
+}
+function isValidFactoryResetPhase(value) {
+  return value === "prepare" || value === "complete";
+}
+function parseJsonRecord(value) {
+  try {
+  return JSON.parse(value);
+  } catch {
+  return null;
+  }
+}
+function publishBroadcastFactoryResetSignal(signal) {
+  if (typeof BroadcastChannel !== "function") return;
+  try {
+  const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
+  channel.postMessage(signal);
+  channel.close();
+  } catch (error) {
+  debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
+  }
+}
+async function assertManagedStateMutationFence(getValue, expected) {
+  if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
+  const before = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, before)) throw new StaleManagedStateEpochError(expected, before);
+  const rawSignal = getValue ? await getValue(FACTORY_RESET_SIGNAL_KEY, MISSING) : localStorageGet(FACTORY_RESET_SIGNAL_KEY, MISSING);
+  const signal = isMissingSentinel(rawSignal) ? null : parseFactoryResetSignal(rawSignal);
+  if (signal?.phase === "prepare" || managedStateWritesSuppressed()) {
+  throw new Error("Managed state writes are suppressed during factory reset.");
+  }
+  const after = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, after)) throw new StaleManagedStateEpochError(expected, after);
+}
+function debugStorageError(message, key, error) {
+  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
+}
+const STORAGE_RUNTIME_API_SLOT = Symbol.for("yomu.storage-runtime-api.v1");
+function registerStorageRuntimeApi(api) {
+  Object.defineProperty(globalThis, STORAGE_RUNTIME_API_SLOT, {
+  configurable: true,
+  enumerable: false,
+  value: api,
+  writable: true
+  });
+}
+registerStorageRuntimeApi({
+  managedLocalStorage,
+  managedSessionStorage,
+  hasAsyncGmStorageBackend,
+  assertManagedStateMutationAllowed,
+  ensureManagedWebStorageCurrent,
+  ensureManagedWebStorageCurrentSync,
+  localFallbackStoredValue,
+  gmStorageGet,
+  gmStorageGetForResetEnumeration,
+  gmPrivateStorageGet,
+  withGmStorageLease,
+  gmStorageGetSync,
+  gmStorageGetSharedSync,
+  gmStorageSet,
+  gmPrivateStorageSet,
+  gmStorageSetSync,
+  gmStorageDelete,
+  gmPrivateStorageDelete,
+  gmStorageDeleteSync,
+  exportManagedStoredValues,
+  importStoredValues,
+  clearManagedBrowserCaches,
+  unregisterManagedServiceWorkers,
+  subscribeToStoredValueChanges,
+  storedValueExists,
+  cacheManagedValueForHostedStartup,
+  isHostedYomuOrigin
+});
 const CARD_STATES = new Set([
   "new",
   "learning",
@@ -789,75 +4066,6 @@ function yieldToNextTask() {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
-let sandboxCompanions = {};
-function yomuSettingsDialogController() {
-  return yomuCompanions().settings?.SettingsDialogController;
-}
-function yomuOnboardingController() {
-  return yomuCompanions().settings?.OnboardingController;
-}
-function yomuSettingsSurfaceCompanion() {
-  return yomuCompanions().settings;
-}
-function yomuAnkiCompanion() {
-  return yomuCompanions().anki;
-}
-function yomuAudioCompanion() {
-  return yomuCompanions().audio;
-}
-function yomuWanikaniCompanion() {
-  return yomuCompanions().wanikani;
-}
-function yomuJpdbCompanion() {
-  return yomuCompanions().jpdb;
-}
-function yomuJitenCompanion() {
-  return yomuCompanions().jiten;
-}
-function yomuVideoCompanionSlot() {
-  return yomuCompanions().video;
-}
-function yomuAnnotationsCompanion() {
-  return yomuCompanions().annotations;
-}
-function yomuSubtitlePlayerController() {
-  return yomuCompanions().video?.SubtitlePlayerController;
-}
-function yomuYoutubeImmersionFilter() {
-  return yomuCompanions().video?.YoutubeImmersionFilter;
-}
-function yomuImageOcrController() {
-  return yomuCompanions().ocr?.ImageOcrController;
-}
-function yomuNormalizeOcrRenderedText() {
-  return yomuCompanions().ocr?.normalizeOcrRenderedText;
-}
-function yomuLocalDictionaries() {
-  return yomuCompanions().localDictionaries;
-}
-function yomuLearningTargetRuntime() {
-  return yomuCompanions().learningTargets;
-}
-function yomuI18nCompanion() {
-  return yomuCompanions().i18n;
-}
-function yomuBunproCompanion() {
-  return yomuCompanions().bunpro;
-}
-function yomuKanjiStudyCompanion() {
-  return yomuCompanions().kanjiStudy;
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
 function runtime() {
   const targetRuntime = yomuLearningTargetRuntime();
   if (!targetRuntime) throw new Error("Yomu learning-target runtime did not load.");
@@ -1603,268 +4811,6 @@ function decorationStateForWord(word) {
   const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
   const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
   return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
-}
-let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-let initialWindowAddEventListener = initialWindowMethod("addEventListener");
-let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-function createWindowCustomEvent(type, detail, init = {}) {
-  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-  const documentEvent = createDocumentCustomEvent(type, eventInit);
-  if (documentEvent) return documentEvent;
-  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-  if (CustomEventConstructor) {
-  try {
-    return new CustomEventConstructor(type, eventInit);
-  } catch {
-  }
-  }
-  throw new Error(`Unable to create window custom event: ${type}`);
-}
-function cloneCustomEventDetail(detail) {
-  if (detail === void 0 || typeof window === "undefined") return detail;
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto) return detail;
-  try {
-  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-  } catch {
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return void 0;
-  }
-  }
-}
-function dispatchWindowEvent(event) {
-  const target = window;
-  const directDispatch = readMethod(target, "dispatchEvent");
-  const directResult = callEventTargetMethod(directDispatch, target, event);
-  if (directResult.called) return directResult.result;
-  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-  if (initialResult.called) return initialResult.result;
-  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-  if (prototypeResult.called) return prototypeResult.result;
-  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-  if (unshadowedResult.called) return unshadowedResult.result;
-  return false;
-}
-function addWindowEventListener(type, listener, options) {
-  const target = window;
-  const directAdd = readMethod(target, "addEventListener");
-  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function removeWindowEventListener(type, listener, options) {
-  const target = window;
-  const directRemove = readMethod(target, "removeEventListener");
-  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function initialWindowMethod(key) {
-  if (typeof window === "undefined") return void 0;
-  return readMethod(window, key);
-}
-function dispatchWithPrototypeMethod(target, directDispatch, event) {
-  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-  if (prototypeDispatch === directDispatch) continue;
-  const result = callEventTargetMethod(prototypeDispatch, target, event);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-  if (prototypeAdd === directAdd) continue;
-  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-  if (prototypeRemove === directRemove) continue;
-  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function eventConstructor(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function createDocumentCustomEvent(type, init) {
-  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-  try {
-  const event = document.createEvent("CustomEvent");
-  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-  return event;
-  } catch {
-  return void 0;
-  }
-}
-function eventTargetPrototypeMethods(target, key) {
-  const methods = [];
-  const add = (method) => {
-  if (method && !methods.includes(method)) methods.push(method);
-  };
-  let prototype = Object.getPrototypeOf(target);
-  while (prototype) {
-  add(readOwnMethod(prototype, key));
-  prototype = Object.getPrototypeOf(prototype);
-  }
-  const WindowEventTarget = readProperty(window, "EventTarget");
-  add(readMethod(WindowEventTarget?.prototype, key));
-  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-  return methods;
-}
-function readMethod(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function readOwnMethod(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-  return readMethod(source, key);
-}
-function readProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function callEventTargetMethod(method, target, event) {
-  if (!method) return { called: false };
-  try {
-  return { called: true, result: method.call(target, event) };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callAddEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callRemoveEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callWithUnshadowedWindowDispatch(event) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("dispatchEvent", descriptor);
-  }
-}
-function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("addEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("addEventListener", descriptor);
-  }
-}
-function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("removeEventListener", descriptor);
-  }
-}
-function restoreWindowProperty(key, descriptor) {
-  try {
-  const target = window.wrappedJSObject || window;
-  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
-}
-function pageCompartmentDescriptor(descriptor, _target) {
-  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-}
-function pageCompartmentValue(value, options = {}) {
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto || typeof window === "undefined") return value;
-  try {
-  return cloneInto(value, window, options);
-  } catch {
-  return value;
-  }
-}
-function safeWindowPropertyDescriptor(key) {
-  try {
-  const target = window.wrappedJSObject || window;
-  return Object.getOwnPropertyDescriptor(target, key);
-  } catch {
-  return void 0;
-  }
-}
-function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-  if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
-}
-function normalizedPropertyDescriptor(descriptor) {
-  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-  if (!hasDataShape || !hasAccessorShape) return descriptor;
-  try {
-  return {
-    configurable: descriptor.configurable,
-    enumerable: descriptor.enumerable,
-    value: descriptor.value,
-    writable: descriptor.writable
-  };
-  } catch {
-  return {
-    configurable: true,
-    value: void 0,
-    writable: true
-  };
-  }
 }
 const BLOCKED_HTML_ELEMENTS = new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
 const BLOCKED_ATTRIBUTES = new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
@@ -2740,1386 +5686,6 @@ function clampLongSentence(sentence, surface) {
 }
 function nodeTextContent$1(node) {
   return node.textContent ?? "";
-}
-const MANAGED_STORAGE_KEY_PREFIXES = [
-  "yomu-",
-  "yomu:",
-  "yomu.",
-  "__yomu",
-  "jpdb-reader-",
-  "jpdb-popup-reader-"
-];
-function isManagedStorageKey(key) {
-  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
-}
-function isPrivateManagedStorageKey(key) {
-  return key.startsWith("yomu:private:");
-}
-function isBridgeManagedStorageKey(key) {
-  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key);
-}
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true,
-  wordUnderlineColorSource: "pitch",
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: true,
-  subtitleControlsMode: "always",
-  subtitleTranscriptVisible: false,
-  ocrEnabled: true,
-  ocrVideoPauseFrames: true,
-  ocrProvider: "google-lens",
-  ocrOverlayTheme: "auto"
-};
-const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
-function delay(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-function isPromiseLike$1(value) {
-  return Boolean(value && typeof value.then === "function");
-}
-function promiseWithTimeout(promise, timeoutMs, message) {
-  let timeoutId = 0;
-  const timeout = new Promise((_resolve, reject) => {
-  timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-  return Promise.race([
-  promise,
-  timeout
-  ]).finally(() => window.clearTimeout(timeoutId));
-}
-async function runLimited(items, concurrency, worker) {
-  if (!items.length) return;
-  const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
-  let nextIndex = 0;
-  await Promise.all(Array.from({ length: workerCount }, async () => {
-  while (nextIndex < items.length) {
-    const index = nextIndex++;
-    await worker(items[index], index);
-  }
-  }));
-}
-async function mapLimited(items, concurrency, worker) {
-  const results = new Array(items.length);
-  await runLimited(items, concurrency, async (item, index) => {
-  results[index] = await worker(item, index);
-  });
-  return results;
-}
-class ConcurrencyGate {
-  constructor(limit) {
-  this.limit = limit;
-  }
-  active = 0;
-  queue = [];
-  async run(task) {
-  if (this.active >= this.limit) {
-    await new Promise((resolve) => this.queue.push(resolve));
-  }
-  this.active += 1;
-  try {
-    return await task();
-  } finally {
-    this.active -= 1;
-    this.queue.shift()?.();
-  }
-  }
-}
-const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
-const WORD_COLOR_HIDE_STATE_GROUPS = [...FURIGANA_HIDE_STATE_GROUPS, "ignored"];
-const APP_NAME = "よむ";
-const APP_PUCK = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
-const APP_SLUG = "yomu";
-const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-const GITHUB_OWNER = "HRussellZFAC023";
-const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-const DOCS_ORIGIN = "https://yomureader.com";
-const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
-const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
-const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
-const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
-const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
-const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";
-const OPEN_SETTINGS_EVENT = "yomu-open-settings";
-const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
-const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
-const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
-const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
-const WANIKANI_DEFINITION_SOURCE_ID = "__wanikani__";
-const ANKI_SOURCE_ID = "__anki__";
-const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
-const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
-const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
-const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
-function readTrustedYomuUrl(value) {
-  let url;
-  try {
-  url = new URL(value);
-  } catch {
-  return null;
-  }
-  if (url.username || url.password) return null;
-  const path = normalizeYomuHostedPath(url.pathname);
-  const originKind = trustedYomuOriginKind(url, path);
-  return originKind ? { url, path, originKind } : null;
-}
-function normalizeYomuHostedPath(pathname) {
-  const normalized = pathname.replace(/\/index\.html$/u, "/");
-  return normalized.endsWith("/") ? normalized : `${normalized}/`;
-}
-function isYomuRepositoryPath(path) {
-  return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-}
-function trustedYomuOriginKind(url, path) {
-  if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
-  if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
-  return "github-pages";
-  }
-  if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
-  return "loopback";
-  }
-  if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
-  return null;
-}
-function isYomuNewTabUrl(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  return appUrl ? isTrustedStudyRoute(appUrl) : false;
-}
-function isYomuStudyRoutePath(pathname) {
-  const path = normalizeYomuHostedPath(pathname);
-  return path === "/study/" || path === "/newtab/";
-}
-function isTrustedStudyRoute(appUrl) {
-  const { originKind, path } = appUrl;
-  if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
-  if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
-  return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
-}
-function isRepositoryStudyRoutePath(path) {
-  return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
-}
-function isYomuHostedAppUrl(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
-}
-function isYomuPrivilegedHostedAppUrl(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  if (!appUrl || appUrl.originKind === "extension") return false;
-  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
-}
-function isYomuStorageBridgeHostedUrl(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  if (!appUrl) return false;
-  if (appUrl.originKind === "docs" || appUrl.originKind === "github-pages") return true;
-  return isYomuPrivilegedHostedAppUrl(value);
-}
-function isYomuHostedPassivePage(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
-}
-function isYomuHostedVideoPlayerPage(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "video-player") : false;
-}
-function isYomuHostedPdfReaderPage(value) {
-  const appUrl = readTrustedYomuUrl(value);
-  return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, "pdf-reader") : false;
-}
-function isYomuHostedAppRoute(value, appUrl) {
-  return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
-}
-function isPassiveYomuRepositoryPage(value, appUrl) {
-  return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
-}
-function isYomuActiveAppRoute(value, appUrl) {
-  return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
-}
-function isYomuRepositoryAppUrl(appUrl) {
-  if (appUrl.originKind === "docs") return true;
-  if (appUrl.originKind === "github-pages") return isYomuRepositoryPath(appUrl.path);
-  if (appUrl.originKind === "extension") return isYomuNewTabUrl(appUrl.url.href);
-  return isYomuLocalAppPath(appUrl.path);
-}
-function isExactHostedAppPath(appUrl, route) {
-  if (appUrl.originKind === "github-pages") {
-  return appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
-  }
-  return appUrl.path === `/${route}/` || appUrl.originKind === "loopback" && appUrl.path === `/${APP_REPOSITORY_NAME}/${route}/`;
-}
-function isYomuLocalAppPath(path) {
-  return path === "/" || isYomuRepositoryPath(path) || path === "/study/" || path === "/newtab/" || path === "/video-player/" || path === "/pdf-reader/" || path === "/academy/";
-}
-function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
-}
-function bridgeRequestDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
-  const id = bridgeEventId(event);
-  const options = safeReadProperty(detail, "options");
-  return id && options ? { id, options } : void 0;
-}
-function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
-  const id = safeReadString(detail, "id");
-  const kind = safeReadString(detail, "kind");
-  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-  return {
-  id,
-  kind,
-  response: safeReadProperty(detail, "response"),
-  message: safeReadString(detail, "message")
-  };
-}
-function bridgeResponseDetail(id, kind, response, message) {
-  return {
-  id,
-  kind,
-  response: response ? bridgeResponse(response) : void 0,
-  message
-  };
-}
-function bridgeRequestOptions(options) {
-  return {
-  ...options,
-  headers: options.headers ? { ...options.headers } : void 0,
-  data: bridgeRequestBody(options.data)
-  };
-}
-function bridgeEventDetail(detail) {
-  if (detail === void 0) return void 0;
-  const json = bridgeEventJsonDetail(detail);
-  return json ?? detail;
-}
-function bridgeResponse(response) {
-  return {
-  status: safeReadNumber(response, "status") ?? 0,
-  response: bridgeBody(safeReadProperty(response, "response")),
-  responseText: safeReadString(response, "responseText"),
-  finalUrl: safeReadString(response, "finalUrl")
-  };
-}
-function bridgeBody(value) {
-  if (value instanceof ArrayBuffer) return value.slice(0);
-  if (ArrayBuffer.isView(value)) {
-  const bytes = value;
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  }
-  if (value instanceof Blob) return value.slice(0, value.size, value.type);
-  return value;
-}
-function bridgeRequestBody(value) {
-  return bridgeBody(value);
-}
-function bridgeEventJsonDetail(detail) {
-  let unsupported = false;
-  try {
-  const json = JSON.stringify(detail, (_key, value) => {
-    if (isUnsupportedBridgeJsonValue(value)) {
-      unsupported = true;
-      return void 0;
-    }
-    return value;
-  });
-  return unsupported || typeof json !== "string" ? void 0 : json;
-  } catch {
-  return void 0;
-  }
-}
-function normalizedBridgeEventDetail$1(event) {
-  const detail = safeEventDetail(event);
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function isUnsupportedBridgeJsonValue(value) {
-  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-}
-function isUnsupportedPrimitiveBridgeJsonValue(value) {
-  return typeof value === "function" || typeof value === "symbol";
-}
-function isArrayBufferBridgeJsonValue(value) {
-  if (typeof ArrayBuffer === "undefined") return false;
-  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-}
-function isBlobBridgeJsonValue(value) {
-  return typeof Blob !== "undefined" && value instanceof Blob;
-}
-function isFormDataBridgeJsonValue(value) {
-  return typeof FormData !== "undefined" && value instanceof FormData;
-}
-function safeEventDetail(event) {
-  try {
-  return event.detail;
-  } catch {
-  return void 0;
-  }
-}
-function safeReadProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function safeReadString(source, key) {
-  const value = safeReadProperty(source, key);
-  return typeof value === "string" ? value : void 0;
-}
-function safeReadNumber(source, key) {
-  const value = safeReadProperty(source, key);
-  return typeof value === "number" ? value : void 0;
-}
-const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
-const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
-const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
-const BRIDGE_TIMEOUT_MS$1 = 1e4;
-let bridgeRequestListenerCleanup;
-function getUserscriptGmStorage() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-  return {
-  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
-  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
-  };
-}
-function installUserscriptGmStorageBridge() {
-  if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (!shouldInstallUserscriptStorageBridge()) return;
-  const accessors = gmStorageAccessors();
-  if (!accessors) return;
-  const markerDataset = bridgeMarkerDataset$1();
-  if (!markerDataset) return;
-  if (hasInstalledUserscriptStorageBridge(markerDataset)) {
-  dispatchStorageBridgeReady();
-  return;
-  }
-  bridgeRequestListenerCleanup?.();
-  markerDataset[BRIDGE_MARKER$1] = "true";
-  const handledRequestIds = new Set();
-  bridgeRequestListenerCleanup = addBridgeEventListener$1(BRIDGE_REQUEST_EVENT$1, (event) => {
-  const detail = storageBridgeRequestDetail(event);
-  if (!detail || handledRequestIds.has(detail.id)) return;
-  rememberBridgeRequestId$1(handledRequestIds, detail.id);
-  void handleStorageBridgeRequest(detail, accessors);
-  });
-  dispatchStorageBridgeReady();
-}
-function installUserscriptGmStorageBridgeWhenReady() {
-  installUserscriptGmStorageBridge();
-  if (typeof window === "undefined" || typeof document === "undefined") return;
-  if (!shouldInstallUserscriptStorageBridge()) return;
-  if (hasInstalledUserscriptStorageBridge()) return;
-  scheduleUserscriptStorageBridgeRetry();
-}
-async function handleStorageBridgeRequest(detail, accessors) {
-  const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
-  try {
-  if (detail.op === "list") {
-    send({ ok: true, keys: (await accessors.listValues()).filter(isBridgeManagedStorageKey) });
-    return;
-  }
-  if (!detail.key || !isBridgeManagedStorageKey(detail.key)) {
-    send({ ok: false, found: false, message: "Unmanaged storage key." });
-    return;
-  }
-  if (detail.op === "get") {
-    const value = await accessors.getValue(detail.key, MISSING$1);
-    send(value === MISSING$1 ? { ok: true, found: false } : { ok: true, found: true, value });
-    return;
-  }
-  if (detail.op === "set") {
-    await accessors.setValue(detail.key, detail.value);
-    send({ ok: true });
-    return;
-  }
-  await accessors.deleteValue(detail.key);
-  send({ ok: true });
-  } catch (error) {
-  send({ ok: false, found: false, message: error instanceof Error ? error.message : String(error) });
-  }
-}
-function storageBridgeRequest(request) {
-  return new Promise((resolve, reject) => {
-  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    reject(new Error("Storage bridge request timed out."));
-  }, BRIDGE_TIMEOUT_MS$1);
-  let cleanupResponseListener = noop$1;
-  const cleanup = () => {
-    window.clearTimeout(timeout);
-    cleanupResponseListener();
-  };
-  const onResponse = (event) => {
-    const detail = storageBridgeResponseDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.ok) resolve(detail);
-    else reject(new Error(detail.message || "Storage bridge request failed."));
-  };
-  cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
-  });
-}
-const MISSING$1 = { __yomuStorageBridgeMissing: true };
-function gmStorageAccessors() {
-  const getValue = directGmGetValue();
-  const setValue = directGmSetValue();
-  const deleteValue = directGmDeleteValue();
-  const listValues = directGmListValues();
-  if (!getValue || !setValue) return null;
-  return {
-  getValue,
-  setValue,
-  deleteValue: deleteValue ?? (() => void 0),
-  listValues: listValues ?? (() => [])
-  };
-}
-function directGmGetValue() {
-  if (typeof GM_getValue === "function") return GM_getValue;
-  const modern = globalThis.GM?.getValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function directGmSetValue() {
-  if (typeof GM_setValue === "function") return GM_setValue;
-  const modern = globalThis.GM?.setValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function directGmDeleteValue() {
-  if (typeof GM_deleteValue === "function") return GM_deleteValue;
-  const modern = globalThis.GM?.deleteValue;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function directGmListValues() {
-  const direct = globalThis.GM_listValues;
-  if (typeof direct === "function") return direct;
-  const modern = globalThis.GM?.listValues;
-  return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-}
-function shouldInstallUserscriptStorageBridge() {
-  try {
-  return typeof location !== "undefined" && isYomuStorageBridgeHostedUrl(location.href);
-  } catch {
-  return false;
-  }
-}
-function scheduleUserscriptStorageBridgeRetry() {
-  const retry = () => {
-  if (hasInstalledUserscriptStorageBridge()) return;
-  installUserscriptGmStorageBridge();
-  };
-  if (typeof queueMicrotask === "function") {
-  queueMicrotask(retry);
-  } else {
-  void Promise.resolve().then(retry);
-  }
-  window.setTimeout(retry, 0);
-  window.setTimeout(retry, 250);
-  if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", retry, { once: true });
-  }
-}
-function hasInstalledUserscriptStorageBridge(markerDataset = bridgeMarkerDataset$1()) {
-  return Boolean(markerDataset?.[BRIDGE_MARKER$1] === "true" && bridgeRequestListenerCleanup);
-}
-function dispatchStorageBridgeReady() {
-  dispatchBridgeEvent$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT);
-}
-function storageBridgeRequestDetail(event) {
-  const detail = normalizedBridgeEventDetail(event);
-  if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || !isGmStorageOp(record.op)) return void 0;
-  return { id: record.id, op: record.op, key: typeof record.key === "string" ? record.key : void 0, value: record.value };
-}
-function storageBridgeResponseDetail(event) {
-  const detail = normalizedBridgeEventDetail(event);
-  if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
-  return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
-  };
-}
-function isGmStorageOp(value) {
-  return value === "get" || value === "set" || value === "delete" || value === "list";
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function addBridgeEventListener$1(type, listener) {
-  const cleanups = [];
-  if (addWindowEventListener(type, listener)) {
-  cleanups.push(() => removeWindowEventListener(type, listener));
-  }
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
-  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
-  }
-  return () => {
-  for (const cleanup of cleanups) cleanup();
-  };
-}
-function dispatchBridgeEvent$1(type, detail) {
-  const eventDetail = bridgeEventDetail(detail);
-  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget) {
-  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-  }
-  return dispatched;
-}
-function bridgeDocumentTarget$1() {
-  if (typeof document === "undefined") return void 0;
-  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-}
-function bridgeMarkerDataset$1() {
-  if (typeof document === "undefined") return void 0;
-  const root = document.documentElement;
-  return root?.dataset;
-}
-function callAddEventListener$1(target, type, listener) {
-  try {
-  target.addEventListener(type, listener);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function callRemoveEventListener$1(target, type, listener) {
-  try {
-  target.removeEventListener(type, listener);
-  } catch {
-  }
-}
-function callDispatchEvent$1(target, event) {
-  try {
-  return target.dispatchEvent(event);
-  } catch {
-  return false;
-  }
-}
-function rememberBridgeRequestId$1(ids, id) {
-  ids.add(id);
-  if (ids.size <= 200) return;
-  const oldest = ids.values().next().value;
-  if (oldest) ids.delete(oldest);
-}
-function noop$1() {
-}
-const entries = [];
-const registeredKeys = new Set();
-function registerManagedState(entry) {
-  const identity = managedStateIdentity(entry);
-  if (registeredKeys.has(identity)) return;
-  registeredKeys.add(identity);
-  entries.push(entry);
-}
-function registerManagedStates(list) {
-  for (const entry of list) registerManagedState(entry);
-}
-function managedStateIdentity(entry) {
-  return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
-}
-function managedStateEntries() {
-  return entries;
-}
-function registeredManagedStorageKeys() {
-  const keys = new Set();
-  for (const entry of entries) {
-  if (entry.kind !== "idb" && entry.key) keys.add(entry.key);
-  }
-  return [...keys];
-}
-function registeredManagedIndexedDbNames() {
-  const names = new Set();
-  for (const entry of entries) {
-  if (entry.kind === "idb" && entry.key) names.add(entry.key);
-  }
-  return [...names];
-}
-const MANAGED_STATE_MANIFEST = [
-  { owner: "settings", kind: "gm", key: "jpdb-popup-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
-  { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
-  { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
-  { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
-  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
-  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
-  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
-  { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
-  { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
-  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
-  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
-  { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
-  { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
-  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
-  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-  { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
-  { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
-  { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
-  { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
-  { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
-  { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
-  { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
-  { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
-  { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
-  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
-  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
-  { owner: "sources/state", kind: "gm", key: "jpdb-reader-source-open-state" },
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
-  { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
-  { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
-  { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
-  { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
-  { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
-  { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
-  { owner: "newtab/controller", kind: "gm", key: "yomu-newtab-support-banner-dismissed" },
-  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
-  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
-];
-let manifestRegistered = false;
-function registerManagedStateManifest() {
-  if (manifestRegistered) return;
-  manifestRegistered = true;
-  registerManagedStates(MANAGED_STATE_MANIFEST);
-}
-registerManagedStateManifest();
-const MISSING = { __yomuStorageValueMissing: true };
-function isMissingSentinel(value) {
-  if (value === MISSING) return true;
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
-}
-const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
-const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
-const MANAGED_CACHE_NAME_PREFIXES = [
-  "yomu-newtab-",
-  "yomu-pdf-reader-",
-  "yomu-video-player-",
-  "yomu-docs-shell-"
-];
-const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
-function hasAsyncGmStorageBackend() {
-  return asyncGmGetValue() !== null;
-}
-function localFallbackStoredValue(key, fallback) {
-  return localStorageGet(key, fallback);
-}
-async function gmStorageGet(key, fallback) {
-  const getValue = asyncGmGetValue();
-  if (getValue) {
-  try {
-    const pendingPatch = pendingHostedLocalPatch(key);
-    if (pendingPatch) {
-      const shared2 = await getValue(key, MISSING);
-      const sharedRecord = !isMissingSentinel(shared2) && isPlainRecord(shared2) ? shared2 : {};
-      const reconciled = { ...sharedRecord, ...pendingPatch };
-      await gmStorageSet(key, reconciled);
-      return reconciled;
-    }
-    const value = await getValue(key, MISSING);
-    if (!isMissingSentinel(value)) return value;
-    const migrated = localStorageGet(key, MISSING);
-    if (!isMissingSentinel(migrated)) {
-      const promoted = sanitizedStrandedLocalValue(key, migrated);
-      await gmStorageSet(key, promoted);
-      return promoted;
-    }
-    return fallback;
-  } catch (error) {
-    debugStorageError("GM storage read failed", key, error);
-  }
-  }
-  const local = localStorageGet(key, MISSING);
-  if (!isMissingSentinel(local)) return local;
-  if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
-  localStorageSet(key, fallback);
-  }
-  return fallback;
-}
-async function withGmStorageLease(name, operation, options = {}) {
-  const getValue = asyncGmGetValue();
-  const setValue = asyncGmSetValue();
-  const deleteValue = asyncGmDeleteValue();
-  const listValues = asyncGmListValues();
-  if (!getValue || !setValue || !deleteValue || !listValues) {
-  return withWebStorageLock(name, operation);
-  }
-  const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-  const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-  const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-  const owner = createFactoryResetId();
-  const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-  const key = `${prefix}${owner}`;
-  const startedAt = Date.now();
-  let claim = {
-  version: 1,
-  owner,
-  choosing: true,
-  ticket: 0,
-  leaseUntil: startedAt + leaseMs
-  };
-  await setValue(key, claim);
-  try {
-  const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
-  const highestTicket = initialClaims.reduce((highest, item) => Math.max(highest, item.ticket), 0);
-  claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-  await setValue(key, claim);
-  while (true) {
-    const now = Date.now();
-    if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-    const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
-    const blocked = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-    if (!blocked) break;
-    if (claim.leaseUntil - now <= leaseMs / 2) {
-      claim = { ...claim, leaseUntil: now + leaseMs };
-      await setValue(key, claim);
-    }
-    await storageLeaseDelay(pollMs);
-  }
-  let renewalStopped = false;
-  let renewal = Promise.resolve();
-  const renewalTimer = setInterval(() => {
-    renewal = renewal.then(async () => {
-      if (renewalStopped) return;
-      claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-      await setValue(key, claim);
-    }).catch((error) => debugStorageError("GM storage lease renewal failed", key, error));
-  }, Math.max(250, Math.floor(leaseMs / 3)));
-  try {
-    return await operation();
-  } finally {
-    renewalStopped = true;
-    clearInterval(renewalTimer);
-    await renewal;
-  }
-  } finally {
-  try {
-    await deleteValue(key);
-  } catch (error) {
-    debugStorageError("GM storage lease release failed", key, error);
-  }
-  }
-}
-function gmStorageGetSync(key, fallback) {
-  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
-  if (getValue) {
-  const read = gmStorageSyncRead(key, getValue);
-  if (read.kind === "found") return read.value;
-  }
-  return localStorageGet(key, fallback);
-}
-function gmStorageSyncRead(key, getValue) {
-  try {
-  const value = getValue(key, MISSING);
-  if (isPromiseLike$1(value)) return { kind: "fallback" };
-  if (!isMissingSentinel(value)) return { kind: "found", value };
-  return migratedLocalStorageSyncValue(key);
-  } catch (error) {
-  debugStorageError("GM storage sync read failed", key, error);
-  return { kind: "fallback" };
-  }
-}
-function migratedLocalStorageSyncValue(key) {
-  const migrated = localStorageGet(key, MISSING);
-  if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
-  void gmStorageSet(key, promoted);
-  return { kind: "found", value: promoted };
-}
-const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
-const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
-function sanitizedStrandedLocalValue(key, value) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
-}
-function pendingHostedLocalPatch(key) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
-  const value = localStorageGet(key, void 0);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
-}
-function localFallbackValueForWrite(key, value) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const current = sanitizedStrandedLocalValue(key, value);
-  const previousValue = localStorageGet(key, void 0);
-  const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
-  const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-  if (!previous) return value;
-  const changed = changedRecordFields(previous, current);
-  return {
-  ...value,
-  [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
-  };
-}
-function changedRecordFields(previous, current) {
-  const changed = {};
-  for (const [field, value] of Object.entries(current)) {
-  if (JSON.stringify(previous[field]) !== JSON.stringify(value)) changed[field] = value;
-  }
-  return changed;
-}
-async function gmStorageSet(key, value) {
-  const setValue = asyncGmSetValue();
-  if (setValue) {
-  try {
-    await setValue(key, value);
-    mirrorManagedValueToHostedStorage(key, value);
-    return;
-  } catch (error) {
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
-  localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
-}
-function gmStorageSetSync(key, value) {
-  if (typeof GM_setValue === "function") {
-  try {
-    const result = GM_setValue(key, value);
-    if (!isPromiseLike$1(result)) {
-      mirrorManagedValueToHostedStorage(key, value);
-      return;
-    }
-    result.catch((error) => debugStorageError("GM storage async write failed", key, error));
-  } catch (error) {
-    debugStorageError("GM storage sync write failed", key, error);
-  }
-  }
-  localStorageSet(key, localFallbackValueForWrite(key, value));
-}
-async function gmStorageDelete(key) {
-  const deleteValue = asyncGmDeleteValue();
-  if (deleteValue) {
-  try {
-    await deleteValue(key);
-  } catch (error) {
-    debugStorageError("GM storage delete failed", key, error);
-  }
-  }
-  removeLocalStorageKey(key);
-  removeSessionStorageKey(key);
-}
-function gmStorageDeleteSync(key) {
-  if (typeof GM_deleteValue === "function") {
-  try {
-    const result = GM_deleteValue(key);
-    if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
-  } catch (error) {
-    debugStorageError("GM storage sync delete failed", key, error);
-  }
-  }
-  removeLocalStorageKey(key);
-  removeSessionStorageKey(key);
-}
-function isPlainRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-async function clearManagedStoredValues() {
-  const keys = await allStorageKeys();
-  let count = 0;
-  for (const key of keys) {
-  await gmStorageDelete(key);
-  removeLocalStorageKey(key);
-  removeSessionStorageKey(key);
-  count++;
-  }
-  await clearManagedIndexedDatabases();
-  count += await clearManagedBrowserCaches();
-  count += await unregisterManagedServiceWorkers();
-  return count;
-}
-async function clearManagedBrowserCaches() {
-  if (typeof caches === "undefined") return 0;
-  try {
-  const keys = await caches.keys();
-  const managedKeys = keys.filter(isManagedBrowserCacheName);
-  const deleted = await Promise.all(managedKeys.map((key) => caches.delete(key)));
-  return deleted.filter(Boolean).length;
-  } catch (error) {
-  debugStorageError("Cache API clear failed", "managed-caches", error);
-  return 0;
-  }
-}
-async function unregisterManagedServiceWorkers() {
-  if (typeof navigator === "undefined" || !navigator.serviceWorker?.getRegistrations) return 0;
-  try {
-  const registrations = await navigator.serviceWorker.getRegistrations();
-  const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
-  const unregistered = await Promise.all(managedRegistrations.map((registration) => registration.unregister()));
-  return unregistered.filter(Boolean).length;
-  } catch (error) {
-  debugStorageError("Service worker unregister failed", "managed-service-workers", error);
-  return 0;
-  }
-}
-async function clearFactoryResetSignal() {
-  await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
-}
-function createFactoryResetSignal(phase, id = createFactoryResetId()) {
-  return {
-  id,
-  phase,
-  at: Date.now(),
-  href: location.href
-  };
-}
-async function publishFactoryResetSignal(signal) {
-  const normalized = normalizeFactoryResetSignal(signal);
-  await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized);
-  publishBroadcastFactoryResetSignal(normalized);
-}
-function subscribeToFactoryResetSignals(onSignal) {
-  const cleanups = [];
-  addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-  const signal = parseFactoryResetSignal(newValue);
-  if (signal) onSignal(signal, { remote, transport: "gm-storage" });
-  }, "GM factory reset listener failed");
-  if (typeof BroadcastChannel === "function") {
-  try {
-    const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-    channel.onmessage = (event) => {
-      const signal = parseFactoryResetSignal(event.data);
-      if (signal) onSignal(signal, { remote: true, transport: "broadcast-channel" });
-    };
-    cleanups.push(() => channel.close());
-  } catch (error) {
-    debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
-  }
-  }
-  addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
-  const signal = parseFactoryResetSignal(event.newValue);
-  if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
-  });
-  return () => runStorageCleanups(cleanups);
-}
-function subscribeToStoredValueChanges(key, onChange) {
-  const cleanups = [];
-  addGmValueChangeCleanup(cleanups, key, (_key, _oldValue, newValue) => onChange(newValue), "GM stored value listener failed");
-  addWebStorageCleanup(cleanups, key, (event) => {
-  onChange(JSON.parse(event.newValue || "null"));
-  });
-  const extensionChanges = extensionStorageChangedEvent();
-  if (extensionChanges) {
-  const listener = (changes, areaName) => {
-    if (areaName !== "local" || !(key in changes)) return;
-    onChange(changes[key]?.newValue);
-  };
-  extensionChanges.addListener(listener);
-  cleanups.push(() => extensionChanges.removeListener(listener));
-  }
-  return () => runStorageCleanups(cleanups);
-}
-function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
-  const addValueChangeListener = globalThis.GM_addValueChangeListener;
-  if (typeof addValueChangeListener !== "function") return;
-  try {
-  const listenerId = addValueChangeListener(key, listener);
-  cleanups.push(() => {
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-  });
-  } catch (error) {
-  debugStorageError(errorLabel, key, error);
-  }
-}
-function addWebStorageCleanup(cleanups, key, listener) {
-  const onStorage = (event) => {
-  if (event.key !== key) return;
-  listener(event);
-  };
-  window.addEventListener("storage", onStorage);
-  cleanups.push(() => window.removeEventListener("storage", onStorage));
-}
-function runStorageCleanups(cleanups) {
-  while (cleanups.length) {
-  try {
-    cleanups.pop()?.();
-  } catch {
-  }
-  }
-}
-async function allStorageKeys() {
-  const keys = new Set();
-  await addGmStorageKeys(keys);
-  collectWebStorageKeys(localStorage, keys);
-  collectWebStorageKeys(sessionStorage, keys);
-  await addKnownStoredKeys(keys);
-  warnUnregisteredManagedKeys(keys);
-  return [...keys].sort();
-}
-function unregisteredManagedStorageKeys(keys) {
-  const exactKeys = new Set(registeredManagedStorageKeys());
-  const prefixes = managedStateEntries().filter((entry) => entry.kind !== "idb" && entry.prefix).map((entry) => entry.prefix);
-  const unregistered = [];
-  for (const key of keys) {
-  if (key === FACTORY_RESET_SIGNAL_KEY) continue;
-  if (exactKeys.has(key)) continue;
-  if (prefixes.some((prefix) => key.startsWith(prefix))) continue;
-  unregistered.push(key);
-  }
-  return unregistered;
-}
-function warnUnregisteredManagedKeys(keys) {
-  const unregistered = unregisteredManagedStorageKeys(keys);
-  if (unregistered.length) {
-  debugStorageError("Managed key not in registry (unregistered store escaping reset)", unregistered.join(","), null);
-  }
-}
-async function addGmStorageKeys(keys) {
-  const listValues = asyncGmListValues();
-  if (!listValues) return;
-  try {
-  for (const key of await listValues()) keys.add(key);
-  } catch (error) {
-  debugStorageError("GM storage list failed", "GM_listValues", error);
-  }
-}
-async function addKnownStoredKeys(keys) {
-  for (const key of registeredManagedStorageKeys()) {
-  if (await storedValueExists(key)) keys.add(key);
-  }
-}
-function collectWebStorageKeys(storage, keys) {
-  try {
-  for (let index = 0; index < storage.length; index++) {
-    const key = storage.key(index);
-    if (key && isManagedStorageKey(key)) keys.add(key);
-  }
-  } catch {
-  }
-}
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
-function removeLocalStorageKey(key) {
-  try {
-  localStorage.removeItem(key);
-  } catch {
-  }
-}
-function removeSessionStorageKey(key) {
-  try {
-  sessionStorage.removeItem(key);
-  } catch {
-  }
-}
-async function storedValueExists(key) {
-  const getValue = asyncGmGetValue();
-  if (getValue) {
-  try {
-    if (!isMissingSentinel(await getValue(key, MISSING))) return true;
-  } catch (error) {
-    debugStorageError("GM storage existence check failed", key, error);
-  }
-  }
-  return webStorageHasKey(localStorage, key) || webStorageHasKey(sessionStorage, key);
-}
-function webStorageHasKey(storage, key) {
-  try {
-  return storage.getItem(key) !== null;
-  } catch {
-  return false;
-  }
-}
-function mirrorManagedValueToHostedStorage(key, value) {
-  if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-  localStorageSet(key, value);
-}
-function cacheManagedValueForHostedStartup(key, value) {
-  mirrorManagedValueToHostedStorage(key, value);
-}
-function shouldMirrorManagedValueToHostedStorage(key) {
-  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
-}
-function isHostedYomuOrigin() {
-  try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
-  } catch {
-  return false;
-  }
-}
-async function clearManagedIndexedDatabases() {
-  await Promise.all(registeredManagedIndexedDbNames().map(deleteIndexedDbDatabase));
-}
-function isManagedBrowserCacheName(name) {
-  return MANAGED_CACHE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
-}
-function isManagedServiceWorkerRegistration(registration) {
-  return [
-  registration.scope,
-  registration.active?.scriptURL,
-  registration.installing?.scriptURL,
-  registration.waiting?.scriptURL
-  ].some(hasManagedYomuServiceWorkerPath);
-}
-function hasManagedYomuServiceWorkerPath(value) {
-  if (typeof value !== "string") return false;
-  try {
-  const url = new URL(value, location.href);
-  if (!isManagedServiceWorkerOrigin(url)) return false;
-  return url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js") || url.pathname.includes("/study/") || url.pathname.includes("/newtab/") || url.pathname.includes("/pdf-reader/") || url.pathname.includes("/video-player/");
-  } catch {
-  return value.includes("/study/") || value.includes("/newtab/") || value.includes("/pdf-reader/") || value.includes("/video-player/") || value.endsWith("/sw.js");
-  }
-}
-function isManagedServiceWorkerOrigin(url) {
-  return url.origin === DOCS_ORIGIN || url.hostname === "hrussellzfac023.github.io" || /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname);
-}
-function deleteIndexedDbDatabase(name) {
-  if (typeof indexedDB === "undefined") return Promise.resolve();
-  return new Promise((resolve) => {
-  try {
-    const request = indexedDB.deleteDatabase(name);
-    request.onsuccess = () => resolve();
-    request.onerror = (error) => {
-      debugStorageError("IndexedDB delete failed", name, error);
-      resolve();
-    };
-    request.onblocked = (error) => {
-      debugStorageError("IndexedDB delete blocked", name, error);
-      resolve();
-    };
-  } catch (error) {
-    debugStorageError("IndexedDB delete threw", name, error);
-    resolve();
-  }
-  });
-}
-function asyncGmGetValue() {
-  if (typeof GM_getValue === "function") return GM_getValue;
-  const modern = globalThis.GM?.getValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return async (key, fallback) => {
-  const value = (await extension.get(key))[key];
-  return value === void 0 ? fallback : value;
-  };
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-}
-function asyncGmSetValue() {
-  if (typeof GM_setValue === "function") return GM_setValue;
-  const modern = globalThis.GM?.setValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return (key, value) => extension.set({ [key]: value });
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function asyncGmDeleteValue() {
-  if (typeof GM_deleteValue === "function") return GM_deleteValue;
-  const modern = globalThis.GM?.deleteValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return (key) => extension.remove(key);
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key) => bridge.deleteValue(key) : null;
-}
-function asyncGmListValues() {
-  const directListValues = globalThis.GM_listValues;
-  if (typeof directListValues === "function") return directListValues;
-  const modern = globalThis.GM?.listValues;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
-  const bridge = getUserscriptGmStorage();
-  return bridge ? () => bridge.listValues() : null;
-}
-function extensionStorageArea() {
-  const candidate = globalThis;
-  const browser = candidate.browser;
-  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
-  const chrome = candidate.chrome;
-  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
-  return null;
-}
-function extensionStorageChangedEvent() {
-  const candidate = globalThis;
-  if (candidate.browser?.runtime?.id && candidate.browser.storage?.onChanged) return candidate.browser.storage.onChanged;
-  if (candidate.chrome?.runtime?.id && candidate.chrome.storage?.onChanged) return candidate.chrome.storage.onChanged;
-  return null;
-}
-function normalizeFactoryResetSignal(signal) {
-  return {
-  id: normalizedFactoryResetId(signal.id),
-  phase: normalizedFactoryResetPhase(signal.phase),
-  at: normalizedFactoryResetAt(signal.at),
-  href: normalizedFactoryResetHref(signal.href)
-  };
-}
-function normalizedFactoryResetId(id) {
-  return String(id || createFactoryResetId());
-}
-function normalizedFactoryResetPhase(phase) {
-  return phase === "complete" ? "complete" : "prepare";
-}
-function normalizedFactoryResetAt(at) {
-  return typeof at === "number" && Number.isFinite(at) ? at : Date.now();
-}
-function normalizedFactoryResetHref(href) {
-  return typeof href === "string" ? href : location.href;
-}
-function parseFactoryResetSignal(value) {
-  const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
-  if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
-  return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
-  };
-}
-function factoryResetSignalTime(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
-}
-function factoryResetSignalHref(value) {
-  return typeof value === "string" ? value : "";
-}
-function isFactoryResetSignalRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
-}
-function isValidFactoryResetPhase(value) {
-  return value === "prepare" || value === "complete";
-}
-function parseJsonRecord(value) {
-  try {
-  return JSON.parse(value);
-  } catch {
-  return null;
-  }
-}
-function publishBroadcastFactoryResetSignal(signal) {
-  if (typeof BroadcastChannel !== "function") return;
-  try {
-  const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
-  channel.postMessage(signal);
-  channel.close();
-  } catch (error) {
-  debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
-  }
-}
-function createFactoryResetId() {
-  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-async function readStorageLeaseClaims(prefix, listValues, getValue, now) {
-  const keys = (await listValues()).filter((key) => key.startsWith(prefix));
-  const values = await Promise.all(keys.map((key) => getValue(key, null)));
-  return values.flatMap((value) => {
-  const claim = parseStorageLeaseClaim(value);
-  return claim && claim.leaseUntil > now ? [claim] : [];
-  });
-}
-function parseStorageLeaseClaim(value) {
-  if (!isPlainRecord(value) || value.version !== 1 || typeof value.owner !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
-  return value;
-}
-function normalizedStorageLeaseName(name) {
-  const normalized = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
-  if (!normalized) throw new TypeError("Storage lease name is required.");
-  return normalized;
-}
-function boundedLeaseOption(value, fallback, minimum, maximum) {
-  if (value === void 0) return fallback;
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
-  return value;
-}
-function storageLeaseDelay(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-async function withWebStorageLock(name, operation) {
-  const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-  return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
-}
-function debugStorageError(message, key, error) {
-  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 const JITEN_API_KEY_PREFIX = "ak_";
 function effectiveJpdbApiKey(settings) {
@@ -5176,1095 +6742,11 @@ function speakerIcon() {
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
-const shared = [
-  {
-  id: "wiktionary-en",
-  label: "Wiktionary EN",
-  code: "wiktionaryEn",
-  urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "wiktionary-native",
-  label: "Wiktionary",
-  code: "wiktionary",
-  urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
-  components: [
-    "definition"
-  ],
-  enabled: false
-  },
-  {
-  id: "glosbe",
-  label: "Glosbe",
-  code: "glosbe",
-  urlTemplate: "https://glosbe.com/%code%/en/{query}",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: false
-  },
-  {
-  id: "tatoeba",
-  label: "Tatoeba",
-  code: "tatoeba",
-  urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "forvo",
-  label: "Forvo",
-  code: "forvo",
-  urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
-  components: [
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "youglish",
-  label: "YouGlish",
-  code: "youglish",
-  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "reverso",
-  label: "Reverso",
-  code: "reverso",
-  urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "wordreference",
-  label: "WordReference",
-  code: "wordreference",
-  urlTemplate: "https://www.wordreference.com/%code%/{query}",
-  components: [
-    "definition",
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "linguee",
-  label: "Linguee",
-  code: "linguee",
-  urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: false
-  }
-];
-const targets = {
-  sq: {
-  codes: {
-    wiktionaryEn: "Albanian",
-    wiktionary: "sq",
-    glosbe: "sq",
-    tatoeba: "sqi",
-    forvo: "sq"
-  },
-  links: [
-    {
-      id: "fjalorthi",
-      label: "Fjalorthi",
-      urlTemplate: "https://fjalorthi.com/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  grc: {
-  codes: {
-    wiktionaryEn: "Ancient_Greek",
-    glosbe: "grc",
-    tatoeba: "grc"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "lsj",
-      label: "LSJ",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
-      components: [
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ar: {
-  codes: {
-    wiktionaryEn: "Arabic",
-    wiktionary: "ar",
-    glosbe: "ar",
-    tatoeba: "ara",
-    forvo: "ar",
-    reverso: "arabic",
-    youglish: "arabic"
-  },
-  links: [
-    {
-      id: "maajim",
-      label: "Maajim",
-      urlTemplate: "https://maajim.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  yue: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "yue",
-    glosbe: "yue",
-    tatoeba: "yue",
-    forvo: "yue"
-  },
-  links: [
-    {
-      id: "words-hk",
-      label: "words.hk",
-      urlTemplate: "https://words.hk/zidin/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "cantowords",
-      label: "CantoWords",
-      urlTemplate: "https://cantowords.com/dictionary/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "cantodict",
-      label: "CantoDict",
-      urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "cccanto",
-      label: "CC-Canto",
-      urlTemplate: "https://cantonese.org/search.php?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  zh: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "zh",
-    glosbe: "zh",
-    tatoeba: "cmn",
-    forvo: "zh",
-    reverso: "chinese",
-    linguee: "chinese",
-    youglish: "chinese"
-  },
-  links: [
-    {
-      id: "mdbg",
-      label: "MDBG",
-      urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "purpleculture",
-      label: "Purple Culture",
-      urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio",
-        "images"
-      ]
-    },
-    {
-      id: "zdic",
-      label: "Zdic",
-      urlTemplate: "https://www.zdic.net/hans/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  da: {
-  codes: {
-    wiktionaryEn: "Danish",
-    wiktionary: "da",
-    glosbe: "da",
-    tatoeba: "dan",
-    forvo: "da",
-    linguee: "danish"
-  },
-  links: [
-    {
-      id: "ddo",
-      label: "Den Danske Ordbog",
-      urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  nl: {
-  codes: {
-    wiktionaryEn: "Dutch",
-    wiktionary: "nl",
-    glosbe: "nl",
-    tatoeba: "nld",
-    forvo: "nl",
-    reverso: "dutch",
-    wordreference: "nlen",
-    linguee: "dutch",
-    youglish: "dutch"
-  },
-  links: [
-    {
-      id: "woorden",
-      label: "woorden.org",
-      urlTemplate: "https://www.woorden.org/woord/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "mijnwoordenboek",
-      label: "MijnWoordenboek",
-      urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  en: {
-  codes: {
-    wiktionaryEn: "English",
-    tatoeba: "eng",
-    forvo: "en",
-    youglish: "english"
-  },
-  links: [
-    {
-      id: "cambridge",
-      label: "Cambridge",
-      urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  fi: {
-  codes: {
-    wiktionaryEn: "Finnish",
-    wiktionary: "fi",
-    glosbe: "fi",
-    tatoeba: "fin",
-    forvo: "fi",
-    linguee: "finnish"
-  },
-  links: [
-    {
-      id: "kotus",
-      label: "Kielitoimiston",
-      urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "suomisanakirja",
-      label: "Suomisanakirja",
-      urlTemplate: "https://www.suomisanakirja.fi/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  fr: {
-  codes: {
-    wiktionaryEn: "French",
-    wiktionary: "fr",
-    glosbe: "fr",
-    tatoeba: "fra",
-    forvo: "fr",
-    reverso: "french",
-    wordreference: "fren",
-    linguee: "french",
-    youglish: "french"
-  },
-  links: [
-    {
-      id: "cnrtl",
-      label: "CNRTL",
-      urlTemplate: "https://www.cnrtl.fr/definition/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "larousse",
-      label: "Larousse",
-      urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  de: {
-  codes: {
-    wiktionaryEn: "German",
-    wiktionary: "de",
-    glosbe: "de",
-    tatoeba: "deu",
-    forvo: "de",
-    reverso: "german",
-    wordreference: "deen",
-    youglish: "german"
-  },
-  links: [
-    {
-      id: "dwds",
-      label: "DWDS",
-      urlTemplate: "https://www.dwds.de/wb/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "duden",
-      label: "Duden",
-      urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  el: {
-  codes: {
-    wiktionaryEn: "Greek",
-    wiktionary: "el",
-    glosbe: "el",
-    tatoeba: "ell",
-    forvo: "el",
-    youglish: "greek"
-  },
-  links: [
-    {
-      id: "triantafyllides",
-      label: "Triantafyllides",
-      urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  hu: {
-  codes: {
-    wiktionaryEn: "Hungarian",
-    wiktionary: "hu",
-    glosbe: "hu",
-    tatoeba: "hun",
-    forvo: "hu",
-    linguee: "hungarian"
-  },
-  links: [
-    {
-      id: "wikiszotar",
-      label: "WikiSzotar",
-      urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  id: {
-  codes: {
-    wiktionaryEn: "Indonesian",
-    wiktionary: "id",
-    glosbe: "id",
-    tatoeba: "ind",
-    forvo: "id",
-    youglish: "indonesian"
-  },
-  links: [
-    {
-      id: "kbbi-web",
-      label: "KBBI",
-      urlTemplate: "https://kbbi.web.id/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "kbbi-co",
-      label: "KBBI.co.id",
-      urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  it: {
-  codes: {
-    wiktionaryEn: "Italian",
-    wiktionary: "it",
-    glosbe: "it",
-    tatoeba: "ita",
-    forvo: "it",
-    reverso: "italian",
-    wordreference: "iten",
-    linguee: "italian",
-    youglish: "italian"
-  },
-  links: [
-    {
-      id: "treccani",
-      label: "Treccani",
-      urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "demauro",
-      label: "De Mauro",
-      urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  km: {
-  codes: {
-    wiktionaryEn: "Khmer",
-    wiktionary: "km",
-    glosbe: "km",
-    tatoeba: "khm",
-    forvo: "km"
-  },
-  links: [
-    {
-      id: "khmerdict",
-      label: "Khmer Dictionary",
-      urlTemplate: "https://khmerdict.com/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ko: {
-  codes: {
-    wiktionaryEn: "Korean",
-    wiktionary: "ko",
-    glosbe: "ko",
-    tatoeba: "kor",
-    forvo: "ko",
-    youglish: "korean"
-  },
-  links: [
-    {
-      id: "naver",
-      label: "Naver",
-      urlTemplate: "https://dict.naver.com/dict.search?query={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "krdict",
-      label: "Krdict",
-      urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "daum",
-      label: "Daum",
-      urlTemplate: "https://dic.daum.net/search.do?q={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  lo: {
-  codes: {
-    wiktionaryEn: "Lao",
-    wiktionary: "lo",
-    glosbe: "lo",
-    tatoeba: "lao",
-    forvo: "lo"
-  },
-  links: [
-    {
-      id: "laoswords",
-      label: "Lao Dictionary",
-      urlTemplate: "https://www.laoswords.com/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  la: {
-  codes: {
-    wiktionaryEn: "Latin",
-    wiktionary: "la",
-    glosbe: "la",
-    tatoeba: "lat",
-    forvo: "la"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "lsj",
-      label: "Lewis & Short",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "olivetti",
-      label: "Olivetti",
-      urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
-      components: [
-        "sentences"
-      ]
-    }
-  ]
-  },
-  mn: {
-  codes: {
-    wiktionaryEn: "Mongolian",
-    wiktionary: "mn",
-    glosbe: "mn",
-    tatoeba: "mon",
-    forvo: "mn"
-  },
-  links: [
-    {
-      id: "mongoltoli",
-      label: "Mongoltoli",
-      urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "toli-query",
-      label: "Toli",
-      urlTemplate: "https://toli.query.mn/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  fa: {
-  codes: {
-    wiktionaryEn: "Persian",
-    wiktionary: "fa",
-    glosbe: "fa",
-    tatoeba: "pes",
-    forvo: "fa",
-    youglish: "persian"
-  },
-  links: [
-    {
-      id: "vajehyab",
-      label: "Vajehyab",
-      urlTemplate: "https://www.vajehyab.com/?q={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "abadis",
-      label: "Abadis",
-      urlTemplate: "https://abadis.ir/fatofa/{query}/",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dehkhoda",
-      label: "Dehkhoda",
-      urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pl: {
-  codes: {
-    wiktionaryEn: "Polish",
-    wiktionary: "pl",
-    glosbe: "pl",
-    tatoeba: "pol",
-    forvo: "pl",
-    reverso: "polish",
-    wordreference: "plen",
-    linguee: "polish",
-    youglish: "polish"
-  },
-  links: [
-    {
-      id: "sjp-pwn",
-      label: "SJP PWN",
-      urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pt: {
-  codes: {
-    wiktionaryEn: "Portuguese",
-    wiktionary: "pt",
-    glosbe: "pt",
-    tatoeba: "por",
-    forvo: "pt",
-    reverso: "portuguese",
-    wordreference: "pten",
-    linguee: "portuguese",
-    youglish: "portuguese"
-  },
-  links: [
-    {
-      id: "priberam",
-      label: "Priberam",
-      urlTemplate: "https://dicionario.priberam.org/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dicio",
-      label: "Dicio",
-      urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  ro: {
-  codes: {
-    wiktionaryEn: "Romanian",
-    wiktionary: "ro",
-    glosbe: "ro",
-    tatoeba: "ron",
-    forvo: "ro",
-    reverso: "romanian",
-    wordreference: "roen",
-    linguee: "romanian",
-    youglish: "romanian"
-  },
-  links: [
-    {
-      id: "dexonline",
-      label: "dexonline",
-      urlTemplate: "https://dexonline.ro/definitie/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ru: {
-  codes: {
-    wiktionaryEn: "Russian",
-    wiktionary: "ru",
-    glosbe: "ru",
-    tatoeba: "rus",
-    forvo: "ru",
-    reverso: "russian",
-    youglish: "russian"
-  },
-  links: [
-    {
-      id: "openrussian",
-      label: "OpenRussian",
-      urlTemplate: "https://en.openrussian.org/ru/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "gramota",
-      label: "Gramota",
-      urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "kartaslov",
-      label: "Kartaslov",
-      urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  sh: {
-  codes: {
-    wiktionaryEn: "Serbo-Croatian",
-    wiktionary: "sh",
-    glosbe: "sh",
-    tatoeba: "hrv",
-    forvo: "hr"
-  },
-  links: [
-    {
-      id: "rjecnik-hr",
-      label: "Skolski rjecnik",
-      urlTemplate: "https://rjecnik.hr/search/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  es: {
-  codes: {
-    wiktionaryEn: "Spanish",
-    wiktionary: "es",
-    glosbe: "es",
-    tatoeba: "spa",
-    forvo: "es",
-    reverso: "spanish",
-    wordreference: "esen",
-    linguee: "spanish",
-    youglish: "spanish"
-  },
-  links: [
-    {
-      id: "rae",
-      label: "RAE",
-      urlTemplate: "https://dle.rae.es/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "spanishdict",
-      label: "SpanishDict",
-      urlTemplate: "https://www.spanishdict.com/translate/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  sv: {
-  codes: {
-    wiktionaryEn: "Swedish",
-    wiktionary: "sv",
-    glosbe: "sv",
-    tatoeba: "swe",
-    forvo: "sv",
-    reverso: "swedish",
-    wordreference: "sven",
-    linguee: "swedish",
-    youglish: "swedish"
-  },
-  links: [
-    {
-      id: "svenska-se",
-      label: "svenska.se",
-      urlTemplate: "https://svenska.se/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  tl: {
-  codes: {
-    wiktionaryEn: "Tagalog",
-    wiktionary: "tl",
-    glosbe: "tl",
-    tatoeba: "tgl",
-    forvo: "tl"
-  },
-  links: [
-    {
-      id: "tagalog-com",
-      label: "Tagalog.com",
-      urlTemplate: "https://www.tagalog.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "diksiyonaryo-ph",
-      label: "Diksiyonaryo.ph",
-      urlTemplate: "https://diksiyonaryo.ph/search/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "pinoydictionary",
-      label: "PinoyDictionary",
-      urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  th: {
-  codes: {
-    wiktionaryEn: "Thai",
-    wiktionary: "th",
-    glosbe: "th",
-    tatoeba: "tha",
-    forvo: "th",
-    youglish: "thai"
-  },
-  links: [
-    {
-      id: "longdo",
-      label: "Longdo",
-      urlTemplate: "https://dict.longdo.com/search/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  tr: {
-  codes: {
-    wiktionaryEn: "Turkish",
-    wiktionary: "tr",
-    glosbe: "tr",
-    tatoeba: "tur",
-    forvo: "tr",
-    reverso: "turkish",
-    youglish: "turkish"
-  },
-  links: [
-    {
-      id: "tdk",
-      label: "TDK Sozluk",
-      urlTemplate: "https://sozluk.gov.tr/?ara={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "tureng",
-      label: "Tureng",
-      urlTemplate: "https://tureng.com/en/turkish-english/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "seslisozluk",
-      label: "Sesli Sozluk",
-      urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  vi: {
-  codes: {
-    wiktionaryEn: "Vietnamese",
-    wiktionary: "vi",
-    glosbe: "vi",
-    tatoeba: "vie",
-    forvo: "vi",
-    youglish: "vietnamese"
-  },
-  links: [
-    {
-      id: "tratu-soha",
-      label: "Tra tu Soha",
-      urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vdict",
-      label: "VDict",
-      urlTemplate: "https://vdict.com/{query},2,0,0.html",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vtudien",
-      label: "Vtudien",
-      urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  }
-};
-const catalogue = {
-  shared,
-  targets
-};
-const CATALOGUE = catalogue;
-new Set([
-  ...CATALOGUE.shared.map((site) => site.id),
-  ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
-]);
-const CODE_TOKEN = /%code%/g;
 function hasTargetLookupSites(targetLanguage) {
-  return Object.hasOwn(CATALOGUE.targets, targetLanguage);
-}
-function targetLookupSites(targetLanguage) {
-  const entry = CATALOGUE.targets[targetLanguage];
-  if (!entry) return [];
-  const natives = entry.links.map((site, index) => ({
-  ...site,
-  enabled: index === 0,
-  origin: "native"
-  }));
-  const shared2 = [];
-  for (const site of CATALOGUE.shared) {
-  const code = entry.codes[site.code];
-  if (!code) continue;
-  shared2.push({
-    id: site.id,
-    label: site.label,
-    urlTemplate: site.urlTemplate.replace(CODE_TOKEN, code),
-    components: site.components,
-    enabled: site.enabled,
-    origin: "shared"
-  });
-  }
-  return [...natives, ...shared2];
+  return yomuSettingsSurfaceCompanion()?.lookupLinks?.hasTargetLookupSites(targetLanguage) ?? false;
 }
 function targetLookupLinks(targetLanguage) {
-  return targetLookupSites(targetLanguage).map((site) => ({
-  id: site.id,
-  label: site.label,
-  urlTemplate: site.urlTemplate,
-  enabled: site.enabled
-  }));
+  return yomuSettingsSurfaceCompanion()?.lookupLinks?.targetLookupLinks(targetLanguage) ?? [];
 }
 const MAX_DICTIONARY_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
@@ -8321,9 +8803,9 @@ function strandedHostedLocalSettingsRecord() {
 async function promoteStrandedHostedSettingsToGmStorage() {
   if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
   try {
+  const gmRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   const strandedRecord = settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
   if (!strandedRecord) return false;
-  const gmRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   const current = mergeSettings(gmRecord);
   const recovery = recoverStrandedHostedSettings(
     current,
@@ -8418,25 +8900,16 @@ function dispatchSettingsChange(settings) {
 }
 function beginSettingsResetGuard() {
   settingsResetInProgress = true;
+  beginManagedStateReset();
 }
 function endSettingsResetGuard() {
   settingsResetInProgress = false;
+  endManagedStateReset();
 }
 async function deleteSettingsStorage() {
   for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
   await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
   await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
-}
-async function settingsStorageKeysStillPresent() {
-  const keys = [];
-  for (const key of [
-  ...SETTINGS_STORAGE_KEYS,
-  PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-  EXPLICIT_USER_SETTINGS_STORAGE_KEY
-  ]) {
-  if (await storedValueExists(key)) keys.push(key);
-  }
-  return keys;
 }
 function isAudioSourceType(value) {
   return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
@@ -9149,15 +9622,15 @@ function nodeTextContent(node) {
 }
 function collectTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
   const walker = textTargetWalker(root, visibleOnly, options);
-  const targets2 = [];
+  const targets = [];
   let node;
-  while (targets2.length < limit) {
+  while (targets.length < limit) {
   node = walker.nextNode();
   if (!node) break;
   const target = textTargetFromAcceptedNode(node);
-  if (target) targets2.push(target);
+  if (target) targets.push(target);
   }
-  return targets2;
+  return targets;
 }
 function textTargetWalker(root, visibleOnly, options) {
   return document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -9254,15 +9727,15 @@ function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excl
   return state.targets;
 }
 function collectFormControlTextTargetsIn(root, limit = 40, visibleOnly = true, options = {}) {
-  const targets2 = [];
+  const targets = [];
   const controls = root instanceof HTMLElement && root.matches(FORM_CONTROL_TEXT_TARGET_SELECTOR) ? [root] : [];
   controls.push(...Array.from(root.querySelectorAll(FORM_CONTROL_TEXT_TARGET_SELECTOR)));
   for (const control of controls) {
-  if (targets2.length >= limit) break;
+  if (targets.length >= limit) break;
   const target = formControlTextTarget(control, visibleOnly, options);
-  if (target) targets2.push(target);
+  if (target) targets.push(target);
   }
-  return targets2;
+  return targets;
 }
 function formControlTextTarget(control, visibleOnly, options) {
   if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
@@ -14984,20 +15457,9 @@ function subscribeToCardStateSignals(onCard) {
   if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
   onCard(cardFromCardStateSignal(signal.card));
   };
-  const addValueChangeListener = globalThis.GM_addValueChangeListener;
-  const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-  if (typeof addValueChangeListener === "function") {
-  try {
-    const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-      if (remote) handle(newValue);
-    });
-    cleanups.push(() => {
-      if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-    });
-  } catch (error) {
-    log$6.debug("GM card-state listener failed", error);
-  }
-  }
+  cleanups.push(subscribeToStoredValueChanges(CARD_STATE_SIGNAL_KEY, (newValue, source) => {
+  if (source.remote) handle(newValue);
+  }));
   if (typeof BroadcastChannel === "function") {
   try {
     const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
@@ -15433,6 +15895,12 @@ const LEGACY_DECK_KEY = "yomu:srs-local:v1";
 const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
 const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
 const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+registerManagedState({
+  owner: "srs/local-yomu-store",
+  kind: "gm",
+  prefix: "yomu:srs-local:v2:",
+  enumerate: enumerateLocalYomuSrsStorageKeys
+});
 class LocalYomuSrsStorageError extends Error {
   constructor(options) {
   super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
@@ -15441,6 +15909,17 @@ class LocalYomuSrsStorageError extends Error {
 }
 function isLocalYomuSrsStorageError(error) {
   return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+}
+async function enumerateLocalYomuSrsStorageKeys() {
+  const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
+  if (rawIndex === null || rawIndex === void 0) return [];
+  const index = normalizeIndex(rawIndex);
+  if (!index) throw new Error("The local SRS index is unreadable.");
+  return [
+  DECK_INDEX_KEY,
+  ...index.cardIds.map(cardStorageKey),
+  ...index.tombstoneIds.map(tombstoneStorageKey)
+  ];
 }
 class LocalYomuSrsStore {
   async read() {
@@ -19608,10 +20087,10 @@ async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) 
 function deconjugatedReading(expression, baseTerm, reading) {
   const expressionChars = Array.from(expression);
   const baseChars = Array.from(baseTerm);
-  let shared2 = 0;
-  while (shared2 < expressionChars.length && shared2 < baseChars.length && expressionChars[shared2] === baseChars[shared2]) shared2++;
-  const removed = expressionChars.slice(shared2).join("");
-  const added = baseChars.slice(shared2).join("");
+  let shared = 0;
+  while (shared < expressionChars.length && shared < baseChars.length && expressionChars[shared] === baseChars[shared]) shared++;
+  const removed = expressionChars.slice(shared).join("");
+  const added = baseChars.slice(shared).join("");
   if (!KANA_SUFFIX_RE.test(removed) || !KANA_SUFFIX_RE.test(added)) return "";
   if (removed && !reading.endsWith(removed)) return "";
   const stem = removed ? reading.slice(0, reading.length - removed.length) : reading;
@@ -20119,8 +20598,8 @@ class CardPopoverRenderer {
   const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
   const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
   if (earlyResult !== void 0) return earlyResult;
-  const targets2 = this.popoverReviewTargets(card, data, provider, language);
-  if (targets2.length) return this.renderTargetedReviewButtons(targets2, language, targets2.length > 1, this.switchProviderTarget(card, provider));
+  const targets = this.popoverReviewTargets(card, data, provider, language);
+  if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.switchProviderTarget(card, provider));
   if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
     return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
   }
@@ -20254,9 +20733,9 @@ class CardPopoverRenderer {
     gradeProfile: "standard"
   }));
   }
-  renderTargetedReviewButtons(targets2, language, canSwitchTarget, switchProviderTarget) {
+  renderTargetedReviewButtons(targets, language, canSwitchTarget, switchProviderTarget) {
   const settings = this.settings();
-  const selected = targets2[0];
+  const selected = targets[0];
   if (!selected) return "";
   const standardGrades = reviewButtonGrades(settings);
   const bunproRegularGrades = [
@@ -20269,14 +20748,14 @@ class CardPopoverRenderer {
     ["okay", uiText(language, "bunproGradeGoodLabel")],
     ["easy", uiText(language, "bunproGradeEasyLabel")]
   ];
-  const profiles = new Set(targets2.map((target) => target.gradeProfile));
+  const profiles = new Set(targets.map((target) => target.gradeProfile));
   const gradeRows = [
     profiles.has("standard") ? renderTargetedGradeRow(standardGrades, selected, "standard", selected.gradeProfile !== "standard") : "",
     profiles.has("bunpro-regular") ? renderTargetedGradeRow(bunproRegularGrades, selected, "bunpro-regular", selected.gradeProfile !== "bunpro-regular") : "",
     profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected, "bunpro-fsrs", selected.gradeProfile !== "bunpro-fsrs") : ""
   ].filter(Boolean).join("");
   if (!gradeRows) return "";
-  const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language) : "";
+  const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
   const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
   return `
         ${targetGutter}
@@ -20381,10 +20860,10 @@ function renderReviewTargetGutter(target, language, canSwitchTarget, switchProvi
     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button>
   </div>`;
 }
-function renderReviewTargetSelector(targets2, language) {
+function renderReviewTargetSelector(targets, language) {
   return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
     <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language, "gradeTargetSelector"))}">
-        ${targets2.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
+        ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
     </select>
   </div>`;
 }
@@ -23906,31 +24385,33 @@ class FactoryResetCoordinator {
   const resetSignal = createFactoryResetSignal("prepare");
   this.activeResetId = resetSignal.id;
   beginSettingsResetGuard();
+  let epochCommitted = false;
   try {
     await publishFactoryResetSignal(resetSignal);
     await this.dependencies.invalidateRuntimeStores();
     await delay(FACTORY_RESET_PREPARE_DELAY_MS);
     await clearManagedStoredValues();
     await deleteSettingsStorage();
-    await this.assertSettingsStorageDeleted();
-    await this.resetDictionaryDatabaseBestEffort();
-    await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
-    await clearFactoryResetSignal();
+    await this.assertManagedStateDeleted();
+    await this.dependencies.resetDictionaryDatabase();
+    await commitManagedStateResetEpoch(resetSignal.id);
+    epochCommitted = true;
+    await this.dependencies.resetDictionaryDatabase().catch((error) => log$3.warn("Final dictionary reset failed after epoch commit", error));
+    await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$3.warn("Factory reset completion signal failed after epoch commit", error));
+    await clearFactoryResetSignal().catch((error) => log$3.warn("Factory reset signal cleanup failed after epoch commit", error));
     this.dependencies.reload();
   } catch (error) {
+    if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
+      log$3.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
+      await clearFactoryResetSignal().catch((signalError) => log$3.warn("Factory reset signal cleanup failed", signalError));
+      this.dependencies.reload();
+      return;
+    }
     this.activeResetId = "";
+    await clearFactoryResetSignal().catch((signalError) => log$3.warn("Factory reset signal cleanup failed", signalError));
     endSettingsResetGuard();
     log$3.warn("All-data reset failed", error);
     this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
-  }
-  }
-  async resetDictionaryDatabaseBestEffort() {
-  try {
-    return await this.dependencies.resetDictionaryDatabase();
-  } catch (error) {
-    log$3.warn("Dictionary reset failed post-settings", error);
-    this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
-    return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
   }
   }
   async handleSignal(signal) {
@@ -23948,11 +24429,11 @@ class FactoryResetCoordinator {
     this.scheduleRemoteGuardRelease();
   }
   }
-  async assertSettingsStorageDeleted() {
-  const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
-  if (!settingsKeysStillPresent.length) return;
-  log$3.warn("Settings keys remained after reset", { settingsKeysStillPresent });
-  throw new Error(this.text("factoryResetDeleteSettingsFailed"));
+  async assertManagedStateDeleted() {
+  const managedKeysStillPresent = await managedStoredKeysStillPresent();
+  if (!managedKeysStillPresent.length) return;
+  log$3.warn("Managed keys remained after reset", { managedKeysStillPresent });
+  throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
   }
   text(key, values = {}) {
   return uiText(this.dependencies.getLanguage(), key).replace(/\{(\w+)\}/g, (_match, name) => values[name] ?? "");
@@ -25897,8 +26378,8 @@ function siteScanRemaining(context) {
 function siteScanHasRoom(context) {
   return siteScanRemaining(context) > 0;
 }
-function siteScanResult(profiles, targets2) {
-  if (targets2.length) return targets2;
+function siteScanResult(profiles, targets) {
+  if (targets.length) return targets;
   return profiles.some((profile) => profile.id !== "asbplayer-parser") ? [] : null;
 }
 function collectScanTargetsInSteps(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href, options = {}) {
@@ -25909,9 +26390,9 @@ function* scanTargetCollectionSteps(limit, href, options) {
   const skipTargetCount = Math.max(0, Math.floor(options.skipTargetCount ?? 0));
   const collectionLimit = limit + skipTargetCount;
   const matchingProfiles = getMatchingSiteParsers(href);
-  const targets2 = yield* scanTargetPhaseSteps(collectionLimit, href, options);
+  const targets = yield* scanTargetPhaseSteps(collectionLimit, href, options);
   const withDeferred = yield* withDeferredShadowScanTargets(
-  targets2,
+  targets,
   effectiveScanTargetLimit(matchingProfiles, collectionLimit, skipTargetCount),
   matchingProfiles
   );
@@ -25919,14 +26400,14 @@ function* scanTargetCollectionSteps(limit, href, options) {
   return eligible.slice(0, limit);
 }
 function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
-  let targets2 = baseTargets;
+  let targets = baseTargets;
   const nonDestructive = profiles.some((profile) => profile.nonDestructive);
   for (let round = 0; round < DEFERRED_SHADOW_SCAN_MAX_ROUNDS; round += 1) {
-  const remaining = effectiveLimit - targets2.length;
+  const remaining = effectiveLimit - targets.length;
   const hosts = drainDepthCappedShadowHosts();
   if (!hosts.length || remaining <= 0) break;
   yield;
-  const seen = seenTextNodes(targets2);
+  const seen = seenTextNodes(targets);
   const collected = [];
   for (const host of hosts) {
     if (collected.length >= remaining) break;
@@ -25942,9 +26423,9 @@ function* withDeferredShadowScanTargets(baseTargets, effectiveLimit, profiles) {
     collected.push(...hostTargets);
   }
   if (!collected.length) continue;
-  targets2 = [...targets2, ...markTargetsPassive(collected, { nonDestructive })];
+  targets = [...targets, ...markTargetsPassive(collected, { nonDestructive })];
   }
-  return targets2;
+  return targets;
 }
 function* scanTargetPhaseSteps(limit, href, options) {
   const matchingProfiles = getMatchingSiteParsers(href);
@@ -26016,8 +26497,8 @@ function* scanTargetPhaseSteps(limit, href, options) {
   if (annotationScopeActive()) return [];
   return collectVisibleTextTargets(effectiveLimit);
 }
-function markTargetsPassive(targets2, options = {}) {
-  return targets2.map((target) => ({
+function markTargetsPassive(targets, options = {}) {
+  return targets.map((target) => ({
   ...target,
   passiveInteraction: true,
   nonDestructive: options.nonDestructive || void 0,
@@ -26042,11 +26523,11 @@ function genericUiChromeTargetLimit(remaining) {
   if (!Number.isFinite(remaining)) return GENERIC_UI_CHROME_TARGET_MAX;
   return Math.min(GENERIC_UI_CHROME_TARGET_MAX, Math.max(1, Math.ceil(remaining * 0.25)));
 }
-function withResidualVisibleJapaneseTargets(targets2, effectiveLimit, profiles, options = {}) {
-  const remaining = effectiveLimit - targets2.length;
-  if (remaining <= 0) return targets2;
-  const residual = collectResidualVisibleJapaneseTargets(remaining, targets2, profiles, options);
-  return residual.length ? [...targets2, ...residual] : targets2;
+function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles, options = {}) {
+  const remaining = effectiveLimit - targets.length;
+  if (remaining <= 0) return targets;
+  const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles, options);
+  return residual.length ? [...targets, ...residual] : targets;
 }
 function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, options = {}) {
   if (limit <= 0 || !document.body) return [];
@@ -26113,7 +26594,7 @@ function effectiveScanTargetLimit(profiles, requestedLimit, profileLimitOffset =
   return Math.max(1, profileLimit);
 }
 function collectWholePageScanTargets(limit) {
-  const targets2 = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
+  const targets = scanScopeRoots().flatMap((root) => collectFragmentTextTargetsIn(root, limit, true, "", {
   allowUiText: true,
   includeUiChrome: true,
   includeFormChrome: true,
@@ -26122,7 +26603,7 @@ function collectWholePageScanTargets(limit) {
   heading: true,
   minLength: 1
   })).slice(0, limit);
-  return targets2.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
+  return targets.map((target) => ({ ...target, parserId: target.parserId ?? "whole-page-parser" }));
 }
 function collectGenericProseTargets(limit, existingTargets = [], options = {}) {
   const roots = genericProseRoots();
@@ -26142,8 +26623,8 @@ function createGenericProseCollection(limit, existingTargets, options) {
   candidateHeadroom: existingTargets.length + (options.skipMirroredHosts ? options.mirroredHeadTargetCount ?? 0 : 0)
   };
 }
-function seenTextNodes(targets2) {
-  return new Set(targets2.flatMap((target) => {
+function seenTextNodes(targets) {
+  return new Set(targets.flatMap((target) => {
   if ("fragments" in target) return textNodesForFragmentTarget(target);
   return [target.node];
   }));
@@ -26168,10 +26649,10 @@ function collectSafeUiChromeTargets(limit, existingTargets = [], options = {}) {
   return collection.targets;
 }
 function collectSafeFormControlTextTargets(collection, extraExclude = "") {
-  const targets2 = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
+  const targets = scanScopeRoots().flatMap((root) => collectFormControlTextTargetsIn(root, genericProseRemaining(collection), true, {
   excludeSelector: extraExclude
   }));
-  for (const target of targets2) {
+  for (const target of targets) {
   collection.targets.push(target);
   if (genericProseCollectionFull(collection)) break;
   }
@@ -26238,14 +26719,14 @@ function genericProseRemaining(collection) {
 function genericProseCollectionFull(collection) {
   return genericProseRemaining(collection) <= 0;
 }
-function appendGenericProseTarget(targets2, seen, target, options) {
+function appendGenericProseTarget(targets, seen, target, options) {
   const admissionOptions = { defaultParserId: "generic-prose-parser" };
-  return appendAdmittedFragmentTarget(targets2, seen, target, admissionOptions);
+  return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
 }
-function appendResidualVisibleTarget(targets2, seen, target) {
+function appendResidualVisibleTarget(targets, seen, target) {
   const nodes = textNodesForFragmentTarget(target);
   if (!nodes.some((node) => seen.has(node))) {
-  appendGenericProseTarget(targets2, seen, target);
+  appendGenericProseTarget(targets, seen, target);
   return;
   }
   for (const fragments of unseenFragmentRuns(target, seen)) {
@@ -26255,7 +26736,7 @@ function appendResidualVisibleTarget(targets2, seen, target) {
   if (!isTargetLanguageText(text2)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
-  appendAdmittedFragmentTarget(targets2, seen, {
+  appendAdmittedFragmentTarget(targets, seen, {
     ...target,
     text: text2,
     parent,
@@ -26299,7 +26780,7 @@ function trimFragmentRun(fragments) {
   }
   return fragments;
 }
-function appendAdmittedFragmentTarget(targets2, seen, target, options = {}) {
+function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
   const nodes = textNodesForFragmentTarget(target);
   if (!nodes.length || nodes.some((node) => seen.has(node))) return false;
   if (options.reject?.(target)) return false;
@@ -26307,7 +26788,7 @@ function appendAdmittedFragmentTarget(targets2, seen, target, options = {}) {
   if (isResidualJpdbAlternateSpellingTarget(target)) return false;
   nodes.forEach((node) => seen.add(node));
   const admittedTarget = options.transform ? options.transform(target) : { ...target, parserId: target.parserId ?? options.defaultParserId };
-  targets2.push(admittedTarget);
+  targets.push(admittedTarget);
   return true;
 }
 function isResidualReaderParticleTarget(target) {
@@ -31194,7 +31675,7 @@ function nestedTextParsePlan(root, limit, options = {}) {
   const renderedParseKey = renderedNestedParseKey(parseRoots);
   if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
-  const targets2 = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  const targets = [...parseRoots].sort((left, right) => providerExamplePriority(left) - providerExamplePriority(right)).flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
   allowUiText: true,
   includePassiveInteractions: true,
@@ -31203,7 +31684,7 @@ function nestedTextParsePlan(root, limit, options = {}) {
   readerRootPassiveInteractions: true,
   parseSurfaceIgnoredRoot: true
   })).slice(0, limit);
-  return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
+  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 function providerExamplePriority(parseRoot) {
   return parseRoot.matches("[data-provider-example-sentence]") ? 0 : 1;
@@ -31212,7 +31693,7 @@ function providerExampleTextParsePlan(root, limit) {
   const parseRoots = root.matches("[data-provider-example-sentence]") ? [root] : Array.from(root.querySelectorAll("[data-provider-example-sentence]"));
   if (!parseRoots.length) return null;
   normalizePartiallyParsedRoots(root, parseRoots);
-  const targets2 = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+  const targets = parseRoots.flatMap((parseRoot) => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
   includeReaderRoot: true,
   allowUiText: true,
   includePassiveInteractions: true,
@@ -31221,7 +31702,7 @@ function providerExampleTextParsePlan(root, limit) {
   readerRootPassiveInteractions: true,
   parseSurfaceIgnoredRoot: true
   })).slice(0, limit);
-  return targets2.length ? { targets: targets2, parseKey: nestedParseKey(targets2) } : null;
+  return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 function nestedParseTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options) {
   const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
@@ -31289,8 +31770,8 @@ function renderedNestedParseKey(parseRoots) {
   const renderedRoots = parseRoots.filter((parseRoot) => parseRoot.querySelector(READER_WORD_SELECTOR)).map((parseRoot) => readerWordSurfaceText(parseRoot).trim()).filter(Boolean);
   return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") : "";
 }
-function nestedParseKey(targets2) {
-  return targets2.map((target) => target.text).join("\n\n");
+function nestedParseKey(targets) {
+  return targets.map((target) => target.text).join("\n\n");
 }
 const log$2 = Logger.scope("PublicLookupFallback");
 function normalizedJitenLookupKey(term) {
@@ -32621,8 +33102,8 @@ function resolveInterfaceLocale(requested, options = {}) {
   blockers: []
   };
 }
-function installPreferredJapaneseSiteLanguageFromStoredSettings() {
-  yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
+async function installPreferredJapaneseSiteLanguageFromStoredSettings() {
+  await yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
   const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
@@ -33568,8 +34049,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.60"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.60"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.61"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.61"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33712,7 +34193,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.60"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.61"}`;
   } catch {
   return null;
   }
@@ -34041,10 +34522,10 @@ class VisiblePageScanner {
   const roots = Array.from(document.querySelectorAll(".asbplayer-offscreen, .asbplayer-subtitles-container-bottom"));
   if (!roots.length) return false;
   roots.sort((a, b) => Number(a.classList.contains("asbplayer-offscreen")) - Number(b.classList.contains("asbplayer-offscreen")));
-  const targets2 = roots.flatMap((root) => collectTextTargetsIn(root, ASB_SCAN_BATCH_LIMIT, false)).slice(0, ASB_SCAN_BATCH_LIMIT);
-  if (!targets2.length) return false;
+  const targets = roots.flatMap((root) => collectTextTargetsIn(root, ASB_SCAN_BATCH_LIMIT, false)).slice(0, ASB_SCAN_BATCH_LIMIT);
+  if (!targets.length) return false;
   try {
-    const parsed = await this.dependencies.parseJapanese(targets2.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
+    const parsed = await this.dependencies.parseJapanese(targets.map((target) => target.text), scanParseOptions(this.dependencies.getSettings()));
     if (this.destroyed) return false;
     const tokens = parsed.flat();
     if (this.dependencies.prepareSubtitleTokensBeforeRender) {
@@ -34054,14 +34535,14 @@ class VisiblePageScanner {
     }
     const applyAnkiColors = this.shouldEnrichAnkiWords() ? await this.prepareAnkiColorsBeforeSubtitleRender(tokens) : void 0;
     if (this.destroyed) return false;
-    const changedRoots = await this.applyTokens(targets2, parsed, this.dependencies.getSettings());
+    const changedRoots = await this.applyTokens(targets, parsed, this.dependencies.getSettings());
     applyAnkiColors?.(changedRoots);
     if (this.dependencies.prepareSubtitleTokensBeforeRender) {
       if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
     } else {
       this.preloadParsed(parsed, changedRoots, { skipAnki: Boolean(applyAnkiColors) });
     }
-    return targets2.length === ASB_SCAN_BATCH_LIMIT;
+    return targets.length === ASB_SCAN_BATCH_LIMIT;
   } catch {
     return false;
   }
@@ -34094,16 +34575,16 @@ class VisiblePageScanner {
     source,
     chunks: chunkLongScanTarget(source, settings).reverse()
   }));
-  const targets2 = chunkGroups.flatMap((group) => group.chunks);
-  if (!targets2.length) {
+  const targets = chunkGroups.flatMap((group) => group.chunks);
+  if (!targets.length) {
     this.resetContinuationState();
     this.handleEmptyVisiblePageScan(silent);
     return;
   }
-  const unparsedTargets = await this.parseAndApplyTargets(targets2, generation, settings);
+  const unparsedTargets = await this.parseAndApplyTargets(targets, generation, settings);
   if (this.isStaleScan(generation)) return;
   const effectiveCollectionLimit = effectiveSiteScanCollectionLimit(targetCollectionLimit, window.location.href);
-  if (collected.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets2, silent)) {
+  if (collected.length >= effectiveCollectionLimit && this.canQueueContinuationScan(targets, silent)) {
     const unparsed = new Set(unparsedTargets);
     chunkGroups.filter((group) => group.chunks.length > 0 && group.chunks.every((chunk) => unparsed.has(chunk))).forEach((group) => this.continuationFailedTargetKeys.add(this.continuationTargetKey(group.source)));
     this.queueContinuationScan(silent);
@@ -34112,8 +34593,8 @@ class VisiblePageScanner {
   this.resetContinuationState();
   this.reportVisiblePageCoverage(silent);
   }
-  canQueueContinuationScan(targets2, silent) {
-  return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS && (silent || targets2.some((target) => !target.singlePassScan));
+  canQueueContinuationScan(targets, silent) {
+  return this.continuationScans < MAX_CONSECUTIVE_CONTINUATION_SCANS && (silent || targets.some((target) => !target.singlePassScan));
   }
   isStaleScan(generation) {
   return this.destroyed || generation !== this.scanGeneration;
@@ -34150,7 +34631,7 @@ class VisiblePageScanner {
     }
   }
   }
-  async parseAndApplyTargets(targets2, generation, scanStartSettings, allowTransientReparse = true) {
+  async parseAndApplyTargets(targets, generation, scanStartSettings, allowTransientReparse = true) {
   let cursor = 0;
   const unparsedTargets = [];
   const transientTargets = [];
@@ -34158,8 +34639,8 @@ class VisiblePageScanner {
   const parseCharBudget = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_PARSE_CHAR_BUDGET : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET : VISIBLE_SCAN_MOBILE_FALLBACK_PARSE_CHAR_BUDGET;
   const concurrency = hasRemoteParseApiKey(scanStartSettings) ? isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   const schedule = () => {
-    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets2.length) {
-      const next = nextVisibleScanParseBatch(targets2, cursor, parseCharBudget);
+    while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
+      const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
       cursor = next.cursor;
       if (!next.batch.length) continue;
       const work = {
@@ -34184,7 +34665,7 @@ class VisiblePageScanner {
     if (this.isStaleScan(generation)) return unparsedTargets;
     await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
     schedule();
-    if (pending.length || cursor < targets2.length) await waitForVisibleScanTurn();
+    if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
   }
   if (allowTransientReparse && transientTargets.length && !this.isStaleScan(generation)) {
     const stillUnparsed = await this.parseAndApplyTargets(transientTargets, generation, scanStartSettings, false);
@@ -34222,13 +34703,13 @@ class VisiblePageScanner {
     skipPitch: pitchStartedBeforeApply
   });
   }
-  async applyTokens(targets2, parsed, scanStartSettings, generation) {
+  async applyTokens(targets, parsed, scanStartSettings, generation) {
   const allChangedRoots = new Set();
   const applyBatchSize = !isNarrowVisibleScanViewport() ? VISIBLE_SCAN_APPLY_BATCH_SIZE : hasJpdbParseApiKey(scanStartSettings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
-  for (let index = 0; index < targets2.length; index += applyBatchSize) {
+  for (let index = 0; index < targets.length; index += applyBatchSize) {
     if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
     const start = index;
-    const batch = targets2.slice(start, start + applyBatchSize);
+    const batch = targets.slice(start, start + applyBatchSize);
     this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
       if (this.shouldStopApplyingTokens(generation)) return;
       const changedRoots = new Set();
@@ -34243,7 +34724,7 @@ class VisiblePageScanner {
         this.dependencies.refreshWordContrast?.(root);
       });
     }));
-    if (index + applyBatchSize < targets2.length) await waitForVisibleScanTurn();
+    if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
   }
   this.reserveRubyRoomForNewRoots(allChangedRoots);
   return [...allChangedRoots];
@@ -34528,12 +35009,12 @@ function countVisiblePageCoverageMiningInsight(summary, word, key) {
 function visiblePageCoverageInsightSurface(word, key) {
   return key || word.dataset.expression || word.textContent || "";
 }
-function nextVisibleScanParseBatch(targets2, startCursor, charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET) {
+function nextVisibleScanParseBatch(targets, startCursor, charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET) {
   const batch = [];
   let cursor = startCursor;
   let budget = 0;
-  while (cursor < targets2.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
-  const target = targets2[cursor];
+  while (cursor < targets.length && batch.length < VISIBLE_SCAN_PARSE_BATCH_SIZE) {
+  const target = targets[cursor];
   if (!target || !isCurrentScanTarget(target)) {
     cursor += 1;
     continue;
@@ -36149,7 +36630,7 @@ class ReaderApp {
   }
   storedJpdbReviewExamplesVisible() {
   try {
-    const value = localStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
+    const value = managedLocalStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
     return value === "true" ? true : value === "false" ? false : null;
   } catch {
     return null;
@@ -36157,13 +36638,13 @@ class ReaderApp {
   }
   storeJpdbReviewExamplesVisible(visible) {
   try {
-    localStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
+    managedLocalStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
   } catch {
   }
   }
   async installJpdbWordPageEnhancements(generation) {
-  const targets2 = currentPageLocalDictionaryTargets();
-  await Promise.all(targets2.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
+  const targets = currentPageLocalDictionaryTargets();
+  await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
   }
   installJpdbWordPageEnhancement(target, generation) {
   const card = this.jpdbPageWordCard(target);
@@ -42749,7 +43230,27 @@ const RUNTIME_MARKER_OBSERVER_OPTIONS = {
 const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
 const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?)(?:[/?#]|$)/i;
 let activeRuntime;
+let bootInFlight;
 function bootReaderApp() {
+  if (bootInFlight) return;
+  try {
+  if (ensureManagedWebStorageCurrentSync()) {
+    bootReaderAppAfterStorageBarrier();
+    return;
+  }
+  } catch (error) {
+  console.error("[Yomu Reader] Failed to initialize managed web storage", error);
+  return;
+  }
+  bootInFlight ??= bootReaderAppAfterStorageGate().catch((error) => console.error("[Yomu Reader] Failed to initialize managed web storage", error)).finally(() => {
+  bootInFlight = void 0;
+  });
+}
+async function bootReaderAppAfterStorageGate() {
+  await ensureManagedWebStorageCurrent();
+  bootReaderAppAfterStorageBarrier();
+}
+function bootReaderAppAfterStorageBarrier() {
   reconcileActiveRuntimeMarker();
   const context = resolveBootContext();
   if (!context) return;
@@ -43063,7 +43564,9 @@ function appendInstalledRuntimeMarker(marker, root) {
   }, { once: true });
 }
 announceInstalledReaderRuntime();
-installPreferredJapaneseSiteLanguageFromStoredSettings();
+void installPreferredJapaneseSiteLanguageFromStoredSettings().catch((error) => {
+  console.error("[Yomu Reader] Failed to initialize site-language preference", error);
+});
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();
 installUserscriptGmStorageBridgeWhenReady();

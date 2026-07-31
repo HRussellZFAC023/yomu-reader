@@ -28,11 +28,33 @@ const MANAGED_STORAGE_KEY_PREFIXES = [
   "jpdb-reader-",
   "jpdb-popup-reader-"
 ];
+const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
+const MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX = "yomu:web-storage-slot:v1:";
+const MANAGED_SLOT_KEY_PREFIXES = [
+  MANAGED_STATE_SLOT_KEY_PREFIX,
+  MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX
+];
 function isManagedStorageKey(key) {
   return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 function isPrivateManagedStorageKey(key) {
-  return key.startsWith("yomu:private:");
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+  const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+  return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+  return null;
+  }
+}
+function isManagedStorageSlotKey(key) {
+  return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
   showFurigana: true,
@@ -457,7 +479,8 @@ function getUserscriptGmStorage() {
   getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
   setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
   deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
+  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
   };
 }
 function storageBridgeRequest(request) {
@@ -565,17 +588,97 @@ function callDispatchEvent$1(target, event) {
 }
 function noop$1() {
 }
-const registeredKeys = /* @__PURE__ */ new Set();
+const entries = [];
+const registeredEntryIndexes = /* @__PURE__ */ new Map();
+let resetWritesSuppressed = false;
 function registerManagedState(entry) {
   const identity = managedStateIdentity(entry);
-  if (registeredKeys.has(identity)) return;
-  registeredKeys.add(identity);
+  const existingIndex = registeredEntryIndexes.get(identity);
+  if (existingIndex !== void 0) {
+  const existing = entries[existingIndex];
+  if (existing.owner !== entry.owner) {
+    throw new Error(`Managed state ${identity} has conflicting owners: ${existing.owner}, ${entry.owner}.`);
+  }
+  if (existing.enumerate && entry.enumerate && existing.enumerate !== entry.enumerate) {
+    throw new Error(`Managed state ${identity} has conflicting enumerators.`);
+  }
+  if (!existing.enumerate && entry.enumerate) entries[existingIndex] = { ...existing, enumerate: entry.enumerate };
+  return;
+  }
+  registeredEntryIndexes.set(identity, entries.length);
+  entries.push(entry);
 }
 function registerManagedStates(list) {
   for (const entry of list) registerManagedState(entry);
 }
 function managedStateIdentity(entry) {
   return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+}
+function managedStateWritesSuppressed() {
+  return resetWritesSuppressed;
+}
+let sandboxCompanions = {};
+function registerYomuCompanion(key, value) {
+  writeYomuCompanions({
+  ...yomuCompanions(),
+  [key]: value
+  });
+}
+function yomuLocalDictionaries() {
+  return yomuCompanions().localDictionaries;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function writeYomuCompanions(value) {
+  sandboxCompanions = value;
+  writeYomuCompanionsTarget(globalThis, value);
+  if (typeof window !== "undefined" && window !== globalThis) {
+  const pageValue = pageCompartmentRegistryValue(value);
+  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+  }
+}
+function pageCompartmentRegistryValue(value) {
+  const cloneInto = globalThis.cloneInto;
+  if (typeof cloneInto !== "function") return value;
+  try {
+  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+  } catch {
+  return void 0;
+  }
+}
+function writeYomuCompanionsTarget(target, value) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return false;
+  const writable = target;
+  try {
+  writable.__yomuCompanions = value;
+  return true;
+  } catch {
+  }
+  try {
+  Object.defineProperty(writable, "__yomuCompanions", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value
+  });
+  return true;
+  } catch {
+  return false;
+  }
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+async function enumerateDictionaryArchiveStorageKeys() {
+  const enumerate = yomuLocalDictionaries()?.enumerateDictionaryArchiveStorageKeys;
+  if (!enumerate) throw new Error("The local-dictionary companion cannot enumerate archive storage.");
+  return enumerate();
 }
 const MANAGED_STATE_MANIFEST = [
   // Settings (also legacy migration keys). The bunpro token / pill selections /
@@ -590,14 +693,23 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
+  { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
+  { owner: "app/storage epoch slots", kind: "gm", prefix: "yomu:state-slot:v1:" },
+  { owner: "app/storage epoch lease", kind: "gm", prefix: "yomu:state-epoch-lease:v1:" },
+  { owner: "app/managed-web-storage", kind: "local", key: "yomu:web-storage-epoch:v1:local" },
+  { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
+  { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
   { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
   { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
-  { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-  // Written with a raw localStorage.setItem, deliberately per-origin: it is the
-  // bootstrap hint for this site, never the preference itself.
+  { owner: "app/main", kind: "local", key: "yomu:jpdb-review-examples-visible:v1" },
+  { owner: "core/hosted-appearance-boot", kind: "local", key: "yomu-page-theme" },
+  // Deliberately per-origin: this is the bootstrap hint for this site, never
+  // the preference itself. Runtime reads and writes use the managed facade.
   { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
@@ -611,14 +723,22 @@ const MANAGED_STATE_MANIFEST = [
   // Bunpro vocab SRS-state index for page word colouring.
   { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
   // Public lookup caches.
-  { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
+  { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
   { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
   { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
   // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
   // store's own deleteDatabase during reset; registered so the invariant test
   // asserts it and the reset sweep nets it as a fallback.
   { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+  { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
+  {
+  owner: "dictionaries/archive-cache",
+  kind: "gm",
+  prefix: "yomu-dictionary-archive:",
+  enumerate: enumerateDictionaryArchiveStorageKeys
+  },
+  { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
   // OCR result cache.
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
@@ -656,7 +776,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
   { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
   { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
-  { owner: "newtab/controller", kind: "gm", key: "yomu-newtab-support-banner-dismissed" },
+  { owner: "newtab/controller", kind: "local", key: "yomu-newtab-support-banner-dismissed" },
   // Local pitch-accent SRS (debounced writer — the canonical reset escapee).
   { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
   { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
@@ -668,31 +788,330 @@ function registerManagedStateManifest() {
   registerManagedStates(MANAGED_STATE_MANIFEST);
 }
 registerManagedStateManifest();
+const MANAGED_STATE_EPOCH_KEY = "yomu:state-epoch";
+const MANAGED_STATE_ENVELOPE_VERSION = 1;
+const MANAGED_STATE_EPOCH_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-session.v1");
+const MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-canonical-session.v1");
+const INITIAL_MANAGED_STATE_EPOCH = Object.freeze({
+  version: 1,
+  generation: 0,
+  resetId: "legacy",
+  committedAt: 0
+});
+class StaleManagedStateEpochError extends Error {
+  constructor(expected, actual) {
+  super(`Managed state belongs to epoch ${managedStateEpochToken(expected)}, but the current epoch is ${managedStateEpochToken(actual)}.`);
+  this.expected = expected;
+  this.actual = actual;
+  this.name = "StaleManagedStateEpochError";
+  }
+  code = "YOMU_STALE_MANAGED_STATE_EPOCH";
+}
+function isStaleManagedStateEpochError(error) {
+  return Boolean(error && typeof error === "object" && error.code === "YOMU_STALE_MANAGED_STATE_EPOCH");
+}
+class ManagedStateEpochSession {
+  captured;
+  captureInFlight;
+  current() {
+  return this.captured;
+  }
+  async capture(readEpoch) {
+  if (this.captured) return this.captured;
+  if (!this.captureInFlight) {
+    this.captureInFlight = readEpoch().then(parseManagedStateEpoch).then((epoch) => {
+      this.captured = epoch;
+      return epoch;
+    }).finally(() => {
+      this.captureInFlight = void 0;
+    });
+  }
+  return this.captureInFlight;
+  }
+  captureSync(rawEpoch) {
+  const epoch = parseManagedStateEpoch(rawEpoch);
+  this.captured ??= epoch;
+  return this.captured;
+  }
+  async assertCurrent(readEpoch) {
+  const expected = await this.capture(readEpoch);
+  const actual = parseManagedStateEpoch(await readEpoch());
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  assertCurrentSync(rawEpoch) {
+  const expected = this.captureSync(rawEpoch);
+  const actual = parseManagedStateEpoch(rawEpoch);
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  /** Test-only lifecycle support for Vitest's reused JavaScript realm. */
+  resetForTests() {
+  this.captured = void 0;
+  this.captureInFlight = void 0;
+  }
+}
+function managedStateEpochSessionForRealm(root = globalThis) {
+  const slots = root;
+  const existing = slots[MANAGED_STATE_EPOCH_SESSION_SLOT];
+  if (isManagedStateEpochSession(existing)) return existing;
+  const session = new ManagedStateEpochSession();
+  slots[MANAGED_STATE_EPOCH_SESSION_SLOT] = session;
+  slots[MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT] ??= session;
+  return session;
+}
+function parseManagedStateEpoch(value) {
+  if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
+  if (!isPlainRecord$1(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  throw new Error("The managed-state epoch is malformed.");
+  }
+  return {
+  version: 1,
+  generation: value.generation,
+  resetId: value.resetId,
+  committedAt: value.committedAt
+  };
+}
+function managedStateStoredValue(value, epoch) {
+  if (epoch.generation === 0) return value;
+  const envelope = {
+  __yomuManagedStateEnvelope: MANAGED_STATE_ENVELOPE_VERSION,
+  epoch: managedStateEpochToken(epoch),
+  value
+  };
+  return envelope;
+}
+function managedStateLogicalValue(stored, epoch, fallback) {
+  if (epoch.generation === 0) {
+  if (!isManagedStateEnvelope(stored)) return stored;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+  }
+  if (!isManagedStateEnvelope(stored)) return fallback;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+}
+function managedStateEpochToken(epoch) {
+  return `${epoch.generation}:${epoch.resetId}`;
+}
+function sameManagedStateEpoch(left, right) {
+  return left.generation === right.generation && left.resetId === right.resetId;
+}
+function assertManagedStateEpoch(expected, actual) {
+  if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
+}
+function isManagedStateEnvelope(value) {
+  return isPlainRecord$1(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+}
+function isManagedStateEpochSession(value) {
+  return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
+}
+function isPlainRecord$1(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+const AREA_MARKER_KEYS = {
+  local: "yomu:web-storage-epoch:v1:local",
+  session: "yomu:web-storage-epoch:v1:session"
+};
+const managedLocalStorage = managedStorageFacade("local");
+function managedStorageFacade(area) {
+  return {
+  getItem(key) {
+    const { storage, epoch } = certifiedArea();
+    const raw = readStorageValue(storage, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
+    if (raw === null || epoch.generation === 0) return raw;
+    try {
+      const unreadable = Symbol("unreadable-managed-web-storage");
+      const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    assertManagedLogicalKey(key);
+    const { storage, epoch } = certifiedArea();
+    const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
+    writeAndVerify(storage, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+    assertAreaCertificate(area, epoch);
+  },
+  removeItem(key) {
+    assertManagedLogicalKey(key);
+    const { storage, epoch } = certifiedArea();
+    const physicalKey = physicalStorageKey(key, epoch);
+    removeStorageValue(storage, physicalKey, `${area}Storage key "${key}"`);
+    if (readStorageValue(storage, physicalKey, `${area}Storage key "${key}"`) !== null) {
+      throw new Error(`${area}Storage retained managed key "${key}".`);
+    }
+    assertAreaCertificate(area, epoch);
+  }
+  };
+}
+function certifiedArea(area) {
+  throw new Error("Managed web storage has not passed its epoch barrier.");
+}
+function assertAreaCertificate(area, epoch) {
+  const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+  if (marker !== managedStateEpochToken(epoch)) {
+  throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
+  }
+}
+function physicalStorageKey(key, epoch) {
+  assertManagedLogicalKey(key);
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+function assertManagedLogicalKey(key) {
+  if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
+  throw new TypeError(`Managed web storage requires a logical Yomu key, received "${key}".`);
+  }
+}
+function storageArea(area) {
+  try {
+  const storage = area === "local" ? localStorage : sessionStorage;
+  if (!storage) throw new Error(`${area}Storage is unavailable.`);
+  return storage;
+  } catch (error) {
+  throw new Error(`${area}Storage is unavailable.`, { cause: error });
+  }
+}
+function readStorageValue(storage, key, label) {
+  try {
+  return storage.getItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be read.`, { cause: error });
+  }
+}
+function writeAndVerify(storage, key, value, label) {
+  try {
+  storage.setItem(key, value);
+  } catch (error) {
+  throw new Error(`${label} could not be written.`, { cause: error });
+  }
+  if (readStorageValue(storage, key, label) !== value) throw new Error(`${label} failed read-back verification.`);
+}
+function removeStorageValue(storage, key, label) {
+  try {
+  storage.removeItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be removed.`, { cause: error });
+  }
+}
 const MISSING = { __yomuStorageValueMissing: true };
 function isMissingSentinel(value) {
   if (value === MISSING) return true;
   return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
 }
+const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const managedStateEpochSession = managedStateEpochSessionForRealm();
+async function rawAuthoritativeManagedStateEpoch(getValue) {
+  const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  return isMissingSentinel(stored) ? void 0 : stored;
+}
+async function authoritativeManagedStateEpoch(getValue) {
+  return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+}
+async function assertRealmManagedStateEpoch(getValue) {
+  const readEpoch = getValue ? async () => {
+  const epoch2 = await authoritativeManagedStateEpoch(getValue);
+  return epoch2.generation === 0 ? void 0 : epoch2;
+  } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
+  const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
+  if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
+  return epoch;
+}
+function managedStateStorageKey(key, epoch) {
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
+  await assertManagedStateMutationFence(getValue, epoch);
+  const stored = managedStateStoredValue(value, epoch);
+  const storageKey = managedStateStorageKey(key, epoch);
+  await setValue(storageKey, stored);
+  await assertManagedStateMutationFence(getValue, epoch);
+}
+async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
+  const storageKey = managedStateStorageKey(key, epoch);
+  if (storageKey === key) {
+  if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
+  await deleteValue(key);
+  await assertRealmManagedStateEpoch(getValue);
+  return;
+  }
+  if (!setValue) throw new Error("Managed storage cannot persist a deletion tombstone.");
+  await setValue(storageKey, managedStateStoredValue(MISSING, epoch));
+  await assertRealmManagedStateEpoch(getValue);
+  if (deleteValue) {
+  try {
+    await deleteValue(key);
+  } catch (error) {
+    debugStorageError("Managed GM logical-key delete mirror failed", key, error);
+  }
+  await assertRealmManagedStateEpoch(getValue);
+  }
+}
+function managedStateEpochFromSynchronousGetter(getValue) {
+  const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  if (isPromiseLike$1(stored)) return null;
+  const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
+  managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
+  cacheManagedStateEpochForLocalFallback(shared2);
+  return shared2;
+}
+function managedStateEpochForSynchronousLocalRead() {
+  try {
+  const getValue = directGmGetValue();
+  if (getValue) {
+    const synchronous = managedStateEpochFromSynchronousGetter(getValue);
+    if (synchronous) return synchronous;
+    return managedStateEpochSession.current() ?? null;
+  }
+  if (asyncGmGetValue()) return managedStateEpochSession.current() ?? null;
+  return managedStateEpochSession.assertCurrentSync(
+    localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0)
+  );
+  } catch (error) {
+  debugStorageError("Managed state epoch sync read failed", MANAGED_STATE_EPOCH_KEY, error);
+  return null;
+  }
+}
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   if (getValue) {
-  const read = gmStorageSyncRead(key, getValue);
+  const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
+  if (!epoch2) return fallback;
+  const read = gmStorageSyncRead(key, getValue, epoch2);
   if (read.kind === "found") return read.value;
+  if (read.kind === "deleted") return fallback;
   }
-  return localStorageGet(key, fallback);
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
-function gmStorageSyncRead(key, getValue) {
+function gmStorageSyncRead(key, getValue, epoch) {
   try {
-  const value = getValue(key, MISSING);
-  if (isPromiseLike$1(value)) return { kind: "fallback" };
-  if (!isMissingSentinel(value)) return { kind: "found", value };
-  return migratedLocalStorageSyncValue(key);
+  const storageKey = managedStateStorageKey(key, epoch);
+  let stored = getValue(storageKey, MISSING);
+  if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  const readFromCurrentSlot = !isMissingSentinel(stored);
+  if (isMissingSentinel(stored) && storageKey !== key) {
+    stored = getValue(key, MISSING);
+    if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  }
+  if (!isMissingSentinel(stored)) {
+    const unreadable = Symbol("unreadable-managed-state");
+    const value = managedStateLogicalValue(stored, epoch, unreadable);
+    if (value === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "fallback" };
+    if (isMissingSentinel(value)) return { kind: "deleted" };
+    return { kind: "found", value };
+  }
+  return migratedLocalStorageSyncValue(key, epoch);
   } catch (error) {
   debugStorageError("GM storage sync read failed", key, error);
   return { kind: "fallback" };
   }
 }
-function migratedLocalStorageSyncValue(key) {
+function migratedLocalStorageSyncValue(key, epoch) {
+  if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
   const migrated = localStorageGet(key, MISSING);
   if (isMissingSentinel(migrated)) return { kind: "fallback" };
   const promoted = sanitizedStrandedLocalValue(key, migrated);
@@ -706,50 +1125,146 @@ function localFallbackValueForWrite(key, value) {
   return value;
 }
 async function gmStorageSet(key, value) {
+  const getValue = asyncGmGetValue();
   const setValue = asyncGmSetValue();
   if (setValue) {
+  let epoch2;
   try {
-    await setValue(key, value);
-    mirrorManagedValueToHostedStorage(key, value);
+    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+    epoch2 = await assertRealmManagedStateEpoch(getValue);
+    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
+    mirrorManagedValueToHostedStorage(key, value, epoch2);
     return;
   } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
     debugStorageError("GM storage write failed", key, error);
     try {
-      localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
+      epoch2 ??= await assertRealmManagedStateEpoch(null);
+      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
     } catch (fallbackError) {
       throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
     }
     throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
   }
   }
-  localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
+  const epoch = await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
 }
 function gmStorageSetSync(key, value) {
-  if (typeof GM_setValue === "function") {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  let epoch = null;
+  if (getValue && setValue) {
   try {
-    const result = GM_setValue(key, value);
-    if (!isPromiseLike$1(result)) {
-      mirrorManagedValueToHostedStorage(key, value);
+    epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
       return;
     }
-    result.catch((error) => debugStorageError("GM storage async write failed", key, error));
+    const stored = managedStateStoredValue(value, epoch);
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = setValue(storageKey, stored);
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        mirrorManagedValueToHostedStorage(key, value, epoch);
+      }).catch((error) => debugStorageError("GM storage async write failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    mirrorManagedValueToHostedStorage(key, value, epoch);
+    return;
   } catch (error) {
+    if (isStaleManagedStateEpochError(error)) {
+      debugStorageError("Rejected stale managed state write", key, error);
+      return;
+    }
     debugStorageError("GM storage sync write failed", key, error);
   }
   }
-  localStorageSet(key, localFallbackValueForWrite(key, value));
-}
-function gmStorageDeleteSync(key) {
-  if (typeof GM_deleteValue === "function") {
-  try {
-    const result = GM_deleteValue(key);
-    if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
-  } catch (error) {
-    debugStorageError("GM storage sync delete failed", key, error);
+  if ((!getValue || !setValue) && asyncGmSetValue()) {
+  void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
+  return;
   }
+  try {
+  epoch ??= managedStateEpochForSynchronousLocalRead();
+  if (!epoch) return;
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+  } catch (error) {
+  debugStorageError("localStorage sync write failed", key, error);
+  }
+}
+async function gmStorageDelete(key) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  const deleteValue = asyncGmDeleteValue();
+  const hasBackend = Boolean(getValue || setValue || deleteValue);
+  if (hasBackend && !getValue) {
+  throw storageWriteError(key, "Managed storage cannot validate and delete the same backend value");
+  }
+  if (getValue) {
+  try {
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage delete failed", key, error);
+    throw storageWriteError(key, "GM storage delete failed", error);
+  }
+  } else {
+  await assertRealmManagedStateEpoch(null);
   }
   removeLocalStorageKey(key);
   removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+function gmStorageDeleteSync(key) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+  if (getValue && (setValue || deleteValue)) {
+  try {
+    const epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = storageKey === key ? deleteValue?.(key) : setValue?.(storageKey, managedStateStoredValue(MISSING, epoch));
+    if (result === void 0 && (storageKey === key ? !deleteValue : !setValue)) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        removeLocalManagedValue(key);
+      }).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    removeLocalManagedValue(key);
+    return;
+  } catch (error) {
+    debugStorageError("GM storage sync delete failed", key, error);
+    return;
+  }
+  }
+  if (asyncGmDeleteValue() || asyncGmSetValue()) {
+  void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+  return;
+  }
+  try {
+  if (!managedStateEpochForSynchronousLocalRead()) return;
+  removeLocalManagedValue(key);
+  } catch (error) {
+  debugStorageError("localStorage sync delete failed", key, error);
+  }
+}
+function isPlainRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 function localStorageGet(key, fallback) {
   try {
@@ -768,8 +1283,10 @@ function localStorageSet(key, value) {
 function localStorageSetOrThrow(key, value) {
   try {
   const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
   localStorage.setItem(key, serialized);
   if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
   } catch (error) {
   throw storageWriteError(key, "localStorage write failed", error);
   }
@@ -790,9 +1307,88 @@ function removeSessionStorageKey(key) {
   } catch {
   }
 }
-function mirrorManagedValueToHostedStorage(key, value) {
+function mirrorManagedValueToHostedStorage(key, value, epoch) {
   if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-  localStorageSet(key, value);
+  try {
+  writeLocalManagedValueOrThrow(key, value, epoch);
+  } catch (error) {
+  debugStorageError("Hosted localStorage mirror failed", key, error);
+  }
+}
+function cacheManagedStateEpochForLocalFallback(epoch) {
+  if (epoch.generation <= 0) {
+  removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+  return;
+  }
+  try {
+  const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (sameManagedStateEpoch(local, epoch)) return;
+  } catch {
+  }
+  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+}
+function writeLocalManagedValueOrThrow(key, value, epoch) {
+  const serialized = localStorageSetOrThrow(key, value);
+  recordLocalMirrorProvenance(key, epoch, serialized);
+}
+function removeLocalManagedValue(key) {
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+function localMirrorBelongsToEpoch(key, epoch) {
+  const serialized = localStorageSerializedValue(key);
+  if (serialized === null) return false;
+  const entry = localMirrorProvenanceRecord()?.values[key];
+  if (!entry) return epoch.generation === 0;
+  return entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === localMirrorFingerprint(serialized);
+}
+function recordLocalMirrorProvenance(key, epoch, serialized) {
+  const current = localMirrorProvenanceRecord();
+  const next = {
+  version: 1,
+  values: {
+    ...current?.values ?? {},
+    [key]: {
+      epoch: managedStateEpochToken(epoch),
+      fingerprint: localMirrorFingerprint(serialized)
+    }
+  }
+  };
+  localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
+}
+function removeLocalMirrorProvenance(key) {
+  const current = localMirrorProvenanceRecord();
+  if (!current || !(key in current.values)) return;
+  const values = { ...current.values };
+  delete values[key];
+  if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
+  else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
+}
+function localMirrorProvenanceRecord() {
+  const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
+  if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
+  const values = {};
+  for (const [key, entry] of Object.entries(value.values)) {
+  if (!isPlainRecord(entry) || typeof entry.epoch !== "string" || typeof entry.fingerprint !== "string") continue;
+  values[key] = { epoch: entry.epoch, fingerprint: entry.fingerprint };
+  }
+  return { version: 1, values };
+}
+function localStorageSerializedValue(key) {
+  try {
+  return localStorage.getItem(key);
+  } catch {
+  return null;
+  }
+}
+function localMirrorFingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+  hash ^= serialized.charCodeAt(index);
+  hash = Math.imul(hash, 16777619);
+  }
+  return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 function shouldMirrorManagedValueToHostedStorage(key) {
   return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
@@ -808,14 +1404,47 @@ function isHostedYomuOrigin() {
   return false;
   }
 }
+function asyncGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  } : null;
+}
 function asyncGmSetValue() {
   if (typeof GM_setValue === "function") return GM_setValue;
   const modern = globalThis.GM?.setValue;
   if (typeof modern === "function") return modern.bind(globalThis.GM);
   const extension = extensionStorageArea();
   if (extension) return (key, value) => extension.set({ [key]: value });
+  if (directGmGetValue()) return null;
   const bridge = getUserscriptGmStorage();
   return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (typeof GM_deleteValue === "function") return GM_deleteValue;
+  const modern = globalThis.GM?.deleteValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key) => extension.remove(key);
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
 }
 function extensionStorageArea() {
   const candidate = globalThis;
@@ -824,6 +1453,48 @@ function extensionStorageArea() {
   const chrome = candidate.chrome;
   if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
   return null;
+}
+function parseFactoryResetSignal(value) {
+  const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
+  if (!isFactoryResetSignalRecord(parsed)) return null;
+  const record = parsed;
+  if (!isValidFactoryResetPhase(record.phase)) return null;
+  return {
+  id: record.id,
+  phase: record.phase,
+  at: factoryResetSignalTime(record.at),
+  href: factoryResetSignalHref(record.href)
+  };
+}
+function factoryResetSignalTime(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
+}
+function factoryResetSignalHref(value) {
+  return typeof value === "string" ? value : "";
+}
+function isFactoryResetSignalRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
+}
+function isValidFactoryResetPhase(value) {
+  return value === "prepare" || value === "complete";
+}
+function parseJsonRecord(value) {
+  try {
+  return JSON.parse(value);
+  } catch {
+  return null;
+  }
+}
+async function assertManagedStateMutationFence(getValue, expected) {
+  const before = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, before)) throw new StaleManagedStateEpochError(expected, before);
+  const rawSignal = getValue ? await getValue(FACTORY_RESET_SIGNAL_KEY, MISSING) : localStorageGet(FACTORY_RESET_SIGNAL_KEY, MISSING);
+  const signal = isMissingSentinel(rawSignal) ? null : parseFactoryResetSignal(rawSignal);
+  if (signal?.phase === "prepare" || managedStateWritesSuppressed()) {
+  throw new Error("Managed state writes are suppressed during factory reset.");
+  }
+  const after = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, after)) throw new StaleManagedStateEpochError(expected, after);
 }
 function debugStorageError(message, key, error) {
   if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -1923,6 +2594,7 @@ async function requestJson(url, options = {}) {
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
 const DEFAULT_LIMIT = 240;
 function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT_LIMIT } = {}) {
+  const storage = isManagedStorageKey(storageKey) ? managedLocalStorage : localStorage;
   const expiresAt = (entry) => entry.t + ttlMs;
   function isEntry(value) {
   if (!value || typeof value !== "object") return false;
@@ -1931,7 +2603,7 @@ function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT
   }
   function readState() {
   try {
-    const value = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+    const value = JSON.parse(storage.getItem(storageKey) ?? "{}");
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch {
     return {};
@@ -1939,7 +2611,7 @@ function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT
   }
   function writeState(state) {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    storage.setItem(storageKey, JSON.stringify(state));
   } catch {
   }
   }
@@ -1947,9 +2619,9 @@ function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT
   for (const [key, entry] of Object.entries(state)) {
     if (!isEntry(entry) || expiresAt(entry) <= now) delete state[key];
   }
-  const entries = Object.entries(state);
-  if (entries.length <= limit) return;
-  entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - limit).forEach(([key]) => delete state[key]);
+  const entries2 = Object.entries(state);
+  if (entries2.length <= limit) return;
+  entries2.sort((a, b) => a[1].t - b[1].t).slice(0, entries2.length - limit).forEach(([key]) => delete state[key]);
   }
   return {
   read(kind, key, now = Date.now()) {
@@ -6450,61 +7122,6 @@ roleSelectors("menu,menubar,toolbar,tablist");
 function escapeHtml(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-let sandboxCompanions = {};
-function registerYomuCompanion(key, value) {
-  writeYomuCompanions({
-  ...yomuCompanions(),
-  [key]: value
-  });
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function writeYomuCompanions(value) {
-  sandboxCompanions = value;
-  writeYomuCompanionsTarget(globalThis, value);
-  if (typeof window !== "undefined" && window !== globalThis) {
-  const pageValue = pageCompartmentRegistryValue(value);
-  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-  }
-}
-function pageCompartmentRegistryValue(value) {
-  const cloneInto = globalThis.cloneInto;
-  if (typeof cloneInto !== "function") return value;
-  try {
-  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-  } catch {
-  return void 0;
-  }
-}
-function writeYomuCompanionsTarget(target, value) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return false;
-  const writable = target;
-  try {
-  writable.__yomuCompanions = value;
-  return true;
-  } catch {
-  }
-  try {
-  Object.defineProperty(writable, "__yomuCompanions", {
-    configurable: true,
-    enumerable: false,
-    writable: true,
-    value
-  });
-  return true;
-  } catch {
-  return false;
-  }
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
 const ankiFieldNames = (names) => names.split("|");
 const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
   "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -7645,9 +8262,8 @@ const COPY = {
   factoryReset: "Factory Reset",
   factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
   factoryResetFailed: "Reset failed.",
-  factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
+  factoryResetStorageIncomplete: "Reset stopped because not every saved item could be found or deleted. Close other よむ tabs and retry. If it still fails, clear よむ storage in your userscript manager.",
   factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
-  factoryResetDeleteSettingsFailed: "Could not delete settings.",
   issues: "Issues",
   donate: "Donate",
   discord: "Discord",
@@ -9107,9 +9723,8 @@ docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
 factoryResetFailed	リセットに失敗しました。
-factoryResetDictionaryWarning	設定をリセットしました。他のタブを閉じてください。
+factoryResetStorageIncomplete	保存データをすべて検出または削除できなかったため、リセットを中止しました。ほかのよむタブを閉じて再試行してください。解決しない場合は、ユーザースクリプトマネージャーでよむのストレージを消去してください。
 factoryResetOtherTabReloading	別タブでリセット。再読み込み...
-factoryResetDeleteSettingsFailed	設定を削除できません。他のタブを閉じてください。
 issues	Issue
 donate	寄付
 discord	Discord
@@ -11084,8 +11699,8 @@ function renderJitenUsedIn(info, sourceAttributes, language) {
   const status = info.usedInTotal > info.usedIn.length ? `${info.usedIn.length}/${info.usedInTotal}` : String(info.usedIn.length);
   return info.usedIn.length ? renderJitenRelatedWords(info.usedIn, "usedInVocabulary", `${JITEN_DEFINITION_SOURCE_ID}:used-in-vocabulary`, sourceAttributes, language, status) : "";
 }
-function renderJitenRelatedWords(entries, titleKey, stateKey, sourceAttributes, language, status = String(entries.length)) {
-  if (!entries.length) return "";
+function renderJitenRelatedWords(entries2, titleKey, stateKey, sourceAttributes, language, status = String(entries2.length)) {
+  if (!entries2.length) return "";
   return `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-used-in-group jpdb-reader-jiten-related-group" ${sourceAttributes(definitionSourceStateKey(stateKey))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -11094,7 +11709,7 @@ function renderJitenRelatedWords(entries, titleKey, stateKey, sourceAttributes, 
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-used-in jpdb-reader-jiten-related-words">
-                    ${entries.slice(0, 20).map((entry) => renderJitenRelatedWord(entry, language)).join("")}
+                    ${entries2.slice(0, 20).map((entry) => renderJitenRelatedWord(entry, language)).join("")}
                 </ul>
             </div>
         </details>

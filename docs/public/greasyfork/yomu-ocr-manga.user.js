@@ -3,6 +3,1452 @@
 function isBookwalkerViewerHost(hostname = location.hostname) {
   return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
 }
+const MANAGED_STORAGE_KEY_PREFIXES = [
+  "yomu-",
+  "yomu:",
+  "yomu.",
+  // Yomu-internal redirect handoff keys use a leading double underscore.
+  // Factory reset clears hosted web storage by managed prefix, so include it.
+  "__yomu",
+  "jpdb-reader-",
+  "jpdb-popup-reader-"
+];
+const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
+const MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX = "yomu:web-storage-slot:v1:";
+const MANAGED_SLOT_KEY_PREFIXES = [
+  MANAGED_STATE_SLOT_KEY_PREFIX,
+  MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX
+];
+function isManagedStorageKey(key) {
+  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+function isPrivateManagedStorageKey(key) {
+  return logicalManagedStorageKey(key)?.startsWith("yomu:private:") === true;
+}
+function logicalManagedStorageKey(key) {
+  const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate) => key.startsWith(candidate));
+  if (!prefix) return key;
+  const encoded = key.slice(prefix.length);
+  const separator = encoded.indexOf(":");
+  if (separator < 1 || separator === encoded.length - 1) return null;
+  try {
+  const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+  return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+  } catch {
+  return null;
+  }
+}
+function isManagedStorageSlotKey(key) {
+  return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+  showFurigana: true,
+  furiganaMode: "all",
+  showPitchAccent: true,
+  wordUnderlineColorSource: "pitch",
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: true,
+  subtitleControlsMode: "always",
+  subtitleTranscriptVisible: false,
+  ocrEnabled: true,
+  ocrVideoPauseFrames: true,
+  ocrProvider: "google-lens",
+  ocrOverlayTheme: "auto"
+};
+new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+function isPromiseLike$1(value) {
+  return Boolean(value && typeof value.then === "function");
+}
+function promiseWithTimeout(promise, timeoutMs, message) {
+  let timeoutId = 0;
+  const timeout = new Promise((_resolve, reject) => {
+  timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([
+  promise,
+  timeout
+  ]).finally(() => window.clearTimeout(timeoutId));
+}
+const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
+const APP_NAME = "よむ";
+const ACADEMY_SRS_LABEL = "Academy";
+const DOCS_ORIGIN = "https://yomureader.com";
+const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
+const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
+const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+function bridgeResponseEventDetail(event) {
+  const detail = normalizedBridgeEventDetail$1(event);
+  const id = safeReadString(detail, "id");
+  const kind = safeReadString(detail, "kind");
+  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+  return {
+  id,
+  kind,
+  response: safeReadProperty(detail, "response"),
+  message: safeReadString(detail, "message")
+  };
+}
+function bridgeEventDetail(detail) {
+  if (detail === void 0) return void 0;
+  const json = bridgeEventJsonDetail(detail);
+  return json ?? detail;
+}
+function bridgeEventJsonDetail(detail) {
+  let unsupported = false;
+  try {
+  const json = JSON.stringify(detail, (_key, value) => {
+    if (isUnsupportedBridgeJsonValue(value)) {
+      unsupported = true;
+      return void 0;
+    }
+    return value;
+  });
+  return unsupported || typeof json !== "string" ? void 0 : json;
+  } catch {
+  return void 0;
+  }
+}
+function normalizedBridgeEventDetail$1(event) {
+  const detail = safeEventDetail(event);
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function isUnsupportedBridgeJsonValue(value) {
+  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+}
+function isUnsupportedPrimitiveBridgeJsonValue(value) {
+  return typeof value === "function" || typeof value === "symbol";
+}
+function isArrayBufferBridgeJsonValue(value) {
+  if (typeof ArrayBuffer === "undefined") return false;
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+function isBlobBridgeJsonValue(value) {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+function isFormDataBridgeJsonValue(value) {
+  return typeof FormData !== "undefined" && value instanceof FormData;
+}
+function safeEventDetail(event) {
+  try {
+  return event.detail;
+  } catch {
+  return void 0;
+  }
+}
+function safeReadProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function safeReadString(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "string" ? value : void 0;
+}
+let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+function createWindowCustomEvent(type, detail, init = {}) {
+  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+  const documentEvent = createDocumentCustomEvent(type, eventInit);
+  if (documentEvent) return documentEvent;
+  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+  if (CustomEventConstructor) {
+  try {
+    return new CustomEventConstructor(type, eventInit);
+  } catch {
+  }
+  }
+  throw new Error(`Unable to create window custom event: ${type}`);
+}
+function cloneCustomEventDetail(detail) {
+  if (detail === void 0 || typeof window === "undefined") return detail;
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto) return detail;
+  try {
+  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+  } catch {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return void 0;
+  }
+  }
+}
+function dispatchWindowEvent(event) {
+  const target = window;
+  const directDispatch = readMethod(target, "dispatchEvent");
+  const directResult = callEventTargetMethod(directDispatch, target, event);
+  if (directResult.called) return directResult.result;
+  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+  if (initialResult.called) return initialResult.result;
+  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+  if (prototypeResult.called) return prototypeResult.result;
+  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+  if (unshadowedResult.called) return unshadowedResult.result;
+  return false;
+}
+function addWindowEventListener(type, listener, options) {
+  const target = window;
+  const directAdd = readMethod(target, "addEventListener");
+  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function removeWindowEventListener(type, listener, options) {
+  const target = window;
+  const directRemove = readMethod(target, "removeEventListener");
+  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function initialWindowMethod(key) {
+  if (typeof window === "undefined") return void 0;
+  return readMethod(window, key);
+}
+function dispatchWithPrototypeMethod(target, directDispatch, event) {
+  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+  if (prototypeDispatch === directDispatch) continue;
+  const result = callEventTargetMethod(prototypeDispatch, target, event);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+  if (prototypeAdd === directAdd) continue;
+  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+  if (prototypeRemove === directRemove) continue;
+  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function eventConstructor(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function createDocumentCustomEvent(type, init) {
+  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+  try {
+  const event = document.createEvent("CustomEvent");
+  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+  return event;
+  } catch {
+  return void 0;
+  }
+}
+function eventTargetPrototypeMethods(target, key) {
+  const methods = [];
+  const add = (method) => {
+  if (method && !methods.includes(method)) methods.push(method);
+  };
+  let prototype = Object.getPrototypeOf(target);
+  while (prototype) {
+  add(readOwnMethod(prototype, key));
+  prototype = Object.getPrototypeOf(prototype);
+  }
+  const WindowEventTarget = readProperty(window, "EventTarget");
+  add(readMethod(WindowEventTarget?.prototype, key));
+  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+  return methods;
+}
+function readMethod(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function readOwnMethod(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+  return readMethod(source, key);
+}
+function readProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function callEventTargetMethod(method, target, event) {
+  if (!method) return { called: false };
+  try {
+  return { called: true, result: method.call(target, event) };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callAddEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callRemoveEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callWithUnshadowedWindowDispatch(event) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("dispatchEvent", descriptor);
+  }
+}
+function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("addEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("addEventListener", descriptor);
+  }
+}
+function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("removeEventListener", descriptor);
+  }
+}
+function restoreWindowProperty(key, descriptor) {
+  try {
+  const target = window.wrappedJSObject || window;
+  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+  } catch {
+  }
+}
+function pageCompartmentDescriptor(descriptor, _target) {
+  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+function pageCompartmentValue(value, options = {}) {
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto || typeof window === "undefined") return value;
+  try {
+  return cloneInto(value, window, options);
+  } catch {
+  return value;
+  }
+}
+function safeWindowPropertyDescriptor(key) {
+  try {
+  const target = window.wrappedJSObject || window;
+  return Object.getOwnPropertyDescriptor(target, key);
+  } catch {
+  return void 0;
+  }
+}
+function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+  if (!descriptor) return false;
+  try {
+  return typeof descriptor.value !== "function";
+  } catch {
+  return false;
+  }
+}
+function normalizedPropertyDescriptor(descriptor) {
+  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+  if (!hasDataShape || !hasAccessorShape) return descriptor;
+  try {
+  return {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    value: descriptor.value,
+    writable: descriptor.writable
+  };
+  } catch {
+  return {
+    configurable: true,
+    value: void 0,
+    writable: true
+  };
+  }
+}
+const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+const BRIDGE_TIMEOUT_MS$1 = 1e4;
+function getUserscriptGmStorage() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+  return {
+  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
+  clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
+  };
+}
+function storageBridgeRequest(request) {
+  return new Promise((resolve, reject) => {
+  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    reject(new Error("Storage bridge request timed out."));
+  }, BRIDGE_TIMEOUT_MS$1);
+  let cleanupResponseListener = noop$1;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupResponseListener();
+  };
+  const onResponse = (event) => {
+    const detail = storageBridgeResponseDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.ok) resolve(detail);
+    else reject(new Error(detail.message || "Storage bridge request failed."));
+  };
+  cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
+  });
+}
+function storageBridgeResponseDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  if (!detail || typeof detail !== "object") return void 0;
+  const record = detail;
+  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  return {
+  id: record.id,
+  ok: record.ok,
+  found: typeof record.found === "boolean" ? record.found : void 0,
+  value: record.value,
+  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record.message === "string" ? record.message : void 0
+  };
+}
+function normalizedBridgeEventDetail(event) {
+  let detail;
+  try {
+  detail = event.detail;
+  } catch {
+  return void 0;
+  }
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function addBridgeEventListener$1(type, listener) {
+  const cleanups = [];
+  if (addWindowEventListener(type, listener)) {
+  cleanups.push(() => removeWindowEventListener(type, listener));
+  }
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+  }
+  return () => {
+  for (const cleanup of cleanups) cleanup();
+  };
+}
+function dispatchBridgeEvent$1(type, detail) {
+  const eventDetail = bridgeEventDetail(detail);
+  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget) {
+  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+  }
+  return dispatched;
+}
+function bridgeDocumentTarget$1() {
+  if (typeof document === "undefined") return void 0;
+  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+}
+function bridgeMarkerDataset$1() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
+function callAddEventListener$1(target, type, listener) {
+  try {
+  target.addEventListener(type, listener);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function callRemoveEventListener$1(target, type, listener) {
+  try {
+  target.removeEventListener(type, listener);
+  } catch {
+  }
+}
+function callDispatchEvent$1(target, event) {
+  try {
+  return target.dispatchEvent(event);
+  } catch {
+  return false;
+  }
+}
+function noop$1() {
+}
+const entries = [];
+const registeredEntryIndexes = /* @__PURE__ */ new Map();
+let resetWritesSuppressed = false;
+function registerManagedState(entry) {
+  const identity = managedStateIdentity(entry);
+  const existingIndex = registeredEntryIndexes.get(identity);
+  if (existingIndex !== void 0) {
+  const existing = entries[existingIndex];
+  if (existing.owner !== entry.owner) {
+    throw new Error(`Managed state ${identity} has conflicting owners: ${existing.owner}, ${entry.owner}.`);
+  }
+  if (existing.enumerate && entry.enumerate && existing.enumerate !== entry.enumerate) {
+    throw new Error(`Managed state ${identity} has conflicting enumerators.`);
+  }
+  if (!existing.enumerate && entry.enumerate) entries[existingIndex] = { ...existing, enumerate: entry.enumerate };
+  return;
+  }
+  registeredEntryIndexes.set(identity, entries.length);
+  entries.push(entry);
+}
+function registerManagedStates(list) {
+  for (const entry of list) registerManagedState(entry);
+}
+function managedStateIdentity(entry) {
+  return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
+}
+function managedStateWritesSuppressed() {
+  return resetWritesSuppressed;
+}
+let sandboxCompanions = {};
+function registerYomuCompanion(key, value) {
+  writeYomuCompanions({
+  ...yomuCompanions(),
+  [key]: value
+  });
+}
+function yomuLocalDictionaries() {
+  return yomuCompanions().localDictionaries;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function writeYomuCompanions(value) {
+  sandboxCompanions = value;
+  writeYomuCompanionsTarget(globalThis, value);
+  if (typeof window !== "undefined" && window !== globalThis) {
+  const pageValue = pageCompartmentRegistryValue(value);
+  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+  }
+}
+function pageCompartmentRegistryValue(value) {
+  const cloneInto = globalThis.cloneInto;
+  if (typeof cloneInto !== "function") return value;
+  try {
+  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+  } catch {
+  return void 0;
+  }
+}
+function writeYomuCompanionsTarget(target, value) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return false;
+  const writable = target;
+  try {
+  writable.__yomuCompanions = value;
+  return true;
+  } catch {
+  }
+  try {
+  Object.defineProperty(writable, "__yomuCompanions", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value
+  });
+  return true;
+  } catch {
+  return false;
+  }
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+async function enumerateDictionaryArchiveStorageKeys() {
+  const enumerate = yomuLocalDictionaries()?.enumerateDictionaryArchiveStorageKeys;
+  if (!enumerate) throw new Error("The local-dictionary companion cannot enumerate archive storage.");
+  return enumerate();
+}
+const MANAGED_STATE_MANIFEST = [
+  // Settings (also legacy migration keys). The bunpro token / pill selections /
+  // colours all live inside these settings objects.
+  { owner: "settings", kind: "gm", key: "jpdb-popup-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
+  { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
+  { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
+  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  // Cloud settings sync handoff written before an OAuth redirect.
+  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
+  // App-level signals / flags / caches.
+  { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
+  { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
+  { owner: "app/storage epoch slots", kind: "gm", prefix: "yomu:state-slot:v1:" },
+  { owner: "app/storage epoch lease", kind: "gm", prefix: "yomu:state-epoch-lease:v1:" },
+  { owner: "app/managed-web-storage", kind: "local", key: "yomu:web-storage-epoch:v1:local" },
+  { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
+  { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+  { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
+  { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
+  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
+  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
+  { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
+  { owner: "app/main", kind: "local", key: "yomu:jpdb-review-examples-visible:v1" },
+  { owner: "core/hosted-appearance-boot", kind: "local", key: "yomu-page-theme" },
+  // Deliberately per-origin: this is the bootstrap hint for this site, never
+  // the preference itself. Runtime reads and writes use the managed facade.
+  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
+  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
+  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
+  // Local no-account SRS deck.
+  { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
+  { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
+  // Anki status index (GM leases + IndexedDB store).
+  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
+  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
+  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
+  // Bunpro vocab SRS-state index for page word colouring.
+  { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
+  // Public lookup caches.
+  { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
+  { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
+  { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
+  // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
+  // store's own deleteDatabase during reset; registered so the invariant test
+  // asserts it and the reset sweep nets it as a fallback.
+  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+  { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
+  {
+  owner: "dictionaries/archive-cache",
+  kind: "gm",
+  prefix: "yomu-dictionary-archive:",
+  enumerate: enumerateDictionaryArchiveStorageKeys
+  },
+  { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+  // OCR result cache.
+  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
+  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
+  { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
+  // Reader CSS last-good cache. v3 is deliberately version-independent (see
+  // styles/index) so an upgrade does not start cold; the v2 prefix family
+  // stays registered so the per-version entries older installs left behind
+  // are still swept on reset.
+  { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
+  { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
+  // Study / grammar / mining stores.
+  { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
+  { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
+  { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
+  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Popup / drawer geometry.
+  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
+  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
+  // Sources open/closed state.
+  { owner: "sources/state", kind: "gm", key: "jpdb-reader-source-open-state" },
+  // Subtitle layout geometry.
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
+  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
+  // YouTube subscription snapshot + oembed title cache.
+  { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
+  { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
+  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+  // New Tab study surface stores.
+  { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
+  { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
+  { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
+  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
+  { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
+  { owner: "newtab/controller", kind: "local", key: "yomu-newtab-support-banner-dismissed" },
+  // Local pitch-accent SRS (debounced writer — the canonical reset escapee).
+  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
+  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
+];
+let manifestRegistered = false;
+function registerManagedStateManifest() {
+  if (manifestRegistered) return;
+  manifestRegistered = true;
+  registerManagedStates(MANAGED_STATE_MANIFEST);
+}
+registerManagedStateManifest();
+const MANAGED_STATE_EPOCH_KEY = "yomu:state-epoch";
+const MANAGED_STATE_ENVELOPE_VERSION = 1;
+const MANAGED_STATE_EPOCH_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-session.v1");
+const MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-canonical-session.v1");
+const INITIAL_MANAGED_STATE_EPOCH = Object.freeze({
+  version: 1,
+  generation: 0,
+  resetId: "legacy",
+  committedAt: 0
+});
+class StaleManagedStateEpochError extends Error {
+  constructor(expected, actual) {
+  super(`Managed state belongs to epoch ${managedStateEpochToken(expected)}, but the current epoch is ${managedStateEpochToken(actual)}.`);
+  this.expected = expected;
+  this.actual = actual;
+  this.name = "StaleManagedStateEpochError";
+  }
+  code = "YOMU_STALE_MANAGED_STATE_EPOCH";
+}
+function isStaleManagedStateEpochError(error) {
+  return Boolean(error && typeof error === "object" && error.code === "YOMU_STALE_MANAGED_STATE_EPOCH");
+}
+class ManagedStateEpochSession {
+  captured;
+  captureInFlight;
+  current() {
+  return this.captured;
+  }
+  async capture(readEpoch) {
+  if (this.captured) return this.captured;
+  if (!this.captureInFlight) {
+    this.captureInFlight = readEpoch().then(parseManagedStateEpoch).then((epoch) => {
+      this.captured = epoch;
+      return epoch;
+    }).finally(() => {
+      this.captureInFlight = void 0;
+    });
+  }
+  return this.captureInFlight;
+  }
+  captureSync(rawEpoch) {
+  const epoch = parseManagedStateEpoch(rawEpoch);
+  this.captured ??= epoch;
+  return this.captured;
+  }
+  async assertCurrent(readEpoch) {
+  const expected = await this.capture(readEpoch);
+  const actual = parseManagedStateEpoch(await readEpoch());
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  assertCurrentSync(rawEpoch) {
+  const expected = this.captureSync(rawEpoch);
+  const actual = parseManagedStateEpoch(rawEpoch);
+  assertManagedStateEpoch(expected, actual);
+  return expected;
+  }
+  /** Test-only lifecycle support for Vitest's reused JavaScript realm. */
+  resetForTests() {
+  this.captured = void 0;
+  this.captureInFlight = void 0;
+  }
+}
+function managedStateEpochSessionForRealm(root = globalThis) {
+  const slots = root;
+  const existing = slots[MANAGED_STATE_EPOCH_SESSION_SLOT];
+  if (isManagedStateEpochSession(existing)) return existing;
+  const session = new ManagedStateEpochSession();
+  slots[MANAGED_STATE_EPOCH_SESSION_SLOT] = session;
+  slots[MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT] ??= session;
+  return session;
+}
+function parseManagedStateEpoch(value) {
+  if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
+  if (!isPlainRecord$1(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+  throw new Error("The managed-state epoch is malformed.");
+  }
+  return {
+  version: 1,
+  generation: value.generation,
+  resetId: value.resetId,
+  committedAt: value.committedAt
+  };
+}
+function managedStateStoredValue(value, epoch) {
+  if (epoch.generation === 0) return value;
+  const envelope = {
+  __yomuManagedStateEnvelope: MANAGED_STATE_ENVELOPE_VERSION,
+  epoch: managedStateEpochToken(epoch),
+  value
+  };
+  return envelope;
+}
+function managedStateLogicalValue(stored, epoch, fallback) {
+  if (epoch.generation === 0) {
+  if (!isManagedStateEnvelope(stored)) return stored;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+  }
+  if (!isManagedStateEnvelope(stored)) return fallback;
+  return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+}
+function managedStateEpochToken(epoch) {
+  return `${epoch.generation}:${epoch.resetId}`;
+}
+function sameManagedStateEpoch(left, right) {
+  return left.generation === right.generation && left.resetId === right.resetId;
+}
+function assertManagedStateEpoch(expected, actual) {
+  if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
+}
+function isManagedStateEnvelope(value) {
+  return isPlainRecord$1(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+}
+function isManagedStateEpochSession(value) {
+  return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
+}
+function isPlainRecord$1(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+const AREA_MARKER_KEYS = {
+  local: "yomu:web-storage-epoch:v1:local",
+  session: "yomu:web-storage-epoch:v1:session"
+};
+const managedLocalStorage = managedStorageFacade("local");
+const managedSessionStorage = managedStorageFacade("session");
+function managedStorageFacade(area) {
+  return {
+  getItem(key) {
+    const { storage: storage2, epoch } = certifiedArea();
+    const raw = readStorageValue(storage2, physicalStorageKey(key, epoch), `${area}Storage key "${key}"`);
+    if (raw === null || epoch.generation === 0) return raw;
+    try {
+      const unreadable = Symbol("unreadable-managed-web-storage");
+      const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+      return typeof value === "string" ? value : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    assertManagedLogicalKey(key);
+    const { storage: storage2, epoch } = certifiedArea();
+    const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
+    writeAndVerify(storage2, physicalStorageKey(key, epoch), stored, `${area}Storage key "${key}"`);
+    assertAreaCertificate(area, epoch);
+  },
+  removeItem(key) {
+    assertManagedLogicalKey(key);
+    const { storage: storage2, epoch } = certifiedArea();
+    const physicalKey = physicalStorageKey(key, epoch);
+    removeStorageValue(storage2, physicalKey, `${area}Storage key "${key}"`);
+    if (readStorageValue(storage2, physicalKey, `${area}Storage key "${key}"`) !== null) {
+      throw new Error(`${area}Storage retained managed key "${key}".`);
+    }
+    assertAreaCertificate(area, epoch);
+  }
+  };
+}
+function certifiedArea(area) {
+  throw new Error("Managed web storage has not passed its epoch barrier.");
+}
+function assertAreaCertificate(area, epoch) {
+  const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+  if (marker !== managedStateEpochToken(epoch)) {
+  throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
+  }
+}
+function physicalStorageKey(key, epoch) {
+  assertManagedLogicalKey(key);
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+function assertManagedLogicalKey(key) {
+  if (!isManagedStorageKey(key) || isManagedStorageSlotKey(key)) {
+  throw new TypeError(`Managed web storage requires a logical Yomu key, received "${key}".`);
+  }
+}
+function storageArea(area) {
+  try {
+  const storage2 = area === "local" ? localStorage : sessionStorage;
+  if (!storage2) throw new Error(`${area}Storage is unavailable.`);
+  return storage2;
+  } catch (error) {
+  throw new Error(`${area}Storage is unavailable.`, { cause: error });
+  }
+}
+function readStorageValue(storage2, key, label) {
+  try {
+  return storage2.getItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be read.`, { cause: error });
+  }
+}
+function writeAndVerify(storage2, key, value, label) {
+  try {
+  storage2.setItem(key, value);
+  } catch (error) {
+  throw new Error(`${label} could not be written.`, { cause: error });
+  }
+  if (readStorageValue(storage2, key, label) !== value) throw new Error(`${label} failed read-back verification.`);
+}
+function removeStorageValue(storage2, key, label) {
+  try {
+  storage2.removeItem(key);
+  } catch (error) {
+  throw new Error(`${label} could not be removed.`, { cause: error });
+  }
+}
+const MISSING = { __yomuStorageValueMissing: true };
+function isMissingSentinel(value) {
+  if (value === MISSING) return true;
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+}
+const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const managedStateEpochSession = managedStateEpochSessionForRealm();
+async function rawAuthoritativeManagedStateEpoch(getValue) {
+  const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  return isMissingSentinel(stored) ? void 0 : stored;
+}
+async function authoritativeManagedStateEpoch(getValue) {
+  return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+}
+async function assertRealmManagedStateEpoch(getValue) {
+  const readEpoch = getValue ? async () => {
+  const epoch2 = await authoritativeManagedStateEpoch(getValue);
+  return epoch2.generation === 0 ? void 0 : epoch2;
+  } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
+  const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
+  if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
+  return epoch;
+}
+function managedStateStorageKey(key, epoch) {
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
+  await assertManagedStateMutationFence(getValue, epoch);
+  const stored = managedStateStoredValue(value, epoch);
+  const storageKey = managedStateStorageKey(key, epoch);
+  await setValue(storageKey, stored);
+  await assertManagedStateMutationFence(getValue, epoch);
+}
+async function deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue) {
+  const storageKey = managedStateStorageKey(key, epoch);
+  if (storageKey === key) {
+  if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
+  await deleteValue(key);
+  await assertRealmManagedStateEpoch(getValue);
+  return;
+  }
+  if (!setValue) throw new Error("Managed storage cannot persist a deletion tombstone.");
+  await setValue(storageKey, managedStateStoredValue(MISSING, epoch));
+  await assertRealmManagedStateEpoch(getValue);
+  if (deleteValue) {
+  try {
+    await deleteValue(key);
+  } catch (error) {
+    debugStorageError("Managed GM logical-key delete mirror failed", key, error);
+  }
+  await assertRealmManagedStateEpoch(getValue);
+  }
+}
+function managedStateEpochFromSynchronousGetter(getValue) {
+  const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+  if (isPromiseLike$1(stored)) return null;
+  const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
+  managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
+  cacheManagedStateEpochForLocalFallback(shared2);
+  return shared2;
+}
+function managedStateEpochForSynchronousLocalRead() {
+  try {
+  const getValue = directGmGetValue();
+  if (getValue) {
+    const synchronous = managedStateEpochFromSynchronousGetter(getValue);
+    if (synchronous) return synchronous;
+    return managedStateEpochSession.current() ?? null;
+  }
+  if (asyncGmGetValue()) return managedStateEpochSession.current() ?? null;
+  return managedStateEpochSession.assertCurrentSync(
+    localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0)
+  );
+  } catch (error) {
+  debugStorageError("Managed state epoch sync read failed", MANAGED_STATE_EPOCH_KEY, error);
+  return null;
+  }
+}
+function gmStorageGetSync(key, fallback) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  if (getValue) {
+  const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
+  if (!epoch2) return fallback;
+  const read = gmStorageSyncRead(key, getValue, epoch2);
+  if (read.kind === "found") return read.value;
+  if (read.kind === "deleted") return fallback;
+  }
+  const epoch = managedStateEpochForSynchronousLocalRead();
+  return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
+}
+function gmStorageSyncRead(key, getValue, epoch) {
+  try {
+  const storageKey = managedStateStorageKey(key, epoch);
+  let stored = getValue(storageKey, MISSING);
+  if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  const readFromCurrentSlot = !isMissingSentinel(stored);
+  if (isMissingSentinel(stored) && storageKey !== key) {
+    stored = getValue(key, MISSING);
+    if (isPromiseLike$1(stored)) return { kind: "fallback" };
+  }
+  if (!isMissingSentinel(stored)) {
+    const unreadable = Symbol("unreadable-managed-state");
+    const value = managedStateLogicalValue(stored, epoch, unreadable);
+    if (value === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "fallback" };
+    if (isMissingSentinel(value)) return { kind: "deleted" };
+    return { kind: "found", value };
+  }
+  return migratedLocalStorageSyncValue(key, epoch);
+  } catch (error) {
+  debugStorageError("GM storage sync read failed", key, error);
+  return { kind: "fallback" };
+  }
+}
+function migratedLocalStorageSyncValue(key, epoch) {
+  if (!localMirrorBelongsToEpoch(key, epoch)) return { kind: "fallback" };
+  const migrated = localStorageGet(key, MISSING);
+  if (isMissingSentinel(migrated)) return { kind: "fallback" };
+  const promoted = sanitizedStrandedLocalValue(key, migrated);
+  void gmStorageSet(key, promoted);
+  return { kind: "found", value: promoted };
+}
+function sanitizedStrandedLocalValue(key, value) {
+  return value;
+}
+function localFallbackValueForWrite(key, value) {
+  return value;
+}
+async function gmStorageSet(key, value) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  if (setValue) {
+  let epoch2;
+  try {
+    if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+    epoch2 = await assertRealmManagedStateEpoch(getValue);
+    await writeManagedGmValue(key, value, epoch2, getValue, setValue);
+    mirrorManagedValueToHostedStorage(key, value, epoch2);
+    return;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage write failed", key, error);
+    try {
+      epoch2 ??= await assertRealmManagedStateEpoch(null);
+      writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch2);
+    } catch (fallbackError) {
+      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
+    }
+    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
+  }
+  }
+  const epoch = await assertRealmManagedStateEpoch(null);
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+}
+function gmStorageSetSync(key, value) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  let epoch = null;
+  if (getValue && setValue) {
+  try {
+    epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
+      return;
+    }
+    const stored = managedStateStoredValue(value, epoch);
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = setValue(storageKey, stored);
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        mirrorManagedValueToHostedStorage(key, value, epoch);
+      }).catch((error) => debugStorageError("GM storage async write failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    mirrorManagedValueToHostedStorage(key, value, epoch);
+    return;
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) {
+      debugStorageError("Rejected stale managed state write", key, error);
+      return;
+    }
+    debugStorageError("GM storage sync write failed", key, error);
+  }
+  }
+  if ((!getValue || !setValue) && asyncGmSetValue()) {
+  void gmStorageSet(key, value).catch((error) => debugStorageError("GM storage async write failed", key, error));
+  return;
+  }
+  try {
+  epoch ??= managedStateEpochForSynchronousLocalRead();
+  if (!epoch) return;
+  writeLocalManagedValueOrThrow(key, localFallbackValueForWrite(key, value), epoch);
+  } catch (error) {
+  debugStorageError("localStorage sync write failed", key, error);
+  }
+}
+async function gmStorageDelete(key) {
+  const getValue = asyncGmGetValue();
+  const setValue = asyncGmSetValue();
+  const deleteValue = asyncGmDeleteValue();
+  const hasBackend = Boolean(getValue || setValue || deleteValue);
+  if (hasBackend && !getValue) {
+  throw storageWriteError(key, "Managed storage cannot validate and delete the same backend value");
+  }
+  if (getValue) {
+  try {
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await deleteManagedGmValue(key, epoch, getValue, setValue, deleteValue);
+  } catch (error) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage delete failed", key, error);
+    throw storageWriteError(key, "GM storage delete failed", error);
+  }
+  } else {
+  await assertRealmManagedStateEpoch(null);
+  }
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+function gmStorageDeleteSync(key) {
+  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+  const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+  if (getValue && (setValue || deleteValue)) {
+  try {
+    const epoch = managedStateEpochFromSynchronousGetter(getValue);
+    if (!epoch) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const storageKey = managedStateStorageKey(key, epoch);
+    const result = storageKey === key ? deleteValue?.(key) : setValue?.(storageKey, managedStateStoredValue(MISSING, epoch));
+    if (result === void 0 && (storageKey === key ? !deleteValue : !setValue)) {
+      void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    if (isPromiseLike$1(result)) {
+      void result.then(async () => {
+        await assertRealmManagedStateEpoch(getValue);
+        removeLocalManagedValue(key);
+      }).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      return;
+    }
+    const after = managedStateEpochFromSynchronousGetter(getValue);
+    if (!after || !sameManagedStateEpoch(epoch, after)) return;
+    removeLocalManagedValue(key);
+    return;
+  } catch (error) {
+    debugStorageError("GM storage sync delete failed", key, error);
+    return;
+  }
+  }
+  if (asyncGmDeleteValue() || asyncGmSetValue()) {
+  void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
+  return;
+  }
+  try {
+  if (!managedStateEpochForSynchronousLocalRead()) return;
+  removeLocalManagedValue(key);
+  } catch (error) {
+  debugStorageError("localStorage sync delete failed", key, error);
+  }
+}
+function isPlainRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+function localStorageGet(key, fallback) {
+  try {
+  const value = localStorage.getItem(key);
+  return value == null ? fallback : JSON.parse(value);
+  } catch {
+  return fallback;
+  }
+}
+function localStorageSet(key, value) {
+  try {
+  localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+  }
+}
+function localStorageSetOrThrow(key, value) {
+  try {
+  const serialized = JSON.stringify(value);
+  if (serialized === void 0) throw new Error("value is not JSON-serializable");
+  localStorage.setItem(key, serialized);
+  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
+  return serialized;
+  } catch (error) {
+  throw storageWriteError(key, "localStorage write failed", error);
+  }
+}
+function storageWriteError(key, message, ...causes) {
+  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
+  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
+}
+function removeLocalStorageKey(key) {
+  try {
+  localStorage.removeItem(key);
+  } catch {
+  }
+}
+function removeSessionStorageKey(key) {
+  try {
+  sessionStorage.removeItem(key);
+  } catch {
+  }
+}
+function mirrorManagedValueToHostedStorage(key, value, epoch) {
+  if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+  try {
+  writeLocalManagedValueOrThrow(key, value, epoch);
+  } catch (error) {
+  debugStorageError("Hosted localStorage mirror failed", key, error);
+  }
+}
+function cacheManagedStateEpochForLocalFallback(epoch) {
+  if (epoch.generation <= 0) {
+  removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+  return;
+  }
+  try {
+  const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (sameManagedStateEpoch(local, epoch)) return;
+  } catch {
+  }
+  localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
+}
+function writeLocalManagedValueOrThrow(key, value, epoch) {
+  const serialized = localStorageSetOrThrow(key, value);
+  recordLocalMirrorProvenance(key, epoch, serialized);
+}
+function removeLocalManagedValue(key) {
+  removeLocalStorageKey(key);
+  removeSessionStorageKey(key);
+  removeLocalMirrorProvenance(key);
+}
+function localMirrorBelongsToEpoch(key, epoch) {
+  const serialized = localStorageSerializedValue(key);
+  if (serialized === null) return false;
+  const entry = localMirrorProvenanceRecord()?.values[key];
+  if (!entry) return epoch.generation === 0;
+  return entry.epoch === managedStateEpochToken(epoch) && entry.fingerprint === localMirrorFingerprint(serialized);
+}
+function recordLocalMirrorProvenance(key, epoch, serialized) {
+  const current = localMirrorProvenanceRecord();
+  const next = {
+  version: 1,
+  values: {
+    ...current?.values ?? {},
+    [key]: {
+      epoch: managedStateEpochToken(epoch),
+      fingerprint: localMirrorFingerprint(serialized)
+    }
+  }
+  };
+  localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
+}
+function removeLocalMirrorProvenance(key) {
+  const current = localMirrorProvenanceRecord();
+  if (!current || !(key in current.values)) return;
+  const values = { ...current.values };
+  delete values[key];
+  if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
+  else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
+}
+function localMirrorProvenanceRecord() {
+  const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
+  if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.values)) return null;
+  const values = {};
+  for (const [key, entry] of Object.entries(value.values)) {
+  if (!isPlainRecord(entry) || typeof entry.epoch !== "string" || typeof entry.fingerprint !== "string") continue;
+  values[key] = { epoch: entry.epoch, fingerprint: entry.fingerprint };
+  }
+  return { version: 1, values };
+}
+function localStorageSerializedValue(key) {
+  try {
+  return localStorage.getItem(key);
+  } catch {
+  return null;
+  }
+}
+function localMirrorFingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index++) {
+  hash ^= serialized.charCodeAt(index);
+  hash = Math.imul(hash, 16777619);
+  }
+  return `${serialized.length}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+function shouldMirrorManagedValueToHostedStorage(key) {
+  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
+}
+function isHostedYomuOrigin() {
+  try {
+  const host = location.hostname;
+  const path = location.pathname;
+  if (location.origin === DOCS_ORIGIN) return true;
+  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
+  } catch {
+  return false;
+  }
+}
+function asyncGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  };
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+}
+function directGmGetValue() {
+  if (typeof GM_getValue === "function") return GM_getValue;
+  const modern = globalThis.GM?.getValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  return extension ? async (key, fallback) => {
+  const value = (await extension.get(key))[key];
+  return value === void 0 ? fallback : value;
+  } : null;
+}
+function asyncGmSetValue() {
+  if (typeof GM_setValue === "function") return GM_setValue;
+  const modern = globalThis.GM?.setValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key, value) => extension.set({ [key]: value });
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key, value) => bridge.setValue(key, value) : null;
+}
+function asyncGmDeleteValue() {
+  if (typeof GM_deleteValue === "function") return GM_deleteValue;
+  const modern = globalThis.GM?.deleteValue;
+  if (typeof modern === "function") return modern.bind(globalThis.GM);
+  const extension = extensionStorageArea();
+  if (extension) return (key) => extension.remove(key);
+  if (directGmGetValue()) return null;
+  const bridge = getUserscriptGmStorage();
+  return bridge ? (key) => bridge.deleteValue(key) : null;
+}
+function extensionStorageArea() {
+  const candidate = globalThis;
+  const browser = candidate.browser;
+  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
+  const chrome = candidate.chrome;
+  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
+  return null;
+}
+function parseFactoryResetSignal(value) {
+  const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
+  if (!isFactoryResetSignalRecord(parsed)) return null;
+  const record = parsed;
+  if (!isValidFactoryResetPhase(record.phase)) return null;
+  return {
+  id: record.id,
+  phase: record.phase,
+  at: factoryResetSignalTime(record.at),
+  href: factoryResetSignalHref(record.href)
+  };
+}
+function factoryResetSignalTime(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : Date.now();
+}
+function factoryResetSignalHref(value) {
+  return typeof value === "string" ? value : "";
+}
+function isFactoryResetSignalRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && typeof value.id === "string" && value.id?.trim());
+}
+function isValidFactoryResetPhase(value) {
+  return value === "prepare" || value === "complete";
+}
+function parseJsonRecord(value) {
+  try {
+  return JSON.parse(value);
+  } catch {
+  return null;
+  }
+}
+async function assertManagedStateMutationFence(getValue, expected) {
+  const before = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, before)) throw new StaleManagedStateEpochError(expected, before);
+  const rawSignal = getValue ? await getValue(FACTORY_RESET_SIGNAL_KEY, MISSING) : localStorageGet(FACTORY_RESET_SIGNAL_KEY, MISSING);
+  const signal = isMissingSentinel(rawSignal) ? null : parseFactoryResetSignal(rawSignal);
+  if (signal?.phase === "prepare" || managedStateWritesSuppressed()) {
+  throw new Error("Managed state writes are suppressed during factory reset.");
+  }
+  const after = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+  if (!sameManagedStateEpoch(expected, after)) throw new StaleManagedStateEpochError(expected, after);
+}
+function debugStorageError(message, key, error) {
+  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
+}
 const ID_ATTR = "data-yomu-mid";
 const MAX_OPS_PER_CANVAS = 6e3;
 const PRUNE_KEEP = 3e3;
@@ -23,9 +1469,9 @@ function recorderReloadLoopDetected() {
   recorderLoadGuardChecked = true;
   try {
   const now = Date.now();
-  const prev = JSON.parse(sessionStorage.getItem(RELOAD_GUARD_KEY) || "null");
+  const prev = JSON.parse(managedSessionStorage.getItem(RELOAD_GUARD_KEY) || "null");
   const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
-  sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
+  managedSessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
   recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
   if (recorderLoopBroken) {
     try {
@@ -5169,268 +6615,6 @@ const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"
 roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
 `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
 roleSelectors("menu,menubar,toolbar,tablist");
-let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-let initialWindowAddEventListener = initialWindowMethod("addEventListener");
-let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-function createWindowCustomEvent(type, detail, init = {}) {
-  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-  const documentEvent = createDocumentCustomEvent(type, eventInit);
-  if (documentEvent) return documentEvent;
-  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-  if (CustomEventConstructor) {
-  try {
-    return new CustomEventConstructor(type, eventInit);
-  } catch {
-  }
-  }
-  throw new Error(`Unable to create window custom event: ${type}`);
-}
-function cloneCustomEventDetail(detail) {
-  if (detail === void 0 || typeof window === "undefined") return detail;
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto) return detail;
-  try {
-  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-  } catch {
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return void 0;
-  }
-  }
-}
-function dispatchWindowEvent(event) {
-  const target = window;
-  const directDispatch = readMethod(target, "dispatchEvent");
-  const directResult = callEventTargetMethod(directDispatch, target, event);
-  if (directResult.called) return directResult.result;
-  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-  if (initialResult.called) return initialResult.result;
-  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-  if (prototypeResult.called) return prototypeResult.result;
-  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-  if (unshadowedResult.called) return unshadowedResult.result;
-  return false;
-}
-function addWindowEventListener(type, listener, options) {
-  const target = window;
-  const directAdd = readMethod(target, "addEventListener");
-  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function removeWindowEventListener(type, listener, options) {
-  const target = window;
-  const directRemove = readMethod(target, "removeEventListener");
-  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function initialWindowMethod(key) {
-  if (typeof window === "undefined") return void 0;
-  return readMethod(window, key);
-}
-function dispatchWithPrototypeMethod(target, directDispatch, event) {
-  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-  if (prototypeDispatch === directDispatch) continue;
-  const result = callEventTargetMethod(prototypeDispatch, target, event);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-  if (prototypeAdd === directAdd) continue;
-  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-  if (prototypeRemove === directRemove) continue;
-  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function eventConstructor(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function createDocumentCustomEvent(type, init) {
-  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-  try {
-  const event = document.createEvent("CustomEvent");
-  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-  return event;
-  } catch {
-  return void 0;
-  }
-}
-function eventTargetPrototypeMethods(target, key) {
-  const methods = [];
-  const add = (method) => {
-  if (method && !methods.includes(method)) methods.push(method);
-  };
-  let prototype = Object.getPrototypeOf(target);
-  while (prototype) {
-  add(readOwnMethod(prototype, key));
-  prototype = Object.getPrototypeOf(prototype);
-  }
-  const WindowEventTarget = readProperty(window, "EventTarget");
-  add(readMethod(WindowEventTarget?.prototype, key));
-  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-  return methods;
-}
-function readMethod(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function readOwnMethod(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-  return readMethod(source, key);
-}
-function readProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function callEventTargetMethod(method, target, event) {
-  if (!method) return { called: false };
-  try {
-  return { called: true, result: method.call(target, event) };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callAddEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callRemoveEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callWithUnshadowedWindowDispatch(event) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("dispatchEvent", descriptor);
-  }
-}
-function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("addEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("addEventListener", descriptor);
-  }
-}
-function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("removeEventListener", descriptor);
-  }
-}
-function restoreWindowProperty(key, descriptor) {
-  try {
-  const target = window.wrappedJSObject || window;
-  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
-}
-function pageCompartmentDescriptor(descriptor, _target) {
-  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-}
-function pageCompartmentValue(value, options = {}) {
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto || typeof window === "undefined") return value;
-  try {
-  return cloneInto(value, window, options);
-  } catch {
-  return value;
-  }
-}
-function safeWindowPropertyDescriptor(key) {
-  try {
-  const target = window.wrappedJSObject || window;
-  return Object.getOwnPropertyDescriptor(target, key);
-  } catch {
-  return void 0;
-  }
-}
-function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-  if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
-}
-function normalizedPropertyDescriptor(descriptor) {
-  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-  if (!hasDataShape || !hasAccessorShape) return descriptor;
-  try {
-  return {
-    configurable: descriptor.configurable,
-    enumerable: descriptor.enumerable,
-    value: descriptor.value,
-    writable: descriptor.writable
-  };
-  } catch {
-  return {
-    configurable: true,
-    value: void 0,
-    writable: true
-  };
-  }
-}
 const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
 const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
 const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -5610,573 +6794,6 @@ function createTrustedHtmlPolicyWithOptions(factory, options) {
   } catch {
   return null;
   }
-}
-let sandboxCompanions = {};
-function registerYomuCompanion(key, value) {
-  writeYomuCompanions({
-  ...yomuCompanions(),
-  [key]: value
-  });
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function writeYomuCompanions(value) {
-  sandboxCompanions = value;
-  writeYomuCompanionsTarget(globalThis, value);
-  if (typeof window !== "undefined" && window !== globalThis) {
-  const pageValue = pageCompartmentRegistryValue(value);
-  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-  }
-}
-function pageCompartmentRegistryValue(value) {
-  const cloneInto = globalThis.cloneInto;
-  if (typeof cloneInto !== "function") return value;
-  try {
-  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-  } catch {
-  return void 0;
-  }
-}
-function writeYomuCompanionsTarget(target, value) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return false;
-  const writable = target;
-  try {
-  writable.__yomuCompanions = value;
-  return true;
-  } catch {
-  }
-  try {
-  Object.defineProperty(writable, "__yomuCompanions", {
-    configurable: true,
-    enumerable: false,
-    writable: true,
-    value
-  });
-  return true;
-  } catch {
-  return false;
-  }
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
-const MANAGED_STORAGE_KEY_PREFIXES = [
-  "yomu-",
-  "yomu:",
-  "yomu.",
-  // Yomu-internal redirect handoff keys use a leading double underscore.
-  // Factory reset clears hosted web storage by managed prefix, so include it.
-  "__yomu",
-  "jpdb-reader-",
-  "jpdb-popup-reader-"
-];
-function isManagedStorageKey(key) {
-  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
-}
-function isPrivateManagedStorageKey(key) {
-  return key.startsWith("yomu:private:");
-}
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true,
-  wordUnderlineColorSource: "pitch",
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: true,
-  subtitleControlsMode: "always",
-  subtitleTranscriptVisible: false,
-  ocrEnabled: true,
-  ocrVideoPauseFrames: true,
-  ocrProvider: "google-lens",
-  ocrOverlayTheme: "auto"
-};
-new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
-function isPromiseLike$1(value) {
-  return Boolean(value && typeof value.then === "function");
-}
-function promiseWithTimeout(promise, timeoutMs, message) {
-  let timeoutId = 0;
-  const timeout = new Promise((_resolve, reject) => {
-  timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-  return Promise.race([
-  promise,
-  timeout
-  ]).finally(() => window.clearTimeout(timeoutId));
-}
-const FURIGANA_HIDE_STATE_GROUPS = ["known", "due", "failed", "learning", "new"];
-const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
-const DOCS_ORIGIN = "https://yomureader.com";
-const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
-const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
-const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
-  const id = safeReadString(detail, "id");
-  const kind = safeReadString(detail, "kind");
-  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-  return {
-  id,
-  kind,
-  response: safeReadProperty(detail, "response"),
-  message: safeReadString(detail, "message")
-  };
-}
-function bridgeEventDetail(detail) {
-  if (detail === void 0) return void 0;
-  const json = bridgeEventJsonDetail(detail);
-  return json ?? detail;
-}
-function bridgeEventJsonDetail(detail) {
-  let unsupported = false;
-  try {
-  const json = JSON.stringify(detail, (_key, value) => {
-    if (isUnsupportedBridgeJsonValue(value)) {
-      unsupported = true;
-      return void 0;
-    }
-    return value;
-  });
-  return unsupported || typeof json !== "string" ? void 0 : json;
-  } catch {
-  return void 0;
-  }
-}
-function normalizedBridgeEventDetail$1(event) {
-  const detail = safeEventDetail(event);
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function isUnsupportedBridgeJsonValue(value) {
-  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-}
-function isUnsupportedPrimitiveBridgeJsonValue(value) {
-  return typeof value === "function" || typeof value === "symbol";
-}
-function isArrayBufferBridgeJsonValue(value) {
-  if (typeof ArrayBuffer === "undefined") return false;
-  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-}
-function isBlobBridgeJsonValue(value) {
-  return typeof Blob !== "undefined" && value instanceof Blob;
-}
-function isFormDataBridgeJsonValue(value) {
-  return typeof FormData !== "undefined" && value instanceof FormData;
-}
-function safeEventDetail(event) {
-  try {
-  return event.detail;
-  } catch {
-  return void 0;
-  }
-}
-function safeReadProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function safeReadString(source, key) {
-  const value = safeReadProperty(source, key);
-  return typeof value === "string" ? value : void 0;
-}
-const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
-const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
-const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
-const BRIDGE_TIMEOUT_MS$1 = 1e4;
-function getUserscriptGmStorage() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-  return {
-  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
-  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
-  };
-}
-function storageBridgeRequest(request) {
-  return new Promise((resolve, reject) => {
-  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    reject(new Error("Storage bridge request timed out."));
-  }, BRIDGE_TIMEOUT_MS$1);
-  let cleanupResponseListener = noop$1;
-  const cleanup = () => {
-    window.clearTimeout(timeout);
-    cleanupResponseListener();
-  };
-  const onResponse = (event) => {
-    const detail = storageBridgeResponseDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.ok) resolve(detail);
-    else reject(new Error(detail.message || "Storage bridge request failed."));
-  };
-  cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
-  });
-}
-function storageBridgeResponseDetail(event) {
-  const detail = normalizedBridgeEventDetail(event);
-  if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
-  return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
-  };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function addBridgeEventListener$1(type, listener) {
-  const cleanups = [];
-  if (addWindowEventListener(type, listener)) {
-  cleanups.push(() => removeWindowEventListener(type, listener));
-  }
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
-  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
-  }
-  return () => {
-  for (const cleanup of cleanups) cleanup();
-  };
-}
-function dispatchBridgeEvent$1(type, detail) {
-  const eventDetail = bridgeEventDetail(detail);
-  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget) {
-  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-  }
-  return dispatched;
-}
-function bridgeDocumentTarget$1() {
-  if (typeof document === "undefined") return void 0;
-  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-}
-function bridgeMarkerDataset$1() {
-  if (typeof document === "undefined") return void 0;
-  const root = document.documentElement;
-  return root?.dataset;
-}
-function callAddEventListener$1(target, type, listener) {
-  try {
-  target.addEventListener(type, listener);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function callRemoveEventListener$1(target, type, listener) {
-  try {
-  target.removeEventListener(type, listener);
-  } catch {
-  }
-}
-function callDispatchEvent$1(target, event) {
-  try {
-  return target.dispatchEvent(event);
-  } catch {
-  return false;
-  }
-}
-function noop$1() {
-}
-const registeredKeys = /* @__PURE__ */ new Set();
-function registerManagedState(entry) {
-  const identity = managedStateIdentity(entry);
-  if (registeredKeys.has(identity)) return;
-  registeredKeys.add(identity);
-}
-function registerManagedStates(list) {
-  for (const entry of list) registerManagedState(entry);
-}
-function managedStateIdentity(entry) {
-  return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
-}
-const MANAGED_STATE_MANIFEST = [
-  // Settings (also legacy migration keys). The bunpro token / pill selections /
-  // colours all live inside these settings objects.
-  { owner: "settings", kind: "gm", key: "jpdb-popup-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
-  { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
-  { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
-  // Cloud settings sync handoff written before an OAuth redirect.
-  { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
-  // App-level signals / flags / caches.
-  { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
-  { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
-  { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
-  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
-  { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
-  { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
-  { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-  // Written with a raw localStorage.setItem, deliberately per-origin: it is the
-  // bootstrap hint for this site, never the preference itself.
-  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
-  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
-  { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
-  // Local no-account SRS deck.
-  { owner: "srs/local-yomu-store (legacy)", kind: "gm", key: "yomu:srs-local:v1" },
-  { owner: "srs/local-yomu-store", kind: "gm", prefix: "yomu:srs-local:v2:" },
-  // Anki status index (GM leases + IndexedDB store).
-  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index:v1" },
-  { owner: "anki/status-index", kind: "gm", key: "yomu:anki-status-index-rebuild:v1" },
-  { owner: "anki/status-index", kind: "idb", key: "yomu-anki-status-index" },
-  // Bunpro vocab SRS-state index for page word colouring.
-  { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
-  // Public lookup caches.
-  { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-  { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
-  { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
-  // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
-  // store's own deleteDatabase during reset; registered so the invariant test
-  // asserts it and the reset sweep nets it as a fallback.
-  { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
-  // OCR result cache.
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
-  { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
-  { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
-  // Reader CSS last-good cache. v3 is deliberately version-independent (see
-  // styles/index) so an upgrade does not start cold; the v2 prefix family
-  // stays registered so the per-version entries older installs left behind
-  // are still swept on reset.
-  { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
-  { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
-  // Study / grammar / mining stores.
-  { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
-  { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
-  { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
-  // Popup / drawer geometry.
-  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
-  { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
-  // Sources open/closed state.
-  { owner: "sources/state", kind: "gm", key: "jpdb-reader-source-open-state" },
-  // Subtitle layout geometry.
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-transcript-panel-size" },
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-drag-offset" },
-  { owner: "subtitles/subtitle-layout", kind: "gm", key: "jpdb-reader-subtitle-control-rail-position" },
-  // YouTube subscription snapshot + oembed title cache.
-  { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
-  { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
-  // New Tab study surface stores.
-  { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
-  { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-grade-queue" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-current-word" },
-  { owner: "newtab/controller-config", kind: "session", key: "jpdb-reader-newtab-current-word" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
-  { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
-  { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
-  { owner: "newtab/controller", kind: "gm", key: "yomu-newtab-support-banner-dismissed" },
-  // Local pitch-accent SRS (debounced writer — the canonical reset escapee).
-  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
-  { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
-];
-let manifestRegistered = false;
-function registerManagedStateManifest() {
-  if (manifestRegistered) return;
-  manifestRegistered = true;
-  registerManagedStates(MANAGED_STATE_MANIFEST);
-}
-registerManagedStateManifest();
-const MISSING = { __yomuStorageValueMissing: true };
-function isMissingSentinel(value) {
-  if (value === MISSING) return true;
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
-}
-function gmStorageGetSync(key, fallback) {
-  const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
-  if (getValue) {
-  const read = gmStorageSyncRead(key, getValue);
-  if (read.kind === "found") return read.value;
-  }
-  return localStorageGet(key, fallback);
-}
-function gmStorageSyncRead(key, getValue) {
-  try {
-  const value = getValue(key, MISSING);
-  if (isPromiseLike$1(value)) return { kind: "fallback" };
-  if (!isMissingSentinel(value)) return { kind: "found", value };
-  return migratedLocalStorageSyncValue(key);
-  } catch (error) {
-  debugStorageError("GM storage sync read failed", key, error);
-  return { kind: "fallback" };
-  }
-}
-function migratedLocalStorageSyncValue(key) {
-  const migrated = localStorageGet(key, MISSING);
-  if (isMissingSentinel(migrated)) return { kind: "fallback" };
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
-  void gmStorageSet(key, promoted);
-  return { kind: "found", value: promoted };
-}
-function sanitizedStrandedLocalValue(key, value) {
-  return value;
-}
-function localFallbackValueForWrite(key, value) {
-  return value;
-}
-async function gmStorageSet(key, value) {
-  const setValue = asyncGmSetValue();
-  if (setValue) {
-  try {
-    await setValue(key, value);
-    mirrorManagedValueToHostedStorage(key, value);
-    return;
-  } catch (error) {
-    debugStorageError("GM storage write failed", key, error);
-    try {
-      localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
-    } catch (fallbackError) {
-      throw storageWriteError(key, "GM storage and localStorage fallback writes failed", error, fallbackError);
-    }
-    throw storageWriteError(key, "GM storage write failed; saved only to localStorage fallback", error);
-  }
-  }
-  localStorageSetOrThrow(key, localFallbackValueForWrite(key, value));
-}
-function gmStorageSetSync(key, value) {
-  if (typeof GM_setValue === "function") {
-  try {
-    const result = GM_setValue(key, value);
-    if (!isPromiseLike$1(result)) {
-      mirrorManagedValueToHostedStorage(key, value);
-      return;
-    }
-    result.catch((error) => debugStorageError("GM storage async write failed", key, error));
-  } catch (error) {
-    debugStorageError("GM storage sync write failed", key, error);
-  }
-  }
-  localStorageSet(key, localFallbackValueForWrite(key, value));
-}
-function gmStorageDeleteSync(key) {
-  if (typeof GM_deleteValue === "function") {
-  try {
-    const result = GM_deleteValue(key);
-    if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
-  } catch (error) {
-    debugStorageError("GM storage sync delete failed", key, error);
-  }
-  }
-  removeLocalStorageKey(key);
-  removeSessionStorageKey(key);
-}
-function localStorageGet(key, fallback) {
-  try {
-  const value = localStorage.getItem(key);
-  return value == null ? fallback : JSON.parse(value);
-  } catch {
-  return fallback;
-  }
-}
-function localStorageSet(key, value) {
-  try {
-  localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-  }
-}
-function localStorageSetOrThrow(key, value) {
-  try {
-  const serialized = JSON.stringify(value);
-  localStorage.setItem(key, serialized);
-  if (localStorage.getItem(key) !== serialized) throw new Error("read-back did not match");
-  } catch (error) {
-  throw storageWriteError(key, "localStorage write failed", error);
-  }
-}
-function storageWriteError(key, message, ...causes) {
-  const details = causes.map((cause) => cause instanceof Error ? cause.message : String(cause)).filter(Boolean).join("; ");
-  return new Error(`${message} for "${key}"${details ? `: ${details}` : ""}`);
-}
-function removeLocalStorageKey(key) {
-  try {
-  localStorage.removeItem(key);
-  } catch {
-  }
-}
-function removeSessionStorageKey(key) {
-  try {
-  sessionStorage.removeItem(key);
-  } catch {
-  }
-}
-function mirrorManagedValueToHostedStorage(key, value) {
-  if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-  localStorageSet(key, value);
-}
-function shouldMirrorManagedValueToHostedStorage(key) {
-  return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && isHostedYomuOrigin();
-}
-function isHostedYomuOrigin() {
-  try {
-  const host = location.hostname;
-  const path = location.pathname;
-  if (location.origin === DOCS_ORIGIN) return true;
-  if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-  return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && (path.includes("/study/") || path.includes("/newtab/"));
-  } catch {
-  return false;
-  }
-}
-function asyncGmSetValue() {
-  if (typeof GM_setValue === "function") return GM_setValue;
-  const modern = globalThis.GM?.setValue;
-  if (typeof modern === "function") return modern.bind(globalThis.GM);
-  const extension = extensionStorageArea();
-  if (extension) return (key, value) => extension.set({ [key]: value });
-  const bridge = getUserscriptGmStorage();
-  return bridge ? (key, value) => bridge.setValue(key, value) : null;
-}
-function extensionStorageArea() {
-  const candidate = globalThis;
-  const browser = candidate.browser;
-  if (browser?.runtime?.id && browser.storage?.local) return browser.storage.local;
-  const chrome = candidate.chrome;
-  if (chrome?.runtime?.id && chrome.storage?.local) return chrome.storage.local;
-  return null;
-}
-function debugStorageError(message, key, error) {
-  if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
 }
 const __vite_import_meta_env__ = { "DEV": false };
 const LOG_PREFIX = "[Yomu]";
@@ -7743,9 +8360,8 @@ const COPY = {
   factoryReset: "Factory Reset",
   factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
   factoryResetFailed: "Reset failed.",
-  factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
+  factoryResetStorageIncomplete: "Reset stopped because not every saved item could be found or deleted. Close other よむ tabs and retry. If it still fails, clear よむ storage in your userscript manager.",
   factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
-  factoryResetDeleteSettingsFailed: "Could not delete settings.",
   issues: "Issues",
   donate: "Donate",
   discord: "Discord",
@@ -9205,9 +9821,8 @@ docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
 factoryResetFailed	リセットに失敗しました。
-factoryResetDictionaryWarning	設定をリセットしました。他のタブを閉じてください。
+factoryResetStorageIncomplete	保存データをすべて検出または削除できなかったため、リセットを中止しました。ほかのよむタブを閉じて再試行してください。解決しない場合は、ユーザースクリプトマネージャーでよむのストレージを消去してください。
 factoryResetOtherTabReloading	別タブでリセット。再読み込み...
-factoryResetDeleteSettingsFailed	設定を削除できません。他のタブを閉じてください。
 issues	Issue
 donate	寄付
 discord	Discord
@@ -11959,832 +12574,832 @@ function googleLensUploadCallbackLiteral(html, key) {
 }
 function callbackLiteralHasKey(literal, key) {
   return new RegExp(`\\bkey\\s*:\\s*['"]${escapeRegex(key)}['"]`).test(literal);
+}
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function readBalancedLiteral(source, startIndex) {
+  const index = balancedLiteralStart(source, startIndex);
+  if (index < 0) return null;
+  const end = balancedLiteralEnd(source, index);
+  return end >= 0 ? source.slice(index, end + 1) : null;
+}
+function balancedLiteralStart(source, startIndex) {
+  let index = startIndex;
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  return source[index] === "{" ? index : -1;
+}
+function balancedLiteralEnd(source, startIndex) {
+  let depth = 0;
+  for (let current = startIndex; current < source.length; current += 1) {
+  const char = source[current];
+  if (isQuote(char)) {
+    current = quotedLiteralEnd(source, current, char);
+    if (current < 0) return -1;
+    continue;
   }
-  function escapeRegex(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  depth += balancedDepthDelta(char);
+  if (depth === 0) return current;
   }
-  function readBalancedLiteral(source, startIndex) {
-    const index = balancedLiteralStart(source, startIndex);
-    if (index < 0) return null;
-    const end = balancedLiteralEnd(source, index);
-    return end >= 0 ? source.slice(index, end + 1) : null;
+  return -1;
+}
+function quotedLiteralEnd(source, startIndex, quote) {
+  for (let current = startIndex + 1; current < source.length; current += 1) {
+  const char = source[current];
+  if (char === "\\") {
+    current += 1;
+  } else if (char === quote) {
+    return current;
   }
-  function balancedLiteralStart(source, startIndex) {
-    let index = startIndex;
-    while (/\s/.test(source[index] ?? "")) index += 1;
-    return source[index] === "{" ? index : -1;
   }
-  function balancedLiteralEnd(source, startIndex) {
-    let depth = 0;
-    for (let current = startIndex; current < source.length; current += 1) {
-      const char = source[current];
-      if (isQuote(char)) {
-        current = quotedLiteralEnd(source, current, char);
-        if (current < 0) return -1;
-        continue;
-      }
-      depth += balancedDepthDelta(char);
-      if (depth === 0) return current;
-    }
-    return -1;
+  return -1;
+}
+function isQuote(char) {
+  return char === '"' || char === "'";
+}
+function balancedDepthDelta(char) {
+  if (char === "{" || char === "[" || char === "(") return 1;
+  if (char === "}" || char === "]" || char === ")") return -1;
+  return 0;
+}
+function parseJsDataLiteral(source) {
+  let index = 0;
+  const value = parseValue();
+  skipWhitespace();
+  if (index !== source.length) throw new Error("Unexpected trailing data.");
+  return value;
+  function parseValue() {
+  skipWhitespace();
+  const char = source[index];
+  if (char === "{") return parseObject();
+  if (char === "[") return parseArray();
+  if (char === '"' || char === "'") return parseString();
+  if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
+  return parseIdentifierValue();
   }
-  function quotedLiteralEnd(source, startIndex, quote) {
-    for (let current = startIndex + 1; current < source.length; current += 1) {
-      const char = source[current];
-      if (char === "\\") {
-        current += 1;
-      } else if (char === quote) {
-        return current;
-      }
-    }
-    return -1;
-  }
-  function isQuote(char) {
-    return char === '"' || char === "'";
-  }
-  function balancedDepthDelta(char) {
-    if (char === "{" || char === "[" || char === "(") return 1;
-    if (char === "}" || char === "]" || char === ")") return -1;
-    return 0;
-  }
-  function parseJsDataLiteral(source) {
-    let index = 0;
-    const value = parseValue();
+  function parseObject() {
+  const record = {};
+  index += 1;
+  skipWhitespace();
+  while (source[index] !== "}") {
+    const key = parseObjectKey();
     skipWhitespace();
-    if (index !== source.length) throw new Error("Unexpected trailing data.");
-    return value;
-    function parseValue() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === "{") return parseObject();
-      if (char === "[") return parseArray();
-      if (char === '"' || char === "'") return parseString();
-      if (char === "-" || /\d/.test(char ?? "")) return parseNumber();
-      return parseIdentifierValue();
-    }
-    function parseObject() {
-      const record = {};
+    expect(":");
+    record[key] = parseValue();
+    skipWhitespace();
+    if (source[index] === ",") {
       index += 1;
       skipWhitespace();
-      while (source[index] !== "}") {
-        const key = parseObjectKey();
-        skipWhitespace();
-        expect(":");
-        record[key] = parseValue();
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("}");
-      return record;
+      continue;
     }
-    function parseObjectKey() {
-      skipWhitespace();
-      const char = source[index];
-      if (char === '"' || char === "'") return parseString();
-      return parseIdentifier();
-    }
-    function parseArray() {
-      const values = [];
+    break;
+  }
+  expect("}");
+  return record;
+  }
+  function parseObjectKey() {
+  skipWhitespace();
+  const char = source[index];
+  if (char === '"' || char === "'") return parseString();
+  return parseIdentifier();
+  }
+  function parseArray() {
+  const values = [];
+  index += 1;
+  skipWhitespace();
+  while (source[index] !== "]") {
+    if (source[index] === ",") {
+      values.push(null);
       index += 1;
       skipWhitespace();
-      while (source[index] !== "]") {
-        if (source[index] === ",") {
-          values.push(null);
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        values.push(parseValue());
-        skipWhitespace();
-        if (source[index] === ",") {
-          index += 1;
-          skipWhitespace();
-          continue;
-        }
-        break;
-      }
-      expect("]");
-      return values;
+      continue;
     }
-    function parseString() {
-      const quote = source[index];
-      let value2 = "";
+    values.push(parseValue());
+    skipWhitespace();
+    if (source[index] === ",") {
       index += 1;
-      while (index < source.length) {
-        const char = source[index++];
-        if (char === quote) return value2;
-        if (char !== "\\") {
-          value2 += char;
-          continue;
-        }
-        value2 += parseEscapeSequence();
-      }
-      throw new Error("Unterminated string.");
+      skipWhitespace();
+      continue;
     }
-    function parseEscapeSequence() {
-      const escaped = source[index++];
-      const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
-      if (typeof simpleEscape === "string") return simpleEscape;
-      if (escaped === "\r") return parseCarriageReturnEscape();
-      return parseNamedEscapeSequence(escaped);
+    break;
+  }
+  expect("]");
+  return values;
+  }
+  function parseString() {
+  const quote = source[index];
+  let value2 = "";
+  index += 1;
+  while (index < source.length) {
+    const char = source[index++];
+    if (char === quote) return value2;
+    if (char !== "\\") {
+      value2 += char;
+      continue;
     }
-    function parseCarriageReturnEscape() {
-      if (source[index] === "\n") index += 1;
-      return "";
-    }
-    function parseNamedEscapeSequence(escaped) {
-      if (escaped === "x") return codePointEscape(2);
-      if (escaped === "u") return parseUnicodeEscape();
-      return escaped ?? "";
-    }
-    function parseUnicodeEscape() {
-      if (source[index] === "{") {
-        const end = source.indexOf("}", index + 1);
-        if (end < 0) throw new Error("Invalid unicode escape.");
-        const value2 = Number.parseInt(source.slice(index + 1, end), 16);
-        index = end + 1;
-        return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
-      }
-      return codePointEscape(4);
-    }
-    function codePointEscape(length) {
-      const hex = source.slice(index, index + length);
-      if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
-      index += length;
-      return String.fromCharCode(Number.parseInt(hex, 16));
-    }
-    function parseNumber() {
-      const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
-      if (!match) throw new Error("Invalid number.");
-      index += match[0].length;
-      return Number(match[0]);
-    }
-    function parseIdentifierValue() {
-      const identifier = parseIdentifier();
-      if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
-      if (identifier === "true") return true;
-      if (identifier === "false") return false;
-      if (identifier === "Infinity") return Infinity;
-      return identifier;
-    }
-    function parseIdentifier() {
-      const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
-      if (!match) throw new Error("Expected identifier.");
-      index += match[0].length;
-      return match[0];
-    }
-    function skipWhitespace() {
-      while (/\s/.test(source[index] ?? "")) index += 1;
-    }
-    function expect(char) {
-      if (source[index] !== char) throw new Error(`Expected ${char}.`);
-      index += 1;
-    }
-  }
-  const LENS_WRITING_TOP_TO_BOTTOM = 2;
-  function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
-    if (cloudVision) return cloudVision;
-    const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-    const lines = collectGenericOcrLines(record, width, height);
-    return japaneseOcrResult(width, height, lines);
-  }
-  function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-    const resolution = record.context_resolution;
-    const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-    const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
-    return { width, height };
-  }
-  function collectGenericOcrLines(record, width, height) {
-    const lines = [];
-    appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-    appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-    appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
-    return lines;
-  }
-  function genericRawLines(record) {
-    return Array.isArray(record.lines) ? record.lines : record.regions;
-  }
-  function appendGenericOcrLines(lines, value, width, height, normalize) {
-    if (Array.isArray(value)) lines.push(...normalize(value, width, height));
-  }
-  function normalizeSimpleLines(values, width, height) {
-    return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
-  }
-  function normalizeStructuredOcrResults(values, width, height) {
-    return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
-  }
-  function normalizeOcrRegionResults(regions, width, height) {
-    return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
-  }
-  function normalizeSingleOcrRegionResults(region, width, height) {
-    const regionRecord = asRecord(region);
-    if (!regionRecord) return [];
-    const regionBox = normalizeOcrRegion(regionRecord, width, height);
-    const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
-    if (!Array.isArray(regionRecord.results)) return [];
-    const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
-    return offsetRegionLines(lines, regionBox, width, height);
-  }
-  function ocrRegionScale(regionBox, width, height) {
-    return {
-      scaleWidth: regionBox?.width ?? width,
-      scaleHeight: regionBox?.height ?? height
-    };
-  }
-  function offsetRegionLines(lines, regionBox, width, height) {
-    if (!regionBox) return lines;
-    return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
-  }
-  function japaneseOcrResult(width, height, lines) {
-    const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && isTargetLanguageText(line.text));
-    return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
-  }
-  function cleanOcrLookupLines(lines, parsed) {
-    const cleaned = lines.map((line, index) => {
-      const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
-      return text === line.text ? line : { ...line, text };
-    });
-    return removeStandaloneFuriganaLines(cleaned);
-  }
-  function ocrLinesChanged(original, cleaned) {
-    return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
-  }
-  function cleanOcrLookupText(text, tokens) {
-    const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
-    let cleaned = text;
-    for (const { ruby } of rubies) {
-      if (!KANJI_LIKE_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
-      cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
-    }
-    return cleanOcrText(cleaned);
-  }
-  function removeOcrReadingAroundRuby(text, reading, start, end) {
-    const cleanReading = cleanOcrText(reading);
-    if (!cleanReading) return text;
-    if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
-      return text.slice(0, start - cleanReading.length) + text.slice(start);
-    }
-    if (text.slice(end, end + cleanReading.length) === cleanReading) {
-      return text.slice(0, end) + text.slice(end + cleanReading.length);
-    }
-    return text;
-  }
-  function removeStandaloneFuriganaLines(lines) {
-    const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
-    return filtered.length ? filtered : lines;
-  }
-  function isStandaloneFuriganaLine(line, lines, index) {
-    const text = cleanOcrText(line.text).replace(/\s+/g, "");
-    if (!text || text.length > 10 || !READING_KANA_ONLY_RE.test(text)) return false;
-    return lines.some((other, otherIndex) => otherIndex !== index && KANJI_LIKE_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
-  }
-  function ocrLineLooksLikeFuriganaFor(furi, base) {
-    if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
-    const overlap = horizontalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75;
-    const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
-    return overlapRatio >= 0.32 && smaller && nearTop;
-  }
-  function horizontalOverlap(a, b) {
-    return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
-  }
-  function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
-    if (!furi.vertical || !base.vertical) return false;
-    const overlap = verticalOverlap(furi.box, base.box);
-    const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75;
-    const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
-    return overlapRatio >= 0.32 && smaller && nearSide;
-  }
-  function verticalOverlap(a, b) {
-    return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
-  }
-  function horizontalGap(a, b) {
-    if (a.left + a.width < b.left) return b.left - (a.left + a.width);
-    if (b.left + b.width < a.left) return a.left - (b.left + b.width);
-    return 0;
-  }
-  function parseGoogleLensResponse(bytes, width, height) {
-    const root = decodeProtoMessage(bytes);
-    const objectsResponse = protoFirstMessage(root, 2);
-    const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
-    const layout = text ? protoFirstMessage(text, 1) : null;
-    if (!layout) return null;
-    const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
-    return lines.length ? { width, height, lines } : null;
-  }
-  function googleLensParagraphLines(paragraph, width, height) {
-    const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
-    const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
-    return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
-  }
-  function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
-    const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
-    const words = googleLensWords(line, width, height);
-    const text = googleLensLineText(words, paragraphVertical);
-    if (!text || !isTargetLanguageText(text)) return null;
-    const box = googleLensLineBox(lineBox, words, paragraphBox);
-    if (!box) return null;
-    return {
-      text,
-      box,
-      vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
-    };
-  }
-  function googleLensWords(line, width, height) {
-    return protoMessages(line, 1).map((word) => ({
-      text: protoString(word, 2),
-      separator: protoString(word, 3),
-      box: protoBox(protoFirstMessage(word, 4), width, height)
-    })).filter((word) => Boolean(word.text));
-  }
-  function googleLensLineText(words, paragraphVertical) {
-    const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
-    return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
-  }
-  function googleLensWordText(word, index, words) {
-    return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
-  }
-  function googleLensLineBox(lineBox, words, paragraphBox) {
-    return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
-  }
-  function parseGoogleLensUploadHtml(html, width, height) {
-    const literal = googleLensUploadCallbackLiteral(html, "ds:1");
-    if (!literal) return null;
-    try {
-      const callback = parseJsDataLiteral(literal);
-      const lines = [];
-      for (const item of googleLensUploadLineItems(callback.data)) {
-        const { text, box } = googleLensUploadLine(item, width, height);
-        pushTargetLanguageOcrLine(lines, text, box);
-      }
-      return lines.length ? { width, height, lines } : null;
-    } catch {
-      return null;
-    }
-  }
-  function googleLensUploadLineItems(data) {
-    return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
-  }
-  function googleLensUploadBlocks(data) {
-    const blocks = data?.[2]?.[3]?.[0] ?? [];
-    return Array.isArray(blocks) ? blocks : [];
-  }
-  function googleLensUploadBlockLineItems(block) {
-    const blockData = Array.isArray(block) ? block : [];
-    const rawLines = blockData[2]?.[0]?.[5]?.[3];
-    const lineItems = rawLines?.[0];
-    return Array.isArray(lineItems) ? lineItems : [];
-  }
-  function googleLensUploadLine(item, width, height) {
-    const lineData = Array.isArray(item) ? item : [];
-    return {
-      text: googleLensUploadLineText(lineData[0]),
-      box: googleLensUploadLineBox(lineData[1], width, height)
-    };
-  }
-  function googleLensUploadLineText(value) {
-    const words = Array.isArray(value) ? value : [];
-    return cleanOcrText(words.map(googleLensUploadWordText).join(""));
-  }
-  function googleLensUploadWordText(word) {
-    const wordData = Array.isArray(word) ? word : [];
-    return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
-  }
-  function googleLensUploadLineBox(value, width, height) {
-    const boxData = Array.isArray(value) ? value : [];
-    if (boxData.length < 4) return null;
-    return clampBox({
-      top: Number(boxData[0]) * height,
-      left: Number(boxData[1]) * width,
-      width: Number(boxData[2]) * width,
-      height: Number(boxData[3]) * height
-    }, width, height);
-  }
-  function normalizeSimpleLine(value, width, height) {
-    const record = asRecord(value);
-    if (!record) return null;
-    const text = simpleLineText(record);
-    const box = simpleLineBox(record, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: simpleLineIsVertical(record) };
-  }
-  function simpleLineText(record) {
-    return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
-  }
-  function simpleLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function simpleLineIsVertical(record) {
-    return Boolean(record.vertical ?? record.is_vertical);
-  }
-  function normalizeStructuredOcrResult(value, width, height) {
-    if (!value || typeof value !== "object") return [];
-    const record = value;
-    const textLines = structuredOcrTextLines(record);
-    const vertical = structuredOcrVertical(record);
-    const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
-    if (lines.length) return lines;
-    return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
-  }
-  function structuredOcrTextLines(record) {
-    if (Array.isArray(record.text_lines)) return record.text_lines;
-    return Array.isArray(record.text) ? record.text : [];
-  }
-  function structuredOcrVertical(record) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical);
-  }
-  function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
-    const lineRecord = asRecord(item);
-    if (!lineRecord) return null;
-    const text = structuredOcrLineText(lineRecord);
-    const box = structuredOcrLineBox(lineRecord, width, height);
-    if (!text || !box) return null;
-    return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
-  }
-  function structuredOcrLineText(record) {
-    return stringFrom(record.content ?? record.text ?? record.word);
-  }
-  function structuredOcrLineBox(record, width, height) {
-    return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
-  }
-  function structuredOcrLineVertical(record, inheritedVertical) {
-    return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
-  }
-  function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
-    const text = cleanOcrText(textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join(" "));
-    const box = normalizeBox(record.box, width, height);
-    return text && box ? [{ text, box, vertical }] : [];
-  }
-  function normalizeOcrRegion(record, width, height) {
-    const region = readOcrRegion(record);
-    if (!region) return null;
-    const box = clampBox(scaleOcrRegion(region, width, height), width, height);
-    return box && !isFullImageOcrRegion(box, width, height) ? box : null;
-  }
-  function readOcrRegion(record) {
-    const position = record.position;
-    const size = record.size;
-    if (!position || !size) return null;
-    return completeOcrRegionParts({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(size.width),
-      height: numberFrom(size.height)
-    });
-  }
-  function completeOcrRegionParts(parts) {
-    if (parts.left === null) return null;
-    if (parts.top === null) return null;
-    if (parts.width === null) return null;
-    if (parts.height === null) return null;
-    return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
-  }
-  function scaleOcrRegion(region, width, height) {
-    const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
-    return {
-      left: region.left / divisor * width,
-      top: region.top / divisor * height,
-      width: region.width / divisor * width,
-      height: region.height / divisor * height
-    };
-  }
-  function isFullImageOcrRegion(box, width, height) {
-    return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
-  }
-  function offsetLineToRegion(line, region, width, height) {
-    const box = clampBox({
-      left: region.left + line.box.left,
-      top: region.top + line.box.top,
-      width: line.box.width,
-      height: line.box.height
-    }, width, height);
-    return box ? { ...line, box } : null;
-  }
-  function normalizeBox(value, width, height) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
-  }
-  function normalizePositionDimensionsBox(record, width, height) {
-    const position = asRecord(record.position);
-    const dimensions = asRecord(record.dimensions);
-    if (!position || !dimensions) return null;
-    return boxFromNumbers({
-      left: numberFrom(position.left),
-      top: numberFrom(position.top),
-      width: numberFrom(dimensions.width),
-      height: numberFrom(dimensions.height)
-    }, width, height, "percent-100");
-  }
-  function normalizeDirectBox(record, width, height) {
-    const box = directBoxNumbers(record);
-    return boxFromNumbers(box, width, height, directBoxScale(box));
-  }
-  function directBoxNumbers(record) {
-    return {
-      left: numberFrom(record.left ?? record.x),
-      top: numberFrom(record.top ?? record.y),
-      width: numberFrom(record.width ?? record.w),
-      height: numberFrom(record.height ?? record.h)
-    };
-  }
-  function directBoxScale(box) {
-    return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
-  }
-  function normalizePointBox(record, width, height) {
-    const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
-    if (points.length < 2) return null;
-    const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
-    const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
-    if (!xs.length || !ys.length) return null;
-    const percent = coordinatesAreFractional(xs, ys);
-    const scaledXs = scaleCoordinates(xs, width, percent);
-    const scaledYs = scaleCoordinates(ys, height, percent);
-    const left = Math.min(...scaledXs);
-    const top = Math.min(...scaledYs);
-    return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
-  }
-  function coordinatesAreFractional(xs, ys) {
-    return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
-  }
-  function isFractionalCoordinate(value) {
-    return value >= 0 && value <= 1;
-  }
-  function scaleCoordinates(values, scale, enabled) {
-    return enabled ? values.map((value) => value * scale) : values;
-  }
-  function boxFromNumbers(box, imageWidth, imageHeight, scale) {
-    if (!hasCompleteBoxNumbers(box)) return null;
-    const scaleInfo = boxScaleInfo(scale);
-    return clampBox({
-      left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
-      top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
-      width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
-      height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
-    }, imageWidth, imageHeight);
-  }
-  function hasCompleteBoxNumbers(box) {
-    return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
-  }
-  function boxScaleInfo(scale) {
-    return {
-      fractional: scale !== "pixels",
-      factor: scale === "percent-100" ? 100 : 1
-    };
-  }
-  function scaleBoxNumber(value, dimension, scale) {
-    return scale.fractional ? value / scale.factor * dimension : value;
-  }
-  function decodeProtoMessage(bytes) {
-    const fields = [];
-    let offset = 0;
-    while (offset < bytes.length) {
-      const [tag, nextOffset] = readVarint(bytes, offset);
-      offset = nextOffset;
-      const field = Number(tag >> 3n);
-      const wire = Number(tag & 7n);
-      if (!field) break;
-      if (wire === 0) {
-        const [value, afterValue] = readVarint(bytes, offset);
-        offset = afterValue;
-        fields.push({ field, wire, value });
-      } else if (wire === 1) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
-        offset += 8;
-      } else if (wire === 2) {
-        const [length, afterLength] = readVarint(bytes, offset);
-        offset = afterLength;
-        const end = offset + Number(length);
-        fields.push({ field, wire, value: bytes.slice(offset, end) });
-        offset = end;
-      } else if (wire === 5) {
-        fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
-        offset += 4;
-      } else {
-        break;
-      }
-    }
-    return fields;
-  }
-  function readVarint(bytes, offset) {
-    let shift = 0n;
-    let result = 0n;
-    while (offset < bytes.length) {
-      const byte = bytes[offset++];
-      result |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return [result, offset];
-      shift += 7n;
-    }
-    return [result, offset];
-  }
-  function protoMessages(fields, field) {
-    return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
-  }
-  function protoFirstMessage(fields, field) {
-    return protoMessages(fields, field)[0] ?? null;
-  }
-  function protoString(fields, field) {
-    const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
-    return item ? new TextDecoder().decode(item.value) : "";
-  }
-  function protoNumber(fields, field) {
-    const item = fields.find((value) => value.field === field);
-    if (!item) return 0;
-    return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
-  }
-  function protoBox(geometry, width, height) {
-    const dimensions = protoBoxDimensions(geometry);
-    if (!dimensions) return null;
-    return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
-  }
-  function protoBoxDimensions(geometry) {
-    const box = geometry ? protoFirstMessage(geometry, 1) : null;
-    if (!box) return null;
-    const dimensions = {
-      centerX: protoNumber(box, 1),
-      centerY: protoNumber(box, 2),
-      width: protoNumber(box, 3),
-      height: protoNumber(box, 4)
-    };
-    return dimensions.width && dimensions.height ? dimensions : null;
-  }
-  function protoBoxIsNormalized(box) {
-    return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
-  }
-  function scaledProtoBox(box, normalized, width, height) {
-    const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
-    const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
-    return {
-      left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
-      top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
-      width: scaledWidth,
-      height: scaledHeight
-    };
-  }
-  function scaledProtoBoxValue(value, scale, normalized) {
-    return normalized ? value * scale : value;
-  }
-  function stringFrom(value) {
-    return typeof value === "string" ? cleanOcrText(value) : "";
-  }
-  function asRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  const LENS_PLATFORM_WEB = 3;
-  const LENS_SURFACE_CHROMIUM = 4;
-  const LENS_AUTO_FILTER = 7;
-  function googleLensAcceptLanguage(configured) {
-    return `${targetOcrLanguageHint(configured)},en-US;q=0.9,en;q=0.8`;
-  }
-  function createGoogleLensRequest(imageBytes, width, height, locale) {
-    const [language = "", region = "US"] = (locale || targetOcrLanguageTag()).split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-    const requestId = protoMessage(
-      protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
-      protoVarintField(2, 1),
-      protoVarintField(3, 1),
-      protoBytesField(4, randomBytes(16))
-    );
-    const localeContext = protoMessage(
-      protoStringField(1, language || targetOcrLanguageHint()),
-      protoStringField(2, region || "US"),
-      protoStringField(3, timeZone)
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-      protoVarintField(1, LENS_PLATFORM_WEB),
-      protoVarintField(2, LENS_SURFACE_CHROMIUM),
-      protoMessageField(4, localeContext),
-      protoMessageField(17, clientFilters)
-    );
-    const requestContext = protoMessage(
-      protoMessageField(3, requestId),
-      protoMessageField(4, clientContext)
-    );
-    const imageData = protoMessage(
-      protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-      protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-      protoMessageField(1, requestContext),
-      protoMessageField(3, imageData)
-    )));
-  }
-  function protoMessage(...parts) {
-    return concatBytes(parts);
-  }
-  function protoMessageField(field, value) {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-  }
-  function protoBytesField(field, value) {
-    return protoMessageField(field, value);
-  }
-  function protoStringField(field, value) {
-    return protoBytesField(field, new TextEncoder().encode(value));
-  }
-  function protoVarintField(field, value) {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-  }
-  function protoTag(field, wire) {
-    return encodeVarint(field << 3 | wire);
-  }
-  function encodeVarint(value) {
-    let item = BigInt(value);
-    const bytes = [];
-    do {
-      let byte = Number(item & 0x7fn);
-      item >>= 7n;
-      if (item) byte |= 128;
-      bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-  }
-  function concatBytes(parts) {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-    return result;
-  }
-  function randomBytes(length) {
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return bytes;
-  }
-  const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
-  const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
-  function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
-    return Math.max(floorMs, settings.audioTimeoutMs);
-  }
-  function imageCacheKey(image) {
-    const contentKey = image.dataset?.ocrContentKey;
-    if (contentKey) return contentKey;
-    return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
-  }
-  function localOcrEndpointUrl(settings) {
-    return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
-  }
-  function isOcrRequestTimeout(error) {
-    return error instanceof Error && /timed out|timeout/i.test(error.message);
-  }
-  const log$1 = Logger.scope("OCR");
-  const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
-  const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
-  const OCR_RECOGNIZERS = {
-    "google-lens": recognizeViaGoogleLens,
-    "cloud-vision": recognizeViaCloudVision,
-    "local-service": recognizeViaLocalService
+    value2 += parseEscapeSequence();
+  }
+  throw new Error("Unterminated string.");
+  }
+  function parseEscapeSequence() {
+  const escaped = source[index++];
+  const simpleEscape = SIMPLE_JS_ESCAPE_SEQUENCES.get(escaped ?? "");
+  if (typeof simpleEscape === "string") return simpleEscape;
+  if (escaped === "\r") return parseCarriageReturnEscape();
+  return parseNamedEscapeSequence(escaped);
+  }
+  function parseCarriageReturnEscape() {
+  if (source[index] === "\n") index += 1;
+  return "";
+  }
+  function parseNamedEscapeSequence(escaped) {
+  if (escaped === "x") return codePointEscape(2);
+  if (escaped === "u") return parseUnicodeEscape();
+  return escaped ?? "";
+  }
+  function parseUnicodeEscape() {
+  if (source[index] === "{") {
+    const end = source.indexOf("}", index + 1);
+    if (end < 0) throw new Error("Invalid unicode escape.");
+    const value2 = Number.parseInt(source.slice(index + 1, end), 16);
+    index = end + 1;
+    return Number.isFinite(value2) ? String.fromCodePoint(value2) : "";
+  }
+  return codePointEscape(4);
+  }
+  function codePointEscape(length) {
+  const hex = source.slice(index, index + length);
+  if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) throw new Error("Invalid character escape.");
+  index += length;
+  return String.fromCharCode(Number.parseInt(hex, 16));
+  }
+  function parseNumber() {
+  const match = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(source.slice(index));
+  if (!match) throw new Error("Invalid number.");
+  index += match[0].length;
+  return Number(match[0]);
+  }
+  function parseIdentifierValue() {
+  const identifier = parseIdentifier();
+  if (identifier === "null" || identifier === "undefined" || identifier === "NaN") return null;
+  if (identifier === "true") return true;
+  if (identifier === "false") return false;
+  if (identifier === "Infinity") return Infinity;
+  return identifier;
+  }
+  function parseIdentifier() {
+  const match = /^[A-Za-z_$][\w$]*/.exec(source.slice(index));
+  if (!match) throw new Error("Expected identifier.");
+  index += match[0].length;
+  return match[0];
+  }
+  function skipWhitespace() {
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  }
+  function expect(char) {
+  if (source[index] !== char) throw new Error(`Expected ${char}.`);
+  index += 1;
+  }
+}
+const LENS_WRITING_TOP_TO_BOTTOM = 2;
+function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+  if (cloudVision) return cloudVision;
+  const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
+  const lines = collectGenericOcrLines(record, width, height);
+  return japaneseOcrResult(width, height, lines);
+}
+function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
+  const resolution = record.context_resolution;
+  const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
+  const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+  return { width, height };
+}
+function collectGenericOcrLines(record, width, height) {
+  const lines = [];
+  appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
+  appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
+  appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+  return lines;
+}
+function genericRawLines(record) {
+  return Array.isArray(record.lines) ? record.lines : record.regions;
+}
+function appendGenericOcrLines(lines, value, width, height, normalize) {
+  if (Array.isArray(value)) lines.push(...normalize(value, width, height));
+}
+function normalizeSimpleLines(values, width, height) {
+  return values.map((item) => normalizeSimpleLine(item, width, height)).filter((line) => Boolean(line));
+}
+function normalizeStructuredOcrResults(values, width, height) {
+  return values.flatMap((item) => normalizeStructuredOcrResult(item, width, height));
+}
+function normalizeOcrRegionResults(regions, width, height) {
+  return regions.flatMap((region) => normalizeSingleOcrRegionResults(region, width, height));
+}
+function normalizeSingleOcrRegionResults(region, width, height) {
+  const regionRecord = asRecord(region);
+  if (!regionRecord) return [];
+  const regionBox = normalizeOcrRegion(regionRecord, width, height);
+  const { scaleWidth, scaleHeight } = ocrRegionScale(regionBox, width, height);
+  if (!Array.isArray(regionRecord.results)) return [];
+  const lines = normalizeStructuredOcrResults(regionRecord.results, scaleWidth, scaleHeight);
+  return offsetRegionLines(lines, regionBox, width, height);
+}
+function ocrRegionScale(regionBox, width, height) {
+  return {
+  scaleWidth: regionBox?.width ?? width,
+  scaleHeight: regionBox?.height ?? height
   };
-  const OCR_PROVIDER_CONFIGURED = {
-    "google-lens": () => true,
-    "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
-    "local-service": () => true
-  };
-  async function recognizeViaLocalService(image, settings, invert = false) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
-    const body = JSON.stringify({
-      id: imageCacheKey(image),
-      language_code: targetOcrLanguageTag(settings.ocrLanguage),
-      language: {
-        bcp47_tag: targetOcrLanguageTag(settings.ocrLanguage),
-        two_letter_code: targetOcrLanguageHint(settings.ocrLanguage)
-      },
-      base64_image: payload.base64,
-      image: payload.base64,
-      image_bytes: payload.base64,
-      ocr_engine: engine,
-      ocr_adapter_name: engine,
-      detection_only: false
-    });
-    const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
-    return normalizeOcrResult(response, payload.width, payload.height);
+}
+function offsetRegionLines(lines, regionBox, width, height) {
+  if (!regionBox) return lines;
+  return lines.map((line) => offsetLineToRegion(line, regionBox, width, height)).filter((line) => Boolean(line));
+}
+function japaneseOcrResult(width, height, lines) {
+  const japaneseLines = removeStandaloneFuriganaLines(lines).filter((line) => line.text.length > 0 && isTargetLanguageText(line.text));
+  return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
+}
+function cleanOcrLookupLines(lines, parsed) {
+  const cleaned = lines.map((line, index) => {
+  const text = cleanOcrLookupText(line.text, parsed[index] ?? []);
+  return text === line.text ? line : { ...line, text };
+  });
+  return removeStandaloneFuriganaLines(cleaned);
+}
+function ocrLinesChanged(original, cleaned) {
+  return original.length !== cleaned.length || cleaned.some((line, index) => line.text !== original[index]?.text);
+}
+function cleanOcrLookupText(text, tokens) {
+  const rubies = tokens.flatMap((token) => token.rubies.map((ruby) => ({ ruby, token }))).sort((a, b) => b.ruby.start - a.ruby.start);
+  let cleaned = text;
+  for (const { ruby } of rubies) {
+  if (!KANJI_LIKE_RE.test(cleaned.slice(ruby.start, ruby.end))) continue;
+  cleaned = removeOcrReadingAroundRuby(cleaned, ruby.text, ruby.start, ruby.end);
   }
-  async function recognizeViaCloudVision(image, settings, invert = false) {
-    const apiKey = settings.ocrCloudVisionApiKey.trim();
-    if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
-    const body = JSON.stringify({
-      requests: [{
-        image: { content: payload.base64 },
-        features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
-        imageContext: { languageHints: [targetOcrLanguageHint(settings.ocrLanguage)] }
-      }]
-    });
-    const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
+  return cleanOcrText(cleaned);
+}
+function removeOcrReadingAroundRuby(text, reading, start, end) {
+  const cleanReading = cleanOcrText(reading);
+  if (!cleanReading) return text;
+  if (text.slice(Math.max(0, start - cleanReading.length), start) === cleanReading) {
+  return text.slice(0, start - cleanReading.length) + text.slice(start);
+  }
+  if (text.slice(end, end + cleanReading.length) === cleanReading) {
+  return text.slice(0, end) + text.slice(end + cleanReading.length);
+  }
+  return text;
+}
+function removeStandaloneFuriganaLines(lines) {
+  const filtered = lines.filter((line, index) => !isStandaloneFuriganaLine(line, lines, index));
+  return filtered.length ? filtered : lines;
+}
+function isStandaloneFuriganaLine(line, lines, index) {
+  const text = cleanOcrText(line.text).replace(/\s+/g, "");
+  if (!text || text.length > 10 || !READING_KANA_ONLY_RE.test(text)) return false;
+  return lines.some((other, otherIndex) => otherIndex !== index && KANJI_LIKE_RE.test(other.text) && ocrLineLooksLikeFuriganaFor(line, other));
+}
+function ocrLineLooksLikeFuriganaFor(furi, base) {
+  if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
+  const overlap = horizontalOverlap(furi.box, base.box);
+  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
+  const smaller = furi.box.height <= base.box.height * 0.75;
+  const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
+  return overlapRatio >= 0.32 && smaller && nearTop;
+}
+function horizontalOverlap(a, b) {
+  return Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+}
+function ocrLineLooksLikeVerticalFuriganaFor(furi, base) {
+  if (!furi.vertical || !base.vertical) return false;
+  const overlap = verticalOverlap(furi.box, base.box);
+  const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
+  const smaller = furi.box.width <= base.box.width * 0.75;
+  const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
+  return overlapRatio >= 0.32 && smaller && nearSide;
+}
+function verticalOverlap(a, b) {
+  return Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+}
+function horizontalGap(a, b) {
+  if (a.left + a.width < b.left) return b.left - (a.left + a.width);
+  if (b.left + b.width < a.left) return a.left - (b.left + b.width);
+  return 0;
+}
+function parseGoogleLensResponse(bytes, width, height) {
+  const root = decodeProtoMessage(bytes);
+  const objectsResponse = protoFirstMessage(root, 2);
+  const text = objectsResponse ? protoFirstMessage(objectsResponse, 3) : null;
+  const layout = text ? protoFirstMessage(text, 1) : null;
+  if (!layout) return null;
+  const lines = protoMessages(layout, 1).flatMap((paragraph) => googleLensParagraphLines(paragraph, width, height));
+  return lines.length ? { width, height, lines } : null;
+}
+function googleLensParagraphLines(paragraph, width, height) {
+  const vertical = protoNumber(paragraph, 4) === LENS_WRITING_TOP_TO_BOTTOM;
+  const paragraphBox = protoBox(protoFirstMessage(paragraph, 3), width, height);
+  return protoMessages(paragraph, 2).map((line) => googleLensLine(line, vertical, paragraphBox, width, height)).filter((line) => Boolean(line));
+}
+function googleLensLine(line, paragraphVertical, paragraphBox, width, height) {
+  const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
+  const words = googleLensWords(line, width, height);
+  const text = googleLensLineText(words, paragraphVertical);
+  if (!text || !isTargetLanguageText(text)) return null;
+  const box = googleLensLineBox(lineBox, words, paragraphBox);
+  if (!box) return null;
+  return {
+  text,
+  box,
+  vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
+  };
+}
+function googleLensWords(line, width, height) {
+  return protoMessages(line, 1).map((word) => ({
+  text: protoString(word, 2),
+  separator: protoString(word, 3),
+  box: protoBox(protoFirstMessage(word, 4), width, height)
+  })).filter((word) => Boolean(word.text));
+}
+function googleLensLineText(words, paragraphVertical) {
+  const orderedWords = paragraphVertical ? words : [...words].sort((a, b) => (a.box?.left ?? 0) - (b.box?.left ?? 0));
+  return cleanOcrText(orderedWords.map(googleLensWordText).join(""));
+}
+function googleLensWordText(word, index, words) {
+  return word.text + (word.separator || (index < words.length - 1 ? " " : ""));
+}
+function googleLensLineBox(lineBox, words, paragraphBox) {
+  return lineBox ?? unionBoxes(words.map((word) => word.box).filter((item) => Boolean(item))) ?? paragraphBox;
+}
+function parseGoogleLensUploadHtml(html, width, height) {
+  const literal = googleLensUploadCallbackLiteral(html, "ds:1");
+  if (!literal) return null;
+  try {
+  const callback = parseJsDataLiteral(literal);
+  const lines = [];
+  for (const item of googleLensUploadLineItems(callback.data)) {
+    const { text, box } = googleLensUploadLine(item, width, height);
+    pushTargetLanguageOcrLine(lines, text, box);
+  }
+  return lines.length ? { width, height, lines } : null;
+  } catch {
+  return null;
+  }
+}
+function googleLensUploadLineItems(data) {
+  return googleLensUploadBlocks(data).flatMap((block) => googleLensUploadBlockLineItems(block));
+}
+function googleLensUploadBlocks(data) {
+  const blocks = data?.[2]?.[3]?.[0] ?? [];
+  return Array.isArray(blocks) ? blocks : [];
+}
+function googleLensUploadBlockLineItems(block) {
+  const blockData = Array.isArray(block) ? block : [];
+  const rawLines = blockData[2]?.[0]?.[5]?.[3];
+  const lineItems = rawLines?.[0];
+  return Array.isArray(lineItems) ? lineItems : [];
+}
+function googleLensUploadLine(item, width, height) {
+  const lineData = Array.isArray(item) ? item : [];
+  return {
+  text: googleLensUploadLineText(lineData[0]),
+  box: googleLensUploadLineBox(lineData[1], width, height)
+  };
+}
+function googleLensUploadLineText(value) {
+  const words = Array.isArray(value) ? value : [];
+  return cleanOcrText(words.map(googleLensUploadWordText).join(""));
+}
+function googleLensUploadWordText(word) {
+  const wordData = Array.isArray(word) ? word : [];
+  return `${wordData[0] ?? ""}${wordData[3] ?? ""}`;
+}
+function googleLensUploadLineBox(value, width, height) {
+  const boxData = Array.isArray(value) ? value : [];
+  if (boxData.length < 4) return null;
+  return clampBox({
+  top: Number(boxData[0]) * height,
+  left: Number(boxData[1]) * width,
+  width: Number(boxData[2]) * width,
+  height: Number(boxData[3]) * height
+  }, width, height);
+}
+function normalizeSimpleLine(value, width, height) {
+  const record = asRecord(value);
+  if (!record) return null;
+  const text = simpleLineText(record);
+  const box = simpleLineBox(record, width, height);
+  if (!text || !box) return null;
+  return { text, box, vertical: simpleLineIsVertical(record) };
+}
+function simpleLineText(record) {
+  return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+}
+function simpleLineBox(record, width, height) {
+  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+}
+function simpleLineIsVertical(record) {
+  return Boolean(record.vertical ?? record.is_vertical);
+}
+function normalizeStructuredOcrResult(value, width, height) {
+  if (!value || typeof value !== "object") return [];
+  const record = value;
+  const textLines = structuredOcrTextLines(record);
+  const vertical = structuredOcrVertical(record);
+  const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
+  if (lines.length) return lines;
+  return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+}
+function structuredOcrTextLines(record) {
+  if (Array.isArray(record.text_lines)) return record.text_lines;
+  return Array.isArray(record.text) ? record.text : [];
+}
+function structuredOcrVertical(record) {
+  return Boolean(record.is_vertical ?? record.box?.isVertical);
+}
+function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
+  const lineRecord = asRecord(item);
+  if (!lineRecord) return null;
+  const text = structuredOcrLineText(lineRecord);
+  const box = structuredOcrLineBox(lineRecord, width, height);
+  if (!text || !box) return null;
+  return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
+}
+function structuredOcrLineText(record) {
+  return stringFrom(record.content ?? record.text ?? record.word);
+}
+function structuredOcrLineBox(record, width, height) {
+  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+}
+function structuredOcrLineVertical(record, inheritedVertical) {
+  return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+}
+function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+  const text = cleanOcrText(textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join(" "));
+  const box = normalizeBox(record.box, width, height);
+  return text && box ? [{ text, box, vertical }] : [];
+}
+function normalizeOcrRegion(record, width, height) {
+  const region = readOcrRegion(record);
+  if (!region) return null;
+  const box = clampBox(scaleOcrRegion(region, width, height), width, height);
+  return box && !isFullImageOcrRegion(box, width, height) ? box : null;
+}
+function readOcrRegion(record) {
+  const position = record.position;
+  const size = record.size;
+  if (!position || !size) return null;
+  return completeOcrRegionParts({
+  left: numberFrom(position.left),
+  top: numberFrom(position.top),
+  width: numberFrom(size.width),
+  height: numberFrom(size.height)
+  });
+}
+function completeOcrRegionParts(parts) {
+  if (parts.left === null) return null;
+  if (parts.top === null) return null;
+  if (parts.width === null) return null;
+  if (parts.height === null) return null;
+  return { left: parts.left, top: parts.top, width: parts.width, height: parts.height };
+}
+function scaleOcrRegion(region, width, height) {
+  const divisor = Math.max(region.left, region.top, region.width, region.height) <= 1 ? 1 : 100;
+  return {
+  left: region.left / divisor * width,
+  top: region.top / divisor * height,
+  width: region.width / divisor * width,
+  height: region.height / divisor * height
+  };
+}
+function isFullImageOcrRegion(box, width, height) {
+  return box.left <= 1 && box.top <= 1 && box.width >= width - 2 && box.height >= height - 2;
+}
+function offsetLineToRegion(line, region, width, height) {
+  const box = clampBox({
+  left: region.left + line.box.left,
+  top: region.top + line.box.top,
+  width: line.box.width,
+  height: line.box.height
+  }, width, height);
+  return box ? { ...line, box } : null;
+}
+function normalizeBox(value, width, height) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+}
+function normalizePositionDimensionsBox(record, width, height) {
+  const position = asRecord(record.position);
+  const dimensions = asRecord(record.dimensions);
+  if (!position || !dimensions) return null;
+  return boxFromNumbers({
+  left: numberFrom(position.left),
+  top: numberFrom(position.top),
+  width: numberFrom(dimensions.width),
+  height: numberFrom(dimensions.height)
+  }, width, height, "percent-100");
+}
+function normalizeDirectBox(record, width, height) {
+  const box = directBoxNumbers(record);
+  return boxFromNumbers(box, width, height, directBoxScale(box));
+}
+function directBoxNumbers(record) {
+  return {
+  left: numberFrom(record.left ?? record.x),
+  top: numberFrom(record.top ?? record.y),
+  width: numberFrom(record.width ?? record.w),
+  height: numberFrom(record.height ?? record.h)
+  };
+}
+function directBoxScale(box) {
+  return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
+}
+function normalizePointBox(record, width, height) {
+  const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+  if (points.length < 2) return null;
+  const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
+  const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
+  if (!xs.length || !ys.length) return null;
+  const percent = coordinatesAreFractional(xs, ys);
+  const scaledXs = scaleCoordinates(xs, width, percent);
+  const scaledYs = scaleCoordinates(ys, height, percent);
+  const left = Math.min(...scaledXs);
+  const top = Math.min(...scaledYs);
+  return clampBox({ left, top, width: Math.max(...scaledXs) - left, height: Math.max(...scaledYs) - top }, width, height);
+}
+function coordinatesAreFractional(xs, ys) {
+  return xs.every(isFractionalCoordinate) && ys.every(isFractionalCoordinate);
+}
+function isFractionalCoordinate(value) {
+  return value >= 0 && value <= 1;
+}
+function scaleCoordinates(values, scale, enabled) {
+  return enabled ? values.map((value) => value * scale) : values;
+}
+function boxFromNumbers(box, imageWidth, imageHeight, scale) {
+  if (!hasCompleteBoxNumbers(box)) return null;
+  const scaleInfo = boxScaleInfo(scale);
+  return clampBox({
+  left: scaleBoxNumber(box.left, imageWidth, scaleInfo),
+  top: scaleBoxNumber(box.top, imageHeight, scaleInfo),
+  width: scaleBoxNumber(box.width, imageWidth, scaleInfo),
+  height: scaleBoxNumber(box.height, imageHeight, scaleInfo)
+  }, imageWidth, imageHeight);
+}
+function hasCompleteBoxNumbers(box) {
+  return box.left !== null && box.top !== null && box.width !== null && box.height !== null;
+}
+function boxScaleInfo(scale) {
+  return {
+  fractional: scale !== "pixels",
+  factor: scale === "percent-100" ? 100 : 1
+  };
+}
+function scaleBoxNumber(value, dimension, scale) {
+  return scale.fractional ? value / scale.factor * dimension : value;
+}
+function decodeProtoMessage(bytes) {
+  const fields = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+  const [tag, nextOffset] = readVarint(bytes, offset);
+  offset = nextOffset;
+  const field = Number(tag >> 3n);
+  const wire = Number(tag & 7n);
+  if (!field) break;
+  if (wire === 0) {
+    const [value, afterValue] = readVarint(bytes, offset);
+    offset = afterValue;
+    fields.push({ field, wire, value });
+  } else if (wire === 1) {
+    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getFloat64(0, true) });
+    offset += 8;
+  } else if (wire === 2) {
+    const [length, afterLength] = readVarint(bytes, offset);
+    offset = afterLength;
+    const end = offset + Number(length);
+    fields.push({ field, wire, value: bytes.slice(offset, end) });
+    offset = end;
+  } else if (wire === 5) {
+    fields.push({ field, wire, value: new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getFloat32(0, true) });
+    offset += 4;
+  } else {
+    break;
+  }
+  }
+  return fields;
+}
+function readVarint(bytes, offset) {
+  let shift = 0n;
+  let result = 0n;
+  while (offset < bytes.length) {
+  const byte = bytes[offset++];
+  result |= BigInt(byte & 127) << shift;
+  if (!(byte & 128)) return [result, offset];
+  shift += 7n;
+  }
+  return [result, offset];
+}
+function protoMessages(fields, field) {
+  return fields.filter((item) => item.field === field && item.wire === 2 && item.value instanceof Uint8Array).map((item) => decodeProtoMessage(item.value));
+}
+function protoFirstMessage(fields, field) {
+  return protoMessages(fields, field)[0] ?? null;
+}
+function protoString(fields, field) {
+  const item = fields.find((value) => value.field === field && value.wire === 2 && value.value instanceof Uint8Array);
+  return item ? new TextDecoder().decode(item.value) : "";
+}
+function protoNumber(fields, field) {
+  const item = fields.find((value) => value.field === field);
+  if (!item) return 0;
+  return typeof item.value === "bigint" ? Number(item.value) : typeof item.value === "number" ? item.value : 0;
+}
+function protoBox(geometry, width, height) {
+  const dimensions = protoBoxDimensions(geometry);
+  if (!dimensions) return null;
+  return clampBox(scaledProtoBox(dimensions, protoBoxIsNormalized(dimensions), width, height), width, height);
+}
+function protoBoxDimensions(geometry) {
+  const box = geometry ? protoFirstMessage(geometry, 1) : null;
+  if (!box) return null;
+  const dimensions = {
+  centerX: protoNumber(box, 1),
+  centerY: protoNumber(box, 2),
+  width: protoNumber(box, 3),
+  height: protoNumber(box, 4)
+  };
+  return dimensions.width && dimensions.height ? dimensions : null;
+}
+function protoBoxIsNormalized(box) {
+  return box.centerX <= 2 && box.centerY <= 2 && box.width <= 2 && box.height <= 2;
+}
+function scaledProtoBox(box, normalized, width, height) {
+  const scaledWidth = scaledProtoBoxValue(box.width, width, normalized);
+  const scaledHeight = scaledProtoBoxValue(box.height, height, normalized);
+  return {
+  left: scaledProtoBoxValue(box.centerX, width, normalized) - scaledWidth / 2,
+  top: scaledProtoBoxValue(box.centerY, height, normalized) - scaledHeight / 2,
+  width: scaledWidth,
+  height: scaledHeight
+  };
+}
+function scaledProtoBoxValue(value, scale, normalized) {
+  return normalized ? value * scale : value;
+}
+function stringFrom(value) {
+  return typeof value === "string" ? cleanOcrText(value) : "";
+}
+function asRecord(value) {
+  return value && typeof value === "object" ? value : null;
+}
+const LENS_PLATFORM_WEB = 3;
+const LENS_SURFACE_CHROMIUM = 4;
+const LENS_AUTO_FILTER = 7;
+function googleLensAcceptLanguage(configured) {
+  return `${targetOcrLanguageHint(configured)},en-US;q=0.9,en;q=0.8`;
+}
+function createGoogleLensRequest(imageBytes, width, height, locale) {
+  const [language = "", region = "US"] = (locale || targetOcrLanguageTag()).split(/[-_]/);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const requestId = protoMessage(
+  protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1e6))),
+  protoVarintField(2, 1),
+  protoVarintField(3, 1),
+  protoBytesField(4, randomBytes(16))
+  );
+  const localeContext = protoMessage(
+  protoStringField(1, language || targetOcrLanguageHint()),
+  protoStringField(2, region || "US"),
+  protoStringField(3, timeZone)
+  );
+  const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
+  const clientContext = protoMessage(
+  protoVarintField(1, LENS_PLATFORM_WEB),
+  protoVarintField(2, LENS_SURFACE_CHROMIUM),
+  protoMessageField(4, localeContext),
+  protoMessageField(17, clientFilters)
+  );
+  const requestContext = protoMessage(
+  protoMessageField(3, requestId),
+  protoMessageField(4, clientContext)
+  );
+  const imageData = protoMessage(
+  protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
+  protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height)))
+  );
+  return protoMessage(protoMessageField(1, protoMessage(
+  protoMessageField(1, requestContext),
+  protoMessageField(3, imageData)
+  )));
+}
+function protoMessage(...parts) {
+  return concatBytes(parts);
+}
+function protoMessageField(field, value) {
+  return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
+}
+function protoBytesField(field, value) {
+  return protoMessageField(field, value);
+}
+function protoStringField(field, value) {
+  return protoBytesField(field, new TextEncoder().encode(value));
+}
+function protoVarintField(field, value) {
+  return concatBytes([protoTag(field, 0), encodeVarint(value)]);
+}
+function protoTag(field, wire) {
+  return encodeVarint(field << 3 | wire);
+}
+function encodeVarint(value) {
+  let item = BigInt(value);
+  const bytes = [];
+  do {
+  let byte = Number(item & 0x7fn);
+  item >>= 7n;
+  if (item) byte |= 128;
+  bytes.push(byte);
+  } while (item);
+  return new Uint8Array(bytes);
+}
+function concatBytes(parts) {
+  const length = parts.reduce((sum, part) => sum + part.length, 0);
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const part of parts) {
+  result.set(part, offset);
+  offset += part.length;
+  }
+  return result;
+}
+function randomBytes(length) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+const OCR_MIN_ATTEMPT_TIMEOUT_MS = 3e4;
+const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
+function ocrAttemptTimeoutMs(settings, floorMs = OCR_MIN_ATTEMPT_TIMEOUT_MS) {
+  return Math.max(floorMs, settings.audioTimeoutMs);
+}
+function imageCacheKey(image) {
+  const contentKey = image.dataset?.ocrContentKey;
+  if (contentKey) return contentKey;
+  return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+}
+function localOcrEndpointUrl(settings) {
+  return settings.ocrEndpointUrl.trim() || DEFAULT_LOCAL_OCR_ENDPOINT_URL;
+}
+function isOcrRequestTimeout(error) {
+  return error instanceof Error && /timed out|timeout/i.test(error.message);
+}
+const log$1 = Logger.scope("OCR");
+const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
+const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
+const OCR_RECOGNIZERS = {
+  "google-lens": recognizeViaGoogleLens,
+  "cloud-vision": recognizeViaCloudVision,
+  "local-service": recognizeViaLocalService
+};
+const OCR_PROVIDER_CONFIGURED = {
+  "google-lens": () => true,
+  "cloud-vision": (settings) => Boolean(settings.ocrCloudVisionApiKey.trim()),
+  "local-service": () => true
+};
+async function recognizeViaLocalService(image, settings, invert = false) {
+  const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+  const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
+  const body = JSON.stringify({
+  id: imageCacheKey(image),
+  language_code: targetOcrLanguageTag(settings.ocrLanguage),
+  language: {
+    bcp47_tag: targetOcrLanguageTag(settings.ocrLanguage),
+    two_letter_code: targetOcrLanguageHint(settings.ocrLanguage)
+  },
+  base64_image: payload.base64,
+  image: payload.base64,
+  image_bytes: payload.base64,
+  ocr_engine: engine,
+  ocr_adapter_name: engine,
+  detection_only: false
+  });
+  const response = await requestJson(localOcrEndpointUrl(settings), body, ocrAttemptTimeoutMs(settings));
+  return normalizeOcrResult(response, payload.width, payload.height);
+}
+async function recognizeViaCloudVision(image, settings, invert = false) {
+  const apiKey = settings.ocrCloudVisionApiKey.trim();
+  if (!apiKey) return null;
+  const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
+  const body = JSON.stringify({
+  requests: [{
+    image: { content: payload.base64 },
+    features: [{ type: "TEXT_DETECTION", maxResults: 50, model: "builtin/latest" }],
+    imageContext: { languageHints: [targetOcrLanguageHint(settings.ocrLanguage)] }
+  }]
+  });
+  const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;
   const response = await requestJson(url, body, ocrAttemptTimeoutMs(settings));
   return normalizeOcrResult(response, payload.width, payload.height);
 }
@@ -13114,7 +13729,7 @@ const MAX_BYTES = 15e5;
 const PERSIST_DELAY_MS = 1200;
 function storage() {
   try {
-  return typeof localStorage !== "undefined" ? localStorage : null;
+  return typeof localStorage !== "undefined" ? managedLocalStorage : null;
   } catch {
   return null;
   }
@@ -13666,13 +14281,13 @@ const READER_PAGE_IMAGE_PATTERNS = [
 ];
 const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
 function readerCanvasSourceImageUrl() {
-  let entries;
+  let entries2;
   try {
-  entries = performance.getEntriesByType("resource");
+  entries2 = performance.getEntriesByType("resource");
   } catch {
   return void 0;
   }
-  const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
+  const urls = entries2.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
   for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
   for (let index = urls.length - 1; index >= 0; index--) {
     if (pattern.test(urls[index])) return urls[index];
@@ -14734,8 +15349,8 @@ class ImageOcrController {
     this.observer = void 0;
     return;
   }
-  this.observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
+  this.observer = new IntersectionObserver((entries2) => {
+    for (const entry of entries2) {
       if (!entry.isIntersecting) continue;
       const image = entry.target;
       this.positionState(image);
@@ -16964,10 +17579,10 @@ function ocrVocabularyCards(image) {
 function parseOcrVocabularyCards(value) {
   if (!value) return null;
   try {
-  const entries = JSON.parse(value);
-  if (!Array.isArray(entries)) return null;
+  const entries2 = JSON.parse(value);
+  if (!Array.isArray(entries2)) return null;
   const cards = /* @__PURE__ */ new Map();
-  entries.forEach((entry) => {
+  entries2.forEach((entry) => {
     if (!isOcrVocabularyRecord(entry)) return;
     const card = ocrVocabularyCard(entry);
     const surface = ocrVocabularySurface(entry) || card?.spelling;

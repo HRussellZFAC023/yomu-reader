@@ -27128,11 +27128,33 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
+  const MANAGED_STATE_SLOT_KEY_PREFIX = "yomu:state-slot:v1:";
+  const MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX = "yomu:web-storage-slot:v1:";
+  const MANAGED_SLOT_KEY_PREFIXES = [
+    MANAGED_STATE_SLOT_KEY_PREFIX,
+    MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX
+  ];
   function isManagedStorageKey(key2) {
     return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
   }
   function isPrivateManagedStorageKey(key2) {
-    return key2.startsWith("yomu:private:");
+    return logicalManagedStorageKey(key2)?.startsWith("yomu:private:") === true;
+  }
+  function logicalManagedStorageKey(key2) {
+    const prefix = MANAGED_SLOT_KEY_PREFIXES.find((candidate2) => key2.startsWith(candidate2));
+    if (!prefix) return key2;
+    const encoded = key2.slice(prefix.length);
+    const separator = encoded.indexOf(":");
+    if (separator < 1 || separator === encoded.length - 1) return null;
+    try {
+      const logicalKey = decodeURIComponent(encoded.slice(separator + 1));
+      return logicalKey && !isManagedStorageSlotKey(logicalKey) && isManagedStorageKey(logicalKey) ? logicalKey : null;
+    } catch {
+      return null;
+    }
+  }
+  function isManagedStorageSlotKey(key2) {
+    return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
   }
   const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
     showFurigana: true,
@@ -27646,7 +27668,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       getValue: (key2, fallback) => storageBridgeRequest({ op: "get", key: key2 }).then((detail) => detail.found ? detail.value : fallback),
       setValue: (key2, value) => storageBridgeRequest({ op: "set", key: key2, value }).then(() => void 0),
       deleteValue: (key2) => storageBridgeRequest({ op: "delete", key: key2 }).then(() => void 0),
-      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? []),
+      clearPrivateManagedValues: () => storageBridgeRequest({ op: "clear-private-managed" }).then(() => void 0)
     };
   }
   function storageBridgeRequest(request2) {
@@ -27755,12 +27778,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function noop$1() {
   }
   const entries$1 = [];
-  const registeredKeys = /* @__PURE__ */ new Set();
+  const registeredEntryIndexes = /* @__PURE__ */ new Map();
   let resetWritesSuppressed = false;
   function registerManagedState(entry2) {
     const identity2 = managedStateIdentity(entry2);
-    if (registeredKeys.has(identity2)) return;
-    registeredKeys.add(identity2);
+    const existingIndex = registeredEntryIndexes.get(identity2);
+    if (existingIndex !== void 0) {
+      const existing = entries$1[existingIndex];
+      if (existing.owner !== entry2.owner) {
+        throw new Error(`Managed state ${identity2} has conflicting owners: ${existing.owner}, ${entry2.owner}.`);
+      }
+      if (existing.enumerate && entry2.enumerate && existing.enumerate !== entry2.enumerate) {
+        throw new Error(`Managed state ${identity2} has conflicting enumerators.`);
+      }
+      if (!existing.enumerate && entry2.enumerate) entries$1[existingIndex] = { ...existing, enumerate: entry2.enumerate };
+      return;
+    }
+    registeredEntryIndexes.set(identity2, entries$1.length);
     entries$1.push(entry2);
   }
   function registerManagedStates(list2) {
@@ -27795,6 +27829,47 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function managedStateWritesSuppressed() {
     return resetWritesSuppressed;
   }
+  let sandboxCompanions = {};
+  function yomuOnboardingController() {
+    return yomuCompanions().settings?.OnboardingController;
+  }
+  function yomuSettingsSurfaceCompanion() {
+    return yomuCompanions().settings;
+  }
+  function yomuAnkiCompanion() {
+    return yomuCompanions().anki;
+  }
+  function yomuAnnotationsCompanion() {
+    return yomuCompanions().annotations;
+  }
+  function yomuNormalizeOcrRenderedText() {
+    return yomuCompanions().ocr?.normalizeOcrRenderedText;
+  }
+  function yomuLocalDictionaries() {
+    return yomuCompanions().localDictionaries;
+  }
+  function yomuBunproCompanion() {
+    return yomuCompanions().bunpro;
+  }
+  function yomuKanjiStudyCompanion() {
+    return yomuCompanions().kanjiStudy;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function readYomuCompanions(target2) {
+    if (!target2 || typeof target2 !== "object" && typeof target2 !== "function") return void 0;
+    try {
+      return target2.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  async function enumerateDictionaryArchiveStorageKeys() {
+    const enumerate = yomuLocalDictionaries()?.enumerateDictionaryArchiveStorageKeys;
+    if (!enumerate) throw new Error("The local-dictionary companion cannot enumerate archive storage.");
+    return enumerate();
+  }
   const MANAGED_STATE_MANIFEST = [
     // Settings (also legacy migration keys). The bunpro token / pill selections /
     // colours all live inside these settings objects.
@@ -27808,14 +27883,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
     { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
+    { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
+    { owner: "app/storage epoch slots", kind: "gm", prefix: "yomu:state-slot:v1:" },
+    { owner: "app/storage epoch lease", kind: "gm", prefix: "yomu:state-epoch-lease:v1:" },
+    { owner: "app/managed-web-storage", kind: "local", key: "yomu:web-storage-epoch:v1:local" },
+    { owner: "app/managed-web-storage", kind: "session", key: "yomu:web-storage-epoch:v1:session" },
+    { owner: "app/managed-web-storage", kind: "local", prefix: "yomu:web-storage-slot:v1:" },
+    { owner: "app/managed-web-storage", kind: "session", prefix: "yomu:web-storage-slot:v1:" },
+    { owner: "app/storage local provenance", kind: "local", key: "yomu:local-storage-provenance:v1" },
     { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
     { owner: "app/storage leases", kind: "gm", prefix: "yomu:lease:" },
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device:v1" },
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
     { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
-    { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-    // Written with a raw localStorage.setItem, deliberately per-origin: it is the
-    // bootstrap hint for this site, never the preference itself.
+    { owner: "app/main", kind: "local", key: "yomu:jpdb-review-examples-visible:v1" },
+    { owner: "core/hosted-appearance-boot", kind: "local", key: "yomu-page-theme" },
+    // Deliberately per-origin: this is the bootstrap hint for this site, never
+    // the preference itself. Runtime reads and writes use the managed facade.
     { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
@@ -27829,14 +27913,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // Bunpro vocab SRS-state index for page word colouring.
     { owner: "bunpro/word-states", kind: "gm", key: "yomu:bunpro-word-states:v1" },
     // Public lookup caches.
-    { owner: "jpdb/jpdb-public-cache", kind: "gm", key: "yomu:jpdb-cache:v1" },
+    { owner: "jpdb/jpdb-public-cache", kind: "local", key: "yomu:jpdb-cache:v1" },
     { owner: "dictionaries/jiten-public-cache (legacy)", kind: "gm", key: "yomu:jiten-public-cache:v1" },
-    { owner: "dictionaries/jiten-public-cache", kind: "gm", key: "yomu:jiten-public-cache:v2" },
+    { owner: "dictionaries/jiten-public-cache", kind: "local", key: "yomu:jiten-public-cache:v2" },
     { owner: "dictionaries/jiten-stats-cache", kind: "gm", key: "jpdb-reader-jiten-daily-stats" },
     // Dictionary database (Yomitan/Jitendex terms). Cleared by the dictionary
     // store's own deleteDatabase during reset; registered so the invariant test
     // asserts it and the reset sweep nets it as a fallback.
     { owner: "dictionaries/yomitan", kind: "idb", key: "jpdb-popup-reader-yomitan" },
+    { owner: "dictionaries/archive-cache", kind: "gm", key: "yomu-dictionary-archives" },
+    {
+      owner: "dictionaries/archive-cache",
+      kind: "gm",
+      prefix: "yomu-dictionary-archive:",
+      enumerate: enumerateDictionaryArchiveStorageKeys
+    },
+    { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
     // OCR result cache.
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
@@ -27874,7 +27966,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-jpdb-stats-history" },
     { owner: "newtab/controller-config", kind: "gm", key: "jpdb-reader-newtab-disabled-anki-decks" },
     { owner: "newtab/session-progress", kind: "local", key: "jpdb-reader-newtab-daily-study-time" },
-    { owner: "newtab/controller", kind: "gm", key: "yomu-newtab-support-banner-dismissed" },
+    { owner: "newtab/controller", kind: "local", key: "yomu-newtab-support-banner-dismissed" },
     // Local pitch-accent SRS (debounced writer — the canonical reset escapee).
     { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-items:v1" },
     { owner: "newtab/pitch-srs", kind: "gm", key: "yomu-pitch-history:v1" }
@@ -27886,6 +27978,644 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     registerManagedStates(MANAGED_STATE_MANIFEST);
   }
   registerManagedStateManifest();
+  const MANAGED_STATE_EPOCH_KEY = "yomu:state-epoch";
+  const MANAGED_STATE_ENVELOPE_VERSION = 1;
+  const MANAGED_STATE_EPOCH_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-session.v1");
+  const MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT = Symbol.for("yomu.managed-state-epoch-canonical-session.v1");
+  const INITIAL_MANAGED_STATE_EPOCH = Object.freeze({
+    version: 1,
+    generation: 0,
+    resetId: "legacy",
+    committedAt: 0
+  });
+  class StaleManagedStateEpochError extends Error {
+    constructor(expected, actual) {
+      super(`Managed state belongs to epoch ${managedStateEpochToken(expected)}, but the current epoch is ${managedStateEpochToken(actual)}.`);
+      this.expected = expected;
+      this.actual = actual;
+      this.name = "StaleManagedStateEpochError";
+    }
+    code = "YOMU_STALE_MANAGED_STATE_EPOCH";
+  }
+  function isStaleManagedStateEpochError(error) {
+    return Boolean(error && typeof error === "object" && error.code === "YOMU_STALE_MANAGED_STATE_EPOCH");
+  }
+  class ManagedStateEpochSession {
+    captured;
+    captureInFlight;
+    current() {
+      return this.captured;
+    }
+    async capture(readEpoch) {
+      if (this.captured) return this.captured;
+      if (!this.captureInFlight) {
+        this.captureInFlight = readEpoch().then(parseManagedStateEpoch).then((epoch) => {
+          this.captured = epoch;
+          return epoch;
+        }).finally(() => {
+          this.captureInFlight = void 0;
+        });
+      }
+      return this.captureInFlight;
+    }
+    captureSync(rawEpoch) {
+      const epoch = parseManagedStateEpoch(rawEpoch);
+      this.captured ??= epoch;
+      return this.captured;
+    }
+    async assertCurrent(readEpoch) {
+      const expected = await this.capture(readEpoch);
+      const actual = parseManagedStateEpoch(await readEpoch());
+      assertManagedStateEpoch(expected, actual);
+      return expected;
+    }
+    assertCurrentSync(rawEpoch) {
+      const expected = this.captureSync(rawEpoch);
+      const actual = parseManagedStateEpoch(rawEpoch);
+      assertManagedStateEpoch(expected, actual);
+      return expected;
+    }
+    /** Test-only lifecycle support for Vitest's reused JavaScript realm. */
+    resetForTests() {
+      this.captured = void 0;
+      this.captureInFlight = void 0;
+    }
+  }
+  function managedStateEpochSessionForRealm(root = globalThis) {
+    const slots = root;
+    const existing = slots[MANAGED_STATE_EPOCH_SESSION_SLOT];
+    if (isManagedStateEpochSession(existing)) return existing;
+    const session = new ManagedStateEpochSession();
+    slots[MANAGED_STATE_EPOCH_SESSION_SLOT] = session;
+    slots[MANAGED_STATE_EPOCH_CANONICAL_SESSION_SLOT] ??= session;
+    return session;
+  }
+  function parseManagedStateEpoch(value) {
+    if (value === void 0 || value === null) return INITIAL_MANAGED_STATE_EPOCH;
+    if (!isPlainRecord$3(value) || value.version !== 1 || !Number.isSafeInteger(value.generation) || value.generation < 1 || typeof value.resetId !== "string" || !value.resetId.trim() || typeof value.committedAt !== "number" || !Number.isFinite(value.committedAt) || value.committedAt <= 0) {
+      throw new Error("The managed-state epoch is malformed.");
+    }
+    return {
+      version: 1,
+      generation: value.generation,
+      resetId: value.resetId,
+      committedAt: value.committedAt
+    };
+  }
+  function nextManagedStateEpoch(current, resetId, committedAt = Date.now()) {
+    if (!resetId.trim()) throw new TypeError("A reset id is required to advance managed state.");
+    if (!Number.isSafeInteger(current.generation + 1)) throw new Error("The managed-state epoch cannot advance further.");
+    return {
+      version: 1,
+      generation: current.generation + 1,
+      resetId,
+      committedAt
+    };
+  }
+  function managedStateStoredValue(value, epoch) {
+    if (epoch.generation === 0) return value;
+    const envelope = {
+      __yomuManagedStateEnvelope: MANAGED_STATE_ENVELOPE_VERSION,
+      epoch: managedStateEpochToken(epoch),
+      value
+    };
+    return envelope;
+  }
+  function managedStateLogicalValue(stored, epoch, fallback) {
+    if (epoch.generation === 0) {
+      if (!isManagedStateEnvelope(stored)) return stored;
+      return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+    }
+    if (!isManagedStateEnvelope(stored)) return fallback;
+    return stored.epoch === managedStateEpochToken(epoch) ? stored.value : fallback;
+  }
+  function managedStateResetEnumerationValue(stored) {
+    if (!isPlainRecord$3(stored) || !Object.hasOwn(stored, "__yomuManagedStateEnvelope")) {
+      return stored;
+    }
+    if (!isManagedStateEnvelope(stored)) {
+      throw new Error("The managed-state envelope is malformed.");
+    }
+    return stored.value;
+  }
+  function managedStateEpochToken(epoch) {
+    return `${epoch.generation}:${epoch.resetId}`;
+  }
+  function managedStateEpochTokenRelation(storedToken, current) {
+    if (storedToken === managedStateEpochToken(current)) return "same";
+    const separator = storedToken.indexOf(":");
+    if (separator <= 0) return "malformed";
+    const generationText = storedToken.slice(0, separator);
+    if (!/^(?:0|[1-9]\d*)$/u.test(generationText)) return "malformed";
+    const storedGeneration = Number(generationText);
+    if (!Number.isSafeInteger(storedGeneration)) return "malformed";
+    if (storedGeneration < current.generation) return "older";
+    if (storedGeneration > current.generation) return "newer";
+    return "conflict";
+  }
+  function sameManagedStateEpoch(left, right) {
+    return left.generation === right.generation && left.resetId === right.resetId;
+  }
+  function assertManagedStateEpoch(expected, actual) {
+    if (!sameManagedStateEpoch(expected, actual)) throw new StaleManagedStateEpochError(expected, actual);
+  }
+  function isManagedStateEnvelope(value) {
+    return isPlainRecord$3(value) && value.__yomuManagedStateEnvelope === MANAGED_STATE_ENVELOPE_VERSION && typeof value.epoch === "string" && Object.hasOwn(value, "value");
+  }
+  function isManagedStateEpochSession(value) {
+    return Boolean(value && typeof value === "object" && typeof value.current === "function" && typeof value.capture === "function" && typeof value.assertCurrent === "function" && typeof value.resetForTests === "function");
+  }
+  function isPlainRecord$3(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+  const AREA_MARKER_KEYS = {
+    local: "yomu:web-storage-epoch:v1:local",
+    session: "yomu:web-storage-epoch:v1:session"
+  };
+  const PRESERVED_LOCAL_CONTROL_KEYS = /* @__PURE__ */ new Set([
+    MANAGED_STATE_EPOCH_KEY,
+    AREA_MARKER_KEYS.local
+  ]);
+  let certifiedEpoch;
+  let reconciliation;
+  let reconciliationToken;
+  function ensureManagedWebStorageEpochCurrent(epoch) {
+    if (certifiedEpoch) {
+      if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
+        return Promise.reject(new Error("Managed web storage is already certified for another epoch."));
+      }
+      try {
+        assertAreaCertificate("local", epoch);
+        assertAreaCertificate("session", epoch);
+        return Promise.resolve(epoch);
+      } catch {
+        certifiedEpoch = void 0;
+      }
+    }
+    const expectedToken = managedStateEpochToken(epoch);
+    if (reconciliation) {
+      return reconciliationToken === expectedToken ? reconciliation : Promise.reject(new Error("Managed web storage is reconciling another epoch."));
+    }
+    reconciliationToken = expectedToken;
+    reconciliation = Promise.resolve().then(() => ensureManagedWebStorageEpochCurrentSync(epoch)).finally(() => {
+      reconciliation = void 0;
+      reconciliationToken = void 0;
+    });
+    return reconciliation;
+  }
+  function ensureManagedWebStorageEpochCurrentSync(epoch) {
+    if (certifiedEpoch) {
+      if (managedStateEpochToken(certifiedEpoch) !== managedStateEpochToken(epoch)) {
+        throw new Error("Managed web storage is already certified for another epoch.");
+      }
+      try {
+        assertAreaCertificate("local", epoch);
+        assertAreaCertificate("session", epoch);
+        return epoch;
+      } catch {
+        certifiedEpoch = void 0;
+      }
+    }
+    reconcileArea("local", epoch);
+    reconcileArea("session", epoch);
+    certifiedEpoch = epoch;
+    return epoch;
+  }
+  function reconcileArea(area, epoch) {
+    const storage = storageArea(area);
+    const markerKey = AREA_MARKER_KEYS[area];
+    const expectedToken = managedStateEpochToken(epoch);
+    const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
+    if (marker === expectedToken) return;
+    if (marker !== null) {
+      const relation = managedStateEpochTokenRelation(marker, epoch);
+      if (relation === "newer" || relation === "conflict" || relation === "malformed") {
+        throw new Error(`${area}Storage belongs to a newer or conflicting managed-state epoch.`);
+      }
+    }
+    if (epoch.generation > 0) purgeManagedArea(storage, area);
+    writeAndVerify(storage, markerKey, expectedToken, `${area}Storage epoch marker`);
+  }
+  function purgeManagedArea(storage, area) {
+    const preserved = area === "local" ? PRESERVED_LOCAL_CONTROL_KEYS : /* @__PURE__ */ new Set([AREA_MARKER_KEYS.session]);
+    const keys = enumerateStorageKeys(storage, `${area}Storage`);
+    const managedKeys = keys.filter((key2) => isManagedStorageKey(key2) && !preserved.has(key2));
+    for (const key2 of managedKeys) {
+      removeStorageValue(storage, key2, `${area}Storage key "${key2}"`);
+      if (readStorageValue(storage, key2, `${area}Storage key "${key2}"`) !== null) {
+        throw new Error(`${area}Storage retained managed key "${key2}".`);
+      }
+    }
+    const remaining = enumerateStorageKeys(storage, `${area}Storage`).filter((key2) => isManagedStorageKey(key2) && !preserved.has(key2));
+    if (remaining.length) throw new Error(`${area}Storage retained managed keys: ${remaining.join(", ")}.`);
+  }
+  function enumerateStorageKeys(storage, label) {
+    let length;
+    try {
+      length = storage.length;
+    } catch (error) {
+      throw new Error(`${label} could not be enumerated.`, { cause: error });
+    }
+    if (!Number.isSafeInteger(length) || length < 0) throw new Error(`${label} reported an invalid length.`);
+    const keys = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let index = 0; index < length; index++) {
+      let key2;
+      try {
+        key2 = storage.key(index);
+      } catch (error) {
+        throw new Error(`${label} could not enumerate key ${index}.`, { cause: error });
+      }
+      if (key2 === null || seen.has(key2)) throw new Error(`${label} enumeration was incomplete.`);
+      seen.add(key2);
+      keys.push(key2);
+    }
+    try {
+      if (storage.length !== length) throw new Error(`${label} changed during enumeration.`);
+    } catch (error) {
+      if (error instanceof Error && error.message.endsWith("changed during enumeration.")) throw error;
+      throw new Error(`${label} could not verify enumeration.`, { cause: error });
+    }
+    return keys;
+  }
+  const managedLocalStorage = managedStorageFacade("local");
+  const managedSessionStorage = managedStorageFacade("session");
+  function managedStorageFacade(area) {
+    return {
+      getItem(key2) {
+        const { storage, epoch } = certifiedArea(area);
+        const raw = readStorageValue(storage, physicalStorageKey(key2, epoch), `${area}Storage key "${key2}"`);
+        if (raw === null || epoch.generation === 0) return raw;
+        try {
+          const unreadable = Symbol("unreadable-managed-web-storage");
+          const value = managedStateLogicalValue(JSON.parse(raw), epoch, unreadable);
+          return typeof value === "string" ? value : null;
+        } catch {
+          return null;
+        }
+      },
+      setItem(key2, value) {
+        assertManagedLogicalKey(key2);
+        const { storage, epoch } = certifiedArea(area);
+        const stored = epoch.generation === 0 ? value : JSON.stringify(managedStateStoredValue(value, epoch));
+        writeAndVerify(storage, physicalStorageKey(key2, epoch), stored, `${area}Storage key "${key2}"`);
+        assertAreaCertificate(area, epoch);
+      },
+      removeItem(key2) {
+        assertManagedLogicalKey(key2);
+        const { storage, epoch } = certifiedArea(area);
+        const physicalKey = physicalStorageKey(key2, epoch);
+        removeStorageValue(storage, physicalKey, `${area}Storage key "${key2}"`);
+        if (readStorageValue(storage, physicalKey, `${area}Storage key "${key2}"`) !== null) {
+          throw new Error(`${area}Storage retained managed key "${key2}".`);
+        }
+        assertAreaCertificate(area, epoch);
+      }
+    };
+  }
+  function certifiedArea(area) {
+    const epoch = certifiedEpoch;
+    if (!epoch) throw new Error("Managed web storage has not passed its epoch barrier.");
+    assertAreaCertificate(area, epoch);
+    return { storage: storageArea(area), epoch };
+  }
+  function assertAreaCertificate(area, epoch) {
+    const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+    if (marker !== managedStateEpochToken(epoch)) {
+      throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
+    }
+  }
+  function physicalStorageKey(key2, epoch) {
+    assertManagedLogicalKey(key2);
+    if (epoch.generation === 0) return key2;
+    return `${MANAGED_WEB_STORAGE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
+  }
+  function assertManagedLogicalKey(key2) {
+    if (!isManagedStorageKey(key2) || isManagedStorageSlotKey(key2)) {
+      throw new TypeError(`Managed web storage requires a logical Yomu key, received "${key2}".`);
+    }
+  }
+  function storageArea(area) {
+    try {
+      const storage = area === "local" ? localStorage : sessionStorage;
+      if (!storage) throw new Error(`${area}Storage is unavailable.`);
+      return storage;
+    } catch (error) {
+      throw new Error(`${area}Storage is unavailable.`, { cause: error });
+    }
+  }
+  function readStorageValue(storage, key2, label) {
+    try {
+      return storage.getItem(key2);
+    } catch (error) {
+      throw new Error(`${label} could not be read.`, { cause: error });
+    }
+  }
+  function writeAndVerify(storage, key2, value, label) {
+    try {
+      storage.setItem(key2, value);
+    } catch (error) {
+      throw new Error(`${label} could not be written.`, { cause: error });
+    }
+    if (readStorageValue(storage, key2, label) !== value) throw new Error(`${label} failed read-back verification.`);
+  }
+  function removeStorageValue(storage, key2, label) {
+    try {
+      storage.removeItem(key2);
+    } catch (error) {
+      throw new Error(`${label} could not be removed.`, { cause: error });
+    }
+  }
+  const MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX = "yomu:state-epoch-lease:v1:";
+  const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+  async function withGmStorageLeaseCore(name, operation, options, environment) {
+    const { getValue, setValue, deleteValue, listValues } = environment.backend;
+    if (!getValue || !setValue || !deleteValue || !listValues) {
+      return withWebStorageLock(name, async () => {
+        const epoch2 = await environment.captureEpoch(getValue);
+        await environment.assertMutationFence(getValue, epoch2);
+        const result2 = await operation();
+        await environment.assertMutationFence(getValue, epoch2);
+        return result2;
+      });
+    }
+    const epoch = await environment.captureEpoch(getValue);
+    await environment.assertMutationFence(getValue, epoch);
+    const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
+    const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
+    const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
+    const owner = createStorageCoordinationId();
+    const claimId = createStorageCoordinationId();
+    const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
+    const key2 = `${prefix}${owner}`;
+    const startedAt = Date.now();
+    let claim = {
+      version: 1,
+      claimId,
+      owner,
+      epoch: environment.epochToken(epoch),
+      choosing: true,
+      ticket: 0,
+      leaseUntil: startedAt + leaseMs
+    };
+    const writeClaim = async (nextClaim) => {
+      await environment.assertMutationFence(getValue, epoch);
+      try {
+        await setValue(key2, nextClaim);
+        await environment.assertMutationFence(getValue, epoch);
+        await assertStorageLeaseClaimOwned(key2, nextClaim, getValue);
+      } catch (error) {
+        await deleteStorageLeaseClaimIfOwned(key2, nextClaim, getValue, deleteValue).catch((cleanupError) => {
+          debugStorageLeaseError("GM storage lease rollback failed", key2, cleanupError);
+        });
+        throw error;
+      }
+    };
+    await writeClaim(claim);
+    try {
+      const initialClaims = await readStorageLeaseClaims(
+        prefix,
+        listValues,
+        getValue,
+        environment.epochToken(epoch),
+        Date.now()
+      );
+      const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
+      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+      await writeClaim(claim);
+      while (true) {
+        await environment.assertMutationFence(getValue, epoch);
+        const now = Date.now();
+        if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
+        const claims = await readStorageLeaseClaims(
+          prefix,
+          listValues,
+          getValue,
+          environment.epochToken(epoch),
+          now
+        );
+        const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+        if (!blocked2) break;
+        if (claim.leaseUntil - now <= leaseMs / 2) {
+          claim = { ...claim, leaseUntil: now + leaseMs };
+          await writeClaim(claim);
+        }
+        await storageLeaseDelay(pollMs);
+      }
+      let renewalStopped = false;
+      let renewal = Promise.resolve();
+      let leaseLost;
+      let leaseWasLost = false;
+      const renewalTimer = setInterval(() => {
+        renewal = renewal.then(async () => {
+          if (renewalStopped || leaseLost) return;
+          await assertStorageLeaseClaimOwned(key2, claim, getValue);
+          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+          await writeClaim(claim);
+        }).catch((error) => {
+          leaseLost = error;
+          leaseWasLost = true;
+          debugStorageLeaseError("GM storage lease renewal failed", key2, error);
+        });
+      }, Math.max(250, Math.floor(leaseMs / 3)));
+      let result2;
+      let operationError;
+      let operationFailed = false;
+      try {
+        await environment.assertMutationFence(getValue, epoch);
+        await assertStorageLeaseClaimOwned(key2, claim, getValue);
+        result2 = await operation();
+        await environment.assertMutationFence(getValue, epoch);
+        await assertStorageLeaseClaimOwned(key2, claim, getValue);
+      } catch (error) {
+        operationFailed = true;
+        operationError = error;
+      } finally {
+        renewalStopped = true;
+        clearInterval(renewalTimer);
+        await renewal;
+      }
+      if (operationFailed) throw operationError;
+      if (leaseWasLost) throw leaseLost;
+      return result2;
+    } finally {
+      try {
+        await deleteStorageLeaseClaimIfOwned(key2, claim, getValue, deleteValue);
+      } catch (error) {
+        debugStorageLeaseError("GM storage lease release failed", key2, error);
+      }
+    }
+  }
+  async function withManagedStateEpochControlLeaseCore(operation, environment) {
+    const { getValue, setValue, deleteValue, listValues } = environment.backend;
+    const available = [getValue, setValue, deleteValue, listValues].filter(Boolean).length;
+    if (available === 0) return withWebStorageLock("managed-state-epoch-control", operation);
+    if (!getValue || !setValue || !deleteValue || !listValues) {
+      throw new Error("Managed storage cannot serialize epoch reconciliation without GM_listValues.");
+    }
+    const leaseMs = 3e4;
+    const pollMs = 10;
+    const timeoutMs = 9e4;
+    const owner = createStorageCoordinationId();
+    const key2 = `${MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX}${owner}`;
+    const startedAt = Date.now();
+    let claim = {
+      version: 1,
+      claimId: createStorageCoordinationId(),
+      owner,
+      epoch: "epoch-control:v1",
+      choosing: true,
+      ticket: 0,
+      leaseUntil: startedAt + leaseMs
+    };
+    const writeClaim = async (nextClaim) => {
+      try {
+        await setValue(key2, nextClaim);
+        await assertStorageLeaseClaimOwned(key2, nextClaim, getValue);
+      } catch (error) {
+        await deleteStorageLeaseClaimIfOwned(key2, nextClaim, getValue, deleteValue).catch((cleanupError) => {
+          debugStorageLeaseError("Raw GM storage lease rollback failed", key2, cleanupError);
+        });
+        throw error;
+      }
+    };
+    await writeClaim(claim);
+    try {
+      const initialClaims = await readStorageLeaseClaims(
+        MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+        listValues,
+        getValue,
+        claim.epoch,
+        Date.now()
+      );
+      const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
+      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
+      await writeClaim(claim);
+      while (true) {
+        const now = Date.now();
+        if (now - startedAt >= timeoutMs) throw new Error("Timed out waiting for the managed-state epoch lease.");
+        const claims = await readStorageLeaseClaims(
+          MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX,
+          listValues,
+          getValue,
+          claim.epoch,
+          now
+        );
+        const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
+        if (!blocked2) break;
+        if (claim.leaseUntil - now <= leaseMs / 2) {
+          claim = { ...claim, leaseUntil: now + leaseMs };
+          await writeClaim(claim);
+        }
+        await storageLeaseDelay(pollMs);
+      }
+      let stopped = false;
+      let lost = false;
+      let lostError;
+      let renewal = Promise.resolve();
+      const timer = setInterval(() => {
+        renewal = renewal.then(async () => {
+          if (stopped || lost) return;
+          await assertStorageLeaseClaimOwned(key2, claim, getValue);
+          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
+          await writeClaim(claim);
+        }).catch((error) => {
+          lost = true;
+          lostError = error;
+        });
+      }, Math.floor(leaseMs / 3));
+      let result2;
+      let failed = false;
+      let operationError;
+      try {
+        await assertStorageLeaseClaimOwned(key2, claim, getValue);
+        result2 = await operation();
+        await assertStorageLeaseClaimOwned(key2, claim, getValue);
+      } catch (error) {
+        failed = true;
+        operationError = error;
+      } finally {
+        stopped = true;
+        clearInterval(timer);
+        await renewal;
+      }
+      if (failed) throw operationError;
+      if (lost) throw lostError;
+      return result2;
+    } finally {
+      await deleteStorageLeaseClaimIfOwned(key2, claim, getValue, deleteValue).catch((error) => debugStorageLeaseError("Managed-state epoch lease release failed", key2, error));
+    }
+  }
+  async function readStorageLeaseClaims(prefix, listValues, getValue, epochToken, now) {
+    const keys = (await listValues()).filter((key2) => key2.startsWith(prefix));
+    const values = await Promise.all(keys.map((key2) => getValue(key2, null)));
+    return values.flatMap((value) => {
+      const claim = parseStorageLeaseClaim(value);
+      return claim && claim.epoch === epochToken && claim.leaseUntil > now ? [claim] : [];
+    });
+  }
+  function parseStorageLeaseClaim(value) {
+    if (!isPlainRecord$2(value) || value.version !== 1 || typeof value.owner !== "string" || value.claimId !== void 0 && typeof value.claimId !== "string" || value.epoch !== void 0 && typeof value.epoch !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
+    return {
+      version: 1,
+      claimId: value.claimId || value.owner,
+      owner: value.owner,
+      epoch: value.epoch || "0:legacy",
+      choosing: value.choosing,
+      ticket: value.ticket,
+      leaseUntil: value.leaseUntil
+    };
+  }
+  async function assertStorageLeaseClaimOwned(key2, expected, getValue) {
+    const actual = parseStorageLeaseClaim(await getValue(key2, null));
+    if (!actual || !sameStorageLeaseClaimIdentity(actual, expected)) {
+      throw new Error(`Storage lease ownership was lost: ${key2}`);
+    }
+  }
+  async function deleteStorageLeaseClaimIfOwned(key2, expected, getValue, deleteValue) {
+    const actual = parseStorageLeaseClaim(await getValue(key2, null));
+    if (actual && sameStorageLeaseClaimIdentity(actual, expected)) await deleteValue(key2);
+  }
+  function sameStorageLeaseClaimIdentity(left, right) {
+    return left.claimId === right.claimId && left.owner === right.owner && left.epoch === right.epoch;
+  }
+  function normalizedStorageLeaseName(name) {
+    const normalized2 = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
+    if (!normalized2) throw new TypeError("Storage lease name is required.");
+    return normalized2;
+  }
+  function boundedLeaseOption(value, fallback, minimum, maximum) {
+    if (value === void 0) return fallback;
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
+    return value;
+  }
+  function storageLeaseDelay(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+  async function withWebStorageLock(name, operation) {
+    const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
+    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+  }
+  function isPlainRecord$2(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+  function createStorageCoordinationId() {
+    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+  function debugStorageLeaseError(message, key2, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
+  }
+  const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+    "yomu:factory-reset-signal",
+    MANAGED_STATE_EPOCH_KEY,
+    "yomu:local-storage-provenance:v1",
+    // Transient cloud-sync handoff written before an OAuth redirect. Factory
+    // reset owns it via the '__yomu' prefix, but backups must not replay it.
+    "__yomu_cloud_settings_sync_pending_action"
+  ]);
+  function isManagedStorageBackupKey(key2) {
+    return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !isManagedStorageSlotKey(key2) && !key2.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
+  }
   const MISSING = { __yomuStorageValueMissing: true };
   function isMissingSentinel(value) {
     if (value === MISSING) return true;
@@ -27893,44 +28623,167 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
+  const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
   const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
   const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
   const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
   const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
+  const MANAGED_IDB_DELETE_TIMEOUT_MS = 2e3;
   const MANAGED_CACHE_NAME_PREFIXES = [
     "yomu-newtab-",
     "yomu-pdf-reader-",
     "yomu-video-player-",
     "yomu-docs-shell-"
   ];
-  const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
+  const FACTORY_RESET_CONTROL_STORAGE_KEYS = /* @__PURE__ */ new Set([
     FACTORY_RESET_SIGNAL_KEY,
-    // Transient cloud-sync handoff written before an OAuth redirect. Factory
-    // reset owns it via the '__yomu' prefix, but backups must not replay it.
-    "__yomu_cloud_settings_sync_pending_action"
+    MANAGED_STATE_EPOCH_KEY
   ]);
-  const STORAGE_LEASE_KEY_PREFIX = "yomu:lease:";
+  const managedStateEpochSession = managedStateEpochSessionForRealm();
+  class ManagedStateResetError extends Error {
+    yomuUiCopyKey = "factoryResetStorageIncomplete";
+    epochMayHaveCommitted;
+    constructor(diagnostic, options = {}, epochMayHaveCommitted = false) {
+      super(diagnostic, options);
+      this.name = "ManagedStateResetError";
+      this.epochMayHaveCommitted = epochMayHaveCommitted;
+    }
+  }
+  function managedStateResetEpochMayHaveCommitted(error) {
+    return Boolean(error && typeof error === "object" && error.epochMayHaveCommitted === true);
+  }
+  async function rawAuthoritativeManagedStateEpoch(getValue) {
+    const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+    return isMissingSentinel(stored) ? void 0 : stored;
+  }
+  async function authoritativeManagedStateEpoch(getValue) {
+    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+  }
+  async function assertRealmManagedStateEpoch(getValue) {
+    const readEpoch = getValue ? async () => {
+      const epoch2 = await authoritativeManagedStateEpoch(getValue);
+      return epoch2.generation === 0 ? void 0 : epoch2;
+    } : async () => localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0);
+    const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
+    if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
+    return epoch;
+  }
+  async function managedGmValue(getValue, key2, fallback, epoch) {
+    const read = await readManagedGmValue(getValue, key2, epoch);
+    return read.kind === "found" ? read.value : fallback;
+  }
+  async function readManagedGmValue(getValue, key2, epoch) {
+    const storageKey = managedStateStorageKey(key2, epoch);
+    const scoped = await getValue(storageKey, MISSING);
+    const readFromCurrentSlot = !isMissingSentinel(scoped);
+    const stored = readFromCurrentSlot || storageKey === key2 ? scoped : await getValue(key2, MISSING);
+    await assertRealmManagedStateEpoch(getValue);
+    if (isMissingSentinel(stored)) return { kind: "missing" };
+    const unreadable = Symbol("unreadable-managed-state");
+    const logical = managedStateLogicalValue(stored, epoch, unreadable);
+    if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+    if (isMissingSentinel(logical)) return { kind: "deleted" };
+    return { kind: "found", value: logical };
+  }
+  function managedStateStorageKey(key2, epoch) {
+    if (epoch.generation === 0) return key2;
+    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
+  }
+  async function writeManagedGmValue(key2, value, epoch, getValue, setValue) {
+    await assertManagedStateMutationFence(getValue, epoch);
+    const stored = managedStateStoredValue(value, epoch);
+    const storageKey = managedStateStorageKey(key2, epoch);
+    await setValue(storageKey, stored);
+    await assertManagedStateMutationFence(getValue, epoch);
+  }
+  async function deleteManagedGmValue(key2, epoch, getValue, setValue, deleteValue) {
+    const storageKey = managedStateStorageKey(key2, epoch);
+    if (managedStateWritesSuppressed()) {
+      if (!deleteValue) throw new Error("Managed storage cannot delete its value during factory reset.");
+      await deleteValue(storageKey);
+      if (storageKey !== key2) await deleteValue(key2);
+      await assertRealmManagedStateEpoch(getValue);
+      return;
+    }
+    if (storageKey === key2) {
+      if (!deleteValue) throw new Error("Managed storage cannot delete its legacy value.");
+      await deleteValue(key2);
+      await assertRealmManagedStateEpoch(getValue);
+      return;
+    }
+    if (!setValue) throw new Error("Managed storage cannot persist a deletion tombstone.");
+    await setValue(storageKey, managedStateStoredValue(MISSING, epoch));
+    await assertRealmManagedStateEpoch(getValue);
+    if (deleteValue) {
+      try {
+        await deleteValue(key2);
+      } catch (error) {
+        debugStorageError("Managed GM logical-key delete mirror failed", key2, error);
+      }
+      await assertRealmManagedStateEpoch(getValue);
+    }
+  }
+  function managedStateEpochFromSynchronousGetter(getValue) {
+    const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+    if (isPromiseLike$1(stored)) return null;
+    const shared2 = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
+    managedStateEpochSession.assertCurrentSync(shared2.generation === 0 ? void 0 : shared2);
+    cacheManagedStateEpochForLocalFallback(shared2);
+    return shared2;
+  }
+  function managedStateEpochForSynchronousLocalRead() {
+    try {
+      const getValue = directGmGetValue();
+      if (getValue) {
+        const synchronous = managedStateEpochFromSynchronousGetter(getValue);
+        if (synchronous) return synchronous;
+        return managedStateEpochSession.current() ?? null;
+      }
+      if (asyncGmGetValue()) return managedStateEpochSession.current() ?? null;
+      return managedStateEpochSession.assertCurrentSync(
+        localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0)
+      );
+    } catch (error) {
+      debugStorageError("Managed state epoch sync read failed", MANAGED_STATE_EPOCH_KEY, error);
+      return null;
+    }
+  }
   function hasAsyncGmStorageBackend() {
     return asyncGmGetValue() !== null;
   }
+  async function assertManagedStateMutationAllowed() {
+    const getValue = asyncGmGetValue();
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    await assertManagedStateMutationFence(getValue, epoch);
+    return epoch;
+  }
+  async function ensureManagedWebStorageCurrent() {
+    const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
+    await ensureManagedWebStorageEpochCurrent(epoch);
+  }
   function localFallbackStoredValue(key2, fallback) {
+    const epoch = managedStateEpochForSynchronousLocalRead();
+    if (!epoch || !localMirrorBelongsToEpoch(key2, epoch)) return fallback;
     return localStorageGet(key2, fallback);
   }
   async function gmStorageGet(key2, fallback) {
     const getValue = asyncGmGetValue();
     if (getValue) {
+      let epoch2;
       try {
-        const pendingPatch = pendingHostedLocalPatch(key2);
+        epoch2 = await assertRealmManagedStateEpoch(getValue);
+        const pendingPatch = pendingHostedLocalPatch(key2, epoch2);
         if (pendingPatch) {
-          const shared2 = await getValue(key2, MISSING);
-          const sharedRecord = !isMissingSentinel(shared2) && isPlainRecord$1(shared2) ? shared2 : {};
+          const shared2 = await managedGmValue(getValue, key2, void 0, epoch2);
+          const sharedRecord = isPlainRecord$1(shared2) ? shared2 : {};
           const reconciled = { ...sharedRecord, ...pendingPatch };
           await gmStorageSet(key2, reconciled);
           return reconciled;
         }
-        const value = await getValue(key2, MISSING);
-        if (!isMissingSentinel(value)) return value;
-        const migrated = localStorageGet(key2, MISSING);
+        const read = await readManagedGmValue(getValue, key2, epoch2);
+        if (read.kind === "found") return read.value;
+        if (read.kind === "deleted") return fallback;
+        const migrated = localMirrorBelongsToEpoch(key2, epoch2) ? localStorageGet(key2, MISSING) : MISSING;
         if (!isMissingSentinel(migrated)) {
           const promoted = sanitizedStrandedLocalValue(key2, migrated);
           await gmStorageSet(key2, promoted);
@@ -27938,15 +28791,45 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         }
         return fallback;
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
         debugStorageError("GM storage read failed", key2, error);
+        if (epoch2 && localMirrorBelongsToEpoch(key2, epoch2)) {
+          return localStorageGet(key2, fallback);
+        }
+        return fallback;
       }
     }
-    const local = localStorageGet(key2, MISSING);
+    const epoch = await assertRealmManagedStateEpoch(null);
+    const local = localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, MISSING) : MISSING;
     if (!isMissingSentinel(local)) return local;
     if (key2 === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord$1(fallback)) {
-      localStorageSet(key2, fallback);
+      mirrorManagedValueToHostedStorage(key2, fallback, epoch);
     }
     return fallback;
+  }
+  async function gmStorageGetForResetEnumeration(key2, fallback) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      const before = await authoritativeManagedStateEpoch(getValue);
+      const storageKey = managedStateStorageKey(key2, before);
+      let stored2 = await getValue(storageKey, MISSING);
+      const readFromCurrentSlot = !isMissingSentinel(stored2);
+      if (!readFromCurrentSlot && storageKey !== key2) {
+        stored2 = await getValue(key2, MISSING);
+      }
+      const after = await authoritativeManagedStateEpoch(getValue);
+      if (!sameManagedStateEpoch(before, after)) {
+        throw new ManagedStateResetError(`Managed storage changed epoch while enumerating "${key2}".`);
+      }
+      if (isMissingSentinel(stored2)) return fallback;
+      const logical = managedStateResetEnumerationValue(stored2);
+      return isMissingSentinel(logical) ? fallback : logical;
+    }
+    if (asyncGmSetValue() || asyncGmDeleteValue()) {
+      throw new ManagedStateResetError(`Managed storage cannot read the index "${key2}".`);
+    }
+    const stored = localStorageGet(key2, MISSING);
+    return isMissingSentinel(stored) ? fallback : managedStateResetEnumerationValue(stored);
   }
   async function gmPrivateStorageGet(key2, fallback) {
     assertPrivateStorageKey(key2);
@@ -27955,97 +28838,72 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const getValue = directGmGetValue();
     if (!getValue) return fallback;
     try {
-      const value = await getValue(key2, MISSING);
-      return isMissingSentinel(value) ? fallback : value;
+      const epoch = await assertRealmManagedStateEpoch(getValue);
+      return await managedGmValue(getValue, key2, fallback, epoch);
     } catch (error) {
+      if (isStaleManagedStateEpochError(error)) throw error;
       debugStorageError("Private GM storage read failed", key2, error);
       return fallback;
     }
   }
   async function withGmStorageLease(name, operation, options = {}) {
-    const getValue = asyncGmGetValue();
-    const setValue = asyncGmSetValue();
-    const deleteValue = asyncGmDeleteValue();
-    const listValues = asyncGmListValues();
-    if (!getValue || !setValue || !deleteValue || !listValues) {
-      return withWebStorageLock(name, operation);
-    }
-    const leaseMs = boundedLeaseOption(options.leaseMs, 6e4, 1e3, 10 * 6e4);
-    const pollMs = boundedLeaseOption(options.pollMs, 20, 1, 1e3);
-    const timeoutMs = boundedLeaseOption(options.timeoutMs, 9e4, leaseMs, 15 * 6e4);
-    const owner = createFactoryResetId();
-    const prefix = `${STORAGE_LEASE_KEY_PREFIX}${normalizedStorageLeaseName(name)}:`;
-    const key2 = `${prefix}${owner}`;
-    const startedAt = Date.now();
-    let claim = {
-      version: 1,
-      owner,
-      choosing: true,
-      ticket: 0,
-      leaseUntil: startedAt + leaseMs
+    return withGmStorageLeaseCore(name, operation, options, {
+      backend: gmStorageLeaseBackend(),
+      captureEpoch: assertRealmManagedStateEpoch,
+      assertMutationFence: assertManagedStateMutationFence,
+      epochToken: managedStateEpochToken
+    });
+  }
+  async function withManagedStateEpochControlLease(operation) {
+    return withManagedStateEpochControlLeaseCore(operation, {
+      backend: gmStorageLeaseBackend()
+    });
+  }
+  function gmStorageLeaseBackend() {
+    return {
+      getValue: asyncGmGetValue(),
+      setValue: asyncGmSetValue(),
+      deleteValue: asyncGmDeleteValue(),
+      listValues: asyncGmListValues()
     };
-    await setValue(key2, claim);
-    try {
-      const initialClaims = await readStorageLeaseClaims(prefix, listValues, getValue, Date.now());
-      const highestTicket = initialClaims.reduce((highest, item2) => Math.max(highest, item2.ticket), 0);
-      claim = { ...claim, choosing: false, ticket: highestTicket + 1, leaseUntil: Date.now() + leaseMs };
-      await setValue(key2, claim);
-      while (true) {
-        const now = Date.now();
-        if (now - startedAt >= timeoutMs) throw new Error(`Timed out waiting for storage lease: ${name}`);
-        const claims = await readStorageLeaseClaims(prefix, listValues, getValue, now);
-        const blocked2 = claims.some((other) => other.owner !== owner && (other.choosing || other.ticket < claim.ticket || other.ticket === claim.ticket && other.owner.localeCompare(owner) < 0));
-        if (!blocked2) break;
-        if (claim.leaseUntil - now <= leaseMs / 2) {
-          claim = { ...claim, leaseUntil: now + leaseMs };
-          await setValue(key2, claim);
-        }
-        await storageLeaseDelay(pollMs);
-      }
-      let renewalStopped = false;
-      let renewal = Promise.resolve();
-      const renewalTimer = setInterval(() => {
-        renewal = renewal.then(async () => {
-          if (renewalStopped) return;
-          claim = { ...claim, leaseUntil: Date.now() + leaseMs };
-          await setValue(key2, claim);
-        }).catch((error) => debugStorageError("GM storage lease renewal failed", key2, error));
-      }, Math.max(250, Math.floor(leaseMs / 3)));
-      try {
-        return await operation();
-      } finally {
-        renewalStopped = true;
-        clearInterval(renewalTimer);
-        await renewal;
-      }
-    } finally {
-      try {
-        await deleteValue(key2);
-      } catch (error) {
-        debugStorageError("GM storage lease release failed", key2, error);
-      }
-    }
   }
   function gmStorageGetSync(key2, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
-      const read = gmStorageSyncRead(key2, getValue);
+      const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
+      if (!epoch2) return fallback;
+      const read = gmStorageSyncRead(key2, getValue, epoch2);
       if (read.kind === "found") return read.value;
+      if (read.kind === "deleted") return fallback;
     }
-    return localStorageGet(key2, fallback);
+    const epoch = managedStateEpochForSynchronousLocalRead();
+    return epoch && localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, fallback) : fallback;
   }
-  function gmStorageSyncRead(key2, getValue) {
+  function gmStorageSyncRead(key2, getValue, epoch) {
     try {
-      const value = getValue(key2, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
-      if (!isMissingSentinel(value)) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key2);
+      const storageKey = managedStateStorageKey(key2, epoch);
+      let stored = getValue(storageKey, MISSING);
+      if (isPromiseLike$1(stored)) return { kind: "fallback" };
+      const readFromCurrentSlot = !isMissingSentinel(stored);
+      if (isMissingSentinel(stored) && storageKey !== key2) {
+        stored = getValue(key2, MISSING);
+        if (isPromiseLike$1(stored)) return { kind: "fallback" };
+      }
+      if (!isMissingSentinel(stored)) {
+        const unreadable = Symbol("unreadable-managed-state");
+        const value = managedStateLogicalValue(stored, epoch, unreadable);
+        if (value === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "fallback" };
+        if (isMissingSentinel(value)) return { kind: "deleted" };
+        return { kind: "found", value };
+      }
+      return migratedLocalStorageSyncValue(key2, epoch);
     } catch (error) {
       debugStorageError("GM storage sync read failed", key2, error);
       return { kind: "fallback" };
     }
   }
-  function migratedLocalStorageSyncValue(key2) {
+  function migratedLocalStorageSyncValue(key2, epoch) {
+    if (!localMirrorBelongsToEpoch(key2, epoch)) return { kind: "fallback" };
     const migrated = localStorageGet(key2, MISSING);
     if (isMissingSentinel(migrated)) return { kind: "fallback" };
     const promoted = sanitizedStrandedLocalValue(key2, migrated);
@@ -28062,8 +28920,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
     return record2;
   }
-  function pendingHostedLocalPatch(key2) {
+  function pendingHostedLocalPatch(key2, epoch) {
     if (key2 !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
+    if (!localMirrorBelongsToEpoch(key2, epoch)) return void 0;
     const value = localStorageGet(key2, void 0);
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
@@ -28091,71 +28950,175 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return changed;
   }
   async function gmStorageSet(key2, value) {
+    if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
+    const getValue = asyncGmGetValue();
     const setValue = asyncGmSetValue();
     if (setValue) {
+      let epoch2;
       try {
-        await setValue(key2, value);
-        mirrorManagedValueToHostedStorage(key2, value);
+        if (!getValue) throw new Error("Managed storage cannot validate its state epoch.");
+        epoch2 = await assertRealmManagedStateEpoch(getValue);
+        await writeManagedGmValue(key2, value, epoch2, getValue, setValue);
+        mirrorManagedValueToHostedStorage(key2, value, epoch2);
         return;
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
         debugStorageError("GM storage write failed", key2, error);
         try {
-          localStorageSetOrThrow(key2, localFallbackValueForWrite(key2, value));
+          epoch2 ??= await assertRealmManagedStateEpoch(null);
+          writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch2);
         } catch (fallbackError) {
           throw storageWriteError(key2, "GM storage and localStorage fallback writes failed", error, fallbackError);
         }
         throw storageWriteError(key2, "GM storage write failed; saved only to localStorage fallback", error);
       }
     }
-    localStorageSetOrThrow(key2, localFallbackValueForWrite(key2, value));
+    const epoch = await assertRealmManagedStateEpoch(null);
+    writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch);
   }
   async function gmPrivateStorageSet(key2, value) {
     assertPrivateStorageKey(key2);
+    if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
     removeLocalStorageKey(key2);
     removeSessionStorageKey(key2);
+    const getValue = directGmGetValue();
     const setValue = directGmSetValue();
-    if (!setValue) throw new Error("Secure extension storage is unavailable.");
+    if (!getValue || !setValue) throw new Error("Secure extension storage is unavailable.");
     try {
-      await setValue(key2, value);
+      const epoch = await assertRealmManagedStateEpoch(getValue);
+      await writeManagedGmValue(key2, value, epoch, getValue, setValue);
     } catch (error) {
+      if (isStaleManagedStateEpochError(error)) throw error;
       debugStorageError("Private GM storage write failed", key2, error);
       throw new Error("Secure extension storage is unavailable.");
     }
   }
   function gmStorageSetSync(key2, value) {
-    if (typeof GM_setValue === "function") {
+    if (managedStateWritesSuppressed()) {
+      debugStorageError("Managed state write suppressed during factory reset", key2, null);
+      return;
+    }
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+    let epoch = null;
+    if (getValue && setValue) {
       try {
-        const result2 = GM_setValue(key2, value);
-        if (!isPromiseLike$1(result2)) {
-          mirrorManagedValueToHostedStorage(key2, value);
+        epoch = managedStateEpochFromSynchronousGetter(getValue);
+        if (!epoch) {
+          void gmStorageSet(key2, value).catch((error) => debugStorageError("GM storage async write failed", key2, error));
           return;
         }
-        result2.catch((error) => debugStorageError("GM storage async write failed", key2, error));
+        const stored = managedStateStoredValue(value, epoch);
+        const storageKey = managedStateStorageKey(key2, epoch);
+        const result2 = setValue(storageKey, stored);
+        if (isPromiseLike$1(result2)) {
+          void result2.then(async () => {
+            await assertRealmManagedStateEpoch(getValue);
+            mirrorManagedValueToHostedStorage(key2, value, epoch);
+          }).catch((error) => debugStorageError("GM storage async write failed", key2, error));
+          return;
+        }
+        const after = managedStateEpochFromSynchronousGetter(getValue);
+        if (!after || !sameManagedStateEpoch(epoch, after)) return;
+        mirrorManagedValueToHostedStorage(key2, value, epoch);
+        return;
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) {
+          debugStorageError("Rejected stale managed state write", key2, error);
+          return;
+        }
         debugStorageError("GM storage sync write failed", key2, error);
       }
     }
-    localStorageSet(key2, localFallbackValueForWrite(key2, value));
+    if ((!getValue || !setValue) && asyncGmSetValue()) {
+      void gmStorageSet(key2, value).catch((error) => debugStorageError("GM storage async write failed", key2, error));
+      return;
+    }
+    try {
+      epoch ??= managedStateEpochForSynchronousLocalRead();
+      if (!epoch) return;
+      writeLocalManagedValueOrThrow(key2, localFallbackValueForWrite(key2, value), epoch);
+    } catch (error) {
+      debugStorageError("localStorage sync write failed", key2, error);
+    }
   }
   async function gmStorageDelete(key2) {
+    const getValue = asyncGmGetValue();
+    const setValue = asyncGmSetValue();
     const deleteValue = asyncGmDeleteValue();
-    if (deleteValue) {
+    const hasBackend = Boolean(getValue || setValue || deleteValue);
+    if (hasBackend && !getValue) {
+      throw storageWriteError(key2, "Managed storage cannot validate and delete the same backend value");
+    }
+    if (getValue) {
       try {
-        await deleteValue(key2);
+        const epoch = await assertRealmManagedStateEpoch(getValue);
+        await deleteManagedGmValue(key2, epoch, getValue, setValue, deleteValue);
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
         debugStorageError("GM storage delete failed", key2, error);
+        throw storageWriteError(key2, "GM storage delete failed", error);
       }
+    } else {
+      await assertRealmManagedStateEpoch(null);
     }
     removeLocalStorageKey(key2);
     removeSessionStorageKey(key2);
+    removeLocalMirrorProvenance(key2);
+  }
+  async function deleteManagedStoredValue(key2) {
+    const getValue = asyncGmGetValue();
+    const deleteValue = asyncGmDeleteValue();
+    if (getValue && !deleteValue) {
+      throw new ManagedStateResetError(`Managed storage cannot delete "${key2}".`);
+    }
+    const epoch = !isManagedStorageSlotKey(key2) && getValue ? await authoritativeManagedStateEpoch(getValue) : null;
+    const targets2 = /* @__PURE__ */ new Set([key2]);
+    if (epoch) targets2.add(managedStateStorageKey(key2, epoch));
+    if (deleteValue) {
+      for (const target2 of targets2) {
+        try {
+          await deleteValue(target2);
+        } catch (error) {
+          throw new ManagedStateResetError(`Managed storage failed to delete "${target2}".`, { cause: error });
+        }
+      }
+    }
+    for (const target2 of targets2) {
+      removeLocalStorageKey(target2);
+      removeSessionStorageKey(target2);
+    }
+    if (getValue) {
+      for (const target2 of targets2) {
+        let stored;
+        try {
+          stored = await getValue(target2, MISSING);
+        } catch (error) {
+          throw new ManagedStateResetError(`Managed storage could not verify deletion of "${target2}".`, { cause: error });
+        }
+        if (!isMissingSentinel(stored)) {
+          throw new ManagedStateResetError(`Managed storage still contains "${target2}" after deletion.`);
+        }
+      }
+    }
+    for (const target2 of targets2) {
+      if (resetWebStorageHasKey(localStorage, target2, "localStorage") || resetWebStorageHasKey(sessionStorage, target2, "sessionStorage")) {
+        throw new ManagedStateResetError(`Web storage still contains "${target2}" after deletion.`);
+      }
+    }
   }
   async function gmPrivateStorageDelete(key2) {
     assertPrivateStorageKey(key2);
+    const getValue = directGmGetValue();
+    const setValue = directGmSetValue();
     const deleteValue = directGmDeleteValue();
-    if (deleteValue) {
+    if (!getValue || !setValue && !deleteValue) throw new Error("Secure extension storage is unavailable.");
+    if (getValue) {
       try {
-        await deleteValue(key2);
+        const epoch = await assertRealmManagedStateEpoch(getValue);
+        await deleteManagedGmValue(key2, epoch, getValue, setValue, deleteValue);
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
         debugStorageError("Private GM storage delete failed", key2, error);
         throw new Error("Secure extension storage is unavailable.");
       }
@@ -28167,21 +29130,64 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!isPrivateManagedStorageKey(key2)) throw new TypeError("Private storage requires a yomu:private: key.");
   }
   function gmStorageDeleteSync(key2) {
-    if (typeof GM_deleteValue === "function") {
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    const setValue = typeof GM_setValue === "function" ? GM_setValue : null;
+    const deleteValue = typeof GM_deleteValue === "function" ? GM_deleteValue : null;
+    if (getValue && (setValue || deleteValue)) {
       try {
-        const result2 = GM_deleteValue(key2);
-        if (isPromiseLike$1(result2)) result2.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        const epoch = managedStateEpochFromSynchronousGetter(getValue);
+        if (!epoch) {
+          void gmStorageDelete(key2).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+          return;
+        }
+        const storageKey = managedStateStorageKey(key2, epoch);
+        const result2 = storageKey === key2 ? deleteValue?.(key2) : setValue?.(storageKey, managedStateStoredValue(MISSING, epoch));
+        if (result2 === void 0 && (storageKey === key2 ? !deleteValue : !setValue)) {
+          void gmStorageDelete(key2).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+          return;
+        }
+        if (isPromiseLike$1(result2)) {
+          void result2.then(async () => {
+            await assertRealmManagedStateEpoch(getValue);
+            removeLocalManagedValue(key2);
+          }).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+          return;
+        }
+        const after = managedStateEpochFromSynchronousGetter(getValue);
+        if (!after || !sameManagedStateEpoch(epoch, after)) return;
+        removeLocalManagedValue(key2);
+        return;
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key2, error);
+        return;
       }
     }
-    removeLocalStorageKey(key2);
-    removeSessionStorageKey(key2);
+    if (asyncGmDeleteValue() || asyncGmSetValue()) {
+      void gmStorageDelete(key2).catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+      return;
+    }
+    try {
+      if (!managedStateEpochForSynchronousLocalRead()) return;
+      removeLocalManagedValue(key2);
+    } catch (error) {
+      debugStorageError("localStorage sync delete failed", key2, error);
+    }
   }
   async function exportStoredValues(prefixes) {
-    const keys = (await storageKeys(prefixes)).filter(isBackupStorageKey);
-    const entries2 = await Promise.all(keys.map(async (key2) => [key2, await gmStorageGet(key2, void 0)]));
-    return Object.fromEntries(entries2.filter(([, value]) => value !== void 0));
+    await ensureManagedWebStorageCurrent();
+    const keys = (await storageKeys(prefixes)).filter(isManagedStorageBackupKey);
+    const entries2 = await Promise.all(keys.map(async (key2) => [key2, await storedBackupValue(key2)]));
+    return Object.fromEntries(entries2.filter(([, value]) => !isMissingSentinel(value)));
+  }
+  async function storedBackupValue(key2) {
+    const shared2 = await gmStorageGet(key2, MISSING);
+    if (!isMissingSentinel(shared2)) return shared2;
+    try {
+      const serialized = managedLocalStorage.getItem(key2);
+      return serialized === null ? MISSING : JSON.parse(serialized);
+    } catch {
+      return MISSING;
+    }
   }
   async function exportManagedStoredValues() {
     return await exportStoredValues(MANAGED_STORAGE_KEY_PREFIXES);
@@ -28192,7 +29198,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const [key2, value] of entries2) {
       const storedValue = key2 === YOMU_LOCAL_SRS_STORAGE_KEY ? await mergeYomuLocalSrsDeckImport(value) : await mergeYomuLocalSrsV2Import(key2, value);
       await gmStorageSet(key2, storedValue);
-      localStorageSet(key2, storedValue);
       count2++;
     }
     return count2;
@@ -28244,7 +29249,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function managedStoredValueEntries(values) {
-    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isBackupStorageKey(key2)) : [];
+    return isStorageImportRecord(values) ? Object.entries(values).filter(([key2]) => isManagedStorageBackupKey(key2)) : [];
   }
   function isStorageImportRecord(values) {
     return Boolean(values && typeof values === "object" && !Array.isArray(values));
@@ -28312,11 +29317,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function clearManagedStoredValues() {
     const keys = await allStorageKeys();
+    await clearBridgePrivateManagedValuesForReset();
     let count2 = 0;
     for (const key2 of keys) {
-      await gmStorageDelete(key2);
-      removeLocalStorageKey(key2);
-      removeSessionStorageKey(key2);
+      await deleteManagedStoredValue(key2);
       count2++;
     }
     await clearManagedIndexedDatabases();
@@ -28324,16 +29328,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     count2 += await unregisterManagedServiceWorkers();
     return count2;
   }
+  async function managedStoredKeysStillPresent() {
+    const keys = await allStorageKeys();
+    await clearBridgePrivateManagedValuesForReset();
+    return keys;
+  }
   async function clearManagedBrowserCaches() {
     if (typeof caches === "undefined") return 0;
     try {
       const keys = await caches.keys();
       const managedKeys = keys.filter(isManagedBrowserCacheName);
       const deleted = await Promise.all(managedKeys.map((key2) => caches.delete(key2)));
-      return deleted.filter(Boolean).length;
+      const failed = managedKeys.filter((_key, index) => !deleted[index]);
+      if (failed.length) throw new ManagedStateResetError(`Managed browser caches remained: ${failed.join(", ")}`);
+      return deleted.length;
     } catch (error) {
       debugStorageError("Cache API clear failed", "managed-caches", error);
-      return 0;
+      if (error instanceof ManagedStateResetError) throw error;
+      throw new ManagedStateResetError("Managed browser caches could not be cleared.", { cause: error });
     }
   }
   async function unregisterManagedServiceWorkers() {
@@ -28342,16 +29354,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const registrations = await navigator.serviceWorker.getRegistrations();
       const managedRegistrations = registrations.filter(isManagedServiceWorkerRegistration);
       const unregistered = await Promise.all(managedRegistrations.map((registration) => registration.unregister()));
-      return unregistered.filter(Boolean).length;
+      const failed = managedRegistrations.filter((_registration, index) => !unregistered[index]);
+      if (failed.length) throw new ManagedStateResetError("Managed service workers remained registered.");
+      return unregistered.length;
     } catch (error) {
       debugStorageError("Service worker unregister failed", "managed-service-workers", error);
-      return 0;
+      if (error instanceof ManagedStateResetError) throw error;
+      throw new ManagedStateResetError("Managed service workers could not be unregistered.", { cause: error });
     }
   }
-  async function clearFactoryResetSignal() {
-    await gmStorageDelete(FACTORY_RESET_SIGNAL_KEY);
+  async function setRawControlStorageValue(key2, value) {
+    const setValue = asyncGmSetValue();
+    if (setValue) {
+      await setValue(key2, value);
+      if (key2 === MANAGED_STATE_EPOCH_KEY || isHostedYomuOrigin()) localStorageSet(key2, value);
+      return;
+    }
+    localStorageSetOrThrow(key2, value);
   }
-  function createFactoryResetSignal(phase, id2 = createFactoryResetId()) {
+  async function deleteRawControlStorageValue(key2) {
+    const getValue = asyncGmGetValue();
+    const deleteValue = asyncGmDeleteValue();
+    if (getValue && !deleteValue) throw new Error(`Managed storage cannot delete control key "${key2}".`);
+    if (deleteValue) await deleteValue(key2);
+    if (getValue) {
+      const stored = await getValue(key2, MISSING);
+      if (!isMissingSentinel(stored)) throw new Error(`Managed storage retained control key "${key2}".`);
+    }
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+  }
+  async function clearFactoryResetSignal() {
+    await deleteRawControlStorageValue(FACTORY_RESET_SIGNAL_KEY);
+  }
+  function createFactoryResetSignal(phase, id2 = createStorageCoordinationId()) {
     return {
       id: id2,
       phase,
@@ -28361,8 +29397,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function publishFactoryResetSignal(signal) {
     const normalized2 = normalizeFactoryResetSignal(signal);
-    await gmStorageSet(FACTORY_RESET_SIGNAL_KEY, normalized2);
+    await setRawControlStorageValue(FACTORY_RESET_SIGNAL_KEY, normalized2);
     publishBroadcastFactoryResetSignal(normalized2);
+  }
+  async function commitManagedStateResetEpoch(resetId) {
+    const getValue = asyncGmGetValue();
+    const setValue = asyncGmSetValue();
+    if (Boolean(getValue) !== Boolean(setValue)) {
+      throw new ManagedStateResetError("Managed storage cannot persist the reset epoch safely.");
+    }
+    let epochMayHaveCommitted = false;
+    try {
+      return await withManagedStateEpochControlLease(async () => {
+        const current = getValue && setValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+        const captured = managedStateEpochSession.current();
+        if (captured && !sameManagedStateEpoch(captured, current)) {
+          throw new StaleManagedStateEpochError(captured, current);
+        }
+        const next = nextManagedStateEpoch(current, resetId);
+        await setRawControlStorageValue(MANAGED_STATE_EPOCH_KEY, next);
+        epochMayHaveCommitted = true;
+        const persisted = getValue ? parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue)) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+        if (!sameManagedStateEpoch(next, persisted)) {
+          throw new ManagedStateResetError("Managed storage did not retain the new reset epoch.");
+        }
+        return next;
+      });
+    } catch (error) {
+      if (error instanceof ManagedStateResetError && error.epochMayHaveCommitted === epochMayHaveCommitted) throw error;
+      throw new ManagedStateResetError(
+        "Managed storage could not commit the reset epoch.",
+        { cause: error },
+        epochMayHaveCommitted
+      );
+    }
   }
   function subscribeToFactoryResetSignals(onSignal) {
     const cleanups = [];
@@ -28390,28 +29458,56 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function subscribeToStoredValueChanges(key2, onChange) {
     const cleanups = [];
-    addGmValueChangeCleanup(cleanups, key2, (_key, _oldValue, newValue) => onChange(newValue), "GM stored value listener failed");
+    const subscriptionEpoch = managedStateEpochForSynchronousLocalRead();
+    const sharedKeys = /* @__PURE__ */ new Set([key2]);
+    if (subscriptionEpoch) sharedKeys.add(managedStateStorageKey(key2, subscriptionEpoch));
+    let notificationQueue = Promise.resolve();
+    const enqueueManagedChange = (_stored, source2) => {
+      notificationQueue = notificationQueue.then(() => notifyManagedStoredValueChange(key2, source2, onChange)).catch((error) => debugStorageError("Managed stored value listener failed", key2, error));
+    };
+    for (const sharedKey of sharedKeys) {
+      addGmValueChangeCleanup(cleanups, sharedKey, (_key, _oldValue, newValue, remote) => {
+        enqueueManagedChange(newValue, { remote, transport: "gm-storage" });
+      }, "GM stored value listener failed");
+    }
     addWebStorageCleanup(cleanups, key2, (event) => {
-      onChange(JSON.parse(event.newValue || "null"));
+      const epoch = managedStateEpochForSynchronousLocalRead();
+      if (!epoch || !localMirrorBelongsToEpoch(key2, epoch)) return;
+      onChange(JSON.parse(event.newValue || "null"), { remote: true, transport: "web-storage" });
     });
     const extensionChanges = extensionStorageChangedEvent();
     if (extensionChanges) {
       const listener = (changes, areaName) => {
-        if (areaName !== "local" || !(key2 in changes)) return;
-        onChange(changes[key2]?.newValue);
+        if (areaName !== "local") return;
+        for (const sharedKey of sharedKeys) {
+          if (!(sharedKey in changes)) continue;
+          enqueueManagedChange(
+            changes[sharedKey]?.newValue,
+            { remote: true, transport: "extension-storage" }
+          );
+        }
       };
       extensionChanges.addListener(listener);
       cleanups.push(() => extensionChanges.removeListener(listener));
     }
     return () => runStorageCleanups(cleanups);
   }
+  async function notifyManagedStoredValueChange(key2, source2, onChange) {
+    const getValue = asyncGmGetValue();
+    if (!getValue) return;
+    const epoch = await assertRealmManagedStateEpoch(getValue);
+    const read = await readManagedGmValue(getValue, key2, epoch);
+    onChange(read.kind === "found" ? read.value : void 0, source2);
+  }
   function addGmValueChangeCleanup(cleanups, key2, listener, errorLabel) {
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const ambientAddValueChangeListener = typeof GM_addValueChangeListener === "function" ? GM_addValueChangeListener : void 0;
+    const addValueChangeListener = ambientAddValueChangeListener ?? globalThis.GM_addValueChangeListener;
     if (typeof addValueChangeListener !== "function") return;
     try {
       const listenerId = addValueChangeListener(key2, listener);
       cleanups.push(() => {
-        const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+        const ambientRemoveValueChangeListener = typeof GM_removeValueChangeListener === "function" ? GM_removeValueChangeListener : void 0;
+        const removeValueChangeListener = ambientRemoveValueChangeListener ?? globalThis.GM_removeValueChangeListener;
         if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
       });
     } catch (error) {
@@ -28452,10 +29548,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function addLocalStorageKeys(keys, prefixes) {
     try {
+      const candidates = [];
       for (let index = 0; index < localStorage.length; index++) {
         const key2 = localStorage.key(index);
-        if (key2 && storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+        if (key2) candidates.push(key2);
       }
+      addMatchingStorageKeys(keys, candidates, prefixes);
     } catch {
     }
   }
@@ -28466,29 +29564,66 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function addMatchingStorageKeys(keys, candidates, prefixes) {
     for (const key2 of candidates) {
-      if (storageKeyMatchesPrefix(key2, prefixes)) keys.add(key2);
+      const logicalKey = logicalManagedStorageKey(key2);
+      if (logicalKey && storageKeyMatchesPrefix(logicalKey, prefixes)) keys.add(logicalKey);
     }
   }
   function storageKeyMatchesPrefix(key2, prefixes) {
     return prefixes.some((prefix) => key2.startsWith(prefix));
   }
   async function allStorageKeys() {
+    await preflightFactoryResetEpoch();
+    const bridgePrivateValuesHandledSeparately = bridgePrivateManagedResetAvailable();
     const keys = /* @__PURE__ */ new Set();
-    await addGmStorageKeys(keys);
-    collectWebStorageKeys(localStorage, keys);
-    collectWebStorageKeys(sessionStorage, keys);
-    await addKnownStoredKeys(keys);
+    const gmEnumeration = await addGmStorageKeys(keys);
+    collectWebStorageKeys(localStorage, keys, "localStorage");
+    collectWebStorageKeys(sessionStorage, keys, "sessionStorage");
+    await addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately);
+    if (!gmEnumeration.complete) {
+      const incompleteOwners = await addDeclaredGmPrefixKeys(keys);
+      if (incompleteOwners.length) {
+        throw new ManagedStateResetError([
+          gmEnumeration.diagnostic,
+          `Missing authoritative prefix inventory: ${incompleteOwners.join(", ")}`
+        ].filter(Boolean).join(" "));
+      }
+    }
     warnUnregisteredManagedKeys(keys);
-    return [...keys].sort();
+    return [...keys].filter((key2) => !isFactoryResetControlStorageKey(key2)).sort();
+  }
+  function bridgePrivateManagedResetAvailable() {
+    return !directGmGetValue() && Boolean(getUserscriptGmStorage());
+  }
+  async function clearBridgePrivateManagedValuesForReset() {
+    if (!bridgePrivateManagedResetAvailable()) return false;
+    const bridge = getUserscriptGmStorage();
+    if (!bridge) return false;
+    try {
+      await bridge.clearPrivateManagedValues();
+      return true;
+    } catch (error) {
+      throw new ManagedStateResetError("Factory reset could not clear private managed storage.", { cause: error });
+    }
+  }
+  function isFactoryResetControlStorageKey(key2) {
+    return FACTORY_RESET_CONTROL_STORAGE_KEYS.has(key2) || key2.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX);
+  }
+  async function preflightFactoryResetEpoch() {
+    try {
+      await assertRealmManagedStateEpoch(asyncGmGetValue());
+    } catch (error) {
+      throw new ManagedStateResetError("Factory reset cannot validate the current managed-state epoch.", { cause: error });
+    }
   }
   function unregisteredManagedStorageKeys(keys) {
     const exactKeys2 = new Set(registeredManagedStorageKeys());
     const prefixes = managedStateEntries().filter((entry2) => entry2.kind !== "idb" && entry2.prefix).map((entry2) => entry2.prefix);
     const unregistered = [];
     for (const key2 of keys) {
-      if (key2 === FACTORY_RESET_SIGNAL_KEY) continue;
-      if (exactKeys2.has(key2)) continue;
-      if (prefixes.some((prefix) => key2.startsWith(prefix))) continue;
+      if (isFactoryResetControlStorageKey(key2)) continue;
+      const logicalKey = logicalManagedStorageKey(key2) ?? key2;
+      if (exactKeys2.has(logicalKey)) continue;
+      if (prefixes.some((prefix) => logicalKey.startsWith(prefix))) continue;
       unregistered.push(key2);
     }
     return unregistered;
@@ -28501,26 +29636,73 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function addGmStorageKeys(keys) {
     const listValues = asyncGmListValues();
-    if (!listValues) return;
+    if (!listValues) {
+      const hasGmBackend = Boolean(asyncGmGetValue() || asyncGmSetValue() || asyncGmDeleteValue());
+      return hasGmBackend ? { complete: false, diagnostic: "GM_listValues is unavailable." } : { complete: true };
+    }
     try {
       for (const key2 of await listValues()) keys.add(key2);
+      return { complete: true };
     } catch (error) {
       debugStorageError("GM storage list failed", "GM_listValues", error);
+      return { complete: false, diagnostic: "GM_listValues failed." };
     }
   }
-  async function addKnownStoredKeys(keys) {
+  async function addDeclaredGmPrefixKeys(keys) {
+    const incompleteOwners = [];
+    for (const entry2 of managedStateEntries()) {
+      if (entry2.kind !== "gm" || !entry2.prefix) continue;
+      if (!entry2.enumerate) {
+        incompleteOwners.push(entry2.owner);
+        continue;
+      }
+      try {
+        const enumerated = await entry2.enumerate();
+        if (enumerated.some((key2) => !key2.startsWith(entry2.prefix))) {
+          incompleteOwners.push(entry2.owner);
+          continue;
+        }
+        for (const key2 of enumerated) keys.add(key2);
+      } catch (error) {
+        debugStorageError("Managed prefix enumeration failed", entry2.owner, error);
+        incompleteOwners.push(entry2.owner);
+      }
+    }
+    return [...new Set(incompleteOwners)].sort();
+  }
+  async function addKnownStoredKeys(keys, bridgePrivateValuesHandledSeparately) {
     for (const key2 of registeredManagedStorageKeys()) {
-      if (await storedValueExists(key2)) keys.add(key2);
+      if (bridgePrivateValuesHandledSeparately && isPrivateManagedStorageKey(key2)) continue;
+      if (await resetStoredValueExists(key2)) keys.add(key2);
     }
   }
-  function collectWebStorageKeys(storage, keys) {
+  function collectWebStorageKeys(storage, keys, label) {
     try {
       for (let index = 0; index < storage.length; index++) {
         const key2 = storage.key(index);
         if (key2 && isManagedStorageKey(key2)) keys.add(key2);
       }
-    } catch {
+    } catch (error) {
+      throw new ManagedStateResetError(`Factory reset could not enumerate ${label}.`, { cause: error });
     }
+  }
+  async function resetStoredValueExists(key2) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      try {
+        const epoch = await authoritativeManagedStateEpoch(getValue);
+        const storageKey = managedStateStorageKey(key2, epoch);
+        const stored = await getValue(storageKey, MISSING);
+        if (!isMissingSentinel(stored)) return true;
+        if (storageKey !== key2) {
+          const logical = await getValue(key2, MISSING);
+          if (!isMissingSentinel(logical)) return true;
+        }
+      } catch (error) {
+        throw new ManagedStateResetError(`Factory reset could not inspect "${key2}".`, { cause: error });
+      }
+    }
+    return resetWebStorageHasKey(localStorage, key2, "localStorage") || resetWebStorageHasKey(sessionStorage, key2, "sessionStorage");
   }
   function localStorageGet(key2, fallback) {
     try {
@@ -28539,8 +29721,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function localStorageSetOrThrow(key2, value) {
     try {
       const serialized = JSON.stringify(value);
+      if (serialized === void 0) throw new Error("value is not JSON-serializable");
       localStorage.setItem(key2, serialized);
       if (localStorage.getItem(key2) !== serialized) throw new Error("read-back did not match");
+      return serialized;
     } catch (error) {
       throw storageWriteError(key2, "localStorage write failed", error);
     }
@@ -28565,12 +29749,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const getValue = asyncGmGetValue();
     if (getValue) {
       try {
-        if (!isMissingSentinel(await getValue(key2, MISSING))) return true;
+        const epoch2 = await assertRealmManagedStateEpoch(getValue);
+        const read = await readManagedGmValue(getValue, key2, epoch2);
+        if (read.kind === "found") return true;
+        if (read.kind === "deleted") return false;
       } catch (error) {
+        if (isStaleManagedStateEpochError(error)) throw error;
         debugStorageError("GM storage existence check failed", key2, error);
       }
     }
-    return webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2);
+    const epoch = managedStateEpochForSynchronousLocalRead();
+    return Boolean(epoch && localMirrorBelongsToEpoch(key2, epoch) && (webStorageHasKey(localStorage, key2) || webStorageHasKey(sessionStorage, key2)));
   }
   function webStorageHasKey(storage, key2) {
     try {
@@ -28579,12 +29768,99 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return false;
     }
   }
-  function mirrorManagedValueToHostedStorage(key2, value) {
+  function resetWebStorageHasKey(storage, key2, label) {
+    try {
+      return storage.getItem(key2) !== null;
+    } catch (error) {
+      throw new ManagedStateResetError(`Factory reset could not verify ${label} key "${key2}".`, { cause: error });
+    }
+  }
+  function mirrorManagedValueToHostedStorage(key2, value, epoch) {
     if (!shouldMirrorManagedValueToHostedStorage(key2)) return;
-    localStorageSet(key2, value);
+    try {
+      writeLocalManagedValueOrThrow(key2, value, epoch);
+    } catch (error) {
+      debugStorageError("Hosted localStorage mirror failed", key2, error);
+    }
+  }
+  function cacheManagedStateEpochForLocalFallback(epoch) {
+    if (epoch.generation <= 0) {
+      removeLocalStorageKey(MANAGED_STATE_EPOCH_KEY);
+      return;
+    }
+    try {
+      const local = parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+      if (sameManagedStateEpoch(local, epoch)) return;
+    } catch {
+    }
+    localStorageSet(MANAGED_STATE_EPOCH_KEY, epoch);
   }
   function cacheManagedValueForHostedStartup(key2, value) {
-    mirrorManagedValueToHostedStorage(key2, value);
+    const epoch = managedStateEpochForSynchronousLocalRead();
+    if (epoch) mirrorManagedValueToHostedStorage(key2, value, epoch);
+  }
+  function writeLocalManagedValueOrThrow(key2, value, epoch) {
+    const serialized = localStorageSetOrThrow(key2, value);
+    recordLocalMirrorProvenance(key2, epoch, serialized);
+  }
+  function removeLocalManagedValue(key2) {
+    removeLocalStorageKey(key2);
+    removeSessionStorageKey(key2);
+    removeLocalMirrorProvenance(key2);
+  }
+  function localMirrorBelongsToEpoch(key2, epoch) {
+    const serialized = localStorageSerializedValue(key2);
+    if (serialized === null) return false;
+    const entry2 = localMirrorProvenanceRecord()?.values[key2];
+    if (!entry2) return epoch.generation === 0;
+    return entry2.epoch === managedStateEpochToken(epoch) && entry2.fingerprint === localMirrorFingerprint(serialized);
+  }
+  function recordLocalMirrorProvenance(key2, epoch, serialized) {
+    const current = localMirrorProvenanceRecord();
+    const next = {
+      version: 1,
+      values: {
+        ...current?.values ?? {},
+        [key2]: {
+          epoch: managedStateEpochToken(epoch),
+          fingerprint: localMirrorFingerprint(serialized)
+        }
+      }
+    };
+    localStorageSetOrThrow(LOCAL_MIRROR_PROVENANCE_KEY, next);
+  }
+  function removeLocalMirrorProvenance(key2) {
+    const current = localMirrorProvenanceRecord();
+    if (!current || !(key2 in current.values)) return;
+    const values = { ...current.values };
+    delete values[key2];
+    if (Object.keys(values).length) localStorageSet(LOCAL_MIRROR_PROVENANCE_KEY, { version: 1, values });
+    else removeLocalStorageKey(LOCAL_MIRROR_PROVENANCE_KEY);
+  }
+  function localMirrorProvenanceRecord() {
+    const value = localStorageGet(LOCAL_MIRROR_PROVENANCE_KEY, null);
+    if (!isPlainRecord$1(value) || value.version !== 1 || !isPlainRecord$1(value.values)) return null;
+    const values = {};
+    for (const [key2, entry2] of Object.entries(value.values)) {
+      if (!isPlainRecord$1(entry2) || typeof entry2.epoch !== "string" || typeof entry2.fingerprint !== "string") continue;
+      values[key2] = { epoch: entry2.epoch, fingerprint: entry2.fingerprint };
+    }
+    return { version: 1, values };
+  }
+  function localStorageSerializedValue(key2) {
+    try {
+      return localStorage.getItem(key2);
+    } catch {
+      return null;
+    }
+  }
+  function localMirrorFingerprint(serialized) {
+    let hash2 = 2166136261;
+    for (let index = 0; index < serialized.length; index++) {
+      hash2 ^= serialized.charCodeAt(index);
+      hash2 = Math.imul(hash2, 16777619);
+    }
+    return `${serialized.length}:${(hash2 >>> 0).toString(16).padStart(8, "0")}`;
   }
   function shouldMirrorManagedValueToHostedStorage(key2) {
     return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && isHostedYomuOrigin();
@@ -28629,21 +29905,33 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function deleteIndexedDbDatabase(name) {
     if (typeof indexedDB === "undefined") return Promise.resolve();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      let blockedCause;
+      let settled = false;
+      const finish = (complete) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        complete();
+      };
+      const timeout = setTimeout(() => finish(() => reject(new ManagedStateResetError(
+        blockedCause ? `IndexedDB deletion remained blocked for "${name}". Close other よむ tabs and retry.` : `IndexedDB deletion timed out for "${name}".`,
+        { cause: blockedCause }
+      ))), MANAGED_IDB_DELETE_TIMEOUT_MS);
       try {
         const request2 = indexedDB.deleteDatabase(name);
-        request2.onsuccess = () => resolve();
+        request2.onsuccess = () => finish(resolve);
         request2.onerror = (error) => {
           debugStorageError("IndexedDB delete failed", name, error);
-          resolve();
+          finish(() => reject(new ManagedStateResetError(`IndexedDB failed to delete "${name}".`, { cause: error })));
         };
         request2.onblocked = (error) => {
           debugStorageError("IndexedDB delete blocked", name, error);
-          resolve();
+          blockedCause = error;
         };
       } catch (error) {
         debugStorageError("IndexedDB delete threw", name, error);
-        resolve();
+        finish(() => reject(new ManagedStateResetError(`IndexedDB could not delete "${name}".`, { cause: error })));
       }
     });
   }
@@ -28675,6 +29963,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof modern === "function") return modern.bind(globalThis.GM);
     const extension = extensionStorageArea();
     if (extension) return (key2, value) => extension.set({ [key2]: value });
+    if (directGmGetValue()) return null;
     const bridge = getUserscriptGmStorage();
     return bridge ? (key2, value) => bridge.setValue(key2, value) : null;
   }
@@ -28691,6 +29980,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof modern === "function") return modern.bind(globalThis.GM);
     const extension = extensionStorageArea();
     if (extension) return (key2) => extension.remove(key2);
+    if (directGmGetValue()) return null;
     const bridge = getUserscriptGmStorage();
     return bridge ? (key2) => bridge.deleteValue(key2) : null;
   }
@@ -28702,12 +29992,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return extension ? (key2) => extension.remove(key2) : null;
   }
   function asyncGmListValues() {
+    if (typeof GM_listValues === "function") return GM_listValues;
     const directListValues = globalThis.GM_listValues;
     if (typeof directListValues === "function") return directListValues;
     const modern = globalThis.GM?.listValues;
     if (typeof modern === "function") return modern.bind(globalThis.GM);
     const extension = extensionStorageArea();
     if (extension) return async () => extension.getKeys ? extension.getKeys() : Object.keys(await extension.get(null));
+    if (directGmGetValue()) return null;
     const bridge = getUserscriptGmStorage();
     return bridge ? () => bridge.listValues() : null;
   }
@@ -28734,7 +30026,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizedFactoryResetId(id2) {
-    return String(id2 || createFactoryResetId());
+    return String(id2 || createStorageCoordinationId());
   }
   function normalizedFactoryResetPhase(phase) {
     return phase === "complete" ? "complete" : "prepare";
@@ -28786,40 +30078,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       debugStorageError("Broadcast factory reset publish failed", FACTORY_RESET_CHANNEL_NAME, error);
     }
   }
-  function createFactoryResetId() {
-    return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  }
-  function isBackupStorageKey(key2) {
-    return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
-  }
-  async function readStorageLeaseClaims(prefix, listValues, getValue, now) {
-    const keys = (await listValues()).filter((key2) => key2.startsWith(prefix));
-    const values = await Promise.all(keys.map((key2) => getValue(key2, null)));
-    return values.flatMap((value) => {
-      const claim = parseStorageLeaseClaim(value);
-      return claim && claim.leaseUntil > now ? [claim] : [];
-    });
-  }
-  function parseStorageLeaseClaim(value) {
-    if (!isPlainRecord$1(value) || value.version !== 1 || typeof value.owner !== "string" || typeof value.choosing !== "boolean" || !Number.isSafeInteger(value.ticket) || value.ticket < 0 || !Number.isSafeInteger(value.leaseUntil)) return null;
-    return value;
-  }
-  function normalizedStorageLeaseName(name) {
-    const normalized2 = name.trim().replaceAll(/[^a-z0-9._-]+/giu, "-").slice(0, 80);
-    if (!normalized2) throw new TypeError("Storage lease name is required.");
-    return normalized2;
-  }
-  function boundedLeaseOption(value, fallback, minimum, maximum) {
-    if (value === void 0) return fallback;
-    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("Invalid storage lease option.");
-    return value;
-  }
-  function storageLeaseDelay(milliseconds) {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-  }
-  async function withWebStorageLock(name, operation) {
-    const lockManager = typeof navigator === "undefined" ? void 0 : navigator.locks;
-    return lockManager ? lockManager.request(`yomu:${normalizedStorageLeaseName(name)}`, operation) : operation();
+  async function assertManagedStateMutationFence(getValue, expected) {
+    if (managedStateWritesSuppressed()) throw new Error("Managed state writes are suppressed during factory reset.");
+    const before = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+    if (!sameManagedStateEpoch(expected, before)) throw new StaleManagedStateEpochError(expected, before);
+    const rawSignal = getValue ? await getValue(FACTORY_RESET_SIGNAL_KEY, MISSING) : localStorageGet(FACTORY_RESET_SIGNAL_KEY, MISSING);
+    const signal = isMissingSentinel(rawSignal) ? null : parseFactoryResetSignal(rawSignal);
+    if (signal?.phase === "prepare" || managedStateWritesSuppressed()) {
+      throw new Error("Managed state writes are suppressed during factory reset.");
+    }
+    const after = getValue ? await authoritativeManagedStateEpoch(getValue) : parseManagedStateEpoch(localStorageGet(MANAGED_STATE_EPOCH_KEY, void 0));
+    if (!sameManagedStateEpoch(expected, after)) throw new StaleManagedStateEpochError(expected, after);
   }
   function debugStorageError(message, key2, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key: key2, error });
@@ -31065,6 +32334,12 @@ ${spelling}`);
   const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
   const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
   const TOMBSTONE_KEY_PREFIX = "yomu:srs-local:v2:tombstone:";
+  registerManagedState({
+    owner: "srs/local-yomu-store",
+    kind: "gm",
+    prefix: "yomu:srs-local:v2:",
+    enumerate: enumerateLocalYomuSrsStorageKeys
+  });
   class LocalYomuSrsStorageError extends Error {
     constructor(options) {
       super("Your Academy deck could not be saved. Browser storage may be full. Free some site storage, then try again.", options);
@@ -31073,6 +32348,17 @@ ${spelling}`);
   }
   function isLocalYomuSrsStorageError(error) {
     return error instanceof LocalYomuSrsStorageError || Boolean(error && typeof error === "object" && error.name === "LocalYomuSrsStorageError");
+  }
+  async function enumerateLocalYomuSrsStorageKeys() {
+    const rawIndex = await gmStorageGetForResetEnumeration(DECK_INDEX_KEY, null);
+    if (rawIndex === null || rawIndex === void 0) return [];
+    const index = normalizeIndex(rawIndex);
+    if (!index) throw new Error("The local SRS index is unreadable.");
+    return [
+      DECK_INDEX_KEY,
+      ...index.cardIds.map(cardStorageKey),
+      ...index.tombstoneIds.map(tombstoneStorageKey)
+    ];
   }
   class LocalYomuSrsStore {
     async read() {
@@ -35580,39 +36866,6 @@ ${spelling}`);
       return null;
     }
   }
-  let sandboxCompanions = {};
-  function yomuOnboardingController() {
-    return yomuCompanions().settings?.OnboardingController;
-  }
-  function yomuSettingsSurfaceCompanion() {
-    return yomuCompanions().settings;
-  }
-  function yomuAnkiCompanion() {
-    return yomuCompanions().anki;
-  }
-  function yomuAnnotationsCompanion() {
-    return yomuCompanions().annotations;
-  }
-  function yomuNormalizeOcrRenderedText() {
-    return yomuCompanions().ocr?.normalizeOcrRenderedText;
-  }
-  function yomuBunproCompanion() {
-    return yomuCompanions().bunpro;
-  }
-  function yomuKanjiStudyCompanion() {
-    return yomuCompanions().kanjiStudy;
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function readYomuCompanions(target2) {
-    if (!target2 || typeof target2 !== "object" && typeof target2 !== "function") return void 0;
-    try {
-      return target2.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
   function syncProjectedReadings(owner, projections) {
     yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
   }
@@ -38530,9 +39783,8 @@ ${spelling}`);
       factoryReset: "Factory Reset",
       factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
       factoryResetFailed: "Reset failed.",
-      factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
+      factoryResetStorageIncomplete: "Reset stopped because not every saved item could be found or deleted. Close other よむ tabs and retry. If it still fails, clear よむ storage in your userscript manager.",
       factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
-      factoryResetDeleteSettingsFailed: "Could not delete settings.",
       issues: "Issues",
       donate: "Donate",
       discord: "Discord",
@@ -40011,9 +41263,8 @@ docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
 factoryResetFailed	リセットに失敗しました。
-factoryResetDictionaryWarning	設定をリセットしました。他のタブを閉じてください。
+factoryResetStorageIncomplete	保存データをすべて検出または削除できなかったため、リセットを中止しました。ほかのよむタブを閉じて再試行してください。解決しない場合は、ユーザースクリプトマネージャーでよむのストレージを消去してください。
 factoryResetOtherTabReloading	別タブでリセット。再読み込み...
-factoryResetDeleteSettingsFailed	設定を削除できません。他のタブを閉じてください。
 issues	Issue
 donate	寄付
 discord	Discord
@@ -43756,17 +45007,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const key2 of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key2);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
     await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
-  }
-  async function settingsStorageKeysStillPresent() {
-    const keys = [];
-    for (const key2 of [
-      ...SETTINGS_STORAGE_KEYS,
-      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-      EXPLICIT_USER_SETTINGS_STORAGE_KEY
-    ]) {
-      if (await storedValueExists(key2)) keys.push(key2);
-    }
-    return keys;
   }
   function isAudioSourceType(value) {
     return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
@@ -284295,20 +285535,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (seenIds.length > SEEN_SIGNAL_LIMIT) seenIds.shift();
       onCard(cardFromCardStateSignal(signal.card));
     };
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(CARD_STATE_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-          if (remote) handle(newValue);
-        });
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        log$s.debug("GM card-state listener failed", error);
-      }
-    }
+    cleanups.push(subscribeToStoredValueChanges(CARD_STATE_SIGNAL_KEY, (newValue, source2) => {
+      if (source2.remote) handle(newValue);
+    }));
     if (typeof BroadcastChannel === "function") {
       try {
         const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
@@ -291510,6 +292739,136 @@ ${scopedInner}
     }
     return start;
   }
+  async function reconcileManagedStateIdbEpoch(db, epoch, options) {
+    const token = managedStateEpochToken(epoch);
+    const transactionStores = [.../* @__PURE__ */ new Set([
+      options.markerStoreName,
+      ...options.clearedStoreNames,
+      ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
+    ])];
+    let reconciliationError;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(transactionStores, "readwrite");
+      const markerStore = tx.objectStore(options.markerStoreName);
+      const request2 = markerStore.get(options.markerKey);
+      request2.onsuccess = () => {
+        const record2 = request2.result;
+        const markerMissing = record2 === void 0;
+        if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
+          reconciliationError = managedStateIdbEpochError(options.label, "malformed");
+          return;
+        }
+        const storedToken = markerMissing ? void 0 : record2.token;
+        if (storedToken === token) return;
+        if (storedToken !== void 0) {
+          const relation = managedStateEpochTokenRelation(storedToken, epoch);
+          if (relation === "newer" || relation === "conflict" || relation === "malformed") {
+            reconciliationError = managedStateIdbEpochError(options.label, relation);
+            return;
+          }
+        }
+        if (storedToken !== void 0 || epoch.generation > 0) {
+          for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
+          for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
+        }
+        markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
+      };
+      request2.onerror = () => reject(request2.error ?? new Error(`Could not read ${options.label} epoch.`));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+      tx.onabort = () => reject(tx.error ?? new Error(`Could not reconcile ${options.label} epoch.`));
+    });
+    if (reconciliationError) throw reconciliationError;
+    await assertManagedStateMutationAllowed();
+  }
+  async function runManagedStateIdbWrite(db, marker, storeNames, mutate, options = {}) {
+    const epoch = await assertManagedStateMutationAllowed();
+    const transactionStores = [.../* @__PURE__ */ new Set([
+      marker.storeName,
+      ...typeof storeNames === "string" ? [storeNames] : storeNames
+    ])];
+    const tx = managedStateIdbTransaction(db, transactionStores, options.durability);
+    const done = idbTransactionDone(tx);
+    let mutationError;
+    const markerRequest = tx.objectStore(marker.storeName).get(marker.key);
+    markerRequest.onsuccess = () => {
+      try {
+        assertManagedStateIdbMarker(markerRequest.result, epoch);
+        mutate(tx);
+      } catch (error) {
+        mutationError = error;
+        try {
+          tx.abort();
+        } catch {
+        }
+      }
+    };
+    try {
+      await done;
+    } catch (error) {
+      throw mutationError ?? error;
+    }
+    if (mutationError) throw mutationError;
+    await assertManagedStateMutationAllowed();
+  }
+  function managedStateIdbTransaction(db, storeNames, durability) {
+    if (!durability) return db.transaction(storeNames, "readwrite");
+    try {
+      return db.transaction(storeNames, "readwrite", { durability });
+    } catch {
+      return db.transaction(storeNames, "readwrite");
+    }
+  }
+  function idbTransactionDone(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Managed IndexedDB write failed."));
+      tx.onabort = () => reject(tx.error ?? new Error("Managed IndexedDB write aborted."));
+    });
+  }
+  function managedStateIdbEpochError(label, relation) {
+    if (relation === "newer") return new Error(`${label} belongs to a newer managed-state epoch.`);
+    if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
+    return new Error(`${label} has a malformed managed-state epoch.`);
+  }
+  function assertManagedStateIdbMarker(record2, epoch) {
+    if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
+      throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
+    }
+    const storedToken = record2.token;
+    if (storedToken !== managedStateEpochToken(epoch)) {
+      throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
+    }
+  }
+  const MANAGED_STATE_STORE = "managedState";
+  const MANAGED_STATE_EPOCH_RECORD_KEY = "epoch";
+  const MANAGED_STATE_MARKER = { storeName: MANAGED_STATE_STORE, key: MANAGED_STATE_EPOCH_RECORD_KEY };
+  const CONTENT_STORES = [
+    "terms",
+    "kanji",
+    "termMeta",
+    "kanjiMeta",
+    "dictionaryInfo",
+    "termSearch",
+    "termKanji"
+  ];
+  function ensureYomitanManagedStateStore(db) {
+    if (!db.objectStoreNames.contains(MANAGED_STATE_STORE)) {
+      db.createObjectStore(MANAGED_STATE_STORE, { keyPath: "key" });
+    }
+  }
+  function reconcileYomitanManagedStateEpoch(db, epoch) {
+    return reconcileManagedStateIdbEpoch(db, epoch, {
+      label: "Dictionary database",
+      markerStoreName: MANAGED_STATE_STORE,
+      markerKey: MANAGED_STATE_EPOCH_RECORD_KEY,
+      markerKeyPath: "key",
+      clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
+    });
+  }
+  function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
+    return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
+  }
   function importEntryStores() {
     return ["terms", "kanji", "termMeta", "kanjiMeta"];
   }
@@ -292613,7 +293972,7 @@ ${entry2.reading}`;
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 5;
+  const DB_VERSION = 6;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
@@ -293164,6 +294523,7 @@ ${entry2.reading}`;
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "", options = {}) {
+      await assertManagedStateMutationAllowed();
       const done = log$m.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
         log$m.info("Dictionary file import started", fileSummary(file, sourceUrl));
@@ -293180,6 +294540,7 @@ ${entry2.reading}`;
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
+      await assertManagedStateMutationAllowed();
       log$m.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
@@ -293189,6 +294550,7 @@ ${entry2.reading}`;
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
+      await assertManagedStateMutationAllowed();
       const language2 = this.getInterfaceLanguage();
       onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
       const zip = await readZipArchive(file, (progress2) => {
@@ -293285,6 +294647,7 @@ ${entry2.reading}`;
       return summary;
     }
     async importJson(file, onProgress) {
+      await assertManagedStateMutationAllowed();
       const head = await readBlobText(file.slice(0, 4096));
       if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
         return this.importDexieJson(file, onProgress);
@@ -293313,6 +294676,7 @@ ${entry2.reading}`;
       return summary;
     }
     async importDexieJson(file, onProgress) {
+      await assertManagedStateMutationAllowed();
       onProgress?.("Streaming Yomitan dictionary export...");
       await this.clear();
       const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
@@ -293571,12 +294935,8 @@ ${entry2.reading}`;
         for (const store of stores) {
           await deleteByDictionary(db, store, dictionary);
         }
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction("dictionaryInfo", "readwrite");
+        await runYomitanManagedStateWrite(db, "dictionaryInfo", (tx) => {
           tx.objectStore("dictionaryInfo").delete(dictionary);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
-          tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
@@ -293594,7 +294954,10 @@ ${entry2.reading}`;
     }
     async clearDictionaryStores(db) {
       this.termIndexGeneration++;
-      await clearStores(db, existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]));
+      const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]);
+      await runYomitanManagedStateWrite(db, stores, (tx) => {
+        for (const storeName of stores) tx.objectStore(storeName).clear();
+      }, { durability: "relaxed" });
       this.termKanjiIndexReady = false;
     }
     async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
@@ -293604,6 +294967,7 @@ ${entry2.reading}`;
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
       for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
+        await assertManagedStateMutationAllowed();
         const chunk2 = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
         await this.addStoreChunk(db, storeName, chunk2, put);
         written += chunk2.length;
@@ -293612,20 +294976,12 @@ ${entry2.reading}`;
       }
     }
     addStoreChunk(db, storeName, entries2, put) {
-      return new Promise((resolve, reject) => {
-        const tx = readwriteTransaction(db, storeName);
+      return runYomitanManagedStateWrite(db, storeName, (tx) => {
         const store = tx.objectStore(storeName);
         for (const entry2 of entries2) {
           put ? store.put(entry2) : store.add(entry2);
         }
-        tx.oncomplete = () => {
-          this.invalidateCaches();
-          resolve();
-        };
-        tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-        tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-        commitTransaction(tx);
-      });
+      }, { durability: "relaxed" }).then(() => this.invalidateCaches());
     }
     async getByIndex(db, storeName, indexName, value, limit) {
       return new Promise((resolve, reject) => {
@@ -293957,7 +295313,7 @@ ${entry2.reading}`;
       const done = log$m.time("Term search index rebuild");
       const generation2 = this.termIndexGeneration;
       try {
-        await this.clearTermSearchIndex(db);
+        await runYomitanManagedStateWrite(db, "termSearch", (tx) => tx.objectStore("termSearch").clear());
         let indexedTerms = 0;
         let lastKey;
         for (; ; ) {
@@ -293965,7 +295321,7 @@ ${entry2.reading}`;
           const chunk2 = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
           if (!chunk2.terms.length) break;
           if (generation2 !== this.termIndexGeneration) return;
-          await this.addTermSearchIndexChunk(db, chunk2.terms);
+          await this.addDerivedTermIndexChunk(db, "termSearch", chunk2.terms, termSearchEntries);
           indexedTerms += chunk2.terms.length;
           await nextTask();
           if (chunk2.done) break;
@@ -293980,7 +295336,7 @@ ${entry2.reading}`;
       const done = log$m.time("Term kanji index rebuild");
       const generation2 = this.termIndexGeneration;
       try {
-        await this.clearTermKanjiIndex(db);
+        await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
         let indexedTerms = 0;
         let lastKey;
         for (; ; ) {
@@ -293988,7 +295344,7 @@ ${entry2.reading}`;
           const chunk2 = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
           if (!chunk2.terms.length) break;
           if (generation2 !== this.termIndexGeneration) return;
-          await this.addTermKanjiIndexChunk(db, chunk2.terms);
+          await this.addDerivedTermIndexChunk(db, "termKanji", chunk2.terms, termKanjiEntries);
           indexedTerms += chunk2.terms.length;
           await nextTask();
           if (chunk2.done) break;
@@ -294022,46 +295378,21 @@ ${entry2.reading}`;
         };
       });
     }
-    clearTermSearchIndex(db) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("termSearch", "readwrite");
-        tx.objectStore("termSearch").clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-    clearTermKanjiIndex(db) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("termKanji", "readwrite");
-        tx.objectStore("termKanji").clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
     async clearDerivedTermIndexes(db) {
       this.termIndexGeneration++;
       const stores = existingStores(db, ["termSearch", "termKanji"]);
       if (!stores.length) return;
-      await clearStores(db, stores);
+      await runYomitanManagedStateWrite(db, stores, (tx) => {
+        for (const store of stores) tx.objectStore(store).clear();
+      }, { durability: "relaxed" });
       this.termKanjiIndexReady = false;
     }
-    addTermSearchIndexChunk(db, terms) {
-      return this.addDerivedTermIndexChunk(db, "termSearch", terms, termSearchEntries);
-    }
-    addTermKanjiIndexChunk(db, terms) {
-      return this.addDerivedTermIndexChunk(db, "termKanji", terms, termKanjiEntries);
-    }
     addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, "readwrite");
+      return runYomitanManagedStateWrite(db, storeName, (tx) => {
         const store = tx.objectStore(storeName);
         for (const term of terms) {
           for (const row2 of rowsForTerm(term)) store.add(row2);
         }
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-        commitTransaction(tx);
       });
     }
     countStore(db, storeName) {
@@ -294075,16 +295406,19 @@ ${entry2.reading}`;
         request2.onerror = () => reject(request2.error);
       });
     }
-    db() {
-      this.dbPromise ??= this.openDb();
-      return this.dbPromise;
+    async db() {
+      const epoch = await assertManagedStateMutationAllowed();
+      this.dbPromise ??= this.openDb(epoch);
+      const db = await this.dbPromise;
+      await assertManagedStateMutationAllowed();
+      return db;
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local
     // lookup then died at its own render timeout with no hint why. Fail fast,
     // re-null the cached promise so a later call retries, and handle onblocked
     // (the delete path at clearAll already does both).
-    openDb() {
+    openDb(epoch) {
       const promise = new Promise((resolve, reject) => {
         const request2 = indexedDB.open(DB_NAME, DB_VERSION);
         let settled = false;
@@ -294117,6 +295451,7 @@ ${entry2.reading}`;
           if (!db.objectStoreNames.contains("dictionaryInfo")) {
             db.createObjectStore("dictionaryInfo", { keyPath: "title" });
           }
+          ensureYomitanManagedStateStore(db);
           const termSearch = ensureStore(db, tx, "termSearch");
           ensureIndex(termSearch, "token", "token");
           ensureIndex(termSearch, "dictionary", "dictionary");
@@ -294132,7 +295467,6 @@ ${entry2.reading}`;
           }
         };
         request2.onsuccess = () => {
-          clearTimeout(openTimeout);
           if (settled) {
             try {
               request2.result.close();
@@ -294140,10 +295474,21 @@ ${entry2.reading}`;
             }
             return;
           }
-          settled = true;
           const db = request2.result;
           this.installVersionChangeHandler(db);
-          resolve(db);
+          void reconcileYomitanManagedStateEpoch(db, epoch).then(() => {
+            this.invalidateCaches();
+            if (settled) {
+              db.close();
+              return;
+            }
+            settled = true;
+            clearTimeout(openTimeout);
+            resolve(db);
+          }).catch((error) => {
+            db.close();
+            failOpen("Dictionary database epoch reconciliation failed", error);
+          });
         };
         request2.onerror = () => {
           clearTimeout(openTimeout);
@@ -294454,39 +295799,14 @@ ${glossaryKey}`;
   function normalizeMediaPath(path) {
     return path.trim().replace(/^\.?\//, "").replace(/\\/g, "/");
   }
-  function readwriteTransaction(db, storeNames) {
-    try {
-      return db.transaction(storeNames, "readwrite", { durability: "relaxed" });
-    } catch {
-      return db.transaction(storeNames, "readwrite");
-    }
-  }
-  function commitTransaction(tx) {
-    try {
-      tx.commit?.();
-    } catch {
-    }
-  }
-  function clearStores(db, stores) {
-    if (!stores.length) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const tx = readwriteTransaction(db, stores);
-      for (const store of stores) tx.objectStore(store).clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
-      tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
-      commitTransaction(tx);
-    });
-  }
   async function deleteByDictionary(db, storeName, dictionary) {
     while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
       await nextTask();
     }
   }
-  function deleteDictionaryBatch(db, storeName, dictionary, limit) {
-    return new Promise((resolve, reject) => {
-      let deleted = 0;
-      const tx = readwriteTransaction(db, storeName);
+  async function deleteDictionaryBatch(db, storeName, dictionary, limit) {
+    let deleted = 0;
+    await runYomitanManagedStateWrite(db, storeName, (tx) => {
       const index = tx.objectStore(storeName).index("dictionary");
       const request2 = index.openCursor(IDBKeyRange.only(dictionary));
       request2.onsuccess = () => {
@@ -294497,11 +295817,8 @@ ${glossaryKey}`;
         if (deleted >= limit) return;
         cursor.continue();
       };
-      request2.onerror = () => reject(request2.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
-      tx.oncomplete = () => resolve(deleted);
-      tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-      tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-    });
+    }, { durability: "relaxed" });
+    return deleted;
   }
   function transactionError(tx, fallback) {
     return tx.error ?? new Error(fallback);
@@ -303161,31 +304478,33 @@ ${component.reading}`;
       const resetSignal = createFactoryResetSignal("prepare");
       this.activeResetId = resetSignal.id;
       beginSettingsResetGuard();
+      let epochCommitted = false;
       try {
         await publishFactoryResetSignal(resetSignal);
         await this.dependencies.invalidateRuntimeStores();
         await delay(FACTORY_RESET_PREPARE_DELAY_MS);
         await clearManagedStoredValues();
         await deleteSettingsStorage();
-        await this.assertSettingsStorageDeleted();
-        await this.resetDictionaryDatabaseBestEffort();
-        await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id));
-        await clearFactoryResetSignal();
+        await this.assertManagedStateDeleted();
+        await this.dependencies.resetDictionaryDatabase();
+        await commitManagedStateResetEpoch(resetSignal.id);
+        epochCommitted = true;
+        await this.dependencies.resetDictionaryDatabase().catch((error) => log$i.warn("Final dictionary reset failed after epoch commit", error));
+        await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$i.warn("Factory reset completion signal failed after epoch commit", error));
+        await clearFactoryResetSignal().catch((error) => log$i.warn("Factory reset signal cleanup failed after epoch commit", error));
         this.dependencies.reload();
       } catch (error) {
+        if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
+          log$i.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
+          await clearFactoryResetSignal().catch((signalError) => log$i.warn("Factory reset signal cleanup failed", signalError));
+          this.dependencies.reload();
+          return;
+        }
         this.activeResetId = "";
+        await clearFactoryResetSignal().catch((signalError) => log$i.warn("Factory reset signal cleanup failed", signalError));
         endSettingsResetGuard();
         log$i.warn("All-data reset failed", error);
         this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
-      }
-    }
-    async resetDictionaryDatabaseBestEffort() {
-      try {
-        return await this.dependencies.resetDictionaryDatabase();
-      } catch (error) {
-        log$i.warn("Dictionary reset failed post-settings", error);
-        this.dependencies.toast(this.text("factoryResetDictionaryWarning"));
-        return { cleared: false, deleted: false, error: error instanceof Error ? error.message : String(error) };
       }
     }
     async handleSignal(signal) {
@@ -303203,11 +304522,11 @@ ${component.reading}`;
         this.scheduleRemoteGuardRelease();
       }
     }
-    async assertSettingsStorageDeleted() {
-      const settingsKeysStillPresent = await settingsStorageKeysStillPresent();
-      if (!settingsKeysStillPresent.length) return;
-      log$i.warn("Settings keys remained after reset", { settingsKeysStillPresent });
-      throw new Error(this.text("factoryResetDeleteSettingsFailed"));
+    async assertManagedStateDeleted() {
+      const managedKeysStillPresent = await managedStoredKeysStillPresent();
+      if (!managedKeysStillPresent.length) return;
+      log$i.warn("Managed keys remained after reset", { managedKeysStillPresent });
+      throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
     }
     text(key2, values = {}) {
       return uiText(this.dependencies.getLanguage(), key2).replace(/\{(\w+)\}/g, (_match, name) => values[name] ?? "");
@@ -306849,6 +308168,7 @@ ${component.reading}`;
   const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
   const DEFAULT_LIMIT = 240;
   function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT_LIMIT } = {}) {
+    const storage = isManagedStorageKey(storageKey) ? managedLocalStorage : localStorage;
     const expiresAt = (entry2) => entry2.t + ttlMs;
     function isEntry(value) {
       if (!value || typeof value !== "object") return false;
@@ -306857,7 +308177,7 @@ ${component.reading}`;
     }
     function readState() {
       try {
-        const value = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+        const value = JSON.parse(storage.getItem(storageKey) ?? "{}");
         return value && typeof value === "object" && !Array.isArray(value) ? value : {};
       } catch {
         return {};
@@ -306865,7 +308185,7 @@ ${component.reading}`;
     }
     function writeState(state) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(state));
+        storage.setItem(storageKey, JSON.stringify(state));
       } catch {
       }
     }
@@ -315615,7 +316935,7 @@ ${entry2.url}`),
   }
   function readNewTabDailyStudyTime() {
     try {
-      const raw = localStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
+      const raw = managedLocalStorage.getItem(NEW_TAB_DAILY_STUDY_TIME_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       return typeof parsed?.date === "string" && Number.isFinite(parsed?.ms) ? parsed : null;
@@ -315625,7 +316945,7 @@ ${entry2.url}`),
   }
   function writeNewTabDailyStudyTime(value) {
     try {
-      localStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
+      managedLocalStorage.setItem(NEW_TAB_DAILY_STUDY_TIME_KEY, JSON.stringify(value));
     } catch {
     }
   }
@@ -315685,7 +317005,7 @@ ${entry2.url}`),
   function supportBannerPolicyStorage(storage) {
     if (storage !== void 0) return storage;
     try {
-      return globalThis.localStorage ?? null;
+      return typeof localStorage === "undefined" ? null : managedLocalStorage;
     } catch {
       return null;
     }
@@ -325429,7 +326749,7 @@ ${options.version}`;
     }
     readStoredWordKey() {
       try {
-        const raw = sessionStorage.getItem(SESSION_WORD_KEY);
+        const raw = managedSessionStorage.getItem(SESSION_WORD_KEY);
         if (!raw) return null;
         const value = JSON.parse(raw);
         return typeof value.signature === "string" && typeof value.key === "string" ? { signature: value.signature, key: value.key } : null;
@@ -325524,7 +326844,7 @@ ${options.version}`;
     }
     writeStoredWordKey(card) {
       try {
-        sessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
+        managedSessionStorage.setItem(SESSION_WORD_KEY, JSON.stringify({
           signature: this.currentSessionSignature(),
           key: this.cardSelectionKey(card)
         }));
@@ -371761,14 +373081,16 @@ ${rank2.detail}` : baseTitle;
     return { reassess: noop2, clear: noop2 };
   }
   function bootNewTabRuntime() {
+    void startNewTabRuntime().catch((error) => log.error("New tab initialization failed", error));
+  }
+  async function startNewTabRuntime() {
+    await ensureManagedWebStorageCurrent();
     const app = new NewTabRuntime();
-    void app.init().catch((error) => {
-      log.error("New tab initialization failed", error);
-      throw error;
-    });
+    await app.init();
     addWindowEventListener("pagehide", () => app.destroy(), { once: true });
   }
   async function mountNewTabStudySurface(host2, options) {
+    await ensureManagedWebStorageCurrent();
     const runtime2 = new NewTabRuntime({
       mountHost: host2,
       sessionClock: options.sessionClock,

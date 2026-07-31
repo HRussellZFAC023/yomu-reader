@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.61] - 2026-07-31
+
+### Fixed
+
+- Factory Reset now inventories and verifies every declared Yomu store, including the Firefox/Tampermonkey compatibility path, private settings, local study data, caches, dictionaries, and dictionary archives. If a store cannot be enumerated or cleared, reset stops with recovery guidance instead of reporting false success (GitHub #38).
+- A completed reset now advances a durable state generation, so stale tabs, origins, companion bundles, delayed writes, and surviving dictionary archives cannot restore deleted data.
+
 ## [1.8.60] - 2026-07-31
 
 ### Added
