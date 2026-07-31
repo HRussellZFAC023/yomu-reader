@@ -228,9 +228,17 @@
   color: var(--jpdb-reader-muted);
 }
 
+.jpdb-reader-newtab-support-breakdown {
+  color: var(--jpdb-reader-accent);
+  font-weight: 700;
+  text-underline-offset: 2px;
+}
+
 .jpdb-reader-newtab-support-actions {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   flex: 0 0 auto;
 }

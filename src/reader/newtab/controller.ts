@@ -21,7 +21,7 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
@@ -583,7 +583,16 @@ interface NewTabSupportStatus {
     donationsThisMonthGbp?: number;
     estimatedMonthlyCostGbp?: number;
     donateUrl?: string;
+    providers?: Array<{
+        id?: string;
+        label?: string;
+        url?: string;
+        enabled?: boolean;
+    }>;
     display?: {
+        currency?: string;
+        amount?: number;
+        goal?: number;
         amountText?: string;
         goalText?: string;
     };
@@ -643,10 +652,21 @@ function newTabRouteSearchQuery(url: URL): string {
 }
 
 function newTabSupportMeta(status: NewTabSupportStatus, language: InterfaceLanguage): string {
+    const goalValue = status.display?.goal
+        ?? status.donationGoalGbp
+        ?? status.estimatedMonthlyCostGbp;
     const goalText = status.display?.goalText
-        || formatNewTabSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+        || (typeof goalValue === 'number' && Number.isFinite(goalValue)
+            ? formatNewTabSupportCurrency(goalValue, status.display?.currency ?? 'GBP')
+            : '');
     const amountText = status.display?.amountText
-        || formatNewTabSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+        || formatNewTabSupportCurrency(
+            status.display?.amount
+                ?? status.donationsThisMonthGbp
+                ?? status.donationsTodayGbp
+                ?? 0,
+            status.display?.currency ?? 'GBP',
+        );
     const cost = newTabText(language, 'supportBannerCost').replace('{amount}', goalText);
     const goal = newTabText(language, 'supportBannerGoal')
         .replace('{current}', amountText)
@@ -654,14 +674,31 @@ function newTabSupportMeta(status: NewTabSupportStatus, language: InterfaceLangu
     return `${cost} · ${goal}`;
 }
 
-function newTabSupportDonateUrl(status: NewTabSupportStatus): string {
-    const candidate = status.banner?.donateUrl || status.donateUrl || DONATE_URL;
+function safeNewTabSupportUrl(candidate: string | undefined): string | null {
+    if (!candidate) return null;
     try {
         const url = new URL(candidate);
-        return url.protocol === 'https:' ? url.href : DONATE_URL;
+        return url.protocol === 'https:' ? url.href : null;
     } catch {
-        return DONATE_URL;
+        return null;
     }
+}
+
+function newTabReadySupportProviders(
+    status: NewTabSupportStatus,
+): Array<NonNullable<NewTabSupportStatus['providers']>[number] & { url: string }> {
+    return (status.providers ?? []).flatMap(provider => {
+        if (!provider?.enabled) return [];
+        const url = safeNewTabSupportUrl(provider.url);
+        return url ? [{ ...provider, url }] : [];
+    });
+}
+
+function newTabSupportGoalAvailable(status: NewTabSupportStatus): boolean {
+    if (typeof status.display?.goalText === 'string' && status.display.goalText.trim()) return true;
+    if (typeof status.display?.goal === 'number' && Number.isFinite(status.display.goal)) return true;
+    return [status.donationGoalGbp, status.estimatedMonthlyCostGbp]
+        .some(value => typeof value === 'number' && Number.isFinite(value));
 }
 
 function newTabSupportDismissVersion(status: NewTabSupportStatus): string {
@@ -682,8 +719,18 @@ function rememberNewTabSupportBannerDismissal(version: string): void {
     });
 }
 
-function formatNewTabSupportGbp(value: number): string {
-    return `£${Math.round(value)}`;
+function formatNewTabSupportCurrency(value: number, currency: string): string {
+    const rounded = Math.round(value);
+    try {
+        return new Intl.NumberFormat(navigator.language || 'en-GB', {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(rounded);
+    } catch {
+        return `${rounded} ${currency}`;
+    }
 }
 
 // Consolidated per-card study-step state (NB-41a). One entry per card key holds
@@ -1996,24 +2043,34 @@ export class NewTabController {
 
     private shouldShowSupportBanner(status: NewTabSupportStatus): boolean {
         if (status.banner?.enabled === false) return false;
+        if (newTabReadySupportProviders(status).length === 0) return false;
+        if (!newTabSupportGoalAvailable(status)) return false;
         return shouldShowNewTabSupportBannerImpression(newTabSupportDismissVersion(status));
     }
 
     private renderSupportBanner(banner: HTMLElement, status: NewTabSupportStatus): void {
         const version = newTabSupportDismissVersion(status);
+        const providers = newTabReadySupportProviders(status);
         banner.dataset.supportDismissVersion = version;
         banner.replaceChildren(
             el('div', { class: 'jpdb-reader-newtab-support-copy' },
                 el('strong', {}, this.text(status.goalMet ? 'supportBannerFunded' : 'supportBannerMessage')),
                 el('span', {}, newTabSupportMeta(status, this.language())),
+                el('a', {
+                    class: 'jpdb-reader-newtab-support-breakdown',
+                    href: new URL('/support#monthly-running-costs', DOCS_BASE_URL).href,
+                }, this.text('supportBannerBreakdown')),
             ),
             el('div', { class: 'jpdb-reader-newtab-support-actions' },
-                el('a', {
+                ...providers.map(provider => el('a', {
                     class: 'jpdb-reader-newtab-support-donate',
-                    href: newTabSupportDonateUrl(status),
+                    dataset: { supportProvider: provider.id ?? '' },
+                    href: provider.url,
                     target: '_blank',
                     rel: 'noopener',
-                }, this.text('donate')),
+                }, provider.id === 'stripe'
+                    ? this.text('donate')
+                    : (provider.label || provider.id || this.text('donate')))),
                 el('button', {
                     class: 'jpdb-reader-newtab-support-close',
                     type: 'button',

@@ -2,8 +2,10 @@
 
 This checklist is for the **owner-supervised session** where real accounts are
 created and real secrets are set. Nothing here needs a code change — the Worker
-and homepage already read these values. Until a provider's URL/secret is filled
-in, that provider stays hidden in the homepage bar and reports £0 in `/progress`.
+and homepage already read these values. A provider appears in the homepage bar
+only when its public URL uses HTTPS on the exact provider hostname (or its
+`www` form), `SUPPORT_DB` is bound, and every required secret is present.
+Unready providers stay hidden and report £0 in `/progress`.
 
 All commands assume you run them from the repo root with the config flag:
 
@@ -109,34 +111,61 @@ is `kofi_transaction_id`. Every verified positive donation is recorded in its
 native currency before Academy delivery is attempted. Supported Academy
 transaction currencies grant permanent access, and the code is sent to the
 top-level `email`. A missing FX rate leaves the native payment visible through
-`needsRate` instead of discarding it.
+`needsRate` instead of discarding it; progress includes the payment once a
+fresh rate becomes available.
 
-## 3. Buy Me a Coffee (link only)
+## 3. Buy Me a Coffee (donations page + webhook)
 
-BMAC has no simple signed webhook, so it is a **link-only** provider — the button
-sends supporters to your page, but its total is not auto-aggregated.
+1. Create/confirm a Buy Me a Coffee account and note its public page URL:
+   `https://buymeacoffee.com/<yourname>` or
+   `https://www.buymeacoffee.com/<yourname>`.
+2. In Buy Me a Coffee's webhook settings, register:
 
-1. Create/confirm a BMAC account; note `https://www.buymeacoffee.com/<yourname>`
-   (or `https://buymeacoffee.com/<yourname>`).
-2. Edit `wrangler.jsonc` -> `vars.SUPPORT_PROVIDER_BMAC_URL` to that URL, then
-   deploy.
+   ```text
+   https://support.yomureader.com/webhooks/bmac
+   ```
 
-(If BMAC totals should count later, add a webhook receiver mirroring the Ko-fi
-one; not required for launch.)
+   Enable `donation.created`.
+3. Store the webhook signing secret:
 
-## 4. PayPal (link only)
+   ```bash
+   npx wrangler secret put BMAC_WEBHOOK_SECRET --config workers/yomu-support/wrangler.jsonc
+   ```
 
-1. Create a PayPal.me link, e.g. `https://paypal.me/<yourname>` (or a hosted
-   PayPal donate-button URL).
-2. Edit `wrangler.jsonc` -> `vars.SUPPORT_PROVIDER_PAYPAL_URL` to that URL, then
-   deploy. Only `https://` URLs are accepted; anything else stays hidden.
+4. Set `vars.SUPPORT_PROVIDER_BMAC_URL` to the public page and deploy.
 
-PayPal.me is not connected to a REST-app webhook and therefore cannot produce a
-cryptographically verified Academy grant. Do not treat its return URL, receipt
-number, payer email, or a client-submitted transaction ID as proof. Automatic
-access requires a future PayPal REST-app Checkout integration subscribed to
-`PAYMENT.CAPTURE.COMPLETED`, with PayPal's webhook signature verified before the
-canonical private ingress is called.
+The Worker verifies `X-Signature-Sha256` as HMAC-SHA256 over the exact raw
+request body. Do not parse and reserialize the body before verification. A
+verified live, successful, non-refunded donation is recorded once in the
+support ledger. Buy Me a Coffee is accounting/support-only and does not create
+an Academy code.
+
+## 4. PayPal (support page + verified webhook)
+
+1. Create/confirm the public PayPal support URL on `paypal.me` or `paypal.com`.
+2. In the supervised PayPal developer session, create or select the production
+   REST app and register:
+
+   ```text
+   https://support.yomureader.com/webhooks/paypal
+   ```
+
+   Subscribe to `PAYMENT.CAPTURE.COMPLETED`.
+3. Store the production app credentials and the id of that webhook:
+
+   ```bash
+   npx wrangler secret put PAYPAL_CLIENT_ID --config workers/yomu-support/wrangler.jsonc
+   npx wrangler secret put PAYPAL_CLIENT_SECRET --config workers/yomu-support/wrangler.jsonc
+   npx wrangler secret put PAYPAL_WEBHOOK_ID --config workers/yomu-support/wrangler.jsonc
+   ```
+
+4. Set `vars.SUPPORT_PROVIDER_PAYPAL_URL` to the public support URL and deploy.
+
+The Worker obtains a production PayPal access token and posts the transmission
+headers, configured webhook id, and exact raw `webhook_event` to PayPal's
+`/v1/notifications/verify-webhook-signature` endpoint. Only a `SUCCESS`
+verification followed by a completed capture enters the support ledger. PayPal
+is accounting/support-only and does not create an Academy code.
 
 ## 5. Patreon (join link + webhook)
 
@@ -190,9 +219,13 @@ Patreon's member message channel.
 | `STRIPE_SECRET_KEY` | secret | `wrangler secret put` |
 | `STRIPE_WEBHOOK_SECRET` | secret | `wrangler secret put` |
 | `KOFI_WEBHOOK_SECRET` | secret | `wrangler secret put` (Ko-fi verification token) |
+| `BMAC_WEBHOOK_SECRET` | secret | `wrangler secret put` (Buy Me a Coffee signing secret) |
+| `PAYPAL_CLIENT_ID` | secret | `wrangler secret put` (production REST app client id) |
+| `PAYPAL_CLIENT_SECRET` | secret | `wrangler secret put` (production REST app client secret) |
+| `PAYPAL_WEBHOOK_ID` | secret | `wrangler secret put` (registered webhook id) |
 | `PATREON_WEBHOOK_SECRET` | secret | `wrangler secret put` (Patreon webhook secret) |
 | `ACADEMY_DELIVERY_ALERT_EMAIL` | secret | `wrangler secret put` (owner alert destination) |
-| `SUPPORT_BASE_CURRENCY` | public var | `wrangler.jsonc` `vars` (reporting currency; GBP by default) |
+| `SUPPORT_BASE_CURRENCY` | public var | `wrangler.jsonc` `vars` (canonical forecast/accounting currency; keep as GBP) |
 | `SUPPORT_PROVIDER_KOFI_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_BMAC_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_PAYPAL_URL` | public var | `wrangler.jsonc` `vars` |
@@ -206,12 +239,15 @@ only in Cloudflare via `wrangler secret put`.
 ## 7. Deploy and verify
 
 ```bash
+# Migration 0005 expands the provider ledger to all four external providers:
+npx wrangler d1 migrations apply yomu-support --config workers/yomu-support/wrangler.jsonc --remote
+
 npx wrangler deploy --config workers/yomu-support/wrangler.jsonc
 
-# Goal derives from operating-forecast.json (max(forecast, £10 floor)):
+# Goal derives from operating-forecast.json (£10.20 exact; public display £10):
 curl -s https://support.yomureader.com/goal | jq
 
-# Aggregated month-to-date across providers:
+# Aggregated month-to-date across Stripe, Ko-fi, BMAC, PayPal, and Patreon:
 curl -s https://support.yomureader.com/progress | jq
 
 # Combined status with localized display (?currency=USD, or geo-derived):
@@ -219,19 +255,25 @@ curl -s "https://support.yomureader.com/status?currency=USD" | jq '.display, .pr
 ```
 
 The homepage bar at https://yomureader.com updates automatically from `/status`
-— provider buttons appear once their URL var is set and deployed.
+. Each external provider button requires its official HTTPS hostname, the D1
+binding, and all of that provider's required secrets. Stripe requires live
+Checkout readiness. This keeps unfinished or mistyped destinations out of the
+public bar.
 
 After a supervised provider test, inspect Workers logs for delivery errors and
 stale-delivery alerts. These events contain opaque delivery state, not recipient
-addresses or codes. A successful first payment should leave one
-`email_accepted` delivery row. The code must be redeemed within 30 days. Use
-the admin payment-code endpoint or an owner-issued invite when the provider
-cannot supply a recipient.
+addresses or codes. A successful Stripe, Ko-fi, or qualifying Patreon payment
+should leave one `email_accepted` delivery row. The code must be redeemed within
+30 days. Buy Me a Coffee and PayPal receipts remain in support accounting and
+do not create delivery rows. Use the admin payment-code endpoint or an
+owner-issued invite when a code-granting provider cannot supply a recipient.
 
 ## 8. Adjusting the goal
 
 The monthly goal follows `workers/yomu-support/operating-forecast.json`
-(`max(sum of lineItems.monthlyGBP, floorGBP)`; floor is £10). Update the line
-items when infrastructure cost changes and redeploy — no code change needed.
-To pin the goal to a fixed value for a test, set
-`vars.SUPPORT_DONATION_GOAL_MONTHLY_GBP` (still floored at £10).
+(`max(sum of lineItems.monthlyGBP, floorGBP)`; floor is £10). The checked-in
+line items currently total exactly £10.20. Accounting and comparisons retain
+£10.20, while the public status bar displays the nearest whole unit, £10.
+Update the line items when infrastructure cost changes and redeploy; no code
+change is needed. Legacy fixed-goal environment variables are ignored so an
+old deployment setting cannot silently override the forecast.

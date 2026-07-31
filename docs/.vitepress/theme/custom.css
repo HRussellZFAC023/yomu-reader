@@ -152,6 +152,12 @@
   color: var(--vp-c-text-2);
 }
 
+.yomu-support-banner-breakdown {
+  color: var(--vp-c-brand-1);
+  font-weight: 680;
+  text-underline-offset: 2px;
+}
+
 .yomu-support-banner-actions {
   display: inline-flex;
   align-items: center;
@@ -2883,4 +2889,3 @@ html.dark:has(.yomu-home) {
     transform: none;
   }
 }
-

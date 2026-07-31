@@ -40,11 +40,29 @@ Discord is the fastest way to get an answer. File bugs on GitHub so they do not 
 
 Reading, dictionaries you keep on your device, study, and saving cards stay free.
 
-Donations are optional and cover hosting, test devices, and the time it takes to keep Yomu improving. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Every verified donation creates one Yomu Academy code. Enter it within 30 days. Once redeemed, Academy access stays with that Google account.
+Donations are optional and cover Yomu's shared running costs.
 
-The code is sent to the email in the provider's verified payment notice. Card payments can also show it when the same browser returns from checkout. If a provider omits the email, the payment is flagged for manual delivery. Reader signup creates your account; Academy access starts when you redeem a donation code or one issued by the owner. Your Google account can use a different email.
+### Monthly running costs {#monthly-running-costs}
 
-If a code does not arrive, ask on Discord with the provider name and receipt reference. Keep card details out of the message. The owner can recover the payment code or issue a separate code.
+| Forecast input | Monthly estimate |
+| --- | ---: |
+| Cloudflare Workers Paid plan | £3.75 |
+| R2 audio bucket storage | £0.60 |
+| R2 audio read operations | £0.40 |
+| yomureader.com domain | £0.65 |
+| D1 + KV donation state | £0.30 |
+| API usage and test devices | £4.50 |
+| **Exact forecast** | **£10.20** |
+
+The public status bar shows the nearest whole unit, £10, while the support ledger keeps the exact GBP amount.
+
+After the support migration and Worker are deployed, verified receipts from card, Ko-fi, Buy Me a Coffee, PayPal, and Patreon all count toward that monthly total. A provider appears in the status bar only when its official HTTPS page, webhook credentials, and ledger connection are ready.
+
+Card, Ko-fi, and qualifying Patreon support can create one Yomu Academy code. Once activated, Buy Me a Coffee and PayPal contribute to support accounting without creating a code. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY.
+
+An Academy code is sent to the email in the provider's verified payment notice and must be entered within 30 days. Card payments can also show it when the same browser returns from checkout. Once redeemed, Academy access stays with the Google account you choose.
+
+If a code from card, Ko-fi, or Patreon does not arrive, ask on Discord with the provider name and receipt reference. Keep payment details out of the message. The owner can recover the code or issue a separate one.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://support.yomureader.com/donate">Donate</a>

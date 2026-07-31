@@ -17,21 +17,23 @@
   ],
   "vars": {
     "SUPPORT_BANNER_ENABLED": "true",
-    // Reporting currency for persisted provider totals. Incoming payer amounts
-    // remain in their native currency; conversions are stored separately.
+    // Forecast and support accounting use canonical GBP. Incoming payer amounts
+    // remain in their native currency; converted GBP is stored separately.
     "SUPPORT_BASE_CURRENCY": "GBP",
     "SUPPORT_DAILY_BUDGET_GBP": "10",
-    // Leave SUPPORT_DONATION_GOAL_MONTHLY_GBP unset to let the goal derive from
-    // operating-forecast.json (max(forecast, £10 floor)). Set it only to pin the
-    // goal to a fixed value for testing.
+    // The goal always derives from operating-forecast.json. The current exact
+    // forecast is £10.20; the public bar rounds it to £10 while accounting
+    // retains £10.20.
     "SUPPORT_DONATIONS_TODAY_GBP": "0",
     "SUPPORT_DONATIONS_THIS_MONTH_GBP": "0",
     "SUPPORT_ESTIMATED_DAILY_COST_GBP": "0",
     "SUPPORT_SUCCESS_URL": "https://yomureader.com/support?donation=success",
     "SUPPORT_CANCEL_URL": "https://yomureader.com/support?donation=cancelled",
-    // Public provider links. Empty = hidden in the homepage bar. The supervised
-    // account-setup session pastes real URLs here (Ko-fi/BMAC page, PayPal.me,
-    // Patreon join URL). Stripe stays server-side via /donate.
+    // Public provider links. A link is exposed only when it uses HTTPS on the
+    // provider's exact hostname (or www form), SUPPORT_DB is bound, and every
+    // required provider secret is present in the Worker environment. Empty or
+    // unready = hidden.
+    // Stripe stays server-side via /donate and requires live Checkout readiness.
     "SUPPORT_PROVIDER_KOFI_URL": "https://ko-fi.com/yomureader",
     "SUPPORT_PROVIDER_BMAC_URL": "",
     "SUPPORT_PROVIDER_PAYPAL_URL": "",

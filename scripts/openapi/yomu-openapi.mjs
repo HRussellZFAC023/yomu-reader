@@ -933,10 +933,172 @@ const audioDocument = makeDocument({
     operations: audioOperations, schemas: audioSchemas, securitySchemes: audioSecurity,
 });
 
+const supportProviderIds = ['stripe', 'kofi', 'bmac', 'paypal', 'patreon'];
+const supportDisplayCurrencies = [
+    'GBP', 'USD', 'EUR', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'HKD', 'NZD', 'SGD',
+    'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'BRL', 'MXN', 'INR', 'KRW', 'ZAR', 'TRY',
+    'THB', 'IDR', 'PHP', 'MYR',
+];
+
 const supportSchemas = {
-    SupportGoal: { type: 'object', required: ['service', 'currency', 'floorGBP', 'forecastGBP', 'monthlyGoalGBP', 'breakdown'], properties: { service: { type: 'string', const: 'yomu-support' }, currency: { type: 'string', const: 'GBP' }, floorGBP: { type: 'number' }, forecastGBP: { type: 'number' }, monthlyGoalGBP: { type: 'number' }, breakdown: { type: 'array', items: { type: 'object', additionalProperties: true } } }, additionalProperties: false },
-    SupportProgress: { type: 'object', properties: { service: { type: 'string', const: 'yomu-support' }, currency: { type: 'string' }, raisedGBP: { type: 'number' }, goalGBP: { type: 'number' }, percentage: { type: 'number' } }, additionalProperties: true },
-    SupportStatus: { type: 'object', required: ['service', 'status'], properties: { service: { type: 'string', const: 'yomu-support' }, status: { type: 'string' } }, additionalProperties: true },
+    SupportGoalBreakdownItem: {
+        type: 'object',
+        required: ['id', 'label', 'monthlyGbp'],
+        properties: {
+            id: { type: 'string' },
+            label: { type: 'string' },
+            detail: { type: 'string' },
+            monthlyGbp: { type: 'number', minimum: 0 },
+            category: { type: 'string' },
+        },
+        additionalProperties: false,
+    },
+    SupportGoal: {
+        type: 'object',
+        required: ['service', 'currency', 'floorGBP', 'forecastGBP', 'monthlyGoalGBP', 'breakdown'],
+        properties: {
+            service: { type: 'string', const: 'yomu-support' },
+            currency: { type: 'string', const: 'GBP' },
+            floorGBP: { type: 'number', minimum: 0 },
+            forecastGBP: { type: 'number', minimum: 0 },
+            monthlyGoalGBP: { type: 'number', minimum: 0 },
+            breakdown: { type: 'array', items: ref('SupportGoalBreakdownItem') },
+        },
+        additionalProperties: false,
+    },
+    SupportProviderProgress: {
+        type: 'object',
+        required: ['provider', 'monthGbp', 'source'],
+        properties: {
+            provider: { type: 'string', enum: supportProviderIds },
+            monthGbp: { type: 'number', minimum: 0 },
+            source: { type: 'string', enum: ['d1', 'kv', 'env', 'none'] },
+        },
+        additionalProperties: false,
+    },
+    SupportProgress: {
+        type: 'object',
+        required: ['service', 'currency', 'month', 'totalThisMonthGbp', 'totalTodayGbp', 'needsRate', 'providers', 'source'],
+        properties: {
+            service: { type: 'string', const: 'yomu-support' },
+            currency: { type: 'string', const: 'GBP' },
+            month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' },
+            totalThisMonthGbp: { type: 'number', minimum: 0 },
+            totalTodayGbp: { type: 'number', minimum: 0 },
+            needsRate: { type: 'integer', minimum: 0 },
+            providers: { type: 'array', items: ref('SupportProviderProgress') },
+            source: { type: 'string', enum: ['d1', 'env'] },
+        },
+        additionalProperties: false,
+    },
+    SupportRevision: {
+        type: 'object',
+        required: ['version', 'deploymentId', 'deployedAt'],
+        properties: {
+            version: { type: 'string' },
+            deploymentId: { type: ['string', 'null'] },
+            deployedAt: { type: ['string', 'null'], format: 'date-time' },
+        },
+        additionalProperties: false,
+    },
+    SupportProviderLink: {
+        type: 'object',
+        required: ['id', 'label', 'url', 'kind', 'enabled'],
+        properties: {
+            id: { type: 'string', enum: supportProviderIds },
+            label: { type: 'string' },
+            url: { type: 'string', format: 'uri' },
+            kind: { type: 'string', enum: ['checkout', 'link'] },
+            enabled: { type: 'boolean' },
+        },
+        additionalProperties: false,
+    },
+    SupportCurrencyDisplay: {
+        type: 'object',
+        required: ['locale', 'currency', 'symbol', 'amount', 'goal', 'amountText', 'goalText', 'rate', 'rateDate', 'converted'],
+        properties: {
+            locale: { type: 'string' },
+            currency: { type: 'string', enum: supportDisplayCurrencies },
+            symbol: { type: 'string' },
+            amount: { type: 'integer', minimum: 0 },
+            goal: { type: 'integer', minimum: 0 },
+            amountText: { type: 'string' },
+            goalText: { type: 'string' },
+            rate: { type: 'number', exclusiveMinimum: 0 },
+            rateDate: { type: 'string' },
+            converted: { type: 'boolean' },
+        },
+        additionalProperties: false,
+    },
+    SupportAcademyDeliveryAlert: {
+        type: 'object',
+        required: ['configured', 'configurationFailures', 'lastConfigurationFailureAt'],
+        properties: {
+            configured: { type: 'boolean' },
+            configurationFailures: { type: 'integer', minimum: 0 },
+            lastConfigurationFailureAt: { type: ['string', 'null'], format: 'date-time' },
+        },
+        additionalProperties: false,
+    },
+    SupportBanner: {
+        type: 'object',
+        required: ['enabled', 'dismissVersion', 'message', 'costLabel', 'goalLabel', 'ctaLabel', 'donateUrl'],
+        properties: {
+            enabled: { type: 'boolean' },
+            dismissVersion: { type: 'string' },
+            message: { type: 'string' },
+            costLabel: { type: 'string' },
+            goalLabel: { type: 'string' },
+            ctaLabel: { type: 'string' },
+            donateUrl: { type: 'string', format: 'uri' },
+        },
+        additionalProperties: false,
+    },
+    SupportStatus: {
+        type: 'object',
+        required: [
+            'service', 'status', 'revision', 'currency', 'dailyBudgetGbp', 'donationGoalGbp',
+            'floorGbp', 'forecastGbp', 'donationsTodayGbp', 'donationsThisMonthGbp',
+            'donationsSource', 'needsRate', 'estimatedDailyCostGbp', 'estimatedMonthlyCostGbp',
+            'goalMet', 'progressRatio', 'donateUrl', 'featuresAtRisk', 'providers', 'breakdown',
+            'academyDeliveryAlert', 'display', 'banner',
+        ],
+        properties: {
+            service: { type: 'string', const: 'yomu-support' },
+            status: { type: 'string', enum: ['ok', 'stripe-test-mode', 'stripe-unconfigured'] },
+            revision: ref('SupportRevision'),
+            currency: { type: 'string', const: 'GBP' },
+            dailyBudgetGbp: { type: 'number', minimum: 0 },
+            donationGoalGbp: { type: 'integer', minimum: 0 },
+            floorGbp: { type: 'number', minimum: 0 },
+            forecastGbp: { type: 'number', minimum: 0 },
+            donationsTodayGbp: { type: 'number', minimum: 0 },
+            donationsThisMonthGbp: { type: 'number', minimum: 0 },
+            donationsSource: { type: 'string', enum: ['d1', 'env'] },
+            needsRate: { type: 'integer', minimum: 0 },
+            estimatedDailyCostGbp: { type: 'number', minimum: 0 },
+            estimatedMonthlyCostGbp: { type: 'number', minimum: 0 },
+            goalMet: { type: 'boolean' },
+            progressRatio: { type: 'number', minimum: 0, maximum: 1 },
+            donateUrl: { type: 'string', format: 'uri' },
+            featuresAtRisk: { type: 'array', items: { type: 'string' } },
+            providers: { type: 'array', items: ref('SupportProviderLink') },
+            breakdown: { type: 'array', items: ref('SupportGoalBreakdownItem') },
+            academyDeliveryAlert: ref('SupportAcademyDeliveryAlert'),
+            display: ref('SupportCurrencyDisplay'),
+            banner: ref('SupportBanner'),
+        },
+        additionalProperties: false,
+    },
+    SupportWebhookReceipt: {
+        type: 'object',
+        required: ['received', 'recorded'],
+        properties: {
+            received: { type: 'boolean', const: true },
+            recorded: { type: 'boolean' },
+        },
+        additionalProperties: false,
+    },
 };
 
 const providerBody = {
@@ -949,10 +1111,12 @@ const providerBody = {
 };
 
 const providerResponse = {
-    '200': { description: 'The verified event was accepted or was an idempotent duplicate.', content: jsonContent(ok) },
+    '200': { description: 'The verified event was accepted; recorded is false for ignored or non-contribution events.', content: jsonContent(ref('SupportWebhookReceipt')) },
     '400': { description: 'The payload is malformed.', content: { 'text/plain': { schema: { type: 'string' } } } },
     '401': { description: 'The provider signature is invalid.', content: { 'text/plain': { schema: { type: 'string' } } } },
+    '422': { description: 'The verified contribution is missing the identity required for delivery.', content: { 'text/plain': { schema: { type: 'string' } } } },
     '500': { description: 'The event could not be persisted.', content: { 'text/plain': { schema: { type: 'string' } } } },
+    '503': { description: 'The provider webhook or donation ledger is not configured.', content: { 'text/plain': { schema: { type: 'string' } } } },
 };
 
 export const supportOperations = [
@@ -966,6 +1130,8 @@ export const supportOperations = [
     { method: 'post', path: '/stripe/webhook', operationId: 'receiveStripeWebhook', tag: 'Provider webhooks', summary: 'Receive Stripe events', description: 'Signature-verified Stripe webhook ingress.', requestBody: providerBody, responses: providerResponse },
     { method: 'post', path: '/webhook', operationId: 'receiveStripeWebhookAlias', tag: 'Provider webhooks', summary: 'Receive Stripe events (legacy alias)', description: 'Legacy alias of `/stripe/webhook`.', requestBody: providerBody, responses: providerResponse, deprecated: true },
     { method: 'post', path: '/webhooks/kofi', operationId: 'receiveKofiWebhook', tag: 'Provider webhooks', summary: 'Receive Ko-fi events', description: 'Token-verified Ko-fi webhook ingress.', requestBody: providerBody, responses: providerResponse },
+    { method: 'post', path: '/webhooks/bmac', operationId: 'receiveBmacWebhook', tag: 'Provider webhooks', summary: 'Receive Buy Me a Coffee events', description: 'HMAC-SHA256-verified Buy Me a Coffee donation webhook ingress.', requestBody: providerBody, responses: providerResponse },
+    { method: 'post', path: '/webhooks/paypal', operationId: 'receivePaypalWebhook', tag: 'Provider webhooks', summary: 'Receive PayPal events', description: 'PayPal-postback-verified capture webhook ingress.', requestBody: providerBody, responses: providerResponse },
     { method: 'post', path: '/webhooks/patreon', operationId: 'receivePatreonWebhook', tag: 'Provider webhooks', summary: 'Receive Patreon events', description: 'Signature-verified Patreon webhook ingress.', requestBody: providerBody, responses: providerResponse },
 ];
 

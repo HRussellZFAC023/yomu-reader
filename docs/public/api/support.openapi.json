@@ -332,21 +332,11 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The verified event was accepted or was an idempotent duplicate.",
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "const": true
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
                 }
               }
             }
@@ -371,8 +361,28 @@
               }
             }
           },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -413,21 +423,11 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The verified event was accepted or was an idempotent duplicate.",
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "const": true
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
                 }
               }
             }
@@ -452,8 +452,28 @@
               }
             }
           },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -495,21 +515,11 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The verified event was accepted or was an idempotent duplicate.",
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "const": true
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
                 }
               }
             }
@@ -534,8 +544,210 @@
               }
             }
           },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/bmac": {
+      "post": {
+        "operationId": "receiveBmacWebhook",
+        "tags": [
+          "Provider webhooks"
+        ],
+        "summary": "Receive Buy Me a Coffee events",
+        "description": "HMAC-SHA256-verified Buy Me a Coffee donation webhook ingress.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The payload is malformed.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The provider signature is invalid.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "description": "Provider-defined webhook payload. The service validates the provider signature before accepting it.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/paypal": {
+      "post": {
+        "operationId": "receivePaypalWebhook",
+        "tags": [
+          "Provider webhooks"
+        ],
+        "summary": "Receive PayPal events",
+        "description": "PayPal-postback-verified capture webhook ingress.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The payload is malformed.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The provider signature is invalid.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -576,21 +788,11 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "The verified event was accepted or was an idempotent duplicate.",
+            "description": "The verified event was accepted; recorded is false for ignored or non-contribution events.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean",
-                      "const": true
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/SupportWebhookReceipt"
                 }
               }
             }
@@ -615,8 +817,28 @@
               }
             }
           },
+          "422": {
+            "description": "The verified contribution is missing the identity required for delivery.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "500": {
             "description": "The event could not be persisted.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The provider webhook or donation ledger is not configured.",
             "content": {
               "text/plain": {
                 "schema": {
@@ -649,6 +871,33 @@
   },
   "components": {
     "schemas": {
+      "SupportGoalBreakdownItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "monthlyGbp"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "monthlyGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "category": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "SupportGoal": {
         "type": "object",
         "required": [
@@ -669,51 +918,347 @@
             "const": "GBP"
           },
           "floorGBP": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "forecastGBP": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "monthlyGoalGBP": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "breakdown": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/SupportGoalBreakdownItem"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupportProviderProgress": {
+        "type": "object",
+        "required": [
+          "provider",
+          "monthGbp",
+          "source"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "kofi",
+              "bmac",
+              "paypal",
+              "patreon"
+            ]
+          },
+          "monthGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "d1",
+              "kv",
+              "env",
+              "none"
+            ]
           }
         },
         "additionalProperties": false
       },
       "SupportProgress": {
         "type": "object",
+        "required": [
+          "service",
+          "currency",
+          "month",
+          "totalThisMonthGbp",
+          "totalTodayGbp",
+          "needsRate",
+          "providers",
+          "source"
+        ],
         "properties": {
           "service": {
             "type": "string",
             "const": "yomu-support"
           },
           "currency": {
-            "type": "string"
+            "type": "string",
+            "const": "GBP"
           },
-          "raisedGBP": {
-            "type": "number"
+          "month": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}$"
           },
-          "goalGBP": {
-            "type": "number"
+          "totalThisMonthGbp": {
+            "type": "number",
+            "minimum": 0
           },
-          "percentage": {
-            "type": "number"
+          "totalTodayGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "needsRate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportProviderProgress"
+            }
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "d1",
+              "env"
+            ]
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
+      },
+      "SupportRevision": {
+        "type": "object",
+        "required": [
+          "version",
+          "deploymentId",
+          "deployedAt"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deployedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupportProviderLink": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "url",
+          "kind",
+          "enabled"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "kofi",
+              "bmac",
+              "paypal",
+              "patreon"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "checkout",
+              "link"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupportCurrencyDisplay": {
+        "type": "object",
+        "required": [
+          "locale",
+          "currency",
+          "symbol",
+          "amount",
+          "goal",
+          "amountText",
+          "goalText",
+          "rate",
+          "rateDate",
+          "converted"
+        ],
+        "properties": {
+          "locale": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "GBP",
+              "USD",
+              "EUR",
+              "JPY",
+              "AUD",
+              "CAD",
+              "CHF",
+              "CNY",
+              "HKD",
+              "NZD",
+              "SGD",
+              "SEK",
+              "NOK",
+              "DKK",
+              "PLN",
+              "CZK",
+              "BRL",
+              "MXN",
+              "INR",
+              "KRW",
+              "ZAR",
+              "TRY",
+              "THB",
+              "IDR",
+              "PHP",
+              "MYR"
+            ]
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "goal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "amountText": {
+            "type": "string"
+          },
+          "goalText": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rateDate": {
+            "type": "string"
+          },
+          "converted": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupportAcademyDeliveryAlert": {
+        "type": "object",
+        "required": [
+          "configured",
+          "configurationFailures",
+          "lastConfigurationFailureAt"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "configurationFailures": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastConfigurationFailureAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SupportBanner": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "dismissVersion",
+          "message",
+          "costLabel",
+          "goalLabel",
+          "ctaLabel",
+          "donateUrl"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "dismissVersion": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "costLabel": {
+            "type": "string"
+          },
+          "goalLabel": {
+            "type": "string"
+          },
+          "ctaLabel": {
+            "type": "string"
+          },
+          "donateUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
       },
       "SupportStatus": {
         "type": "object",
         "required": [
           "service",
-          "status"
+          "status",
+          "revision",
+          "currency",
+          "dailyBudgetGbp",
+          "donationGoalGbp",
+          "floorGbp",
+          "forecastGbp",
+          "donationsTodayGbp",
+          "donationsThisMonthGbp",
+          "donationsSource",
+          "needsRate",
+          "estimatedDailyCostGbp",
+          "estimatedMonthlyCostGbp",
+          "goalMet",
+          "progressRatio",
+          "donateUrl",
+          "featuresAtRisk",
+          "providers",
+          "breakdown",
+          "academyDeliveryAlert",
+          "display",
+          "banner"
         ],
         "properties": {
           "service": {
@@ -721,10 +1266,121 @@
             "const": "yomu-support"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "ok",
+              "stripe-test-mode",
+              "stripe-unconfigured"
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/SupportRevision"
+          },
+          "currency": {
+            "type": "string",
+            "const": "GBP"
+          },
+          "dailyBudgetGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "donationGoalGbp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "floorGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "forecastGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "donationsTodayGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "donationsThisMonthGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "donationsSource": {
+            "type": "string",
+            "enum": [
+              "d1",
+              "env"
+            ]
+          },
+          "needsRate": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "estimatedDailyCostGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "estimatedMonthlyCostGbp": {
+            "type": "number",
+            "minimum": 0
+          },
+          "goalMet": {
+            "type": "boolean"
+          },
+          "progressRatio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "donateUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "featuresAtRisk": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportProviderLink"
+            }
+          },
+          "breakdown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportGoalBreakdownItem"
+            }
+          },
+          "academyDeliveryAlert": {
+            "$ref": "#/components/schemas/SupportAcademyDeliveryAlert"
+          },
+          "display": {
+            "$ref": "#/components/schemas/SupportCurrencyDisplay"
+          },
+          "banner": {
+            "$ref": "#/components/schemas/SupportBanner"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
+      },
+      "SupportWebhookReceipt": {
+        "type": "object",
+        "required": [
+          "received",
+          "recorded"
+        ],
+        "properties": {
+          "received": {
+            "type": "boolean",
+            "const": true
+          },
+          "recorded": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       }
     },
     "securitySchemes": {}

@@ -126,6 +126,7 @@ function supportDonationDb() {
                     return this;
                 },
                 async first() { return null; },
+                async all() { return { results: [] }; },
                 async run() {
                     eventIds.add(String(values[0] ?? ''));
                     return { success: true, meta: { changes: 1 } };

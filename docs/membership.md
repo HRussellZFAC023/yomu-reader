@@ -1,17 +1,17 @@
 ---
 title: Membership
-description: Yomu is free and stays free. If it has earned a place in your day, you can chip in through Ko-fi, Patreon or card — whichever you already use.
+description: Yomu is free and stays free. Chip in toward its small monthly bill through a verified support provider.
 ---
 
 # Membership
 
 **Yomu is free, and the reader stays free.** Everything on this site works without paying: reading, lookups, reviews, manga, subtitles, dictionaries.
 
-Membership is for people who want to keep it being built — and it is how Academy will be funded, so members get access when it opens.
+Support is for people who want to keep Yomu being built. It also helps fund Academy.
 
-## Pick whichever you already use
+## Choose the service you already use
 
-All three go to the same place. Choose the one you find easiest — there is no better option, and no difference to what you get.
+The checked-in forecast for hosting, storage, the domain, APIs, and test devices is exactly £10.20 a month. The public status bar displays the nearest whole unit, £10, and keeps exact GBP values for accounting.
 
 <div class="yomu-cta-grid yomu-membership-options">
   <a class="yomu-cta-button primary" href="https://ko-fi.com/yomureader">Ko-fi</a>
@@ -19,22 +19,26 @@ All three go to the same place. Choose the one you find easiest — there is no 
   <a class="yomu-cta-button" href="https://support.yomureader.com/donate">Card</a>
 </div>
 
-Ko-fi takes one-off or monthly payments. Patreon is monthly. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. A verified payment creates one Academy code. Enter it within 30 days. Once redeemed, access stays with the Google account you choose.
+Ko-fi takes one-off or monthly payments. Patreon is monthly. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Buy Me a Coffee and PayPal appear in the live status bar once their official pages and verified webhooks are ready.
 
-## What members get
+After the support migration and Worker are deployed, verified receipts from all five services count toward the monthly bill. Card, Ko-fi, and qualifying Patreon support can create one Academy code. Buy Me a Coffee and PayPal will join support accounting after activation, without creating a code.
 
-- **Academy access when it opens.** Academy teaches Japanese from zero, in order, and is in development. Members get in.
-- **A say in what gets built next.** Members' reports and requests get answered first.
-- **The reader keeps improving for everyone.** Nothing in the reader gets locked behind this.
+Enter an Academy code within 30 days. Once redeemed, access stays with the Google account you choose.
 
-## What it does not do
+## What support makes possible
 
-- **It does not unlock reader features.** No paywalled lookups, dictionaries, subtitles or reviews — now or later.
-- **It is not a subscription you have to keep.** Stop whenever you like; nothing you saved is taken away.
+- **Academy access from code-granting support.** Academy teaches Japanese from zero, in order, and is in development. Card, Ko-fi, and qualifying Patreon support can issue a code.
+- **A say in what gets built next.** Supporters' reports and requests get answered first.
+- **Reader improvements for everyone.** Lookup, dictionary, subtitle, and review features stay open.
+
+## Reader access stays the same
+
+- **The reader stays open.** Reading and study features work without a membership.
+- **Your saved work stays yours.** Stop supporting whenever you like.
 
 ## Other ways to help, free
 
-Money is not the only useful thing, and for a project this size it is not even the most useful.
+Sharing Yomu and reporting bugs also help.
 
 - **Tell one other learner.** Yomu's biggest problem is that people who would like it have never heard of it.
 - **Report what broke.** A clear bug report is worth more than a month of coffee: [Discord](https://discord.gg/jD6NPURewD) or [GitHub](https://github.com/HRussellZFAC023/yomu-reader/issues).

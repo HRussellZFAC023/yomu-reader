@@ -19,6 +19,22 @@ import {
   reconcileAcademyCodeDeliveries,
   type AcademyCodeDeliveryEnv,
 } from "./academy-code-delivery";
+import {
+  bmacDonationFromPayload,
+  hasValidBmacSignature,
+  hasValidPaypalSignature,
+  paypalDonationFromPayload,
+  paypalWebhookConfigured,
+  type ExternalDonation,
+} from "./external-donation-webhooks";
+import {
+  configuredSupportProviderUrl,
+  EXTERNAL_SUPPORT_PROVIDER_IDS,
+  SUPPORT_PROVIDERS,
+  supportProviderReady,
+  type ExternalSupportProviderId,
+  type SupportProviderId,
+} from "./support-providers";
 import { withWorkerSecurityHeaders } from "../../shared/security-headers";
 import { serviceRevision, type ServiceRevision } from "../../shared/service-revision";
 
@@ -57,10 +73,7 @@ const ACADEMY_ALERT_CONFIGURATION_COUNTER = "academy_delivery_alert_unconfigured
 const FX_RATES_URL = "https://api.frankfurter.dev/v1/latest?base=GBP";
 const FX_CACHE_KEY = "fx:GBP:latest";
 const FX_CACHE_TTL_SECONDS = 24 * 60 * 60;
-
-
-const MANUAL_PROVIDERS = ["kofi", "patreon", "bmac", "paypal"] as const;
-type ManualProvider = (typeof MANUAL_PROVIDERS)[number];
+const FX_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -93,10 +106,16 @@ interface Env extends AcademyCodeDeliveryEnv {
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   KOFI_WEBHOOK_SECRET?: string;
+  BMAC_WEBHOOK_SECRET?: string;
   PATREON_WEBHOOK_SECRET?: string;
+  PAYPAL_CLIENT_ID?: string;
+  PAYPAL_CLIENT_SECRET?: string;
+  PAYPAL_WEBHOOK_ID?: string;
   SUPPORT_BANNER_ENABLED?: string;
   SUPPORT_BASE_CURRENCY?: string;
   SUPPORT_DAILY_BUDGET_GBP?: string;
+  // Legacy deployment variables are accepted but deliberately ignored. The
+  // checked-in forecast is the single goal source.
   SUPPORT_DONATION_GOAL_GBP?: string;
   SUPPORT_DONATION_GOAL_MONTHLY_GBP?: string;
   SUPPORT_DONATIONS_TODAY_GBP?: string;
@@ -118,6 +137,7 @@ interface D1Database {
 interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = unknown>(): Promise<T | null>;
+  all<T = unknown>(): Promise<D1Result<T>>;
   run<T = unknown>(): Promise<D1Result<T>>;
 }
 
@@ -160,9 +180,16 @@ interface GoalResponse {
 }
 
 interface ProviderProgress {
-  provider: "stripe" | ManualProvider;
+  provider: SupportProviderId;
   monthGbp: number;
   source: "d1" | "kv" | "env" | "none";
+}
+
+interface PendingProviderCurrencyRow {
+  currency?: string | null;
+  total_minor?: number | null;
+  today_minor?: number | null;
+  donation_count?: number | null;
 }
 
 interface ProgressResponse {
@@ -177,6 +204,7 @@ interface ProgressResponse {
 }
 
 interface CurrencyDisplay {
+  locale: string;
   currency: string;
   symbol: string;
   amount: number;
@@ -189,7 +217,7 @@ interface CurrencyDisplay {
 }
 
 interface SupportProviderLink {
-  id: "stripe" | ManualProvider;
+  id: SupportProviderId;
   label: string;
   url: string;
   kind: "checkout" | "link";
@@ -327,6 +355,8 @@ function handleWriteRoute(
 ): Promise<Response> | null {
   if (pathname === "/stripe/webhook" || pathname === "/webhook") return handleStripeWebhook(request, env);
   if (pathname === "/webhooks/kofi") return handleKofiWebhook(request, env, ctx);
+  if (pathname === "/webhooks/bmac") return handleBmacWebhook(request, env, ctx);
+  if (pathname === "/webhooks/paypal") return handlePaypalWebhook(request, env, ctx);
   if (pathname === "/webhooks/patreon") return handlePatreonWebhook(request, env, ctx);
   if (pathname === "/claim") return handleDonationClaim(request, env);
   return null;
@@ -345,7 +375,7 @@ async function handleReadRoute(
 
   let response: Response;
   if (pathname === "/goal") {
-    response = jsonResponse(request, buildGoal(env), 200, cacheHeaders);
+    response = jsonResponse(request, buildGoal(), 200, cacheHeaders);
   } else if (pathname === "/progress") {
     response = jsonResponse(request, await buildProgress(env, ctx), 200, cacheHeaders);
   } else if (pathname === "/status" || pathname === "/healthz") {
@@ -373,6 +403,7 @@ function supportEdgeCacheSlot(request: Request, pathname: string): EdgeCacheSlot
   if (pathname === "/status" || pathname === "/healthz") {
     url.searchParams.set("__yomu_cache_language", prefersJapanese(request) ? "ja" : "en");
     url.searchParams.set("__yomu_cache_country", requestCountry(request) ?? "");
+    url.searchParams.set("__yomu_cache_locale", requestLocale(request));
   }
   return { backend, key: new Request(url.toString(), { method: "GET" }) };
 }
@@ -401,16 +432,11 @@ function supportEdgeCacheHit(request: Request, hit: Response): Response {
 
 // --- Goal (dynamic, forecast-driven) -------------------------------------
 
-function buildGoal(env: Env): GoalResponse {
+function buildGoal(): GoalResponse {
   const floorGBP = forecastFloorGbp();
   const breakdown = forecastBreakdown();
   const forecastGBP = round2(breakdown.reduce((sum, item) => sum + item.monthlyGbp, 0));
-  const pinnedGoal = positiveNumberEnv(
-    env.SUPPORT_DONATION_GOAL_MONTHLY_GBP ?? env.SUPPORT_DONATION_GOAL_GBP,
-    NaN,
-  );
-  const effectiveForecast = Number.isFinite(pinnedGoal) ? pinnedGoal : forecastGBP;
-  const monthlyGoalGBP = round2(Math.max(floorGBP, effectiveForecast));
+  const monthlyGoalGBP = round2(Math.max(floorGBP, forecastGBP));
   return {
     service: "yomu-support",
     currency: "GBP",
@@ -446,7 +472,7 @@ function forecastFloorGbp(): number {
 async function buildProgress(env: Env, ctx: ExecutionContext): Promise<ProgressResponse> {
   const baseCurrency = supportBaseCurrency(env);
   const stripe = await donationSnapshot(env, ctx);
-  const manual = await manualProviderProgress(env);
+  const manual = await manualProviderProgress(env, ctx);
   const providers: ProviderProgress[] = [
     { provider: "stripe", monthGbp: round2(stripe.donationsThisMonthGbp), source: stripe.source },
     ...manual.providers,
@@ -466,14 +492,20 @@ async function buildProgress(env: Env, ctx: ExecutionContext): Promise<ProgressR
 
 async function manualProviderProgress(
   env: Env,
+  ctx: ExecutionContext,
 ): Promise<{ providers: ProviderProgress[]; todayMinor: number; needsRate: number }> {
   const month = utcMonthKey();
   const baseCurrency = supportBaseCurrency(env);
   const providers: ProviderProgress[] = [];
+  let ratesPromise: Promise<FxRatesPayload | null> | null = null;
+  const resolveRates = () => {
+    ratesPromise ??= fxRates(env, ctx);
+    return ratesPromise;
+  };
   let todayMinor = 0;
   let needsRate = 0;
-  for (const provider of MANUAL_PROVIDERS) {
-    const progress = await providerDonationProgress(env, provider, month);
+  for (const provider of EXTERNAL_SUPPORT_PROVIDER_IDS) {
+    const progress = await providerDonationProgress(env, provider, month, resolveRates);
     todayMinor += progress.todayMinor;
     needsRate += progress.needsRate;
     providers.push({
@@ -487,15 +519,16 @@ async function manualProviderProgress(
 
 async function providerDonationProgress(
   env: Env,
-  provider: ManualProvider,
+  provider: ExternalSupportProviderId,
   month: string,
+  resolveRates: () => Promise<FxRatesPayload | null>,
 ): Promise<{ monthMinor: number; todayMinor: number; needsRate: number; source: "d1" | "none" }> {
-  if (!env.SUPPORT_DB || (provider !== "kofi" && provider !== "patreon")) {
+  if (!env.SUPPORT_DB) {
     return { monthMinor: 0, todayMinor: 0, needsRate: 0, source: "none" };
   }
   const baseCurrency = supportBaseCurrency(env).toLowerCase();
   try {
-    const [monthRow, todayRow] = await Promise.all([
+    const [monthRow, todayRow, pendingRows] = await Promise.all([
       env.SUPPORT_DB.prepare(`
         SELECT
           COALESCE(SUM(base_amount_minor), 0) AS total_minor,
@@ -509,11 +542,57 @@ async function providerDonationProgress(
         FROM provider_donation_events
         WHERE provider = ? AND day = ? AND base_currency = ?
       `).bind(provider, utcDayKey(), baseCurrency).first<{ total_minor?: number | null }>(),
+      env.SUPPORT_DB.prepare(`
+        SELECT
+          currency,
+          COALESCE(SUM(amount_minor), 0) AS total_minor,
+          COALESCE(SUM(CASE WHEN day = ? THEN amount_minor ELSE 0 END), 0) AS today_minor,
+          COUNT(*) AS donation_count
+        FROM provider_donation_events
+        WHERE provider = ?
+          AND day >= ?
+          AND day < ?
+          AND base_currency = ?
+          AND needs_rate = 1
+        GROUP BY currency
+      `).bind(utcDayKey(), provider, month, nextUtcMonthKey(), baseCurrency)
+        .all<PendingProviderCurrencyRow>(),
     ]);
+    let recoveredMonthMinor = 0;
+    let recoveredTodayMinor = 0;
+    let unresolvedCount = 0;
+    const pending = pendingRows.results ?? [];
+    if (pending.length > 0) {
+      const rates = await resolveRates();
+      for (const row of pending) {
+        const currency = typeof row.currency === "string" && /^[a-z]{3}$/iu.test(row.currency)
+          ? row.currency
+          : "";
+        const totalMinor = nonNegativeNumber(row.total_minor, 0);
+        const todayNativeMinor = nonNegativeNumber(row.today_minor, 0);
+        const donationCount = nonNegativeNumber(row.donation_count, 0);
+        const recoveredMonthGbp = currency
+          ? donationMinorToBase(totalMinor, currency, rates, DEFAULT_SUPPORT_BASE_CURRENCY)
+          : null;
+        const recoveredTodayGbp = currency
+          ? donationMinorToBase(todayNativeMinor, currency, rates, DEFAULT_SUPPORT_BASE_CURRENCY)
+          : null;
+        if (recoveredMonthGbp === null || recoveredTodayGbp === null) {
+          unresolvedCount += donationCount;
+          continue;
+        }
+        recoveredMonthMinor += Math.round(
+          recoveredMonthGbp * currencyMinorScale(DEFAULT_SUPPORT_BASE_CURRENCY),
+        );
+        recoveredTodayMinor += Math.round(
+          recoveredTodayGbp * currencyMinorScale(DEFAULT_SUPPORT_BASE_CURRENCY),
+        );
+      }
+    }
     return {
-      monthMinor: nonNegativeNumber(monthRow?.total_minor, 0),
-      todayMinor: nonNegativeNumber(todayRow?.total_minor, 0),
-      needsRate: nonNegativeNumber(monthRow?.needs_rate, 0),
+      monthMinor: nonNegativeNumber(monthRow?.total_minor, 0) + recoveredMonthMinor,
+      todayMinor: nonNegativeNumber(todayRow?.total_minor, 0) + recoveredTodayMinor,
+      needsRate: unresolvedCount,
       source: "d1",
     };
   } catch (error) {
@@ -531,7 +610,7 @@ async function providerDonationProgress(
 async function supportStatus(request: Request, env: Env, ctx: ExecutionContext): Promise<SupportStatus> {
   const dailyBudgetGbp = positiveNumberEnv(env.SUPPORT_DAILY_BUDGET_GBP, DEFAULT_DAILY_BUDGET_GBP);
   const estimatedDailyCostGbp = nonNegativeNumberEnv(env.SUPPORT_ESTIMATED_DAILY_COST_GBP, 0);
-  const goal = buildGoal(env);
+  const goal = buildGoal();
   const estimatedMonthlyCostGbp = monthlyCostEstimate(env, estimatedDailyCostGbp);
   const progress = await buildProgress(env, ctx);
   const donationsTodayGbp = progress.totalTodayGbp;
@@ -543,6 +622,7 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
     ? Math.min(1, round2(donationsThisMonthGbp / exactDonationGoalGbp))
     : 0;
   const donateUrl = donateUrlFor(request);
+  const providers = providerLinks(request, env);
   const display = await currencyDisplay(request, env, ctx, donationsThisMonthGbp, exactDonationGoalGbp);
   const bannerCopy = supportBannerCopy(request, goalMet, display);
   const academyAlertCounter = await readSupportCounter(
@@ -568,7 +648,7 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
     progressRatio,
     donateUrl,
     featuresAtRisk: ["Ultimate Audio"],
-    providers: providerLinks(request, env),
+    providers,
     breakdown: goal.breakdown,
     academyDeliveryAlert: {
       configured: academyDeliveryAlertConfigured(env),
@@ -577,7 +657,7 @@ async function supportStatus(request: Request, env: Env, ctx: ExecutionContext):
     },
     display,
     banner: {
-      enabled: !falseyEnv(env.SUPPORT_BANNER_ENABLED),
+      enabled: providers.length > 0 && !falseyEnv(env.SUPPORT_BANNER_ENABLED),
       dismissVersion: SUPPORT_BANNER_DISMISS_VERSION,
       message: bannerCopy.message,
       costLabel: bannerCopy.costLabel,
@@ -651,51 +731,49 @@ function supportBannerCopy(
   if (prefersJapanese(request)) {
     return {
       message: goalMet
-        ? "今月のよむ Ultimate Audio の運営費が集まりました。ご支援ありがとうございます。"
-        : "よむ Ultimate Audio は寄付で運営されています。今月の目標に届かない場合、単語とシャドーイング向けの高速な実音声再生は来月停止します。",
-      costLabel: `寄付目標：月${display.goalText}`,
-      goalLabel: `今月：${display.amountText} / ${display.goalText}`,
+        ? "今月分の高速音声の運営費が集まりました。ありがとうございます。"
+        : "今月のご支援で、単語・シャドーイング向けの高速音声を運営します。",
+      costLabel: `月の運営費：${display.goalText}`,
+      goalLabel: `今月のご支援：${display.amountText} / ${display.goalText}`,
       ctaLabel: "寄付する",
     };
   }
   return {
     message: goalMet
-      ? "Yomu's Ultimate Audio is funded for this month. Thank you."
-      : "Yomu's Ultimate Audio is donation funded. If this month's goal is missed, fast real-audio playback for words and shadowing will switch off next month.",
-    costLabel: `Donation goal: ${display.goalText}/month`,
-    goalLabel: `This month: ${display.amountText} / ${display.goalText}`,
+      ? "This month's fast audio bill is covered. Thank you."
+      : "This month's support keeps fast word and shadowing audio running.",
+    costLabel: `Monthly running costs: ${display.goalText}`,
+    goalLabel: `Received this month: ${display.amountText} / ${display.goalText}`,
     ctaLabel: "Donate",
   };
 }
 
 function prefersJapanese(request: Request): boolean {
-  const firstLanguage = request.headers.get("accept-language")?.split(",", 1)[0]?.trim().toLowerCase() ?? "";
-  return firstLanguage === "ja" || firstLanguage.startsWith("ja-") || firstLanguage.startsWith("ja;");
+  return requestLocale(request).toLowerCase().startsWith("ja");
 }
 
 function providerLinks(request: Request, env: Env): SupportProviderLink[] {
-  const stripe: SupportProviderLink = {
-    id: "stripe",
-    label: "Card (Stripe)",
-    url: donateUrlFor(request),
-    kind: "checkout",
-    enabled: true,
-  };
-  const manual: Array<{ id: ManualProvider; label: string; raw: string | undefined }> = [
-    { id: "kofi", label: "Ko-fi", raw: env.SUPPORT_PROVIDER_KOFI_URL },
-    { id: "bmac", label: "Buy Me a Coffee", raw: env.SUPPORT_PROVIDER_BMAC_URL },
-    { id: "paypal", label: "PayPal", raw: env.SUPPORT_PROVIDER_PAYPAL_URL },
-    { id: "patreon", label: "Patreon", raw: env.SUPPORT_PROVIDER_PATREON_URL },
-  ];
-  const links: SupportProviderLink[] = [stripe];
-  for (const entry of manual) {
-    const url = safeHttpsUrl(entry.raw);
+  const links: SupportProviderLink[] = [];
+  for (const provider of SUPPORT_PROVIDERS) {
+    if (provider.id === "stripe") {
+      if (stripeStatusFor(request, env) !== "ok") continue;
+      links.push({
+        id: provider.id,
+        label: provider.label,
+        url: donateUrlFor(request),
+        kind: provider.kind,
+        enabled: true,
+      });
+      continue;
+    }
+    const url = configuredSupportProviderUrl(provider, env);
+    if (!url || !supportProviderReady(provider, env)) continue;
     links.push({
-      id: entry.id,
-      label: entry.label,
-      url: url ?? "",
-      kind: "link",
-      enabled: Boolean(url),
+      id: provider.id,
+      label: provider.label,
+      url,
+      kind: provider.kind,
+      enabled: true,
     });
   }
   return links;
@@ -710,37 +788,40 @@ async function currencyDisplay(
   amountGbp: number,
   goalGbp: number,
 ): Promise<CurrencyDisplay> {
+  const locale = requestLocale(request);
   const currency = resolveCurrency(request);
   if (currency === DEFAULT_SUPPORT_BASE_CURRENCY) {
-    return gbpDisplay(amountGbp, goalGbp);
+    return gbpDisplay(amountGbp, goalGbp, locale);
   }
   const fx = await fxRateFor(env, ctx, currency);
-  if (!fx) return gbpDisplay(amountGbp, goalGbp);
+  if (!fx) return gbpDisplay(amountGbp, goalGbp, locale);
   const amount = Math.round(amountGbp * fx.rate);
   const goal = Math.round(goalGbp * fx.rate);
   return {
+    locale,
     currency,
-    symbol: currencySymbol(currency),
+    symbol: currencySymbol(currency, locale),
     amount,
     goal,
-    amountText: formatCurrency(amount, currency),
-    goalText: formatCurrency(goal, currency),
+    amountText: formatCurrency(amount, currency, locale),
+    goalText: formatCurrency(goal, currency, locale),
     rate: fx.rate,
     rateDate: fx.date,
     converted: true,
   };
 }
 
-function gbpDisplay(amountGbp: number, goalGbp: number): CurrencyDisplay {
+function gbpDisplay(amountGbp: number, goalGbp: number, locale: string): CurrencyDisplay {
   const amount = Math.round(amountGbp);
   const goal = Math.round(goalGbp);
   return {
+    locale,
     currency: DEFAULT_SUPPORT_BASE_CURRENCY,
-    symbol: "£",
+    symbol: currencySymbol(DEFAULT_SUPPORT_BASE_CURRENCY, locale),
     amount,
     goal,
-    amountText: formatCurrency(amount, DEFAULT_SUPPORT_BASE_CURRENCY),
-    goalText: formatCurrency(goal, DEFAULT_SUPPORT_BASE_CURRENCY),
+    amountText: formatCurrency(amount, DEFAULT_SUPPORT_BASE_CURRENCY, locale),
+    goalText: formatCurrency(goal, DEFAULT_SUPPORT_BASE_CURRENCY, locale),
     rate: 1,
     rateDate: "",
     converted: false,
@@ -752,9 +833,35 @@ function resolveCurrency(request: Request): string {
   const requested = normaliseCurrencyCode(url.searchParams.get("currency"));
   if (requested) return requested;
   const country = requestCountry(request);
-  return country
-    ? (COUNTRY_CURRENCY[country] ?? DEFAULT_SUPPORT_BASE_CURRENCY)
+  if (country) return COUNTRY_CURRENCY[country] ?? DEFAULT_SUPPORT_BASE_CURRENCY;
+  const localeCountry = requestLocaleCountry(requestLocale(request));
+  return localeCountry
+    ? (COUNTRY_CURRENCY[localeCountry] ?? DEFAULT_SUPPORT_BASE_CURRENCY)
     : DEFAULT_SUPPORT_BASE_CURRENCY;
+}
+
+function requestLocale(request: Request): string {
+  const candidates = request.headers.get("accept-language")
+    ?.split(",")
+    .map(entry => entry.split(";", 1)[0]?.trim())
+    .filter((entry): entry is string => Boolean(entry && entry !== "*")) ?? [];
+  for (const candidate of candidates) {
+    try {
+      return new Intl.Locale(candidate).baseName;
+    } catch {
+      // Try the next declared language before using the stable fallback.
+    }
+  }
+  return "en-GB";
+}
+
+function requestLocaleCountry(locale: string): string | null {
+  try {
+    const parsed = new Intl.Locale(locale);
+    return parsed.region ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function requestCountry(request: Request): string | null {
@@ -854,12 +961,26 @@ function isFxPayload(value: unknown): value is FxRatesPayload {
   const base = stringField(record, "base");
   const date = stringField(record, "date");
   const rates = objectRecord(record.rates);
-  return base === DEFAULT_SUPPORT_BASE_CURRENCY && Boolean(date) && Boolean(rates);
+  if (base !== DEFAULT_SUPPORT_BASE_CURRENCY || !date || !rates || !freshFxDate(date)) return false;
+  return Object.entries(rates).every(([currency, rate]) => (
+    /^[A-Z]{3}$/u.test(currency)
+    && typeof rate === "number"
+    && Number.isFinite(rate)
+    && rate > 0
+  ));
+}
+
+function freshFxDate(date: string, now = Date.now()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) return false;
+  const timestamp = Date.parse(`${date}T00:00:00.000Z`);
+  return Number.isFinite(timestamp)
+    && timestamp <= now + 24 * 60 * 60 * 1000
+    && now - timestamp <= FX_MAX_AGE_MS;
 }
 
 function donationMinorToBase(
   amountMinor: number,
-  currency: DonationCurrency,
+  currency: string,
   rates: FxRatesPayload | null,
   baseCurrency: string,
 ): number | null {
@@ -949,17 +1070,17 @@ async function donationSnapshot(env: Env, ctx: ExecutionContext): Promise<Donati
 }
 
 async function createDonationCheckout(request: Request, env: Env): Promise<Response> {
+  const stripeStatus = stripeStatusFor(request, env);
+  if (stripeStatus !== "ok") {
+    if (stripeStatus === "stripe-test-mode") logStripeTestModeBlocked(request, "secret_key");
+    return donationUnavailableResponse();
+  }
   const amount = donationAmountMinor(new URL(request.url));
   if (amount.kind === "missing") return donationAmountForm(request);
   if (amount.kind === "invalid") {
     return donationAmountForm(request, "Enter an amount within the range shown for the selected currency.", 400);
   }
   const requireLiveStripe = requiresLiveStripe(request);
-  if (requireLiveStripe && stripeKeyMode(env.STRIPE_SECRET_KEY) !== "live") {
-    logStripeTestModeBlocked(request, "secret_key");
-    return donationUnavailableResponse();
-  }
-  if (!env.STRIPE_SECRET_KEY) return donationUnavailableResponse();
 
   const claimToken = randomSupportClaimToken();
   const claimHash = await sha256Hex(claimToken);
@@ -1164,6 +1285,66 @@ async function readKofiPayload(request: Request): Promise<string> {
   if (contentType.includes("application/json")) return request.text();
   const form = new URLSearchParams(await request.text());
   return form.get("data") ?? "";
+}
+
+// --- Buy Me a Coffee webhook (HMAC-SHA256 of the raw body) ----------------
+
+async function handleBmacWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (request.method.trim().toUpperCase() !== "POST") {
+    return textResponse("Method not allowed.", 405, { allow: "POST" });
+  }
+  if (!env.BMAC_WEBHOOK_SECRET || !env.SUPPORT_DB) {
+    return textResponse("Buy Me a Coffee webhook is not configured.", 503);
+  }
+  const raw = await request.text();
+  if (!(await hasValidBmacSignature(raw, request.headers.get("x-signature-sha256"), env.BMAC_WEBHOOK_SECRET))) {
+    logWebhookRejected("bmac");
+    return textResponse("Invalid Buy Me a Coffee signature.", 401);
+  }
+  const donation = bmacDonationFromPayload(parseJson(raw));
+  if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
+  const receipt = await externalProviderDonationReceipt(env, ctx, donation);
+  if (!receipt) return jsonResponse(request, { received: true, recorded: false }, 200);
+  await recordProviderDonationEvent(env.SUPPORT_DB, {
+    provider: donation.provider,
+    eventId: donation.eventId,
+    day: utcDayKey(new Date(donation.occurredAt)),
+    receipt,
+    eventType: donation.eventType,
+    occurredAt: donation.occurredAt,
+  });
+  return jsonResponse(request, { received: true, recorded: true }, 200);
+}
+
+// --- PayPal webhook (PayPal verification postback) ------------------------
+
+async function handlePaypalWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  if (request.method.trim().toUpperCase() !== "POST") {
+    return textResponse("Method not allowed.", 405, { allow: "POST" });
+  }
+  if (!env.SUPPORT_DB || !paypalWebhookConfigured(env)) {
+    return textResponse("PayPal webhook is not configured.", 503);
+  }
+  const raw = await request.text();
+  const parsed = parseJson(raw);
+  if (!objectRecord(parsed)) return textResponse("Invalid PayPal payload.", 400);
+  if (!(await hasValidPaypalSignature(request, raw, env))) {
+    logWebhookRejected("paypal");
+    return textResponse("Invalid PayPal signature.", 401);
+  }
+  const donation = paypalDonationFromPayload(parsed);
+  if (!donation) return jsonResponse(request, { received: true, recorded: false }, 200);
+  const receipt = await externalProviderDonationReceipt(env, ctx, donation);
+  if (!receipt) return jsonResponse(request, { received: true, recorded: false }, 200);
+  await recordProviderDonationEvent(env.SUPPORT_DB, {
+    provider: donation.provider,
+    eventId: donation.eventId,
+    day: utcDayKey(new Date(donation.occurredAt)),
+    receipt,
+    eventType: donation.eventType,
+    occurredAt: donation.occurredAt,
+  });
+  return jsonResponse(request, { received: true, recorded: true }, 200);
 }
 
 // --- Patreon webhook (HMAC-MD5 of raw body per Patreon spec) ---------------
@@ -1521,7 +1702,7 @@ function isPatreonIncomeTrigger(trigger: string): boolean {
 async function providerDonationReceiptFromPayload(
   env: Env,
   ctx: ExecutionContext,
-  provider: "kofi" | "patreon",
+  provider: ExternalSupportProviderId,
   record: Record<string, unknown>,
   amountKey: string,
   currencyKey: string,
@@ -1535,7 +1716,7 @@ async function providerDonationReceiptFromPayload(
 async function providerDonationReceiptFromMinor(
   env: Env,
   ctx: ExecutionContext,
-  provider: "kofi" | "patreon",
+  provider: ExternalSupportProviderId,
   amountMinor: number,
   currency: string,
 ): Promise<ProviderDonationReceipt> {
@@ -1579,6 +1760,17 @@ async function providerDonationReceiptFromMinor(
     baseAmountMinor: Math.round(baseAmount * currencyMinorScale(baseCurrency)),
     needsRate: false,
   };
+}
+
+async function externalProviderDonationReceipt(
+  env: Env,
+  ctx: ExecutionContext,
+  donation: ExternalDonation,
+): Promise<ProviderDonationReceipt | null> {
+  const currency = providerCurrency(donation.currency, DEFAULT_SUPPORT_BASE_CURRENCY);
+  const amountMinor = providerAmountMinor(donation.amount, currency);
+  if (amountMinor <= 0) return null;
+  return providerDonationReceiptFromMinor(env, ctx, donation.provider, amountMinor, currency);
 }
 
 function providerCurrency(value: unknown, fallback: string): string {
@@ -1649,7 +1841,7 @@ async function sha256Hex(value: string): Promise<string> {
 async function recordProviderDonationEvent(
   db: D1Database,
   event: {
-  provider: "kofi" | "patreon",
+  provider: ExternalSupportProviderId,
   eventId: string,
   day: string,
   receipt: ProviderDonationReceipt,
@@ -1986,7 +2178,7 @@ function monthlyCostEstimate(env: Env, estimatedDailyCostGbp: number): number {
   if (estimatedDailyCostGbp > 0) return estimatedDailyCostGbp * daysInUtcMonth();
   // Fall back to the forecast total so the "estimated monthly cost" figure is
   // meaningful even when no per-day override is configured.
-  return buildGoal(env).forecastGBP;
+  return buildGoal().forecastGBP;
 }
 
 function checkoutSessionUrl(payload: unknown, requireLive: boolean): string | null {
@@ -2017,7 +2209,9 @@ function donateUrlFor(request: Request): string {
 }
 
 function stripeStatusFor(request: Request, env: Env): SupportStatus["status"] {
-  if (!env.STRIPE_SECRET_KEY) return "stripe-unconfigured";
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET?.trim() || !env.SUPPORT_DB) {
+    return "stripe-unconfigured";
+  }
   if (!requiresLiveStripe(request)) return "ok";
   const mode = stripeKeyMode(env.STRIPE_SECRET_KEY);
   if (mode === "test") return "stripe-test-mode";
@@ -2037,17 +2231,6 @@ function stripeKeyMode(value: string | undefined): "live" | "test" | "" {
   if (/^(?:sk|rk)_live_/u.test(trimmed)) return "live";
   if (/^(?:sk|rk)_test_/u.test(trimmed)) return "test";
   return "";
-}
-
-function safeHttpsUrl(value: string | undefined): string | null {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    return url.protocol === "https:" ? url.href : null;
-  } catch {
-    return null;
-  }
 }
 
 function logStripeTestModeBlocked(request: Request, reason: string): void {
@@ -2093,8 +2276,11 @@ function nonNegativeNumberEnv(raw: string | undefined, fallback: number): number
 }
 
 function supportBaseCurrency(env: Env): string {
-  const configured = env.SUPPORT_BASE_CURRENCY?.trim().toUpperCase() ?? "";
-  return SUPPORTED_CURRENCIES.has(configured) ? configured : DEFAULT_SUPPORT_BASE_CURRENCY;
+  // Forecast inputs and public progress fields are denominated in GBP.
+  // Keeping one canonical ledger currency prevents a configured display
+  // currency from being compared with a GBP goal.
+  void env;
+  return DEFAULT_SUPPORT_BASE_CURRENCY;
 }
 
 function currencyMinorDigits(currency: string): number {
@@ -2115,16 +2301,33 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function formatCurrency(value: number, currency: string): string {
-  const symbol = currencySymbol(currency);
-  const body = ZERO_DECIMAL_CURRENCIES.has(currency)
-    ? String(Math.round(value))
-    : value.toFixed(value % 1 === 0 ? 0 : 2);
-  return symbol ? `${symbol}${body}` : `${body} ${currency}`;
+function formatCurrency(value: number, currency: string, locale: string): string {
+  const rounded = Math.round(value);
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(rounded);
+  } catch {
+    return `${rounded} ${currency}`;
+  }
 }
 
-function currencySymbol(currency: string): string {
-  return CURRENCY_SYMBOLS[currency] ?? "";
+function currencySymbol(currency: string, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(0).find(part => part.type === "currency")?.value
+      ?? CURRENCY_SYMBOLS[currency]
+      ?? currency;
+  } catch {
+    return CURRENCY_SYMBOLS[currency] ?? currency;
+  }
 }
 
 function isCorsPreflight(request: Request): boolean {

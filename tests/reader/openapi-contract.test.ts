@@ -9,6 +9,11 @@ import { describe, expect, it } from 'vitest';
 const openapi = await import('../../scripts/openapi/yomu-openapi.mjs');
 
 type Operation = { readonly method: string; readonly path: string; readonly operationId: string };
+type ObjectSchema = {
+    readonly required: readonly string[];
+    readonly properties: Readonly<Record<string, unknown>>;
+    readonly additionalProperties: boolean;
+};
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -35,7 +40,7 @@ function literalAcademyRoutes(): Set<string> {
 
 describe('public Yomu OpenAPI contracts', () => {
     it('builds four independently selectable service contracts with unique operation ids', () => {
-        expect(openapi.validateOpenApiDocuments()).toEqual({ services: 4, operations: 68 });
+        expect(openapi.validateOpenApiDocuments()).toEqual({ services: 4, operations: 70 });
 
         const documents = openapi.serviceDocuments as Record<string, { paths: Record<string, Record<string, { operationId: string }>> }>;
         const ids = Object.values(documents)
@@ -59,9 +64,37 @@ describe('public Yomu OpenAPI contracts', () => {
         ]);
         expect([...routeSet(openapi.supportOperations)].sort()).toEqual([
             'GET /checkout', 'GET /claim', 'GET /donate', 'GET /goal', 'GET /healthz', 'GET /progress', 'GET /status',
-            'POST /stripe/webhook', 'POST /webhook', 'POST /webhooks/kofi', 'POST /webhooks/patreon',
+            'POST /stripe/webhook', 'POST /webhook', 'POST /webhooks/bmac', 'POST /webhooks/kofi',
+            'POST /webhooks/patreon', 'POST /webhooks/paypal',
         ]);
         expect([...routeSet(openapi.edgeOperations)].sort()).toEqual(['GET /', 'GET /healthz', 'GET /status']);
+    });
+
+    it('keeps support funding response schemas aligned with the Worker payloads', () => {
+        const documents = openapi.serviceDocuments as Record<string, {
+            components: { schemas: Record<string, ObjectSchema> };
+        }>;
+        const schemas = documents.support.components.schemas;
+        const expectedFields = {
+            SupportGoal: ['service', 'currency', 'floorGBP', 'forecastGBP', 'monthlyGoalGBP', 'breakdown'],
+            SupportProgress: [
+                'service', 'currency', 'month', 'totalThisMonthGbp', 'totalTodayGbp', 'needsRate', 'providers', 'source',
+            ],
+            SupportStatus: [
+                'service', 'status', 'revision', 'currency', 'dailyBudgetGbp', 'donationGoalGbp',
+                'floorGbp', 'forecastGbp', 'donationsTodayGbp', 'donationsThisMonthGbp',
+                'donationsSource', 'needsRate', 'estimatedDailyCostGbp', 'estimatedMonthlyCostGbp',
+                'goalMet', 'progressRatio', 'donateUrl', 'featuresAtRisk', 'providers', 'breakdown',
+                'academyDeliveryAlert', 'display', 'banner',
+            ],
+        } as const;
+
+        for (const [name, fields] of Object.entries(expectedFields)) {
+            const schema = schemas[name];
+            expect(schema.additionalProperties).toBe(false);
+            expect([...schema.required].sort()).toEqual([...fields].sort());
+            expect(Object.keys(schema.properties).sort()).toEqual([...fields].sort());
+        }
     });
 
     it('publishes JSON, YAML, the Academy aliases, and the service catalog', () => {

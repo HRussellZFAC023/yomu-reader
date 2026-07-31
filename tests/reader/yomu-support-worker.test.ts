@@ -20,7 +20,6 @@ describe("Yomu support Worker", () => {
       }),
       {
         SUPPORT_DAILY_BUDGET_GBP: "10",
-        SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10",
         SUPPORT_DONATIONS_THIS_MONTH_GBP: "3.5",
       },
       { waitUntil: vi.fn() },
@@ -54,23 +53,19 @@ describe("Yomu support Worker", () => {
     expect(body.donationGoalGbp).toBe(10);
     expect(body.floorGbp).toBe(FORECAST_FLOOR_GBP);
     expect(body.donateUrl).toBe("https://support.yomureader.com/donate");
-    expect(body.progressRatio).toBe(0.35);
-    expect(body.banner.enabled).toBe(true);
+    expect(body.progressRatio).toBe(0.34);
+    expect(body.banner.enabled).toBe(false);
     expect(body.banner.dismissVersion).toBe("ultimate-audio-v1");
     expect(body.featuresAtRisk).toEqual(["Ultimate Audio"]);
     // GBP default (no CF country / currency): display stays in pounds.
     expect(body.display.currency).toBe("GBP");
     expect(body.display.symbol).toBe("£");
     expect(body.display.converted).toBe(false);
-    expect(body.banner.costLabel).toBe("Donation goal: £10/month");
-    expect(body.banner.goalLabel).toContain("This month: £4 / £10");
-    expect(body.banner.message).toContain("Ultimate Audio");
-    // Stripe is always present; manual providers hidden until their URL is set.
-    const stripe = body.providers.find(p => p.id === "stripe");
-    expect(stripe?.enabled).toBe(true);
-    expect(stripe?.url).toBe("https://support.yomureader.com/donate");
-    expect(body.providers.find(p => p.id === "kofi")?.enabled).toBe(false);
-    expect(body.providers.find(p => p.id === "patreon")?.enabled).toBe(false);
+    expect(body.banner.costLabel).toBe("Monthly running costs: £10");
+    expect(body.banner.goalLabel).toContain("Received this month: £4 / £10");
+    expect(body.banner.message).toContain("fast word and shadowing audio");
+    // No payment route is advertised until its complete configuration exists.
+    expect(body.providers).toEqual([]);
     expect(body.STRIPE_SECRET_KEY).toBeUndefined();
   });
 
@@ -105,29 +100,28 @@ describe("Yomu support Worker", () => {
       new Request("https://support.yomureader.com/status", {
         headers: { "accept-language": "ja-JP,ja;q=0.9" },
       }),
-      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_DONATIONS_THIS_MONTH_GBP: "0" },
+      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "0" },
       { waitUntil: vi.fn() },
     );
     const body = await response.json() as {
       banner: { message: string; costLabel: string; goalLabel: string; ctaLabel: string };
     };
 
-    expect(body.banner.message).toContain("寄付で運営されています");
-    expect(body.banner.costLabel).toBe("寄付目標：月£10");
-    expect(body.banner.goalLabel).toBe("今月：£0 / £10");
+    expect(body.banner.message).toContain("高速音声を運営します");
+    expect(body.banner.costLabel).toBe("月の運営費：£10");
+    expect(body.banner.goalLabel).toBe("今月のご支援：£0 / £10");
     expect(body.banner.ctaLabel).toBe("寄付する");
     expect(JSON.stringify(body.banner)).not.toContain("Donation goal");
   });
 
-  it("keeps the £10 floor as the effective goal when the forecast is lower", async () => {
+  it("ignores legacy fixed-goal variables so the checked-in forecast cannot silently rot", async () => {
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/goal"),
       { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "4" },
       { waitUntil: vi.fn() },
     );
     const body = await response.json() as { monthlyGoalGBP: number; floorGBP: number };
-    // A pinned goal below the floor is still floored at £10.
-    expect(body.monthlyGoalGBP).toBe(10);
+    expect(body.monthlyGoalGBP).toBe(EFFECTIVE_GOAL_GBP);
     expect(body.floorGBP).toBe(10);
   });
 
@@ -157,6 +151,8 @@ describe("Yomu support Worker", () => {
     const db = mockSupportDb([
       providerDonationRow("kofi", "kofi-progress", day, 1200),
       providerDonationRow("patreon", "patreon-progress", day, 500),
+      providerDonationRow("bmac", "bmac-progress", day, 300),
+      providerDonationRow("paypal", "paypal-progress", day, 400),
     ]);
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/progress"),
@@ -169,11 +165,12 @@ describe("Yomu support Worker", () => {
       totalThisMonthGbp: number;
       providers: Array<{ provider: string; monthGbp: number; source: string }>;
     };
-    expect(body.totalThisMonthGbp).toBe(17);
+    expect(body.totalThisMonthGbp).toBe(24);
     expect(body.providers.find(p => p.provider === "stripe")?.monthGbp).toBe(0);
     expect(body.providers.find(p => p.provider === "kofi")?.monthGbp).toBe(12);
     expect(body.providers.find(p => p.provider === "patreon")?.monthGbp).toBe(5);
-    expect(body.providers.find(p => p.provider === "bmac")?.monthGbp).toBe(0);
+    expect(body.providers.find(p => p.provider === "bmac")?.monthGbp).toBe(3);
+    expect(body.providers.find(p => p.provider === "paypal")?.monthGbp).toBe(4);
   });
 
   it("edge-caches public progress so repeat banner reads do not repeat D1 aggregates", async () => {
@@ -219,7 +216,7 @@ describe("Yomu support Worker", () => {
       stripeDonationRow("stripe-jpy", day, 1000, "jpy"),
     ]);
     const kv = mockKv({
-      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-21", rates: { USD: 2, JPY: 200 } }),
+      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 2, JPY: 200 } }),
     });
 
     const response = await SupportWorker.fetch(
@@ -280,7 +277,7 @@ describe("Yomu support Worker", () => {
           stripeDonationRow("cad-no-rate", day, 1000, "cad"),
         ]),
         SUPPORT_KV: mockKv({
-          "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-21", rates: { USD: 2 } }),
+          "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 2 } }),
         }),
       },
       { waitUntil: vi.fn() },
@@ -294,16 +291,16 @@ describe("Yomu support Worker", () => {
     const fetchMock = vi.fn(async () => Response.json({
       amount: 1,
       base: "GBP",
-      date: "2026-07-02",
+      date: freshFxDate(),
       rates: { USD: 1.3306, EUR: 1.1673, JPY: 215.01 },
     }));
     vi.stubGlobal("fetch", fetchMock);
 
     const first = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status?currency=USD", {
-        headers: { origin: "https://yomureader.com" },
+        headers: { origin: "https://yomureader.com", "accept-language": "en-US" },
       }),
-      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_DONATIONS_THIS_MONTH_GBP: "5", SUPPORT_KV: kv },
+      { SUPPORT_DONATIONS_THIS_MONTH_GBP: "5", SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
     const body = await first.json() as {
@@ -314,11 +311,11 @@ describe("Yomu support Worker", () => {
     expect(body.display.symbol).toBe("$");
     expect(body.display.converted).toBe(true);
     expect(body.display.rate).toBe(1.3306);
-    expect(body.display.goal).toBe(13);
+    expect(body.display.goal).toBe(14);
     expect(body.display.amount).toBe(7);
-    expect(body.display.goalText).toBe("$13");
-    expect(body.banner.costLabel).toBe("Donation goal: $13/month");
-    expect(body.banner.goalLabel).toContain("$7 / $13");
+    expect(body.display.goalText).toBe("$14");
+    expect(body.banner.costLabel).toBe("Monthly running costs: $14");
+    expect(body.banner.goalLabel).toContain("$7 / $14");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // A second request within the cache window must not re-fetch the rate.
@@ -334,19 +331,23 @@ describe("Yomu support Worker", () => {
   });
 
   it("derives the visitor currency from the Cloudflare request country", async () => {
-    const kv = mockKv({ "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-02", rates: { JPY: 215.01 } }) });
-    const request = new Request("https://support.yomureader.com/status");
+    const kv = mockKv({ "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { JPY: 215.01 } }) });
+    const request = new Request("https://support.yomureader.com/status", {
+      headers: { "accept-language": "ja-JP" },
+    });
     Object.defineProperty(request, "cf", { value: { country: "JP" }, configurable: true });
     const response = await SupportWorker.fetch(
       request,
-      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_KV: kv },
+      { SUPPORT_KV: kv },
       { waitUntil: vi.fn() },
     );
     const body = await response.json() as { display: { currency: string; symbol: string; goalText: string } };
     expect(body.display.currency).toBe("JPY");
-    expect(body.display.symbol).toBe("¥");
-    // 10 GBP * 215.01 = 2150.1; JPY is a zero-decimal currency -> ¥2150
-    expect(body.display.goalText).toBe("¥2150");
+    expect(body.display.symbol).toBe(
+      currencyParts("ja-JP", "JPY", 0).find(part => part.type === "currency")?.value,
+    );
+    const expectedGoal = Math.round(EFFECTIVE_GOAL_GBP * 215.01);
+    expect(body.display.goalText).toBe(formatWholeCurrency("ja-JP", "JPY", expectedGoal));
   });
 
   it("falls back to GBP display when the FX source is unavailable", async () => {
@@ -354,7 +355,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", fetchMock);
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status?currency=USD"),
-      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_KV: mockKv() },
+      { SUPPORT_KV: mockKv() },
       { waitUntil: vi.fn() },
     );
     const body = await response.json() as { display: { currency: string; converted: boolean; goalText: string } };
@@ -363,10 +364,83 @@ describe("Yomu support Worker", () => {
     expect(body.display.goalText).toBe("£10");
   });
 
+  it("rejects stale FX data and degrades to the rounded GBP figure", async () => {
+    const fetchMock = vi.fn(async () => new Response("unavailable", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status?currency=USD", {
+        headers: { "accept-language": "en-US" },
+      }),
+      {
+        SUPPORT_KV: mockKv({
+          "fx:GBP:latest": JSON.stringify({
+            base: "GBP",
+            date: "2020-01-01",
+            rates: { USD: 1.3 },
+          }),
+        }),
+      },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      display: { currency: string; converted: boolean; goalText: string };
+    };
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(body.display).toMatchObject({
+      currency: "GBP",
+      converted: false,
+      goalText: formatWholeCurrency("en-US", "GBP", 10),
+    });
+  });
+
+  it.each([
+    { locale: "en-GB", currency: "GBP", rate: 1 },
+    { locale: "en-US", currency: "USD", rate: 1.3 },
+    { locale: "ja-JP", currency: "JPY", rate: 215 },
+    { locale: "ar-GB", currency: "GBP", rate: 1 },
+  ])("formats whole-unit support amounts with Intl for $locale", async ({ locale, currency, rate }) => {
+    const response = await SupportWorker.fetch(
+      new Request(`https://support.yomureader.com/status?currency=${currency}`, {
+        headers: { "accept-language": locale },
+      }),
+      {
+        SUPPORT_DONATIONS_THIS_MONTH_GBP: "4",
+        SUPPORT_KV: mockKv({
+          "fx:GBP:latest": JSON.stringify({
+            base: "GBP",
+            date: freshFxDate(),
+            rates: { USD: 1.3, JPY: 215 },
+          }),
+        }),
+      },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      display: {
+        locale: string;
+        currency: string;
+        symbol: string;
+        amountText: string;
+        goalText: string;
+      };
+    };
+
+    expect(body.display.locale).toBe(locale);
+    expect(body.display.currency).toBe(currency);
+    expect(body.display.amountText).toBe(formatWholeCurrency(locale, currency, Math.round(4 * rate)));
+    expect(body.display.goalText).toBe(
+      formatWholeCurrency(locale, currency, Math.round(EFFECTIVE_GOAL_GBP * rate)),
+    );
+    expect(body.display.symbol).toBe(
+      currencyParts(locale, currency, 0).find(part => part.type === "currency")?.value,
+    );
+  });
+
   it("ignores unknown or unsupported currency codes and keeps GBP", async () => {
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status?currency=ZZZ"),
-      { SUPPORT_DONATION_GOAL_MONTHLY_GBP: "10", SUPPORT_KV: mockKv() },
+      { SUPPORT_KV: mockKv() },
       { waitUntil: vi.fn() },
     );
     const body = await response.json() as { display: { currency: string; converted: boolean } };
@@ -374,12 +448,37 @@ describe("Yomu support Worker", () => {
     expect(body.display.converted).toBe(false);
   });
 
-  it("exposes configured manual provider links and hides unset ones", async () => {
+  it("uses the stable en-GB fallback when Accept-Language is invalid", async () => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status", {
+        headers: { "accept-language": "not_a_locale;q=1, *;q=0.5" },
+      }),
+      {},
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as {
+      display: { locale: string; currency: string; goalText: string };
+    };
+
+    expect(body.display).toMatchObject({
+      locale: "en-GB",
+      currency: "GBP",
+      goalText: formatWholeCurrency("en-GB", "GBP", 10),
+    });
+  });
+
+  it("exposes only host-verified, fully configured provider links", async () => {
+    const db = mockSupportDb();
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status"),
       {
         SUPPORT_PROVIDER_KOFI_URL: "https://ko-fi.com/yomu",
+        KOFI_WEBHOOK_SECRET: "kofi-secret",
         SUPPORT_PROVIDER_PAYPAL_URL: "http://insecure.example/pay",
+        PAYPAL_CLIENT_ID: "paypal-client",
+        PAYPAL_CLIENT_SECRET: "paypal-secret",
+        PAYPAL_WEBHOOK_ID: "paypal-webhook",
+        SUPPORT_DB: db,
       },
       { waitUntil: vi.fn() },
     );
@@ -389,8 +488,59 @@ describe("Yomu support Worker", () => {
     expect(kofi?.url).toBe("https://ko-fi.com/yomu");
     // Non-https provider URLs are rejected and stay hidden.
     const paypal = body.providers.find(p => p.id === "paypal");
-    expect(paypal?.enabled).toBe(false);
-    expect(paypal?.url).toBe("");
+    expect(paypal).toBeUndefined();
+  });
+
+  it("omits wrong-host and URL-only providers instead of rendering broken links", async () => {
+    const response = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      {
+        SUPPORT_PROVIDER_KOFI_URL: "https://example.com/not-kofi",
+        KOFI_WEBHOOK_SECRET: "kofi-secret",
+        SUPPORT_PROVIDER_BMAC_URL: "https://buymeacoffee.com/yomu",
+        SUPPORT_DB: mockSupportDb(),
+      },
+      { waitUntil: vi.fn() },
+    );
+    const body = await response.json() as { providers: Array<{ id: string }> };
+    expect(body.providers.find(provider => provider.id === "kofi")).toBeUndefined();
+    expect(body.providers.find(provider => provider.id === "bmac")).toBeUndefined();
+  });
+
+  it("advertises card checkout only when payment and accounting are both ready", async () => {
+    const request = () => new Request("https://support.yomureader.com/status");
+    const secretOnly = await SupportWorker.fetch(
+      request(),
+      { STRIPE_SECRET_KEY: "sk_live_secret", SUPPORT_DB: mockSupportDb() },
+      { waitUntil: vi.fn() },
+    );
+    const ledgerMissing = await SupportWorker.fetch(
+      request(),
+      { STRIPE_SECRET_KEY: "sk_live_secret", STRIPE_WEBHOOK_SECRET: "whsec_ready" },
+      { waitUntil: vi.fn() },
+    );
+    const ready = await SupportWorker.fetch(
+      request(),
+      readyStripeEnv(),
+      { waitUntil: vi.fn() },
+    );
+
+    for (const response of [secretOnly, ledgerMissing]) {
+      const body = await response.json() as {
+        banner: { enabled: boolean };
+        providers: Array<{ id: string }>;
+      };
+      expect(body.banner.enabled).toBe(false);
+      expect(body.providers.find(provider => provider.id === "stripe")).toBeUndefined();
+    }
+    const readyBody = await ready.json() as {
+      banner: { enabled: boolean };
+      providers: Array<{ id: string; url: string }>;
+    };
+    expect(readyBody.banner.enabled).toBe(true);
+    expect(readyBody.providers.find(provider => provider.id === "stripe")).toMatchObject({
+      url: "https://support.yomureader.com/donate",
+    });
   });
 
   it("keeps the donor-selected amount fail-closed when Checkout is not configured", async () => {
@@ -410,14 +560,12 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5"),
-      {
-        STRIPE_SECRET_KEY: "sk_test_secret",
-      },
+      readyStripeEnv("sk_test_secret"),
       { waitUntil: vi.fn() },
     );
     const status = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status"),
-      { STRIPE_SECRET_KEY: "sk_test_secret" },
+      readyStripeEnv("sk_test_secret"),
       { waitUntil: vi.fn() },
     );
 
@@ -430,7 +578,7 @@ describe("Yomu support Worker", () => {
   it("fails closed for an unrecognized production Stripe credential", async () => {
     const stripeFetch = vi.fn();
     vi.stubGlobal("fetch", stripeFetch);
-    const env = { STRIPE_SECRET_KEY: "not-a-stripe-key" };
+    const env = readyStripeEnv("not-a-stripe-key");
     const checkout = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5"),
       env,
@@ -463,7 +611,7 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate"),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
 
@@ -487,7 +635,7 @@ describe("Yomu support Worker", () => {
       vi.stubGlobal("fetch", stripeFetch);
       const response = await SupportWorker.fetch(
         new Request(`https://support.yomureader.com/donate?amount_gbp=${encodeURIComponent(amount)}`),
-        { STRIPE_SECRET_KEY: "sk_live_secret" },
+        readyStripeEnv(),
         { waitUntil: vi.fn() },
       );
       expect(response.status).toBe(400);
@@ -518,7 +666,7 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=7.5"),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
 
@@ -554,7 +702,7 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request(`https://support.yomureader.com/donate?currency=${currency}&amount=${amount}`),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
 
@@ -575,7 +723,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", stripeFetch);
     const response = await SupportWorker.fetch(
       new Request(`https://support.yomureader.com/donate?currency=${currency}&amount=${amount}`),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
     expect(response.status).toBe(400);
@@ -592,7 +740,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", stripeFetch);
     const response = await SupportWorker.fetch(
       new Request(`https://support.yomureader.com/donate?${query}`),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
     expect(response.status).toBe(400);
@@ -609,7 +757,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", stripeFetch);
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5&currency=GBP"),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
     expect(response.status).toBe(303);
@@ -671,7 +819,7 @@ describe("Yomu support Worker", () => {
 
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5"),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
 
@@ -690,7 +838,7 @@ describe("Yomu support Worker", () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json(checkout)));
     const response = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/donate?amount_gbp=5"),
-      { STRIPE_SECRET_KEY: "sk_live_secret" },
+      readyStripeEnv(),
       { waitUntil: vi.fn() },
     );
     expect(response.status).toBe(503);
@@ -726,7 +874,7 @@ describe("Yomu support Worker", () => {
     const duplicate = await SupportWorker.fetch(webhookRequest.clone(), env, { waitUntil: vi.fn() });
     const status = await SupportWorker.fetch(
       new Request("https://support.yomureader.com/status"),
-      { ...env, SUPPORT_DONATION_GOAL_GBP: "10" },
+      env,
       { waitUntil: vi.fn() },
     );
 
@@ -1176,7 +1324,7 @@ describe("Yomu support Worker", () => {
     });
   });
 
-  it("converts payer currency into configured reporting currency in the correct direction", async () => {
+  it("converts payer currency into the canonical GBP reporting ledger", async () => {
     const db = mockSupportDb();
     const payload = JSON.stringify({
       verification_token: "kofi_secret",
@@ -1189,7 +1337,7 @@ describe("Yomu support Worker", () => {
     const kv = mockKv({
       "fx:GBP:latest": JSON.stringify({
         base: "GBP",
-        date: "2026-07-20",
+        date: freshFxDate(),
         rates: { EUR: 2, USD: 1.5 },
       }),
     });
@@ -1198,20 +1346,19 @@ describe("Yomu support Worker", () => {
       KOFI_WEBHOOK_SECRET: "kofi_secret",
       SUPPORT_DB: db,
       SUPPORT_KV: kv,
-      SUPPORT_BASE_CURRENCY: "USD",
     });
 
     expect(response.status).toBe(422);
     expect(db.rows[0]).toMatchObject({
       amountMinor: 1200,
       currency: "eur",
-      baseCurrency: "usd",
-      baseAmountMinor: 900,
+      baseCurrency: "gbp",
+      baseAmountMinor: 600,
       needsRate: false,
     });
   });
 
-  it("records an unconvertible donation with needsRate instead of hiding it", async () => {
+  it("retains an unconvertible donation and counts it as soon as FX recovers", async () => {
     const db = mockSupportDb();
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const payload = JSON.stringify({
@@ -1223,7 +1370,7 @@ describe("Yomu support Worker", () => {
       currency: "CAD",
     });
     const kv = mockKv({
-      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: "2026-07-20", rates: { USD: 1.5 } }),
+      "fx:GBP:latest": JSON.stringify({ base: "GBP", date: freshFxDate(), rates: { USD: 1.5 } }),
     });
     const env = {
       KOFI_WEBHOOK_SECRET: "kofi_secret",
@@ -1247,6 +1394,25 @@ describe("Yomu support Worker", () => {
     await expect(status.json()).resolves.toMatchObject({
       donationsThisMonthGbp: 0,
       needsRate: 1,
+    });
+    const recoveredStatus = await SupportWorker.fetch(
+      new Request("https://support.yomureader.com/status"),
+      {
+        ...env,
+        SUPPORT_KV: mockKv({
+          "fx:GBP:latest": JSON.stringify({
+            base: "GBP",
+            date: freshFxDate(),
+            rates: { CAD: 2 },
+          }),
+        }),
+      },
+      { waitUntil: vi.fn() },
+    );
+    await expect(recoveredStatus.json()).resolves.toMatchObject({
+      donationsThisMonthGbp: 4,
+      donationsTodayGbp: 4,
+      needsRate: 0,
     });
     expect(warning).toHaveBeenCalledOnce();
     warning.mockRestore();
@@ -1280,6 +1446,180 @@ describe("Yomu support Worker", () => {
     expect(response.status).toBe(200);
     expect(email.send).toHaveBeenCalledTimes(1);
     expect(email.messages[0]?.to).toBe("kofi-donor@example.test");
+  });
+
+  it("records Buy Me a Coffee's published donation.created shape exactly once", async () => {
+    const db = mockSupportDb();
+    const payload = JSON.stringify({
+      event_id: 1234,
+      type: "donation.created",
+      live_mode: true,
+      created: 1719825600,
+      attempt: 1,
+      data: {
+        id: 98765,
+        object: "payment",
+        transaction_id: "pi_bmac_shape_contract",
+        status: "succeeded",
+        refunded: "false",
+        amount: 15,
+        coffee_count: 3,
+        coffee_price: 5,
+        currency: "GBP",
+        total_amount_charged: 15,
+        application_fee: 0.75,
+        support_type: "Supporter",
+        created_at: 1719825600,
+        refunded_at: null,
+      },
+    });
+    const env = { BMAC_WEBHOOK_SECRET: "bmac_secret", SUPPORT_DB: db };
+
+    const first = await fetchSupportWebhook(
+      await signedSupportBmacWebhook(payload, "bmac_secret"),
+      env,
+    );
+    const retry = await fetchSupportWebhook(
+      await signedSupportBmacWebhook(payload, "bmac_secret"),
+      env,
+    );
+
+    expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toEqual({ received: true, recorded: true });
+    expect(retry.status).toBe(200);
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      provider: "bmac",
+      id: "pi_bmac_shape_contract",
+      amountMinor: 1500,
+      currency: "gbp",
+      baseAmountMinor: 1500,
+    });
+  });
+
+  it("does not count a signed Buy Me a Coffee payload with a renamed amount field", async () => {
+    const db = mockSupportDb();
+    const payload = JSON.stringify({
+      event_id: 1234,
+      type: "donation.created",
+      live_mode: true,
+      created: 1719825600,
+      attempt: 1,
+      data: {
+        object: "payment",
+        transaction_id: "pi_bmac_wrong_shape",
+        status: "succeeded",
+        refunded: "false",
+        currency: "GBP",
+        total_charged: 15,
+        created_at: 1719825600,
+      },
+    });
+    const response = await fetchSupportWebhook(
+      await signedSupportBmacWebhook(payload, "bmac_secret"),
+      { BMAC_WEBHOOK_SECRET: "bmac_secret", SUPPORT_DB: db },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("rejects an invalid Buy Me a Coffee signature before accounting", async () => {
+    const db = mockSupportDb();
+    const response = await fetchSupportWebhook(
+      supportBmacWebhook("{}", "0".repeat(64)),
+      { BMAC_WEBHOOK_SECRET: "bmac_secret", SUPPORT_DB: db },
+    );
+
+    expect(response.status).toBe(401);
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("records PayPal's published capture-completed shape after verification postback", async () => {
+    const db = mockSupportDb();
+    const payload = JSON.stringify({
+      id: "WH-PAYPAL-SHAPE",
+      event_version: "1.0",
+      create_time: "2026-07-30T10:00:00.000Z",
+      resource_type: "capture",
+      resource_version: "2.0",
+      event_type: "PAYMENT.CAPTURE.COMPLETED",
+      summary: "Payment completed",
+      resource: {
+        id: "3Y_PAYPAL_CAPTURE",
+        status: "COMPLETED",
+        create_time: "2026-07-30T09:59:59.000Z",
+        amount: { value: "7.00", currency_code: "GBP" },
+      },
+    }, null, 2);
+    const paypalFetch = successfulPaypalVerifier();
+    vi.stubGlobal("fetch", paypalFetch);
+    const env = {
+      SUPPORT_DB: db,
+      PAYPAL_CLIENT_ID: "paypal_client",
+      PAYPAL_CLIENT_SECRET: "paypal_secret",
+      PAYPAL_WEBHOOK_ID: "paypal_webhook",
+    };
+
+    const first = await fetchSupportWebhook(supportPaypalWebhook(payload), env);
+    const retry = await fetchSupportWebhook(supportPaypalWebhook(payload), env);
+
+    expect(first.status).toBe(200);
+    await expect(first.json()).resolves.toEqual({ received: true, recorded: true });
+    expect(retry.status).toBe(200);
+    expect(db.rows).toHaveLength(1);
+    expect(db.rows[0]).toMatchObject({
+      provider: "paypal",
+      id: "3Y_PAYPAL_CAPTURE",
+      amountMinor: 700,
+      currency: "gbp",
+      baseAmountMinor: 700,
+    });
+    const verificationCall = paypalFetch.mock.calls.find(
+      call => String(call[0]).endsWith("/v1/notifications/verify-webhook-signature"),
+    );
+    expect(String(verificationCall?.[1]?.body)).toContain(`"webhook_event":${payload}`);
+  });
+
+  it("does not count PayPal payloads whose amount field no longer matches the contract", async () => {
+    const db = mockSupportDb();
+    vi.stubGlobal("fetch", successfulPaypalVerifier());
+    const payload = JSON.stringify({
+      id: "WH-PAYPAL-WRONG-SHAPE",
+      resource_type: "capture",
+      event_type: "PAYMENT.CAPTURE.COMPLETED",
+      resource: {
+        id: "3Y_PAYPAL_WRONG_SHAPE",
+        status: "COMPLETED",
+        create_time: "2026-07-30T09:59:59.000Z",
+        amount: { value: "7.00", currency: "GBP" },
+      },
+    });
+    const response = await fetchSupportWebhook(supportPaypalWebhook(payload), {
+      SUPPORT_DB: db,
+      PAYPAL_CLIENT_ID: "paypal_client",
+      PAYPAL_CLIENT_SECRET: "paypal_secret",
+      PAYPAL_WEBHOOK_ID: "paypal_webhook",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("rejects a failed PayPal verification postback before accounting", async () => {
+    const db = mockSupportDb();
+    vi.stubGlobal("fetch", successfulPaypalVerifier("FAILURE"));
+    const response = await fetchSupportWebhook(supportPaypalWebhook("{}"), {
+      SUPPORT_DB: db,
+      PAYPAL_CLIENT_ID: "paypal_client",
+      PAYPAL_CLIENT_SECRET: "paypal_secret",
+      PAYPAL_WEBHOOK_ID: "paypal_webhook",
+    });
+
+    expect(response.status).toBe(401);
+    expect(db.rows).toHaveLength(0);
   });
 
   it("acknowledges a signed Patreon test event without granting or recording it", async () => {
@@ -1626,6 +1966,28 @@ function monthKey(date = new Date()): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function freshFxDate(date = new Date()): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatWholeCurrency(locale: string, currency: string, value: number): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
+}
+
+function currencyParts(locale: string, currency: string, value: number): Intl.NumberFormatPart[] {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).formatToParts(Math.round(value));
+}
+
 function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -1884,6 +2246,49 @@ function supportKofiWebhook(payload: string): Request {
   });
 }
 
+function supportBmacWebhook(payload: string, signature: string): Request {
+  return new Request("https://support.yomureader.com/webhooks/bmac", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-signature-sha256": signature,
+    },
+    body: payload,
+  });
+}
+
+async function signedSupportBmacWebhook(payload: string, secret: string): Promise<Request> {
+  return supportBmacWebhook(payload, await bodyHmacSha256(payload, secret));
+}
+
+function supportPaypalWebhook(payload: string): Request {
+  return new Request("https://support.yomureader.com/webhooks/paypal", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "paypal-auth-algo": "SHA256withRSA",
+      "paypal-cert-url": "https://api-m.paypal.com/v1/notifications/certs/CERT-TEST",
+      "paypal-transmission-id": "transmission-test",
+      "paypal-transmission-sig": "signature-test",
+      "paypal-transmission-time": "2026-07-30T10:00:00Z",
+    },
+    body: payload,
+  });
+}
+
+function successfulPaypalVerifier(verificationStatus = "SUCCESS") {
+  return vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/v1/oauth2/token")) {
+      return Response.json({ access_token: "paypal_access_token" });
+    }
+    if (url.endsWith("/v1/notifications/verify-webhook-signature")) {
+      return Response.json({ verification_status: verificationStatus });
+    }
+    throw new Error(`Unexpected PayPal test request: ${url}`);
+  });
+}
+
 function supportPatreonWebhook(payload: string, trigger: string, signature: string): Request {
   return new Request("https://support.yomureader.com/webhooks/patreon", {
     method: "POST",
@@ -1924,7 +2329,7 @@ function patreonMemberPayload(id: string, status: string, updatedAt: string): st
 }
 
 type DonationRow = {
-  provider: "stripe" | "kofi" | "patreon";
+  provider: "stripe" | "kofi" | "bmac" | "paypal" | "patreon";
   id: string;
   day: string;
   amountMinor: number;
@@ -1950,6 +2355,14 @@ function stripeDonationRow(id: string, day: string, amountMinor: number, currenc
     stripeSessionId: `cs_live_${id}`,
     stripeCreatedAt: Math.floor(Date.now() / 1000),
     receivedAt: new Date().toISOString(),
+  };
+}
+
+function readyStripeEnv(secret = "sk_live_secret") {
+  return {
+    STRIPE_SECRET_KEY: secret,
+    STRIPE_WEBHOOK_SECRET: "whsec_ready",
+    SUPPORT_DB: mockSupportDb(),
   };
 }
 
@@ -2010,6 +2423,42 @@ function mockSupportDb(initialRows: DonationRow[] = []) {
           }
           return null;
         },
+        async all<T>() {
+          if (!/FROM provider_donation_events/.test(query) || !/needs_rate = 1/.test(query)) {
+            return { results: [] as T[] };
+          }
+          const today = String(values[0] ?? "");
+          const provider = String(values[1] ?? "");
+          const start = String(values[2] ?? "");
+          const end = String(values[3] ?? "");
+          const baseCurrency = String(values[4] ?? "gbp");
+          const grouped = new Map<string, {
+            currency: string;
+            total_minor: number;
+            today_minor: number;
+            donation_count: number;
+          }>();
+          const matching = rows.filter(row => (
+            row.provider === provider
+            && row.day >= start
+            && row.day < end
+            && (row.baseCurrency ?? row.currency) === baseCurrency
+            && row.needsRate === true
+          ));
+          for (const row of matching) {
+            const current = grouped.get(row.currency) ?? {
+              currency: row.currency,
+              total_minor: 0,
+              today_minor: 0,
+              donation_count: 0,
+            };
+            current.total_minor += row.amountMinor;
+            if (row.day === today) current.today_minor += row.amountMinor;
+            current.donation_count += 1;
+            grouped.set(row.currency, current);
+          }
+          return { results: [...grouped.values()] as T[] };
+        },
         async run() {
           if (/INSERT INTO support_observability_counters/.test(query)) {
             const name = String(values[0] ?? "");
@@ -2047,7 +2496,7 @@ function insertStripeDonationRow(query: string, values: unknown[], rows: Donatio
 
 function insertProviderDonationRow(query: string, values: unknown[], rows: DonationRow[]): void {
   if (!/INSERT OR IGNORE INTO provider_donation_events/.test(query)) return;
-  const provider = stringValue(values, 0) as "kofi" | "patreon";
+  const provider = stringValue(values, 0) as Exclude<DonationRow["provider"], "stripe">;
   const id = stringValue(values, 1);
   if (rows.some(row => row.provider === provider && row.id === id)) return;
   rows.push(providerDonationRow(provider, id, stringValue(values, 2), numberValue(values, 3), {
@@ -2070,7 +2519,7 @@ function numberValue(values: unknown[], index: number): number {
 }
 
 function providerDonationRow(
-  provider: "kofi" | "patreon",
+  provider: Exclude<DonationRow["provider"], "stripe">,
   id: string,
   day: string,
   amountMinor: number,
@@ -2102,6 +2551,22 @@ async function stripeSignatureHeader(payload: string, secret: string, timestamp:
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(`${timestamp}.${payload}`));
   return `t=${timestamp},v1=${Array.from(new Uint8Array(signature), byte => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+async function bodyHmacSha256(payload: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return Array.from(
+    new Uint8Array(signature),
+    byte => byte.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 // Independent HMAC-MD5 implementation for the Patreon signature test, so the

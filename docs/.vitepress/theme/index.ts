@@ -54,7 +54,6 @@ const YOMU_HOSTED_ANKI_COMPANION_SCRIPT_ID = 'yomu-hosted-anki-companion';
 const HOSTED_RUNTIME_VERSION = pkg.version;
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
-const YOMU_SUPPORT_DONATE_URL = 'https://support.yomureader.com/donate';
 const YOMU_SUPPORT_FALLBACK_STATUS_URL = 'https://yomu-support.henry-robert-christopher-russell.workers.dev/status';
 const YOMU_SUPPORT_BANNER_ID = 'yomu-support-banner';
 const YOMU_SUPPORT_BANNER_DISMISSED_KEY = 'yomu-support-banner-dismissed-version';
@@ -107,6 +106,7 @@ interface HostedSupportStatus {
     donationsTodayGbp?: number;
     donationsThisMonthGbp?: number;
     estimatedMonthlyCostGbp?: number;
+    goalMet?: boolean;
     progressRatio?: number;
     donateUrl?: string;
     providers?: HostedSupportProvider[];
@@ -134,6 +134,7 @@ const HOSTED_RUNTIME_TARGET_SELECTOR = [
 const textNodeOriginals = new WeakMap<Text, string>();
 const attrOriginals = new WeakMap<Element, Map<string, string>>();
 let languageToggleObserver: MutationObserver | undefined;
+let hostedSupportBannerStatus: HostedSupportStatus | undefined;
 let accentSyncBound = false;
 let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
@@ -731,9 +732,31 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Membership': 'メンバーシップ',
     'Permalink to "Membership"': '「メンバーシップ」への固定リンク',
     'Help': 'ヘルプ',
+    'Yomu is free and stays free. Chip in toward its small monthly bill through a verified support provider.': 'よむは無料で、これからも無料です。確認済みの支援サービスから、少額の月間運営費を支援できます。',
     'Yomu is free and stays free. If it has earned a place in your day, you can chip in through Ko-fi, Patreon or card — whichever you already use.': 'よむは無料で、これからも無料です。毎日の役に立っていると感じたら、Ko-fi、Patreon、カードのうち、使いやすい方法で支援できます。',
     'Yomu is free, and the reader stays free.': 'よむは無料で、リーダーはこれからも無料です。',
     'Everything on this site works without paying: reading, lookups, reviews, manga, subtitles, dictionaries.': 'このサイトのすべてが、支払いなしで使えます。読むこと、検索、復習、漫画、字幕、辞書。',
+    'Support is for people who want to keep Yomu being built. It also helps fund Academy.': '支援は、よむの開発を続けてほしい人のためのものです。Academyの開発費にも充てられます。',
+    'Choose the service you already use': '普段使っているサービスを選ぶ',
+    'Permalink to "Choose the service you already use"': '「普段使っているサービスを選ぶ」への固定リンク',
+    'The checked-in forecast for hosting, storage, the domain, APIs, and test devices is exactly £10.20 a month. The public status bar displays the nearest whole unit, £10, and keeps exact GBP values for accounting.': 'ホスティング、ストレージ、ドメイン、API、テスト端末の登録済み見積もりは、月額ちょうど£10.20です。公開ステータスバーでは最も近い整数の£10と表示し、集計には正確なGBP額を使います。',
+    'Ko-fi takes one-off or monthly payments. Patreon is monthly. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Buy Me a Coffee and PayPal appear in the live status bar once their official pages and verified webhooks are ready.': 'Ko-fiは一回限りと毎月の支援に対応し、Patreonは毎月です。カード決済ではGBP、USD、EUR、CAD、AUD、JPYを利用できます。Buy Me a CoffeeとPayPalは、公式ページと確認済みWebhookの準備が整うと公開ステータスバーに表示されます。',
+    'After the support migration and Worker are deployed, verified receipts from all five services count toward the monthly bill. Card, Ko-fi, and qualifying Patreon support can create one Academy code. Buy Me a Coffee and PayPal will join support accounting after activation, without creating a code.': '支援用の移行とWorkerをデプロイすると、5つのサービスから届いた確認済み入金が月間運営費に集計されます。カード、Ko-fi、条件を満たすPatreon支援ではAcademyコードを1つ発行できます。Buy Me a CoffeeとPayPalは有効化後に、コードを発行せず支援額の集計へ加わります。',
+    'Enter an Academy code within 30 days. Once redeemed, access stays with the Google account you choose.': 'Academyコードは30日以内に入力してください。使用後のアクセス権は、選んだGoogleアカウントに残ります。',
+    'What support makes possible': '支援でできること',
+    'Permalink to "What support makes possible"': '「支援でできること」への固定リンク',
+    'Academy access from code-granting support.': 'コードが発行される支援からAcademyへアクセス。',
+    'Academy teaches Japanese from zero, in order, and is in development. Card, Ko-fi, and qualifying Patreon support can issue a code.': 'Academyはゼロから順番に日本語を教えるもので、現在開発中です。カード、Ko-fi、条件を満たすPatreon支援ではコードを発行できます。',
+    "Supporters' reports and requests get answered first.": '支援者からの報告や要望を先に対応します。',
+    'Reader improvements for everyone.': 'すべての人に向けたリーダーの改善。',
+    'Lookup, dictionary, subtitle, and review features stay open.': '検索、辞書、字幕、復習の機能は引き続き誰でも使えます。',
+    'Reader access stays the same': 'リーダーの利用方法は変わりません',
+    'Permalink to "Reader access stays the same"': '「リーダーの利用方法は変わりません」への固定リンク',
+    'The reader stays open.': 'リーダーは誰でも使えます。',
+    'Reading and study features work without a membership.': '読む機能と学習機能はメンバーシップなしで使えます。',
+    'Your saved work stays yours.': '保存した内容は自分のものです。',
+    'Stop supporting whenever you like.': '支援はいつでもやめられます。',
+    'Sharing Yomu and reporting bugs also help.': 'よむを紹介したり、不具合を報告したりすることも助けになります。',
     'Membership is for people who want to keep it being built — and it is how Academy will be funded, so members get access when it opens.': 'メンバーシップは、開発を続けてほしいと思う人のためのものです。アカデミーの費用もここから出るため、公開時にはメンバーが利用できます。',
     'Pick whichever you already use': '使いやすい方法を選んでください',
     'Permalink to "Pick whichever you already use"': '「使いやすい方法を選んでください」への固定リンク',
@@ -4202,6 +4225,25 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Permalink to "Open the tools"': '「ツールを開く」への固定リンク',
     'Permalink to "Chip in"': '「支援する」への固定リンク',
     'Reading, dictionaries you keep on your device, study, and saving cards stay free.': '読むこと、端末に置く辞書、学習、カードの保存は、これからも無料です。',
+    "Donations are optional and cover Yomu's shared running costs.": '寄付は任意で、よむの共有サービスの運営費に充てられます。',
+    'Monthly running costs': '月間運営費',
+    'Permalink to "Monthly running costs"': '「月間運営費」への固定リンク',
+    'Monthly running costs {#monthly-running-costs}': '月間運営費',
+    'Permalink to "Monthly running costs {#monthly-running-costs}"': '「月間運営費」への固定リンク',
+    'Forecast input': '見積もり項目',
+    'Monthly estimate': '月間見積もり',
+    'Cloudflare Workers Paid plan': 'Cloudflare Workers有料プラン',
+    'R2 audio bucket storage': 'R2音声バケットのストレージ',
+    'R2 audio read operations': 'R2音声の読み取り処理',
+    'yomureader.com domain': 'yomureader.comドメイン',
+    'D1 + KV donation state': 'D1 + KVの支援状況データ',
+    'API usage and test devices': 'API利用とテスト端末',
+    'Exact forecast': '正確な見積もり',
+    'The public status bar shows the nearest whole unit, £10, while the support ledger keeps the exact GBP amount.': '公開ステータスバーでは最も近い整数の£10と表示し、支援台帳には正確なGBP額を残します。',
+    'After the support migration and Worker are deployed, verified receipts from card, Ko-fi, Buy Me a Coffee, PayPal, and Patreon all count toward that monthly total. A provider appears in the status bar only when its official HTTPS page, webhook credentials, and ledger connection are ready.': '支援用の移行とWorkerをデプロイすると、カード、Ko-fi、Buy Me a Coffee、PayPal、Patreonから届いた確認済み入金が月間合計に加わります。公式HTTPSページ、Webhookの認証設定、台帳接続がすべて整ったサービスだけがステータスバーに表示されます。',
+    'Card, Ko-fi, and qualifying Patreon support can create one Yomu Academy code. Once activated, Buy Me a Coffee and PayPal contribute to support accounting without creating a code. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY.': 'カード、Ko-fi、条件を満たすPatreon支援では、よむAcademyコードを1つ発行できます。有効化後のBuy Me a CoffeeとPayPalは、コードを発行せず支援額の集計に加わります。カード決済ではGBP、USD、EUR、CAD、AUD、JPYを利用できます。',
+    "An Academy code is sent to the email in the provider's verified payment notice and must be entered within 30 days. Card payments can also show it when the same browser returns from checkout. Once redeemed, Academy access stays with the Google account you choose.": 'Academyコードは、サービスから届く確認済みの支払い通知に記載されたメールアドレスへ送られ、30日以内に入力する必要があります。カード決済では、同じブラウザーで決済から戻ったときにも表示できます。使用後のAcademyアクセス権は、選んだGoogleアカウントに残ります。',
+    'If a code from card, Ko-fi, or Patreon does not arrive, ask on Discord with the provider name and receipt reference. Keep payment details out of the message. The owner can recover the code or issue a separate one.': 'カード、Ko-fi、Patreonのコードが届かない場合は、サービス名と入金参照番号を添えてDiscordで尋ねてください。支払い情報はメッセージに書かないでください。管理者がコードを復元するか、別のコードを発行できます。',
     'Donations are optional and cover hosting, test devices, and the time it takes to keep Yomu improving. Any one-time amount from £5 to £500 works, and every donation includes permanent Yomu Academy access.': '寄付は任意です。ホスティング、検証用の端末、そしてよむを良くし続けるための時間に充てられます。£5から£500までの一度きりの金額に対応し、どの寄付にもYomu Academyの永続アクセスが含まれます。',
     // Docs rewrite 2026-07-27: docs/tools/index.md.
     'Yomu turns any page, video, manga or game screen into a Japanese lesson. Pick what you want to read — web pages, manga, video, PC games, PDFs — and read it with lookups, readings, and cards you keep. Free, no account.': 'よむは、ページも動画もマンガもゲーム画面も、日本語のレッスンに変えます。読みたいもの——Webページ、マンガ、動画、PCゲーム、PDF——を選び、意味を調べ、読みを表示し、覚えたい語をカードに残しながら読めます。無料、アカウント不要。',
@@ -5297,10 +5339,16 @@ function registerHostedDocsServiceWorker(): void {
 
 function installHostedSupportBanner(): void {
     const existing = document.getElementById(YOMU_SUPPORT_BANNER_ID);
-    if (existing) return;
+    if (existing) {
+        if (hostedSupportBannerStatus) {
+            existing.replaceWith(renderHostedSupportBanner(hostedSupportBannerStatus));
+        }
+        return;
+    }
     void loadHostedSupportStatus()
         .then(status => {
             if (!shouldShowHostedSupportBanner(status)) return;
+            hostedSupportBannerStatus = status;
             const banner = renderHostedSupportBanner(status);
             const content = document.querySelector<HTMLElement>('.VPContent');
             if (content) content.prepend(banner);
@@ -5340,6 +5388,8 @@ async function fetchHostedSupportStatus(url: string): Promise<HostedSupportStatu
 function shouldShowHostedSupportBanner(status: HostedSupportStatus): boolean {
     const banner = status.banner;
     if (banner?.enabled === false) return false;
+    if (hostedReadySupportProviders(status).length === 0) return false;
+    if (!hostedSupportGoalAvailable(status)) return false;
     const version = hostedSupportDismissVersion(status);
     return shouldShowHostedSupportBannerImpression(version);
 }
@@ -5348,7 +5398,10 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     const banner = document.createElement('aside');
     banner.id = YOMU_SUPPORT_BANNER_ID;
     banner.className = 'yomu-support-banner';
-    banner.setAttribute('aria-label', 'Yomu service funding');
+    banner.setAttribute(
+        'aria-label',
+        effectiveInterfaceLanguage() === 'ja' ? 'よむの運営支援' : 'Yomu running-cost support',
+    );
     banner.dataset.yomuSupportBanner = 'true';
 
     const copy = document.createElement('div');
@@ -5362,6 +5415,14 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     meta.textContent = hostedSupportMeta(status);
     copy.append(meta);
 
+    const breakdown = document.createElement('a');
+    breakdown.className = 'yomu-support-banner-breakdown';
+    breakdown.href = '/support#monthly-running-costs';
+    breakdown.textContent = effectiveInterfaceLanguage() === 'ja'
+        ? '内訳'
+        : 'What this covers';
+    copy.append(breakdown);
+
     const progress = renderHostedSupportProgress(status);
     if (progress) copy.append(progress);
 
@@ -5373,7 +5434,10 @@ function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
     const close = document.createElement('button');
     close.className = 'yomu-support-banner-close';
     close.type = 'button';
-    close.setAttribute('aria-label', 'Dismiss support banner');
+    close.setAttribute(
+        'aria-label',
+        effectiveInterfaceLanguage() === 'ja' ? '支援状況を閉じる' : 'Dismiss support status',
+    );
     close.textContent = '×';
     close.addEventListener('click', () => {
         rememberHostedSupportDismissal(hostedSupportDismissVersion(status));
@@ -5391,7 +5455,12 @@ function renderHostedSupportProgress(status: HostedSupportStatus): HTMLElement |
     const track = document.createElement('span');
     track.className = 'yomu-support-banner-progress';
     track.setAttribute('role', 'progressbar');
-    track.setAttribute('aria-label', 'This month toward the donation goal');
+    track.setAttribute(
+        'aria-label',
+        effectiveInterfaceLanguage() === 'ja'
+            ? '今月の運営費に対する支援額'
+            : 'Support received toward this month’s running costs',
+    );
     track.setAttribute('aria-valuemin', '0');
     track.setAttribute('aria-valuemax', '100');
     track.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
@@ -5415,32 +5484,30 @@ function hostedSupportProgressRatio(status: HostedSupportStatus): number | null 
 }
 
 function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[] {
-    const buttons: HTMLElement[] = [];
-    const donate = document.createElement('a');
-    donate.className = 'yomu-support-banner-donate';
-    donate.href = hostedSupportDonateUrl(status);
-    donate.target = '_blank';
-    donate.rel = 'noopener';
-    donate.textContent = status.banner?.ctaLabel || 'Donate';
-    buttons.push(donate);
-
-    // Manual providers (Ko-fi/BMAC/PayPal/Patreon) render only when the Worker
-    // reports an enabled https URL, so the supervised session only has to fill
-    // the provider URLs to light these up.
-    for (const provider of status.providers ?? []) {
-        if (!provider?.enabled || provider.id === 'stripe') continue;
-        const url = safeHostedHttpsUrl(provider.url);
-        if (!url) continue;
+    return hostedReadySupportProviders(status).map(provider => {
         const link = document.createElement('a');
-        link.className = 'yomu-support-banner-provider';
+        link.className = provider.id === 'stripe'
+            ? 'yomu-support-banner-donate'
+            : 'yomu-support-banner-provider';
         link.dataset.provider = provider.id ?? '';
-        link.href = url;
+        link.href = provider.url;
         link.target = '_blank';
         link.rel = 'noopener';
-        link.textContent = provider.label || (provider.id ?? 'Support');
-        buttons.push(link);
-    }
-    return buttons;
+        link.textContent = provider.id === 'stripe'
+            ? (effectiveInterfaceLanguage() === 'ja' ? '寄付する' : 'Donate')
+            : (provider.label || (provider.id ?? 'Support'));
+        return link;
+    });
+}
+
+function hostedReadySupportProviders(
+    status: HostedSupportStatus,
+): Array<HostedSupportProvider & { url: string }> {
+    return (status.providers ?? []).flatMap(provider => {
+        if (!provider?.enabled) return [];
+        const url = safeHostedHttpsUrl(provider.url);
+        return url ? [{ ...provider, url }] : [];
+    });
 }
 
 function safeHostedHttpsUrl(value: string | undefined): string | null {
@@ -5454,15 +5521,26 @@ function safeHostedHttpsUrl(value: string | undefined): string | null {
 }
 
 function hostedSupportMessage(status: HostedSupportStatus): string {
-    return status.banner?.message
-        || "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.";
+    if (effectiveInterfaceLanguage() === 'ja') {
+        return status.goalMet
+            ? '今月分の高速音声の運営費が集まりました。ありがとうございます。'
+            : '今月のご支援で、単語・シャドーイング向けの高速音声を運営します。';
+    }
+    return status.goalMet
+        ? "This month's fast audio bill is covered. Thank you."
+        : "This month's support keeps fast word and shadowing audio running.";
 }
 
 function hostedSupportMeta(status: HostedSupportStatus): string {
     const goalText = hostedSupportGoalText(status);
     const receivedText = hostedSupportReceivedText(status);
-    const cost = status.banner?.costLabel || `Donation goal: ${goalText}/month`;
-    const goal = status.banner?.goalLabel || `This month: ${receivedText} / ${goalText}`;
+    const japanese = effectiveInterfaceLanguage() === 'ja';
+    const cost = japanese
+        ? `月の運営費：${goalText}`
+        : `Monthly running costs: ${goalText}`;
+    const goal = japanese
+        ? `今月のご支援：${receivedText} / ${goalText}`
+        : `Received this month: ${receivedText} / ${goalText}`;
     return `${cost} · ${goal}`;
 }
 
@@ -5472,7 +5550,10 @@ function hostedSupportGoalText(status: HostedSupportStatus): string {
     if (display?.converted && typeof display.goal === 'number' && display.currency) {
         return formatHostedLocalCurrency(display.goal, display.currency);
     }
-    return formatHostedSupportGbp(status.donationGoalGbp ?? Math.max(status.estimatedMonthlyCostGbp ?? 10, 10));
+    const goal = status.donationGoalGbp ?? status.estimatedMonthlyCostGbp;
+    return typeof goal === 'number' && Number.isFinite(goal)
+        ? formatHostedSupportGbp(goal)
+        : '';
 }
 
 function hostedSupportReceivedText(status: HostedSupportStatus): string {
@@ -5482,6 +5563,13 @@ function hostedSupportReceivedText(status: HostedSupportStatus): string {
         return formatHostedLocalCurrency(display.amount, display.currency);
     }
     return formatHostedSupportGbp(status.donationsThisMonthGbp ?? status.donationsTodayGbp ?? 0);
+}
+
+function hostedSupportGoalAvailable(status: HostedSupportStatus): boolean {
+    if (typeof status.display?.goalText === 'string' && status.display.goalText.trim()) return true;
+    if (typeof status.display?.goal === 'number' && Number.isFinite(status.display.goal)) return true;
+    return [status.donationGoalGbp, status.estimatedMonthlyCostGbp]
+        .some(value => typeof value === 'number' && Number.isFinite(value));
 }
 
 // Client-side fallback: if the Worker could not localize (FX unavailable), or
@@ -5494,20 +5582,11 @@ function formatHostedLocalCurrency(value: number, currency: string): string {
         return new Intl.NumberFormat(locale, {
             style: 'currency',
             currency,
+            minimumFractionDigits: 0,
             maximumFractionDigits: 0,
         }).format(rounded);
     } catch {
         return `${rounded} ${currency}`;
-    }
-}
-
-function hostedSupportDonateUrl(status: HostedSupportStatus): string {
-    const candidate = status.banner?.donateUrl || status.donateUrl || YOMU_SUPPORT_DONATE_URL;
-    try {
-        const url = new URL(candidate);
-        return url.protocol === 'https:' ? url.href : YOMU_SUPPORT_DONATE_URL;
-    } catch {
-        return YOMU_SUPPORT_DONATE_URL;
     }
 }
 
@@ -5530,7 +5609,7 @@ function rememberHostedSupportDismissal(version: string): void {
 }
 
 function formatHostedSupportGbp(value: number): string {
-    return `£${Math.round(value)}`;
+    return formatHostedLocalCurrency(value, 'GBP');
 }
 
 // Settings whose values are baked into rendered reader-word DOM (ruby rt
