@@ -51,6 +51,9 @@ describe('Slice 1 multilingual onboarding and settings', () => {
 
         learnerLanguage.value = 'ko';
         targetLanguage.value = 'es';
+        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')?.checked)
+            .toBe(false);
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -61,6 +64,8 @@ describe('Slice 1 multilingual onboarding and settings', () => {
             uiLocale: 'en',
         });
         expect(settings.interfaceLanguage).toBe('en');
+        expect(settings.youtubeImmersionEnabled).toBe(true);
+        expect(settings.youtubeImmersionEnabledChosen).toBe(false);
     });
 
     it('uses the same readiness-labelled target options in Settings', () => {

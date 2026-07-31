@@ -685,6 +685,13 @@ function languageSubtag(value) {
   return canonical.split("-")[0]?.toLowerCase() ?? null;
   }
 }
+function languageDisplayName(language, locale = "en") {
+  try {
+  return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
+  } catch {
+  return language;
+  }
+}
 function localeDirection(value) {
   const canonical = canonicalLanguageTag(value);
   if (!canonical) return "ltr";
@@ -4548,6 +4555,9 @@ function activeLearningTarget() {
   cachedForRegistryRevision = revision;
   return cachedTarget;
 }
+function activeLearningTargetLanguage() {
+  return activeLearningTarget().language;
+}
 const CORE_COLOR_TOKENS = {
   black: "#000000",
   white: "#ffffff"
@@ -7275,17 +7285,17 @@ const COPY = {
   subtitleSeekPadding: "Subtitle seek padding (s)",
   subtitlePreview: "Live subtitle preview",
   preview: "Preview",
-  youtubeImmersionEnabled: "Japanese YouTube only",
-  preferJapaneseSiteLanguage: "Open Japanese versions of sites",
+  youtubeImmersionEnabled: "{language} YouTube only",
+  preferJapaneseSiteLanguage: "Open {language} versions of sites",
   youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
   youtubeShowFilterNotice: "Show hidden-video notice",
-  youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
+  youtubeHelp: "Filter YouTube for {language} and open {language} versions of sites.",
   youtubeShowHiddenVideos: "Show hidden videos",
   youtubeHideHiddenVideos: "Hide hidden videos",
   youtubeHideNotice: "Hide notice",
   youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-  youtubeFilterHid: "{appName} hid {count} non-Japanese item{plural}",
-  youtubeFilterVisible: "{count} Japanese items stayed visible.",
+  youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
+  youtubeFilterVisible: "{count} {language} items stayed visible.",
   youtubeToggleToastOn: "YouTube immersion filter enabled.",
   youtubeToggleToastOff: "YouTube immersion filter disabled.",
   ankiEnabled: "Enable Anki mining",
@@ -8992,17 +9002,17 @@ subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
-youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+youtubeImmersionEnabled	{language}のYouTubeのみ
+preferJapaneseSiteLanguage	{language}版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを{language}向けに絞り、{language}版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
 youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は日本語らしくないYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
+youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
+youtubeFilterVisible	{language}らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -24397,6 +24407,28 @@ function setClassState(element, className, enabled) {
 function shouldHonorExplicitYouTubeSideLayout(layout) {
   return layout.margin > 0 && layout.viewportWidth >= 900;
 }
+const LANGUAGE_ENDONYMS = Object.freeze({
+  ja: "日本語",
+  zh: "中文",
+  yue: "粵語",
+  lzh: "文言"
+});
+function headwordLanguageEndonym(language) {
+  return LANGUAGE_ENDONYMS[language] ?? language;
+}
+function headwordLanguageName(language, locale = "en") {
+  const display = languageDisplayName(language, locale);
+  return display === language ? headwordLanguageEndonym(language) : display;
+}
+function targetLanguageDisplayName(settings) {
+  return activeTargetLanguageDisplayName(settings.interfaceLanguage);
+}
+function activeTargetLanguageDisplayName(interfaceLanguage) {
+  return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+function languageDisplayNameFor(tag, interfaceLanguage) {
+  return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
+}
 function languageFamilyIncludes(family, language) {
   const base = languageSubtag(language) ?? language.toLowerCase();
   return base === "ja";
@@ -25390,7 +25422,8 @@ class YoutubeImmersionFilter {
   }
   updateNoticeSummary(summary, filteredCount, shownCount, settings) {
   const summaryText = this.noticeSummaryText(filteredCount, settings);
-  const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
+  const values = { count: String(shownCount), language: targetLanguageDisplayName(settings) };
+  const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), values) : "";
   const bar = summary.closest(".jpdb-youtube-filter-bar");
   summary.textContent = summaryText;
   summary.title = visibleText;

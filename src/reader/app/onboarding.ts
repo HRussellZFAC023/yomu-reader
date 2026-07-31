@@ -2,6 +2,7 @@ import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
+import { jpOnlyOn, languageFamilyIncludes } from '../settings/language-gating';
 import { settingsText } from '../settings/settings-text';
 import { changedAutomationProtectedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
@@ -70,6 +71,7 @@ export class OnboardingController {
     private pendingAccentPreviewColor?: string;
     private accentPreviewFrame?: number;
     private youtubeImmersionInput?: HTMLInputElement;
+    private youtubeImmersionChoiceTouched = false;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
     private offlineDictionariesInput?: HTMLInputElement;
     /**
@@ -256,7 +258,15 @@ export class OnboardingController {
             this.options.getSettings().interfaceLanguage,
             'pressKeys',
         );
-        this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
+        const currentSettings = this.options.getSettings();
+        this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', jpOnlyOn(
+            currentSettings,
+            currentSettings.youtubeImmersionEnabled,
+            currentSettings.youtubeImmersionEnabledChosen,
+        ));
+        this.youtubeImmersionInput.addEventListener('change', () => {
+            this.youtubeImmersionChoiceTouched = true;
+        });
         this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
         this.offlineDictionariesInput = checkboxInput('onboardingInstallOfflineDictionaries', true);
         const pageScanMode = createModeGroup(
@@ -348,6 +358,12 @@ export class OnboardingController {
             if (selected) {
                 this.targetLanguageSelect!.lang = selected.lang;
                 this.targetLanguageSelect!.dir = selected.dir;
+                if (this.youtubeImmersionInput && !this.youtubeImmersionChoiceTouched) {
+                    const settings = this.options.getSettings();
+                    this.youtubeImmersionInput.checked = settings.youtubeImmersionEnabled
+                        && (settings.youtubeImmersionEnabledChosen
+                            || languageFamilyIncludes('jp-only', selected.value));
+                }
             }
         });
         this.panel.addEventListener('click', event => {
@@ -516,7 +532,11 @@ export class OnboardingController {
             onboardingSeen: true,
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-            youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
+            youtubeImmersionEnabled: this.youtubeImmersionChoiceTouched
+                ? this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled
+                : current.youtubeImmersionEnabled,
+            youtubeImmersionEnabledChosen:
+                current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
             annotationsPaused: pageScanMode === 'off',
             manualScanEnabled: pageScanMode === 'manual',
@@ -551,6 +571,7 @@ export class OnboardingController {
         this.themeSwitch = undefined;
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
+        this.youtubeImmersionChoiceTouched = false;
         this.preferJapaneseSiteLanguageInput = undefined;
         this.offlineDictionariesInput = undefined;
         this.pageScanModeInputs = [];

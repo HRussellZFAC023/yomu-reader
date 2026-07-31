@@ -775,25 +775,38 @@ function readImmersionKitFormSettings(reader: SettingsFormReader, current: Reade
 }
 
 function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
-    const { has } = reader;
+    const { get, has } = reader;
     const youtubeControlsPresent = has('youtubeImmersionSettingsPresent');
+    // The channel suggestions have their OWN presence marker because they are gated
+    // separately from the filter: the filter follows the active target since A48 and
+    // is offered to every learner, while the suggestion corpus really is 100 Japanese
+    // channels and stays Japanese-only. Without a marker of its own, a detached
+    // checkbox reads as a deliberate uncheck and silently turns the setting off.
+    const channelControlsPresent = has('youtubeChannelSuggestionSettingsPresent');
     const immersionEnabled = youtubeControlsPresent
         ? has('youtubeImmersionEnabled')
         : current.youtubeImmersionEnabled;
-    const channelRecommendations = youtubeControlsPresent
+    const initialImmersionEnabled = get('youtubeImmersionEnabledInitial') === 'on';
+    const immersionChanged = youtubeControlsPresent
+        && has('youtubeImmersionEnabledInitial')
+        && immersionEnabled !== initialImmersionEnabled;
+    const channelRecommendations = channelControlsPresent
         ? has('youtubeShowChannelRecommendations')
         : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        youtubeImmersionEnabled: immersionEnabled,
-        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen
-            || (youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled),
+        // The stored default is ON for Japanese and implicitly OFF everywhere
+        // else until chosen. The checkbox renders that effective state, so an
+        // unchanged save must preserve the implicit value while a real toggle
+        // records the submitted value as an explicit choice.
+        youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
+        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
         preferJapaneseSiteLanguage: siteLanguageSettingPresent
             ? has('preferJapaneseSiteLanguage')
             : current.preferJapaneseSiteLanguage,
         youtubeShowChannelRecommendations: channelRecommendations,
         youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen
-            || (youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
+            || (channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations),
         youtubeShowFilterNotice: youtubeControlsPresent
             ? has('youtubeShowFilterNotice')
             : current.youtubeShowFilterNotice,

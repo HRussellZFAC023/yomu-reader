@@ -85,6 +85,7 @@ describe('OnboardingController', () => {
         expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
         youtubeFilter!.checked = false;
+        youtubeFilter!.dispatchEvent(new Event('change', { bubbles: true }));
         siteLanguage!.checked = false;
         pageScanManual!.checked = true;
         pageScanManual!.dispatchEvent(new Event('change', { bubbles: true }));
@@ -104,6 +105,7 @@ describe('OnboardingController', () => {
 
         expect(settings.onboardingSeen).toBe(true);
         expect(settings.youtubeImmersionEnabled).toBe(false);
+        expect(settings.youtubeImmersionEnabledChosen).toBe(true);
         expect(settings.preferJapaneseSiteLanguage).toBe(false);
         expect(settings.manualScanEnabled).toBe(true);
         expect(settings.theme).toBe('dark');

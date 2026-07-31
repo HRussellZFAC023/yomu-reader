@@ -18,7 +18,7 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { changedSettingsKeys, coupledExplicitUserChoiceKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -88,6 +88,7 @@ import {
 } from '../languages';
 import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
+import { syncYoutubeImmersionTarget } from './youtube-panel';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
@@ -742,7 +743,9 @@ export class SettingsDialogController {
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
+                explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
+                    changedSettingsKeys(previousSettings, settings),
+                ),
             });
             this.dependencies.onSettingsPersisted?.(settings);
         } catch (error) {
@@ -958,6 +961,12 @@ export class SettingsDialogController {
             if (detail && detail.settings && detail.preview !== true) {
                 this.settings = { ...this.settings, ...detail.settings };
                 syncFormFromSettings(form, this.settings);
+                syncYoutubeImmersionTarget(
+                    form,
+                    this.settings,
+                    activeTargetLanguageId(this.settings),
+                    true,
+                );
                 syncSubtitlePreview(form);
                 syncFontFamilyControls(form);
             }
@@ -991,6 +1000,7 @@ export class SettingsDialogController {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (!isLearningTargetRosterId(value)) return;
             syncLanguageFamilyDom(form, value);
+            syncYoutubeImmersionTarget(form, this.settings, value);
             this.renderLookupPillsForTarget(form, value);
             localizeSettingsForm(form, this.settings.interfaceLanguage);
             void this.refreshTargetDictionaryAvailability(form, value);

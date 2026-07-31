@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { LEARNER_LANGUAGE_IDS } from '../../../src/reader/locales/types';
 import { studyTargetOptions } from '../../../src/reader/app/study-target-picker';
+import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
+import { coupledExplicitUserChoiceKeys, changedSettingsKeys } from '../../../src/reader/settings/index';
+import { syncYoutubeImmersionTarget } from '../../../src/reader/settings/youtube-panel';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { DEFAULT_SETTINGS, renderSettingsTestForm } from './fixtures';
 
@@ -86,14 +89,34 @@ describe('target-language settings', () => {
         }
     });
 
+    it('keeps settings-shaped labels aligned with the adopted runtime target', () => {
+        setActiveLearningTargetLanguage('ru');
+        try {
+            // DEFAULT_SETTINGS still names Japanese. The runtime target is the
+            // authority for live behaviour and its labels after startup adopts
+            // persisted settings, so a stale object cannot make the copy lie.
+            expect(targetLanguageDisplayName(DEFAULT_SETTINGS)).toBe('Russian');
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('keeps pronunciation universal, shares reading controls with zh/yue/ko, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        // Japanese-only means "the DATA behind it is Japanese", not "it mentions
+        // Japanese". The YouTube immersion filter and the site-language redirect both
+        // follow the active target now (A48 and preferred-site-language-impl), so they
+        // are offered to every learner and only their labels name the target. The
+        // channel suggestions stay here because their corpus really is 100 Japanese
+        // channels graded N5..N1 with no equivalent for any other language.
         const japaneseOnlySelectors = [
             '[data-language-family="pitch-colouring"]',
             '[data-language-family="pitch-legend"]',
             '[data-language-family="provider-pills"]',
-            'input[name="youtubeImmersionEnabled"]',
             'input[name="youtubeShowChannelRecommendations"]',
+        ] as const;
+        const everyTargetSelectors = [
+            'input[name="youtubeImmersionEnabled"]',
             'input[name="youtubeShowFilterNotice"]',
             'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
@@ -115,6 +138,10 @@ describe('target-language settings', () => {
             japaneseOnlySelectors.map(() => null),
         );
         expect(form.querySelectorAll('.jp-only')).toHaveLength(0);
+        // ...and the target-following controls survive, so 31 targets can reach a
+        // filter that works for them.
+        expect(everyTargetSelectors.map(selector => Boolean(form.querySelector(selector))))
+            .toEqual(everyTargetSelectors.map(() => true));
         expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
         expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
         expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
@@ -163,6 +190,77 @@ describe('target-language settings', () => {
         expect(root.querySelector('.jp-only')?.textContent).toBe('pitch');
     });
 
+    // A48 made the YouTube immersion filter ask the ACTIVE target whether text is its
+    // language, but its control stayed `jp-only` DETACHED, so 31 of 32 targets could
+    // not reach a feature that worked for them. Availability follows the capability;
+    // only the channel suggestions stay Japanese, because their corpus is.
+    it('offers the immersion filter to a non-Japanese target, with its own label', () => {
+        setActiveLearningTargetLanguage('ru');
+        try {
+            const russianSettings = {
+                ...DEFAULT_SETTINGS,
+                languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
+                    profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
+                        ? { ...profile, targetLanguage: 'ru' }
+                        : profile),
+            };
+            const form = renderSettingsTestForm(russianSettings);
+            syncLanguageFamilyDom(form, 'ru');
+
+            const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]');
+            expect(filter).not.toBeNull();
+            expect(filter?.checked).toBe(false);
+            expect(labelFor(form, 'youtubeImmersionEnabled')).toContain('Russian');
+            expect(labelFor(form, 'youtubeImmersionEnabled')).not.toContain('Japanese');
+            // The suggestion corpus is 100 JLPT-graded Japanese channels, so it goes.
+            expect(form.querySelector('input[name="youtubeShowChannelRecommendations"]')).toBeNull();
+            // And a save must not read the detached checkbox as a deliberate uncheck.
+            const saved = readFormSettings(new FormData(form), russianSettings);
+            expect(saved.youtubeImmersionEnabled).toBe(true);
+            expect(saved.youtubeImmersionEnabledChosen).toBe(false);
+            expect(saved.youtubeShowChannelRecommendations)
+                .toBe(DEFAULT_SETTINGS.youtubeShowChannelRecommendations);
+            expect(saved.youtubeShowChannelRecommendationsChosen).toBe(false);
+
+            filter!.checked = true;
+            const optedIn = readFormSettings(new FormData(form), russianSettings);
+            expect(optedIn.youtubeImmersionEnabled).toBe(true);
+            expect(optedIn.youtubeImmersionEnabledChosen).toBe(true);
+            expect(coupledExplicitUserChoiceKeys(changedSettingsKeys(russianSettings, optedIn)))
+                .toEqual(expect.arrayContaining([
+                    'youtubeImmersionEnabled',
+                    'youtubeImmersionEnabledChosen',
+                ]));
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
+    it('resyncs an untouched YouTube default when the target changes in an open form', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const picker = form.elements.namedItem('targetLanguage') as HTMLSelectElement;
+        const filter = form.elements.namedItem('youtubeImmersionEnabled') as HTMLInputElement;
+        const initial = form.elements.namedItem('youtubeImmersionEnabledInitial') as HTMLInputElement;
+        expect(filter.checked).toBe(true);
+        expect(initial.value).toBe('on');
+
+        picker.value = 'ru';
+        syncYoutubeImmersionTarget(form, DEFAULT_SETTINGS, picker.value);
+        expect(filter.checked).toBe(false);
+        expect(initial.value).toBe('off');
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+        expect(saved.youtubeImmersionEnabled).toBe(true);
+        expect(saved.youtubeImmersionEnabledChosen).toBe(false);
+        expect(activeTargetLanguageId(saved)).toBe('ru');
+
+        // Once touched, another target sync must preserve the learner's edit.
+        filter.checked = true;
+        syncYoutubeImmersionTarget(form, DEFAULT_SETTINGS, 'ja');
+        expect(filter.checked).toBe(true);
+        expect(initial.value).toBe('off');
+    });
+
     it('does not overwrite detached Japanese settings while saving another target', () => {
         const current = {
             ...DEFAULT_SETTINGS,
@@ -206,4 +304,9 @@ function labelText(form: HTMLFormElement, controlName: string): string {
     const control = form.elements.namedItem(controlName);
     const group = (control instanceof RadioNodeList ? control[0] : control) as HTMLElement | null;
     return group?.closest('.jpdb-reader-radio-group')?.querySelector('legend')?.textContent ?? '';
+}
+
+function labelFor(form: HTMLFormElement, controlName: string): string {
+    const control = form.elements.namedItem(controlName) as HTMLElement | null;
+    return control?.closest('label')?.textContent ?? '';
 }

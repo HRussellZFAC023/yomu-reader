@@ -4148,17 +4148,17 @@
       subtitleSeekPadding: "Subtitle seek padding (s)",
       subtitlePreview: "Live subtitle preview",
       preview: "Preview",
-      youtubeImmersionEnabled: "Japanese YouTube only",
-      preferJapaneseSiteLanguage: "Open Japanese versions of sites",
+      youtubeImmersionEnabled: "{language} YouTube only",
+      preferJapaneseSiteLanguage: "Open {language} versions of sites",
       youtubeShowChannelRecommendations: "Show Japanese channel suggestions",
       youtubeShowFilterNotice: "Show hidden-video notice",
-      youtubeHelp: "Filter YouTube for Japanese and open Japanese versions of sites.",
+      youtubeHelp: "Filter YouTube for {language} and open {language} versions of sites.",
       youtubeShowHiddenVideos: "Show hidden videos",
       youtubeHideHiddenVideos: "Hide hidden videos",
       youtubeHideNotice: "Hide notice",
       youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
-      youtubeFilterHid: "{appName} hid {count} non-Japanese item{plural}",
-      youtubeFilterVisible: "{count} Japanese items stayed visible.",
+      youtubeFilterHid: "{appName} hid {count} other-language item{plural}",
+      youtubeFilterVisible: "{count} {language} items stayed visible.",
       youtubeToggleToastOn: "YouTube immersion filter enabled.",
       youtubeToggleToastOff: "YouTube immersion filter disabled.",
       ankiEnabled: "Enable Anki mining",
@@ -5865,17 +5865,17 @@ subtitleFontWeight	字幕フォントの太さ
 subtitleSeekPadding	字幕シーク余白 (s)
 subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
-youtubeImmersionEnabled	日本語YouTubeのみ
-preferJapaneseSiteLanguage	日本語版のサイトを開く
+youtubeImmersionEnabled	{language}のYouTubeのみ
+preferJapaneseSiteLanguage	{language}版のサイトを開く
 youtubeShowChannelRecommendations	日本語チャンネル候補を表示
 youtubeShowFilterNotice	非表示動画の通知を表示
-youtubeHelp	YouTubeを日本語向けに絞り、日本語版のサイトを開きます。
+youtubeHelp	YouTubeを{language}向けに絞り、{language}版のサイトを開きます。
 youtubeShowHiddenVideos	非表示動画を表示
 youtubeHideHiddenVideos	非表示動画を隠す
 youtubeHideNotice	通知を隠す
 youtubeFilterShowing	{appName}は非表示のYouTube項目{count}件を表示中
-youtubeFilterHid	{appName}は日本語らしくないYouTube項目{count}件を非表示
-youtubeFilterVisible	日本語らしい項目{count}件は表示したままです。
+youtubeFilterHid	{appName}は他の言語のYouTube項目{count}件を非表示
+youtubeFilterVisible	{language}らしい項目{count}件は表示したままです。
 youtubeToggleToastOn	YouTube没入フィルターをオンにしました。
 youtubeToggleToastOff	YouTube没入フィルターをオフにしました。
 ankiEnabled	Anki採掘を有効にする
@@ -17677,7 +17677,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return mergeSettings(candidate);
   }
   function changedAutomationProtectedSettingsKeys(previous, next) {
-    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]));
+    return coupledExplicitUserChoiceKeys(
+      AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
+    );
+  }
+  const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
+    ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
+    ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
+    ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
+    ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
+  ];
+  function coupledExplicitUserChoiceKeys(keys) {
+    const expanded = new Set(keys);
+    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
+      if (!pair.some((key) => expanded.has(key))) continue;
+      pair.forEach((key) => expanded.add(key));
+    }
+    return [...expanded];
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -57172,7 +57188,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.59".trim() ? "1.8.59".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.60".trim() ? "1.8.60".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -93060,17 +93076,24 @@ ${spelling}`);
     };
   }
   function readYoutubeFormSettings(reader, current) {
-    const { has } = reader;
+    const { get, has } = reader;
     const youtubeControlsPresent = has("youtubeImmersionSettingsPresent");
+    const channelControlsPresent = has("youtubeChannelSuggestionSettingsPresent");
     const immersionEnabled = youtubeControlsPresent ? has("youtubeImmersionEnabled") : current.youtubeImmersionEnabled;
-    const channelRecommendations = youtubeControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
+    const initialImmersionEnabled = get("youtubeImmersionEnabledInitial") === "on";
+    const immersionChanged = youtubeControlsPresent && has("youtubeImmersionEnabledInitial") && immersionEnabled !== initialImmersionEnabled;
+    const channelRecommendations = channelControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
     return {
-      youtubeImmersionEnabled: immersionEnabled,
-      youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || youtubeControlsPresent && immersionEnabled !== current.youtubeImmersionEnabled,
+      // The stored default is ON for Japanese and implicitly OFF everywhere
+      // else until chosen. The checkbox renders that effective state, so an
+      // unchanged save must preserve the implicit value while a real toggle
+      // records the submitted value as an explicit choice.
+      youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
+      youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
       preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,
       youtubeShowChannelRecommendations: channelRecommendations,
-      youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || youtubeControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
+      youtubeShowChannelRecommendationsChosen: current.youtubeShowChannelRecommendationsChosen || channelControlsPresent && channelRecommendations !== current.youtubeShowChannelRecommendations,
       youtubeShowFilterNotice: youtubeControlsPresent ? has("youtubeShowFilterNotice") : current.youtubeShowFilterNotice
     };
   }
@@ -93560,6 +93583,22 @@ ${spelling}`);
   ];
   function escapedUiText$4(language2, key) {
     return escapeHtml$2(uiText(language2, key));
+  }
+  function targetLanguageDisplayName$1(settings) {
+    return activeTargetLanguageDisplayName(settings.interfaceLanguage);
+  }
+  function activeTargetLanguageDisplayName(interfaceLanguage) {
+    return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+  }
+  function languageDisplayNameFor(tag, interfaceLanguage) {
+    return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
+  }
+  function settingsText(language2) {
+    const targetName = activeTargetLanguageDisplayName(language2);
+    return (key) => {
+      const message = uiText(language2, key);
+      return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
+    };
   }
   function updateSourceRowEditor(action, control) {
     const row = control?.closest("[data-source-row]");
@@ -94051,7 +94090,7 @@ ${spelling}`);
   function syncBrowserTtsVoiceOptions(form) {
     const voices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
     const language2 = form.lang === "ja" ? "ja" : "en";
-    const text2 = (key) => uiText(language2, key);
+    const text2 = settingsText(language2);
     const sortedVoices = voices.slice().sort((a, b) => {
       const aJapanese = a.lang.toLowerCase().startsWith("ja") ? 0 : 1;
       const bJapanese = b.lang.toLowerCase().startsWith("ja") ? 0 : 1;
@@ -95361,15 +95400,90 @@ ${spelling}`);
     ].join(" "));
     return haystack.includes(query) || context.includes(query);
   }
-  function settingsText(language2) {
-    const targetName = headwordLanguageName(
-      languageSubtag(activeLearningTargetLanguage()) ?? SLICE1_TARGET_LANGUAGE,
-      resolveUiLanguage(language2)
+  const LANGUAGE_FAMILY_CLASSES = [
+    "jp-only",
+    "jpzhyue-only",
+    "jpzhyueko-only",
+    "not-jpzhyueko"
+  ];
+  const familyNodesByRoot = /* @__PURE__ */ new WeakMap();
+  function syncLanguageFamilyDom(root, language2) {
+    const base = languageSubtag(language2) ?? language2.toLowerCase();
+    root.dataset.language = base;
+    for (const state2 of languageFamilyNodes(root)) {
+      if (languageFamilyIncludes(state2.family, base)) {
+        if (!state2.node.parentNode) state2.placeholder.after(state2.node);
+      } else {
+        state2.node.remove();
+      }
+    }
+  }
+  function languageFamilyIncludes(family, language2) {
+    const base = languageSubtag(language2) ?? language2.toLowerCase();
+    if (family === "jp-only") return base === "ja";
+    const jpZhYue = base === "ja" || base === "zh" || base === "yue";
+    if (family === "jpzhyue-only") return jpZhYue;
+    const jpZhYueKo = jpZhYue || base === "ko";
+    return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
+  }
+  function jpOnlyOn(settings, storedValue, chosen) {
+    return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
+  }
+  function languageFamilyNodes(root) {
+    const states = familyNodesByRoot.get(root) ?? [];
+    const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
+    const knownNodes = new Set(states.map((state2) => state2.node));
+    const discovered = Array.from(root.querySelectorAll(selector)).filter((node) => !knownNodes.has(node)).filter((node) => !node.parentElement?.closest(selector)).map((node) => {
+      const family = LANGUAGE_FAMILY_CLASSES.find((value) => node.classList.contains(value));
+      if (!family) throw new TypeError("Language-family node has no supported family class.");
+      const placeholder = root.ownerDocument.createComment(`yomu-language-family:${family}`);
+      node.before(placeholder);
+      return { family, node, placeholder };
+    });
+    states.push(...discovered);
+    familyNodesByRoot.set(root, states);
+    return states;
+  }
+  function renderYoutubeSettingsPanel(settings) {
+    const language2 = settings.interfaceLanguage;
+    const text2 = settingsText(language2);
+    const immersionEnabled = jpOnlyOn(
+      settings,
+      settings.youtubeImmersionEnabled,
+      settings.youtubeImmersionEnabledChosen
     );
-    return (key) => {
-      const message = uiText(language2, key);
-      return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
-    };
+    return `
+            <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
+                <legend>${escapeHtml$2(uiText(language2, "youTube"))}</legend>
+                <div class="grid jpdb-reader-settings-tgrid">
+                    <div data-language-family="youtube-immersion">
+                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
+                        <input type="hidden" name="youtubeImmersionEnabledInitial" value="${immersionEnabled ? "on" : "off"}">
+                        ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), immersionEnabled)}
+                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
+                    </div>
+                    <div class="jp-only" data-language-family="youtube-channel-suggestions">
+                        <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
+                        ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
+                    </div>
+                    <div data-language-family="preferred-target-sites">
+                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
+                        ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
+                    </div>
+                </div>
+                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${text2("youtubeHelp")}</div>
+            </fieldset>
+    `;
+  }
+  function syncYoutubeImmersionTarget(form, settings, targetLanguage2, force = false) {
+    const input2 = form.querySelector('input[name="youtubeImmersionEnabled"]');
+    const initial = form.querySelector('input[name="youtubeImmersionEnabledInitial"]');
+    if (!input2 || !initial) return;
+    const initialEnabled = initial.value === "on";
+    if (!force && input2.checked !== initialEnabled) return;
+    const enabled = settings.youtubeImmersionEnabled && (settings.youtubeImmersionEnabledChosen || languageFamilyIncludes("jp-only", targetLanguage2));
+    input2.checked = enabled;
+    initial.value = enabled ? "on" : "off";
   }
   const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
     dutch: "nl",
@@ -96462,28 +96576,6 @@ ${spelling}`);
                 </div>
     `;
   }
-  function renderYoutubeSettingsPanel(settings) {
-    const language2 = settings.interfaceLanguage;
-    const text2 = settingsText(language2);
-    return `
-            <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
-                <legend>${escapedUiText(language2, "youTube")}</legend>
-                <div class="grid jpdb-reader-settings-tgrid">
-                    <div class="jp-only" data-language-family="youtube-immersion">
-                        <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
-                        ${checkbox("youtubeImmersionEnabled", text2("youtubeImmersionEnabled"), settings.youtubeImmersionEnabled)}
-                        ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
-                        ${checkbox("youtubeShowFilterNotice", text2("youtubeShowFilterNotice"), settings.youtubeShowFilterNotice)}
-                    </div>
-                    <div class="jp-only" data-language-family="preferred-japanese-sites">
-                        <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
-                        ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
-                    </div>
-                </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help jp-only" data-language-family="youtube-immersion-help" data-youtube-help>${escapedUiText(language2, "youtubeHelp")}</div>
-            </fieldset>
-    `;
-  }
   function renderMiningSettingsPanel(settings) {
     const ankiStatus = ankiStatusLineForSettings(settings, settings.interfaceLanguage);
     return renderAnkiMiningSettingsPanel(settings, {
@@ -96701,7 +96793,7 @@ ${spelling}`);
       includeReaderRoot: true,
       excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word"
     });
-    const text2 = (key) => uiText(language2, key);
+    const text2 = settingsText(language2);
     withNamedControlIndex(form, () => {
       localizeSettingsShell(form, language2, text2);
       localizeSettingsLabels(form, text2);
@@ -97801,7 +97893,7 @@ ${spelling}`);
   function localizeHelpLinksPanel(form, language2) {
     const panel = form.querySelector(".jpdb-reader-help-links-card");
     if (!panel) return;
-    const text2 = (key) => uiText(language2, key);
+    const text2 = settingsText(language2);
     HELP_LINK_PANEL_TEXT_KEYS.forEach(([selector, key]) => {
       const element2 = panel.querySelector(selector);
       if (!element2) return;
@@ -98410,50 +98502,6 @@ ${spelling}`);
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-  }
-  const LANGUAGE_FAMILY_CLASSES = [
-    "jp-only",
-    "jpzhyue-only",
-    "jpzhyueko-only",
-    "not-jpzhyueko"
-  ];
-  const familyNodesByRoot = /* @__PURE__ */ new WeakMap();
-  function syncLanguageFamilyDom(root, language2) {
-    const base = languageSubtag(language2) ?? language2.toLowerCase();
-    root.dataset.language = base;
-    for (const state2 of languageFamilyNodes(root)) {
-      if (languageFamilyIncludes(state2.family, base)) {
-        if (!state2.node.parentNode) state2.placeholder.after(state2.node);
-      } else {
-        state2.node.remove();
-      }
-    }
-  }
-  function languageFamilyIncludes(family, language2) {
-    const base = languageSubtag(language2) ?? language2.toLowerCase();
-    if (family === "jp-only") return base === "ja";
-    const jpZhYue = base === "ja" || base === "zh" || base === "yue";
-    if (family === "jpzhyue-only") return jpZhYue;
-    const jpZhYueKo = jpZhYue || base === "ko";
-    return family === "jpzhyueko-only" ? jpZhYueKo : !jpZhYueKo;
-  }
-  function jpOnlyOn(settings, storedValue, chosen) {
-    return storedValue && (chosen || languageFamilyIncludes("jp-only", targetLanguageOf(settings)));
-  }
-  function languageFamilyNodes(root) {
-    const states = familyNodesByRoot.get(root) ?? [];
-    const selector = LANGUAGE_FAMILY_CLASSES.map((family) => `.${family}`).join(",");
-    const knownNodes = new Set(states.map((state2) => state2.node));
-    const discovered = Array.from(root.querySelectorAll(selector)).filter((node) => !knownNodes.has(node)).filter((node) => !node.parentElement?.closest(selector)).map((node) => {
-      const family = LANGUAGE_FAMILY_CLASSES.find((value) => node.classList.contains(value));
-      if (!family) throw new TypeError("Language-family node has no supported family class.");
-      const placeholder = root.ownerDocument.createComment(`yomu-language-family:${family}`);
-      node.before(placeholder);
-      return { family, node, placeholder };
-    });
-    states.push(...discovered);
-    familyNodesByRoot.set(root, states);
-    return states;
   }
   const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
   async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {
@@ -100485,7 +100533,9 @@ ${spelling}`);
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
+          explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
+            changedSettingsKeys(previousSettings, settings)
+          )
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
@@ -100687,6 +100737,12 @@ ${spelling}`);
         if (detail && detail.settings && detail.preview !== true) {
           this.settings = { ...this.settings, ...detail.settings };
           syncFormFromSettings(form, this.settings);
+          syncYoutubeImmersionTarget(
+            form,
+            this.settings,
+            activeTargetLanguageId(this.settings),
+            true
+          );
           syncSubtitlePreview(form);
           syncFontFamilyControls(form);
         }
@@ -100720,6 +100776,7 @@ ${spelling}`);
         const value = event.currentTarget.value;
         if (!isLearningTargetRosterId(value)) return;
         syncLanguageFamilyDom(form, value);
+        syncYoutubeImmersionTarget(form, this.settings, value);
         this.renderLookupPillsForTarget(form, value);
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         void this.refreshTargetDictionaryAvailability(form, value);
@@ -102393,6 +102450,7 @@ ${spelling}`);
     pendingAccentPreviewColor;
     accentPreviewFrame;
     youtubeImmersionInput;
+    youtubeImmersionChoiceTouched = false;
     preferJapaneseSiteLanguageInput;
     offlineDictionariesInput;
     /**
@@ -102562,7 +102620,15 @@ ${spelling}`);
         this.options.getSettings().interfaceLanguage,
         "pressKeys"
       );
-      this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
+      const currentSettings = this.options.getSettings();
+      this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", jpOnlyOn(
+        currentSettings,
+        currentSettings.youtubeImmersionEnabled,
+        currentSettings.youtubeImmersionEnabledChosen
+      ));
+      this.youtubeImmersionInput.addEventListener("change", () => {
+        this.youtubeImmersionChoiceTouched = true;
+      });
       this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
       this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
       const pageScanMode = createModeGroup(
@@ -102650,6 +102716,10 @@ ${spelling}`);
         if (selected) {
           this.targetLanguageSelect.lang = selected.lang;
           this.targetLanguageSelect.dir = selected.dir;
+          if (this.youtubeImmersionInput && !this.youtubeImmersionChoiceTouched) {
+            const settings = this.options.getSettings();
+            this.youtubeImmersionInput.checked = settings.youtubeImmersionEnabled && (settings.youtubeImmersionEnabledChosen || languageFamilyIncludes("jp-only", selected.value));
+          }
         }
       });
       this.panel.addEventListener("click", (event) => {
@@ -102803,7 +102873,8 @@ ${spelling}`);
         onboardingSeen: true,
         jpdbDefinitionsEnabled: true,
         localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-        youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
+        youtubeImmersionEnabled: this.youtubeImmersionChoiceTouched ? this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled : current.youtubeImmersionEnabled,
+        youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
         preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
         annotationsPaused: pageScanMode === "off",
         manualScanEnabled: pageScanMode === "manual",
@@ -102836,6 +102907,7 @@ ${spelling}`);
       this.themeSwitch = void 0;
       this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
+      this.youtubeImmersionChoiceTouched = false;
       this.preferJapaneseSiteLanguageInput = void 0;
       this.offlineDictionariesInput = void 0;
       this.pageScanModeInputs = [];
@@ -117998,7 +118070,8 @@ ${reading}`);
     }
     updateNoticeSummary(summary, filteredCount, shownCount, settings) {
       const summaryText = this.noticeSummaryText(filteredCount, settings);
-      const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), { count: String(shownCount) }) : "";
+      const values = { count: String(shownCount), language: targetLanguageDisplayName$1(settings) };
+      const visibleText = shownCount ? formatYoutubeText(uiText(settings.interfaceLanguage, "youtubeFilterVisible"), values) : "";
       const bar = summary.closest(".jpdb-youtube-filter-bar");
       summary.textContent = summaryText;
       summary.title = visibleText;

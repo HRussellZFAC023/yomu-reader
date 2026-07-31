@@ -2226,7 +2226,32 @@ export function changedAutomationProtectedSettingsKeys(
     previous: ReaderSettings,
     next: ReaderSettings,
 ): AutomationProtectedSettingsKey[] {
-    return AUTOMATION_PROTECTED_SETTINGS_KEYS.filter(key => !settingsValueEquals(previous[key], next[key]));
+    return coupledExplicitUserChoiceKeys(
+        AUTOMATION_PROTECTED_SETTINGS_KEYS.filter(key => !settingsValueEquals(previous[key], next[key])),
+    ) as AutomationProtectedSettingsKey[];
+}
+
+const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
+    ['youtubeImmersionEnabled', 'youtubeImmersionEnabledChosen'],
+    ['youtubeShowChannelRecommendations', 'youtubeShowChannelRecommendationsChosen'],
+    ['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen'],
+    ['subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen'],
+] as const satisfies readonly (readonly (keyof ReaderSettings)[])[];
+
+/**
+ * A `*Chosen` flag and the value it protects form one durable preference.
+ * Persist both when either changes; otherwise a stale whole-settings writer
+ * can keep the explicit flag while replacing the value underneath it.
+ */
+export function coupledExplicitUserChoiceKeys(
+    keys: readonly (keyof ReaderSettings)[],
+): Array<keyof ReaderSettings> {
+    const expanded = new Set<keyof ReaderSettings>(keys);
+    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
+        if (!pair.some(key => expanded.has(key))) continue;
+        pair.forEach(key => expanded.add(key));
+    }
+    return [...expanded];
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {

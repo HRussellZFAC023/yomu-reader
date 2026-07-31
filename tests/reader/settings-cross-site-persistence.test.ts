@@ -3,6 +3,8 @@ import {
     DEFAULT_SETTINGS,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
+    changedSettingsKeys,
+    coupledExplicitUserChoiceKeys,
     loadSettings,
     normalizeReaderSettings,
     promoteStrandedHostedSettingsToGmStorage,
@@ -162,6 +164,32 @@ describe('settings persist across sites (message-based GM store)', () => {
         await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' });
 
         expect((await loadSettings()).annotationsPaused).toBe(false);
+    });
+
+    it('keeps a YouTube opt-in value coupled to its explicit-choice flag', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        const optedIn = { ...staleSettings, youtubeImmersionEnabledChosen: true };
+        await saveSettings(optedIn, {
+            explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
+                changedSettingsKeys(staleSettings, optedIn),
+            ),
+        });
+
+        // Another page still holds an older raw value. The chosen flag without
+        // its paired value would turn this stale OFF into the new authority.
+        await saveSettings({
+            ...staleSettings,
+            youtubeImmersionEnabled: false,
+            theme: 'dark',
+        });
+
+        expect(await loadSettings()).toMatchObject({
+            youtubeImmersionEnabled: true,
+            youtubeImmersionEnabledChosen: true,
+        });
     });
 
     it('normalizes malformed Japanese-sites preferences without truthy coercion', async () => {

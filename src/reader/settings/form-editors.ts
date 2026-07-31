@@ -1,5 +1,6 @@
 import { escapeHtml, setInnerHtml } from '../dom/index';
 import { audioSourceLabel, uiText } from '../app/i18n';
+import { settingsText } from './settings-text';
 import { speakerIcon } from '../ui/icons';
 import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
@@ -269,7 +270,7 @@ export function syncAudioSourceRow(row: Element | null, type: string): void {
 export function syncBrowserTtsVoiceOptions(form: HTMLFormElement): void {
     const voices = 'speechSynthesis' in window ? window.speechSynthesis.getVoices() : [];
     const language: InterfaceLanguage = form.lang === 'ja' ? 'ja' : 'en';
-    const text = (key: SettingsTextKey) => uiText(language, key);
+    const text = settingsText(language);
     const sortedVoices = voices.slice().sort((a, b) => {
         const aJapanese = a.lang.toLowerCase().startsWith('ja') ? 0 : 1;
         const bJapanese = b.lang.toLowerCase().startsWith('ja') ? 0 : 1;

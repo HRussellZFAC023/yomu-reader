@@ -298,12 +298,24 @@ describe('Greasy Fork split manifest', () => {
     });
 
     it('keeps core language labels detached from the frozen dictionary catalogue', () => {
+        const targetNameSource = readFileSync(
+            path.join(repoRoot, 'src/reader/app/target-language-name.ts'),
+            'utf8',
+        );
+        expect(targetNameSource).toContain("from '../app/i18n';");
+        expect(targetNameSource).toContain("from '../languages/display-name';");
+        expect(targetNameSource).toContain("from '../languages/locale';");
+        expect(targetNameSource).toContain("from '../languages/target-runtime';");
+        expect(targetNameSource).not.toContain("from './i18n';");
+        expect(targetNameSource).not.toContain("from '../languages';");
+        expect(targetNameSource).not.toContain("from '../languages/selection';");
+        expect(targetNameSource).not.toContain("from '../languages/profiles';");
         for (const relativePath of [
+            'src/reader/app/target-language-name.ts',
             'src/reader/settings/settings-text.ts',
             'src/reader/app/visible-page-scanner.ts',
         ]) {
             const source = readFileSync(path.join(repoRoot, relativePath), 'utf8');
-            expect(source, relativePath).toContain("from '../languages/display-name';");
             expect(source, relativePath).not.toContain('dictionaries/catalog-browse');
         }
     });

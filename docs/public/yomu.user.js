@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.59
+// @version 1.8.60
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.8685c980db65.user.js#sha256=hoXJgNtlntR0fuc0nSEDqR+yN8iEGlHNtQKJ7RVvIIk=
+// @require https://yomureader.com/greasyfork/yomu-runtime.aea62c2dac4d.user.js#sha256=rqYsLaxN5xA4Hho2UFDA1EVhl5KqkGgBBjcqQZIPpb8=
 // @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -27367,6 +27367,28 @@ function parkableMutationObserver(callback, options = {}) {
   const observer = new Observer(callback);
   return new ParkableObserver(observer, options);
 }
+const LANGUAGE_ENDONYMS = Object.freeze({
+  ja: "日本語",
+  zh: "中文",
+  yue: "粵語",
+  lzh: "文言"
+});
+function headwordLanguageEndonym(language) {
+  return LANGUAGE_ENDONYMS[language] ?? language;
+}
+function headwordLanguageName(language, locale = "en") {
+  const display = languageDisplayName(language, locale);
+  return display === language ? headwordLanguageEndonym(language) : display;
+}
+function targetLanguageDisplayName(settings) {
+  return activeTargetLanguageDisplayName(settings.interfaceLanguage);
+}
+function activeTargetLanguageDisplayName(interfaceLanguage) {
+  return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+function languageDisplayNameFor(tag, interfaceLanguage) {
+  return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
+}
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
@@ -27715,7 +27737,9 @@ class FloatingButtonController {
     },
     {
       id: "japanese-site",
-      label: uiText(language, "preferJapaneseSiteLanguage"),
+      label: formatUiText(language, "preferJapaneseSiteLanguage", {
+        language: targetLanguageDisplayName(settings)
+      }),
       icon: "日",
       glyph: true,
       tone: japaneseSiteLanguage ? "on" : "off",
@@ -33544,8 +33568,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.59"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.59"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.60"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.60"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33688,7 +33712,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.59"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.60"}`;
   } catch {
   return null;
   }
@@ -33726,19 +33750,6 @@ const CompanionBackedStudySourceController = class {
   return Controller ? new Controller(dependencies) : new DisabledStudySourceController();
   }
 };
-const LANGUAGE_ENDONYMS = Object.freeze({
-  ja: "日本語",
-  zh: "中文",
-  yue: "粵語",
-  lzh: "文言"
-});
-function headwordLanguageEndonym(language) {
-  return LANGUAGE_ENDONYMS[language] ?? language;
-}
-function headwordLanguageName(language, locale = "en") {
-  const display = languageDisplayName(language, locale);
-  return display === language ? headwordLanguageEndonym(language) : display;
-}
 const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
 function applyAuthoredVocabularyOverrides(target, tokens) {
   const annotations = readAuthoredVocabularyAnnotations(target.parent);
@@ -34269,10 +34280,7 @@ class VisiblePageScanner {
   if (silent) return;
   const interfaceLanguage = this.dependencies.getSettings().interfaceLanguage;
   this.dependencies.toast(formatUiText(interfaceLanguage, "noUnscannedJapaneseText", {
-    language: headwordLanguageName(
-      languageSubtag(activeLearningTargetLanguage()) ?? "ja",
-      resolveUiLanguage(interfaceLanguage)
-    )
+    language: activeTargetLanguageDisplayName(interfaceLanguage)
   }));
   }
   handleVisiblePageScanError(error, silent) {
