@@ -30681,6 +30681,79 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return cards;
   }
+  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+  function wordSegmenter(locale) {
+    const cached = SEGMENTER_BY_LOCALE.get(locale);
+    if (cached !== void 0) return cached;
+    let segmenter = null;
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+      }
+    } catch {
+      segmenter = null;
+    }
+    SEGMENTER_BY_LOCALE.set(locale, segmenter);
+    return segmenter;
+  }
+  function icuWordSegments(text2, locale) {
+    const segmenter = wordSegmenter(locale);
+    if (!segmenter) return null;
+    const segments = [];
+    for (const segment2 of segmenter.segment(text2)) {
+      if (!segment2.isWordLike) continue;
+      segments.push({
+        text: segment2.segment,
+        start: segment2.index,
+        end: segment2.index + segment2.segment.length
+      });
+    }
+    return segments;
+  }
+  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
+  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
+  const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
+  function annotatedWordRubies(spelling, annotated) {
+    if (!annotated || !annotated.includes("[")) return [];
+    const rubies = [];
+    let cursor = 0;
+    let baseText2 = "";
+    let baseOffset = 0;
+    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+      const matchIndex = match.index ?? 0;
+      const captured = match[1] ?? "";
+      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
+      const base = runMatch ? runMatch[1] : captured;
+      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
+      const reading = (match[2] ?? "").trim();
+      baseText2 += plain;
+      baseOffset += plain.length;
+      const start = baseOffset;
+      baseText2 += base;
+      baseOffset += base.length;
+      if (base && reading) {
+        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+      }
+      cursor = matchIndex + match[0].length;
+    }
+    baseText2 += annotated.slice(cursor);
+    return baseText2 === spelling ? rubies : [];
+  }
+  function readingFromSurfaceRubies(surface, rubies) {
+    let reading = "";
+    let offset = 0;
+    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
+      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+      reading += ruby.text;
+      offset = ruby.end;
+    }
+    reading += unannotatedPronunciationText$1(surface.slice(offset));
+    return reading;
+  }
+  function unannotatedPronunciationText$1(value) {
+    return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
+  }
   const PITCH_CLASSES$1 = /* @__PURE__ */ new Set(["heiban", "atamadaka", "nakadaka", "odaka"]);
   function tiledPitchComponents(card) {
     if (getPitchClass(card.pitchAccent, card.reading || card.spelling)) return null;
@@ -31669,35 +31742,6 @@ ${spelling}`);
   }
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-  function wordSegmenter(locale) {
-    const cached = SEGMENTER_BY_LOCALE.get(locale);
-    if (cached !== void 0) return cached;
-    let segmenter = null;
-    try {
-      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-      }
-    } catch {
-      segmenter = null;
-    }
-    SEGMENTER_BY_LOCALE.set(locale, segmenter);
-    return segmenter;
-  }
-  function icuWordSegments(text2, locale) {
-    const segmenter = wordSegmenter(locale);
-    if (!segmenter) return null;
-    const segments = [];
-    for (const segment2 of segmenter.segment(text2)) {
-      if (!segment2.isWordLike) continue;
-      segments.push({
-        text: segment2.segment,
-        start: segment2.index,
-        end: segment2.index + segment2.segment.length
-      });
-    }
-    return segments;
   }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
   const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
@@ -288616,9 +288660,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function reviewButtonGrades(...args) {
     return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? [];
   }
-  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
-  const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
   function compactReading(value) {
     return value.normalize("NFC").replace(/\s+/g, "").trim();
   }
@@ -288657,47 +288698,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function headwordFuriganaReading(spelling, token) {
     return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : activeLearningTarget().normalizeReading(spelling, token.card.reading).trim();
-  }
-  function annotatedWordRubies(spelling, annotated) {
-    if (!annotated || !annotated.includes("[")) return [];
-    const rubies = [];
-    let cursor = 0;
-    let baseText2 = "";
-    let baseOffset = 0;
-    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
-      const matchIndex = match.index ?? 0;
-      const captured = match[1] ?? "";
-      const runMatch = captured.match(TRAILING_KANJI_RUN_RE);
-      const base = runMatch ? runMatch[1] : captured;
-      const plain = annotated.slice(cursor, matchIndex) + captured.slice(0, captured.length - base.length);
-      const reading = (match[2] ?? "").trim();
-      baseText2 += plain;
-      baseOffset += plain.length;
-      const start = baseOffset;
-      baseText2 += base;
-      baseOffset += base.length;
-      if (base && reading) {
-        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
-      }
-      cursor = matchIndex + match[0].length;
-    }
-    baseText2 += annotated.slice(cursor);
-    return baseText2 === spelling ? rubies : [];
-  }
-  function readingFromSurfaceRubies(surface, rubies) {
-    let reading = "";
-    let offset = 0;
-    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
-      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
-      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
-      reading += ruby.text;
-      offset = ruby.end;
-    }
-    reading += unannotatedPronunciationText$1(surface.slice(offset));
-    return reading;
-  }
-  function unannotatedPronunciationText$1(value) {
-    return Array.from(value).filter((character) => !KANJI_RE$1.test(character)).join("");
   }
   function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNavigation) {
     const classified = segments.map((segment2) => ({

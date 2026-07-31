@@ -19665,6 +19665,27 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 
 .jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka) { --jpdb-reader-word-underline: var(--jpdb-reader-subtitle-pitch-decoration); }
 
+/* Component gradients have their own background paint lane. The generic
+   page-word selector keys that lane from wordUnderlineColorSource, so reset it
+   on subtitle surfaces first and opt it back in ONLY from the independent
+   subtitleUnderlineColorSource. Without both rules crossed settings either
+   hid honest component pitch in subtitles or leaked it into status/JPDB
+   subtitle underlines. */
+
+:is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word[data-pitch-components="true"]::after {
+  height: auto;
+  border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
+  background-image: none;
+}
+
+.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word[data-pitch-components="true"]::after {
+  height: var(--jpdb-reader-word-underline-thickness);
+  border-block-end: 0;
+  background-image: var(--jpdb-reader-inline-pitch-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
 .jpdb-reader-subtitle-text-status :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-status-text); }
 
 .jpdb-reader-subtitle-text-jpdb :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-subtitle-text: var(--jpdb-reader-subtitle-jpdb-text); }
