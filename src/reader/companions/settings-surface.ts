@@ -1,4 +1,5 @@
 import './learning-targets';
+import '../dom/register-decoration-policy-runtime';
 import { SettingsDialogController } from '../settings/dialog-controller';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { OnboardingController } from '../app/onboarding';

@@ -46,14 +46,19 @@ describe('aggregate runtime decoration-policy split', () => {
         expect(bridge).not.toMatch(/\bwindow\b/u);
     });
 
-    it('registers the policy in the aggregate runtime and aliases only the split core', () => {
+    it('registers the policy on aggregate and hosted companion paths and aliases only the split core', () => {
         const buildRegistry = readFileSync(
             path.join(repoRoot, 'src/reader/companions/register-build-companions.ts'),
             'utf8',
         );
+        const settingsSurface = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/settings-surface.ts'),
+            'utf8',
+        );
         const viteConfig = readFileSync(path.join(repoRoot, 'vite.config.ts'), 'utf8');
 
-        expect(buildRegistry).toContain("import '../dom/register-decoration-policy-runtime';");
+        expect(buildRegistry).toContain("import './settings-surface';");
+        expect(settingsSurface).toContain("import '../dom/register-decoration-policy-runtime';");
         expect(viteConfig).toContain("alias['./decoration-policy']");
         expect(viteConfig).toContain("'decoration-policy-companion.ts'");
     });

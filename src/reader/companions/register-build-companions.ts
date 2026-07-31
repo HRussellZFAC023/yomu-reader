@@ -10,4 +10,3 @@ import './settings-surface';
 import './ui-copy';
 import './video';
 import './wanikani';
-import '../dom/register-decoration-policy-runtime';
