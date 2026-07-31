@@ -1,4 +1,5 @@
 import '../companions/register-build-target';
+import '../app/register-storage-runtime';
 import { bootReaderApp } from '../app/boot';
 import { isYomuNewTabUrl } from '../newtab/url';
 import { installPreferredJapaneseSiteLanguageFromStoredSettings } from '../app/preferred-site-language';

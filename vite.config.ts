@@ -190,6 +190,7 @@ function readerResolveConfig(command: string) {
         alias['../jiten/jiten-kanji-words-actions'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-kanji-words-actions-companion.ts');
         alias['../study/mining-context'] = path.join(configRoot, 'src', 'reader', 'study', 'mining-context-companion.ts');
         alias['../study/sources'] = path.join(configRoot, 'src', 'reader', 'study', 'sources-companion.ts');
+        alias['./lookup-links'] = path.join(configRoot, 'src', 'reader', 'settings', 'lookup-links-companion.ts');
         alias['../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
         alias['../../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
         // Userscript + hosted reader cannot use chrome.identity, so they get the

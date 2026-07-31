@@ -21,6 +21,15 @@ import {
 } from '../lookup/settings-parse-render';
 import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
 import { installAcademyReaderSrsSync } from '../srs/account-sync';
+import {
+    hasTargetLookupSites,
+    isTargetLookupLinkId,
+    lookupSiteComponents,
+    missingLookupComponents,
+    targetLookupLinks,
+    targetLookupSiteIds,
+    targetLookupSites,
+} from '../settings/lookup-links';
 import { registerYomuCompanion } from './registry';
 
 registerYomuCompanion('settings', {
@@ -38,6 +47,15 @@ registerYomuCompanion('settings', {
         supplementSettingsFallbackTokens,
         addSettingsRubyFromRenderedReadings,
         settingsForSettingsFormParse,
+    },
+    lookupLinks: {
+        hasTargetLookupSites,
+        targetLookupSiteIds,
+        isTargetLookupLinkId,
+        targetLookupSites,
+        targetLookupLinks,
+        lookupSiteComponents,
+        missingLookupComponents,
     },
 });
 registerYomuCompanion('localDictionaries', {

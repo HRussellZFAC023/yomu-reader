@@ -22,6 +22,15 @@ if (!library) {
     throw new Error(`Unknown YOMU_GREASYFORK_LIBRARY_ID: ${process.env.YOMU_GREASYFORK_LIBRARY_ID ?? '(missing)'}`);
 }
 
+const runtimeStorageFacade = path.join(configRoot, 'src', 'reader', 'app', 'storage-runtime-facade.ts');
+const runtimeStorageAliases: Record<string, string> = library.id === 'runtime'
+    ? {
+        '../app/storage': runtimeStorageFacade,
+        '../../app/storage': runtimeStorageFacade,
+        './storage': runtimeStorageFacade,
+    }
+    : {};
+
 export default defineConfig({
     define: {
         __YOMU_VERSION__: JSON.stringify(pkg.version),
@@ -33,6 +42,7 @@ export default defineConfig({
     resolve: {
         alias: {
             './cloud-sync': path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync-web.ts'),
+            ...runtimeStorageAliases,
         },
     },
     // Nothing consumes dist/greasyfork/<public asset> — only the companion

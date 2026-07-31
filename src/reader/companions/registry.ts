@@ -207,6 +207,15 @@ interface YomuCompanionRegistry {
         // rides with the settings companion that owns the account panel.
         installAcademyReaderSrsSync?: typeof import('../srs/account-sync').installAcademyReaderSrsSync;
         selfEnhancement: SettingsSelfEnhancementCompanion;
+        lookupLinks?: {
+            hasTargetLookupSites: typeof import('../settings/lookup-links').hasTargetLookupSites;
+            targetLookupSiteIds: typeof import('../settings/lookup-links').targetLookupSiteIds;
+            isTargetLookupLinkId: typeof import('../settings/lookup-links').isTargetLookupLinkId;
+            targetLookupSites: typeof import('../settings/lookup-links').targetLookupSites;
+            targetLookupLinks: typeof import('../settings/lookup-links').targetLookupLinks;
+            lookupSiteComponents: typeof import('../settings/lookup-links').lookupSiteComponents;
+            missingLookupComponents: typeof import('../settings/lookup-links').missingLookupComponents;
+        };
     };
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
