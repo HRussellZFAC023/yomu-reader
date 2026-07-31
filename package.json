@@ -31,6 +31,7 @@
   },
   "scripts": {
     "audio:export": "node scripts/export-yomu-audio-from-local.mjs",
+    "quality:file-size": "node scripts/file-size-audit.mjs",
     "assets:prune": "node scripts/prune-content-addressed-assets.mjs --write",
     "build:academy": "npm run academy:lessons:validate && npm run build:academy:prevalidated",
     "build:academy:prevalidated": "vite build --config config/vite/academy.config.ts && node scripts/sync-academy.cjs",

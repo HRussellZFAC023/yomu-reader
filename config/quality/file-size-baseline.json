@@ -1,0 +1,17 @@
+{
+    "src/reader/app/main.ts": 10935,
+    "src/reader/newtab/controller.ts": 10854,
+    "src/reader/subtitles/controller.ts": 8558,
+    "src/reader/dom/index.ts": 7944,
+    "src/reader/ocr/controller.ts": 4961,
+    "src/reader/settings/form.ts": 3369,
+    "src/reader/settings/dialog-controller.ts": 2906,
+    "src/reader/subtitles/youtube.ts": 2737,
+    "src/reader/app/i18n.ts": 2736,
+    "src/reader/newtab/runtime.ts": 2602,
+    "src/reader/dictionaries/yomitan/index.ts": 2501,
+    "src/reader/settings/index.ts": 2391,
+    "src/reader/app/site-parsers.ts": 2243,
+    "src/academy/domain/world-locations.ts": 2225,
+    "src/reader/anki/client.ts": 2138
+}

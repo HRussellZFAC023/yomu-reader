@@ -1168,7 +1168,22 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       D1 aggregates per call (:406, :414) with no memo. jpdb-public-proxy is clean (:242-246). Do: copy the
       dictionary Worker's edge-cache wrapper onto `/audio/*` and the R2-index path, and put the support
       banner reads behind the Cache API so a banner impression is not two D1 reads.
-- [ ] **A35.20 — HIGH: Academy payload still needs hosted JS minification and better zone compression.**
+- [ ] **A35.20 — compression leg CLOSED 2026-07-31; minification leg blocked by design; one new finding.**
+      **CLOSED — compression.** A Cloudflare Compression Rule ("Prefer Zstandard for Academy app bundle",
+      matching `http.request.uri.path eq "/academy/app.js"`, order zstd/brotli/gzip) now makes the zone stop
+      answering gzip to a browser that offers everything. Verified independently on production with a real
+      browser header: `/academy/app.js` went **3,484,388 -> 3,065,512 bytes**, saving **418,876 bytes (12.0%)
+      on every visit**. A cache-busting request returned a Cloudflare `MISS` and still served zstd, so it is
+      not a warmed-cache artifact. Free-plan compatible, 1 of 10 available rules.
+      Kept deliberately path-specific rather than zone-wide, because zstd is WORSE for small responses here:
+      `/yomu.user.js` measures gzip 411,960 / br 405,106 / zstd 416,467, so it was correctly left on gzip.
+      **NEW, and separate from the fix — the docs HTML serves the worst of the three.** Measured on `/`:
+      br **11,021**, gzip **11,049**, zstd **11,726** — and with a realistic browser header the zone chooses
+      **zstd**, the largest. That is Cloudflare's own default negotiation, not the new rule (which matches
+      only the Academy bundle), so it predates this work. It costs ~705 bytes per page view against brotli,
+      about 6.4%. Small per hit but it is on every page. Fix is a second Compression Rule preferring brotli
+      for HTML — worth pairing with a check of whether any other text response is being handed zstd where
+      brotli wins.
       **MEASURED 2026-07-31, and both remaining legs now have a specific answer.**
       - **Compression: confirmed, quantified, and it is a negotiation bug rather than a missing feature.**
         Brotli and zstd both work when requested alone, so the zone can produce them — but with a realistic
@@ -1250,7 +1265,22 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       from 24 recognized images. `ocr-position-pass.test.ts` proves every read precedes the first write, and the line,
       transform, and paused-YouTube-frame checks preserve glyph alignment. BookWalker spread and continuous
       modes passed in Firefox, WebKit, and Chromium.
-- [ ] **A35.23 — three reader classes of 8k-11k lines, and no file or class size gate anywhere.** Measured
+- [x] **A35.23 — PARTLY FIXED 2026-07-31: there is a file-size gate now, and it is a ratchet.** The ticket's
+      core complaint was "no file or class size gate anywhere", which was true. `scripts/file-size-audit.mjs`
+      plus `config/quality/file-size-baseline.json` now track every `src/**/*.ts` over 2,000 lines — 15 files
+      today, worst `src/reader/app/main.ts` at 10,935 and `src/reader/newtab/controller.ts` at 10,854 — and
+      run as a `file-size-ratchet` stage in `check:release` beside the complexity ratchet, because a gate
+      nothing invokes is not a gate. Deliberately a ratchet, not a limit: 15 files are already over, so a
+      hard cap would fail on day one and be read as noise, exactly as the complexity audit was before it was
+      baselined. Only growth fails, the baseline may only go down, and the script announces when a file has
+      shrunk enough to tighten it. A file crossing 2,000 lines for the FIRST time fails with "split it rather
+      than baselining it", so the mega-files cannot quietly gain siblings.
+      Mutation-checked both ways: appending two lines to `dom/index.ts` fails with
+      `grew 7944 -> 7946 lines`, and a fresh 2,101-line file fails with `is new over 2000 lines`.
+      **Still open:** the ticket also wants CLASS size gated, and this counts lines only. The complexity
+      audit already walks the TypeScript AST, so class size belongs there rather than in a second AST walk —
+      and the real work the ticket asks for is still splitting the two 10k-line controllers, which the gate
+      now stops getting worse but does not do. ORIGINAL: three reader classes of 8k-11k lines, and no file or class size gate anywhere.** Measured
       line counts: `src/reader/newtab/controller.ts` 10,782, `src/reader/app/main.ts` 10,702,
       `src/reader/subtitles/controller.ts` 8,359, `src/reader/dom/index.ts` 7,940 (no class at all),
       `src/reader/ocr/controller.ts` 5,007. Within them, `export class ReaderApp` (`main.ts:747`) is 9,956
@@ -1500,6 +1530,23 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       not starvation, and left in the known-red set rather than papered over with a bigger number.
       Deliberately NOT added to `MOCK_ISOLATED_TESTS`: that list exists for `vi.mock` registration leakage
       and a conformance test polices it, so parking timeout cases there would make the list lie.
+
+- [ ] **A46 — the reader gate produces false reds when it shares a machine with parallel agent sessions.**
+      Measured 2026-07-31, twice in a row: `check:release` failed on `test:ci` with
+      `Test timed out in 30000ms` in `dictionary-catalog-mirror-coverage.test.ts` (and once also
+      `scan-reveal-continuation.test.ts`) while six, then two, codex sessions were running on the same box.
+      Both files pass in isolation — 48/48 — and the commit under test only added a line-counting script, a
+      baseline JSON and an npm script, so it could not have caused it.
+      The mechanism is CPU starvation, not a repo defect: the slow test's BODY measures **4.80 s** on a quiet
+      machine (the file's 31 s is dominated by `setup 17.80 s`), so a 30 s budget is generous until roughly
+      6x contention eats it. `scripts/run-ci-tests.mjs` already tries to leave headroom — "Leave two cores
+      for whatever else check runs alongside" — but it cannot see agent sessions outside the process tree.
+      **Do NOT fix this by raising timeouts.** The measurement does not justify it, and inflating budgets to
+      absorb unrelated load is how a suite loses the ability to detect a real hang. Options worth weighing:
+      have the gate detect competing load and reduce `--maxWorkers` accordingly; give the runner an explicit
+      concurrency budget an orchestrator can set; or simply treat "gate while N agents run" as unsupported
+      and serialise. Until then the operational rule is: **gate on a quiet machine, and never conclude a red
+      is real without re-running the named files in isolation first.**
 
 #### Dropped in triage
 

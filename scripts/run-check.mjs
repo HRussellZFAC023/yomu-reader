@@ -138,6 +138,12 @@ const lanes = [
         // offender fails, and so does a recorded one getting worse, which a
         // count-only baseline could not see.
         stage('complexity-ratchet', 'node scripts/complexity-audit.mjs'),
+        // Same shape as the complexity ratchet, for the other half of A35.23: the
+        // repository had no file-size gate at all, and two reader files are over
+        // 10,000 lines. Existing debt is baselined per file in
+        // config/quality/file-size-baseline.json and only growth fails, so it is a
+        // ratchet rather than a wall. ~1s of line counting.
+        stage('file-size-ratchet', 'node scripts/file-size-audit.mjs'),
     ),
     lane(testStage('test:ci', 'npm run -s test:ci')),
     lane(
