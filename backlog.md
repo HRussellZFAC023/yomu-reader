@@ -107,7 +107,25 @@ classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per 
       logged"); no device/SKU lists where a promise belongs; sentence-case authored copy with CSS doing
       the uppercasing. Deliverable is a diff per surface, not a style essay.
 
-- [ ] **A11 — Quick setup's partial-furigana default is worse than no quick setup (owner, 2026-07-28,
+- [x] **A11 — CLOSED 2026-07-31, verified end to end including the render path.** The default is
+      `furiganaMode: 'all'` (`settings/index.ts:461`) and the code carries the reasoning as an A11 comment:
+      "'difficult-kanji' hides readings by a fixed easy-kanji list, so a bare kanji told the learner nothing
+      about their own knowledge and the page read as half-annotated. Every parsed word gets its reading until
+      someone chooses otherwise."
+      Checked the two ways this could still leak, because a default is only as good as the renderer:
+      - `furiganaHiddenStateGroups` still defaults to `['known','due','failed']`, which LOOKS like the same
+        partial-annotation defect — but `shouldHideFuriganaForCardState` (`dom/index.ts:4159`) returns
+        `mode === 'known-status' && …`, so with the default mode nothing is hidden at render time. The control
+        is also only shown in that mode (`settings/form.ts:931`).
+      - Difficulty hiding, when someone does opt in, explains itself first:
+        `renderFuriganaDifficultyNote` exists precisely so the mode "says what a bare kanji means before
+        anyone picks it" (`form.ts:934-939`).
+      **The principle it established — "a default that requires explanation is not a default" — was applied
+      beyond furigana**, which is what the ticket asked for. Two of the three Japanese-only default-ON
+      behaviours the multilingual audit found are now target-aware: `preferred-site-language-impl.ts` imports
+      `targetLanguageOf` and threads a `targetLanguage`, and the TTS voice filter no longer forces a Japanese
+      voice over a correct `utterance.lang`.
+      **One is NOT done, measured 2026-07-31 and now filed as A48.** ORIGINAL: Quick setup's partial-furigana default is worse than no quick setup (owner, 2026-07-28,
       verbatim: "currently the 'quick setup' which automatically has furi off for some kanji is more
       confusing that not hainving it at all").** A learner cannot tell whether a bare kanji means
       "you know this" or "Yomu missed it", so the page reads as broken. Default to furigana on
@@ -1679,6 +1697,26 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       enumerates its languages and its own links emit the URL shape. **A status code is not verification, and
       "we could not verify it" is not the same as "it does not work" — do not delete a feature on the
       strength of a failed measurement.** YouGlish now ships for the 20 targets it covers.
+
+- [ ] **A48 — the YouTube filter still hides the learner's own language, and it is on by default.** Found
+      while auditing A11's "a default that requires explanation is not a default" principle against the other
+      smart defaults. Two of the three hostile Japanese-only defaults the multilingual audit found were fixed;
+      this one was not. Measured on main 2026-07-31: `src/reader/subtitles/youtube-filter-scan.ts` classifies
+      purely as `'japanese' | 'non-japanese'` (`:22`, `:113`) via `isProbablyJapaneseYouTubeText`, and
+      `grep -n "targetLanguage\|learningTarget"` across `src/reader/subtitles/*.ts` shows the filter path has
+      **no target awareness at all** — only the subtitle TRACK plumbing does. So a learner studying Russian,
+      with the filter at its default of on, has their Russian videos hidden as `non-japanese`.
+      **The seam to use already exists:** every learning target module carries `detectsText`
+      (`roster-targets.ts` builds it from `scriptDetector(language.scripts)`), so the fix is to ask the active
+      target whether the text is its language instead of asking whether it is Japanese.
+      **The nuance not to flatten:** the same file deliberately strips Japanese-locale YouTube UI chrome —
+      view counts like 「7.2万回視聴・4時間前」and a 視聴する CTA — because an English card whose only Japanese
+      characters come from that chrome must still classify as non-Japanese (the 2026-07-11 "EN videos should
+      be hidden" report). Per-target chrome differs, so a naive detector swap will misclassify; the
+      metadata-stripping needs to become per-target too, or be applied only for Japanese.
+      Also carry over from the audit: ~140 hardcoded Japanese JLPT channel recommendations are offered
+      regardless of target, and existing users' stored setting must not be silently flipped — use the
+      `*Chosen` intent-marker pattern (memory `yomu-auto-select-overwrites-user-settings`).
 
 #### Dropped in triage
 
