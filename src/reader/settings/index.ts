@@ -25,8 +25,7 @@ import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
-export { AUTOMATION_PROTECTED_SETTINGS_KEYS, changedAutomationProtectedSettingsKeys, coupledExplicitUserChoiceKeys } from './explicit-user-choice';
-export type { AutomationProtectedSettingsKey } from './explicit-user-choice';
+export { changedAutomationProtectedSettingsKeys, coupledExplicitUserChoiceKeys } from './explicit-user-choice';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';

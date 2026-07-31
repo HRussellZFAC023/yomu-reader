@@ -10,7 +10,7 @@
     "src/reader/app/i18n.ts": 2707,
     "src/reader/newtab/runtime.ts": 2602,
     "src/reader/dictionaries/yomitan/index.ts": 2501,
-    "src/reader/settings/index.ts": 2364,
+    "src/reader/settings/index.ts": 2363,
     "src/reader/app/site-parsers.ts": 2243,
     "src/academy/domain/world-locations.ts": 2225,
     "src/reader/anki/client.ts": 2138
