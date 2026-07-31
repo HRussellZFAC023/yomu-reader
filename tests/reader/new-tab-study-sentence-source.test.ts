@@ -93,4 +93,23 @@ describe('Study sentence source precedence', () => {
         const tier = firstStudySentenceTier(studySentenceTiers(card, [structured], [immersion]), sentence => sentence.includes('飲み物'));
         expect(tier).toEqual({ source: 'dictionary', sentences: ['冷たい飲み物が欲しい。'] });
     });
+
+    it('keeps a complete Spanish dictionary example available to Recall', () => {
+        const spanishCard = {
+            ...card,
+            spelling: 'agua',
+            reading: 'agua',
+            language: 'es',
+            sentence: undefined,
+        } as JPDBCard;
+        const spanishEntry = {
+            ...dictionaryEntry,
+            expression: 'agua',
+            reading: 'agua',
+            glossary: [{ tag: 'div', class: 'example-sentence', content: 'Bebo agua.' }],
+        } as YomitanTermEntry;
+
+        expect(studySentenceTiers(spanishCard, [spanishEntry], [])[0])
+            .toEqual({ source: 'dictionary', sentences: ['Bebo agua.'] });
+    });
 });

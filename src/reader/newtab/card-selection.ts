@@ -1,6 +1,11 @@
 import { firstCardMeaning } from './index';
 import { mergeDedupeCardMetadata } from './source-orchestrator';
-import { newTabCardOptionalReading, newTabCardReading, normalizeNewTabCard } from './study-queue';
+import {
+    newTabCardOptionalReading,
+    newTabCardIdentityLanguage,
+    newTabCardReading,
+    normalizeNewTabCard,
+} from './study-queue';
 import { isPositiveJpdbCard, isReviewSource } from './review-targets';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { JPDBCard } from '../app/types';
@@ -215,7 +220,7 @@ function dedupeWordKey(card: JPDBCard): string {
     }
     return card.reviewSource === 'jpdb-live'
         ? `jpdb-live\n${card.jpdbReviewId ?? card.spelling}`
-        : `${card.spelling}\n${newTabCardReading(card)}`;
+        : `${newTabCardIdentityLanguage(card)}\n${card.spelling}\n${newTabCardReading(card)}`;
 }
 
 function shouldReplaceDedupeWord(card: JPDBCard, existing: JPDBCard | undefined): boolean {

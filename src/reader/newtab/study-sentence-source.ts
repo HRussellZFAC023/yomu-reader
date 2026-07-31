@@ -2,6 +2,7 @@ import { isRecord } from '../core/object-utils';
 import type { JPDBCard } from '../app/types';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { ImmersionKitExample } from '../immersion/kit';
+import { newTabCardTarget } from './study-queue';
 
 export type StudySentenceSource = 'dictionary' | 'immersion-kit' | 'local';
 
@@ -62,7 +63,7 @@ function dictionaryExampleSentences(card: JPDBCard, entries: readonly YomitanTer
         .filter(Boolean);
     return uniqueSentences(entries.flatMap(entry => entry.glossary.flatMap(dictionaryGlossarySentences)))
         .filter(sentence => targets.some(target => sentence.includes(target)))
-        .filter(sentence => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
+        .filter(sentence => newTabCardTarget(card).isLookupableText(sentence));
 }
 
 function dictionaryGlossarySentences(value: unknown): string[] {
@@ -70,7 +71,7 @@ function dictionaryGlossarySentences(value: unknown): string[] {
     const texts = explicitExamples.length
         ? explicitExamples
         : structuredLeafTexts(value).filter(hasExampleLabel);
-    return texts.flatMap(splitJapaneseSentences);
+    return texts.flatMap(splitStudySentences);
 }
 
 function structuredExampleTexts(value: unknown): string[] {
@@ -98,10 +99,10 @@ function isExampleRecord(value: Record<string, unknown>): boolean {
 }
 
 
-function splitJapaneseSentences(value: string): string[] {
+function splitStudySentences(value: string): string[] {
     return value
         .replace(/\r\n?/gu, '\n')
-        .split(/(?<=[\u3002\uff01\uff1f!?])\s*|\n+/u)
+        .split(/(?<=[\u3002\uff01\uff1f.!?])\s*|\n+/u)
         .map(sentence => sentence.trim())
         .filter(sentence => sentence.length >= 4 && sentence.length <= 220);
 }

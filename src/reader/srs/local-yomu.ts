@@ -2,6 +2,7 @@ import { withGmStorageLease } from '../app/storage';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type { CardState, JPDBMeaning } from '../app/types';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { canonicalLanguageTag } from '../languages/locale';
 import { canonicalStudyCardIdentity } from './shared';
 import {
     mergeStoredYomuSrsCards,
@@ -21,6 +22,7 @@ import type {
     YomuSrsLookupItem,
     YomuSrsMiningRequest,
     YomuSrsMiningResult,
+    YomuSrsQueueOptions,
     YomuSrsQueueSnapshot,
     YomuSrsReviewRequest,
     YomuSrsReviewResult,
@@ -141,9 +143,11 @@ export class LocalYomuSrsRepository {
         });
     }
 
-    async queue(limit = 50): Promise<YomuSrsQueueSnapshot> {
+    async queue(limit = 50, options: YomuSrsQueueOptions = {}): Promise<YomuSrsQueueSnapshot> {
         const now = this.now();
-        const cards = Object.values((await this.readDeck()).cards);
+        const language = options.language ? canonicalLanguageTag(options.language) : '';
+        const cards = Object.values((await this.readDeck()).cards)
+            .filter(card => !language || canonicalLanguageTag(card.language ?? 'ja') === language);
         const cap = normalizedQueueLimit(limit);
         const byDue = (a: StoredYomuSrsCard, b: StoredYomuSrsCard): number => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
         const due = cards.filter(card => card.dueAt <= now).sort(byDue);
@@ -395,7 +399,7 @@ export function createYomuLocalSrsAdapter(repository = new LocalYomuSrsRepositor
         hasCredential: () => true,
         verify: async () => true,
         stats: () => repository.stats(),
-        queue: limit => repository.queue(limit),
+        queue: (limit, options) => repository.queue(limit, options),
         review: request => repository.review(request),
         mine: request => repository.mine(request),
         lookupCards: items => repository.lookupCards(items),

@@ -1,8 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
-import { NewTabController } from '../../src/reader/newtab/controller';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
+import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import { rebuildReaderDeckEventStream } from '../../src/reader/srs/account-sync';
+import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
+import { canonicalStudyCardKey } from '../../src/reader/srs/shared';
 import type { YomuSrsAdapter } from '../../src/reader/srs/types';
 
 function srsCard(overrides: Partial<JPDBCard>): JPDBCard {
@@ -193,6 +200,134 @@ describe('Academy Reader Study queue selection', () => {
             expect(controls?.hidden).toBe(true);
             expect(controls?.textContent).toBe('');
             expect(root.textContent).not.toContain('Starter words');
+        } finally {
+            controller.destroy();
+        }
+    });
+});
+
+describe('multilingual Academy Reader Study loop', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+        document.body.replaceChildren();
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+    });
+
+    afterEach(() => {
+        resetActiveLearningTargetLanguage();
+        document.body.replaceChildren();
+    });
+
+    it('queues, clozes, grades, syncs, and reloads one exact Spanish card identity', async () => {
+        const now = 1_000_000;
+        const repository = new LocalYomuSrsRepository(() => now);
+        await repository.importBatch({
+            source: 'multilingual-study-regression',
+            importedAt: now,
+            items: [
+                {
+                    expression: '読む',
+                    reading: 'よむ',
+                    partOfSpeech: 'verb',
+                    language: 'ja',
+                    meanings: ['to read'],
+                    sentence: '本を読む。',
+                    dueAt: now - 2,
+                },
+                {
+                    expression: 'agua',
+                    reading: 'agua',
+                    partOfSpeech: 'noun',
+                    language: 'es',
+                    meanings: ['water'],
+                    sentence: 'Bebo agua.',
+                    dueAt: now - 1,
+                },
+            ],
+        });
+        const unscoped = await repository.queue(2);
+        expect(unscoped.cards.map(card => card.expression)).toEqual(['読む', 'agua']);
+
+        const adapter = createYomuLocalSrsAdapter(repository);
+        const controller = controllerWithAdapters({
+            newTabSource: 'yomu-local',
+            newTabStudyStepOrder: ['recall-cloze', 'word', 'type-word', 'listen-pitch', 'speaking', 'kanji-doodle'],
+            newTabStudyDisabledSteps: ['kanji-doodle', 'type-word'],
+            newTabStudyTourSeen: true,
+        }, {
+            'yomu-local': adapter,
+        });
+        const internals = controller as unknown as {
+            allWords: JPDBCard[];
+            visibleWords: JPDBCard[];
+            sourceLabel: string;
+            reviewCountMode: boolean;
+            renderEnabledContent(): DocumentFragment;
+            renderWord(root: HTMLElement, card: JPDBCard): void;
+            setStudyStepOverrideForCurrentCard(id: string): void;
+            srsReviewableToNewTabCard(card: (typeof unscoped.cards)[number]): JPDBCard;
+            loadSrsAdapterWords(source: 'yomu-local', limit?: number): Promise<{ cards: JPDBCard[] }>;
+            submitGrade(card: JPDBCard, grade: 'pass'): Promise<unknown>;
+        };
+        const root = document.createElement('main');
+        root.className = 'jpdb-reader-newtab';
+        root.dataset.jpdbReaderRoot = 'true';
+        root.append(internals.renderEnabledContent());
+        document.body.append(root);
+
+        try {
+            expect.soft(selectNewTabStudyPool(unscoped.cards.map(card => internals.srsReviewableToNewTabCard(card)))
+                .map(card => card.language ?? 'ja')).toEqual(['es']);
+            const loaded = await internals.loadSrsAdapterWords('yomu-local', 1);
+            expect.soft(loaded.cards.map(card => card.spelling)).toEqual(['agua']);
+            const spanishReviewable = unscoped.cards.find(card => card.language === 'es')!;
+            const spanish = internals.srsReviewableToNewTabCard(spanishReviewable);
+            internals.allWords = [spanish];
+            internals.visibleWords = [spanish];
+            internals.sourceLabel = 'Academy';
+            internals.reviewCountMode = true;
+            internals.setStudyStepOverrideForCurrentCard('recall-cloze');
+            internals.renderWord(root, spanish);
+
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]');
+            const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
+            expect.soft(study?.dataset.newtabStudyFlow?.split(' ')).toContain('recall-cloze');
+            expect.soft(study?.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect.soft(prompt?.lang).toBe('es');
+            expect.soft(prompt?.textContent).toContain('Bebo ');
+            expect.soft(prompt?.textContent).toContain('.');
+            expect.soft(prompt?.textContent).not.toContain('agua');
+            expect.soft(prompt?.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
+            expect.soft(study?.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
+            expect.soft(study?.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
+            const unavailable = study?.querySelector<HTMLElement>('[data-study-unavailable-modes]');
+            expect.soft(unavailable?.dataset.studyUnavailableModes).toBe('listen-pitch speaking');
+            expect.soft(unavailable?.dataset.studyUnavailableReason).toBe('target-audio');
+            expect.soft(unavailable?.textContent).toBe('Spanish reviews add Listen + Speak when word audio is available.');
+
+            await internals.submitGrade(spanish, 'pass');
+
+            const exactKey = canonicalStudyCardKey('agua', 'agua', { partOfSpeech: 'noun', language: 'es' });
+            expect(exactKey).toBe('agua\u0000agua\u0000noun\u0000es');
+            const reloaded = new LocalYomuSrsRepository(() => now);
+            const snapshot = await reloaded.snapshot();
+            const spanishKeys = Object.keys(snapshot.cards).filter(key => snapshot.cards[key]?.language === 'es');
+            expect.soft(spanishKeys).toEqual([exactKey]);
+            expect.soft(snapshot.cards[exactKey]).toMatchObject({
+                id: exactKey,
+                expression: 'agua',
+                reading: 'agua',
+                partOfSpeech: 'noun',
+                language: 'es',
+                reviews: 1,
+                intervalDays: 2,
+            });
+            expect.soft(snapshot.cards[canonicalStudyCardKey('agua', 'agua', { language: 'es' })]).toBeUndefined();
+            expect.soft((await reloaded.queue(1, { language: 'es' })).cards).toEqual([]);
+
+            const eventStream = Object.values(snapshot.cards).map(card => ({ version: 1, kind: 'card', card }));
+            expect.soft(rebuildReaderDeckEventStream(eventStream)).toEqual(snapshot);
         } finally {
             controller.destroy();
         }

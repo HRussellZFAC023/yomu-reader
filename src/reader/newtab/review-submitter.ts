@@ -219,6 +219,7 @@ export class NewTabReviewSubmitter {
                         : 'vocabulary',
             expression,
             reading,
+            partOfSpeech: card.partOfSpeech.map(value => value.trim()).find(Boolean),
             language: card.language,
             meanings: card.meanings,
             state: card.cardState,

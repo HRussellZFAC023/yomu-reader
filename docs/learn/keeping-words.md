@@ -21,7 +21,7 @@ Anki note fields are yours. Yomu can fill the expression, reading, definition, s
 
 [Study](/study/) runs on the site with nothing installed. Add it to a phone or tablet Home Screen and it opens like an app. After the first load, the shell and cached cards work offline. Ratings wait and retry when a connected provider comes back; Bunpro needs a live session.
 
-Study reviews Anki when it is reachable, connected Japanese services when selected, and local dictionary words without an account. Library searches the words. Stats shows the work over time.
+Study keeps local review cards on the language target selected in your profile. A complete example sentence gets the same Recall gap in Spanish or Japanese, and the card keeps its language through grading, offline storage and encrypted sync. Audio-dependent Listen and Speak modes show when target audio is not yet available instead of silently disappearing. Study also reviews Anki when it is reachable and connected Japanese services when selected. Library searches the words. Stats shows the work over time.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-study-review.webp'" alt="The hosted Yomu Study app checking a typed Japanese answer during a real review.">

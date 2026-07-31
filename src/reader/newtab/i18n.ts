@@ -31,6 +31,7 @@ const NEW_TAB_COPY = {
         studyTourSpeaking: 'Say it aloud and compare your pitch.',
         studyTourReveal: 'Check the details, then grade.',
         studyTourStart: 'Start',
+        studyAudioAvailability: '{language} reviews add {modes} when word audio is available.',
         supportBannerLabel: 'Yomu support status',
         supportBannerDismiss: 'Dismiss support status',
         supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
@@ -569,6 +570,7 @@ const JA_NEW_TAB_COPY: Partial<Record<NewTabCopyKey, string>> = {
     studySummaryStateSkipped: 'スキップ',
     studySummaryStateNone: '未実施',
     gradeSuggested: 'おすすめ',
+    studyAudioAvailability: '単語音声が利用できると、{language}の復習に{modes}が加わります。',
 };
 
 const NEW_TAB_COPY_BY_LANGUAGE: Record<NewTabLanguage, Partial<Record<NewTabCopyKey, string>>> = {

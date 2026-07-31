@@ -1,8 +1,13 @@
 import { cardHighlightTargets } from '../cards/highlight';
-import { activeLearningTarget } from '../languages/target-runtime';
+import {
+    activeLearningTarget,
+    defaultLearningTargetModule,
+    learningTargetModuleFor,
+} from '../languages/target-runtime';
 import { cardPronunciationReading } from '../popup/pitch';
 import { cardKey } from './index';
 import type { JPDBCard } from '../app/types';
+import type { LearningTargetModule } from '../languages/types';
 
 export function normalizeNewTabCard(card: JPDBCard): JPDBCard {
     const reading = newTabCardReading(card);
@@ -10,7 +15,7 @@ export function normalizeNewTabCard(card: JPDBCard): JPDBCard {
 }
 
 export function newTabCardReading(card: JPDBCard): string {
-    return activeLearningTarget().normalizeReading(card.spelling, cardPronunciationReading(card) || card.reading);
+    return newTabCardTarget(card).normalizeReading(card.spelling, cardPronunciationReading(card) || card.reading);
 }
 
 export function newTabCardOptionalReading(card: JPDBCard): string {
@@ -22,6 +27,23 @@ export function newTabCardHighlightTargets(card: JPDBCard): string[] {
     return cardHighlightTargets(card);
 }
 
+/** Resolve morphology and typography from the card identity, not ambient UI state. */
+export function newTabCardTarget(card: Pick<JPDBCard, 'language'>): LearningTargetModule {
+    return card.language
+        ? learningTargetModuleFor(card.language) ?? defaultLearningTargetModule()
+        : activeLearningTarget();
+}
+
+export function newTabCardMatchesActiveTarget(card: Pick<JPDBCard, 'language'>): boolean {
+    return newTabCardIdentityLanguage(card) === activeLearningTarget().language;
+}
+
+/** Missing identity language is legacy Japanese, even while another target is active. */
+export function newTabCardIdentityLanguage(card: Pick<JPDBCard, 'language'>): string {
+    return learningTargetModuleFor(card.language ?? defaultLearningTargetModule().language)?.language
+        ?? defaultLearningTargetModule().language;
+}
+
 function shouldShowInStudyQueue(card: JPDBCard): boolean {
     if (card.source === 'local' || card.source === 'fallback') return true;
     if (card.reviewSource === 'jpdb-live') return true;
@@ -30,7 +52,7 @@ function shouldShowInStudyQueue(card: JPDBCard): boolean {
 }
 
 export function selectNewTabStudyPool(cards: JPDBCard[]): JPDBCard[] {
-    return cards.filter(shouldShowInStudyQueue);
+    return cards.filter(newTabCardMatchesActiveTarget).filter(shouldShowInStudyQueue);
 }
 
 export function sentenceForCard(card: JPDBCard): string {

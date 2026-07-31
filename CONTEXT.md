@@ -12,6 +12,8 @@ and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 - Lookup: Turning Japanese text at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
 - Mining Context: The sentence, source title, source URL, and optional image captured with a card for JPDB or Anki.
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.
+- Study Card Identity: The canonical local and synced vocabulary identity `[expression, reading, partOfSpeech, language]`. Empty trailing fields are elided and Japanese is the default language, so legacy Japanese keys remain byte-identical while non-Japanese cards retain an explicit language slot.
+- Target-scoped Study Queue: A Study queue filtered to the active learning target before provider caps, reading normalization, deduplication, or fallback selection. Card-owned morphology still resolves from each card's identity rather than ambient UI state.
 - Dictionary Import: Loading Yomitan ZIP, Yomitan Dexie JSON, or Yomu reader exports into local IndexedDB stores.
 - Dictionary Preference: User ordering, aliases, and enablement for local dictionaries.
 - Study Target Readiness: The explicit product promise attached to every target in the hand-maintained language roster: `full`, `reading-only`, or `planned`. Pickers and claims consume that one value; a planned target is named, disabled, and accompanied by its reason.

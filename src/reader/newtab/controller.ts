@@ -77,6 +77,7 @@ import { installOriginGraphInteractions } from '../popup/origin-graph-interactio
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings';
 import { activeLearningTarget } from '../languages/target-runtime';
+import { languageDisplayName } from '../languages/locale';
 import { isolate } from '../locales/direction';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';
@@ -163,8 +164,10 @@ import { collectPitchVariants, contextPitchPattern, pitchNumberForReading, split
 import { installNewTabSwipeGesture, newTabSwipeGrade, type NewTabSwipeAction, type NewTabSwipeDirection, type NewTabSwipeProgress } from './swipe-gesture';
 import {
     newTabCardHighlightTargets,
+    newTabCardMatchesActiveTarget,
     newTabCardOptionalReading,
     newTabCardReading,
+    newTabCardTarget,
     normalizeNewTabCard,
     promoteCardByKey,
     sentenceForCard,
@@ -198,7 +201,6 @@ import {
     jpdbReviewCardsForNewTab,
     normalizeSearchQuery,
     preferMultiCharacterVocabulary,
-    queryHasJapanese,
     newTabDueSummary,
 } from './card-selection';
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
@@ -2778,7 +2780,7 @@ export class NewTabController {
     private loadedWordsForResult(result: NewTabLoadResult, excludeCardKeys: string[] | undefined): JPDBCard[] {
         const excludedCardKeys = new Set(excludeCardKeys ?? []);
         return this.filterStatsStudyCards(
-            dedupeWords(result.cards.map(normalizeNewTabCard)),
+            dedupeWords(result.cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard)),
         ).filter(card => this.shouldIncludeLoadedWord(card, excludedCardKeys));
     }
 
@@ -2867,6 +2869,7 @@ export class NewTabController {
     ): preferredCard is JPDBCard {
         return Boolean(
             preferredCard
+            && newTabCardMatchesActiveTarget(preferredCard)
             && usedCachedWords
             && this.navigationGeneration !== navigationGeneration
             && result.reviewCountMode !== true
@@ -3097,8 +3100,11 @@ export class NewTabController {
         return {
             label,
             load: async () => {
-                const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT);
+                const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, {
+                    language: activeLearningTarget().language,
+                });
                 return snapshot.cards
+                    .filter(newTabCardMatchesActiveTarget)
                     .map(card => this.srsReviewableToNewTabCard(card))
                     .filter((card): card is JPDBCard => card !== null);
             },
@@ -3386,19 +3392,23 @@ export class NewTabController {
     }
 
     private rememberSourceResult(source: ConcreteNewTabWordSource, result: NewTabLoadResult, context?: NewTabSourceCacheContext): NewTabLoadResult {
+        const scopedResult = {
+            ...result,
+            cards: result.cards.filter(newTabCardMatchesActiveTarget),
+        };
         if (context && (context.version !== this.sourceCacheVersion(source) || context.signature !== this.sourceCacheSignature(source))) {
-            return result;
+            return scopedResult;
         }
-        if (result.cards.length || source === 'anki' || source === 'dictionary' || source === 'bunpro' || source === 'wanikani' || source === 'yomu-local') {
+        if (scopedResult.cards.length || source === 'anki' || source === 'dictionary' || source === 'bunpro' || source === 'wanikani' || source === 'yomu-local') {
             this.sourceResultCache.set(source, {
                 signature: context?.signature ?? this.sourceCacheSignature(source),
                 result: {
-                    ...result,
-                    cards: [...result.cards],
+                    ...scopedResult,
+                    cards: [...scopedResult.cards],
                 },
             });
         }
-        return result;
+        return scopedResult;
     }
 
     private sourceCacheContext(source: ConcreteNewTabWordSource): NewTabSourceCacheContext {
@@ -3433,6 +3443,7 @@ export class NewTabController {
         return JSON.stringify({
             source,
             language: this.language(),
+            targetLanguage: activeLearningTarget().language,
             apiKey: hasJpdbApiCredential(settings),
             jitenApiKey: hasJitenApiCredential(settings),
             jpdbMiningEnabled: settings.jpdbMiningEnabled,
@@ -3493,11 +3504,12 @@ export class NewTabController {
         const cardLimit = Math.max(1, Math.floor(limit));
         const loaded = await this.remoteSourceResult<YomuSrsQueueSnapshot | null>(
             `${sourceLabel} queue`,
-            adapter.queue(cardLimit),
+            adapter.queue(cardLimit, { language: activeLearningTarget().language }),
             null,
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         );
         const cards = (loaded.value?.cards ?? [])
+            .filter(newTabCardMatchesActiveTarget)
             .map(card => this.srsReviewableToNewTabCard(card))
             .filter((card): card is JPDBCard => card !== null)
             .slice(0, cardLimit);
@@ -3538,7 +3550,7 @@ export class NewTabController {
                     ? 'wanikani-api'
                     : 'yomu-local',
             sourceDeckName: card.srsLevel,
-            sourceCardKey: providerKey,
+            sourceCardKey: card.providerId === 'yomu-local' ? card.providerCardId : providerKey,
             bunproReviewId: card.providerId === 'bunpro' ? card.providerReviewId : undefined,
             bunproReviewableId: card.providerId === 'bunpro' ? optionalPositiveNumber(card.providerReviewableId) : undefined,
             bunproReviewableType: card.providerId === 'bunpro' ? bunproReviewableType(card.kind) : undefined,
@@ -3655,6 +3667,7 @@ export class NewTabController {
     }
 
     private loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN): NewTabLoadResult {
+        if (activeLearningTarget().language !== 'ja') return emptyNewTabLoadResult(this.text('starterWords'));
         const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
         // Built-in seed words are not the user's dictionary — labeling them
         // "Dictionary" confused keyless users who never imported one.
@@ -3878,6 +3891,7 @@ export class NewTabController {
     }
 
     private async loadPublicJpdbWords(): Promise<NewTabLoadResult> {
+        if (activeLearningTarget().language !== 'ja') return emptyNewTabLoadResult('JPDB');
         const cards = await this.remoteSourceWithFallback(
             'JPDB public dictionary',
             this.loadPublicJpdbDictionaryCards(),
@@ -4512,7 +4526,7 @@ export class NewTabController {
         const state = primaryCardState(card.cardState);
 
         this.renderStudySteps(slots.steps, session);
-        this.renderStudyTour(slots.tour, session);
+        this.renderStudyTour(slots.tour, session, card);
         this.renderPromptForMode(slots, card, state, renderAsKanji);
         this.renderStudyRevealHintSummary(slots, card);
 
@@ -4697,9 +4711,10 @@ export class NewTabController {
         return kanjiSteps.length > 1 ? `${step.label} ${kanjiSteps.indexOf(step) + 1}` : step.label;
     }
 
-    private renderStudyTour(slot: HTMLElement | null, session: NewTabStudySession): void {
+    private renderStudyTour(slot: HTMLElement | null, session: NewTabStudySession, card: JPDBCard): void {
         if (!slot) return;
         const settings = this.dependencies.getSettings();
+        const audioAvailability = this.studyAudioAvailability(card);
         const showTour = !settings.newTabStudyTourSeen && this.state.route === 'study' && session.steps.length > 1;
         if (showTour) {
             slot.hidden = false;
@@ -4709,14 +4724,43 @@ export class NewTabController {
                     el('p', { class: 'jpdb-reader-newtab-study-tour-intro' }, this.text('studyTourIntro')),
                     el('ol', { class: 'jpdb-reader-newtab-study-tour-list' },
                         session.steps.map((step, index) => this.studyTourStep(step, index))),
+                    audioAvailability,
                 ),
                 el('button', { type: 'button', dataset: { newtabAction: 'dismiss-study-tour' } }, this.text('studyTourStart')),
             );
             return;
         }
+        if (audioAvailability && this.state.route === 'study') {
+            slot.hidden = false;
+            slot.dataset.studyTourMode = 'availability';
+            replaceChildrenWith(slot, audioAvailability);
+            return;
+        }
         slot.hidden = true;
         delete slot.dataset.studyTourMode;
         slot.replaceChildren();
+    }
+
+    private studyAudioAvailability(card: JPDBCard): HTMLParagraphElement | null {
+        const target = newTabCardTarget(card);
+        if (target.capabilities.audio) return null;
+        const disabled = new Set(this.dependencies.getSettings().newTabStudyDisabledSteps);
+        const modes = [
+            disabled.has('listen-pitch') ? null : { kind: 'listen-pitch', label: this.text('studySummaryListen') },
+            disabled.has('speaking') ? null : { kind: 'speaking', label: this.text('studySummarySpeaking') },
+        ].filter((mode): mode is { kind: 'listen-pitch' | 'speaking'; label: string } => mode !== null);
+        if (!modes.length) return null;
+        return el('p', {
+            class: 'jpdb-reader-newtab-study-availability',
+            role: 'note',
+            dataset: {
+                studyUnavailableModes: modes.map(mode => mode.kind).join(' '),
+                studyUnavailableReason: 'target-audio',
+            },
+        }, this.formatNewTabText('studyAudioAvailability', {
+            language: languageDisplayName(target.language, this.resolvedLanguage()),
+            modes: modes.map(mode => mode.label).join(' + '),
+        }));
     }
 
     private studyTourStep(step: NewTabStudyStep, index: number): HTMLLIElement {
@@ -6184,7 +6228,7 @@ export class NewTabController {
         this.ensureNPlusOneStudySentence(card);
         const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
         const meaning = firstCardMeaning(card) || this.text('recallPromptFallback');
-        prompt.lang = cloze.hasCloze ? 'ja' : 'en';
+        prompt.lang = cloze.hasCloze ? newTabCardTarget(card).typography.contentLocale : 'en';
         delete prompt.dataset.newtabExpression;
         delete prompt.dataset.newtabSentenceRequest;
         delete prompt.dataset.newtabPromptParseRequest;
@@ -6206,7 +6250,7 @@ export class NewTabController {
 
     private renderRecallAnswer(answer: HTMLElement | null, card: JPDBCard, state: ReturnType<typeof primaryCardState>): void {
         if (!answer) return;
-        const target = activeLearningTarget();
+        const target = newTabCardTarget(card);
         delete answer.dataset.newtabAnswerDetailsRequest;
         const key = cardKey(card);
         const recall = this.stepState(key)?.recall;
@@ -6250,7 +6294,7 @@ export class NewTabController {
 
     private renderRecallSolution(card: JPDBCard, state: ReturnType<typeof primaryCardState>): HTMLElement {
         const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
-        const solution = el('div', { class: 'jpdb-reader-newtab-recall-solution', lang: 'ja' },
+        const solution = el('div', { class: 'jpdb-reader-newtab-recall-solution', lang: newTabCardTarget(card).typography.contentLocale },
             el('span', { class: 'jpdb-reader-newtab-term-row' },
                 cloze.hasCloze
                     ? this.renderWordPromptSentenceNode(card, state, cloze.sentence)
@@ -6336,7 +6380,7 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         const input = root.querySelector<HTMLInputElement>('[data-newtab-recall-input]');
         if (!card || !input) return;
-        input.value = normalizeLearningTargetInput(activeLearningTarget(), input.value);
+        input.value = normalizeLearningTargetInput(newTabCardTarget(card), input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
         this.ensureStepState(cardKey(card)).recall = { answer: input.value, outcome: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
@@ -6378,7 +6422,7 @@ export class NewTabController {
             return;
         }
         const meaning = firstCardMeaning(card) || this.text('recallPromptFallback');
-        prompt.lang = 'ja';
+        prompt.lang = newTabCardTarget(card).typography.contentLocale;
         delete prompt.dataset.newtabExpression;
         delete prompt.dataset.newtabSentenceRequest;
         delete prompt.dataset.newtabPromptParseRequest;
@@ -6476,7 +6520,7 @@ export class NewTabController {
 
     private renderTypeWordKeyboard(card: JPDBCard, feedback?: NewTabRecallOutcome): HTMLElement {
         const readyToContinue = feedback === 'correct' || feedback === 'accepted';
-        const target = activeLearningTarget();
+        const target = newTabCardTarget(card);
         return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
             this.renderStudyWordAudioButton(card),
             el('input', {
@@ -6633,7 +6677,7 @@ export class NewTabController {
             if (!this.navigateStudyStep('next')) this.renderWord(root, card);
             return;
         }
-        input.value = normalizeLearningTargetInput(activeLearningTarget(), input.value);
+        input.value = normalizeLearningTargetInput(newTabCardTarget(card), input.value);
         const evaluation = evaluateNewTabRecallAnswer(card, input.value, newTabCardReading(card));
         state.type = { ...state.type, answer: input.value, feedback: evaluation.outcome };
         if (evaluation.outcome === 'empty') {
@@ -10016,7 +10060,12 @@ export class NewTabController {
         const cached = await gmStorageGet<{ cards?: JPDBCard[]; sourceLabel?: string } | null>(NEW_TAB_CACHE_KEY, null)
             .catch(() => null);
         return {
-            cards: Array.isArray(cached?.cards) ? cached.cards.map(normalizeNewTabCard).slice(0, Math.max(0, settings.newTabOfflineLimit || 0)) : [],
+            cards: Array.isArray(cached?.cards)
+                ? cached.cards
+                    .filter(newTabCardMatchesActiveTarget)
+                    .map(normalizeNewTabCard)
+                    .slice(0, Math.max(0, settings.newTabOfflineLimit || 0))
+                : [],
             sourceLabel: this.localizedSourceLabel(cached?.sourceLabel || this.text('cachedReviews')),
         };
     }
@@ -10622,7 +10671,10 @@ function wanikaniAudioUrlsFromReviewable(card: YomuSrsReviewable): string[] | un
 }
 
 function srsReviewablePartOfSpeech(card: YomuSrsReviewable): string[] {
-    const existing = uniqueStrings(card.meanings.flatMap(meaning => meaning.partOfSpeech ?? []));
+    const existing = uniqueStrings([
+        card.partOfSpeech ?? '',
+        ...card.meanings.flatMap(meaning => meaning.partOfSpeech ?? []),
+    ]);
     if (existing.length) return existing;
     return card.kind === 'grammar' ? ['grammar'] : [];
 }
@@ -10697,7 +10749,7 @@ function normalizePromptContextSentence(value: string | undefined, card: JPDBCar
 }
 
 function isPromptContextSentence(sentence: string, card: JPDBCard): boolean {
-    if (!queryHasJapanese(sentence)) return false;
+    if (!newTabCardTarget(card).isLookupableText(sentence)) return false;
     const normalized = normalizedPromptSentenceText(sentence);
     const identities = newTabCardHighlightTargets(card)
         .map(normalizedPromptSentenceText)

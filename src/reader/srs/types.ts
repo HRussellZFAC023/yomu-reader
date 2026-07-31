@@ -41,6 +41,11 @@ export interface YomuSrsQueueSnapshot {
     reviewCount: number;
 }
 
+export interface YomuSrsQueueOptions {
+    /** Return only cards whose canonical identity belongs to this target language. */
+    language?: LanguageTag;
+}
+
 export interface YomuSrsStatsSnapshot {
     providerId: YomuSrsProviderId;
     fetchedAt: number;
@@ -123,7 +128,7 @@ export interface YomuSrsAdapter {
     hasCredential(): boolean;
     verify(): Promise<boolean>;
     stats(): Promise<YomuSrsStatsSnapshot>;
-    queue(limit?: number): Promise<YomuSrsQueueSnapshot>;
+    queue(limit?: number, options?: YomuSrsQueueOptions): Promise<YomuSrsQueueSnapshot>;
     review(request: YomuSrsReviewRequest): Promise<YomuSrsReviewResult>;
     mine(request: YomuSrsMiningRequest): Promise<YomuSrsMiningResult>;
     lookupCards?(items: readonly YomuSrsLookupItem[]): Promise<YomuSrsReviewable[]>;

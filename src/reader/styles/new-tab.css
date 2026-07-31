@@ -1555,6 +1555,13 @@
   font-weight: 650;
 }
 
+.jpdb-reader-newtab-study-availability {
+  margin: 0;
+  color: color-mix(in srgb, var(--jpdb-reader-text) 68%, var(--jpdb-reader-muted));
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .jpdb-reader-newtab-study-tour-step[data-gradeable="true"] .jpdb-reader-newtab-study-tour-index {
   background: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-contrast, #ffffff);
