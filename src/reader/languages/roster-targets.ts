@@ -1,5 +1,6 @@
 import { LEARNER_LANGUAGES } from '../locales';
 import { grammarForRosterTarget } from './grammar-catalogue';
+import { hanIdeographSegments } from './han';
 import { createLearningTargetModule } from './module';
 import { lookupRewritesForTarget } from './lookup-policies';
 import type { LearningTargetModule } from './types';
@@ -31,6 +32,7 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
         .map(language => {
             const lookupRewrites = lookupRewritesForTarget(language.id);
             const readingAnnotation = language.id === 'zh' || language.id === 'yue';
+            const usesHanScript = language.scripts.some(script => script === 'Hans' || script === 'Hant');
             return createLearningTargetModule({
                 id: `${language.id}-roster-v1`,
                 language: language.runtimeLocale,
@@ -60,6 +62,15 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                 ocr: ocrHintFor(language.runtimeLocale),
                 detectsText: scriptDetector(language.scripts),
                 lookupRewrites,
+                ...(usesHanScript ? {
+                    // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+                    // Let the installed dictionary arbitrate inside a real Han
+                    // run, and accept expression hits only.
+                    lookupStartsAtSegmentBoundary: false,
+                    lookupRunSegments: hanIdeographSegments,
+                    lookupSweepMode: 'left-to-right-longest-exact' as const,
+                    pointerWordSegments: hanIdeographSegments,
+                } : {}),
             });
         }),
 );

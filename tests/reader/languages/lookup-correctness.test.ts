@@ -119,7 +119,7 @@ describe('bounded generic lookup candidates', () => {
         expect(candidates.length).toBeLessThanOrEqual(12);
     });
 
-    it('applies Arabic clitic rules as data without enabling arbitrary Chinese widening', () => {
+    it('applies Arabic clitic rules as data and gives Han targets an exact dictionary sweep', () => {
         const arabic = learningTargetModuleFor('ar')!;
         expect(arabic.lookupCandidates('بالقطار').map(candidate => candidate.term))
             .toEqual(['بالقطار', 'قطار', 'القطار']);
@@ -128,7 +128,10 @@ describe('bounded generic lookup candidates', () => {
 
         for (const language of ['zh', 'yue']) {
             const chinese = learningTargetModuleFor(language)!;
-            expect(chinese.lookupStartsAtSegmentBoundary).toBe(true);
+            expect(chinese.lookupStartsAtSegmentBoundary).toBe(false);
+            expect(chinese.lookupSweepMode).toBe('left-to-right-longest-exact');
+            expect(chinese.lookupRunSegments?.('我去，study 好𡃁').map(segment => segment.text))
+                .toEqual(['我去', '好𡃁']);
             expect(chinese.lookupCandidates('我去').map(candidate => candidate.term)).toEqual(['我去']);
         }
     });
@@ -145,5 +148,27 @@ describe('bounded generic lookup candidates', () => {
             .toEqual(['학생이']);
         expect(jpdbPointerLookupCandidates('학생', 0).map(candidate => candidate.term))
             .toEqual(['학생']);
+    });
+
+    it('builds longest-first Han pointer candidates on code-point boundaries', () => {
+        setActiveLearningTargetLanguage('yue');
+        const candidates = jpdbPointerLookupCandidates('我鍾意𡃁', 1);
+
+        expect(candidates[0]).toEqual({ term: '我鍾意𡃁', start: 0, end: 5 });
+        expect(candidates).toContainEqual({ term: '鍾意', start: 1, end: 3 });
+        expect(candidates.every(candidate => Array.from(candidate.term).every(character => {
+            const codePoint = character.codePointAt(0) ?? 0;
+            return codePoint < 0xd800 || codePoint > 0xdfff;
+        }))).toBe(true);
+
+        const supplementary = jpdbPointerLookupCandidates('我𡃁好', 2);
+        expect(supplementary[0]).toEqual({ term: '我𡃁好', start: 0, end: 4 });
+        expect(supplementary).toContainEqual({ term: '𡃁', start: 1, end: 3 });
+
+        const longRun = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
+        const exhaustive = jpdbPointerLookupCandidates(longRun, 1);
+        expect(exhaustive.length).toBeGreaterThan(24);
+        expect(exhaustive).toContainEqual({ term: '地玄', start: 1, end: 3 });
+        expect(exhaustive).toContainEqual({ term: '地', start: 1, end: 2 });
     });
 });

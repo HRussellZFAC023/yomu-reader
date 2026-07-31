@@ -1,4 +1,6 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
+import { isUnifiedIdeograph } from '../languages/han';
+import { lookupSpansContainingOffset } from '../languages/lookup-spans';
 import { activeLearningTarget } from '../languages/target-runtime';
 import type { LearningTargetModule } from '../languages/types';
 import {
@@ -168,6 +170,17 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
     if (target.lookupSubsegments) {
         return pointerSuffixStrippedCandidates(text, run, target);
     }
+    if (target.lookupSweepMode === 'left-to-right-longest-exact') {
+        return lookupSpansContainingOffset(
+            text,
+            run,
+            run.offset,
+            JPDB_POINTER_CANDIDATE_MAX_LENGTH,
+            JPDB_POINTER_CANDIDATE_START_WINDOW,
+        )
+            .map(span => pointerCandidate(text, span.start, span.end))
+            .filter((candidate): candidate is PointerTextSpanCandidate => Boolean(candidate));
+    }
     const candidates: PointerTextSpanCandidate[] = [];
     pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
     const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
@@ -243,7 +256,9 @@ function pointerCandidate(text: string, start: number, end: number): PointerText
 }
 
 function isUsefulPointerCandidateTerm(term: string): boolean {
-    return term.length > 1 && hasTargetPointerWord(term);
+    const characters = Array.from(term);
+    return (characters.length > 1 || isUnifiedIdeograph(characters[0] ?? ''))
+        && hasTargetPointerWord(term);
 }
 
 function pushPointerCandidate(candidates: PointerTextSpanCandidate[], candidate: PointerTextSpanCandidate | null): void {

@@ -338,4 +338,67 @@ describe('a non-Japanese target resolves dictionary entries through the normal l
 
         expect(await store.findTermMatches('paella', 8)).toEqual([]);
     });
+
+    it('uses left-to-right longest exact matches when ICU over-merges Mandarin', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const expressions = ['我', '去', '市場', '他', '是', '學生', '這個', '很', '好'];
+        const store = await dictionaryStore([
+            ...expressions.map(expression => ({
+                expression,
+                reading: expression,
+                glossary: [`definition of ${expression}`],
+                dictionary: 'w13-zh-fixture',
+            })),
+            // A reading-index hit is not evidence that this Han surface is the
+            // expression. The exact-only policy must stay silent for it.
+            {
+                expression: '錯',
+                reading: '我去',
+                glossary: ['wrong reading-only answer'],
+                dictionary: 'w13-zh-fixture',
+            },
+        ], 'w13-zh-fixture.json');
+
+        const matches = await store.findTermMatches('我去市場。他是學生。這個很好。', 32);
+
+        expect(matches.map(match => match.entry.expression)).toEqual(expressions);
+        expect(matches.map(match => [match.surface, match.start, match.end])).toEqual([
+            ['我', 0, 1],
+            ['去', 1, 2],
+            ['市場', 2, 4],
+            ['他', 5, 6],
+            ['是', 6, 7],
+            ['學生', 7, 9],
+            ['這個', 10, 12],
+            ['很', 12, 13],
+            ['好', 13, 14],
+        ]);
+    });
+
+    it('recovers Cantonese words across ICU splits and keeps supplementary offsets intact', async () => {
+        setActiveLearningTargetLanguage('yue');
+        const store = await dictionaryStore([
+            { expression: '鍾意', reading: 'zung1 ji3', glossary: ['to like'], dictionary: 'w13-yue-fixture' },
+            { expression: '𡃁好', reading: 'ngam4 hou2', glossary: ['supplementary fixture'], dictionary: 'w13-yue-fixture' },
+        ], 'w13-yue-fixture.json');
+
+        await expect(store.findTermMatches('我鍾意食', 8)).resolves.toMatchObject([
+            { entry: { expression: '鍾意' }, surface: '鍾意', start: 1, end: 3 },
+        ]);
+        await expect(store.findTermMatches('我𡃁好', 8)).resolves.toMatchObject([
+            { entry: { expression: '𡃁好' }, surface: '𡃁好', start: 1, end: 4 },
+        ]);
+    });
+
+    it('does not split supplementary Han at a lookup-window boundary', async () => {
+        setActiveLearningTargetLanguage('zh');
+        const store = await dictionaryStore([
+            { expression: '𡃁好', reading: '𡃁好', glossary: ['boundary fixture'], dictionary: 'w13-window-fixture' },
+        ], 'w13-window-fixture.json');
+        const text = `${'我'.repeat(239)}𡃁好`;
+
+        await expect(store.findTermMatches(text, 8)).resolves.toMatchObject([
+            { entry: { expression: '𡃁好' }, surface: '𡃁好', start: 239, end: 242 },
+        ]);
+    });
 });

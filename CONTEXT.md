@@ -21,7 +21,8 @@ and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 - Target Grammar: The active learning target's level scale, checked rule inventory, detector, and optional external reference. Grammar capability means the inventory contains rules; a reference-only target remains explicitly reference-only.
 - Learner-Target Dictionary Pair: The recommendation contract keyed by both the learner's definition language and the selected headword language. A released pair provides target-headword terms and, when present, target-headword IPA instead of inheriting Japanese defaults.
 - Pronunciation Row: The target-aware popup surface for pronunciation evidence. Japanese selects the pitch-accent variant; IPA targets select imported Yomitan `ipa` metadata. A target with no exact evidence renders no foreign-language fallback status.
-- IPA Pronunciation Metadata: Yomitan term metadata whose mode is `ipa`. It is imported into the Pronunciation Row independently of frequency badges.
+- Han Maximal Match: A left-to-right lookup over contiguous Unicode ideographs that accepts only exact installed-dictionary expressions, takes the longest hit at the earliest available start, and emits nothing when no expression exists. ICU remains display segmentation evidence, not word-boundary authority, for Han targets.
+- IPA Pronunciation Metadata: Yomitan term metadata whose mode is `ipa`. It is imported and rendered as pronunciation, independently of Japanese pitch metadata and frequency badges.
 - Subtitle Track: A detected, native, file-loaded, or YouTube subtitle source that can become overlay or transcript cues.
 - Subtitle Cue: A timed subtitle line, optionally with exact word timings for karaoke rendering.
 - Transcript Panel: The subtitle drawer view that renders cue rows, parsing, track selection, and navigation.

@@ -54,6 +54,10 @@ export interface LearningTargetSpec {
     lookupStartsAtSegmentBoundary?: boolean;
     /** Target-owned bounded surfaces inside one segment, when safer than a full sweep. */
     lookupSubsegments?: (segment: string, maxLength: number) => readonly string[];
+    /** Target-owned contiguous runs for an all-position sweep. */
+    lookupRunSegments?: (text: string) => readonly LanguageTextSegment[];
+    /** Defaults to Japanese's established globally ranked sweep. */
+    lookupSweepMode?: LearningTargetModule['lookupSweepMode'];
     /** Detection: a script pattern, or a full predicate for richer rules. */
     detectsText?: RegExp | ((text: string) => boolean);
     normalizeText?: (text: string) => string;
@@ -135,6 +139,8 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
 
         lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
         ...(spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {}),
+        ...(spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {}),
+        lookupSweepMode: spec.lookupSweepMode ?? 'global-ranked',
 
         normalizeText,
         isLookupableText(text: string): boolean {

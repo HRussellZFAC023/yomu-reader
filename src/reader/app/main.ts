@@ -6121,6 +6121,13 @@ export class ReaderApp {
         if (target.lookupSubsegments) {
             return await this.lookupSuffixStrippedLocalEntry(target, text, run);
         }
+        if (target.lookupSweepMode === 'left-to-right-longest-exact') {
+            for (const span of jpdbPointerLookupCandidates(text, run.offset)) {
+                const entry = await this.lookupSingleLocalSurface(span.term);
+                if (entry) return { entry, start: span.start, end: span.end };
+            }
+            return undefined;
+        }
         if (isOverbroadLocalPointerRange(run, pointerRange)) {
             return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
         }
@@ -6193,7 +6200,13 @@ export class ReaderApp {
             const entries = await this.dictionaries
                 .lookup(candidate.term, candidate.term, 8, this.settings.dictionaryPreferences)
                 .catch(() => []);
-            const match = entries.find(entry => target.matchesLookupCandidateRules(entry.rules, candidate.rules));
+            const match = entries.find(entry =>
+                (
+                    target.lookupSweepMode !== 'left-to-right-longest-exact'
+                    || target.normalizeText(entry.expression) === target.normalizeText(candidate.term)
+                )
+                && target.matchesLookupCandidateRules(entry.rules, candidate.rules),
+            );
             if (match) return match;
         }
         return undefined;

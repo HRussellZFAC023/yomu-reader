@@ -22,7 +22,7 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -31,7 +31,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 8 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [8] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -340,6 +340,22 @@ export interface LearningTargetModule {
      * narrower safe strategy, such as Korean particle stripping.
      */
     readonly lookupSubsegments?: (segment: string, maxLength: number) => readonly string[];
+    /**
+     * Valid contiguous runs for an all-position dictionary sweep.
+     *
+     * Absent preserves the Japanese sweep over the source. Han targets supply
+     * ideograph-only runs so punctuation and mixed-script text never become
+     * guessed dictionary candidates.
+     */
+    readonly lookupRunSegments?: (text: string) => readonly LanguageTextSegment[];
+    /**
+     * How an all-position sweep is queried and selected.
+     *
+     * Han text uses conventional left-to-right longest exact-expression
+     * matching. Japanese keeps its established globally ranked expression-or-
+     * reading behavior.
+     */
+    readonly lookupSweepMode: 'global-ranked' | 'left-to-right-longest-exact';
 
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;

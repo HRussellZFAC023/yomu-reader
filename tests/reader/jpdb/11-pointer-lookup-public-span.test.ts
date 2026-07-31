@@ -816,6 +816,39 @@ describe('reader helpers', () => {
         }
     });
 
+    it('finds short exact Han dictionary entries beyond the former pointer candidate cap', async () => {
+        const app = new ReaderApp();
+        const sentence = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
+        const entry: YomitanTermEntry = {
+            expression: '地玄',
+            reading: '地玄',
+            glossary: ['fixture'],
+            dictionary: 'Local Chinese',
+        };
+        const lookup = vi.fn(async (surface: string) => surface === entry.expression ? [entry] : []);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookup: typeof lookup };
+            lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        internals.dictionaries = { lookup };
+        setActiveLearningTargetLanguage('zh');
+
+        try {
+            await expect(internals.lookupLocalEntryAtOffset(sentence, 1)).resolves.toEqual({
+                entry,
+                start: 1,
+                end: 3,
+            });
+            expect(lookup.mock.calls.map(([surface]) => surface)).toContain('地玄');
+            expect(lookup.mock.calls.length).toBeGreaterThan(24);
+        } finally {
+            resetActiveLearningTargetLanguage();
+            app.destroy();
+        }
+    });
+
     it('uses an inflected fallback pointer card instead of a single-kanji fragment when JPDB is unavailable', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';

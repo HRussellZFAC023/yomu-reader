@@ -48,11 +48,14 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 8 puts grammar detection and its level scale behind the
-        // target Module instead of a Japanese registry in shared Study code.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(8);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(8)).toBe(true);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(7)).toBe(false);
+        // Revision 8 put grammar detection and its level scale behind the target
+        // Module instead of a Japanese registry in shared Study code. Revision 9
+        // adds target-owned sweep runs and exact left-to-right matching for
+        // unspaced Han text. Two waves landed these hours apart and both claimed
+        // 8; the sweep members are the later pair, so they are 9.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(9);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(9)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(8)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(false);
@@ -88,6 +91,7 @@ describe('LearningTargetModule contract revision', () => {
             'language',
             'lookupCandidates',
             'lookupStartsAtSegmentBoundary',
+            'lookupSweepMode',
             'matchesLookupCandidateRules',
             'normalizeReading',
             'normalizeText',

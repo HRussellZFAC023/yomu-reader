@@ -1,5 +1,10 @@
 import { activeLearningTarget } from '../../languages/target-runtime';
 import {
+    codePointBoundaryAtOrAfter,
+    codePointSafePrefix,
+    lookupSpansStartingInRange,
+} from '../../languages/lookup-spans';
+import {
     genericLookupTextVariants,
     normalizeGenericLookupText,
     normalizeImportedLookupMeta,
@@ -66,6 +71,7 @@ import {
     dictionaryEnabled,
     dictionaryPriority,
     dictionaryRank,
+    leftToRightLongestMatches,
     nonOverlappingMatches,
 } from './ranking';
 import {
@@ -140,7 +146,7 @@ const TERM_MATCH_WINDOW_CHARS = 240;
 const TERM_MATCH_SOURCE_LIMIT = 4_000;
 // Longest surface the swept path will try at one position. A target with
 // written word boundaries never reaches this: its segments are its words.
-const TERM_MATCH_MAX_SURFACE_CHARS = 18;
+const TERM_MATCH_MAX_SURFACE_CODE_POINTS = 18;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -233,6 +239,9 @@ export class YomitanDictionaryStore {
     private segmentedSourceText = '';
     private segmentedSourceTarget = '';
     private segmentedSourceSegments: readonly LanguageTextSegment[] = [];
+    private lookupRunSourceText = '';
+    private lookupRunSourceTarget = '';
+    private lookupRunSourceSegments: readonly LanguageTextSegment[] = [];
 
     constructor(
         private readonly getCorsProxyUrl: () => string = () => '',
@@ -485,7 +494,7 @@ export class YomitanDictionaryStore {
         // the limit a density budget: every part of the block is annotated like
         // the head always was, and no single walk, transaction or fan-out
         // scales with the length of the text.
-        const source = text.slice(0, TERM_MATCH_SOURCE_LIMIT);
+        const source = codePointSafePrefix(text, TERM_MATCH_SOURCE_LIMIT);
         if (source.length < text.length) {
             log.warn('Inline term match source trimmed', { length: text.length, kept: source.length });
         }
@@ -506,28 +515,40 @@ export class YomitanDictionaryStore {
 
     private async sweepTermMatchWindows(source: string, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
         const selected: YomitanTermMatch[] = [];
+        const target = activeLearningTarget();
         // Windows are swept in reading order and every match starts inside its
         // own window, so the furthest end selected so far is all a later window
         // needs to stay non-overlapping across the boundary.
         let coveredUntil = 0;
-        for (let start = 0; start < source.length; start += TERM_MATCH_WINDOW_CHARS) {
+        for (let start = 0; start < source.length;) {
             // Between windows only: a single window's work is small enough to
             // stay inside a frame, and yielding here is what lets a caller's
             // timeout fire at all — the collection walk itself never awaits.
             if (start > 0) await nextTask();
-            const matches = await this.termMatchesInWindow(source, start, preferences);
+            const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
+            const matches = await this.termMatchesInWindow(source, start, end, preferences);
             const free = matches.filter(match => match.start >= coveredUntil);
-            for (const match of nonOverlappingMatches(free, limit)) {
+            const windowMatches = target.lookupSweepMode === 'left-to-right-longest-exact'
+                ? leftToRightLongestMatches(free, limit)
+                : nonOverlappingMatches(free, limit);
+            for (const match of windowMatches) {
                 selected.push(match);
                 coveredUntil = Math.max(coveredUntil, match.end);
             }
+            start = end;
         }
         return selected.sort((a, b) => a.start - b.start);
     }
 
-    private async termMatchesInWindow(source: string, start: number, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
-        const candidates = this.collectTermMatchCandidates(source, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
-        return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
+    private async termMatchesInWindow(
+        source: string,
+        start: number,
+        end: number,
+        preferences: DictionaryPreference[],
+    ): Promise<YomitanTermMatch[]> {
+        const target = activeLearningTarget();
+        const candidates = this.collectTermMatchCandidates(source, start, end);
+        return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
     }
 
     /**
@@ -562,10 +583,18 @@ export class YomitanDictionaryStore {
             this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
             return candidates;
         }
-        const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source.length);
-        for (let start = from; start < to; start++) {
-            if (!target.isLookupableText(source[start])) continue;
-            this.collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates);
+        for (const segment of this.lookupRuns(source, target)) {
+            if (segment.end <= from || segment.start >= to) continue;
+            for (const span of lookupSpansStartingInRange(
+                source,
+                segment,
+                from,
+                to,
+                TERM_MATCH_MAX_SURFACE_CODE_POINTS,
+            )) {
+                if (!isSearchableTargetSurface(span.term, target)) continue;
+                this.addTargetTermCandidates(target, span.term, span.start, candidates);
+            }
         }
         return candidates;
     }
@@ -579,7 +608,7 @@ export class YomitanDictionaryStore {
     ): void {
         for (const segment of this.segmentedSource(source, target)) {
             if (segment.start < from || segment.start >= to) continue;
-            for (const surface of target.lookupSubsegments!(segment.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
+            for (const surface of target.lookupSubsegments!(segment.text, TERM_MATCH_MAX_SURFACE_CODE_POINTS)) {
                 if (!isSearchableTargetSurface(surface, target)) continue;
                 this.addTargetTermCandidates(target, surface, segment.start, candidates);
             }
@@ -600,18 +629,17 @@ export class YomitanDictionaryStore {
         return this.segmentedSourceSegments;
     }
 
-    private collectSweptTermMatchCandidatesAt(
-        target: LearningTargetModule,
-        source: string,
-        start: number,
-        maxLength: number,
-        candidates: TermMatchCandidates,
-    ): void {
-        for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
-            const surface = source.slice(start, start + length);
-            if (!isSearchableTargetSurface(surface, target)) continue;
-            this.addTargetTermCandidates(target, surface, start, candidates);
+    private lookupRuns(source: string, target: LearningTargetModule): readonly LanguageTextSegment[] {
+        if (this.lookupRunSourceText !== source || this.lookupRunSourceTarget !== target.id) {
+            this.lookupRunSourceSegments = target.lookupRunSegments?.(source) ?? [{
+                text: source,
+                start: 0,
+                end: source.length,
+            }];
+            this.lookupRunSourceText = source;
+            this.lookupRunSourceTarget = target.id;
         }
+        return this.lookupRunSourceSegments;
     }
 
     private addTargetTermCandidates(
@@ -634,7 +662,11 @@ export class YomitanDictionaryStore {
         }
     }
 
-    private async lookupTermMatchCandidates(candidates: TermMatchCandidates, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
+    private async lookupTermMatchCandidates(
+        target: LearningTargetModule,
+        candidates: TermMatchCandidates,
+        preferences: DictionaryPreference[],
+    ): Promise<YomitanTermMatch[]> {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await new Promise<YomitanTermMatch[]>((resolve, reject) => {
@@ -644,7 +676,8 @@ export class YomitanDictionaryStore {
             const readingIndex = store.index('reading');
             const results: YomitanTermMatch[] = [];
             const expressions = sortedTermMatchExpressions(candidates);
-            let pending = expressions.length * 2;
+            const exactExpressionsOnly = target.lookupSweepMode === 'left-to-right-longest-exact';
+            let pending = expressions.length * (exactExpressionsOnly ? 1 : 2);
             const finish = () => {
                 if (--pending <= 0) resolve(results);
             };
@@ -653,7 +686,9 @@ export class YomitanDictionaryStore {
             };
             for (const expression of expressions) {
                 requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-                requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+                if (!exactExpressionsOnly) {
+                    requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+                }
             }
             tx.onerror = () => reject(tx.error);
             // A conforming abort fires an error at every unfinished request, so
