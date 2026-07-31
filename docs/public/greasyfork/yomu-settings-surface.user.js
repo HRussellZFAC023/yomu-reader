@@ -12318,6 +12318,42 @@ function settingsValueEquals(left, right) {
 function changedSettingsKeys(previous, next) {
   return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
 }
+const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+  "annotationsPaused",
+  "manualScanEnabled",
+  "showFurigana",
+  "furiganaMode",
+  "puckFuriganaModeBeforeHide",
+  "ocrEnabled",
+  "ocrAutoScanImages",
+  "youtubeImmersionEnabled",
+  "youtubeImmersionEnabledChosen",
+  "youtubeShowChannelRecommendations",
+  "youtubeShowChannelRecommendationsChosen",
+  "subtitleOverlayVisible",
+  "subtitleSecondaryVisible",
+  "subtitleOverlayVisibleChosen",
+  "subtitleSecondaryVisibleChosen"
+];
+const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
+  ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
+  ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
+  ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
+  ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
+];
+function coupledExplicitUserChoiceKeys(keys) {
+  const expanded = new Set(keys);
+  for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
+  if (!pair.some((key) => expanded.has(key))) continue;
+  pair.forEach((key) => expanded.add(key));
+  }
+  return [...expanded];
+}
+function changedAutomationProtectedSettingsKeys(previous, next) {
+  return coupledExplicitUserChoiceKeys(
+  AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
+  );
+}
 const FALLBACK_HEX_COLOR = "#000000";
 function normalizeHexColor(color) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -12409,23 +12445,6 @@ const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-
 const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-  "annotationsPaused",
-  "manualScanEnabled",
-  "showFurigana",
-  "furiganaMode",
-  "puckFuriganaModeBeforeHide",
-  "ocrEnabled",
-  "ocrAutoScanImages",
-  "youtubeImmersionEnabled",
-  "youtubeImmersionEnabledChosen",
-  "youtubeShowChannelRecommendations",
-  "youtubeShowChannelRecommendationsChosen",
-  "subtitleOverlayVisible",
-  "subtitleSecondaryVisible",
-  "subtitleOverlayVisibleChosen",
-  "subtitleSecondaryVisibleChosen"
-];
 const log$d = Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -13906,25 +13925,6 @@ function applyExplicitUserSettings(settings, explicitSettings) {
   if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
   }
   return mergeSettings(candidate);
-}
-function changedAutomationProtectedSettingsKeys(previous, next) {
-  return coupledExplicitUserChoiceKeys(
-  AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
-  );
-}
-const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-  ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-  ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-  ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-  ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-];
-function coupledExplicitUserChoiceKeys(keys) {
-  const expanded = new Set(keys);
-  for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-  if (!pair.some((key) => expanded.has(key))) continue;
-  pair.forEach((key) => expanded.add(key));
-  }
-  return [...expanded];
 }
 function dispatchSettingsChange(settings) {
   try {
@@ -56929,6 +56929,48 @@ function userFacingCopyKey(error) {
   const copyKey = error.yomuUiCopyKey;
   return typeof copyKey === "string" ? copyKey : void 0;
 }
+function bindLiveSettingsSync(form, dependencies) {
+  window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
+  if (!dependencies.isActive()) return;
+  const detail = event.detail;
+  if (detail?.settings && detail.preview !== true) {
+    const settings = { ...dependencies.getSettings(), ...detail.settings };
+    dependencies.adoptSettings(settings);
+    syncFormFromSettings(form, settings);
+    syncYoutubeImmersionTarget(form, settings, activeTargetLanguageId(settings), true);
+    syncSubtitlePreview(form);
+    syncFontFamilyControls(form);
+  }
+  const theme = themeFromSettingsChangeEvent(event);
+  if (theme) dependencies.applyTheme(theme);
+  });
+}
+function syncFormFromSettings(form, settings) {
+  for (const key of Object.keys(settings)) {
+  if (key === "theme") continue;
+  const val = settings[key];
+  if (typeof val !== "string" && typeof val !== "number" && typeof val !== "boolean") continue;
+  const elements = form.elements.namedItem(key);
+  if (elements instanceof HTMLInputElement) {
+    if (elements.type === "checkbox") elements.checked = Boolean(val);
+    else if (elements.type === "radio") elements.checked = elements.value === String(val);
+    else elements.value = String(val);
+  } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
+    const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
+    for (const node of list) {
+      if (node instanceof HTMLInputElement && node.type === "radio") {
+        node.checked = node.value === String(val);
+      }
+    }
+  } else if (elements instanceof HTMLSelectElement) {
+    elements.value = String(val);
+  }
+  }
+}
+function themeFromSettingsChangeEvent(event) {
+  const theme = event.detail?.settings?.theme;
+  return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
+}
 const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
 async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {
   return acquirableHeadwordLanguages(await requester(PUBLISHED_DICTIONARY_CATALOG_URL));
@@ -63065,24 +63107,13 @@ ${glossaryKey}`;
         this.syncThemeSwitch(form);
         publishSettingsChange({ theme: next }, { preview: true });
       });
-      window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
-        if (this.currentForm !== form || !form.isConnected) return;
-        const customEvent = event;
-        const detail = customEvent.detail;
-        if (detail && detail.settings && detail.preview !== true) {
-          this.settings = { ...this.settings, ...detail.settings };
-          syncFormFromSettings(form, this.settings);
-          syncYoutubeImmersionTarget(
-            form,
-            this.settings,
-            activeTargetLanguageId(this.settings),
-            true
-          );
-          syncSubtitlePreview(form);
-          syncFontFamilyControls(form);
-        }
-        const theme = themeFromSettingsChangeEvent(event);
-        if (theme) {
+      bindLiveSettingsSync(form, {
+        isActive: () => this.currentForm === form && form.isConnected,
+        getSettings: () => this.settings,
+        adoptSettings: (settings) => {
+          this.settings = settings;
+        },
+        applyTheme: (theme) => {
           const input2 = form.querySelector("[data-theme-value]");
           if (input2 && input2.value !== theme) {
             input2.value = theme;
@@ -64677,37 +64708,6 @@ ${glossaryKey}`;
   }
   function publishSettingsChange(settings, options = {}) {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
-  }
-  function syncFormFromSettings(form, settings) {
-    for (const key of Object.keys(settings)) {
-      if (key === "theme") continue;
-      const val = settings[key];
-      if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
-        const elements = form.elements.namedItem(key);
-        if (elements instanceof HTMLInputElement) {
-          if (elements.type === "checkbox") {
-            elements.checked = Boolean(val);
-          } else if (elements.type === "radio") {
-            elements.checked = elements.value === String(val);
-          } else {
-            elements.value = String(val);
-          }
-        } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
-          const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
-          for (const node of list) {
-            if (node instanceof HTMLInputElement && node.type === "radio") {
-              node.checked = node.value === String(val);
-            }
-          }
-        } else if (elements instanceof HTMLSelectElement) {
-          elements.value = String(val);
-        }
-      }
-    }
-  }
-  function themeFromSettingsChangeEvent(event) {
-    const theme = event.detail?.settings?.theme;
-    return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
   }
   function importSettingsStatus(restoredValues, dictionarySummary, language2) {
     const details = [];

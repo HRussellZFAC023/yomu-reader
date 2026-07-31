@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.aea62c2dac4d.user.js#sha256=rqYsLaxN5xA4Hho2UFDA1EVhl5KqkGgBBjcqQZIPpb8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0e03ba626fa1.user.js#sha256=DgO6Ym+hssNy6lxd+M2eR5wKbgfki2w3Ox9kuj7PSG0=
 // @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -6675,6 +6675,23 @@ function recoverInto(current, donor, settledKeys, defaults, excluded) {
   }
   return { settings, changed };
 }
+const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+  "annotationsPaused",
+  "manualScanEnabled",
+  "showFurigana",
+  "furiganaMode",
+  "puckFuriganaModeBeforeHide",
+  "ocrEnabled",
+  "ocrAutoScanImages",
+  "youtubeImmersionEnabled",
+  "youtubeImmersionEnabledChosen",
+  "youtubeShowChannelRecommendations",
+  "youtubeShowChannelRecommendationsChosen",
+  "subtitleOverlayVisible",
+  "subtitleSecondaryVisible",
+  "subtitleOverlayVisibleChosen",
+  "subtitleSecondaryVisibleChosen"
+];
 const FALLBACK_HEX_COLOR = "#000000";
 function normalizeHexColor(color) {
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -6788,23 +6805,6 @@ const SETTINGS_STORAGE_KEYS = [
 ];
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-  "annotationsPaused",
-  "manualScanEnabled",
-  "showFurigana",
-  "furiganaMode",
-  "puckFuriganaModeBeforeHide",
-  "ocrEnabled",
-  "ocrAutoScanImages",
-  "youtubeImmersionEnabled",
-  "youtubeImmersionEnabledChosen",
-  "youtubeShowChannelRecommendations",
-  "youtubeShowChannelRecommendationsChosen",
-  "subtitleOverlayVisible",
-  "subtitleSecondaryVisible",
-  "subtitleOverlayVisibleChosen",
-  "subtitleSecondaryVisibleChosen"
-];
 const log$7 = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;

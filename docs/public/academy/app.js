@@ -41814,6 +41814,37 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return { settings, changed };
   }
+  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
+    "annotationsPaused",
+    "manualScanEnabled",
+    "showFurigana",
+    "furiganaMode",
+    "puckFuriganaModeBeforeHide",
+    "ocrEnabled",
+    "ocrAutoScanImages",
+    "youtubeImmersionEnabled",
+    "youtubeImmersionEnabledChosen",
+    "youtubeShowChannelRecommendations",
+    "youtubeShowChannelRecommendationsChosen",
+    "subtitleOverlayVisible",
+    "subtitleSecondaryVisible",
+    "subtitleOverlayVisibleChosen",
+    "subtitleSecondaryVisibleChosen"
+  ];
+  const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
+    ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
+    ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
+    ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
+    ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
+  ];
+  function coupledExplicitUserChoiceKeys(keys) {
+    const expanded = new Set(keys);
+    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
+      if (!pair.some((key2) => expanded.has(key2))) continue;
+      pair.forEach((key2) => expanded.add(key2));
+    }
+    return [...expanded];
+  }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -42105,23 +42136,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   ];
   const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-    "annotationsPaused",
-    "manualScanEnabled",
-    "showFurigana",
-    "furiganaMode",
-    "puckFuriganaModeBeforeHide",
-    "ocrEnabled",
-    "ocrAutoScanImages",
-    "youtubeImmersionEnabled",
-    "youtubeImmersionEnabledChosen",
-    "youtubeShowChannelRecommendations",
-    "youtubeShowChannelRecommendationsChosen",
-    "subtitleOverlayVisible",
-    "subtitleSecondaryVisible",
-    "subtitleOverlayVisibleChosen",
-    "subtitleSecondaryVisibleChosen"
-  ];
   const log$u = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -43723,20 +43737,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (hasOwn(explicitSettings, key2)) assignSetting(candidate2, key2, explicitSettings[key2]);
     }
     return mergeSettings(candidate2);
-  }
-  const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-    ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-    ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-    ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-    ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-  ];
-  function coupledExplicitUserChoiceKeys(keys) {
-    const expanded = new Set(keys);
-    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-      if (!pair.some((key2) => expanded.has(key2))) continue;
-      pair.forEach((key2) => expanded.add(key2));
-    }
-    return [...expanded];
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -367199,6 +367199,48 @@ ${options.version}`;
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
+  function bindLiveSettingsSync(form2, dependencies) {
+    window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
+      if (!dependencies.isActive()) return;
+      const detail = event.detail;
+      if (detail?.settings && detail.preview !== true) {
+        const settings = { ...dependencies.getSettings(), ...detail.settings };
+        dependencies.adoptSettings(settings);
+        syncFormFromSettings(form2, settings);
+        syncYoutubeImmersionTarget(form2, settings, activeTargetLanguageId(settings), true);
+        syncSubtitlePreview(form2);
+        syncFontFamilyControls(form2);
+      }
+      const theme = themeFromSettingsChangeEvent(event);
+      if (theme) dependencies.applyTheme(theme);
+    });
+  }
+  function syncFormFromSettings(form2, settings) {
+    for (const key2 of Object.keys(settings)) {
+      if (key2 === "theme") continue;
+      const val = settings[key2];
+      if (typeof val !== "string" && typeof val !== "number" && typeof val !== "boolean") continue;
+      const elements = form2.elements.namedItem(key2);
+      if (elements instanceof HTMLInputElement) {
+        if (elements.type === "checkbox") elements.checked = Boolean(val);
+        else if (elements.type === "radio") elements.checked = elements.value === String(val);
+        else elements.value = String(val);
+      } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
+        const list2 = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
+        for (const node2 of list2) {
+          if (node2 instanceof HTMLInputElement && node2.type === "radio") {
+            node2.checked = node2.value === String(val);
+          }
+        }
+      } else if (elements instanceof HTMLSelectElement) {
+        elements.value = String(val);
+      }
+    }
+  }
+  function themeFromSettingsChangeEvent(event) {
+    const theme = event.detail?.settings?.theme;
+    return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
+  }
   const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
   async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {
     return acquirableHeadwordLanguages(await requester(PUBLISHED_DICTIONARY_CATALOG_URL));
@@ -368482,24 +368524,13 @@ ${options.version}`;
         this.syncThemeSwitch(form2);
         publishSettingsChange({ theme: next }, { preview: true });
       });
-      window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
-        if (this.currentForm !== form2 || !form2.isConnected) return;
-        const customEvent = event;
-        const detail = customEvent.detail;
-        if (detail && detail.settings && detail.preview !== true) {
-          this.settings = { ...this.settings, ...detail.settings };
-          syncFormFromSettings(form2, this.settings);
-          syncYoutubeImmersionTarget(
-            form2,
-            this.settings,
-            activeTargetLanguageId(this.settings),
-            true
-          );
-          syncSubtitlePreview(form2);
-          syncFontFamilyControls(form2);
-        }
-        const theme = themeFromSettingsChangeEvent(event);
-        if (theme) {
+      bindLiveSettingsSync(form2, {
+        isActive: () => this.currentForm === form2 && form2.isConnected,
+        getSettings: () => this.settings,
+        adoptSettings: (settings) => {
+          this.settings = settings;
+        },
+        applyTheme: (theme) => {
           const input2 = form2.querySelector("[data-theme-value]");
           if (input2 && input2.value !== theme) {
             input2.value = theme;
@@ -370094,37 +370125,6 @@ ${options.version}`;
   }
   function publishSettingsChange(settings, options = {}) {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
-  }
-  function syncFormFromSettings(form2, settings) {
-    for (const key2 of Object.keys(settings)) {
-      if (key2 === "theme") continue;
-      const val = settings[key2];
-      if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
-        const elements = form2.elements.namedItem(key2);
-        if (elements instanceof HTMLInputElement) {
-          if (elements.type === "checkbox") {
-            elements.checked = Boolean(val);
-          } else if (elements.type === "radio") {
-            elements.checked = elements.value === String(val);
-          } else {
-            elements.value = String(val);
-          }
-        } else if (elements instanceof RadioNodeList || elements instanceof NodeList && elements.length > 0) {
-          const list2 = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements);
-          for (const node2 of list2) {
-            if (node2 instanceof HTMLInputElement && node2.type === "radio") {
-              node2.checked = node2.value === String(val);
-            }
-          }
-        } else if (elements instanceof HTMLSelectElement) {
-          elements.value = String(val);
-        }
-      }
-    }
-  }
-  function themeFromSettingsChangeEvent(event) {
-    const theme = event.detail?.settings?.theme;
-    return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
   }
   function importSettingsStatus(restoredValues, dictionarySummary, language2) {
     const details = [];

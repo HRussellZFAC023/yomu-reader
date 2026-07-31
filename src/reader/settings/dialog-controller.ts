@@ -18,7 +18,8 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, coupledExplicitUserChoiceKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { changedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { coupledExplicitUserChoiceKeys } from './explicit-user-choice';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -88,6 +89,7 @@ import {
 } from '../languages';
 import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
+import { bindLiveSettingsSync } from './live-settings-sync';
 import { syncYoutubeImmersionTarget } from './youtube-panel';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
@@ -954,24 +956,11 @@ export class SettingsDialogController {
             this.syncThemeSwitch(form);
             publishSettingsChange({ theme: next }, { preview: true });
         });
-        window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
-            if (this.currentForm !== form || !form.isConnected) return;
-            const customEvent = event as CustomEvent<{ settings?: ReaderSettings; preview?: boolean }>;
-            const detail = customEvent.detail;
-            if (detail && detail.settings && detail.preview !== true) {
-                this.settings = { ...this.settings, ...detail.settings };
-                syncFormFromSettings(form, this.settings);
-                syncYoutubeImmersionTarget(
-                    form,
-                    this.settings,
-                    activeTargetLanguageId(this.settings),
-                    true,
-                );
-                syncSubtitlePreview(form);
-                syncFontFamilyControls(form);
-            }
-            const theme = themeFromSettingsChangeEvent(event);
-            if (theme) {
+        bindLiveSettingsSync(form, {
+            isActive: () => this.currentForm === form && form.isConnected,
+            getSettings: () => this.settings,
+            adoptSettings: settings => { this.settings = settings; },
+            applyTheme: theme => {
                 const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
                 if (input && input.value !== theme) {
                     input.value = theme;
@@ -979,7 +968,7 @@ export class SettingsDialogController {
                     applyThemePreview();
                     this.syncThemeSwitch(form);
                 }
-            }
+            },
         });
         syncSubtitlePreview(form);
         syncFontFamilyControls(form);
@@ -2812,39 +2801,6 @@ function getReaderStorageExport(value: unknown): unknown {
 
 function publishSettingsChange(settings: Partial<ReaderSettings>, options: { preview?: boolean } = {}): void {
     dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { preview: options.preview === true, settings }));
-}
-
-function syncFormFromSettings(form: HTMLFormElement, settings: ReaderSettings): void {
-    for (const key of Object.keys(settings) as Array<keyof ReaderSettings>) {
-        if (key === 'theme') continue;
-        const val = settings[key];
-        if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-            const elements = form.elements.namedItem(key);
-            if (elements instanceof HTMLInputElement) {
-                if (elements.type === 'checkbox') {
-                    elements.checked = Boolean(val);
-                } else if (elements.type === 'radio') {
-                    elements.checked = elements.value === String(val);
-                } else {
-                    elements.value = String(val);
-                }
-            } else if (elements instanceof RadioNodeList || (elements instanceof NodeList && elements.length > 0)) {
-                const list = elements instanceof RadioNodeList ? Array.from(elements) : Array.from(elements as any as Node[]);
-                for (const node of list) {
-                    if (node instanceof HTMLInputElement && node.type === 'radio') {
-                        node.checked = node.value === String(val);
-                    }
-                }
-            } else if (elements instanceof HTMLSelectElement) {
-                elements.value = String(val);
-            }
-        }
-    }
-}
-
-function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {
-    const theme = (event as CustomEvent<{ settings?: { theme?: unknown } }>).detail?.settings?.theme;
-    return theme === 'auto' || theme === 'dark' || theme === 'light' ? theme : undefined;
 }
 
 function importSettingsStatus(restoredValues: number, dictionarySummary: ImportSummary | null, language: InterfaceLanguage): string {

@@ -5,10 +5,11 @@ import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKE
 import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
+import { AUTOMATION_PROTECTED_SETTINGS_KEYS } from './explicit-user-choice';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 export { changedSettingsKeys } from './store-reconciliation';
-import { recoverLegacySettings, recoverStrandedHostedSettings, settingsValueEquals } from './store-reconciliation';
+import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
@@ -24,6 +25,8 @@ import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
+export { AUTOMATION_PROTECTED_SETTINGS_KEYS, changedAutomationProtectedSettingsKeys, coupledExplicitUserChoiceKeys } from './explicit-user-choice';
+export type { AutomationProtectedSettingsKey } from './explicit-user-choice';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
@@ -39,26 +42,6 @@ export const SETTINGS_STORAGE_KEYS = [
 ] as const;
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = 'prefer-japanese-site-language-setting';
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
-
-export const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-    'annotationsPaused',
-    'manualScanEnabled',
-    'showFurigana',
-    'furiganaMode',
-    'puckFuriganaModeBeforeHide',
-    'ocrEnabled',
-    'ocrAutoScanImages',
-    'youtubeImmersionEnabled',
-    'youtubeImmersionEnabledChosen',
-    'youtubeShowChannelRecommendations',
-    'youtubeShowChannelRecommendationsChosen',
-    'subtitleOverlayVisible',
-    'subtitleSecondaryVisible',
-    'subtitleOverlayVisibleChosen',
-    'subtitleSecondaryVisibleChosen',
-] as const satisfies readonly (keyof ReaderSettings)[];
-
-export type AutomationProtectedSettingsKey = typeof AUTOMATION_PROTECTED_SETTINGS_KEYS[number];
 
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
@@ -2220,38 +2203,6 @@ function applyExplicitUserSettings(
         if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key] as ReaderSettings[typeof key]);
     }
     return mergeSettings(candidate as LegacyReaderSettings);
-}
-
-export function changedAutomationProtectedSettingsKeys(
-    previous: ReaderSettings,
-    next: ReaderSettings,
-): AutomationProtectedSettingsKey[] {
-    return coupledExplicitUserChoiceKeys(
-        AUTOMATION_PROTECTED_SETTINGS_KEYS.filter(key => !settingsValueEquals(previous[key], next[key])),
-    ) as AutomationProtectedSettingsKey[];
-}
-
-const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-    ['youtubeImmersionEnabled', 'youtubeImmersionEnabledChosen'],
-    ['youtubeShowChannelRecommendations', 'youtubeShowChannelRecommendationsChosen'],
-    ['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen'],
-    ['subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen'],
-] as const satisfies readonly (readonly (keyof ReaderSettings)[])[];
-
-/**
- * A `*Chosen` flag and the value it protects form one durable preference.
- * Persist both when either changes; otherwise a stale whole-settings writer
- * can keep the explicit flag while replacing the value underneath it.
- */
-export function coupledExplicitUserChoiceKeys(
-    keys: readonly (keyof ReaderSettings)[],
-): Array<keyof ReaderSettings> {
-    const expanded = new Set<keyof ReaderSettings>(keys);
-    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-        if (!pair.some(key => expanded.has(key))) continue;
-        pair.forEach(key => expanded.add(key));
-    }
-    return [...expanded];
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
