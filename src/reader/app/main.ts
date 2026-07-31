@@ -284,7 +284,7 @@ import { isMissingProxyTransportError } from '../network/proxy-fetch';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
@@ -6112,10 +6112,14 @@ export class ReaderApp {
         run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
         pointerRange: { start: number; end: number },
     ): Promise<LocalPointerTextEntryMatch | undefined> {
-        if (activeLearningTarget().lookupStartsAtSegmentBoundary) {
+        const target = activeLearningTarget();
+        if (target.lookupStartsAtSegmentBoundary) {
             const surface = text.slice(pointerRange.start, pointerRange.end);
             const entry = await this.lookupSingleLocalSurface(surface);
             return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : undefined;
+        }
+        if (target.lookupSubsegments) {
+            return await this.lookupSuffixStrippedLocalEntry(target, text, run);
         }
         if (isOverbroadLocalPointerRange(run, pointerRange)) {
             return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
@@ -6126,6 +6130,21 @@ export class ReaderApp {
         if (!canExpandLocalPointerRange(exactSurface)) return undefined;
 
         return await this.lookupContainingLocalEntryInRun(text, run, pointerRange);
+    }
+
+    private async lookupSuffixStrippedLocalEntry(
+        target: ReturnType<typeof activeLearningTarget>,
+        text: string,
+        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
+    ): Promise<LocalPointerTextEntryMatch | undefined> {
+        const runText = text.slice(run.start, run.end);
+        const relativeOffset = run.offset - run.start;
+        for (const surface of target.lookupSubsegments!(runText, 18)) {
+            if (relativeOffset >= surface.length) continue;
+            const entry = await this.lookupSingleLocalSurface(surface);
+            if (entry) return { entry, start: run.start, end: run.start + surface.length };
+        }
+        return undefined;
     }
 
     private async lookupContainingLocalEntryInRun(
@@ -6169,7 +6188,15 @@ export class ReaderApp {
     }
 
     private async lookupSingleLocalSurface(surface: string): Promise<YomitanTermEntry | undefined> {
-        return (await this.dictionaries.lookup(surface, surface, 1, this.settings.dictionaryPreferences).catch(() => []))[0];
+        const target = activeLearningTarget();
+        for (const candidate of target.lookupCandidates(surface)) {
+            const entries = await this.dictionaries
+                .lookup(candidate.term, candidate.term, 8, this.settings.dictionaryPreferences)
+                .catch(() => []);
+            const match = entries.find(entry => target.matchesLookupCandidateRules(entry.rules, candidate.rules));
+            if (match) return match;
+        }
+        return undefined;
     }
 
     private isWeakPointerLocalMatch(candidate: PointerTextLookup, match: LocalPointerTextEntryMatch): boolean {
@@ -6194,7 +6221,11 @@ export class ReaderApp {
     }
 
     private isOverbroadPointerFallback(candidate: PointerTextLookup, range: { start: number; end: number }): boolean {
-        if (activeLearningTarget().lookupStartsAtSegmentBoundary) return false;
+        const target = activeLearningTarget();
+        if (
+            target.lookupStartsAtSegmentBoundary
+            || target.lookupSubsegments
+        ) return false;
         const fallbackLength = range.end - range.start;
         const candidateLength = candidate.end - candidate.start;
         return fallbackLength >= candidateLength

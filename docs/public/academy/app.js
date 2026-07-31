@@ -31743,13 +31743,81 @@ ${spelling}`);
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
+  function normalizeGenericLookupText(text2) {
+    return text2.split(/([\u0e33\u0eb3])/u).map((part) => part === "ำ" || part === "ຳ" ? part : part.normalize("NFKC")).join("").replace(/\s+/gu, " ").trim();
+  }
+  function genericLookupTextVariants(text2) {
+    const source2 = text2.replace(/\s+/gu, " ").trim();
+    return [...new Set([normalizeGenericLookupText(source2), source2].filter(Boolean))];
+  }
+  function normalizeImportedLookupTerm(entry2) {
+    const expression = normalizeGenericLookupText(entry2.expression);
+    const reading = normalizeGenericLookupText(entry2.reading);
+    return expression === entry2.expression && reading === entry2.reading ? entry2 : { ...entry2, expression, reading };
+  }
+  function normalizeImportedLookupMeta(entry2) {
+    if (typeof entry2.expression !== "string") return entry2;
+    const expression = normalizeGenericLookupText(entry2.expression);
+    return expression === entry2.expression ? entry2 : { ...entry2, expression };
+  }
+  const LOOKUP_CANDIDATE_LIMIT = 12;
+  function boundedLookupCandidates(text2, language2, normalizeText, rewrites) {
+    const surface = normalizeText(text2);
+    if (!surface) return [];
+    const candidates = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (term, depth, reasons) => {
+      if (!term || seen.has(term) || candidates.length >= LOOKUP_CANDIDATE_LIMIT) return;
+      seen.add(term);
+      candidates.push({ term, rules: [], reasons, depth });
+    };
+    add(surface, 0, []);
+    const folded = localeLowerCase(surface, language2);
+    const foldedDepth = folded === surface ? 0 : 1;
+    add(folded, 1, ["case fold"]);
+    for (const legacySurface of genericLookupTextVariants(text2).slice(1)) {
+      add(legacySurface, 1, ["source-form fallback"]);
+      const legacyFolded = localeLowerCase(legacySurface, language2);
+      add(legacyFolded, 2, ["source-form fallback", "case fold"]);
+    }
+    for (const rewrite of rewrites) {
+      if (candidates.length >= LOOKUP_CANDIDATE_LIMIT) break;
+      const rewritten = applyLookupRewrite(folded, rewrite);
+      if (rewritten) {
+        add(
+          rewritten,
+          foldedDepth + 1,
+          foldedDepth ? ["case fold", rewrite.reason] : [rewrite.reason]
+        );
+      }
+    }
+    return candidates;
+  }
+  function localeLowerCase(text2, language2) {
+    try {
+      return text2.toLocaleLowerCase(language2);
+    } catch {
+      return text2.toLowerCase();
+    }
+  }
+  function applyLookupRewrite(term, rewrite) {
+    const prefix = rewrite.prefix ?? "";
+    const suffix = rewrite.suffix ?? "";
+    if (prefix && !term.startsWith(prefix)) return null;
+    if (suffix && !term.endsWith(suffix)) return null;
+    if (term.length < prefix.length + suffix.length) return null;
+    const stem = term.slice(prefix.length, suffix ? -suffix.length : void 0);
+    if (rewrite.blockedStemSuffix && stem.endsWith(rewrite.blockedStemSuffix)) return null;
+    if ([...stem].length < rewrite.minStemLength) return null;
+    return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
+  }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
   const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -31825,13 +31893,14 @@ ${spelling}`);
         languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
       }),
       lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+      ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
       normalizeText,
       isLookupableText(text2) {
         return Boolean(text2) && detects(text2);
       },
       segment: segment2,
       pointerWordSegments: spec.pointerWordSegments ?? segment2,
-      lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
+      lookupCandidates: spec.lookupCandidates ?? ((text2) => boundedLookupCandidates(text2, language2, normalizeText, spec.lookupRewrites ?? [])),
       compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
       normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
@@ -31853,7 +31922,7 @@ ${spelling}`);
     return () => false;
   }
   function defaultNormalizeText(text2) {
-    return text2.normalize("NFKC").replace(/\s+/gu, " ").trim();
+    return normalizeGenericLookupText(text2);
   }
   function defaultSegment(text2, language2) {
     return icuWordSegments(text2, language2) ?? whitespaceSegments(text2);
@@ -31867,9 +31936,6 @@ ${spelling}`);
       match = pattern.exec(text2);
     }
     return segments;
-  }
-  function defaultLookupCandidates(term) {
-    return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
   }
   function defaultCompareLookupCandidates(a, b) {
     return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
@@ -31977,6 +32043,100 @@ ${spelling}`);
       end: match.index + match[0].length
     }));
   }
+  const KOREAN_SEGMENT_SUFFIXES = [
+    "에게서",
+    "이라고",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "에는",
+    "라고",
+    "하고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "에",
+    "와",
+    "과",
+    "로",
+    "도",
+    "만"
+  ];
+  const REWRITES = {
+    es: [
+      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+    ],
+    de: [
+      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+    ],
+    ru: [
+      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+    ],
+    ar: [
+      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+    ]
+  };
+  function lookupRewritesForTarget(target2) {
+    return REWRITES[target2] ?? [];
+  }
+  function koreanLookupSubsegments(segment2, maxLength) {
+    const candidates = /* @__PURE__ */ new Set();
+    if (segment2.length <= maxLength) candidates.add(segment2);
+    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+      if (!segment2.endsWith(suffix)) continue;
+      const stem = segment2.slice(0, -suffix.length);
+      if (stem && stem.length <= maxLength) candidates.add(stem);
+    }
+    return [...candidates];
+  }
   const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
   const KOREAN_LEARNING_TARGET = createLearningTargetModule({
     id: "korean-thin-v1",
@@ -31998,6 +32158,10 @@ ${spelling}`);
     subtitles: {
       languageAliases: ["kor", "korean"]
     },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
     detectsText: HAS_HANGUL
   });
   const ENGLISH_FALLBACK_MESSAGES = {
@@ -33715,25 +33879,30 @@ ${spelling}`);
     return { id: id2, value: id2, resolvedFrom: "none", missing: true };
   }
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-    LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => createLearningTargetModule({
-      id: `${language2.id}-roster-v1`,
-      language: language2.runtimeLocale,
-      direction: language2.direction,
-      capabilities: {
-        "term-lookup": true,
-        segmentation: true,
-        "text-to-speech": true,
-        subtitles: true,
-        typing: true
-      },
-      featureSemantics: {
-        characterSystem: language2.defaultScript,
-        phoneticScripts: [],
-        pronunciation: "none",
-        readingAnnotation: "none"
-      },
-      detectsText: scriptDetector(language2.scripts)
-    }))
+    LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
+      const lookupRewrites = lookupRewritesForTarget(language2.id);
+      return createLearningTargetModule({
+        id: `${language2.id}-roster-v1`,
+        language: language2.runtimeLocale,
+        direction: language2.direction,
+        capabilities: {
+          "term-lookup": true,
+          morphology: lookupRewrites.length > 0,
+          segmentation: true,
+          "text-to-speech": true,
+          subtitles: true,
+          typing: true
+        },
+        featureSemantics: {
+          characterSystem: language2.defaultScript,
+          phoneticScripts: [],
+          pronunciation: "none",
+          readingAnnotation: "none"
+        },
+        detectsText: scriptDetector(language2.scripts),
+        lookupRewrites
+      });
+    })
   );
   function scriptDetector(scripts) {
     return new RegExp(
@@ -35686,12 +35855,6 @@ ${spelling}`);
   function targetAudioTemplateLanguageToken() {
     return activeLearningTarget().audio.templateLanguageToken;
   }
-  function targetLookupCandidates(text2) {
-    return activeLearningTarget().lookupCandidates(text2);
-  }
-  function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
-    return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
-  }
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function splitTags(value) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -35730,9 +35893,11 @@ ${spelling}`);
     if (!Array.isArray(row2)) return null;
     const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row2;
     if (typeof expression !== "string") return null;
+    const normalizedExpression = normalizeGenericLookupText(expression);
+    if (!normalizedExpression) return null;
     return {
-      expression,
-      reading: zipTermReading(reading, expression),
+      expression: normalizedExpression,
+      reading: normalizeGenericLookupText(zipTermReading(reading, expression)),
       definitionTags: zipStringField(definitionTags),
       rules: zipStringField(rules),
       score: zipNumberField(score, 0),
@@ -35775,7 +35940,7 @@ ${spelling}`);
   function normalizeZipTermMetaRow(row2, dictionary) {
     if (!Array.isArray(row2)) return null;
     const [expression, mode, data] = row2;
-    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
+    return typeof expression === "string" && typeof mode === "string" ? normalizeImportedLookupMeta({ expression, mode, data, dictionary }) : null;
   }
   function normalizeZipKanjiMetaRow(row2, dictionary) {
     if (!Array.isArray(row2)) return null;
@@ -289258,6 +289423,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function looksLikeGrammarTag(text2) {
     return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
   }
+  function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
+    return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
+  }
   const TERM_MATCH_SELECTION_COMPARATORS = [
     compareTermMatchLengthDescending,
     compareTermMatchDeinflectionDepth,
@@ -291183,9 +291351,11 @@ ${scopedInner}
     const record2 = dexieRowRecord(row2);
     if (!record2) return null;
     if (typeof record2.expression !== "string" || typeof record2.dictionary !== "string") return null;
+    const expression = normalizeGenericLookupText(record2.expression);
+    if (!expression) return null;
     return {
-      expression: record2.expression,
-      reading: dexieStringField(record2, "reading", record2.expression),
+      expression,
+      reading: normalizeGenericLookupText(dexieStringField(record2, "reading", record2.expression)),
       definitionTags: dexieStringField(record2, "definitionTags"),
       rules: dexieStringField(record2, "rules"),
       score: dexieNumberField(record2, "score", 0),
@@ -291231,7 +291401,12 @@ ${scopedInner}
   }
   function normalizeDexieTermMetaRow(row2) {
     const record2 = dexieTermMetaRecord(row2);
-    return record2 ? { expression: record2.expression, mode: record2.mode, data: record2.data, dictionary: record2.dictionary } : null;
+    return record2 ? normalizeImportedLookupMeta({
+      expression: record2.expression,
+      mode: record2.mode,
+      data: record2.data,
+      dictionary: record2.dictionary
+    }) : null;
   }
   function normalizeDexieKanjiMetaRow(row2) {
     const record2 = dexieKanjiMetaRecord(row2);
@@ -291659,7 +291834,7 @@ ${entry2.reading}`;
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 4;
+  const DB_VERSION = 5;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
@@ -291754,16 +291929,25 @@ ${entry2.reading}`;
       return entry2.promise;
     }
     async lookup(expression, reading, limit, preferences = []) {
+      const expressionVariants = genericLookupTextVariants(expression);
+      const readingVariants = genericLookupTextVariants(reading);
+      const normalizedExpression = expressionVariants[0] ?? "";
+      const normalizedReading = readingVariants[0] ?? "";
       return this.getHotLookup(
-        this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
+        this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$m.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$m.time("Term lookup", {
+            expression: normalizedExpression,
+            reading: normalizedReading,
+            limit,
+            dictionaries: preferences.length
+          });
           try {
             const db = await this.db();
             const entries2 = await this.getTermLookupEntries(
               db,
-              expression,
-              reading && reading !== expression ? reading : "",
+              expressionVariants,
+              readingVariants.filter((item2) => !expressionVariants.includes(item2)),
               Math.max(limit * 40, 500),
               Math.max(limit * 20, 250)
             );
@@ -291773,16 +291957,20 @@ ${entry2.reading}`;
               entries2,
               rank2,
               void 0,
-              (a, b) => dictionaryPriority(a.dictionary, rank2) - dictionaryPriority(b.dictionary, rank2) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
+              (a, b) => dictionaryPriority(a.dictionary, rank2) - dictionaryPriority(b.dictionary, rank2) || Number(expressionVariants.includes(b.expression)) - Number(expressionVariants.includes(a.expression)) || Number(readingVariants.includes(b.reading)) - Number(readingVariants.includes(a.reading)) || (b.score ?? 0) - (a.score ?? 0)
             ).filter((entry2) => {
               const key2 = termLookupDedupKey(entry2);
               if (seen.has(key2)) return false;
               seen.add(key2);
               return true;
             });
-            return selectTermLookupResults(ranked, expression, reading, limit);
+            return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$m.warn("Term lookup failed", { expression, reading, error });
+            log$m.warn("Term lookup failed", {
+              expression: normalizedExpression,
+              reading: normalizedReading,
+              error
+            });
             throw error;
           } finally {
             done();
@@ -291855,18 +292043,30 @@ ${entry2.reading}`;
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
+      const expressionVariants = genericLookupTextVariants(expression);
+      const normalizedExpression = expressionVariants[0] ?? "";
       return this.getHotLookup(
-        this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
+        this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$m.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$m.time("Term metadata lookup", {
+            expression: normalizedExpression,
+            limit,
+            dictionaries: preferences.length
+          });
           try {
             const db = await this.db();
             const rank2 = dictionaryRank(preferences);
-            const entries2 = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
+            const entries2 = await this.getManyByIndex(
+              db,
+              "termMeta",
+              "expression",
+              [...expressionVariants],
+              Math.max(limit * 8, 80)
+            );
             const results = entries2.filter((entry2) => dictionaryEnabled(entry2.dictionary, rank2)).sort((a, b) => compareMetaEntries(a, b, rank2)).slice(0, limit);
             return results;
           } catch (error) {
-            log$m.warn("Term metadata lookup failed", { expression, error });
+            log$m.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -291958,12 +292158,25 @@ ${entry2.reading}`;
         }
         return candidates;
       }
+      if (target2.lookupSubsegments) {
+        this.collectSuffixStrippedTermMatchCandidates(target2, source2, from, to, candidates);
+        return candidates;
+      }
       const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source2.length);
       for (let start = from; start < to; start++) {
         if (!target2.isLookupableText(source2[start])) continue;
         this.collectSweptTermMatchCandidatesAt(target2, source2, start, maxLength, candidates);
       }
       return candidates;
+    }
+    collectSuffixStrippedTermMatchCandidates(target2, source2, from, to, candidates) {
+      for (const segment2 of this.segmentedSource(source2, target2)) {
+        if (segment2.start < from || segment2.start >= to) continue;
+        for (const surface of target2.lookupSubsegments(segment2.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
+          if (!isSearchableTargetSurface(surface, target2)) continue;
+          this.addTargetTermCandidates(target2, surface, segment2.start, candidates);
+        }
+      }
     }
     /**
      * One segmentation per `findTermMatches` call rather than one per window:
@@ -291988,9 +292201,11 @@ ${entry2.reading}`;
     addTargetTermCandidates(target2, surface, start, candidates) {
       for (const deinflected of target2.lookupCandidates(surface)) {
         if (!target2.isLookupableText(deinflected.term)) continue;
-        const positions = candidates.get(deinflected.term) ?? [];
-        positions.push({ start, end: start + surface.length, surface, deinflected });
-        candidates.set(deinflected.term, positions);
+        for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
+          const positions = candidates.get(lookupTerm) ?? [];
+          positions.push({ start, end: start + surface.length, surface, deinflected });
+          candidates.set(lookupTerm, positions);
+        }
       }
     }
     async lookupTermMatchCandidates(candidates, preferences) {
@@ -292605,14 +292820,15 @@ ${entry2.reading}`;
     }
     async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
       if (!entries2.length) return;
+      const normalizedEntries = storeName === "terms" ? entries2.map((entry2) => normalizeImportedLookupTerm(entry2)) : storeName === "termMeta" ? entries2.map((entry2) => normalizeImportedLookupMeta(entry2)) : entries2;
       const db = await this.db();
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
-      for (let start = 0; start < entries2.length; start += STORE_WRITE_BATCH_SIZE) {
-        const chunk2 = entries2.slice(start, start + STORE_WRITE_BATCH_SIZE);
+      for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
+        const chunk2 = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
         await this.addStoreChunk(db, storeName, chunk2, put);
         written += chunk2.length;
-        onChunk?.(written, entries2.length);
+        onChunk?.(written, normalizedEntries.length);
         await nextTask();
       }
     }
@@ -292665,10 +292881,18 @@ ${entry2.reading}`;
         tx.onerror = () => fail2(tx.error);
       });
     }
-    async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
+    async getTermLookupEntries(db, expressions2, readings, expressionLimit, readingLimit) {
       const queries = [
-        { indexName: "expression", range: IDBKeyRange.only(expression), limit: expressionLimit },
-        ...reading ? [{ indexName: "reading", range: IDBKeyRange.only(reading), limit: readingLimit }] : []
+        ...expressions2.map((expression) => ({
+          indexName: "expression",
+          range: IDBKeyRange.only(expression),
+          limit: expressionLimit
+        })),
+        ...readings.map((reading) => ({
+          indexName: "reading",
+          range: IDBKeyRange.only(reading),
+          limit: readingLimit
+        }))
       ];
       return this.getTermIndexEntries(db, queries);
     }
@@ -293120,6 +293344,13 @@ ${entry2.reading}`;
           const termKanji = ensureStore(db, tx, "termKanji");
           ensureIndex(termKanji, "character", "character");
           ensureIndex(termKanji, "dictionary", "dictionary");
+          if (event.oldVersion > 0 && event.oldVersion < 5) {
+            clearTimeout(openTimeout);
+            normalizeStoredLookupTerms(terms);
+            normalizeStoredLookupMeta(termMeta);
+            termSearch.clear();
+            termKanji.clear();
+          }
         };
         request2.onsuccess = () => {
           clearTimeout(openTimeout);
@@ -293232,17 +293463,17 @@ ${entry2.expression}
 ${entry2.reading}
 ${glossaryKey}`;
   }
-  function selectTermLookupResults(ranked, expression, reading, limit) {
+  function selectTermLookupResults(ranked, expressions2, readings, limit) {
     const boundedLimit2 = Math.max(0, Math.floor(limit));
     if (!boundedLimit2 || ranked.length <= boundedLimit2) return ranked.slice(0, boundedLimit2);
-    const selected2 = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit2));
+    const selected2 = new Set(firstExactTermEntriesByDictionary(ranked, expressions2, readings).slice(0, boundedLimit2));
     fillTermLookupSelection(selected2, ranked, boundedLimit2);
     return ranked.filter((entry2) => selected2.has(entry2)).slice(0, boundedLimit2);
   }
-  function firstExactTermEntriesByDictionary(ranked, expression, reading) {
+  function firstExactTermEntriesByDictionary(ranked, expressions2, readings) {
     const firstExactByDictionary = /* @__PURE__ */ new Map();
     for (const entry2 of ranked) {
-      if (!isExactTermLookupEntry(entry2, expression, reading)) continue;
+      if (!isExactTermLookupEntry(entry2, expressions2, readings)) continue;
       if (!firstExactByDictionary.has(entry2.dictionary)) firstExactByDictionary.set(entry2.dictionary, entry2);
     }
     return Array.from(firstExactByDictionary.values());
@@ -293253,9 +293484,9 @@ ${glossaryKey}`;
       selected2.add(entry2);
     }
   }
-  function isExactTermLookupEntry(entry2, expression, reading) {
-    const hasKnownReading = Boolean(reading && reading !== expression);
-    return entry2.expression === expression && (!hasKnownReading || entry2.reading === reading);
+  function isExactTermLookupEntry(entry2, expressions2, readings) {
+    const knownReadings = readings.filter((reading) => !expressions2.includes(reading));
+    return expressions2.includes(entry2.expression) && (!knownReadings.length || knownReadings.includes(entry2.reading));
   }
   function bestTermLookupEntry(entries2, expression, rank2) {
     const seen = /* @__PURE__ */ new Set();
@@ -293272,7 +293503,7 @@ ${glossaryKey}`;
     return dictionaryPriority(a.dictionary, rank2) - dictionaryPriority(b.dictionary, rank2) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
   }
   function normalizeTermSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim().slice(0, 80);
+    return normalizeGenericLookupText(value).slice(0, 80);
   }
   function shouldSearchTermGlossaries(query) {
     return !JAPANESE_RE$1.test(query);
@@ -293402,6 +293633,32 @@ ${glossaryKey}`;
   function isKanji(value) {
     const code = value.codePointAt(0) ?? 0;
     return code >= 13312 && code <= 40959;
+  }
+  function normalizeStoredLookupTerms(store) {
+    const request2 = store.openCursor();
+    request2.onsuccess = () => {
+      const cursor = request2.result;
+      if (!cursor) return;
+      const entry2 = cursor.value;
+      if (entry2 && typeof entry2.expression === "string" && typeof entry2.reading === "string") {
+        const normalized2 = normalizeImportedLookupTerm(entry2);
+        if (normalized2 !== entry2) cursor.update(normalized2);
+      }
+      cursor.continue();
+    };
+  }
+  function normalizeStoredLookupMeta(store) {
+    const request2 = store.openCursor();
+    request2.onsuccess = () => {
+      const cursor = request2.result;
+      if (!cursor) return;
+      const entry2 = cursor.value;
+      if (entry2 && typeof entry2.expression === "string") {
+        const normalized2 = normalizeImportedLookupMeta(entry2);
+        if (normalized2 !== entry2) cursor.update(normalized2);
+      }
+      cursor.continue();
+    };
   }
   function ensureStore(db, tx, name) {
     return db.objectStoreNames.contains(name) ? tx.objectStore(name) : db.createObjectStore(name, { keyPath: "id", autoIncrement: true });
@@ -296080,7 +296337,7 @@ ${entry2.reading || ""}`;
   const DECONJUGATION_PITCH_CANDIDATE_LIMIT = 4;
   const KANA_SUFFIX_RE = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]*$`, "u");
   async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) {
-    const candidates = targetLookupCandidates(expression).filter((candidate2) => candidate2.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
+    const candidates = activeLearningTarget().lookupCandidates(expression).filter((candidate2) => candidate2.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
     for (const candidate2 of candidates) {
       const baseReading = deconjugatedReading(expression, candidate2.term, reading);
       if (!baseReading) continue;

@@ -1646,7 +1646,7 @@ describe('reader helpers', () => {
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(lookup).toHaveBeenCalledWith('先生', '先生', 1, internals.settings.dictionaryPreferences);
+            expect(lookup).toHaveBeenCalledWith('先生', '先生', 8, internals.settings.dictionaryPreferences);
             expect(lookup).not.toHaveBeenCalledWith(sentence, sentence, expect.any(Number), expect.anything());
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 expect.objectContaining({ spelling: '先生', reading: 'せんせい', source: 'local' }),

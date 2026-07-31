@@ -1,4 +1,4 @@
-import { activeLearningTarget } from './active';
+import { activeLearningTarget } from './target-runtime';
 import type { LanguageLookupCandidate } from './types';
 
 /**

@@ -1,5 +1,5 @@
 import type { JPDBCard } from '../app/types';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { normalizeLearningTargetAnswer } from './typing-input';
 
 export type NewTabRecallOutcome = 'empty' | 'correct' | 'accepted' | 'incorrect';

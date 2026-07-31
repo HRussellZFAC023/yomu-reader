@@ -7054,9 +7054,67 @@ function fallbackRulePriority(candidate) {
   if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
   return 3;
 }
+function normalizeGenericLookupText(text) {
+  return text.split(/([\u0e33\u0eb3])/u).map((part) => part === "ำ" || part === "ຳ" ? part : part.normalize("NFKC")).join("").replace(/\s+/gu, " ").trim();
+}
+function genericLookupTextVariants(text) {
+  const source = text.replace(/\s+/gu, " ").trim();
+  return [...new Set([normalizeGenericLookupText(source), source].filter(Boolean))];
+}
+const LOOKUP_CANDIDATE_LIMIT = 12;
+function boundedLookupCandidates(text, language, normalizeText, rewrites) {
+  const surface = normalizeText(text);
+  if (!surface) return [];
+  const candidates = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (term, depth, reasons) => {
+  if (!term || seen.has(term) || candidates.length >= LOOKUP_CANDIDATE_LIMIT) return;
+  seen.add(term);
+  candidates.push({ term, rules: [], reasons, depth });
+  };
+  add(surface, 0, []);
+  const folded = localeLowerCase(surface, language);
+  const foldedDepth = folded === surface ? 0 : 1;
+  add(folded, 1, ["case fold"]);
+  for (const legacySurface of genericLookupTextVariants(text).slice(1)) {
+  add(legacySurface, 1, ["source-form fallback"]);
+  const legacyFolded = localeLowerCase(legacySurface, language);
+  add(legacyFolded, 2, ["source-form fallback", "case fold"]);
+  }
+  for (const rewrite of rewrites) {
+  if (candidates.length >= LOOKUP_CANDIDATE_LIMIT) break;
+  const rewritten = applyLookupRewrite(folded, rewrite);
+  if (rewritten) {
+    add(
+      rewritten,
+      foldedDepth + 1,
+      foldedDepth ? ["case fold", rewrite.reason] : [rewrite.reason]
+    );
+  }
+  }
+  return candidates;
+}
+function localeLowerCase(text, language) {
+  try {
+  return text.toLocaleLowerCase(language);
+  } catch {
+  return text.toLowerCase();
+  }
+}
+function applyLookupRewrite(term, rewrite) {
+  const prefix = rewrite.prefix ?? "";
+  const suffix = rewrite.suffix ?? "";
+  if (prefix && !term.startsWith(prefix)) return null;
+  if (suffix && !term.endsWith(suffix)) return null;
+  if (term.length < prefix.length + suffix.length) return null;
+  const stem = term.slice(prefix.length, suffix ? -suffix.length : void 0);
+  if (rewrite.blockedStemSuffix && stem.endsWith(rewrite.blockedStemSuffix)) return null;
+  if ([...stem].length < rewrite.minStemLength) return null;
+  return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
+}
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -7132,13 +7190,14 @@ function createLearningTargetModule(spec) {
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+  ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
   normalizeText,
   isLookupableText(text) {
     return Boolean(text) && detects(text);
   },
   segment,
   pointerWordSegments: spec.pointerWordSegments ?? segment,
-  lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
+  lookupCandidates: spec.lookupCandidates ?? ((text) => boundedLookupCandidates(text, language, normalizeText, spec.lookupRewrites ?? [])),
   compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
@@ -7160,7 +7219,7 @@ function detectorFor(value) {
   return () => false;
 }
 function defaultNormalizeText(text) {
-  return text.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  return normalizeGenericLookupText(text);
 }
 function defaultSegment(text, language) {
   return icuWordSegments(text, language) ?? whitespaceSegments(text);
@@ -7174,9 +7233,6 @@ function whitespaceSegments(text) {
   match = pattern.exec(text);
   }
   return segments;
-}
-function defaultLookupCandidates(term) {
-  return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
 }
 function defaultCompareLookupCandidates(a, b) {
   return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
@@ -7284,6 +7340,100 @@ function japanesePointerWordSegments(text) {
   end: match.index + match[0].length
   }));
 }
+const KOREAN_SEGMENT_SUFFIXES = [
+  "에게서",
+  "이라고",
+  "으로",
+  "에서",
+  "에게",
+  "한테",
+  "까지",
+  "부터",
+  "처럼",
+  "보다",
+  "에는",
+  "라고",
+  "하고",
+  "은",
+  "는",
+  "이",
+  "가",
+  "을",
+  "를",
+  "의",
+  "에",
+  "와",
+  "과",
+  "로",
+  "도",
+  "만"
+];
+const REWRITES = {
+  es: [
+  { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+  { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+  ],
+  de: [
+  { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+  { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+  { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+  { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+  ],
+  ru: [
+  { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+  { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+  ],
+  ar: [
+  { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+  { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+  { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+  { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+  { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+  { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+  { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+  { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+  { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+  { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+  { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+  ]
+};
+function lookupRewritesForTarget(target) {
+  return REWRITES[target] ?? [];
+}
+function koreanLookupSubsegments(segment, maxLength) {
+  const candidates = /* @__PURE__ */ new Set();
+  if (segment.length <= maxLength) candidates.add(segment);
+  for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+  if (!segment.endsWith(suffix)) continue;
+  const stem = segment.slice(0, -suffix.length);
+  if (stem && stem.length <= maxLength) candidates.add(stem);
+  }
+  return [...candidates];
+}
 const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   id: "korean-thin-v1",
@@ -7305,6 +7455,10 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   subtitles: {
   languageAliases: ["kor", "korean"]
   },
+  // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+  // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+  lookupStartsAtSegmentBoundary: false,
+  lookupSubsegments: koreanLookupSubsegments,
   detectsText: HAS_HANGUL
 });
 const ENGLISH_FALLBACK_MESSAGES = {
@@ -7938,25 +8092,30 @@ Object.freeze(
   COPY_TIER_RULES.map((rule) => rule.rule)
 );
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-  LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => createLearningTargetModule({
-  id: `${language.id}-roster-v1`,
-  language: language.runtimeLocale,
-  direction: language.direction,
-  capabilities: {
-    "term-lookup": true,
-    segmentation: true,
-    "text-to-speech": true,
-    subtitles: true,
-    typing: true
-  },
-  featureSemantics: {
-    characterSystem: language.defaultScript,
-    phoneticScripts: [],
-    pronunciation: "none",
-    readingAnnotation: "none"
-  },
-  detectsText: scriptDetector(language.scripts)
-  }))
+  LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
+  const lookupRewrites = lookupRewritesForTarget(language.id);
+  return createLearningTargetModule({
+    id: `${language.id}-roster-v1`,
+    language: language.runtimeLocale,
+    direction: language.direction,
+    capabilities: {
+      "term-lookup": true,
+      morphology: lookupRewrites.length > 0,
+      segmentation: true,
+      "text-to-speech": true,
+      subtitles: true,
+      typing: true
+    },
+    featureSemantics: {
+      characterSystem: language.defaultScript,
+      phoneticScripts: [],
+      pronunciation: "none",
+      readingAnnotation: "none"
+    },
+    detectsText: scriptDetector(language.scripts),
+    lookupRewrites
+  });
+  })
 );
 function scriptDetector(scripts) {
   return new RegExp(

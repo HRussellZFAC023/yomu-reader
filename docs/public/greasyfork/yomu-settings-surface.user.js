@@ -1,1243 +1,5 @@
 (function() {
 "use strict";
-let sandboxCompanions = {};
-function registerYomuCompanion(key, value) {
-  writeYomuCompanions({
-  ...yomuCompanions(),
-  [key]: value
-  });
-}
-function yomuAnkiCompanion() {
-  return yomuCompanions().anki;
-}
-function yomuAnnotationsCompanion() {
-  return yomuCompanions().annotations;
-}
-function yomuCompanions() {
-  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-}
-function writeYomuCompanions(value) {
-  sandboxCompanions = value;
-  writeYomuCompanionsTarget(globalThis, value);
-  if (typeof window !== "undefined" && window !== globalThis) {
-  const pageValue = pageCompartmentRegistryValue(value);
-  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-  }
-}
-function pageCompartmentRegistryValue(value) {
-  const cloneInto = globalThis.cloneInto;
-  if (typeof cloneInto !== "function") return value;
-  try {
-  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-  } catch {
-  return void 0;
-  }
-}
-function writeYomuCompanionsTarget(target, value) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return false;
-  const writable = target;
-  try {
-  writable.__yomuCompanions = value;
-  return true;
-  } catch {
-  }
-  try {
-  Object.defineProperty(writable, "__yomuCompanions", {
-    configurable: true,
-    enumerable: false,
-    writable: true,
-    value
-  });
-  return true;
-  } catch {
-  return false;
-  }
-}
-function readYomuCompanions(target) {
-  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-  try {
-  return target.__yomuCompanions;
-  } catch {
-  return void 0;
-  }
-}
-const APP_NAME = "よむ";
-const ACADEMY_SRS_LABEL = "Academy";
-const APP_SLUG = "yomu";
-const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-const SETTINGS_TITLE = `${APP_NAME} Settings`;
-const GITHUB_OWNER = "HRussellZFAC023";
-const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-const DOCS_ORIGIN = "https://yomureader.com";
-const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
-const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
-const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
-const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
-const DONATE_URL = "https://support.yomureader.com/donate";
-const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
-const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
-const EXTENSION_STORE_URLS = {
-  chrome: `${DOCS_BASE_URL}store/chrome/`,
-  firefox: `${DOCS_BASE_URL}store/firefox/`,
-  safari: `${DOCS_BASE_URL}store/safari/`
-};
-const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
-const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
-const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
-const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
-const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
-const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-const NADESHIKO_URL = "https://nadeshiko.co/";
-const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
-const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
-const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
-const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
-const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
-const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
-const WANIKANI_DEFINITION_SOURCE_ID = "__wanikani__";
-const ANKI_SOURCE_ID = "__anki__";
-const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
-const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
-const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
-}
-function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
-  const id = safeReadString(detail, "id");
-  const kind = safeReadString(detail, "kind");
-  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-  return {
-  id,
-  kind,
-  response: safeReadProperty(detail, "response"),
-  message: safeReadString(detail, "message")
-  };
-}
-function bridgeEventDetail(detail) {
-  if (detail === void 0) return void 0;
-  const json = bridgeEventJsonDetail(detail);
-  return json ?? detail;
-}
-function bridgeEventJsonDetail(detail) {
-  let unsupported = false;
-  try {
-  const json = JSON.stringify(detail, (_key, value) => {
-    if (isUnsupportedBridgeJsonValue(value)) {
-      unsupported = true;
-      return void 0;
-    }
-    return value;
-  });
-  return unsupported || typeof json !== "string" ? void 0 : json;
-  } catch {
-  return void 0;
-  }
-}
-function normalizedBridgeEventDetail$1(event) {
-  const detail = safeEventDetail(event);
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function isUnsupportedBridgeJsonValue(value) {
-  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-}
-function isUnsupportedPrimitiveBridgeJsonValue(value) {
-  return typeof value === "function" || typeof value === "symbol";
-}
-function isArrayBufferBridgeJsonValue(value) {
-  if (typeof ArrayBuffer === "undefined") return false;
-  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-}
-function isBlobBridgeJsonValue(value) {
-  return typeof Blob !== "undefined" && value instanceof Blob;
-}
-function isFormDataBridgeJsonValue(value) {
-  return typeof FormData !== "undefined" && value instanceof FormData;
-}
-function safeEventDetail(event) {
-  try {
-  return event.detail;
-  } catch {
-  return void 0;
-  }
-}
-function safeReadProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function safeReadString(source, key) {
-  const value = safeReadProperty(source, key);
-  return typeof value === "string" ? value : void 0;
-}
-function userscriptRequestCandidates() {
-  const candidates = [];
-  const add = (request, thisArg) => {
-  candidates.push({ request, thisArg });
-  };
-  const direct = directUserscriptGlobals();
-  add(direct.GM_xmlhttpRequest, globalThis);
-  add(direct.GM?.xmlHttpRequest, direct.GM);
-  add(direct.GM?.xmlhttpRequest, direct.GM);
-  for (const source of userscriptRequestSources()) {
-  add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
-  const gm = readSourceProperty(source, "GM");
-  add(readSourceProperty(gm, "xmlHttpRequest"), gm);
-  add(readSourceProperty(gm, "xmlhttpRequest"), gm);
-  }
-  return candidates;
-}
-function asUserscriptRequest(value) {
-  return typeof value === "function" ? value : void 0;
-}
-function isPromiseLike$1(value) {
-  return Boolean(value) && typeof value.then === "function";
-}
-function directUserscriptGlobals() {
-  return {
-  GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
-  GM: typeof GM === "object" && GM ? GM : void 0
-  };
-}
-function userscriptRequestSources() {
-  const sources = [];
-  const seen = /* @__PURE__ */ new Set();
-  const add = (value) => {
-  if (!isRequestSource(value) || seen.has(value)) return;
-  seen.add(value);
-  sources.push(value);
-  };
-  for (const mounted of mountedMonkeyWindows()) add(mounted);
-  add(globalThis);
-  if (typeof window !== "undefined") add(window);
-  return sources;
-}
-function mountedMonkeyWindows() {
-  if (typeof document === "undefined") return [];
-  return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
-}
-function isRequestSource(value) {
-  return Boolean(value) && (typeof value === "object" || typeof value === "function");
-}
-function readSourceProperty(source, key) {
-  if (!isRequestSource(source)) return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-let initialWindowAddEventListener = initialWindowMethod("addEventListener");
-let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-function createWindowCustomEvent(type, detail, init = {}) {
-  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-  const documentEvent = createDocumentCustomEvent(type, eventInit);
-  if (documentEvent) return documentEvent;
-  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-  if (CustomEventConstructor) {
-  try {
-    return new CustomEventConstructor(type, eventInit);
-  } catch {
-  }
-  }
-  throw new Error(`Unable to create window custom event: ${type}`);
-}
-function cloneCustomEventDetail(detail) {
-  if (detail === void 0 || typeof window === "undefined") return detail;
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto) return detail;
-  try {
-  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
-  } catch {
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return void 0;
-  }
-  }
-}
-function dispatchWindowEvent(event) {
-  const target = window;
-  const directDispatch = readMethod(target, "dispatchEvent");
-  const directResult = callEventTargetMethod(directDispatch, target, event);
-  if (directResult.called) return directResult.result;
-  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-  if (initialResult.called) return initialResult.result;
-  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-  if (prototypeResult.called) return prototypeResult.result;
-  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-  if (unshadowedResult.called) return unshadowedResult.result;
-  return false;
-}
-function addWindowEventListener(type, listener, options) {
-  const target = window;
-  const directAdd = readMethod(target, "addEventListener");
-  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function removeWindowEventListener(type, listener, options) {
-  const target = window;
-  const directRemove = readMethod(target, "removeEventListener");
-  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
-  if (directResult.called) return true;
-  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
-  if (initialResult.called) return true;
-  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-  if (prototypeResult.called) return true;
-  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-  if (unshadowedResult.called) return true;
-  return false;
-}
-function initialWindowMethod(key) {
-  if (typeof window === "undefined") return void 0;
-  return readMethod(window, key);
-}
-function dispatchWithPrototypeMethod(target, directDispatch, event) {
-  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-  if (prototypeDispatch === directDispatch) continue;
-  const result = callEventTargetMethod(prototypeDispatch, target, event);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-  if (prototypeAdd === directAdd) continue;
-  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-  if (prototypeRemove === directRemove) continue;
-  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
-  if (result.called) return result;
-  }
-  return { called: false };
-}
-function eventConstructor(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function createDocumentCustomEvent(type, init) {
-  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-  try {
-  const event = document.createEvent("CustomEvent");
-  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-  return event;
-  } catch {
-  return void 0;
-  }
-}
-function eventTargetPrototypeMethods(target, key) {
-  const methods = [];
-  const add = (method) => {
-  if (method && !methods.includes(method)) methods.push(method);
-  };
-  let prototype = Object.getPrototypeOf(target);
-  while (prototype) {
-  add(readOwnMethod(prototype, key));
-  prototype = Object.getPrototypeOf(prototype);
-  }
-  const WindowEventTarget = readProperty(window, "EventTarget");
-  add(readMethod(WindowEventTarget?.prototype, key));
-  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-  return methods;
-}
-function readMethod(source, key) {
-  const value = readProperty(source, key);
-  return typeof value === "function" ? value : void 0;
-}
-function readOwnMethod(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-  return readMethod(source, key);
-}
-function readProperty(source, key) {
-  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
-}
-function callEventTargetMethod(method, target, event) {
-  if (!method) return { called: false };
-  try {
-  return { called: true, result: method.call(target, event) };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callAddEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callRemoveEventListener$2(method, target, type, listener, options) {
-  if (!method) return { called: false };
-  try {
-  method.call(target, type, listener, options);
-  return { called: true };
-  } catch (error) {
-  return { called: false, error };
-  }
-}
-function callWithUnshadowedWindowDispatch(event) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("dispatchEvent", descriptor);
-  }
-}
-function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("addEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("addEventListener", descriptor);
-  }
-}
-function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-  const target = window.wrappedJSObject || window;
-  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-  try {
-  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
-  } catch (error) {
-  return { called: false, error };
-  } finally {
-  restoreWindowProperty("removeEventListener", descriptor);
-  }
-}
-function restoreWindowProperty(key, descriptor) {
-  try {
-  const target = window.wrappedJSObject || window;
-  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
-}
-function pageCompartmentDescriptor(descriptor, _target) {
-  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-}
-function pageCompartmentValue(value, options = {}) {
-  const cloneInto = readMethod(globalThis, "cloneInto");
-  if (!cloneInto || typeof window === "undefined") return value;
-  try {
-  return cloneInto(value, window, options);
-  } catch {
-  return value;
-  }
-}
-function safeWindowPropertyDescriptor(key) {
-  try {
-  const target = window.wrappedJSObject || window;
-  return Object.getOwnPropertyDescriptor(target, key);
-  } catch {
-  return void 0;
-  }
-}
-function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-  if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
-}
-function normalizedPropertyDescriptor(descriptor) {
-  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-  if (!hasDataShape || !hasAccessorShape) return descriptor;
-  try {
-  return {
-    configurable: descriptor.configurable,
-    enumerable: descriptor.enumerable,
-    value: descriptor.value,
-    writable: descriptor.writable
-  };
-  } catch {
-  return {
-    configurable: true,
-    value: void 0,
-    writable: true
-  };
-  }
-}
-const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
-const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
-const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
-const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
-const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
-const BRIDGE_TIMEOUT_MS$1 = 3e4;
-const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
-let eventBridgeProbeInFlight;
-function getUserscriptHttpRequest() {
-  for (const candidate of userscriptRequestCandidates()) {
-  const request = asUserscriptRequest(candidate.request);
-  if (request) {
-    return request.bind(candidate.thisArg);
-  }
-  }
-  return userscriptHttpEventBridge();
-}
-const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
-function isUserscriptEventBridgeRequest(request) {
-  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
-}
-function probeUserscriptEventBridge(request) {
-  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
-  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
-  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
-  const probe = new Promise((resolve) => {
-  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  let settled = false;
-  let responseCleanup = noop$1;
-  let bridgeReadyCleanup = noop$1;
-  const finish = (alive) => {
-    if (settled) return;
-    settled = true;
-    window.clearTimeout(timeout);
-    responseCleanup();
-    bridgeReadyCleanup();
-    if (!alive) {
-      const markerDataset = bridgeMarkerDataset$1();
-      if (markerDataset?.[BRIDGE_MARKER$1] === "true") delete markerDataset[BRIDGE_MARKER$1];
-    }
-    resolve(alive);
-  };
-  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
-  responseCleanup = addBridgeEventListener$1(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
-    if (bridgeEventId(event) === id) finish(true);
-  });
-  bridgeReadyCleanup = addBridgeEventListener$1(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
-  dispatchBridgeEvent$1(BRIDGE_PROBE_EVENT, { id });
-  });
-  eventBridgeProbeInFlight = probe;
-  void probe.then(() => {
-  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
-  });
-  return probe;
-}
-function userscriptHttpEventBridge() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
-  const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    options.ontimeout?.();
-    reject(new Error("Request timed out."));
-  }, options.timeout ?? BRIDGE_TIMEOUT_MS$1);
-  let cleanupBridgeResponseListener = noop$1;
-  const cleanup = () => {
-    window.clearTimeout(timeout);
-    cleanupBridgeResponseListener();
-  };
-  const onResponse = (event) => {
-    handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-  };
-  cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-  const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
-  }));
-}
-function tagEventBridgeRequest(request) {
-  request[EVENT_BRIDGE_TAG] = true;
-  return request;
-}
-function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-  const detail = bridgeResponseEventDetail(event);
-  if (!detail || detail.id !== id) return;
-  cleanup();
-  if (detail.kind === "load" && detail.response) {
-  options.onload?.(detail.response);
-  resolve(detail.response);
-  return;
-  }
-  rejectBridgeResponse(detail, options, reject);
-}
-function rejectBridgeResponse(detail, options, reject) {
-  const message = detail.message || "Request failed.";
-  if (detail.kind === "timeout") options.ontimeout?.();
-  else options.onerror?.(new Error(message));
-  reject(new Error(message));
-}
-function addBridgeEventListener$1(type, listener) {
-  const cleanups = [];
-  if (addWindowEventListener(type, listener)) {
-  cleanups.push(() => removeWindowEventListener(type, listener));
-  }
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
-  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
-  }
-  return () => {
-  for (const cleanup of cleanups) cleanup();
-  };
-}
-function dispatchBridgeEvent$1(type, detail) {
-  const eventDetail = bridgeEventDetail(detail);
-  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-  const documentTarget = bridgeDocumentTarget$1();
-  if (documentTarget) {
-  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-  }
-  return dispatched;
-}
-function bridgeDocumentTarget$1() {
-  if (typeof document === "undefined") return void 0;
-  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-}
-function bridgeMarkerDataset$1() {
-  if (typeof document === "undefined") return void 0;
-  const root = document.documentElement;
-  return root?.dataset;
-}
-function callAddEventListener$1(target, type, listener) {
-  try {
-  target.addEventListener(type, listener);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function callRemoveEventListener$1(target, type, listener) {
-  try {
-  target.removeEventListener(type, listener);
-  } catch {
-  }
-}
-function callDispatchEvent$1(target, event) {
-  try {
-  return target.dispatchEvent(event);
-  } catch {
-  return false;
-  }
-}
-function noop$1() {
-}
-const MANAGED_STORAGE_KEY_PREFIXES = [
-  "yomu-",
-  "yomu:",
-  "yomu.",
-  // Yomu-internal redirect handoff keys use a leading double underscore.
-  // Factory reset clears hosted web storage by managed prefix, so include it.
-  "__yomu",
-  "jpdb-reader-",
-  "jpdb-popup-reader-"
-];
-function isManagedStorageKey(key) {
-  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
-}
-function isPrivateManagedStorageKey(key) {
-  return key.startsWith("yomu:private:");
-}
-const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
-const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
-const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
-const BRIDGE_TIMEOUT_MS = 1e4;
-function getUserscriptGmStorage() {
-  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-  return {
-  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
-  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
-  };
-}
-function storageBridgeRequest(request) {
-  return new Promise((resolve, reject) => {
-  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  const timeout = window.setTimeout(() => {
-    cleanup();
-    reject(new Error("Storage bridge request timed out."));
-  }, BRIDGE_TIMEOUT_MS);
-  let cleanupResponseListener = noop;
-  const cleanup = () => {
-    window.clearTimeout(timeout);
-    cleanupResponseListener();
-  };
-  const onResponse = (event) => {
-    const detail = storageBridgeResponseDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.ok) resolve(detail);
-    else reject(new Error(detail.message || "Storage bridge request failed."));
-  };
-  cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ...request });
-  });
-}
-function storageBridgeResponseDetail(event) {
-  const detail = normalizedBridgeEventDetail(event);
-  if (!detail || typeof detail !== "object") return void 0;
-  const record2 = detail;
-  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
-  return {
-  id: record2.id,
-  ok: record2.ok,
-  found: typeof record2.found === "boolean" ? record2.found : void 0,
-  value: record2.value,
-  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record2.message === "string" ? record2.message : void 0
-  };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
-function addBridgeEventListener(type, listener) {
-  const cleanups = [];
-  if (addWindowEventListener(type, listener)) {
-  cleanups.push(() => removeWindowEventListener(type, listener));
-  }
-  const documentTarget = bridgeDocumentTarget();
-  if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
-  cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
-  }
-  return () => {
-  for (const cleanup of cleanups) cleanup();
-  };
-}
-function dispatchBridgeEvent(type, detail) {
-  const eventDetail = bridgeEventDetail(detail);
-  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-  const documentTarget = bridgeDocumentTarget();
-  if (documentTarget) {
-  dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-  }
-  return dispatched;
-}
-function bridgeDocumentTarget() {
-  if (typeof document === "undefined") return void 0;
-  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-}
-function bridgeMarkerDataset() {
-  if (typeof document === "undefined") return void 0;
-  const root = document.documentElement;
-  return root?.dataset;
-}
-function callAddEventListener(target, type, listener) {
-  try {
-  target.addEventListener(type, listener);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function callRemoveEventListener(target, type, listener) {
-  try {
-  target.removeEventListener(type, listener);
-  } catch {
-  }
-}
-function callDispatchEvent(target, event) {
-  try {
-  return target.dispatchEvent(event);
-  } catch {
-  return false;
-  }
-}
-function noop() {
-}
-function requestViaUserscriptManager(request, config) {
-  return new Promise((resolve, reject) => {
-  const signal = config.signal;
-  if (signal?.aborted) {
-    reject(abortReason(config));
-    return;
-  }
-  let handle;
-  let aborted = false;
-  const tryAbort = () => {
-    if (aborted) return;
-    aborted = true;
-    try {
-      handle?.abort?.();
-    } catch {
-    }
-  };
-  let settled = false;
-  let deadline;
-  const finish = (settle) => {
-    if (settled) return;
-    settled = true;
-    if (deadline !== void 0) clearTimeout(deadline);
-    if (signal) signal.removeEventListener("abort", onAbort);
-    try {
-      settle();
-    } catch (error) {
-      reject(error);
-    }
-  };
-  const handleLoad = (response) => finish(() => {
-    resolve(config.readResponse(response));
-  });
-  const handleError = (error) => finish(() => reject(errorReason(config, error)));
-  const handleTimeout = () => {
-    finish(() => reject(timeoutReason(config)));
-    tryAbort();
-  };
-  const onAbort = () => {
-    finish(() => reject(abortReason(config)));
-    tryAbort();
-  };
-  if (signal) signal.addEventListener("abort", onAbort, { once: true });
-  deadline = setTimeout(handleTimeout, localDeadlineMs(config));
-  const reportProgress = config.details.onprogress;
-  const onprogress = reportProgress === void 0 ? void 0 : (event) => {
-    if (!settled) {
-      if (deadline !== void 0) clearTimeout(deadline);
-      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
-    }
-    reportProgress(event);
-  };
-  try {
-    const result = request({
-      ...config.details,
-      ...onprogress === void 0 ? {} : { onprogress },
-      onload: handleLoad,
-      onerror: handleError,
-      ontimeout: handleTimeout
-    });
-    if (result && typeof result.abort === "function") {
-      handle = result;
-    }
-    if (isPromiseLike$1(result)) result.then(handleLoad, handleError);
-  } catch (error) {
-    handleError(error);
-  }
-  });
-}
-const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
-function localDeadlineMs(config) {
-  const budget = config.deadlineMs ?? config.details.timeout;
-  return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
-}
-function errorReason(config, error) {
-  if (config.onError) return config.onError(error);
-  return error instanceof Error ? error : new Error("Request failed.");
-}
-function timeoutReason(config) {
-  return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
-}
-function abortReason(config) {
-  if (config.onAbort) return config.onAbort();
-  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-  const error = new Error("Aborted");
-  error.name = "AbortError";
-  return error;
-}
-function hasUserscriptAnkiBridge() {
-  return Boolean(getUserscriptHttpRequest());
-}
-function isAnkiConnectAvailabilityError(error) {
-  if (error instanceof Error && error.cause && error.cause !== error) {
-  return isAnkiConnectAvailabilityError(error.cause);
-  }
-  if (!(error instanceof Error)) return false;
-  return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
-}
-function canUseMobileAnkiHandoff(settings) {
-  return yomuAnkiCompanion()?.canUseMobileAnkiHandoff(settings) ?? false;
-}
-async function diagnoseAnkiConnectFailure(url) {
-  if (typeof fetch !== "function") return "unreachable";
-  try {
-  await fetch(url, { method: "GET", mode: "no-cors" });
-  return "cors-blocked";
-  } catch {
-  return "unreachable";
-  }
-}
-function isAppleTouchBrowser() {
-  if (typeof navigator === "undefined") return false;
-  const userAgent = navigator.userAgent ?? "";
-  const platform = navigator.platform ?? "";
-  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
-}
-const SCALE_EPSILON = 0.05;
-const MAX_PAGE_SCALE = 3;
-const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
-const ZOOM_STEP_TOLERANCE = 0.025;
-const MIN_AXIS_AGREEMENT = 0.97;
-const MAX_AXIS_AGREEMENT = 1.4;
-const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
-const rememberedRectScales = /* @__PURE__ */ new WeakMap();
-function overlayPageScale(environment) {
-  if (!environment.appleTouch) return 1;
-  if (!positiveFinite(environment.innerWidth)) return 1;
-  if (positiveFinite(environment.outerWidth)) {
-  const surfaceScale = environment.outerWidth / environment.innerWidth;
-  if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
-    return Math.min(surfaceScale, MAX_PAGE_SCALE);
-  }
-  }
-  return screenDerivedPageScale(environment);
-}
-function screenDerivedPageScale(environment) {
-  const { innerWidth, innerHeight, screenWidth, screenHeight } = environment;
-  if (!positiveFinite(innerHeight) || !positiveFinite(screenWidth) || !positiveFinite(screenHeight)) return 1;
-  const pairings = [
-  [screenWidth / innerWidth, screenHeight / innerHeight],
-  [screenHeight / innerWidth, screenWidth / innerHeight]
-  ];
-  for (const [widthRatio, heightRatio] of pairings) {
-  if (widthRatio <= 1 + SCALE_EPSILON) continue;
-  const step = nearestSafariZoomStep(widthRatio);
-  if (step === void 0) continue;
-  if (heightRatio < widthRatio * MIN_AXIS_AGREEMENT) continue;
-  if (heightRatio > widthRatio * MAX_AXIS_AGREEMENT) continue;
-  return step;
-  }
-  return 1;
-}
-function nearestSafariZoomStep(ratio) {
-  for (const step of SAFARI_PAGE_ZOOM_STEPS) {
-  if (Math.abs(ratio - step) <= step * ZOOM_STEP_TOLERANCE) return step;
-  }
-  return void 0;
-}
-function overlayViewport(environment = currentEnvironment()) {
-  const pageScale = overlayPageScale(environment);
-  return {
-  width: environment.innerWidth * pageScale,
-  height: environment.innerHeight * pageScale,
-  pageScale
-  };
-}
-function overlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
-  const pageScale = overlayPageScale(environment);
-  const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
-  const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
-  const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
-  const top = finiteCoordinate(visualViewport?.offsetTop) * pageScale;
-  const scaledWidth = width * pageScale;
-  const scaledHeight = height * pageScale;
-  return {
-  left,
-  top,
-  right: left + scaledWidth,
-  bottom: top + scaledHeight,
-  width: scaledWidth,
-  height: scaledHeight,
-  pageScale
-  };
-}
-function layoutPointToOverlay(point, pageScale = overlayViewport().pageScale) {
-  return {
-  x: point.x * pageScale,
-  y: point.y * pageScale
-  };
-}
-function sourceRectToOverlay(rect, source, pageScale = overlayViewport().pageScale) {
-  const rememberedScale = rememberedRectScales.get(rect);
-  const root = compensatedOverlayRoot(source);
-  const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
-  const overlayRect = scaleRect(rect, rectScale);
-  rememberedRectScales.set(overlayRect, 1);
-  return overlayRect;
-}
-function compensatedOverlayRoot(source) {
-  const element2 = source instanceof Element ? source : source?.parentElement;
-  const root = element2?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
-  return root instanceof HTMLElement ? root : null;
-}
-function applyOverlayPageScale(element2, environment = currentEnvironment()) {
-  const pageScale = overlayPageScale(environment);
-  if (pageScale === 1) {
-  clearOwnedScale(element2);
-  return pageScale;
-  }
-  const inverseScale = 1 / pageScale;
-  element2.style.setProperty("zoom", formatScale(inverseScale), "important");
-  element2.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
-  element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
-  element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
-  return pageScale;
-}
-function hasOverlayPageScale(element2) {
-  return element2?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
-}
-function currentEnvironment() {
-  return {
-  appleTouch: isAppleTouchBrowser(),
-  innerWidth: window.innerWidth,
-  innerHeight: window.innerHeight,
-  outerWidth: window.outerWidth,
-  screenWidth: window.screen?.width ?? 0,
-  screenHeight: window.screen?.height ?? 0
-  };
-}
-function currentVisualViewport() {
-  const viewport = window.visualViewport;
-  return viewport ? {
-  width: viewport.width,
-  height: viewport.height,
-  offsetLeft: viewport.offsetLeft,
-  offsetTop: viewport.offsetTop
-  } : void 0;
-}
-function clearOwnedScale(element2) {
-  if (!hasOverlayPageScale(element2)) return;
-  element2.style.removeProperty("zoom");
-  delete element2.dataset.jpdbReaderScaleAdapter;
-  delete element2.dataset.jpdbReaderPageScale;
-  delete element2.dataset.jpdbReaderScaleCompensation;
-}
-function compensatedRootRectScale(root, pageScale = overlayViewport().pageScale) {
-  if (pageScale === 1) return 1;
-  const rect = root.getBoundingClientRect();
-  const ratios = [
-  dimensionRatio(rect.width, root.offsetWidth),
-  dimensionRatio(rect.height, root.offsetHeight)
-  ].filter((ratio) => ratio !== void 0);
-  if (!ratios.length) return 1;
-  const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
-  const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
-  return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
-}
-function dimensionRatio(rectSize, offsetSize) {
-  if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
-  return rectSize / offsetSize;
-}
-function scaleRect(rect, scale) {
-  return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
-}
-function positiveFinite(value) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-function finiteCoordinate(value) {
-  return Number.isFinite(value) ? value ?? 0 : 0;
-}
-function formatScale(value) {
-  return String(Number(value.toFixed(6)));
-}
-async function copyText(text2) {
-  if (navigator.clipboard?.writeText) {
-  try {
-    await navigator.clipboard.writeText(text2);
-    return;
-  } catch {
-  }
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text2;
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.append(textarea);
-  textarea.select();
-  document.execCommand("copy");
-  textarea.remove();
-}
-function openUrlInNewTab(url) {
-  if (!isOpenableExternalUrl(url)) return false;
-  const userscriptOpen = userscriptOpenInTab();
-  if (userscriptOpen) {
-  try {
-    userscriptOpen(url, { active: true, insert: true, setParent: false });
-    return true;
-  } catch {
-  }
-  }
-  const opened = window.open(url, "_blank", "noopener");
-  if (opened) {
-  try {
-    opened.opener = null;
-  } catch {
-  }
-  return true;
-  }
-  return false;
-}
-function userscriptOpenInTab() {
-  if (typeof GM_openInTab === "function") return GM_openInTab;
-  if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
-  return void 0;
-}
-function isOpenableExternalUrl(value) {
-  try {
-  const url = new URL(value, location.href);
-  return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-  return false;
-  }
-}
-function runningAsBrowserExtension() {
-  const global = globalThis;
-  try {
-  return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
-  } catch {
-  return false;
-  }
-}
-const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
-const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
-const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
-const INTERCEPTING_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey", "violentmonkey", "greasemonkey", "scriptcat", "orangemonkey", "firemonkey", "adguard"]);
-const CHROMIUM_DASHBOARD_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey"]);
-function scriptHandlerName(info) {
-  if (!info || typeof info !== "object") return "";
-  const handler = info.scriptHandler;
-  return typeof handler === "string" ? handler.trim() : "";
-}
-function readGmInfo() {
-  const g = globalThis;
-  return g.GM_info ?? g.GM?.info;
-}
-function hasCallableOpenInTab() {
-  const g = globalThis;
-  return typeof g.GM_openInTab === "function" || typeof g.GM?.openInTab === "function";
-}
-function readUserAgent() {
-  return typeof navigator === "object" && typeof navigator.userAgent === "string" ? navigator.userAgent : "";
-}
-function isChromiumBrowser(userAgent) {
-  return /(?:Chrome|Chromium|Edg)\/\d/i.test(userAgent);
-}
-function extensionStoreBrowser(userAgent) {
-  if (/Firefox\/\d/i.test(userAgent)) return "firefox";
-  if (/Safari\/\d/i.test(userAgent) && !isChromiumBrowser(userAgent)) return "safari";
-  return "chrome";
-}
-function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab(), userAgent = readUserAgent(), isExtensionBuild = runningAsBrowserExtension()) {
-  if (isExtensionBuild) return { kind: "extension-store", handler: "", url: EXTENSION_STORE_URLS[extensionStoreBrowser(userAgent)] };
-  if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
-  const handler = scriptHandlerName(info);
-  const normalizedHandler = handler.toLowerCase();
-  if (EXTERNAL_APP_HANDLERS.has(normalizedHandler)) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
-  if (CHROMIUM_DASHBOARD_HANDLERS.has(normalizedHandler) && isChromiumBrowser(userAgent)) {
-  return { kind: "manager-dashboard", handler, url: UPDATE_GUIDE_URL };
-  }
-  if (INTERCEPTING_HANDLERS.has(normalizedHandler) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
-  return { kind: "no-manager", handler, url: INSTALL_GUIDE_URL };
-}
-function updateFlowNoteKey(kind) {
-  switch (kind) {
-  case "manager-dashboard":
-    return "updateHelpNotesManagerDashboard";
-  case "external-manager":
-    return "updateHelpNotesExternalManager";
-  case "extension-store":
-    return "updateHelpNotesExtensionStore";
-  case "no-manager":
-    return "updateHelpNotesNoManager";
-  case "manager":
-  default:
-    return "updateHelpNotesManager";
-  }
-}
-function createAudioPreviewCard() {
-  return {
-  vid: 1456360,
-  sid: 0,
-  rid: 0,
-  spelling: "読む",
-  reading: "よむ",
-  frequencyRank: null,
-  partOfSpeech: [],
-  meanings: [],
-  cardState: [],
-  pitchAccent: [],
-  wordWithReading: null,
-  source: "jpdb"
-  };
-}
-const HIRAGANA = "぀-ゟ";
-const KATAKANA = "゠-ヿ";
-const KANA = "぀-ヿ";
-const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
-const KANJI = "㐀-鿿";
-const ITERATION_MARK = "々";
-const ITERATION_MARKS = `${ITERATION_MARK}〆`;
-const KANA_COUNTERS = "ヵヶ";
-const PROLONGED_SOUND_MARK = "ー";
-const KATAKANA_MIDDLE_DOT = "・";
-const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
-const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
-const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
-const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
-const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
-const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
-const KANJI_RE = new RegExp(`[${KANJI}]`, "u");
-const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
-new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
-function wordSegmenter(locale) {
-  const cached = SEGMENTER_BY_LOCALE.get(locale);
-  if (cached !== void 0) return cached;
-  let segmenter = null;
-  try {
-  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
-    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
-  }
-  } catch {
-  segmenter = null;
-  }
-  SEGMENTER_BY_LOCALE.set(locale, segmenter);
-  return segmenter;
-}
-function icuWordSegments(text2, locale) {
-  const segmenter = wordSegmenter(locale);
-  if (!segmenter) return null;
-  const segments = [];
-  for (const segment of segmenter.segment(text2)) {
-  if (!segment.isWordLike) continue;
-  segments.push({
-    text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length
-  });
-  }
-  return segments;
-}
-const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
   "Arab",
@@ -1304,6 +66,26 @@ function normalizedJapaneseCardReading(spelling, reading) {
 function cleanCardHighlightValue(value) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
+const HIRAGANA = "぀-ゟ";
+const KATAKANA = "゠-ヿ";
+const KANA = "぀-ヿ";
+const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
+const KANJI = "㐀-鿿";
+const ITERATION_MARK = "々";
+const ITERATION_MARKS = `${ITERATION_MARK}〆`;
+const KANA_COUNTERS = "ヵヶ";
+const PROLONGED_SOUND_MARK = "ー";
+const KATAKANA_MIDDLE_DOT = "・";
+const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
+const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
+const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
+const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
+const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
+const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
+const KANJI_RE = new RegExp(`[${KANJI}]`, "u");
+const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
+const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const GODAN_ROWS = [
   { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
   { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -2038,13 +820,110 @@ function fallbackRulePriority(candidate) {
   if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
   return 3;
 }
+const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text2, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text2)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
+}
+function normalizeGenericLookupText(text2) {
+  return text2.split(/([\u0e33\u0eb3])/u).map((part) => part === "ำ" || part === "ຳ" ? part : part.normalize("NFKC")).join("").replace(/\s+/gu, " ").trim();
+}
+function genericLookupTextVariants(text2) {
+  const source = text2.replace(/\s+/gu, " ").trim();
+  return [...new Set([normalizeGenericLookupText(source), source].filter(Boolean))];
+}
+function normalizeImportedLookupTerm(entry) {
+  const expression = normalizeGenericLookupText(entry.expression);
+  const reading = normalizeGenericLookupText(entry.reading);
+  return expression === entry.expression && reading === entry.reading ? entry : { ...entry, expression, reading };
+}
+function normalizeImportedLookupMeta(entry) {
+  if (typeof entry.expression !== "string") return entry;
+  const expression = normalizeGenericLookupText(entry.expression);
+  return expression === entry.expression ? entry : { ...entry, expression };
+}
+const LOOKUP_CANDIDATE_LIMIT = 12;
+function boundedLookupCandidates(text2, language2, normalizeText, rewrites) {
+  const surface = normalizeText(text2);
+  if (!surface) return [];
+  const candidates = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (term, depth, reasons) => {
+  if (!term || seen.has(term) || candidates.length >= LOOKUP_CANDIDATE_LIMIT) return;
+  seen.add(term);
+  candidates.push({ term, rules: [], reasons, depth });
+  };
+  add(surface, 0, []);
+  const folded = localeLowerCase(surface, language2);
+  const foldedDepth = folded === surface ? 0 : 1;
+  add(folded, 1, ["case fold"]);
+  for (const legacySurface of genericLookupTextVariants(text2).slice(1)) {
+  add(legacySurface, 1, ["source-form fallback"]);
+  const legacyFolded = localeLowerCase(legacySurface, language2);
+  add(legacyFolded, 2, ["source-form fallback", "case fold"]);
+  }
+  for (const rewrite of rewrites) {
+  if (candidates.length >= LOOKUP_CANDIDATE_LIMIT) break;
+  const rewritten = applyLookupRewrite(folded, rewrite);
+  if (rewritten) {
+    add(
+      rewritten,
+      foldedDepth + 1,
+      foldedDepth ? ["case fold", rewrite.reason] : [rewrite.reason]
+    );
+  }
+  }
+  return candidates;
+}
+function localeLowerCase(text2, language2) {
+  try {
+  return text2.toLocaleLowerCase(language2);
+  } catch {
+  return text2.toLowerCase();
+  }
+}
+function applyLookupRewrite(term, rewrite) {
+  const prefix = rewrite.prefix ?? "";
+  const suffix = rewrite.suffix ?? "";
+  if (prefix && !term.startsWith(prefix)) return null;
+  if (suffix && !term.endsWith(suffix)) return null;
+  if (term.length < prefix.length + suffix.length) return null;
+  const stem = term.slice(prefix.length, suffix ? -suffix.length : void 0);
+  if (rewrite.blockedStemSuffix && stem.endsWith(rewrite.blockedStemSuffix)) return null;
+  if ([...stem].length < rewrite.minStemLength) return null;
+  return `${rewrite.replacementPrefix ?? ""}${stem}${rewrite.replacementSuffix ?? ""}`;
+}
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
 const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -2120,13 +999,14 @@ function createLearningTargetModule(spec) {
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+  ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
   normalizeText,
   isLookupableText(text2) {
     return Boolean(text2) && detects(text2);
   },
   segment,
   pointerWordSegments: spec.pointerWordSegments ?? segment,
-  lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
+  lookupCandidates: spec.lookupCandidates ?? ((text2) => boundedLookupCandidates(text2, language2, normalizeText, spec.lookupRewrites ?? [])),
   compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
@@ -2148,7 +1028,7 @@ function detectorFor(value) {
   return () => false;
 }
 function defaultNormalizeText(text2) {
-  return text2.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  return normalizeGenericLookupText(text2);
 }
 function defaultSegment(text2, language2) {
   return icuWordSegments(text2, language2) ?? whitespaceSegments(text2);
@@ -2162,9 +1042,6 @@ function whitespaceSegments(text2) {
   match = pattern.exec(text2);
   }
   return segments;
-}
-function defaultLookupCandidates(term) {
-  return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
 }
 function defaultCompareLookupCandidates(a, b) {
   return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
@@ -2272,6 +1149,100 @@ function japanesePointerWordSegments(text2) {
   end: match.index + match[0].length
   }));
 }
+const KOREAN_SEGMENT_SUFFIXES = [
+  "에게서",
+  "이라고",
+  "으로",
+  "에서",
+  "에게",
+  "한테",
+  "까지",
+  "부터",
+  "처럼",
+  "보다",
+  "에는",
+  "라고",
+  "하고",
+  "은",
+  "는",
+  "이",
+  "가",
+  "을",
+  "를",
+  "의",
+  "에",
+  "와",
+  "과",
+  "로",
+  "도",
+  "만"
+];
+const REWRITES = {
+  es: [
+  { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+  { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+  ],
+  de: [
+  { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+  { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+  { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+  { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+  { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+  ],
+  ru: [
+  { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+  { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+  { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+  { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+  ],
+  ar: [
+  { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+  { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+  { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+  { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+  { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+  { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+  { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+  { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+  { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+  { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+  { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+  { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+  ]
+};
+function lookupRewritesForTarget(target) {
+  return REWRITES[target] ?? [];
+}
+function koreanLookupSubsegments(segment, maxLength) {
+  const candidates = /* @__PURE__ */ new Set();
+  if (segment.length <= maxLength) candidates.add(segment);
+  for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+  if (!segment.endsWith(suffix)) continue;
+  const stem = segment.slice(0, -suffix.length);
+  if (stem && stem.length <= maxLength) candidates.add(stem);
+  }
+  return [...candidates];
+}
 const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   id: "korean-thin-v1",
@@ -2293,6 +1264,10 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   subtitles: {
   languageAliases: ["kor", "korean"]
   },
+  // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+  // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+  lookupStartsAtSegmentBoundary: false,
+  lookupSubsegments: koreanLookupSubsegments,
   detectsText: HAS_HANGUL
 });
 const ENGLISH_FALLBACK_MESSAGES = {
@@ -3956,25 +2931,30 @@ function resolveMessage(id, locale, packs) {
   return { id, value: id, resolvedFrom: "none", missing: true };
 }
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-  LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => createLearningTargetModule({
-  id: `${language2.id}-roster-v1`,
-  language: language2.runtimeLocale,
-  direction: language2.direction,
-  capabilities: {
-    "term-lookup": true,
-    segmentation: true,
-    "text-to-speech": true,
-    subtitles: true,
-    typing: true
-  },
-  featureSemantics: {
-    characterSystem: language2.defaultScript,
-    phoneticScripts: [],
-    pronunciation: "none",
-    readingAnnotation: "none"
-  },
-  detectsText: scriptDetector(language2.scripts)
-  }))
+  LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
+  const lookupRewrites = lookupRewritesForTarget(language2.id);
+  return createLearningTargetModule({
+    id: `${language2.id}-roster-v1`,
+    language: language2.runtimeLocale,
+    direction: language2.direction,
+    capabilities: {
+      "term-lookup": true,
+      morphology: lookupRewrites.length > 0,
+      segmentation: true,
+      "text-to-speech": true,
+      subtitles: true,
+      typing: true
+    },
+    featureSemantics: {
+      characterSystem: language2.defaultScript,
+      phoneticScripts: [],
+      pronunciation: "none",
+      readingAnnotation: "none"
+    },
+    detectsText: scriptDetector(language2.scripts),
+    lookupRewrites
+  });
+  })
 );
 function scriptDetector(scripts) {
   return new RegExp(
@@ -4036,6 +3016,1217 @@ function activeLearningTarget() {
   cachedForRegistryRevision = revision2;
   return cachedTarget;
 }
+function activeLearningTargetLanguage() {
+  return activeLearningTarget().language;
+}
+function setActiveLearningTargetLanguage(value) {
+  const module = learningTargetModuleFor(value);
+  if (!module) return null;
+  requestedTargetLanguage = module.language;
+  return module;
+}
+function adoptLearningTargetLanguage(value) {
+  const requested = setActiveLearningTargetLanguage(value);
+  if (requested) return requested;
+  const fallback = defaultLearningTargetModule();
+  return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
+}
+let sandboxCompanions = {};
+function registerYomuCompanion(key, value) {
+  writeYomuCompanions({
+  ...yomuCompanions(),
+  [key]: value
+  });
+}
+function yomuAnkiCompanion() {
+  return yomuCompanions().anki;
+}
+function yomuAnnotationsCompanion() {
+  return yomuCompanions().annotations;
+}
+function yomuCompanions() {
+  return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+}
+function writeYomuCompanions(value) {
+  sandboxCompanions = value;
+  writeYomuCompanionsTarget(globalThis, value);
+  if (typeof window !== "undefined" && window !== globalThis) {
+  const pageValue = pageCompartmentRegistryValue(value);
+  if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+  }
+}
+function pageCompartmentRegistryValue(value) {
+  const cloneInto = globalThis.cloneInto;
+  if (typeof cloneInto !== "function") return value;
+  try {
+  return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+  } catch {
+  return void 0;
+  }
+}
+function writeYomuCompanionsTarget(target, value) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return false;
+  const writable = target;
+  try {
+  writable.__yomuCompanions = value;
+  return true;
+  } catch {
+  }
+  try {
+  Object.defineProperty(writable, "__yomuCompanions", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value
+  });
+  return true;
+  } catch {
+  return false;
+  }
+}
+function readYomuCompanions(target) {
+  if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+  try {
+  return target.__yomuCompanions;
+  } catch {
+  return void 0;
+  }
+}
+registerYomuCompanion("learningTargets", {
+  activeLearningTarget,
+  activeLearningTargetLanguage,
+  adoptLearningTargetLanguage,
+  normalizeLearningTargetLanguage,
+  registeredLearningTargetModules
+});
+const APP_NAME = "よむ";
+const ACADEMY_SRS_LABEL = "Academy";
+const APP_SLUG = "yomu";
+const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+const SETTINGS_TITLE = `${APP_NAME} Settings`;
+const GITHUB_OWNER = "HRussellZFAC023";
+const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+const DOCS_ORIGIN = "https://yomureader.com";
+const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
+const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
+const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
+const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
+const DONATE_URL = "https://support.yomureader.com/donate";
+const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading={reading}";
+const USERSCRIPT_INSTALL_URL = `${DOCS_BASE_URL}yomu.user.js`;
+const EXTENSION_STORE_URLS = {
+  chrome: `${DOCS_BASE_URL}store/chrome/`,
+  firefox: `${DOCS_BASE_URL}store/firefox/`,
+  safari: `${DOCS_BASE_URL}store/safari/`
+};
+const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;
+const NEW_TAB_VERSION_URL = `${NEW_TAB_PAGE_URL}version.json`;
+const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/`;
+const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
+const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
+const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+const NADESHIKO_URL = "https://nadeshiko.co/";
+const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
+const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
+const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+const BUNPRO_DEFINITION_SOURCE_ID = "__bunpro__";
+const WANIKANI_DEFINITION_SOURCE_ID = "__wanikani__";
+const ANKI_SOURCE_ID = "__anki__";
+const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+function bridgeEventId(event) {
+  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+}
+function bridgeResponseEventDetail(event) {
+  const detail = normalizedBridgeEventDetail$1(event);
+  const id = safeReadString(detail, "id");
+  const kind = safeReadString(detail, "kind");
+  if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+  return {
+  id,
+  kind,
+  response: safeReadProperty(detail, "response"),
+  message: safeReadString(detail, "message")
+  };
+}
+function bridgeEventDetail(detail) {
+  if (detail === void 0) return void 0;
+  const json = bridgeEventJsonDetail(detail);
+  return json ?? detail;
+}
+function bridgeEventJsonDetail(detail) {
+  let unsupported = false;
+  try {
+  const json = JSON.stringify(detail, (_key, value) => {
+    if (isUnsupportedBridgeJsonValue(value)) {
+      unsupported = true;
+      return void 0;
+    }
+    return value;
+  });
+  return unsupported || typeof json !== "string" ? void 0 : json;
+  } catch {
+  return void 0;
+  }
+}
+function normalizedBridgeEventDetail$1(event) {
+  const detail = safeEventDetail(event);
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function isUnsupportedBridgeJsonValue(value) {
+  return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+}
+function isUnsupportedPrimitiveBridgeJsonValue(value) {
+  return typeof value === "function" || typeof value === "symbol";
+}
+function isArrayBufferBridgeJsonValue(value) {
+  if (typeof ArrayBuffer === "undefined") return false;
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+function isBlobBridgeJsonValue(value) {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+function isFormDataBridgeJsonValue(value) {
+  return typeof FormData !== "undefined" && value instanceof FormData;
+}
+function safeEventDetail(event) {
+  try {
+  return event.detail;
+  } catch {
+  return void 0;
+  }
+}
+function safeReadProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function safeReadString(source, key) {
+  const value = safeReadProperty(source, key);
+  return typeof value === "string" ? value : void 0;
+}
+function userscriptRequestCandidates() {
+  const candidates = [];
+  const add = (request, thisArg) => {
+  candidates.push({ request, thisArg });
+  };
+  const direct = directUserscriptGlobals();
+  add(direct.GM_xmlhttpRequest, globalThis);
+  add(direct.GM?.xmlHttpRequest, direct.GM);
+  add(direct.GM?.xmlhttpRequest, direct.GM);
+  for (const source of userscriptRequestSources()) {
+  add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
+  const gm = readSourceProperty(source, "GM");
+  add(readSourceProperty(gm, "xmlHttpRequest"), gm);
+  add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+  }
+  return candidates;
+}
+function asUserscriptRequest(value) {
+  return typeof value === "function" ? value : void 0;
+}
+function isPromiseLike$1(value) {
+  return Boolean(value) && typeof value.then === "function";
+}
+function directUserscriptGlobals() {
+  return {
+  GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+  GM: typeof GM === "object" && GM ? GM : void 0
+  };
+}
+function userscriptRequestSources() {
+  const sources = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (value) => {
+  if (!isRequestSource(value) || seen.has(value)) return;
+  seen.add(value);
+  sources.push(value);
+  };
+  for (const mounted of mountedMonkeyWindows()) add(mounted);
+  add(globalThis);
+  if (typeof window !== "undefined") add(window);
+  return sources;
+}
+function mountedMonkeyWindows() {
+  if (typeof document === "undefined") return [];
+  return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+}
+function isRequestSource(value) {
+  return Boolean(value) && (typeof value === "object" || typeof value === "function");
+}
+function readSourceProperty(source, key) {
+  if (!isRequestSource(source)) return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+let initialWindowAddEventListener = initialWindowMethod("addEventListener");
+let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+function createWindowCustomEvent(type, detail, init = {}) {
+  const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+  const documentEvent = createDocumentCustomEvent(type, eventInit);
+  if (documentEvent) return documentEvent;
+  const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+  if (CustomEventConstructor) {
+  try {
+    return new CustomEventConstructor(type, eventInit);
+  } catch {
+  }
+  }
+  throw new Error(`Unable to create window custom event: ${type}`);
+}
+function cloneCustomEventDetail(detail) {
+  if (detail === void 0 || typeof window === "undefined") return detail;
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto) return detail;
+  try {
+  return cloneInto(detail, window, { cloneFunctions: false, wrapReflectors: true });
+  } catch {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return void 0;
+  }
+  }
+}
+function dispatchWindowEvent(event) {
+  const target = window;
+  const directDispatch = readMethod(target, "dispatchEvent");
+  const directResult = callEventTargetMethod(directDispatch, target, event);
+  if (directResult.called) return directResult.result;
+  const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+  if (initialResult.called) return initialResult.result;
+  const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+  if (prototypeResult.called) return prototypeResult.result;
+  const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+  if (unshadowedResult.called) return unshadowedResult.result;
+  return false;
+}
+function addWindowEventListener(type, listener, options) {
+  const target = window;
+  const directAdd = readMethod(target, "addEventListener");
+  const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function removeWindowEventListener(type, listener, options) {
+  const target = window;
+  const directRemove = readMethod(target, "removeEventListener");
+  const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
+  if (directResult.called) return true;
+  const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
+  if (initialResult.called) return true;
+  const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+  if (prototypeResult.called) return true;
+  const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+  if (unshadowedResult.called) return true;
+  return false;
+}
+function initialWindowMethod(key) {
+  if (typeof window === "undefined") return void 0;
+  return readMethod(window, key);
+}
+function dispatchWithPrototypeMethod(target, directDispatch, event) {
+  for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+  if (prototypeDispatch === directDispatch) continue;
+  const result = callEventTargetMethod(prototypeDispatch, target, event);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+  for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+  if (prototypeAdd === directAdd) continue;
+  const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+  for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+  if (prototypeRemove === directRemove) continue;
+  const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
+  if (result.called) return result;
+  }
+  return { called: false };
+}
+function eventConstructor(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function createDocumentCustomEvent(type, init) {
+  if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+  try {
+  const event = document.createEvent("CustomEvent");
+  event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+  return event;
+  } catch {
+  return void 0;
+  }
+}
+function eventTargetPrototypeMethods(target, key) {
+  const methods = [];
+  const add = (method) => {
+  if (method && !methods.includes(method)) methods.push(method);
+  };
+  let prototype = Object.getPrototypeOf(target);
+  while (prototype) {
+  add(readOwnMethod(prototype, key));
+  prototype = Object.getPrototypeOf(prototype);
+  }
+  const WindowEventTarget = readProperty(window, "EventTarget");
+  add(readMethod(WindowEventTarget?.prototype, key));
+  if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+  return methods;
+}
+function readMethod(source, key) {
+  const value = readProperty(source, key);
+  return typeof value === "function" ? value : void 0;
+}
+function readOwnMethod(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+  return readMethod(source, key);
+}
+function readProperty(source, key) {
+  if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+  try {
+  return source[key];
+  } catch {
+  return void 0;
+  }
+}
+function callEventTargetMethod(method, target, event) {
+  if (!method) return { called: false };
+  try {
+  return { called: true, result: method.call(target, event) };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callAddEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callRemoveEventListener$2(method, target, type, listener, options) {
+  if (!method) return { called: false };
+  try {
+  method.call(target, type, listener, options);
+  return { called: true };
+  } catch (error) {
+  return { called: false, error };
+  }
+}
+function callWithUnshadowedWindowDispatch(event) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+  return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("dispatchEvent", descriptor);
+  }
+}
+function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("addEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+  return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("addEventListener", descriptor);
+  }
+}
+function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+  const target = window.wrappedJSObject || window;
+  const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+  if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+  try {
+  if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+  return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
+  } catch (error) {
+  return { called: false, error };
+  } finally {
+  restoreWindowProperty("removeEventListener", descriptor);
+  }
+}
+function restoreWindowProperty(key, descriptor) {
+  try {
+  const target = window.wrappedJSObject || window;
+  Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+  } catch {
+  }
+}
+function pageCompartmentDescriptor(descriptor, _target) {
+  return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+}
+function pageCompartmentValue(value, options = {}) {
+  const cloneInto = readMethod(globalThis, "cloneInto");
+  if (!cloneInto || typeof window === "undefined") return value;
+  try {
+  return cloneInto(value, window, options);
+  } catch {
+  return value;
+  }
+}
+function safeWindowPropertyDescriptor(key) {
+  try {
+  const target = window.wrappedJSObject || window;
+  return Object.getOwnPropertyDescriptor(target, key);
+  } catch {
+  return void 0;
+  }
+}
+function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+  if (!descriptor) return false;
+  try {
+  return typeof descriptor.value !== "function";
+  } catch {
+  return false;
+  }
+}
+function normalizedPropertyDescriptor(descriptor) {
+  const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+  const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+  if (!hasDataShape || !hasAccessorShape) return descriptor;
+  try {
+  return {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    value: descriptor.value,
+    writable: descriptor.writable
+  };
+  } catch {
+  return {
+    configurable: true,
+    value: void 0,
+    writable: true
+  };
+  }
+}
+const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
+const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
+const BRIDGE_PROBE_EVENT = "yomu-userscript-http-probe";
+const BRIDGE_PROBE_RESPONSE_EVENT = "yomu-userscript-http-probe-response";
+const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
+const BRIDGE_TIMEOUT_MS$1 = 3e4;
+const USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS = 120;
+let eventBridgeProbeInFlight;
+function getUserscriptHttpRequest() {
+  for (const candidate of userscriptRequestCandidates()) {
+  const request = asUserscriptRequest(candidate.request);
+  if (request) {
+    return request.bind(candidate.thisArg);
+  }
+  }
+  return userscriptHttpEventBridge();
+}
+const EVENT_BRIDGE_TAG = Symbol.for("yomu.userscriptEventBridge");
+function isUserscriptEventBridgeRequest(request) {
+  return typeof request === "function" && request[EVENT_BRIDGE_TAG] === true;
+}
+function probeUserscriptEventBridge(request) {
+  if (!isUserscriptEventBridgeRequest(request)) return Promise.resolve(true);
+  if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
+  if (eventBridgeProbeInFlight) return eventBridgeProbeInFlight;
+  const probe = new Promise((resolve) => {
+  const id = `yomu-probe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  let settled = false;
+  let responseCleanup = noop$1;
+  let bridgeReadyCleanup = noop$1;
+  const finish = (alive) => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timeout);
+    responseCleanup();
+    bridgeReadyCleanup();
+    if (!alive) {
+      const markerDataset = bridgeMarkerDataset$1();
+      if (markerDataset?.[BRIDGE_MARKER$1] === "true") delete markerDataset[BRIDGE_MARKER$1];
+    }
+    resolve(alive);
+  };
+  const timeout = window.setTimeout(() => finish(false), USERSCRIPT_EVENT_BRIDGE_PROBE_TIMEOUT_MS);
+  responseCleanup = addBridgeEventListener$1(BRIDGE_PROBE_RESPONSE_EVENT, (event) => {
+    if (bridgeEventId(event) === id) finish(true);
+  });
+  bridgeReadyCleanup = addBridgeEventListener$1(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => finish(true));
+  dispatchBridgeEvent$1(BRIDGE_PROBE_EVENT, { id });
+  });
+  eventBridgeProbeInFlight = probe;
+  void probe.then(() => {
+  if (eventBridgeProbeInFlight === probe) eventBridgeProbeInFlight = void 0;
+  });
+  return probe;
+}
+function userscriptHttpEventBridge() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+  return tagEventBridgeRequest((options) => new Promise((resolve, reject) => {
+  const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    options.ontimeout?.();
+    reject(new Error("Request timed out."));
+  }, options.timeout ?? BRIDGE_TIMEOUT_MS$1);
+  let cleanupBridgeResponseListener = noop$1;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupBridgeResponseListener();
+  };
+  const onResponse = (event) => {
+    handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+  };
+  cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+  const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+  dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
+  }));
+}
+function tagEventBridgeRequest(request) {
+  request[EVENT_BRIDGE_TAG] = true;
+  return request;
+}
+function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+  const detail = bridgeResponseEventDetail(event);
+  if (!detail || detail.id !== id) return;
+  cleanup();
+  if (detail.kind === "load" && detail.response) {
+  options.onload?.(detail.response);
+  resolve(detail.response);
+  return;
+  }
+  rejectBridgeResponse(detail, options, reject);
+}
+function rejectBridgeResponse(detail, options, reject) {
+  const message = detail.message || "Request failed.";
+  if (detail.kind === "timeout") options.ontimeout?.();
+  else options.onerror?.(new Error(message));
+  reject(new Error(message));
+}
+function addBridgeEventListener$1(type, listener) {
+  const cleanups = [];
+  if (addWindowEventListener(type, listener)) {
+  cleanups.push(() => removeWindowEventListener(type, listener));
+  }
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+  cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+  }
+  return () => {
+  for (const cleanup of cleanups) cleanup();
+  };
+}
+function dispatchBridgeEvent$1(type, detail) {
+  const eventDetail = bridgeEventDetail(detail);
+  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+  const documentTarget = bridgeDocumentTarget$1();
+  if (documentTarget) {
+  dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+  }
+  return dispatched;
+}
+function bridgeDocumentTarget$1() {
+  if (typeof document === "undefined") return void 0;
+  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+}
+function bridgeMarkerDataset$1() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
+function callAddEventListener$1(target, type, listener) {
+  try {
+  target.addEventListener(type, listener);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function callRemoveEventListener$1(target, type, listener) {
+  try {
+  target.removeEventListener(type, listener);
+  } catch {
+  }
+}
+function callDispatchEvent$1(target, event) {
+  try {
+  return target.dispatchEvent(event);
+  } catch {
+  return false;
+  }
+}
+function noop$1() {
+}
+const MANAGED_STORAGE_KEY_PREFIXES = [
+  "yomu-",
+  "yomu:",
+  "yomu.",
+  // Yomu-internal redirect handoff keys use a leading double underscore.
+  // Factory reset clears hosted web storage by managed prefix, so include it.
+  "__yomu",
+  "jpdb-reader-",
+  "jpdb-popup-reader-"
+];
+function isManagedStorageKey(key) {
+  return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+function isPrivateManagedStorageKey(key) {
+  return key.startsWith("yomu:private:");
+}
+const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
+const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
+const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+const BRIDGE_TIMEOUT_MS = 1e4;
+function getUserscriptGmStorage() {
+  if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+  if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+  return {
+  getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+  setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+  deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+  listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+  };
+}
+function storageBridgeRequest(request) {
+  return new Promise((resolve, reject) => {
+  const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const timeout = window.setTimeout(() => {
+    cleanup();
+    reject(new Error("Storage bridge request timed out."));
+  }, BRIDGE_TIMEOUT_MS);
+  let cleanupResponseListener = noop;
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    cleanupResponseListener();
+  };
+  const onResponse = (event) => {
+    const detail = storageBridgeResponseDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.ok) resolve(detail);
+    else reject(new Error(detail.message || "Storage bridge request failed."));
+  };
+  cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+  dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ...request });
+  });
+}
+function storageBridgeResponseDetail(event) {
+  const detail = normalizedBridgeEventDetail(event);
+  if (!detail || typeof detail !== "object") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
+  return {
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
+  };
+}
+function normalizedBridgeEventDetail(event) {
+  let detail;
+  try {
+  detail = event.detail;
+  } catch {
+  return void 0;
+  }
+  if (typeof detail !== "string") return detail;
+  try {
+  return JSON.parse(detail);
+  } catch {
+  return detail;
+  }
+}
+function addBridgeEventListener(type, listener) {
+  const cleanups = [];
+  if (addWindowEventListener(type, listener)) {
+  cleanups.push(() => removeWindowEventListener(type, listener));
+  }
+  const documentTarget = bridgeDocumentTarget();
+  if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+  cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+  }
+  return () => {
+  for (const cleanup of cleanups) cleanup();
+  };
+}
+function dispatchBridgeEvent(type, detail) {
+  const eventDetail = bridgeEventDetail(detail);
+  let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+  const documentTarget = bridgeDocumentTarget();
+  if (documentTarget) {
+  dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+  }
+  return dispatched;
+}
+function bridgeDocumentTarget() {
+  if (typeof document === "undefined") return void 0;
+  return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+}
+function bridgeMarkerDataset() {
+  if (typeof document === "undefined") return void 0;
+  const root = document.documentElement;
+  return root?.dataset;
+}
+function callAddEventListener(target, type, listener) {
+  try {
+  target.addEventListener(type, listener);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function callRemoveEventListener(target, type, listener) {
+  try {
+  target.removeEventListener(type, listener);
+  } catch {
+  }
+}
+function callDispatchEvent(target, event) {
+  try {
+  return target.dispatchEvent(event);
+  } catch {
+  return false;
+  }
+}
+function noop() {
+}
+function requestViaUserscriptManager(request, config) {
+  return new Promise((resolve, reject) => {
+  const signal = config.signal;
+  if (signal?.aborted) {
+    reject(abortReason(config));
+    return;
+  }
+  let handle;
+  let aborted = false;
+  const tryAbort = () => {
+    if (aborted) return;
+    aborted = true;
+    try {
+      handle?.abort?.();
+    } catch {
+    }
+  };
+  let settled = false;
+  let deadline;
+  const finish = (settle) => {
+    if (settled) return;
+    settled = true;
+    if (deadline !== void 0) clearTimeout(deadline);
+    if (signal) signal.removeEventListener("abort", onAbort);
+    try {
+      settle();
+    } catch (error) {
+      reject(error);
+    }
+  };
+  const handleLoad = (response) => finish(() => {
+    resolve(config.readResponse(response));
+  });
+  const handleError = (error) => finish(() => reject(errorReason(config, error)));
+  const handleTimeout = () => {
+    finish(() => reject(timeoutReason(config)));
+    tryAbort();
+  };
+  const onAbort = () => {
+    finish(() => reject(abortReason(config)));
+    tryAbort();
+  };
+  if (signal) signal.addEventListener("abort", onAbort, { once: true });
+  deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+  const reportProgress = config.details.onprogress;
+  const onprogress = reportProgress === void 0 ? void 0 : (event) => {
+    if (!settled) {
+      if (deadline !== void 0) clearTimeout(deadline);
+      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+    }
+    reportProgress(event);
+  };
+  try {
+    const result = request({
+      ...config.details,
+      ...onprogress === void 0 ? {} : { onprogress },
+      onload: handleLoad,
+      onerror: handleError,
+      ontimeout: handleTimeout
+    });
+    if (result && typeof result.abort === "function") {
+      handle = result;
+    }
+    if (isPromiseLike$1(result)) result.then(handleLoad, handleError);
+  } catch (error) {
+    handleError(error);
+  }
+  });
+}
+const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
+function localDeadlineMs(config) {
+  const budget = config.deadlineMs ?? config.details.timeout;
+  return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
+}
+function errorReason(config, error) {
+  if (config.onError) return config.onError(error);
+  return error instanceof Error ? error : new Error("Request failed.");
+}
+function timeoutReason(config) {
+  return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
+}
+function abortReason(config) {
+  if (config.onAbort) return config.onAbort();
+  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+function hasUserscriptAnkiBridge() {
+  return Boolean(getUserscriptHttpRequest());
+}
+function isAnkiConnectAvailabilityError(error) {
+  if (error instanceof Error && error.cause && error.cause !== error) {
+  return isAnkiConnectAvailabilityError(error.cause);
+  }
+  if (!(error instanceof Error)) return false;
+  return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
+}
+function canUseMobileAnkiHandoff(settings) {
+  return yomuAnkiCompanion()?.canUseMobileAnkiHandoff(settings) ?? false;
+}
+async function diagnoseAnkiConnectFailure(url) {
+  if (typeof fetch !== "function") return "unreachable";
+  try {
+  await fetch(url, { method: "GET", mode: "no-cors" });
+  return "cors-blocked";
+  } catch {
+  return "unreachable";
+  }
+}
+function isAppleTouchBrowser() {
+  if (typeof navigator === "undefined") return false;
+  const userAgent = navigator.userAgent ?? "";
+  const platform = navigator.platform ?? "";
+  return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+}
+const SCALE_EPSILON = 0.05;
+const MAX_PAGE_SCALE = 3;
+const SAFARI_PAGE_ZOOM_STEPS = [1.15, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const ZOOM_STEP_TOLERANCE = 0.025;
+const MIN_AXIS_AGREEMENT = 0.97;
+const MAX_AXIS_AGREEMENT = 1.4;
+const APPLE_TOUCH_ADAPTER = "apple-touch-page-scale";
+const rememberedRectScales = /* @__PURE__ */ new WeakMap();
+function overlayPageScale(environment) {
+  if (!environment.appleTouch) return 1;
+  if (!positiveFinite(environment.innerWidth)) return 1;
+  if (positiveFinite(environment.outerWidth)) {
+  const surfaceScale = environment.outerWidth / environment.innerWidth;
+  if (Number.isFinite(surfaceScale) && surfaceScale > 1 + SCALE_EPSILON) {
+    return Math.min(surfaceScale, MAX_PAGE_SCALE);
+  }
+  }
+  return screenDerivedPageScale(environment);
+}
+function screenDerivedPageScale(environment) {
+  const { innerWidth, innerHeight, screenWidth, screenHeight } = environment;
+  if (!positiveFinite(innerHeight) || !positiveFinite(screenWidth) || !positiveFinite(screenHeight)) return 1;
+  const pairings = [
+  [screenWidth / innerWidth, screenHeight / innerHeight],
+  [screenHeight / innerWidth, screenWidth / innerHeight]
+  ];
+  for (const [widthRatio, heightRatio] of pairings) {
+  if (widthRatio <= 1 + SCALE_EPSILON) continue;
+  const step = nearestSafariZoomStep(widthRatio);
+  if (step === void 0) continue;
+  if (heightRatio < widthRatio * MIN_AXIS_AGREEMENT) continue;
+  if (heightRatio > widthRatio * MAX_AXIS_AGREEMENT) continue;
+  return step;
+  }
+  return 1;
+}
+function nearestSafariZoomStep(ratio) {
+  for (const step of SAFARI_PAGE_ZOOM_STEPS) {
+  if (Math.abs(ratio - step) <= step * ZOOM_STEP_TOLERANCE) return step;
+  }
+  return void 0;
+}
+function overlayViewport(environment = currentEnvironment()) {
+  const pageScale = overlayPageScale(environment);
+  return {
+  width: environment.innerWidth * pageScale,
+  height: environment.innerHeight * pageScale,
+  pageScale
+  };
+}
+function overlayViewportBounds(environment = currentEnvironment(), visualViewport = currentVisualViewport()) {
+  const pageScale = overlayPageScale(environment);
+  const width = positiveFinite(visualViewport?.width) ? visualViewport.width : environment.innerWidth;
+  const height = positiveFinite(visualViewport?.height) ? visualViewport.height : environment.innerHeight;
+  const left = finiteCoordinate(visualViewport?.offsetLeft) * pageScale;
+  const top = finiteCoordinate(visualViewport?.offsetTop) * pageScale;
+  const scaledWidth = width * pageScale;
+  const scaledHeight = height * pageScale;
+  return {
+  left,
+  top,
+  right: left + scaledWidth,
+  bottom: top + scaledHeight,
+  width: scaledWidth,
+  height: scaledHeight,
+  pageScale
+  };
+}
+function layoutPointToOverlay(point, pageScale = overlayViewport().pageScale) {
+  return {
+  x: point.x * pageScale,
+  y: point.y * pageScale
+  };
+}
+function sourceRectToOverlay(rect, source, pageScale = overlayViewport().pageScale) {
+  const rememberedScale = rememberedRectScales.get(rect);
+  const root = compensatedOverlayRoot(source);
+  const rectScale = rememberedScale ?? (root ? compensatedRootRectScale(root, pageScale) : pageScale);
+  const overlayRect = scaleRect(rect, rectScale);
+  rememberedRectScales.set(overlayRect, 1);
+  return overlayRect;
+}
+function compensatedOverlayRoot(source) {
+  const element2 = source instanceof Element ? source : source?.parentElement;
+  const root = element2?.closest(`[data-jpdb-reader-scale-adapter="${APPLE_TOUCH_ADAPTER}"]`);
+  return root instanceof HTMLElement ? root : null;
+}
+function applyOverlayPageScale(element2, environment = currentEnvironment()) {
+  const pageScale = overlayPageScale(environment);
+  if (pageScale === 1) {
+  clearOwnedScale(element2);
+  return pageScale;
+  }
+  const inverseScale = 1 / pageScale;
+  element2.style.setProperty("zoom", formatScale(inverseScale), "important");
+  element2.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
+  element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
+  element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  return pageScale;
+}
+function hasOverlayPageScale(element2) {
+  return element2?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
+}
+function currentEnvironment() {
+  return {
+  appleTouch: isAppleTouchBrowser(),
+  innerWidth: window.innerWidth,
+  innerHeight: window.innerHeight,
+  outerWidth: window.outerWidth,
+  screenWidth: window.screen?.width ?? 0,
+  screenHeight: window.screen?.height ?? 0
+  };
+}
+function currentVisualViewport() {
+  const viewport = window.visualViewport;
+  return viewport ? {
+  width: viewport.width,
+  height: viewport.height,
+  offsetLeft: viewport.offsetLeft,
+  offsetTop: viewport.offsetTop
+  } : void 0;
+}
+function clearOwnedScale(element2) {
+  if (!hasOverlayPageScale(element2)) return;
+  element2.style.removeProperty("zoom");
+  delete element2.dataset.jpdbReaderScaleAdapter;
+  delete element2.dataset.jpdbReaderPageScale;
+  delete element2.dataset.jpdbReaderScaleCompensation;
+}
+function compensatedRootRectScale(root, pageScale = overlayViewport().pageScale) {
+  if (pageScale === 1) return 1;
+  const rect = root.getBoundingClientRect();
+  const ratios = [
+  dimensionRatio(rect.width, root.offsetWidth),
+  dimensionRatio(rect.height, root.offsetHeight)
+  ].filter((ratio) => ratio !== void 0);
+  if (!ratios.length) return 1;
+  const measuredScale = ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
+  const inverseScale = Number.parseFloat(root.dataset.jpdbReaderScaleCompensation ?? "") || 1 / pageScale;
+  return Math.abs(measuredScale - inverseScale) < Math.abs(measuredScale - 1) ? pageScale : 1;
+}
+function dimensionRatio(rectSize, offsetSize) {
+  if (!positiveFinite(rectSize) || !positiveFinite(offsetSize)) return void 0;
+  return rectSize / offsetSize;
+}
+function scaleRect(rect, scale) {
+  return new DOMRect(rect.left * scale, rect.top * scale, rect.width * scale, rect.height * scale);
+}
+function positiveFinite(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+function finiteCoordinate(value) {
+  return Number.isFinite(value) ? value ?? 0 : 0;
+}
+function formatScale(value) {
+  return String(Number(value.toFixed(6)));
+}
+async function copyText(text2) {
+  if (navigator.clipboard?.writeText) {
+  try {
+    await navigator.clipboard.writeText(text2);
+    return;
+  } catch {
+  }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text2;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
+}
+function openUrlInNewTab(url) {
+  if (!isOpenableExternalUrl(url)) return false;
+  const userscriptOpen = userscriptOpenInTab();
+  if (userscriptOpen) {
+  try {
+    userscriptOpen(url, { active: true, insert: true, setParent: false });
+    return true;
+  } catch {
+  }
+  }
+  const opened = window.open(url, "_blank", "noopener");
+  if (opened) {
+  try {
+    opened.opener = null;
+  } catch {
+  }
+  return true;
+  }
+  return false;
+}
+function userscriptOpenInTab() {
+  if (typeof GM_openInTab === "function") return GM_openInTab;
+  if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
+  return void 0;
+}
+function isOpenableExternalUrl(value) {
+  try {
+  const url = new URL(value, location.href);
+  return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+  return false;
+  }
+}
+function runningAsBrowserExtension() {
+  const global = globalThis;
+  try {
+  return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
+  } catch {
+  return false;
+  }
+}
+const INSTALL_GUIDE_URL = `${DOCS_BASE_URL}getting-started`;
+const UPDATE_GUIDE_URL = `${INSTALL_GUIDE_URL}#update-an-existing-install`;
+const EXTERNAL_APP_HANDLERS = /* @__PURE__ */ new Set(["userscripts", "stay"]);
+const INTERCEPTING_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey", "violentmonkey", "greasemonkey", "scriptcat", "orangemonkey", "firemonkey", "adguard"]);
+const CHROMIUM_DASHBOARD_HANDLERS = /* @__PURE__ */ new Set(["tampermonkey"]);
+function scriptHandlerName(info) {
+  if (!info || typeof info !== "object") return "";
+  const handler = info.scriptHandler;
+  return typeof handler === "string" ? handler.trim() : "";
+}
+function readGmInfo() {
+  const g = globalThis;
+  return g.GM_info ?? g.GM?.info;
+}
+function hasCallableOpenInTab() {
+  const g = globalThis;
+  return typeof g.GM_openInTab === "function" || typeof g.GM?.openInTab === "function";
+}
+function readUserAgent() {
+  return typeof navigator === "object" && typeof navigator.userAgent === "string" ? navigator.userAgent : "";
+}
+function isChromiumBrowser(userAgent) {
+  return /(?:Chrome|Chromium|Edg)\/\d/i.test(userAgent);
+}
+function extensionStoreBrowser(userAgent) {
+  if (/Firefox\/\d/i.test(userAgent)) return "firefox";
+  if (/Safari\/\d/i.test(userAgent) && !isChromiumBrowser(userAgent)) return "safari";
+  return "chrome";
+}
+function detectYomuUpdateFlow(info = readGmInfo(), openInTabAvailable = hasCallableOpenInTab(), userAgent = readUserAgent(), isExtensionBuild = runningAsBrowserExtension()) {
+  if (isExtensionBuild) return { kind: "extension-store", handler: "", url: EXTENSION_STORE_URLS[extensionStoreBrowser(userAgent)] };
+  if (!info || typeof info !== "object") return { kind: "no-manager", handler: "", url: INSTALL_GUIDE_URL };
+  const handler = scriptHandlerName(info);
+  const normalizedHandler = handler.toLowerCase();
+  if (EXTERNAL_APP_HANDLERS.has(normalizedHandler)) return { kind: "external-manager", handler, url: USERSCRIPT_INSTALL_URL };
+  if (CHROMIUM_DASHBOARD_HANDLERS.has(normalizedHandler) && isChromiumBrowser(userAgent)) {
+  return { kind: "manager-dashboard", handler, url: UPDATE_GUIDE_URL };
+  }
+  if (INTERCEPTING_HANDLERS.has(normalizedHandler) || openInTabAvailable) return { kind: "manager", handler, url: USERSCRIPT_INSTALL_URL };
+  return { kind: "no-manager", handler, url: INSTALL_GUIDE_URL };
+}
+function updateFlowNoteKey(kind) {
+  switch (kind) {
+  case "manager-dashboard":
+    return "updateHelpNotesManagerDashboard";
+  case "external-manager":
+    return "updateHelpNotesExternalManager";
+  case "extension-store":
+    return "updateHelpNotesExtensionStore";
+  case "no-manager":
+    return "updateHelpNotesNoManager";
+  case "manager":
+  default:
+    return "updateHelpNotesManager";
+  }
+}
+function createAudioPreviewCard() {
+  return {
+  vid: 1456360,
+  sid: 0,
+  rid: 0,
+  spelling: "読む",
+  reading: "よむ",
+  frequencyRank: null,
+  partOfSpeech: [],
+  meanings: [],
+  cardState: [],
+  pitchAccent: [],
+  wordWithReading: null,
+  source: "jpdb"
+  };
+}
+new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
 function isTargetLanguageText(text2) {
   return activeLearningTarget().isLookupableText(text2);
 }
@@ -6241,9 +6432,6 @@ function isTargetDefaultOcrLanguageTag(value) {
 function targetAudioTemplateLanguageToken() {
   return activeLearningTarget().audio.templateLanguageToken;
 }
-function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
-  return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
-}
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 function splitTags(value) {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
@@ -6282,9 +6470,11 @@ function normalizeZipTermRow(row, dictionary) {
   if (!Array.isArray(row)) return null;
   const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
   if (typeof expression !== "string") return null;
+  const normalizedExpression = normalizeGenericLookupText(expression);
+  if (!normalizedExpression) return null;
   return {
-  expression,
-  reading: zipTermReading(reading, expression),
+  expression: normalizedExpression,
+  reading: normalizeGenericLookupText(zipTermReading(reading, expression)),
   definitionTags: zipStringField(definitionTags),
   rules: zipStringField(rules),
   score: zipNumberField(score, 0),
@@ -6327,7 +6517,7 @@ function normalizeZipKanjiRow(row, dictionary, version) {
 function normalizeZipTermMetaRow(row, dictionary) {
   if (!Array.isArray(row)) return null;
   const [expression, mode, data] = row;
-  return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
+  return typeof expression === "string" && typeof mode === "string" ? normalizeImportedLookupMeta({ expression, mode, data, dictionary }) : null;
 }
 function normalizeZipKanjiMetaRow(row, dictionary) {
   if (!Array.isArray(row)) return null;
@@ -55607,6 +55797,9 @@ function requestPublishedCatalog(url) {
   timeoutMs: 15e3
   });
 }
+function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
+  return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
+}
 const TERM_MATCH_SELECTION_COMPARATORS = [
   compareTermMatchLengthDescending,
   compareTermMatchDeinflectionDepth,
@@ -57136,9 +57329,11 @@ ${scopedInner}
     const record2 = dexieRowRecord(row);
     if (!record2) return null;
     if (typeof record2.expression !== "string" || typeof record2.dictionary !== "string") return null;
+    const expression = normalizeGenericLookupText(record2.expression);
+    if (!expression) return null;
     return {
-      expression: record2.expression,
-      reading: dexieStringField(record2, "reading", record2.expression),
+      expression,
+      reading: normalizeGenericLookupText(dexieStringField(record2, "reading", record2.expression)),
       definitionTags: dexieStringField(record2, "definitionTags"),
       rules: dexieStringField(record2, "rules"),
       score: dexieNumberField(record2, "score", 0),
@@ -57184,7 +57379,12 @@ ${scopedInner}
   }
   function normalizeDexieTermMetaRow(row) {
     const record2 = dexieTermMetaRecord(row);
-    return record2 ? { expression: record2.expression, mode: record2.mode, data: record2.data, dictionary: record2.dictionary } : null;
+    return record2 ? normalizeImportedLookupMeta({
+      expression: record2.expression,
+      mode: record2.mode,
+      data: record2.data,
+      dictionary: record2.dictionary
+    }) : null;
   }
   function normalizeDexieKanjiMetaRow(row) {
     const record2 = dexieKanjiMetaRecord(row);
@@ -57612,7 +57812,7 @@ ${entry.reading}`;
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 4;
+  const DB_VERSION = 5;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
@@ -57707,16 +57907,25 @@ ${entry.reading}`;
       return entry.promise;
     }
     async lookup(expression, reading, limit, preferences = []) {
+      const expressionVariants = genericLookupTextVariants(expression);
+      const readingVariants = genericLookupTextVariants(reading);
+      const normalizedExpression = expressionVariants[0] ?? "";
+      const normalizedReading = readingVariants[0] ?? "";
       return this.getHotLookup(
-        this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
+        this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$7.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$7.time("Term lookup", {
+            expression: normalizedExpression,
+            reading: normalizedReading,
+            limit,
+            dictionaries: preferences.length
+          });
           try {
             const db = await this.db();
             const entries2 = await this.getTermLookupEntries(
               db,
-              expression,
-              reading && reading !== expression ? reading : "",
+              expressionVariants,
+              readingVariants.filter((item) => !expressionVariants.includes(item)),
               Math.max(limit * 40, 500),
               Math.max(limit * 20, 250)
             );
@@ -57726,16 +57935,20 @@ ${entry.reading}`;
               entries2,
               rank,
               void 0,
-              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
+              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(expressionVariants.includes(b.expression)) - Number(expressionVariants.includes(a.expression)) || Number(readingVariants.includes(b.reading)) - Number(readingVariants.includes(a.reading)) || (b.score ?? 0) - (a.score ?? 0)
             ).filter((entry) => {
               const key = termLookupDedupKey(entry);
               if (seen.has(key)) return false;
               seen.add(key);
               return true;
             });
-            return selectTermLookupResults(ranked, expression, reading, limit);
+            return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$7.warn("Term lookup failed", { expression, reading, error });
+            log$7.warn("Term lookup failed", {
+              expression: normalizedExpression,
+              reading: normalizedReading,
+              error
+            });
             throw error;
           } finally {
             done();
@@ -57808,18 +58021,30 @@ ${entry.reading}`;
       }
     }
     async lookupTermMeta(expression, limit, preferences = []) {
+      const expressionVariants = genericLookupTextVariants(expression);
+      const normalizedExpression = expressionVariants[0] ?? "";
       return this.getHotLookup(
-        this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
+        this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$7.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$7.time("Term metadata lookup", {
+            expression: normalizedExpression,
+            limit,
+            dictionaries: preferences.length
+          });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
-            const entries2 = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
+            const entries2 = await this.getManyByIndex(
+              db,
+              "termMeta",
+              "expression",
+              [...expressionVariants],
+              Math.max(limit * 8, 80)
+            );
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$7.warn("Term metadata lookup failed", { expression, error });
+            log$7.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -57911,12 +58136,25 @@ ${entry.reading}`;
         }
         return candidates;
       }
+      if (target.lookupSubsegments) {
+        this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
+        return candidates;
+      }
       const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source.length);
       for (let start = from; start < to; start++) {
         if (!target.isLookupableText(source[start])) continue;
         this.collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates);
       }
       return candidates;
+    }
+    collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates) {
+      for (const segment of this.segmentedSource(source, target)) {
+        if (segment.start < from || segment.start >= to) continue;
+        for (const surface of target.lookupSubsegments(segment.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
+          if (!isSearchableTargetSurface(surface, target)) continue;
+          this.addTargetTermCandidates(target, surface, segment.start, candidates);
+        }
+      }
     }
     /**
      * One segmentation per `findTermMatches` call rather than one per window:
@@ -57941,9 +58179,11 @@ ${entry.reading}`;
     addTargetTermCandidates(target, surface, start, candidates) {
       for (const deinflected of target.lookupCandidates(surface)) {
         if (!target.isLookupableText(deinflected.term)) continue;
-        const positions = candidates.get(deinflected.term) ?? [];
-        positions.push({ start, end: start + surface.length, surface, deinflected });
-        candidates.set(deinflected.term, positions);
+        for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
+          const positions = candidates.get(lookupTerm) ?? [];
+          positions.push({ start, end: start + surface.length, surface, deinflected });
+          candidates.set(lookupTerm, positions);
+        }
       }
     }
     async lookupTermMatchCandidates(candidates, preferences) {
@@ -58558,14 +58798,15 @@ ${entry.reading}`;
     }
     async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
       if (!entries2.length) return;
+      const normalizedEntries = storeName === "terms" ? entries2.map((entry) => normalizeImportedLookupTerm(entry)) : storeName === "termMeta" ? entries2.map((entry) => normalizeImportedLookupMeta(entry)) : entries2;
       const db = await this.db();
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
-      for (let start = 0; start < entries2.length; start += STORE_WRITE_BATCH_SIZE) {
-        const chunk = entries2.slice(start, start + STORE_WRITE_BATCH_SIZE);
+      for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
+        const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
         await this.addStoreChunk(db, storeName, chunk, put);
         written += chunk.length;
-        onChunk?.(written, entries2.length);
+        onChunk?.(written, normalizedEntries.length);
         await nextTask();
       }
     }
@@ -58618,10 +58859,18 @@ ${entry.reading}`;
         tx.onerror = () => fail2(tx.error);
       });
     }
-    async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
+    async getTermLookupEntries(db, expressions, readings, expressionLimit, readingLimit) {
       const queries = [
-        { indexName: "expression", range: IDBKeyRange.only(expression), limit: expressionLimit },
-        ...reading ? [{ indexName: "reading", range: IDBKeyRange.only(reading), limit: readingLimit }] : []
+        ...expressions.map((expression) => ({
+          indexName: "expression",
+          range: IDBKeyRange.only(expression),
+          limit: expressionLimit
+        })),
+        ...readings.map((reading) => ({
+          indexName: "reading",
+          range: IDBKeyRange.only(reading),
+          limit: readingLimit
+        }))
       ];
       return this.getTermIndexEntries(db, queries);
     }
@@ -59073,6 +59322,13 @@ ${entry.reading}`;
           const termKanji = ensureStore(db, tx, "termKanji");
           ensureIndex(termKanji, "character", "character");
           ensureIndex(termKanji, "dictionary", "dictionary");
+          if (event.oldVersion > 0 && event.oldVersion < 5) {
+            clearTimeout(openTimeout);
+            normalizeStoredLookupTerms(terms);
+            normalizeStoredLookupMeta(termMeta);
+            termSearch.clear();
+            termKanji.clear();
+          }
         };
         request.onsuccess = () => {
           clearTimeout(openTimeout);
@@ -59185,17 +59441,17 @@ ${entry.expression}
 ${entry.reading}
 ${glossaryKey}`;
   }
-  function selectTermLookupResults(ranked, expression, reading, limit) {
+  function selectTermLookupResults(ranked, expressions, readings, limit) {
     const boundedLimit = Math.max(0, Math.floor(limit));
     if (!boundedLimit || ranked.length <= boundedLimit) return ranked.slice(0, boundedLimit);
-    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
+    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expressions, readings).slice(0, boundedLimit));
     fillTermLookupSelection(selected, ranked, boundedLimit);
     return ranked.filter((entry) => selected.has(entry)).slice(0, boundedLimit);
   }
-  function firstExactTermEntriesByDictionary(ranked, expression, reading) {
+  function firstExactTermEntriesByDictionary(ranked, expressions, readings) {
     const firstExactByDictionary = /* @__PURE__ */ new Map();
     for (const entry of ranked) {
-      if (!isExactTermLookupEntry(entry, expression, reading)) continue;
+      if (!isExactTermLookupEntry(entry, expressions, readings)) continue;
       if (!firstExactByDictionary.has(entry.dictionary)) firstExactByDictionary.set(entry.dictionary, entry);
     }
     return Array.from(firstExactByDictionary.values());
@@ -59206,9 +59462,9 @@ ${glossaryKey}`;
       selected.add(entry);
     }
   }
-  function isExactTermLookupEntry(entry, expression, reading) {
-    const hasKnownReading = Boolean(reading && reading !== expression);
-    return entry.expression === expression && (!hasKnownReading || entry.reading === reading);
+  function isExactTermLookupEntry(entry, expressions, readings) {
+    const knownReadings = readings.filter((reading) => !expressions.includes(reading));
+    return expressions.includes(entry.expression) && (!knownReadings.length || knownReadings.includes(entry.reading));
   }
   function bestTermLookupEntry(entries2, expression, rank) {
     const seen = /* @__PURE__ */ new Set();
@@ -59225,7 +59481,7 @@ ${glossaryKey}`;
     return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
   }
   function normalizeTermSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim().slice(0, 80);
+    return normalizeGenericLookupText(value).slice(0, 80);
   }
   function shouldSearchTermGlossaries(query) {
     return !JAPANESE_RE.test(query);
@@ -59355,6 +59611,32 @@ ${glossaryKey}`;
   function isKanji(value) {
     const code = value.codePointAt(0) ?? 0;
     return code >= 13312 && code <= 40959;
+  }
+  function normalizeStoredLookupTerms(store) {
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const entry = cursor.value;
+      if (entry && typeof entry.expression === "string" && typeof entry.reading === "string") {
+        const normalized = normalizeImportedLookupTerm(entry);
+        if (normalized !== entry) cursor.update(normalized);
+      }
+      cursor.continue();
+    };
+  }
+  function normalizeStoredLookupMeta(store) {
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const entry = cursor.value;
+      if (entry && typeof entry.expression === "string") {
+        const normalized = normalizeImportedLookupMeta(entry);
+        if (normalized !== entry) cursor.update(normalized);
+      }
+      cursor.continue();
+    };
   }
   function ensureStore(db, tx, name) {
     return db.objectStoreNames.contains(name) ? tx.objectStore(name) : db.createObjectStore(name, { keyPath: "id", autoIncrement: true });

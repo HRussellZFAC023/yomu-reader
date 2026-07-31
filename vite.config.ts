@@ -157,6 +157,16 @@ function readerResolveConfig(command: string) {
             path.join(configRoot, 'src', 'reader', 'dictionaries', 'catalog', 'runtime-catalog-extension-content.ts');
     }
     if (shouldUseGreasyForkCompanions(command)) {
+        const targetRuntimeCompanion = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'languages',
+            'target-runtime-companion.ts',
+        );
+        alias['./target-runtime'] = targetRuntimeCompanion;
+        alias['../languages/target-runtime'] = targetRuntimeCompanion;
+        alias['../../languages/target-runtime'] = targetRuntimeCompanion;
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
         // Companion-backed facades: core imports the ordinary module path and
         // the split build swaps in the delegating shell, so the implementation

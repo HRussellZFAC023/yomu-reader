@@ -1,5 +1,5 @@
 import { cardHighlightTargets } from '../cards/highlight';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { cardPronunciationReading } from '../popup/pitch';
 import { cardKey } from './index';
 import type { JPDBCard } from '../app/types';

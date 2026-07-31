@@ -22,7 +22,7 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 7 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -31,7 +31,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 6 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [6] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [7] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -281,6 +281,15 @@ export interface LearningTargetModule {
      * and lets the dictionary arbitrate.
      */
     readonly lookupStartsAtSegmentBoundary: boolean;
+    /**
+     * Bounded lookup surfaces inside one target segment.
+     *
+     * Absent means the target either trusts its segment boundaries or, when
+     * `lookupStartsAtSegmentBoundary` is false, needs the established
+     * all-position sweep. A target supplies this only when it can name a
+     * narrower safe strategy, such as Korean particle stripping.
+     */
+    readonly lookupSubsegments?: (segment: string, maxLength: number) => readonly string[];
 
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;

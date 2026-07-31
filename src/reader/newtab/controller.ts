@@ -76,7 +76,7 @@ import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
 import { matchesShortcut } from '../settings';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import { isolate } from '../locales/direction';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta, localPitchPatternsFromMetaLookup } from '../lookup/pitch-meta';

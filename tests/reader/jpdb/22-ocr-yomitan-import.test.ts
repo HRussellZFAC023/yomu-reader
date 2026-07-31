@@ -224,7 +224,7 @@ describe('reader helpers', () => {
 
         await store.importFile(file);
         const importTermSearchCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const count = db.transaction('termSearch', 'readonly').objectStore('termSearch').count();
@@ -257,7 +257,7 @@ describe('reader helpers', () => {
         expect((await store.searchTerms('diagram', 5)).map(entry => entry.expression)).toContain('検索用説明');
         expect((await store.searchTerms('xref-only', 5)).map(entry => entry.expression)).not.toContain('属性だけ');
         const termSearchCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const count = db.transaction('termSearch', 'readonly').objectStore('termSearch').count();
@@ -294,7 +294,7 @@ describe('reader helpers', () => {
 
         await store.importFile(file);
         const termKanjiCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const count = db.transaction('termKanji', 'readonly').objectStore('termKanji').count();
@@ -313,7 +313,7 @@ describe('reader helpers', () => {
         expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['猫舌', '山猫']);
 
         const indexedTermKanjiCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const count = db.transaction('termKanji', 'readonly').objectStore('termKanji').count();
@@ -385,7 +385,7 @@ describe('reader helpers', () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
         await new Promise<void>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const tx = db.transaction('terms', 'readwrite');
@@ -436,7 +436,7 @@ describe('reader helpers', () => {
         })).map(entry => entry.expression)).toContain('猫');
 
         const termSearchCount = await new Promise<number>((resolve, reject) => {
-            const request = indexedDB.open('jpdb-popup-reader-yomitan', 4);
+            const request = indexedDB.open('jpdb-popup-reader-yomitan', 5);
             request.onsuccess = () => {
                 const db = request.result;
                 const count = db.transaction('termSearch', 'readonly').objectStore('termSearch').count();

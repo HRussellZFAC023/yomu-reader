@@ -1,4 +1,5 @@
 import { createLearningTargetModule } from './module';
+import { koreanLookupSubsegments } from './lookup-policies';
 import type { LearningTargetModule } from './types';
 
 /**
@@ -13,9 +14,7 @@ const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
  * A deliberately thin second target. It exists to prove the contract is real:
  * it ships surface-form dictionary lookup but no deinflection or reading data,
  * and it says so through its capability flags. Everything it does
- * not declare falls back to the generic behaviour in `module.ts` — whitespace
- * segmentation (which is genuinely how Korean eojeol are written), NFKC text
- * normalization, no morphology, and Intl-derived locale facts.
+ * not declare falls back to the generic behaviour in `module.ts`.
  *
  * Registering it required zero changes to any core call site.
  */
@@ -39,5 +38,9 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     subtitles: {
         languageAliases: ['kor', 'korean'],
     },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
     detectsText: HAS_HANGUL,
 });

@@ -35,6 +35,24 @@ const settings = {
     enableLogging: false,
 };
 
+function settingsForTarget(targetLanguage) {
+    return {
+        ...settings,
+        activeLanguageProfileId: 'boot-smoke',
+        languageProfiles: [{
+            schemaVersion: 2,
+            id: 'boot-smoke',
+            outputLanguage: 'en',
+            learnerLanguage: 'en',
+            targetLanguage,
+            uiLocale: 'en',
+            parserProvider: 'auto',
+            dictionaries: { installed: [], enabled: [], order: [] },
+            definitionTranslationProviderIds: [],
+        }],
+    };
+}
+
 const fixture = await startLoopbackServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     response.end('<!doctype html><html><head><title>Plain boot fixture</title></head><body><main>Plain page</main></body></html>');
@@ -42,8 +60,8 @@ const fixture = await startLoopbackServer((_request, response) => {
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 try {
     const reports = [
-        await bootScenario('plain', fixture.origin),
-        await bootScenario('youtube', 'https://www.youtube.com/watch?v=yomu-runtime-boot'),
+        await bootScenario('plain', fixture.origin, 'ja'),
+        await bootScenario('youtube', 'https://www.youtube.com/watch?v=yomu-runtime-boot', 'ko'),
     ];
     console.log(JSON.stringify({ fixture: true, reports }, null, 2));
     console.log('userscript boot smoke passed');
@@ -51,7 +69,7 @@ try {
     await closeSmokeBrowserAndServer(browser, fixture.server);
 }
 
-async function bootScenario(name, url) {
+async function bootScenario(name, url, targetLanguage) {
     const context = await browser.newContext({ bypassCSP: true });
     const page = await context.newPage();
     const errors = [];
@@ -59,7 +77,10 @@ async function bootScenario(name, url) {
     page.on('console', message => {
         if (message.type() === 'error' && /\bYomu\b/i.test(message.text())) errors.push(message.text());
     });
-    await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: settingsForTarget(targetLanguage),
+    });
     if (name === 'youtube') {
         await page.route('https://www.youtube.com/**', route => route.fulfill({
             contentType: 'text/html; charset=utf-8',
@@ -85,6 +106,7 @@ async function bootScenario(name, url) {
                 runtimeHealth: marker?.getAttribute('data-yomu-runtime-health') ?? '',
                 missingServices: marker?.getAttribute('data-yomu-runtime-missing-services') ?? '',
                 companionSlots: Object.keys(globalThis.__yomuCompanions ?? {}).sort(),
+                targetLanguage: globalThis.__yomuCompanions?.learningTargets?.activeLearningTargetLanguage?.() ?? '',
                 fab: Boolean(document.querySelector('.jpdb-reader-fab')),
                 video: Boolean(document.querySelector('video')),
             };
@@ -92,6 +114,7 @@ async function bootScenario(name, url) {
         assert(snapshot.runtimeKind === 'userscript', `${name}: built artifact did not claim userscript runtime`, snapshot);
         assert(snapshot.runtimeHealth === 'ready', `${name}: runtime health is not ready`, snapshot);
         assert(snapshot.missingServices === '', `${name}: consolidated runtime missed companion services`, snapshot);
+        assert(snapshot.targetLanguage === targetLanguage, `${name}: core and runtime disagree on the active learning target`, snapshot);
         assert(snapshot.fab, `${name}: reader FAB did not boot`, snapshot);
         assert(errors.length === 0, `${name}: userscript boot emitted errors`, { errors, snapshot });
         return { name, ...snapshot };

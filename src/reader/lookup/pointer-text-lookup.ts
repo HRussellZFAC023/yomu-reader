@@ -1,5 +1,6 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
+import type { LearningTargetModule } from '../languages/types';
 import {
     hasTargetPointerWord,
     targetPointerWordAt,
@@ -164,6 +165,9 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
         const term = text.slice(run.start, run.end).trim();
         return term ? [{ term, start: run.start, end: run.end }] : [];
     }
+    if (target.lookupSubsegments) {
+        return pointerSuffixStrippedCandidates(text, run, target);
+    }
     const candidates: PointerTextSpanCandidate[] = [];
     pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
     const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
@@ -178,6 +182,18 @@ export function jpdbPointerLookupCandidates(text: string, offset: number): Point
         }
     }
     return candidates;
+}
+
+function pointerSuffixStrippedCandidates(
+    text: string,
+    run: TargetPointerWord,
+    target: LearningTargetModule,
+): PointerTextSpanCandidate[] {
+    const runText = text.slice(run.start, run.end);
+    const relativeOffset = run.offset - run.start;
+    return target.lookupSubsegments!(runText, JPDB_POINTER_CANDIDATE_MAX_LENGTH)
+        .filter(term => relativeOffset < term.length)
+        .map(term => ({ term, start: run.start, end: run.start + term.length }));
 }
 
 function pointerBoundaryCandidate(text: string, run: TargetPointerWord): PointerTextSpanCandidate | null {

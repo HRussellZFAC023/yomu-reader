@@ -5,7 +5,7 @@ import { sha256Hex } from '../../src/reader/dictionaries/catalog';
 import { yomitanZipBlob } from './zip-fixture';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const activeStores: YomitanDictionaryStore[] = [];
 
 describe('Yomitan ZIP import performance path', () => {

@@ -1,5 +1,5 @@
 import { normalizePitchPatternsForReading, pitchNumberForReading, pitchPatternFromPosition } from './pitch-accent';
-import { targetLookupCandidates } from '../languages/morphology';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { COMBINING_KANA_MARKS, KANA } from './japanese-script';
 
@@ -47,7 +47,7 @@ const KANA_SUFFIX_RE = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]*$`, 'u');
 // conjugation; an accented base moves its downstep per inflection type, and a
 // guessed position would paint a confidently wrong accent.
 async function deconjugatedHeibanPitchPatterns(expression: string, reading: string, lookupMeta: PitchMetaLookup): Promise<string[]> {
-    const candidates = targetLookupCandidates(expression)
+    const candidates = activeLearningTarget().lookupCandidates(expression)
         .filter(candidate => candidate.term !== expression)
         .slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
     for (const candidate of candidates) {

@@ -1,4 +1,4 @@
-import { activeLearningTarget } from '../languages/active';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { LanguageTextSegment } from '../languages/types';
 
 /** Matches the Japanese fallback path's cap so migrated callers keep its shape. */

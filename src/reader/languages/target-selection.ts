@@ -1,4 +1,4 @@
-import { adoptLearningTargetLanguage } from './active';
+import { adoptLearningTargetLanguage } from './target-runtime';
 import { resolveLanguageProfile } from './profiles';
 import type { LearningTargetModule } from './types';
 

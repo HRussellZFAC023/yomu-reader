@@ -1,6 +1,5 @@
-import { activeLearningTarget } from './active';
+import { activeLearningTarget, registeredLearningTargetModules } from './target-runtime';
 import { languageDisplayName, languageSubtag } from './locale';
-import { registeredLearningTargetModules } from './registry';
 import type { LanguageTag } from './types';
 
 /**

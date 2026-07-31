@@ -1,4 +1,10 @@
-import { activeLearningTarget } from '../../languages/active';
+import { activeLearningTarget } from '../../languages/target-runtime';
+import {
+    genericLookupTextVariants,
+    normalizeGenericLookupText,
+    normalizeImportedLookupMeta,
+    normalizeImportedLookupTerm,
+} from '../../languages/lookup-normalization';
 import type { LanguageTextSegment, LearningTargetModule } from '../../languages/types';
 import {
     isSearchableTargetSurface,
@@ -93,7 +99,7 @@ import type {
 import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemplate } from './import-progress';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const DB_OPEN_TIMEOUT_MS = 10_000;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DICTIONARY_DELETE_BATCH_SIZE = 5000;
@@ -272,16 +278,25 @@ export class YomitanDictionaryStore {
     }
 
     async lookup(expression: string, reading: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanTermEntry[]> {
+        const expressionVariants = genericLookupTextVariants(expression);
+        const readingVariants = genericLookupTextVariants(reading);
+        const normalizedExpression = expressionVariants[0] ?? '';
+        const normalizedReading = readingVariants[0] ?? '';
         return this.getHotLookup(
-            this.hotLookupCacheKey('lookup', [expression, reading, limit], preferences),
+            this.hotLookupCacheKey('lookup', [...expressionVariants, ...readingVariants, limit], preferences),
             async () => {
-                const done = log.time('Term lookup', { expression, reading, limit, dictionaries: preferences.length });
+                const done = log.time('Term lookup', {
+                    expression: normalizedExpression,
+                    reading: normalizedReading,
+                    limit,
+                    dictionaries: preferences.length,
+                });
                 try {
                     const db = await this.db();
                     const entries = await this.getTermLookupEntries(
                         db,
-                        expression,
-                        reading && reading !== expression ? reading : '',
+                        expressionVariants,
+                        readingVariants.filter(item => !expressionVariants.includes(item)),
                         Math.max(limit * 40, 500),
                         Math.max(limit * 20, 250),
                     );
@@ -294,8 +309,8 @@ export class YomitanDictionaryStore {
                         undefined,
                         (a, b) =>
                             dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
-                            || Number(b.expression === expression) - Number(a.expression === expression)
-                            || Number(b.reading === reading) - Number(a.reading === reading)
+                            || Number(expressionVariants.includes(b.expression)) - Number(expressionVariants.includes(a.expression))
+                            || Number(readingVariants.includes(b.reading)) - Number(readingVariants.includes(a.reading))
                             || (b.score ?? 0) - (a.score ?? 0),
                     ).filter(entry => {
                             const key = termLookupDedupKey(entry);
@@ -303,9 +318,13 @@ export class YomitanDictionaryStore {
                             seen.add(key);
                             return true;
                         });
-                    return selectTermLookupResults(ranked, expression, reading, limit);
+                    return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
                 } catch (error) {
-                    log.warn('Term lookup failed', { expression, reading, error });
+                    log.warn('Term lookup failed', {
+                        expression: normalizedExpression,
+                        reading: normalizedReading,
+                        error,
+                    });
                     throw error;
                 } finally {
                     done();
@@ -385,21 +404,33 @@ export class YomitanDictionaryStore {
     }
 
     async lookupTermMeta(expression: string, limit: number, preferences: DictionaryPreference[] = []): Promise<YomitanMetaEntry[]> {
+        const expressionVariants = genericLookupTextVariants(expression);
+        const normalizedExpression = expressionVariants[0] ?? '';
         return this.getHotLookup(
-            this.hotLookupCacheKey('lookupTermMeta', [expression, limit], preferences),
+            this.hotLookupCacheKey('lookupTermMeta', [...expressionVariants, limit], preferences),
             async () => {
-                const done = log.time('Term metadata lookup', { expression, limit, dictionaries: preferences.length });
+                const done = log.time('Term metadata lookup', {
+                    expression: normalizedExpression,
+                    limit,
+                    dictionaries: preferences.length,
+                });
                 try {
                     const db = await this.db();
                     const rank = dictionaryRank(preferences);
-                    const entries = await this.getByIndex<YomitanMetaEntry>(db, 'termMeta', 'expression', expression, Math.max(limit * 8, 80));
+                    const entries = await this.getManyByIndex<YomitanMetaEntry>(
+                        db,
+                        'termMeta',
+                        'expression',
+                        [...expressionVariants],
+                        Math.max(limit * 8, 80),
+                    );
                     const results = entries
                         .filter(entry => dictionaryEnabled(entry.dictionary, rank))
                         .sort((a, b) => compareMetaEntries(a, b, rank))
                         .slice(0, limit);
                     return results;
                 } catch (error) {
-                    log.warn('Term metadata lookup failed', { expression, error });
+                    log.warn('Term metadata lookup failed', { expression: normalizedExpression, error });
                     throw error;
                 } finally {
                     done();
@@ -520,12 +551,32 @@ export class YomitanDictionaryStore {
             }
             return candidates;
         }
+        if (target.lookupSubsegments) {
+            this.collectSuffixStrippedTermMatchCandidates(target, source, from, to, candidates);
+            return candidates;
+        }
         const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source.length);
         for (let start = from; start < to; start++) {
             if (!target.isLookupableText(source[start])) continue;
             this.collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates);
         }
         return candidates;
+    }
+
+    private collectSuffixStrippedTermMatchCandidates(
+        target: LearningTargetModule,
+        source: string,
+        from: number,
+        to: number,
+        candidates: TermMatchCandidates,
+    ): void {
+        for (const segment of this.segmentedSource(source, target)) {
+            if (segment.start < from || segment.start >= to) continue;
+            for (const surface of target.lookupSubsegments!(segment.text, TERM_MATCH_MAX_SURFACE_CHARS)) {
+                if (!isSearchableTargetSurface(surface, target)) continue;
+                this.addTargetTermCandidates(target, surface, segment.start, candidates);
+            }
+        }
     }
 
     /**
@@ -564,9 +615,15 @@ export class YomitanDictionaryStore {
     ): void {
         for (const deinflected of target.lookupCandidates(surface)) {
             if (!target.isLookupableText(deinflected.term)) continue;
-            const positions = candidates.get(deinflected.term) ?? [];
-            positions.push({ start, end: start + surface.length, surface, deinflected });
-            candidates.set(deinflected.term, positions);
+            // Dictionary imports and direct lookups cross the same Unicode
+            // boundary. Keep the raw target candidate as a fallback for legacy
+            // rows, but index the canonical spelling too. Surface coordinates
+            // and the target's morphological analysis remain untouched.
+            for (const lookupTerm of genericLookupTextVariants(deinflected.term)) {
+                const positions = candidates.get(lookupTerm) ?? [];
+                positions.push({ start, end: start + surface.length, surface, deinflected });
+                candidates.set(lookupTerm, positions);
+            }
         }
     }
 
@@ -1284,14 +1341,19 @@ export class YomitanDictionaryStore {
         onChunk?: (written: number, total: number) => void,
     ): Promise<void> {
         if (!entries.length) return;
+        const normalizedEntries = storeName === 'terms'
+            ? entries.map(entry => normalizeImportedLookupTerm(entry as YomitanTermEntry) as T)
+            : storeName === 'termMeta'
+                ? entries.map(entry => normalizeImportedLookupMeta(entry as YomitanMetaEntry) as T)
+            : entries;
         const db = await this.db();
         if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db);
         let written = 0;
-        for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
-            const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
+        for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
+            const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
             await this.addStoreChunk(db, storeName, chunk, put);
             written += chunk.length;
-            onChunk?.(written, entries.length);
+            onChunk?.(written, normalizedEntries.length);
             await nextTask();
         }
     }
@@ -1349,10 +1411,24 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private async getTermLookupEntries(db: IDBDatabase, expression: string, reading: string, expressionLimit: number, readingLimit: number): Promise<YomitanTermEntry[]> {
+    private async getTermLookupEntries(
+        db: IDBDatabase,
+        expressions: readonly string[],
+        readings: readonly string[],
+        expressionLimit: number,
+        readingLimit: number,
+    ): Promise<YomitanTermEntry[]> {
         const queries = [
-            { indexName: 'expression', range: IDBKeyRange.only(expression), limit: expressionLimit },
-            ...(reading ? [{ indexName: 'reading', range: IDBKeyRange.only(reading), limit: readingLimit }] : []),
+            ...expressions.map(expression => ({
+                indexName: 'expression',
+                range: IDBKeyRange.only(expression),
+                limit: expressionLimit,
+            })),
+            ...readings.map(reading => ({
+                indexName: 'reading',
+                range: IDBKeyRange.only(reading),
+                limit: readingLimit,
+            })),
         ];
         return this.getTermIndexEntries(db, queries);
     }
@@ -1913,6 +1989,21 @@ export class YomitanDictionaryStore {
                 ensureIndex(termKanji, 'character', 'character');
                 ensureIndex(termKanji, 'dictionary', 'dictionary');
 
+                if (event.oldVersion > 0 && event.oldVersion < 5) {
+                    // v4 stored importer spellings verbatim while generic query
+                    // paths used compatibility normalization. Normalize both
+                    // indexed row types in the upgrade transaction so existing
+                    // installs cross the same boundary as new imports. Do not
+                    // reject the open on the ordinary 10-second deadline while
+                    // this active cursor migration continues behind it.
+                    clearTimeout(openTimeout);
+                    normalizeStoredLookupTerms(terms);
+                    normalizeStoredLookupMeta(termMeta);
+                    // These stores copy term payloads. Rebuild them lazily from
+                    // the normalized source rows after the upgrade commits.
+                    termSearch.clear();
+                    termKanji.clear();
+                }
             };
             request.onsuccess = () => {
                 clearTimeout(openTimeout);
@@ -2043,8 +2134,8 @@ function termLookupDedupKey(entry: YomitanTermEntry): string {
 
 function selectTermLookupResults(
     ranked: YomitanTermEntry[],
-    expression: string,
-    reading: string,
+    expressions: readonly string[],
+    readings: readonly string[],
     limit: number,
 ): YomitanTermEntry[] {
     const boundedLimit = Math.max(0, Math.floor(limit));
@@ -2054,19 +2145,19 @@ function selectTermLookupResults(
     // before filling the remaining global cap. This keeps a lower-priority
     // source from disappearing merely because a higher-priority dictionary has
     // many senses for the same headword; it does not create empty source cards.
-    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expression, reading).slice(0, boundedLimit));
+    const selected = new Set(firstExactTermEntriesByDictionary(ranked, expressions, readings).slice(0, boundedLimit));
     fillTermLookupSelection(selected, ranked, boundedLimit);
     return ranked.filter(entry => selected.has(entry)).slice(0, boundedLimit);
 }
 
 function firstExactTermEntriesByDictionary(
     ranked: YomitanTermEntry[],
-    expression: string,
-    reading: string,
+    expressions: readonly string[],
+    readings: readonly string[],
 ): YomitanTermEntry[] {
     const firstExactByDictionary = new Map<string, YomitanTermEntry>();
     for (const entry of ranked) {
-        if (!isExactTermLookupEntry(entry, expression, reading)) continue;
+        if (!isExactTermLookupEntry(entry, expressions, readings)) continue;
         if (!firstExactByDictionary.has(entry.dictionary)) firstExactByDictionary.set(entry.dictionary, entry);
     }
     return Array.from(firstExactByDictionary.values());
@@ -2079,9 +2170,14 @@ function fillTermLookupSelection(selected: Set<YomitanTermEntry>, ranked: Yomita
     }
 }
 
-function isExactTermLookupEntry(entry: YomitanTermEntry, expression: string, reading: string): boolean {
-    const hasKnownReading = Boolean(reading && reading !== expression);
-    return entry.expression === expression && (!hasKnownReading || entry.reading === reading);
+function isExactTermLookupEntry(
+    entry: YomitanTermEntry,
+    expressions: readonly string[],
+    readings: readonly string[],
+): boolean {
+    const knownReadings = readings.filter(reading => !expressions.includes(reading));
+    return expressions.includes(entry.expression)
+        && (!knownReadings.length || knownReadings.includes(entry.reading));
 }
 
 function bestTermLookupEntry(
@@ -2112,7 +2208,7 @@ function compareTermLookupEntries(
 }
 
 function normalizeTermSearchQuery(value: string): string {
-    return value.replace(/\s+/g, ' ').trim().slice(0, 80);
+    return normalizeGenericLookupText(value).slice(0, 80);
 }
 
 function shouldSearchTermGlossaries(query: string): boolean {
@@ -2288,6 +2384,34 @@ function reservoirSample<T>(items: T[], limit: number): T[] {
 function isKanji(value: string): boolean {
     const code = value.codePointAt(0) ?? 0;
     return code >= 0x3400 && code <= 0x9fff;
+}
+
+function normalizeStoredLookupTerms(store: IDBObjectStore): void {
+    const request = store.openCursor();
+    request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const entry = cursor.value as Partial<YomitanTermEntry> | null;
+        if (entry && typeof entry.expression === 'string' && typeof entry.reading === 'string') {
+            const normalized = normalizeImportedLookupTerm(entry as YomitanTermEntry);
+            if (normalized !== entry) cursor.update(normalized);
+        }
+        cursor.continue();
+    };
+}
+
+function normalizeStoredLookupMeta(store: IDBObjectStore): void {
+    const request = store.openCursor();
+    request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const entry = cursor.value as Partial<YomitanMetaEntry> | null;
+        if (entry && typeof entry.expression === 'string') {
+            const normalized = normalizeImportedLookupMeta(entry as YomitanMetaEntry);
+            if (normalized !== entry) cursor.update(normalized);
+        }
+        cursor.continue();
+    };
 }
 
 function ensureStore(db: IDBDatabase, tx: IDBTransaction, name: InternalStoreName): IDBObjectStore {

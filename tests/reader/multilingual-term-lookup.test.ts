@@ -27,6 +27,8 @@ import type { LanguageLookupCandidate } from '../../src/reader/languages/types';
 
 const stores: YomitanDictionaryStore[] = [];
 const AD_HOC_LANGUAGES = ['es'] as const;
+const YOMITAN_DB_NAME = 'jpdb-popup-reader-yomitan';
+const LEGACY_YOMITAN_DB_VERSION = 4;
 
 // Rules exactly as a Wiktionary-derived Spanish dictionary tags them: a
 // part-of-speech string, in a vocabulary that has nothing to do with JMdict.
@@ -76,11 +78,62 @@ function dexieTermFile(rows: Array<Record<string, unknown>>, name: string): File
     })], name, { type: 'application/json' });
 }
 
+function seedLegacyV4LookupRows(source: string): Promise<void> {
+    return deleteYomitanDatabase().then(() => new Promise((resolve, reject) => {
+        const request = indexedDB.open(YOMITAN_DB_NAME, LEGACY_YOMITAN_DB_VERSION);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            const terms = db.createObjectStore('terms', { keyPath: 'id', autoIncrement: true });
+            terms.createIndex('expression', 'expression');
+            terms.createIndex('reading', 'reading');
+            terms.createIndex('dictionary', 'dictionary');
+            const termMeta = db.createObjectStore('termMeta', { keyPath: 'id', autoIncrement: true });
+            termMeta.createIndex('expression', 'expression');
+            termMeta.createIndex('dictionary', 'dictionary');
+        };
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction(['terms', 'termMeta'], 'readwrite');
+            tx.objectStore('terms').add({
+                expression: source,
+                reading: source,
+                glossary: ['cafe'],
+                dictionary: 'Legacy raw fixture',
+            });
+            tx.objectStore('termMeta').add({
+                expression: source,
+                mode: 'freq',
+                data: { frequency: 17 },
+                dictionary: 'Legacy raw fixture',
+            });
+            tx.oncomplete = () => {
+                db.close();
+                resolve();
+            };
+            tx.onerror = () => {
+                db.close();
+                reject(tx.error);
+            };
+            tx.onabort = () => {
+                db.close();
+                reject(tx.error);
+            };
+        };
+    }));
+}
+
+function deleteYomitanDatabase(): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(YOMITAN_DB_NAME);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => reject(new Error('Could not close the v4 lookup fixture database.'));
+    });
+}
+
 async function spanishStore(): Promise<YomitanDictionaryStore> {
-    const store = new YomitanDictionaryStore();
-    stores.push(store);
-    await store.clear();
-    await store.importFile(dexieTermFile(
+    return dictionaryStore(
         SPANISH_TERMS.map(term => ({
             expression: term.expression,
             reading: term.expression,
@@ -90,7 +143,14 @@ async function spanishStore(): Promise<YomitanDictionaryStore> {
             dictionary: 'wty-es-en',
         })),
         'wty-es-en.json',
-    ));
+    );
+}
+
+async function dictionaryStore(rows: Array<Record<string, unknown>>, filename: string): Promise<YomitanDictionaryStore> {
+    const store = new YomitanDictionaryStore();
+    stores.push(store);
+    await store.clear();
+    await store.importFile(dexieTermFile(rows, filename));
     return store;
 }
 
@@ -101,6 +161,54 @@ afterEach(async () => {
 });
 
 describe('a non-Japanese target resolves dictionary entries through the normal lookup path', () => {
+    it('finds canonical, case-folded, and bounded subsegment entries end to end', async () => {
+        const store = await dictionaryStore([
+            { expression: 'paella', reading: 'paella', glossary: ['paella'], dictionary: 'W11 fixture' },
+            { expression: 'Café', reading: 'Café', glossary: ['cafe'], dictionary: 'W11 fixture' },
+            { expression: 'сестра', reading: 'сестра', glossary: ['sister'], dictionary: 'W11 fixture' },
+            { expression: 'ทำ', reading: 'ทำ', glossary: ['do'], dictionary: 'W11 fixture' },
+            { expression: 'ຄຳ', reading: 'ຄຳ', glossary: ['word'], dictionary: 'W11 fixture' },
+            { expression: '학생', reading: '학생', glossary: ['student'], dictionary: 'W11 fixture' },
+            { expression: 'ｶﾀｶﾅ', reading: 'ｶﾀｶﾅ', glossary: ['katakana'], dictionary: 'W11 fixture' },
+        ], 'w11-lookup-fixture.json');
+
+        setActiveLearningTargetLanguage('es');
+        expect((await store.findTermMatches('Paella', 4)).map(match => match.entry.expression))
+            .toEqual(['paella']);
+        expect((await store.lookup('Cafe\u0301', 'Cafe\u0301', 4)).map(entry => entry.expression))
+            .toEqual(['Café']);
+
+        setActiveLearningTargetLanguage('ru');
+        expect((await store.findTermMatches('Сестра', 4)).map(match => match.entry.expression))
+            .toEqual(['сестра']);
+
+        setActiveLearningTargetLanguage('th');
+        expect((await store.findTermMatches('ทำ', 4)).map(match => match.entry.expression))
+            .toEqual(['ทำ']);
+
+        setActiveLearningTargetLanguage('lo');
+        expect((await store.findTermMatches('ຄຳ', 4)).map(match => match.entry.expression))
+            .toEqual(['ຄຳ']);
+
+        setActiveLearningTargetLanguage('ko');
+        const [korean] = await store.findTermMatches('학생이', 4);
+        expect(korean?.entry.expression).toBe('학생');
+        expect(korean?.surface).toBe('학생');
+        expect([korean?.start, korean?.end]).toEqual([0, 2]);
+
+        setActiveLearningTargetLanguage('ja');
+        const [japanese] = await store.findTermMatches('ｶﾀｶﾅ', 4);
+        expect(japanese?.entry.expression).toBe('カタカナ');
+        expect(japanese?.surface).toBe('ｶﾀｶﾅ');
+        expect([japanese?.start, japanese?.end]).toEqual([0, 4]);
+
+        setActiveLearningTargetLanguage('ko');
+        const falsePositiveStore = await dictionaryStore([
+            { expression: '학', reading: '학', glossary: ['study'], dictionary: 'W11 negative fixture' },
+        ], 'w11-korean-negative-fixture.json');
+        expect(await falsePositiveStore.findTermMatches('학생이', 4)).toEqual([]);
+    });
+
     it('finds Spanish terms in Spanish text', async () => {
         registerLearningTargetModule(spanishTarget());
         expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
@@ -111,6 +219,57 @@ describe('a non-Japanese target resolves dictionary entries through the normal l
         expect(matches.map(match => match.entry.expression)).toEqual(['gustar', 'comer', 'paella']);
         expect(matches.map(match => match.surface)).toEqual(['gusta', 'comer', 'paella']);
         expect(matches.every(match => match.entry.dictionary === 'wty-es-en')).toBe(true);
+    });
+
+    it('normalizes reader-export terms and metadata through their shared write door', async () => {
+        const source = 'Cafe\u0301';
+        const store = new YomitanDictionaryStore();
+        stores.push(store);
+        await store.clear();
+        await store.importFile(new File([JSON.stringify({
+            formatName: 'yomu-yomitan-dictionaries',
+            formatVersion: 2,
+            terms: [{
+                expression: source,
+                reading: source,
+                glossary: ['cafe'],
+                dictionary: 'Canonical fixture',
+            }],
+            termMeta: [{
+                expression: source,
+                mode: 'freq',
+                data: { frequency: 12 },
+                dictionary: 'Canonical fixture',
+            }],
+        })], 'canonical-reader-term-meta.json', { type: 'application/json' }));
+
+        await expect(store.lookup('Café', 'Café', 4)).resolves.toMatchObject([
+            { expression: 'Café', reading: 'Café' },
+        ]);
+        await expect(store.lookupTermMeta('Café', 4)).resolves.toMatchObject([
+            { expression: 'Café', mode: 'freq', data: { frequency: 12 } },
+        ]);
+        await expect(store.searchTerms(source, 4)).resolves.toMatchObject([
+            { expression: 'Café', reading: 'Café' },
+        ]);
+    });
+
+    it('migrates canonically different rows already stored by schema v4', async () => {
+        const source = 'Cafe\u0301';
+        await seedLegacyV4LookupRows(source);
+        const store = new YomitanDictionaryStore();
+        stores.push(store);
+        setActiveLearningTargetLanguage('es');
+
+        await expect(store.lookup('Café', 'Café', 4)).resolves.toMatchObject([
+            { expression: 'Café', reading: 'Café' },
+        ]);
+        await expect(store.lookupTermMeta('Café', 4)).resolves.toMatchObject([
+            { expression: 'Café', mode: 'freq', data: { frequency: 17 } },
+        ]);
+        await expect(store.findTermMatches('Café', 4)).resolves.toMatchObject([
+            { entry: { expression: 'Café' }, surface: 'Café', start: 0, end: 4 },
+        ]);
     });
 
     /**
