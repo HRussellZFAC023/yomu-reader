@@ -3836,6 +3836,7 @@
       pitchColorNakadaka: "Nakadaka (middle-high)",
       pitchColorOdaka: "Odaka (tail-high)",
       pitchColorUnknown: "Unknown",
+      pronunciation: "Pronunciation",
       noExactPitch: "Exact pitch unavailable",
       colorChannels: "Color channels",
       wordHighlightColorSource: "Word highlight color",
@@ -3903,7 +3904,7 @@
       clampedRowReadings: "Readings on clamped rows",
       clampedRowReadingsShow: "Show (row grows)",
       clampedRowReadingsHover: "Hover only",
-      showPitchAccent: "Show pitch accent",
+      showPitchAccent: "Show pronunciation",
       showLookupPillFrequency: "Show site frequency in pills",
       suppressRedundantWordUi: "Hide JPDB-redundant styling",
       sheetCloseButtonOnLeft: "Sheet close button on left",
@@ -5599,6 +5600,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
+pronunciation	発音
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
@@ -5667,7 +5669,7 @@ furiganaAllParsed	解析済みの全単語に表示
 clampedRowReadings	省略行のふりがな
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
-showPitchAccent	ピッチアクセントを表示
+showPitchAccent	発音を表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
@@ -8791,7 +8793,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assignSentenceInfo(paragraphs, tokens) {
     paragraphs.forEach((paragraph, index) => {
       const tokenData = tokens[index] ?? [];
-      const sentences = splitJapaneseSentences$1(paragraph);
+      const sentences = splitJapaneseSentences(paragraph);
       if (sentences.length === 1) {
         tokenData.forEach((token) => {
           token.sentence = sentences[0];
@@ -8815,7 +8817,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     });
   }
-  function splitJapaneseSentences$1(text2) {
+  function splitJapaneseSentences(text2) {
     const sentences = [];
     const state2 = { start: 0, quote: null };
     for (let index = 0; index < text2.length; index++) {
@@ -10562,6 +10564,8 @@ ${spelling}`);
     capabilities: {
       "term-lookup": true,
       segmentation: true,
+      "reading-annotation": true,
+      pronunciation: true,
       "text-to-speech": true,
       ocr: true,
       subtitles: true,
@@ -10570,8 +10574,11 @@ ${spelling}`);
     featureSemantics: {
       characterSystem: "hangul",
       phoneticScripts: ["hangul"],
-      pronunciation: "none",
-      readingAnnotation: "none"
+      pronunciation: "ipa",
+      readingAnnotation: "hangul"
+    },
+    typography: {
+      readingAnnotationMode: "ruby"
     },
     subtitles: {
       languageAliases: ["kor", "korean"]
@@ -11334,6 +11341,7 @@ ${spelling}`);
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
       const lookupRewrites = lookupRewritesForTarget(language2.id);
+      const readingAnnotation = language2.id === "zh" || language2.id === "yue";
       return createLearningTargetModule({
         id: `${language2.id}-roster-v1`,
         language: language2.runtimeLocale,
@@ -11342,16 +11350,19 @@ ${spelling}`);
           "term-lookup": true,
           morphology: lookupRewrites.length > 0,
           segmentation: true,
+          "reading-annotation": readingAnnotation,
+          pronunciation: true,
           "text-to-speech": true,
           subtitles: true,
           typing: true
         },
         featureSemantics: {
           characterSystem: language2.defaultScript,
-          phoneticScripts: [],
-          pronunciation: "none",
-          readingAnnotation: "none"
+          phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
+          pronunciation: "ipa",
+          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
         },
+        typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
         detectsText: scriptDetector(language2.scripts),
         lookupRewrites
       });
@@ -56571,7 +56582,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.55".trim() ? "1.8.55".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.56".trim() ? "1.8.56".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -92039,20 +92050,23 @@ ${spelling}`);
     return isLearningTargetRosterId(value) ? value : fallback;
   }
   function preserveDetachedJapaneseSettings(settings, current, data) {
-    if (data.has("furiganaMode")) return;
-    settings.furiganaMode = current.furiganaMode;
-    settings.clampedRowReadings = current.clampedRowReadings;
-    settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
-    settings.showPitchAccent = current.showPitchAccent;
-    settings.pitchColorHeiban = current.pitchColorHeiban;
-    settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
-    settings.pitchColorNakadaka = current.pitchColorNakadaka;
-    settings.pitchColorOdaka = current.pitchColorOdaka;
-    settings.pitchColorUnknown = current.pitchColorUnknown;
-    settings.showLookupPillFrequency = current.showLookupPillFrequency;
-    settings.dictionaryLookupLinks = current.dictionaryLookupLinks.map((link) => ({ ...link }));
-    for (const name of COLOR_SOURCE_SETTING_NAMES) {
-      if (current[name] === "pitch") settings[name] = current[name];
+    if (!data.has("furiganaMode")) {
+      settings.furiganaMode = current.furiganaMode;
+      settings.clampedRowReadings = current.clampedRowReadings;
+      settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
+    }
+    if (!data.has("showPitchAccent")) settings.showPitchAccent = current.showPitchAccent;
+    if (!data.has("pitchColorHeiban")) {
+      settings.pitchColorHeiban = current.pitchColorHeiban;
+      settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
+      settings.pitchColorNakadaka = current.pitchColorNakadaka;
+      settings.pitchColorOdaka = current.pitchColorOdaka;
+      settings.pitchColorUnknown = current.pitchColorUnknown;
+    }
+    if (readTargetLanguage(data, "ja") !== "ja") {
+      for (const name of COLOR_SOURCE_SETTING_NAMES) {
+        if (current[name] === "pitch") settings[name] = current[name];
+      }
     }
   }
   function normalizedStringIds(values) {
@@ -95689,7 +95703,7 @@ ${spelling}`);
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jp-only" data-language-family="reading-annotation">
+                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
                         ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
@@ -95697,7 +95711,7 @@ ${spelling}`);
                     </div>
                     ${select("wordColorStates", text2("wordColorStates"), settings.wordColorStates, localizedOptions(text2, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
-                    <div class="jp-only" data-language-family="pitch-colouring">
+                    <div data-language-family="pronunciation">
                         ${checkbox("showPitchAccent", text2("showPitchAccent"), settings.showPitchAccent)}
                     </div>
                     ${checkbox("suppressRedundantWordUi", text2("suppressRedundantWordUi"), settings.suppressRedundantWordUi)}
@@ -98589,9 +98603,10 @@ ${spelling}`);
         };
       });
     }
-    async queue(limit = 50) {
+    async queue(limit = 50, options = {}) {
       const now = this.now();
-      const cards = Object.values((await this.readDeck()).cards);
+      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+      const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
       const cap = normalizedQueueLimit(limit);
       const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
       const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -98831,7 +98846,7 @@ ${spelling}`);
       hasCredential: () => true,
       verify: async () => true,
       stats: () => repository.stats(),
-      queue: (limit) => repository.queue(limit),
+      queue: (limit, options) => repository.queue(limit, options),
       review: (request) => repository.review(request),
       mine: (request) => repository.mine(request),
       lookupCards: (items) => repository.lookupCards(items),
@@ -121466,6 +121481,81 @@ ${reading}`);
     const fuzzy = tokens.find((token) => selected.includes(token.card.spelling) || token.card.spelling.includes(selected));
     return fuzzy;
   }
+  function extractIpaPronunciations(entries2, match) {
+    const forms = [match.expression, match.reading ?? ""].map(normalizeLookupForm);
+    const result = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const entry of entries2) {
+      const data = entry.data;
+      if (entry.mode !== "ipa" || !forms.includes(normalizeLookupForm(entry.expression ?? "")) || !data || typeof data !== "object" || !Array.isArray(data.transcriptions)) continue;
+      if (data.reading && (typeof data.reading !== "string" || !forms.includes(normalizeLookupForm(data.reading)))) continue;
+      for (const transcription of data.transcriptions) {
+        const value = transcription == null ? void 0 : transcription.ipa;
+        if (typeof value !== "string") continue;
+        const ipa = value.trim();
+        if (!ipa || seen.has(ipa)) continue;
+        seen.add(ipa);
+        result.push({ ipa, dictionary: entry.dictionary });
+      }
+    }
+    return result;
+  }
+  function normalizeLookupForm(value) {
+    return value.normalize("NFKC").trim().toLowerCase();
+  }
+  function renderPronunciation(options) {
+    if (!options.settings.showPitchAccent) return "";
+    const target = learningTargetModuleFor(options.card.language ?? "ja") ?? defaultLearningTargetModule();
+    switch (target.featureSemantics.pronunciation) {
+      case "pitch-accent":
+        return renderPitchAccentPronunciation(options);
+      case "ipa":
+        return renderIpaPronunciation(options);
+      default:
+        return "";
+    }
+  }
+  function cardUsesPitchAccentPronunciation(card) {
+    const target = learningTargetModuleFor(card.language ?? "ja") ?? defaultLearningTargetModule();
+    return target.featureSemantics.pronunciation === "pitch-accent";
+  }
+  function renderPitchAccentPronunciation(options) {
+    const whole = renderPitch(options.card, [...options.metaEntries ?? []]);
+    if (whole) return pronunciationRow("pitch-accent", whole);
+    const alignedComponents = options.loading ? [] : alignedExpressionComponentPitches(
+      options.card,
+      [...options.expressionComponents ?? []],
+      [...options.componentPitches ?? []]
+    );
+    const components2 = renderExpressionComponentPitches(alignedComponents);
+    if (components2) return pronunciationRow("pitch-accent", components2);
+    if (options.loading) return "";
+    const label = uiText(options.settings.interfaceLanguage, "noExactPitch");
+    return pronunciationRow(
+      "pitch-accent",
+      `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$2(label)}">${escapeHtml$2(label)}</div>`
+    );
+  }
+  function renderIpaPronunciation(options) {
+    const disabled = new Set(
+      options.settings.dictionaryPreferences.filter((preference) => !preference.enabled).map((preference) => preference.name)
+    );
+    const pronunciations = extractIpaPronunciations(options.metaEntries ?? [], {
+      expression: options.card.spelling,
+      reading: options.card.reading
+    }).filter((pronunciation) => !disabled.has(pronunciation.dictionary));
+    if (!pronunciations.length) return "";
+    const variants = pronunciations.map(({ ipa, dictionary }) => {
+      const source = options.dictionaryLabel(dictionary) || dictionary;
+      const accessibleLabel = `IPA ${ipa}. ${source}`;
+      return `<span class="jpdb-reader-pronunciation-variant" data-dictionary="${escapeHtml$2(dictionary)}" data-pronunciation-source="local" title="${escapeHtml$2(accessibleLabel)}" aria-label="${escapeHtml$2(accessibleLabel)}"><span aria-hidden="true">IPA </span>${escapeHtml$2(ipa)}</span>`;
+    }).join("");
+    const label = uiText(options.settings.interfaceLanguage, "pronunciation");
+    return `<div class="jpdb-reader-pronunciation jpdb-reader-pronunciation-ipa" data-pronunciation-kind="ipa" role="group" aria-label="${escapeHtml$2(label)}">${variants}</div>`;
+  }
+  function pronunciationRow(kind, content) {
+    return `<div class="jpdb-reader-pronunciation" data-pronunciation-kind="${kind}">${content}</div>`;
+  }
   function bunproDefinitionStatusAttributes(status) {
     if (!status) return "";
     const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$2(status.reason)}"` : "";
@@ -121541,16 +121631,25 @@ ${reading}`);
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
-                ${this.renderPitch(card, data)}
+                ${renderPronunciation({
+        card,
+        settings: this.settings(),
+        metaEntries: data.metaEntries,
+        expressionComponents: data.expressionComponents,
+        componentPitches: data.componentPitches,
+        loading: data.loading,
+        dictionaryLabel: (name) => this.dependencies.dictionaryLabel(name)
+      })}
                 <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? " disabled" : ""}>${speakerIcon()}</button>
             </div>
         </div>`;
     }
     renderTitleRow(card, data, view) {
-      const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
+      const pitchTarget = cardUsesPitchAccentPronunciation(card);
+      const pitchClass = pitchTarget ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading) : "";
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
-      const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
+      const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
       const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
       const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
       const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
@@ -121558,21 +121657,6 @@ ${reading}`);
             <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
-    }
-    renderPitch(card, data) {
-      if (!this.settings().showPitchAccent) return "";
-      const whole = renderPitch(card, data.metaEntries);
-      if (whole) return whole;
-      const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
-        card,
-        data.expressionComponents ?? [],
-        data.componentPitches ?? []
-      );
-      const components2 = renderExpressionComponentPitches(alignedComponents);
-      if (components2) return components2;
-      if (data.loading) return "";
-      const label = uiText(this.settings().interfaceLanguage, "noExactPitch");
-      return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml$2(label)}">${escapeHtml$2(label)}</div>`;
     }
     renderPartOfSpeech(view) {
       return view.cardPos ? `<div class="jpdb-reader-pos" title="${escapeHtml$2(view.cardPosDetails)}">${escapeHtml$2(view.cardPos)}</div>` : "";
@@ -123845,7 +123929,9 @@ ${component.reading}`;
         { info: null, status: { state: "timeout" } }
       );
       const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
-        if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+        if (settings.showPitchAccent && cardUsesPitchAccentPronunciation(card)) {
+          applyBunproPitchToCard(card, result.info);
+        }
         return result;
       });
       const bunproDefinitionLookup = bunproDefinitionRequested ? bunproDataLookup : Promise.resolve({
@@ -123857,7 +123943,7 @@ ${component.reading}`;
       });
       const frequencyRankLoad = this.loadFrequencyRanks(card, jitenVocabularyLookup, seededFrequencyRanks, bunproDataLookup);
       const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
-        if (!settings.showPitchAccent) return publicPitch;
+        if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return publicPitch;
         applyBunproPitchToCard(card, result.info);
         return [...card.pitchAccent];
       });
@@ -123882,7 +123968,7 @@ ${component.reading}`;
         card,
         CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
         "expression component pitch",
-        this.loadExpressionComponentPitches(expressionComponents, jitenVocabularyLookup),
+        this.loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyLookup),
         []
       );
       void pitchAccent.catch(() => void 0);
@@ -123973,7 +124059,7 @@ ${component.reading}`;
     }
     loadPublicPitch(card) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
+      if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || card.pitchAccent.length) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
         log$7.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
@@ -124161,9 +124247,9 @@ ${component.reading}`;
     // Expressions and compounds expose their parts as lookup chips. Keep each
     // part's own pitch available for chip colouring even when the card now has
     // a whole-word pitch graph from direct or composed metadata.
-    async loadExpressionComponentPitches(expressionComponents, jitenVocabularyInfo) {
+    async loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyInfo) {
       const settings = this.settings();
-      if (!settings.showPitchAccent) return [];
+      if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return [];
       const [components2, jitenInfo] = await Promise.all([
         expressionComponents.catch(() => []),
         jitenVocabularyInfo.catch(() => null)
@@ -124228,7 +124314,7 @@ ${component.reading}`;
     }
     async applyLocalPitchAccent(card, metaEntries) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
+      if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || !settings.localDictionariesEnabled) return;
       const resolution = await localPitchResolutionFromMetaLookup(
         card.spelling,
         card.reading,
@@ -124421,16 +124507,21 @@ ${component.reading}`;
     }
     if (next) parent.insertBefore(next, before);
   }
-  function updateRenderedPitch(popover, card, metaEntries, showPitchAccent) {
-    if (!showPitchAccent) return;
+  function updateRenderedPitch(popover, card, metaEntries, settings, dictionaryLabel2 = (name) => name) {
+    if (!settings.showPitchAccent) return;
     const spelling = popover.querySelector(".jpdb-reader-spelling");
-    if (spelling) {
+    if (spelling && cardUsesPitchAccentPronunciation(card)) {
       const reading = cardPronunciationReading(card) || card.reading;
       setRenderedWordPitchClass(spelling, getPitchClass(card.pitchAccent, reading));
     }
     const tools = popover.querySelector(".jpdb-reader-card-tools");
     if (!tools) return;
-    replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
+    replaceOptionalElement(
+      tools,
+      ".jpdb-reader-pronunciation, .jpdb-reader-pitch",
+      renderPronunciation({ card, settings, metaEntries, dictionaryLabel: dictionaryLabel2 }),
+      tools.firstElementChild
+    );
   }
   function applyPublicVocabularyFurigana(word, card, settings) {
     if (word.closest("ruby")) return;
@@ -125455,6 +125546,7 @@ ${component.reading}`;
       studyTourSpeaking: "Say it aloud and compare your pitch.",
       studyTourReveal: "Check the details, then grade.",
       studyTourStart: "Start",
+      studyAudioAvailability: "{language} reviews add {modes} when word audio is available.",
       supportBannerLabel: "Yomu support status",
       supportBannerDismiss: "Dismiss support status",
       supportBannerMessage: "Yomu's Ultimate Audio is donation funded. The goal is needed for the fast audio playback and shadowing.",
@@ -125989,7 +126081,8 @@ ${component.reading}`;
     studySummaryStateWrong: "不正解",
     studySummaryStateSkipped: "スキップ",
     studySummaryStateNone: "未実施",
-    gradeSuggested: "おすすめ"
+    gradeSuggested: "おすすめ",
+    studyAudioAvailability: "単語音声が利用できると、{language}の復習に{modes}が加わります。"
   };
   const NEW_TAB_COPY_BY_LANGUAGE = {
     en: NEW_TAB_COPY.en,
@@ -126685,7 +126778,7 @@ ${component.reading}`;
     return reading === card.reading ? card : { ...card, reading };
   }
   function newTabCardReading(card) {
-    return activeLearningTarget().normalizeReading(card.spelling, cardPronunciationReading(card) || card.reading);
+    return newTabCardTarget(card).normalizeReading(card.spelling, cardPronunciationReading(card) || card.reading);
   }
   function newTabCardOptionalReading(card) {
     const reading = newTabCardReading(card);
@@ -126694,6 +126787,15 @@ ${component.reading}`;
   function newTabCardHighlightTargets(card) {
     return cardHighlightTargets(card);
   }
+  function newTabCardTarget(card) {
+    return card.language ? learningTargetModuleFor(card.language) ?? defaultLearningTargetModule() : activeLearningTarget();
+  }
+  function newTabCardMatchesActiveTarget(card) {
+    return newTabCardIdentityLanguage(card) === activeLearningTarget().language;
+  }
+  function newTabCardIdentityLanguage(card) {
+    return learningTargetModuleFor(card.language ?? defaultLearningTargetModule().language)?.language ?? defaultLearningTargetModule().language;
+  }
   function shouldShowInStudyQueue(card) {
     if (card.source === "local" || card.source === "fallback") return true;
     if (card.reviewSource === "jpdb-live") return true;
@@ -126701,7 +126803,7 @@ ${component.reading}`;
     return states.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked" || state2 === "not-in-deck");
   }
   function selectNewTabStudyPool(cards) {
-    return cards.filter(shouldShowInStudyQueue);
+    return cards.filter(newTabCardMatchesActiveTarget).filter(shouldShowInStudyQueue);
   }
   function sentenceForCard(card) {
     const sentence = card.sentence?.replace(/\s+/g, " ").trim();
@@ -127109,7 +127211,8 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
 ${card.bunproReviewId ?? card.sourceCardKey ?? card.spelling}`;
     }
     return card.reviewSource === "jpdb-live" ? `jpdb-live
-${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
+${card.jpdbReviewId ?? card.spelling}` : `${newTabCardIdentityLanguage(card)}
+${card.spelling}
 ${newTabCardReading(card)}`;
   }
   function shouldReplaceDedupeWord(card, existing) {
@@ -131452,24 +131555,26 @@ ${entry.url}`),
     return target.typing.answerNormalizer === "japanese-kana" ? normalizeJapaneseStudyAnswer(value) : target.normalizeText(value).toLocaleLowerCase(target.language);
   }
   function evaluateNewTabRecallAnswer(card, answer, reading = card.reading) {
-    const candidates = newTabRecallAnswerCandidates(card, reading);
-    const normalized = normalizeNewTabRecallAnswer(answer);
+    const target = newTabCardTarget(card);
+    const candidates = newTabRecallAnswerCandidates(card, reading, target);
+    const normalized = normalizeNewTabRecallAnswer(answer, target);
     if (!normalized) {
       return { outcome: "empty", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
     }
-    if (candidates.primaryAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate) === normalized)) {
+    if (candidates.primaryAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate, target) === normalized)) {
       return { outcome: "correct", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
     }
-    if (candidates.acceptedAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate) === normalized)) {
+    if (candidates.acceptedAnswers.some((candidate) => normalizeNewTabRecallAnswer(candidate, target) === normalized)) {
       return { outcome: "accepted", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
     }
     return { outcome: "incorrect", canonicalAnswer: candidates.canonicalAnswer, acceptedAnswers: candidates.acceptedAnswers };
   }
   function buildNewTabRecallCloze(card, sentence, reading = card.reading) {
+    const learningTarget = newTabCardTarget(card);
     const normalizedSentence = sentence.replace(/\s+/gu, " ").trim();
-    const candidates = newTabRecallAnswerCandidates(card, reading);
+    const candidates = newTabRecallAnswerCandidates(card, reading, learningTarget);
     const target = recallClozeTarget(normalizedSentence, candidates.primaryAnswers) || recallClozeTarget(normalizedSentence, candidates.acceptedAnswers);
-    if (!normalizedSentence || !target || sameRecallAnswer(normalizedSentence, target)) {
+    if (!normalizedSentence || !target || sameRecallAnswer(normalizedSentence, target, learningTarget)) {
       return { sentence: normalizedSentence, before: "", answer: candidates.canonicalAnswer, after: "", hasCloze: false };
     }
     const start = normalizedSentence.indexOf(target);
@@ -131481,37 +131586,37 @@ ${entry.url}`),
       hasCloze: true
     };
   }
-  function newTabRecallAnswerCandidates(card, reading = card.reading) {
-    const primaryAnswers = uniqueRecallAnswers(splitRecallAnswers(card.spelling));
+  function newTabRecallAnswerCandidates(card, reading, target) {
+    const primaryAnswers = uniqueRecallAnswers(splitRecallAnswers(card.spelling), target);
     const acceptedAnswers = uniqueRecallAnswers([
       ...splitRecallAnswers(reading),
       ...(card.fallbackLookupTerms ?? []).flatMap(splitRecallAnswers)
-    ]).filter((candidate) => !sameRecallAnswer(candidate, card.spelling));
+    ], target).filter((candidate) => !sameRecallAnswer(candidate, card.spelling, target));
     return {
       primaryAnswers,
       acceptedAnswers,
       canonicalAnswer: primaryAnswers[0] ?? card.spelling.trim()
     };
   }
-  function normalizeNewTabRecallAnswer(value) {
-    return normalizeLearningTargetAnswer(activeLearningTarget(), value);
+  function normalizeNewTabRecallAnswer(value, target = activeLearningTarget()) {
+    return normalizeLearningTargetAnswer(target, value);
   }
   function splitRecallAnswers(value) {
     return (value ?? "").split(/[;；/／|｜]/u).flatMap((part) => /[。！？!?]/u.test(part) ? [part] : part.split(/[,，、]/u)).map((part) => part.trim()).filter(Boolean);
   }
-  function uniqueRecallAnswers(values) {
+  function uniqueRecallAnswers(values, target) {
     const seen = /* @__PURE__ */ new Set();
     const out = [];
     for (const value of values) {
-      const normalized = normalizeNewTabRecallAnswer(value);
+      const normalized = normalizeNewTabRecallAnswer(value, target);
       if (!normalized || seen.has(normalized)) continue;
       seen.add(normalized);
       out.push(value);
     }
     return out;
   }
-  function sameRecallAnswer(left, right) {
-    return normalizeNewTabRecallAnswer(left) === normalizeNewTabRecallAnswer(right);
+  function sameRecallAnswer(left, right, target) {
+    return normalizeNewTabRecallAnswer(left, target) === normalizeNewTabRecallAnswer(right, target);
   }
   function recallClozeTarget(sentence, candidates) {
     return candidates.filter((candidate) => candidate && sentence.includes(candidate)).sort((a, b) => b.length - a.length)[0] ?? "";
@@ -132478,12 +132583,12 @@ ${entry.url}`),
   }
   function dictionaryExampleSentences(card, entries2) {
     const targets2 = [card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => value.trim()).filter(Boolean);
-    return uniqueSentences(entries2.flatMap((entry) => entry.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets2.some((target) => sentence.includes(target))).filter((sentence) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(sentence));
+    return uniqueSentences(entries2.flatMap((entry) => entry.glossary.flatMap(dictionaryGlossarySentences))).filter((sentence) => targets2.some((target) => sentence.includes(target))).filter((sentence) => newTabCardTarget(card).isLookupableText(sentence));
   }
   function dictionaryGlossarySentences(value) {
     const explicitExamples = structuredExampleTexts(value);
     const texts = explicitExamples.length ? explicitExamples : structuredLeafTexts(value).filter(hasExampleLabel);
-    return texts.flatMap(splitJapaneseSentences);
+    return texts.flatMap(splitStudySentences);
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
@@ -132504,8 +132609,8 @@ ${entry.url}`),
   function isExampleRecord(value) {
     return ["data-sc-content", "data-content", "class", "className"].some((key) => typeof value[key] === "string" && /example|sentence|\u4f8b\u6587/iu.test(value[key]));
   }
-  function splitJapaneseSentences(value) {
-    return value.replace(/\r\n?/gu, "\n").split(/(?<=[\u3002\uff01\uff1f!?])\s*|\n+/u).map((sentence) => sentence.trim()).filter((sentence) => sentence.length >= 4 && sentence.length <= 220);
+  function splitStudySentences(value) {
+    return value.replace(/\r\n?/gu, "\n").split(/(?<=[\u3002\uff01\uff1f.!?])\s*|\n+/u).map((sentence) => sentence.trim()).filter((sentence) => sentence.length >= 4 && sentence.length <= 220);
   }
   function uniqueSentences(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -132953,6 +133058,7 @@ ${entry.url}`),
         kind: source === "bunpro" ? bunproReviewableKind(card.bunproReviewableType) : source === "wanikani" && card.wanikaniSubjectType === "kanji" ? "kanji" : source === "wanikani" && card.wanikaniSubjectType === "radical" ? "unknown" : "vocabulary",
         expression,
         reading,
+        partOfSpeech: card.partOfSpeech.map((value) => value.trim()).find(Boolean),
         language: card.language,
         meanings: card.meanings,
         state: card.cardState,
@@ -135393,7 +135499,7 @@ ${entry.url}`),
     loadedWordsForResult(result, excludeCardKeys) {
       const excludedCardKeys = new Set(excludeCardKeys ?? []);
       return this.filterStatsStudyCards(
-        dedupeWords(result.cards.map(normalizeNewTabCard))
+        dedupeWords(result.cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard))
       ).filter((card) => this.shouldIncludeLoadedWord(card, excludedCardKeys));
     }
     shouldIncludeLoadedWord(card, excludedCardKeys) {
@@ -135451,7 +135557,7 @@ ${entry.url}`),
     }
     shouldKeepCurrentCardForBackgroundLoad(loadedWords, preferredCard, usedCachedWords, navigationGeneration, result) {
       return Boolean(
-        preferredCard && usedCachedWords && this.navigationGeneration !== navigationGeneration && result.reviewCountMode !== true && !loadedWords.some((card) => cardKey(card) === cardKey(preferredCard))
+        preferredCard && newTabCardMatchesActiveTarget(preferredCard) && usedCachedWords && this.navigationGeneration !== navigationGeneration && result.reviewCountMode !== true && !loadedWords.some((card) => cardKey(card) === cardKey(preferredCard))
       );
     }
     async withPortableUrlCard(cards) {
@@ -135641,8 +135747,10 @@ ${entry.url}`),
       return {
         label,
         load: async () => {
-          const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT);
-          return snapshot.cards.map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null);
+          const snapshot = await adapter.queue(NEW_TAB_STATS_JPDB_CARD_LIMIT, {
+            language: activeLearningTarget().language
+          });
+          return snapshot.cards.filter(newTabCardMatchesActiveTarget).map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null);
         }
       };
     }
@@ -135858,19 +135966,23 @@ ${entry.url}`),
       return Boolean(cached && !cached.cards.length && cached.emptyMessageKey);
     }
     rememberSourceResult(source, result, context) {
+      const scopedResult = {
+        ...result,
+        cards: result.cards.filter(newTabCardMatchesActiveTarget)
+      };
       if (context && (context.version !== this.sourceCacheVersion(source) || context.signature !== this.sourceCacheSignature(source))) {
-        return result;
+        return scopedResult;
       }
-      if (result.cards.length || source === "anki" || source === "dictionary" || source === "bunpro" || source === "wanikani" || source === "yomu-local") {
+      if (scopedResult.cards.length || source === "anki" || source === "dictionary" || source === "bunpro" || source === "wanikani" || source === "yomu-local") {
         this.sourceResultCache.set(source, {
           signature: context?.signature ?? this.sourceCacheSignature(source),
           result: {
-            ...result,
-            cards: [...result.cards]
+            ...scopedResult,
+            cards: [...scopedResult.cards]
           }
         });
       }
-      return result;
+      return scopedResult;
     }
     sourceCacheContext(source) {
       return {
@@ -135899,6 +136011,7 @@ ${entry.url}`),
       return JSON.stringify({
         source,
         language: this.language(),
+        targetLanguage: activeLearningTarget().language,
         apiKey: hasJpdbApiCredential(settings),
         jitenApiKey: hasJitenApiCredential(settings),
         jpdbMiningEnabled: settings.jpdbMiningEnabled,
@@ -135954,11 +136067,11 @@ ${entry.url}`),
       const cardLimit = Math.max(1, Math.floor(limit));
       const loaded = await this.remoteSourceResult(
         `${sourceLabel} queue`,
-        adapter.queue(cardLimit),
+        adapter.queue(cardLimit, { language: activeLearningTarget().language }),
         null,
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS
       );
-      const cards = (loaded.value?.cards ?? []).map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null).slice(0, cardLimit);
+      const cards = (loaded.value?.cards ?? []).filter(newTabCardMatchesActiveTarget).map((card) => this.srsReviewableToNewTabCard(card)).filter((card) => card !== null).slice(0, cardLimit);
       return {
         cards,
         sourceLabel,
@@ -135991,7 +136104,7 @@ ${entry.url}`),
         source: card.providerId,
         reviewSource: card.providerId === "bunpro" ? "bunpro-api" : card.providerId === "wanikani" ? "wanikani-api" : "yomu-local",
         sourceDeckName: card.srsLevel,
-        sourceCardKey: providerKey,
+        sourceCardKey: card.providerId === "yomu-local" ? card.providerCardId : providerKey,
         bunproReviewId: card.providerId === "bunpro" ? card.providerReviewId : void 0,
         bunproReviewableId: card.providerId === "bunpro" ? optionalPositiveNumber(card.providerReviewableId) : void 0,
         bunproReviewableType: card.providerId === "bunpro" ? bunproReviewableType(card.kind) : void 0,
@@ -136088,6 +136201,7 @@ ${entry.url}`),
       return result.cards.length ? result : this.loadBuiltInFreshStudyWords();
     }
     loadBuiltInFreshStudyWords(limit = NEW_TAB_FALLBACK_SUPPLEMENT_MIN) {
+      if (activeLearningTarget().language !== "ja") return emptyNewTabLoadResult(this.text("starterWords"));
       const fallbackCardFromText = this.dependencies.parser.fallbackCardFromText;
       if (typeof fallbackCardFromText !== "function") return emptyNewTabLoadResult(this.text("starterWords"));
       const cards = randomPublicJpdbSeedWords(limit).map((term) => fallbackCardFromText.call(this.dependencies.parser, term));
@@ -136266,6 +136380,7 @@ ${entry.url}`),
       });
     }
     async loadPublicJpdbWords() {
+      if (activeLearningTarget().language !== "ja") return emptyNewTabLoadResult("JPDB");
       const cards = await this.remoteSourceWithFallback(
         "JPDB public dictionary",
         this.loadPublicJpdbDictionaryCards(),
@@ -136797,7 +136912,7 @@ ${entry.url}`),
       const slots = this.studySlots(root);
       const state2 = primaryCardState(card.cardState);
       this.renderStudySteps(slots.steps, session);
-      this.renderStudyTour(slots.tour, session);
+      this.renderStudyTour(slots.tour, session, card);
       this.renderPromptForMode(slots, card, state2, renderAsKanji);
       this.renderStudyRevealHintSummary(slots, card);
       this.renderSessionProgress(slots, card, root);
@@ -136962,9 +137077,10 @@ ${entry.url}`),
       const kanjiSteps = session.steps.filter((candidate) => candidate.kind === "kanji-doodle");
       return kanjiSteps.length > 1 ? `${step.label} ${kanjiSteps.indexOf(step) + 1}` : step.label;
     }
-    renderStudyTour(slot, session) {
+    renderStudyTour(slot, session, card) {
       if (!slot) return;
       const settings = this.dependencies.getSettings();
+      const audioAvailability = this.studyAudioAvailability(card);
       const showTour = !settings.newTabStudyTourSeen && this.state.route === "study" && session.steps.length > 1;
       if (showTour) {
         slot.hidden = false;
@@ -136979,15 +137095,43 @@ ${entry.url}`),
               "ol",
               { class: "jpdb-reader-newtab-study-tour-list" },
               session.steps.map((step, index) => this.studyTourStep(step, index))
-            )
+            ),
+            audioAvailability
           ),
           el("button", { type: "button", dataset: { newtabAction: "dismiss-study-tour" } }, this.text("studyTourStart"))
         );
         return;
       }
+      if (audioAvailability && this.state.route === "study") {
+        slot.hidden = false;
+        slot.dataset.studyTourMode = "availability";
+        replaceChildrenWith(slot, audioAvailability);
+        return;
+      }
       slot.hidden = true;
       delete slot.dataset.studyTourMode;
       slot.replaceChildren();
+    }
+    studyAudioAvailability(card) {
+      const target = newTabCardTarget(card);
+      if (target.capabilities.audio) return null;
+      const disabled = new Set(this.dependencies.getSettings().newTabStudyDisabledSteps);
+      const modes = [
+        disabled.has("listen-pitch") ? null : { kind: "listen-pitch", label: this.text("studySummaryListen") },
+        disabled.has("speaking") ? null : { kind: "speaking", label: this.text("studySummarySpeaking") }
+      ].filter((mode) => mode !== null);
+      if (!modes.length) return null;
+      return el("p", {
+        class: "jpdb-reader-newtab-study-availability",
+        role: "note",
+        dataset: {
+          studyUnavailableModes: modes.map((mode) => mode.kind).join(" "),
+          studyUnavailableReason: "target-audio"
+        }
+      }, this.formatNewTabText("studyAudioAvailability", {
+        language: languageDisplayName(target.language, this.resolvedLanguage()),
+        modes: modes.map((mode) => mode.label).join(" + ")
+      }));
     }
     studyTourStep(step, index) {
       return el(
@@ -138230,7 +138374,7 @@ ${entry.url}`),
       this.ensureNPlusOneStudySentence(card);
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
-      prompt.lang = cloze.hasCloze ? "ja" : "en";
+      prompt.lang = cloze.hasCloze ? newTabCardTarget(card).typography.contentLocale : "en";
       delete prompt.dataset.newtabExpression;
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
@@ -138253,7 +138397,7 @@ ${entry.url}`),
     }
     renderRecallAnswer(answer, card, state2) {
       if (!answer) return;
-      const target = activeLearningTarget();
+      const target = newTabCardTarget(card);
       delete answer.dataset.newtabAnswerDetailsRequest;
       const key = cardKey(card);
       const recall = this.stepState(key)?.recall;
@@ -138301,7 +138445,7 @@ ${entry.url}`),
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       const solution = el(
         "div",
-        { class: "jpdb-reader-newtab-recall-solution", lang: "ja" },
+        { class: "jpdb-reader-newtab-recall-solution", lang: newTabCardTarget(card).typography.contentLocale },
         el(
           "span",
           { class: "jpdb-reader-newtab-term-row" },
@@ -138378,7 +138522,7 @@ ${entry.url}`),
       const card = this.visibleWords[this.index];
       const input2 = root.querySelector("[data-newtab-recall-input]");
       if (!card || !input2) return;
-      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
+      input2.value = normalizeLearningTargetInput(newTabCardTarget(card), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       this.ensureStepState(cardKey(card)).recall = { answer: input2.value, outcome: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -138411,7 +138555,7 @@ ${entry.url}`),
         return;
       }
       const meaning = firstCardMeaning(card) || this.text("recallPromptFallback");
-      prompt.lang = "ja";
+      prompt.lang = newTabCardTarget(card).typography.contentLocale;
       delete prompt.dataset.newtabExpression;
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
@@ -138508,7 +138652,7 @@ ${entry.url}`),
     }
     renderTypeWordKeyboard(card, feedback) {
       const readyToContinue = feedback === "correct" || feedback === "accepted";
-      const target = activeLearningTarget();
+      const target = newTabCardTarget(card);
       return el(
         "form",
         { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
@@ -138654,7 +138798,7 @@ ${entry.url}`),
         if (!this.navigateStudyStep("next")) this.renderWord(root, card);
         return;
       }
-      input2.value = normalizeLearningTargetInput(activeLearningTarget(), input2.value);
+      input2.value = normalizeLearningTargetInput(newTabCardTarget(card), input2.value);
       const evaluation = evaluateNewTabRecallAnswer(card, input2.value, newTabCardReading(card));
       state2.type = { ...state2.type, answer: input2.value, feedback: evaluation.outcome };
       if (evaluation.outcome === "empty") {
@@ -141429,7 +141573,7 @@ ${entry.url}`),
       if (!settings.newTabOfflineEnabled) return { cards: [], sourceLabel: "" };
       const cached = await gmStorageGet(NEW_TAB_CACHE_KEY, null).catch(() => null);
       return {
-        cards: Array.isArray(cached?.cards) ? cached.cards.map(normalizeNewTabCard).slice(0, Math.max(0, settings.newTabOfflineLimit || 0)) : [],
+        cards: Array.isArray(cached?.cards) ? cached.cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard).slice(0, Math.max(0, settings.newTabOfflineLimit || 0)) : [],
         sourceLabel: this.localizedSourceLabel(cached?.sourceLabel || this.text("cachedReviews"))
       };
     }
@@ -141928,7 +142072,10 @@ ${entry.url}`),
     return urls?.length ? urls : void 0;
   }
   function srsReviewablePartOfSpeech(card) {
-    const existing = uniqueTrimmedStrings(card.meanings.flatMap((meaning) => meaning.partOfSpeech ?? []));
+    const existing = uniqueTrimmedStrings([
+      card.partOfSpeech ?? "",
+      ...card.meanings.flatMap((meaning) => meaning.partOfSpeech ?? [])
+    ]);
     if (existing.length) return existing;
     return card.kind === "grammar" ? ["grammar"] : [];
   }
@@ -141988,7 +142135,7 @@ ${entry.url}`),
     return isPromptContextSentence(sentence, card) && isCompleteStudySentence(sentence) ? sentence : "";
   }
   function isPromptContextSentence(sentence, card) {
-    if (!queryHasJapanese(sentence)) return false;
+    if (!newTabCardTarget(card).isLookupableText(sentence)) return false;
     const normalized = normalizedPromptSentenceText(sentence);
     const identities = newTabCardHighlightTargets(card).map(normalizedPromptSentenceText).filter(Boolean);
     return Boolean(normalized) && !identities.includes(normalized);
@@ -142623,28 +142770,6 @@ ${entry.url}`),
     const maxHeight = Number.parseFloat(popover.style.maxHeight);
     if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
   }
-  function extractIpaPronunciations(entries2, match) {
-    const forms = [match.expression, match.reading ?? ""].map(normalizeLookupForm);
-    const result = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const entry of entries2) {
-      const data = entry.data;
-      if (entry.mode !== "ipa" || !forms.includes(normalizeLookupForm(entry.expression ?? "")) || !data || typeof data !== "object" || !Array.isArray(data.transcriptions)) continue;
-      if (data.reading && (typeof data.reading !== "string" || !forms.includes(normalizeLookupForm(data.reading)))) continue;
-      for (const transcription of data.transcriptions) {
-        const value = transcription == null ? void 0 : transcription.ipa;
-        if (typeof value !== "string") continue;
-        const ipa = value.trim();
-        if (!ipa || seen.has(ipa)) continue;
-        seen.add(ipa);
-        result.push({ ipa, dictionary: entry.dictionary });
-      }
-    }
-    return result;
-  }
-  function normalizeLookupForm(value) {
-    return value.normalize("NFKC").trim().toLowerCase();
-  }
   function renderWordPills(options) {
     const context = wordPillContext(options.card, options.overrideQuery);
     const query = context.query;
@@ -142653,15 +142778,6 @@ ${entry.url}`),
     const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
     const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language2, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
     const ankiPill = renderAnkiPill(options, language2, query);
-    linkPills.unshift(...extractIpaPronunciations(options.metaEntries ?? [], {
-      expression: context.word,
-      reading: context.reading
-    }).map(({ ipa, dictionary: name }) => {
-      if (options.settings.dictionaryPreferences.some((preference) => preference.name === name && !preference.enabled)) return "";
-      const label = `IPA ${ipa}`;
-      const accessibleLabel = `${label}. ${options.dictionaryLabel(name) || name}`;
-      return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml$2(name)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${name}`)}" title="${escapeHtml$2(accessibleLabel)}" aria-label="${escapeHtml$2(accessibleLabel)}">${escapeHtml$2(label)}</span>`;
-    }));
     const configuredFrequencyIds = new Set(enabledLinks.filter((link) => isFrequencyLookupPill(link)).map((link) => link.id));
     const leftoverFrequencyPills = Array.from(frequencyPills).filter(([id]) => !configuredFrequencyIds.has(id)).map(([, html]) => html);
     const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
@@ -143702,7 +143818,7 @@ ${rank.detail}` : baseTitle;
       });
     }
     updateLookupPitch(popover, card, metaEntries) {
-      updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
+      updateRenderedPitch(popover, card, metaEntries, this.settings, (name) => this.dictionaryLabel(name));
     }
     lookupPreviousNavigationEntry(navigation) {
       if (navigation !== "push-current") return void 0;
@@ -144601,7 +144717,7 @@ ${rank.detail}` : baseTitle;
       if (!this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
-        (token) => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
+        (token) => cardUsesPitchAccentPronunciation(token.card) && !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
         limit
       );
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {

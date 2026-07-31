@@ -1250,6 +1250,8 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   capabilities: {
   "term-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
+  pronunciation: true,
   "text-to-speech": true,
   ocr: true,
   subtitles: true,
@@ -1258,8 +1260,11 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   featureSemantics: {
   characterSystem: "hangul",
   phoneticScripts: ["hangul"],
-  pronunciation: "none",
-  readingAnnotation: "none"
+  pronunciation: "ipa",
+  readingAnnotation: "hangul"
+  },
+  typography: {
+  readingAnnotationMode: "ruby"
   },
   subtitles: {
   languageAliases: ["kor", "korean"]
@@ -2933,6 +2938,7 @@ function resolveMessage(id, locale, packs) {
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => {
   const lookupRewrites = lookupRewritesForTarget(language2.id);
+  const readingAnnotation = language2.id === "zh" || language2.id === "yue";
   return createLearningTargetModule({
     id: `${language2.id}-roster-v1`,
     language: language2.runtimeLocale,
@@ -2941,16 +2947,19 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       "term-lookup": true,
       morphology: lookupRewrites.length > 0,
       segmentation: true,
+      "reading-annotation": readingAnnotation,
+      pronunciation: true,
       "text-to-speech": true,
       subtitles: true,
       typing: true
     },
     featureSemantics: {
       characterSystem: language2.defaultScript,
-      phoneticScripts: [],
-      pronunciation: "none",
-      readingAnnotation: "none"
+      phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
+      pronunciation: "ipa",
+      readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
+    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     detectsText: scriptDetector(language2.scripts),
     lookupRewrites
   });
@@ -7278,6 +7287,7 @@ const COPY = {
   pitchColorNakadaka: "Nakadaka (middle-high)",
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
+  pronunciation: "Pronunciation",
   noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
@@ -7345,7 +7355,7 @@ const COPY = {
   clampedRowReadings: "Readings on clamped rows",
   clampedRowReadingsShow: "Show (row grows)",
   clampedRowReadingsHover: "Hover only",
-  showPitchAccent: "Show pitch accent",
+  showPitchAccent: "Show pronunciation",
   showLookupPillFrequency: "Show site frequency in pills",
   suppressRedundantWordUi: "Hide JPDB-redundant styling",
   sheetCloseButtonOnLeft: "Sheet close button on left",
@@ -9041,6 +9051,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
+pronunciation	発音
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
@@ -9109,7 +9120,7 @@ furiganaAllParsed	解析済みの全単語に表示
 clampedRowReadings	省略行のふりがな
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
-showPitchAccent	ピッチアクセントを表示
+showPitchAccent	発音を表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
@@ -13595,7 +13606,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.55".trim() ? "1.8.55".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.56".trim() ? "1.8.56".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -49597,20 +49608,23 @@ function readTargetLanguage(data, fallback) {
   return isLearningTargetRosterId(value) ? value : fallback;
 }
 function preserveDetachedJapaneseSettings(settings, current, data) {
-  if (data.has("furiganaMode")) return;
+  if (!data.has("furiganaMode")) {
   settings.furiganaMode = current.furiganaMode;
   settings.clampedRowReadings = current.clampedRowReadings;
   settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
-  settings.showPitchAccent = current.showPitchAccent;
+  }
+  if (!data.has("showPitchAccent")) settings.showPitchAccent = current.showPitchAccent;
+  if (!data.has("pitchColorHeiban")) {
   settings.pitchColorHeiban = current.pitchColorHeiban;
   settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
   settings.pitchColorNakadaka = current.pitchColorNakadaka;
   settings.pitchColorOdaka = current.pitchColorOdaka;
   settings.pitchColorUnknown = current.pitchColorUnknown;
-  settings.showLookupPillFrequency = current.showLookupPillFrequency;
-  settings.dictionaryLookupLinks = current.dictionaryLookupLinks.map((link) => ({ ...link }));
+  }
+  if (readTargetLanguage(data, "ja") !== "ja") {
   for (const name of COLOR_SOURCE_SETTING_NAMES) {
-  if (current[name] === "pitch") settings[name] = current[name];
+    if (current[name] === "pitch") settings[name] = current[name];
+  }
   }
 }
 function normalizedStringIds(values) {
@@ -53609,7 +53623,7 @@ function renderReaderSettingsPanel(settings) {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jp-only" data-language-family="reading-annotation">
+                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
                         ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
@@ -53617,7 +53631,7 @@ function renderReaderSettingsPanel(settings) {
                     </div>
                     ${select("wordColorStates", text2("wordColorStates"), settings.wordColorStates, localizedOptions(text2, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
-                    <div class="jp-only" data-language-family="pitch-colouring">
+                    <div data-language-family="pronunciation">
                         ${checkbox("showPitchAccent", text2("showPitchAccent"), settings.showPitchAccent)}
                     </div>
                     ${checkbox("suppressRedundantWordUi", text2("suppressRedundantWordUi"), settings.suppressRedundantWordUi)}
@@ -60378,9 +60392,10 @@ ${glossaryKey}`;
         };
       });
     }
-    async queue(limit = 50) {
+    async queue(limit = 50, options = {}) {
       const now = this.now();
-      const cards = Object.values((await this.readDeck()).cards);
+      const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+      const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
       const cap = normalizedQueueLimit(limit);
       const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
       const due = cards.filter((card) => card.dueAt <= now).sort(byDue);

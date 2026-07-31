@@ -2296,6 +2296,7 @@ const COPY = {
   pitchColorNakadaka: "Nakadaka (middle-high)",
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
+  pronunciation: "Pronunciation",
   noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
@@ -2363,7 +2364,7 @@ const COPY = {
   clampedRowReadings: "Readings on clamped rows",
   clampedRowReadingsShow: "Show (row grows)",
   clampedRowReadingsHover: "Hover only",
-  showPitchAccent: "Show pitch accent",
+  showPitchAccent: "Show pronunciation",
   showLookupPillFrequency: "Show site frequency in pills",
   suppressRedundantWordUi: "Hide JPDB-redundant styling",
   sheetCloseButtonOnLeft: "Sheet close button on left",
@@ -4059,6 +4060,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
+pronunciation	発音
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
@@ -4127,7 +4129,7 @@ furiganaAllParsed	解析済みの全単語に表示
 clampedRowReadings	省略行のふりがな
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
-showPitchAccent	ピッチアクセントを表示
+showPitchAccent	発音を表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に

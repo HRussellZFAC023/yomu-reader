@@ -1943,6 +1943,13 @@
   font-weight: 650;
 }
 
+.jpdb-reader-newtab-study-availability {
+  margin: 0;
+  color: color-mix(in srgb, var(--jpdb-reader-text) 68%, var(--jpdb-reader-muted));
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .jpdb-reader-newtab-study-tour-step[data-gradeable="true"] .jpdb-reader-newtab-study-tour-index {
   background: var(--jpdb-reader-accent);
   color: var(--jpdb-reader-accent-contrast, #ffffff);
@@ -9544,6 +9551,33 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   grid-column: 2;
   grid-row: 1;
   justify-self: end;
+}
+.jpdb-reader-pronunciation[data-pronunciation-kind="pitch-accent"] {
+  display: contents;
+}
+.jpdb-reader-pronunciation-ipa {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  max-width: min(44vw, 340px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.jpdb-reader-pronunciation-ipa::-webkit-scrollbar {
+  display: none;
+}
+.jpdb-reader-pronunciation-variant {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 999px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font-family: var(--jpdb-reader-font-family, sans-serif);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 .jpdb-reader-header .jpdb-reader-word-pills {
   grid-column: 1 / -1;

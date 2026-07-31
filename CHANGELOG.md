@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.56] - 2026-07-31
+
+### Added
+
+- Imported IPA now appears in the popup's pronunciation row for non-Japanese targets, while Japanese keeps pitch accent in the same surface. Reading and pronunciation controls follow the selected target, languages without pitch no longer show a pitch-unavailable row, and the catalogue labels IPA dictionaries as pronunciation sources rather than pitch.
+
+### Fixed
+
+- Local Study queues now stay on the selected target, and complete example sentences get the same Recall gap in Spanish and other targets as in Japanese. Card language and part of speech survive grading, reloads, and encrypted sync; when target audio is unavailable, Listen and Speak stay visible with a short availability note.
+
 ## [1.8.55] - 2026-07-31
 
 ### Fixed

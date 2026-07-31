@@ -3865,6 +3865,8 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   capabilities: {
   "term-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
+  pronunciation: true,
   "text-to-speech": true,
   ocr: true,
   subtitles: true,
@@ -3873,8 +3875,11 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   featureSemantics: {
   characterSystem: "hangul",
   phoneticScripts: ["hangul"],
-  pronunciation: "none",
-  readingAnnotation: "none"
+  pronunciation: "ipa",
+  readingAnnotation: "hangul"
+  },
+  typography: {
+  readingAnnotationMode: "ruby"
   },
   subtitles: {
   languageAliases: ["kor", "korean"]
@@ -5444,6 +5449,7 @@ Object.freeze(
 const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
   const lookupRewrites = lookupRewritesForTarget(language.id);
+  const readingAnnotation = language.id === "zh" || language.id === "yue";
   return createLearningTargetModule({
     id: `${language.id}-roster-v1`,
     language: language.runtimeLocale,
@@ -5452,16 +5458,19 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       "term-lookup": true,
       morphology: lookupRewrites.length > 0,
       segmentation: true,
+      "reading-annotation": readingAnnotation,
+      pronunciation: true,
       "text-to-speech": true,
       subtitles: true,
       typing: true
     },
     featureSemantics: {
       characterSystem: language.defaultScript,
-      phoneticScripts: [],
-      pronunciation: "none",
-      readingAnnotation: "none"
+      phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+      pronunciation: "ipa",
+      readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
+    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     detectsText: scriptDetector(language.scripts),
     lookupRewrites
   });
@@ -6269,6 +6278,7 @@ const COPY = {
   pitchColorNakadaka: "Nakadaka (middle-high)",
   pitchColorOdaka: "Odaka (tail-high)",
   pitchColorUnknown: "Unknown",
+  pronunciation: "Pronunciation",
   noExactPitch: "Exact pitch unavailable",
   colorChannels: "Color channels",
   wordHighlightColorSource: "Word highlight color",
@@ -6336,7 +6346,7 @@ const COPY = {
   clampedRowReadings: "Readings on clamped rows",
   clampedRowReadingsShow: "Show (row grows)",
   clampedRowReadingsHover: "Hover only",
-  showPitchAccent: "Show pitch accent",
+  showPitchAccent: "Show pronunciation",
   showLookupPillFrequency: "Show site frequency in pills",
   suppressRedundantWordUi: "Hide JPDB-redundant styling",
   sheetCloseButtonOnLeft: "Sheet close button on left",
@@ -8013,6 +8023,7 @@ pitchColorAtamadaka	頭高
 pitchColorNakadaka	中高
 pitchColorOdaka	尾高
 pitchColorUnknown	不明
+pronunciation	発音
 noExactPitch	完全一致のピッチは利用不可
 colorChannels	色チャンネル
 wordHighlightColorSource	単語ハイライトの色
@@ -8081,7 +8092,7 @@ furiganaAllParsed	解析済みの全単語に表示
 clampedRowReadings	省略行のふりがな
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
-showPitchAccent	ピッチアクセントを表示
+showPitchAccent	発音を表示
 showLookupPillFrequency	サイトの頻度をピルに表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
 sheetCloseButtonOnLeft	閉じるボタンを左に
