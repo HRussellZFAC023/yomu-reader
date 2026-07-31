@@ -1503,12 +1503,20 @@ body:has(.yomu-home) .jpdb-reader-fab {
 .yomu-home {
   /* Contract palette — docs/academy/VISUAL-SYSTEM.md */
   --world-ink: #181b18;
+  /* The page GROUND and letter PAPER are two different materials, and collapsing
+     them is what made this page look heavy. #f1ead9 is the bible's letter paper —
+     correct on a letter, a slip, a stamped chip. Flooding the whole viewport with
+     it leaves the type sitting in the same tone as every object on top of it, so
+     nothing lifts and the whole page reads muddy. The ground is a warm near-white
+     and the cream stays on the objects, which is how the approved homepage
+     treatment was built. */
+  --paper-ground: #fbf9f4;
   --paper: #f1ead9;
   --paper-folded: #ddd0b7;
   --accent: var(--jpdb-reader-accent, #5ea780);
 
   /* Semantic surfaces + inks. Redefined once for night, below. */
-  --surface-page: var(--paper);
+  --surface-page: var(--paper-ground);
   --surface-sunk: var(--paper-folded);
   --surface-slab: var(--paper);
   --surface-plate: var(--world-ink);
@@ -1844,16 +1852,6 @@ html.dark:has(.yomu-home) {
   line-height: 2;
 }
 
-.yomu-fold-pitch-note {
-  margin: var(--s-3) 0 0;
-  padding-top: var(--s-3);
-  /* A plain rule. This was the accent, which added a fourth accented edge to
-     the fold; the accent belongs on the primary action, not on every divider. */
-  border-top: var(--rule-w) solid var(--rule);
-  color: var(--ink-body);
-  font-size: 13px;
-  line-height: 1.45;
-}
 
 /* Paper object #2: the popover capture, in flow. */
 .yomu-fold-card {
@@ -2642,32 +2640,42 @@ html.dark:has(.yomu-home) {
 
 /* --- The hero language rotator (list owned by A37) ------------------ */
 .yomu-language-rotator {
-  display: inline-grid;
-  min-width: 10ch;
   /* Inherits the heading ink. It used --accent-ink, which put the accent on the
      headline as well as the guidance label, the arrow, the card edge and the
      primary action — five accented things at once, which is what turned the
      page green. The visual system spends the accent on "focus, selected edges,
      underlines, stamps, and primary actions"; a headline is none of those. */
+  display: inline-block;
+  position: relative;
   vertical-align: baseline;
 }
 
-.yomu-language-static,
-.yomu-language-cycle,
-.yomu-language-cycle > span {
-  grid-area: 1 / 1;
+.yomu-language-static {
+  white-space: nowrap;
 }
 
 .yomu-language-cycle {
   display: none;
 }
 
+/* Out of flow, not merely transparent. `opacity: 0` alone still reserved this
+   span's width beside the cycle, which is the other half of why the full stop was
+   stranded: the rotator measured the no-JS fallback plus the active word. */
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
+  position: absolute;
   opacity: 0;
+  pointer-events: none;
 }
 
+/* Only the ACTIVE word occupies space; the rest are lifted out of flow on top of
+   it. With the old inline-grid every word shared one cell, so the rotator was
+   always as wide as the LONGEST language name in the roster — which left the
+   sentence's full stop stranded a couple of characters to the right of a short
+   word like "Japanese". The line now reflows as the word changes, which is what
+   the reference treatment does too. */
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle {
-  display: grid;
+  display: inline-block;
+  position: relative;
 }
 
 /* The outgoing word leaves quickly, the incoming one waits for it. Both used the
@@ -2675,19 +2683,29 @@ html.dark:has(.yomu-home) {
    scripts sat on top of each other at half opacity and read as a rendering
    fault rather than a fade. 160ms matches the system's response timing. */
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
   opacity: 0;
   transform: translateY(-0.12em);
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active] {
+  /* Back in flow, so it — and only it — gives the rotator its width. */
+  position: relative;
   opacity: 1;
   transform: translateY(0);
   transition: opacity var(--motion-slow) ease 170ms, transform var(--motion-slow) ease 170ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Position as well as opacity: the static word is taken out of flow above, so
+     restoring only its opacity would leave a reduced-motion reader with a word
+     that paints over a zero-width rotator instead of sitting in the sentence. */
   .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
+    position: relative;
     opacity: 1;
   }
 

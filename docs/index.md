@@ -11,7 +11,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 <section class="yomu-fold" aria-labelledby="yomu-home-title">
   <div class="yomu-fold-main">
     <p class="yomu-wordmark" aria-hidden="true"><span class="yomu-wordmark-ja" lang="ja" data-yomu-localize="off">よむ</span><span class="yomu-wordmark-en" data-yomu-localize="off">YOMU</span></p>
-    <h1 class="yomu-fold-h1" id="yomu-home-title" data-yomu-study-target-claim="reading-only">Read in <YomuLanguageRotator /> Look up a word.</h1>
+    <h1 class="yomu-fold-h1" id="yomu-home-title" data-yomu-study-target-claim="full">A complete system for learning <YomuLanguageRotator /></h1>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a><svg class="yomu-fold-arrow" viewBox="0 0 72 48" aria-hidden="true" focusable="false"><path d="M4 6 C 28 7, 47 19, 58 37" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M48 31 L 59 40 L 62 26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
@@ -22,7 +22,6 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
              READER_DOCUMENT_CLICK_IGNORE_SELECTOR, so it silently turns the whole
              live sample into a picture. -->
         <p class="yomu-try-me-sample" lang="ja" aria-label="今日は静かな喫茶店で新しい本を読みました。" data-yomu-localize="off"><span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="今日" data-reading="きょう"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt>きょう</rt></ruby></span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="静か" data-reading="しずか"><ruby><span class="jpdb-reader-ruby-base">静</span><rt>しず</rt></ruby>かな</span><span class="jpdb-reader-word jpdb-due jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="喫茶店" data-reading="きっさてん"><ruby><span class="jpdb-reader-ruby-base">喫茶店</span><rt>きっさてん</rt></ruby></span>で<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="新しい" data-reading="あたらしい"><ruby><span class="jpdb-reader-ruby-base">新</span><rt>あたら</rt></ruby>しい</span><span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="本" data-reading="ほん"><ruby><span class="jpdb-reader-ruby-base">本</span><rt>ほん</rt></ruby></span>を<span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="読む" data-reading="よみました"><ruby><span class="jpdb-reader-ruby-base">読</span><rt>よ</rt></ruby>みました</span>。</p>
-        <p class="yomu-fold-pitch-note">The underline colours show pitch: blue stays flat, pink falls after the first beat, and amber falls later.</p>
       </div>
     </div>
     <!-- Every route is a real link here at every moment. The one the visitor's

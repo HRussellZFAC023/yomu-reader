@@ -21,8 +21,13 @@ describe('A28 homepage contract', () => {
     });
 
     it('keeps the no-JS reading headline and enables only a progressive fade', () => {
-        expect(homepage).toContain('Read in <YomuLanguageRotator /> Look up a word.');
+        expect(homepage).toContain('A complete system for learning <YomuLanguageRotator />');
         expect(homepageStyles).toContain('[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active]');
+        // The component appends the sentence's full stop to each language name, so
+        // the markup must NOT add a second one — and only the active word may take
+        // up space, or the stop is stranded to the right of a short name.
+        expect(homepage).not.toContain('<YomuLanguageRotator />.');
+        expect(homepageStyles).toContain('.yomu-language-cycle > span[data-yomu-language-active]');
     });
 
     it('keeps one live OCR image and all other images opted out', () => {

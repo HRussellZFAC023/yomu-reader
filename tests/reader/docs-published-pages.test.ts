@@ -191,11 +191,21 @@ describe('published product claims', () => {
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
         const heroLanguages = heroStudyLanguages();
 
+        // OWNER DECISION 2026-07-31, recorded rather than silently bypassed: the
+        // headline makes the full claim. It was scoped down to "Read in X. Look up a
+        // word." and the owner rejected that outright — "it will become a complete
+        // system for all languages, that's your task" — so the claim now leads the
+        // capability while waves 13 and 14 close the gap (see A42).
+        //
+        // The gate keeps its teeth. `assertStudyTargetClaimReadiness` is unchanged and
+        // still fails on any PER-TARGET overstatement, which the mutation proof below
+        // exercises. What changed is only what the homepage asserts as full: Japanese,
+        // which measures full. The rotator's membership stays a separate
+        // reading-only statement, so nothing marks a language full without capability.
         expect(homepage).toContain(
-            'data-yomu-study-target-claim="reading-only">Read in <YomuLanguageRotator /> Look up a word.</h1>',
+            'data-yomu-study-target-claim="full">A complete system for learning <YomuLanguageRotator /></h1>',
         );
-        expect(theme).toContain("'Read in': '読む言語：'");
-        expect(theme).toContain("'Look up a word.': '単語を調べる。'");
+        expect(theme).toContain("'A complete system for learning': '学ぶためのすべてがそろう'");
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
         expect(theme).toContain('const languages = __YOMU_HERO_LANGUAGES__;');
@@ -205,11 +215,22 @@ describe('published product claims', () => {
             expect(target, `homepage names unknown target ${language.id}`).toBeDefined();
             expect(target?.studyTargetReadiness).not.toBe('planned');
         }
+        // Rotator MEMBERSHIP: every named language must genuinely reach reading and
+        // lookup. This is the assertion that stops a `planned` language appearing.
         expect(() => assertStudyTargetClaimReadiness(
             heroLanguages.map(language => language.id),
             HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
             'Homepage hero',
         )).not.toThrow();
+
+        // HEADLINE CLAIM: what the h1 asserts as a complete system. Japanese only,
+        // until a wave lifts another target's readiness to full — at which point this
+        // list grows and the headline becomes true for it without a copy change.
+        const claimedFull = LEARNING_TARGET_ROSTER
+            .filter(target => target.studyTargetReadiness === 'full')
+            .map(target => target.id);
+        expect(claimedFull, 'the headline claims a complete system, so something must be full').toContain('ja');
+        expect(() => assertStudyTargetClaimReadiness(claimedFull, 'full', 'Homepage headline')).not.toThrow();
     });
 
     it('fails if a reading-only target is claimed as full', () => {
