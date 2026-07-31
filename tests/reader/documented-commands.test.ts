@@ -47,5 +47,7 @@ describe('documented npm commands', () => {
         // command a contributor may never invoke.
         expect(readFileSync(path.join(ROOT, 'scripts/run-check.mjs'), 'utf8'))
             .toContain('node scripts/complexity-audit.mjs');
+        expect(readFileSync(path.join(ROOT, 'scripts/run-check.mjs'), 'utf8'))
+            .toContain("stage('multilingual-parity-ratchet', 'npm run -s quality:multilingual-parity')");
     });
 });

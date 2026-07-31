@@ -1,0 +1,2677 @@
+{
+  "measuredAt": "2026-07-31T14:13:37.861Z",
+  "schemaVersion": 3,
+  "measurementMode": "production-yomitan-inline-find-term-matches",
+  "measurementAlgorithmVersion": "exact-gold-spans-v3-full-archive-filter",
+  "gitCommit": "3b313e5e5ee89937d4ecdf770676a3e0eaf470ea",
+  "gitDirty": false,
+  "gitStatusSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "node": "v24.16.0",
+  "icu": "78.3",
+  "corpusSha256": "df1e88feaa359a9253df2a21cc2e173d7db382c54351c72e0272cab4acd2fca2",
+  "suggestedBenchmarkPercent": 60,
+  "corpusRule": "An occurrence counts only when a definition match has exactly the ledgered content-word span.",
+  "results": [
+    {
+      "language": "th",
+      "lookupContractSha256": "91f7ef8d43e3b5561a95ed478fa6d7bcb40ff2970ad28c75279bb5b4866e289f",
+      "dictionary": {
+        "id": "wty-th-en",
+        "title": "[TH-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "e38547583923978c0b75337bd523a13c89aedd9b4e31aa44cc67afacd12100ef",
+        "bytes": 2666547,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/e38547583923978c0b75337bd523a13c89aedd9b4e31aa44cc67afacd12100ef.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/th/en/wty-th-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 61,
+      "misses": [
+        {
+          "sentenceId": "th-01",
+          "word": "วันจันทร์",
+          "start": 4,
+          "end": 13
+        },
+        {
+          "sentenceId": "th-01",
+          "word": "มาเรีย",
+          "start": 14,
+          "end": 20
+        },
+        {
+          "sentenceId": "th-03",
+          "word": "คนขาย",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "th-04",
+          "word": "มาเรีย",
+          "start": 0,
+          "end": 6
+        },
+        {
+          "sentenceId": "th-04",
+          "word": "บอก",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "sentenceId": "th-05",
+          "word": "สวนสาธารณะ",
+          "start": 26,
+          "end": 36
+        },
+        {
+          "sentenceId": "th-08",
+          "word": "สีน้ำเงิน",
+          "start": 24,
+          "end": 33
+        },
+        {
+          "sentenceId": "th-09",
+          "word": "รถบัส",
+          "start": 15,
+          "end": 20
+        },
+        {
+          "sentenceId": "th-09",
+          "word": "อาหารเย็น",
+          "start": 24,
+          "end": 33
+        },
+        {
+          "sentenceId": "th-10",
+          "word": "ตอนค่ำ",
+          "start": 0,
+          "end": 6
+        },
+        {
+          "sentenceId": "th-10",
+          "word": "ทุกคน",
+          "start": 7,
+          "end": 12
+        },
+        {
+          "sentenceId": "th-10",
+          "word": "วันนี้",
+          "start": 44,
+          "end": 50
+        }
+      ],
+      "percent": 80.3,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "ru",
+      "lookupContractSha256": "0e2d8216f1209c2d00dfdc102dceca67cd7d3d2475a031b3fe09087739b388da",
+      "dictionary": {
+        "id": "wty-ru-en",
+        "title": "[RU-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "2d67e8f7b4d1ca0cc7083b198333d4d2fce2c61c3f13ef32abfd39f7c437cb8b",
+        "bytes": 26007867,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/2d67e8f7b4d1ca0cc7083b198333d4d2fce2c61c3f13ef32abfd39f7c437cb8b.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/ru/en/wty-ru-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 49,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "ar",
+      "lookupContractSha256": "016966225a2c7a57f4c7ec63abadb204a0607ee4664b214b47a127fb442ffcbe",
+      "dictionary": {
+        "id": "wty-ar-en",
+        "title": "[AR-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d1eaa02bc4650b37d90b2b35722be63a9fab4169d791e4c0a1b490f419f9d402",
+        "bytes": 13259415,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d1eaa02bc4650b37d90b2b35722be63a9fab4169d791e4c0a1b490f419f9d402.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/ar/en/wty-ar-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 40,
+      "contentWords": 48,
+      "misses": [
+        {
+          "sentenceId": "ar-01",
+          "word": "ماريا",
+          "start": 5,
+          "end": 10
+        },
+        {
+          "sentenceId": "ar-02",
+          "word": "تفاحتين",
+          "start": 18,
+          "end": 25
+        },
+        {
+          "sentenceId": "ar-02",
+          "word": "زجاجة",
+          "start": 27,
+          "end": 32
+        },
+        {
+          "sentenceId": "ar-03",
+          "word": "سألها",
+          "start": 14,
+          "end": 19
+        },
+        {
+          "sentenceId": "ar-04",
+          "word": "ماريا",
+          "start": 5,
+          "end": 10
+        },
+        {
+          "sentenceId": "ar-07",
+          "word": "قرأت",
+          "start": 15,
+          "end": 19
+        },
+        {
+          "sentenceId": "ar-10",
+          "word": "كلها",
+          "start": 22,
+          "end": 26
+        },
+        {
+          "sentenceId": "ar-10",
+          "word": "تحدثت",
+          "start": 32,
+          "end": 37
+        }
+      ],
+      "percent": 83.3,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "ko",
+      "lookupContractSha256": "abb0ae0fe11f272e21ccde15a1b1b8fe84ee69e3487412c0192af3d38ac12277",
+      "dictionary": {
+        "id": "wty-ko-en",
+        "title": "[KO-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "227dc4b28b20f841ded44c13079949f46b689e93da52f370cb0555a329d608d5",
+        "bytes": 7178977,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/227dc4b28b20f841ded44c13079949f46b689e93da52f370cb0555a329d608d5.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/ko/en/wty-ko-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 61,
+      "contentWords": 65,
+      "misses": [
+        {
+          "sentenceId": "ko-04",
+          "word": "공부한다고",
+          "start": 14,
+          "end": 19
+        },
+        {
+          "sentenceId": "ko-06",
+          "word": "개",
+          "start": 3,
+          "end": 4
+        },
+        {
+          "sentenceId": "ko-10",
+          "word": "먹으며",
+          "start": 17,
+          "end": 20
+        },
+        {
+          "sentenceId": "ko-10",
+          "word": "나눴습니다",
+          "start": 29,
+          "end": 34
+        }
+      ],
+      "percent": 93.8,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "de",
+      "lookupContractSha256": "f2af1ed4b74c59266d224a2c4c55aadaae62879baa54fb2868fc8c5425981d05",
+      "dictionary": {
+        "id": "wty-de-en",
+        "title": "[DE-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "a3a053ee7f2f2765dc6876cb698215e6b3607f27e02adf7d74f32bf6147d6f8c",
+        "bytes": 16936546,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/a3a053ee7f2f2765dc6876cb698215e6b3607f27e02adf7d74f32bf6147d6f8c.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/de/en/wty-de-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 49,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "es",
+      "lookupContractSha256": "6cad46676d0e4c81eeca85dc01b40154d2221175d49969eadc1dbc88e61b3308",
+      "dictionary": {
+        "id": "wty-es-en",
+        "title": "[ES-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "7d8304996949cb70c7d3c4008a6c7c640f5eaca5edc1084336f266a60575a966",
+        "bytes": 21074465,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/7d8304996949cb70c7d3c4008a6c7c640f5eaca5edc1084336f266a60575a966.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/es/en/wty-es-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 50,
+      "contentWords": 50,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "sq",
+      "lookupContractSha256": "8edd03899a00597c5bc90f348aba95be0eee23dca7b8798bc799ed36bef3f2d0",
+      "dictionary": {
+        "id": "wty-sq-en",
+        "title": "[SQ-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "880a322d4b14639138d1479d3cbe36549cddfd6f07024071ab2a56c744e7e4d2",
+        "bytes": 2599961,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/880a322d4b14639138d1479d3cbe36549cddfd6f07024071ab2a56c744e7e4d2.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/sq/en/wty-sq-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 43,
+      "contentWords": 48,
+      "misses": [
+        {
+          "sentenceId": "sq-01",
+          "word": "Maria",
+          "start": 10,
+          "end": 15
+        },
+        {
+          "sentenceId": "sq-03",
+          "word": "pyeti",
+          "start": 28,
+          "end": 33
+        },
+        {
+          "sentenceId": "sq-04",
+          "word": "Maria",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "sq-09",
+          "word": "kthye",
+          "start": 19,
+          "end": 24
+        },
+        {
+          "sentenceId": "sq-10",
+          "word": "bashku",
+          "start": 39,
+          "end": 45
+        }
+      ],
+      "percent": 89.6,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "grc",
+      "lookupContractSha256": "ad5790dbe434273a8b3a79641032852dd0eda73c3d4113d8bbac75c767c24cf0",
+      "dictionary": {
+        "id": "wty-grc-en",
+        "title": "[GRC-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "90f198b43909c56c6f7588ad24890a90e6a2009d321fb3abffec78b95f7292a3",
+        "bytes": 14829592,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/90f198b43909c56c6f7588ad24890a90e6a2009d321fb3abffec78b95f7292a3.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/grc/en/wty-grc-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 27,
+      "contentWords": 50,
+      "misses": [
+        {
+          "sentenceId": "grc-01",
+          "word": "πρωῒ",
+          "start": 19,
+          "end": 23
+        },
+        {
+          "sentenceId": "grc-01",
+          "word": "ἀγορὰν",
+          "start": 32,
+          "end": 38
+        },
+        {
+          "sentenceId": "grc-02",
+          "word": "Ἄρτον",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "grc-02",
+          "word": "πρόσφατον",
+          "start": 6,
+          "end": 15
+        },
+        {
+          "sentenceId": "grc-02",
+          "word": "μῆλα",
+          "start": 21,
+          "end": 25
+        },
+        {
+          "sentenceId": "grc-02",
+          "word": "ὕδατος",
+          "start": 30,
+          "end": 36
+        },
+        {
+          "sentenceId": "grc-02",
+          "word": "ἠγόρασεν",
+          "start": 45,
+          "end": 53
+        },
+        {
+          "sentenceId": "grc-03",
+          "word": "πωλητὴς",
+          "start": 2,
+          "end": 9
+        },
+        {
+          "sentenceId": "grc-03",
+          "word": "ἠσπάσατο",
+          "start": 16,
+          "end": 24
+        },
+        {
+          "sentenceId": "grc-04",
+          "word": "ἐμάνθανον",
+          "start": 39,
+          "end": 48
+        },
+        {
+          "sentenceId": "grc-05",
+          "word": "ἀγορὰς",
+          "start": 9,
+          "end": 15
+        },
+        {
+          "sentenceId": "grc-05",
+          "word": "ἐβάδισεν",
+          "start": 30,
+          "end": 38
+        },
+        {
+          "sentenceId": "grc-06",
+          "word": "μικρὸν",
+          "start": 9,
+          "end": 15
+        },
+        {
+          "sentenceId": "grc-07",
+          "word": "καινὸν",
+          "start": 32,
+          "end": 38
+        },
+        {
+          "sentenceId": "grc-07",
+          "word": "ἀνέγνω",
+          "start": 39,
+          "end": 45
+        },
+        {
+          "sentenceId": "grc-08",
+          "word": "ὑετὸς",
+          "start": 7,
+          "end": 12
+        },
+        {
+          "sentenceId": "grc-08",
+          "word": "κυανοῦν",
+          "start": 24,
+          "end": 31
+        },
+        {
+          "sentenceId": "grc-08",
+          "word": "ἀνέπτυξεν",
+          "start": 42,
+          "end": 51
+        },
+        {
+          "sentenceId": "grc-09",
+          "word": "ἅρματι",
+          "start": 24,
+          "end": 30
+        },
+        {
+          "sentenceId": "grc-09",
+          "word": "ἐπανῆλθεν",
+          "start": 38,
+          "end": 47
+        },
+        {
+          "sentenceId": "grc-10",
+          "word": "πᾶσα",
+          "start": 10,
+          "end": 14
+        },
+        {
+          "sentenceId": "grc-10",
+          "word": "ἔφαγε",
+          "start": 26,
+          "end": 31
+        },
+        {
+          "sentenceId": "grc-10",
+          "word": "διελέχθη",
+          "start": 52,
+          "end": 60
+        }
+      ],
+      "percent": 54,
+      "suggestedBar": "BELOW"
+    },
+    {
+      "language": "yue",
+      "lookupContractSha256": "e69d091fcd254109b44b216c07670446698128e8fa562b030df795d58eca7bf8",
+      "dictionary": {
+        "id": "wty-yue-en",
+        "title": "[YUE-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d0dc3d6a5de7d4384de620084a44741fec6e0dd7ec82c1e14a2c4c780f8a0281",
+        "bytes": 28109,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d0dc3d6a5de7d4384de620084a44741fec6e0dd7ec82c1e14a2c4c780f8a0281.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/yue/en/wty-yue-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 0,
+      "contentWords": 47,
+      "misses": [
+        {
+          "sentenceId": "yue-01",
+          "word": "星期一",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "sentenceId": "yue-01",
+          "word": "朝早",
+          "start": 3,
+          "end": 5
+        },
+        {
+          "sentenceId": "yue-01",
+          "word": "瑪利亞",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "sentenceId": "yue-01",
+          "word": "一早",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "yue-01",
+          "word": "去咗",
+          "start": 11,
+          "end": 13
+        },
+        {
+          "sentenceId": "yue-01",
+          "word": "街市",
+          "start": 13,
+          "end": 15
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "買咗",
+          "start": 1,
+          "end": 3
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "新鮮",
+          "start": 3,
+          "end": 5
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "麵包",
+          "start": 5,
+          "end": 7
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "兩個",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "蘋果",
+          "start": 10,
+          "end": 12
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "一樽",
+          "start": 13,
+          "end": 15
+        },
+        {
+          "sentenceId": "yue-02",
+          "word": "水",
+          "start": 15,
+          "end": 16
+        },
+        {
+          "sentenceId": "yue-03",
+          "word": "檔主",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "sentenceId": "yue-03",
+          "word": "打招呼",
+          "start": 4,
+          "end": 7
+        },
+        {
+          "sentenceId": "yue-03",
+          "word": "問起",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "yue-03",
+          "word": "屋企人",
+          "start": 12,
+          "end": 15
+        },
+        {
+          "sentenceId": "yue-04",
+          "word": "瑪利亞",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "sentenceId": "yue-04",
+          "word": "細路",
+          "start": 6,
+          "end": 8
+        },
+        {
+          "sentenceId": "yue-04",
+          "word": "屋企",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "yue-04",
+          "word": "讀緊書",
+          "start": 11,
+          "end": 14
+        },
+        {
+          "sentenceId": "yue-05",
+          "word": "買完嘢",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "sentenceId": "yue-05",
+          "word": "行過",
+          "start": 7,
+          "end": 9
+        },
+        {
+          "sentenceId": "yue-05",
+          "word": "公園",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "yue-06",
+          "word": "小狗",
+          "start": 2,
+          "end": 4
+        },
+        {
+          "sentenceId": "yue-06",
+          "word": "湖邊",
+          "start": 5,
+          "end": 7
+        },
+        {
+          "sentenceId": "yue-06",
+          "word": "玩緊",
+          "start": 7,
+          "end": 9
+        },
+        {
+          "sentenceId": "yue-07",
+          "word": "坐",
+          "start": 1,
+          "end": 2
+        },
+        {
+          "sentenceId": "yue-07",
+          "word": "樹下",
+          "start": 3,
+          "end": 5
+        },
+        {
+          "sentenceId": "yue-07",
+          "word": "睇",
+          "start": 6,
+          "end": 7
+        },
+        {
+          "sentenceId": "yue-07",
+          "word": "新書",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "yue-08",
+          "word": "開始",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "sentenceId": "yue-08",
+          "word": "落雨",
+          "start": 2,
+          "end": 4
+        },
+        {
+          "sentenceId": "yue-08",
+          "word": "擔起",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "sentenceId": "yue-08",
+          "word": "藍色",
+          "start": 12,
+          "end": 14
+        },
+        {
+          "sentenceId": "yue-08",
+          "word": "雨遮",
+          "start": 14,
+          "end": 16
+        },
+        {
+          "sentenceId": "yue-09",
+          "word": "食晚飯",
+          "start": 0,
+          "end": 3
+        },
+        {
+          "sentenceId": "yue-09",
+          "word": "搭巴士",
+          "start": 7,
+          "end": 10
+        },
+        {
+          "sentenceId": "yue-09",
+          "word": "返屋企",
+          "start": 10,
+          "end": 13
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "夜晚",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "全家人",
+          "start": 3,
+          "end": 6
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "一齊",
+          "start": 6,
+          "end": 8
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "食飯",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "傾返",
+          "start": 11,
+          "end": 13
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "今日",
+          "start": 13,
+          "end": 15
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "發生",
+          "start": 15,
+          "end": 17
+        },
+        {
+          "sentenceId": "yue-10",
+          "word": "事",
+          "start": 18,
+          "end": 19
+        }
+      ],
+      "percent": 0,
+      "suggestedBar": "BELOW"
+    },
+    {
+      "language": "zh",
+      "lookupContractSha256": "f58fa271590230d5d67cc9e7887aee8cf9460ac5c252da09adaab4fbefd0d300",
+      "dictionary": {
+        "id": "wty-zh-en",
+        "title": "[ZH-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "5858be89170e4b05e51388f9896da06e2ad7e09fe3d7e2486a7435143329c74d",
+        "bytes": 19970130,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/5858be89170e4b05e51388f9896da06e2ad7e09fe3d7e2486a7435143329c74d.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/zh/en/wty-zh-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 38,
+      "contentWords": 51,
+      "misses": [
+        {
+          "sentenceId": "zh-01",
+          "word": "很早",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "zh-01",
+          "word": "去了",
+          "start": 12,
+          "end": 14
+        },
+        {
+          "sentenceId": "zh-02",
+          "word": "买了",
+          "start": 1,
+          "end": 3
+        },
+        {
+          "sentenceId": "zh-02",
+          "word": "两个",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "sentenceId": "zh-02",
+          "word": "一瓶",
+          "start": 13,
+          "end": 15
+        },
+        {
+          "sentenceId": "zh-02",
+          "word": "水",
+          "start": 15,
+          "end": 16
+        },
+        {
+          "sentenceId": "zh-03",
+          "word": "问起",
+          "start": 8,
+          "end": 10
+        },
+        {
+          "sentenceId": "zh-04",
+          "word": "孩子们",
+          "start": 7,
+          "end": 10
+        },
+        {
+          "sentenceId": "zh-05",
+          "word": "买完",
+          "start": 0,
+          "end": 2
+        },
+        {
+          "sentenceId": "zh-07",
+          "word": "读了",
+          "start": 6,
+          "end": 8
+        },
+        {
+          "sentenceId": "zh-09",
+          "word": "回了",
+          "start": 9,
+          "end": 11
+        },
+        {
+          "sentenceId": "zh-10",
+          "word": "全家人",
+          "start": 3,
+          "end": 6
+        },
+        {
+          "sentenceId": "zh-10",
+          "word": "聊起",
+          "start": 11,
+          "end": 13
+        }
+      ],
+      "percent": 74.5,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "da",
+      "lookupContractSha256": "2ee3b2d8f5bcf0552bd16df7ec59143eceec35dad14ddbfc50418ba7ad3730f8",
+      "dictionary": {
+        "id": "wty-da-en",
+        "title": "[DA-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "72136192c80fe297a337ec1f3d1a8742e2f40384a8251b8a540500d3abedb8cc",
+        "bytes": 3163406,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/72136192c80fe297a337ec1f3d1a8742e2f40384a8251b8a540500d3abedb8cc.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/da/en/wty-da-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 49,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "nl",
+      "lookupContractSha256": "04f9112208f07f897a29c8742a314ea9607b5f22a26fd9a81bba159f44066021",
+      "dictionary": {
+        "id": "wty-nl-en",
+        "title": "[NL-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "243e195625a2babc4b6970be519ba923fbed41a8f8a0be42185bc6c89ad155c0",
+        "bytes": 8509132,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/243e195625a2babc4b6970be519ba923fbed41a8f8a0be42185bc6c89ad155c0.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/nl/en/wty-nl-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 49,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "en",
+      "lookupContractSha256": "11d4e8894434844159c190f3ee0e9d87209066bf8a77c800cd838ddcc2d36452",
+      "dictionary": {
+        "id": "wty-en-en",
+        "title": "[EN-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "e40e505e2dd70383d1a56319f20bb92c21433ed2004fbc5b7a98d2269a774db5",
+        "bytes": 106198289,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/e40e505e2dd70383d1a56319f20bb92c21433ed2004fbc5b7a98d2269a774db5.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/en/en/wty-en-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 48,
+      "contentWords": 48,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "fi",
+      "lookupContractSha256": "6d54b9c3b4b522114223c80e4f01eac670228e8787f624b49fabfdfdabebf5e9",
+      "dictionary": {
+        "id": "wty-fi-en",
+        "title": "[FI-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d47e10b78a02fd31eeff0176ea6d17bc78d94cc9f3b0572a170d48881a0b8765",
+        "bytes": 118145164,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d47e10b78a02fd31eeff0176ea6d17bc78d94cc9f3b0572a170d48881a0b8765.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/fi/en/wty-fi-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "candidate-filtered-full-archive",
+        "termBanks": 691,
+        "scannedTermRows": 17242648,
+        "retainedTermRows": 116
+      },
+      "sentences": 10,
+      "annotated": 45,
+      "contentWords": 48,
+      "misses": [
+        {
+          "sentenceId": "fi-03",
+          "word": "perheestään",
+          "start": 36,
+          "end": 47
+        },
+        {
+          "sentenceId": "fi-04",
+          "word": "lapsensa",
+          "start": 24,
+          "end": 32
+        },
+        {
+          "sentenceId": "fi-08",
+          "word": "sateenvarjonsa",
+          "start": 35,
+          "end": 49
+        }
+      ],
+      "percent": 93.8,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "fr",
+      "lookupContractSha256": "e0b7d5bac93ef487b7cdbb0dddbd3e3632afffd7b8795539c1bf572841c43ad4",
+      "dictionary": {
+        "id": "wty-fr-en",
+        "title": "[FR-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "5c67e3098dec7fab7eee1863675e49d890c0c56bcab44d7f811c992813206660",
+        "bytes": 10871156,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/5c67e3098dec7fab7eee1863675e49d890c0c56bcab44d7f811c992813206660.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/fr/en/wty-fr-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 48,
+      "contentWords": 49,
+      "misses": [
+        {
+          "sentenceId": "fr-02",
+          "word": "eau",
+          "start": 60,
+          "end": 63
+        }
+      ],
+      "percent": 98,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "el",
+      "lookupContractSha256": "fcec599e00f5d15e1370c625bdad96e74487cf1c212c81b5806c638e51c01887",
+      "dictionary": {
+        "id": "wty-el-en",
+        "title": "[EL-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "dce93970d1c99c97a13411c1774a22671861e753dd056485e905d96482e206f0",
+        "bytes": 6003058,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/dce93970d1c99c97a13411c1774a22671861e753dd056485e905d96482e206f0.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/el/en/wty-el-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 48,
+      "contentWords": 49,
+      "misses": [
+        {
+          "sentenceId": "el-03",
+          "word": "οικογένειά",
+          "start": 45,
+          "end": 55
+        }
+      ],
+      "percent": 98,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "hu",
+      "lookupContractSha256": "222e01c46728cc0779df9d7409a436164df4cd45c4eedcdb95f708ad0d470044",
+      "dictionary": {
+        "id": "wty-hu-en",
+        "title": "[HU-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d4d529bcb84bab352d7de89344a61f00fe4e8c98d604975556824c0ec7679967",
+        "bytes": 13015596,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d4d529bcb84bab352d7de89344a61f00fe4e8c98d604975556824c0ec7679967.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/hu/en/wty-hu-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 41,
+      "contentWords": 49,
+      "misses": [
+        {
+          "sentenceId": "hu-05",
+          "word": "bevásárlás",
+          "start": 2,
+          "end": 12
+        },
+        {
+          "sentenceId": "hu-05",
+          "word": "átsétált",
+          "start": 18,
+          "end": 26
+        },
+        {
+          "sentenceId": "hu-07",
+          "word": "Leült",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "hu-08",
+          "word": "eleredt",
+          "start": 7,
+          "end": 14
+        },
+        {
+          "sentenceId": "hu-08",
+          "word": "kinyitotta",
+          "start": 23,
+          "end": 33
+        },
+        {
+          "sentenceId": "hu-08",
+          "word": "esernyőjét",
+          "start": 40,
+          "end": 50
+        },
+        {
+          "sentenceId": "hu-10",
+          "word": "napjukról",
+          "start": 40,
+          "end": 49
+        },
+        {
+          "sentenceId": "hu-10",
+          "word": "beszélgetett",
+          "start": 50,
+          "end": 62
+        }
+      ],
+      "percent": 83.7,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "id",
+      "lookupContractSha256": "eee4f7621820a50c4d29abef649357291aed43a7054efeb0c6c7e88797426b23",
+      "dictionary": {
+        "id": "wty-id-en",
+        "title": "[ID-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d3602b05ab696cc6f820aea16cd502c2809e90a3bb04e80ae1a92d5cc7d638ed",
+        "bytes": 3816418,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d3602b05ab696cc6f820aea16cd502c2809e90a3bb04e80ae1a92d5cc7d638ed.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/id/en/wty-id-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 56,
+      "misses": [
+        {
+          "sentenceId": "id-01",
+          "word": "pagi-pagi",
+          "start": 38,
+          "end": 47
+        },
+        {
+          "sentenceId": "id-02",
+          "word": "sebotol",
+          "start": 43,
+          "end": 50
+        },
+        {
+          "sentenceId": "id-03",
+          "word": "menyapanya",
+          "start": 12,
+          "end": 22
+        },
+        {
+          "sentenceId": "id-03",
+          "word": "menanyakan",
+          "start": 27,
+          "end": 37
+        },
+        {
+          "sentenceId": "id-03",
+          "word": "keluarganya",
+          "start": 44,
+          "end": 55
+        },
+        {
+          "sentenceId": "id-04",
+          "word": "anak-anaknya",
+          "start": 20,
+          "end": 32
+        },
+        {
+          "sentenceId": "id-08",
+          "word": "birunya",
+          "start": 45,
+          "end": 52
+        }
+      ],
+      "percent": 87.5,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "it",
+      "lookupContractSha256": "f2e6b6890d82c4a492ab5f52ce121e7505d40d55f655249ca25576856d423419",
+      "dictionary": {
+        "id": "wty-it-en",
+        "title": "[IT-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "460a1a2e6138909018482c7104c9f8fefbf7ad0a2f9c64181ef10a85ba5179c4",
+        "bytes": 17176704,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/460a1a2e6138909018482c7104c9f8fefbf7ad0a2f9c64181ef10a85ba5179c4.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/it/en/wty-it-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 48,
+      "contentWords": 49,
+      "misses": [
+        {
+          "sentenceId": "it-02",
+          "word": "acqua",
+          "start": 47,
+          "end": 52
+        }
+      ],
+      "percent": 98,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "km",
+      "lookupContractSha256": "3e7c5e5464f7163ecf665fecc4764444411bc9dfadb0c57bebc367ebf0f24faa",
+      "dictionary": {
+        "id": "wty-km-en",
+        "title": "[KM-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "7a294a835c8f1bc48b8331e9b752609155785371631badbf3ee7737c1447763e",
+        "bytes": 946828,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/7a294a835c8f1bc48b8331e9b752609155785371631badbf3ee7737c1447763e.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/km/en/wty-km-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 36,
+      "contentWords": 60,
+      "misses": [
+        {
+          "sentenceId": "km-01",
+          "word": "ថ្ងៃចន្ទ",
+          "start": 7,
+          "end": 15
+        },
+        {
+          "sentenceId": "km-01",
+          "word": "ម៉ារីយ៉ា",
+          "start": 16,
+          "end": 24
+        },
+        {
+          "sentenceId": "km-01",
+          "word": "បានទៅ",
+          "start": 24,
+          "end": 29
+        },
+        {
+          "sentenceId": "km-02",
+          "word": "ផ្លែប៉ោម",
+          "start": 21,
+          "end": 29
+        },
+        {
+          "sentenceId": "km-04",
+          "word": "ម៉ារីយ៉ា",
+          "start": 0,
+          "end": 8
+        },
+        {
+          "sentenceId": "km-04",
+          "word": "កូនៗ",
+          "start": 20,
+          "end": 24
+        },
+        {
+          "sentenceId": "km-04",
+          "word": "កំពុងរៀន",
+          "start": 31,
+          "end": 39
+        },
+        {
+          "sentenceId": "km-04",
+          "word": "ផ្ទះ",
+          "start": 41,
+          "end": 45
+        },
+        {
+          "sentenceId": "km-05",
+          "word": "ឥវ៉ាន់",
+          "start": 12,
+          "end": 18
+        },
+        {
+          "sentenceId": "km-05",
+          "word": "ដើរ",
+          "start": 25,
+          "end": 28
+        },
+        {
+          "sentenceId": "km-05",
+          "word": "កាត់",
+          "start": 28,
+          "end": 32
+        },
+        {
+          "sentenceId": "km-05",
+          "word": "សួនច្បារ",
+          "start": 32,
+          "end": 40
+        },
+        {
+          "sentenceId": "km-06",
+          "word": "កំពុងលេង",
+          "start": 10,
+          "end": 18
+        },
+        {
+          "sentenceId": "km-08",
+          "word": "ចាប់ផ្តើម",
+          "start": 8,
+          "end": 17
+        },
+        {
+          "sentenceId": "km-08",
+          "word": "ពណ៌ខៀវ",
+          "start": 38,
+          "end": 44
+        },
+        {
+          "sentenceId": "km-09",
+          "word": "ជិះ",
+          "start": 6,
+          "end": 9
+        },
+        {
+          "sentenceId": "km-09",
+          "word": "ឡានក្រុង",
+          "start": 9,
+          "end": 17
+        },
+        {
+          "sentenceId": "km-09",
+          "word": "ត្រឡប់",
+          "start": 17,
+          "end": 23
+        },
+        {
+          "sentenceId": "km-09",
+          "word": "អាហារពេលល្ងាច",
+          "start": 32,
+          "end": 45
+        },
+        {
+          "sentenceId": "km-10",
+          "word": "ពេលល្ងាច",
+          "start": 2,
+          "end": 10
+        },
+        {
+          "sentenceId": "km-10",
+          "word": "ញ៉ាំ",
+          "start": 28,
+          "end": 32
+        },
+        {
+          "sentenceId": "km-10",
+          "word": "បាយ",
+          "start": 32,
+          "end": 35
+        },
+        {
+          "sentenceId": "km-10",
+          "word": "ជុំគ្នា",
+          "start": 35,
+          "end": 42
+        },
+        {
+          "sentenceId": "km-10",
+          "word": "ប្រចាំថ្ងៃ",
+          "start": 62,
+          "end": 72
+        }
+      ],
+      "percent": 60,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "lo",
+      "lookupContractSha256": "d02629b952f11b9c59da53a77046579f1f4ba0a414f60ee4fae2555226379c1f",
+      "dictionary": {
+        "id": "wty-lo-en",
+        "title": "[LO-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "09dd9968bc15700b161c514dd317fccc2004f4e734b15860077c7f7e60a808ae",
+        "bytes": 265131,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/09dd9968bc15700b161c514dd317fccc2004f4e734b15860077c7f7e60a808ae.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/lo/en/wty-lo-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 37,
+      "contentWords": 62,
+      "misses": [
+        {
+          "sentenceId": "lo-01",
+          "word": "ວັນຈັນ",
+          "start": 5,
+          "end": 11
+        },
+        {
+          "sentenceId": "lo-01",
+          "word": "ມາເຣຍ",
+          "start": 12,
+          "end": 17
+        },
+        {
+          "sentenceId": "lo-01",
+          "word": "ເຊົ້າ",
+          "start": 28,
+          "end": 33
+        },
+        {
+          "sentenceId": "lo-02",
+          "word": "ໝາກໂປມ",
+          "start": 18,
+          "end": 24
+        },
+        {
+          "sentenceId": "lo-03",
+          "word": "ຄົນຂາຍ",
+          "start": 0,
+          "end": 6
+        },
+        {
+          "sentenceId": "lo-03",
+          "word": "ທັກທາຍ",
+          "start": 6,
+          "end": 12
+        },
+        {
+          "sentenceId": "lo-04",
+          "word": "ມາເຣຍ",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "lo-04",
+          "word": "ບອກ",
+          "start": 5,
+          "end": 8
+        },
+        {
+          "sentenceId": "lo-04",
+          "word": "ລູກໆ",
+          "start": 12,
+          "end": 16
+        },
+        {
+          "sentenceId": "lo-04",
+          "word": "ກຳລັງຮຽນ",
+          "start": 22,
+          "end": 30
+        },
+        {
+          "sentenceId": "lo-05",
+          "word": "ສວນສາທາລະນະ",
+          "start": 28,
+          "end": 39
+        },
+        {
+          "sentenceId": "lo-06",
+          "word": "ກຳລັງຫຼິ້ນ",
+          "start": 12,
+          "end": 22
+        },
+        {
+          "sentenceId": "lo-06",
+          "word": "ໜອງນ້ຳ",
+          "start": 28,
+          "end": 34
+        },
+        {
+          "sentenceId": "lo-08",
+          "word": "ເລີ່ມ",
+          "start": 8,
+          "end": 13
+        },
+        {
+          "sentenceId": "lo-08",
+          "word": "ກາງ",
+          "start": 20,
+          "end": 23
+        },
+        {
+          "sentenceId": "lo-08",
+          "word": "ຄັນຮົ່ມ",
+          "start": 23,
+          "end": 30
+        },
+        {
+          "sentenceId": "lo-08",
+          "word": "ສີຟ້າ",
+          "start": 30,
+          "end": 35
+        },
+        {
+          "sentenceId": "lo-09",
+          "word": "ກັບ",
+          "start": 11,
+          "end": 14
+        },
+        {
+          "sentenceId": "lo-09",
+          "word": "ບ້ານ",
+          "start": 14,
+          "end": 18
+        },
+        {
+          "sentenceId": "lo-09",
+          "word": "ອາຫານແລງ",
+          "start": 22,
+          "end": 30
+        },
+        {
+          "sentenceId": "lo-10",
+          "word": "ຕອນແລງ",
+          "start": 0,
+          "end": 6
+        },
+        {
+          "sentenceId": "lo-10",
+          "word": "ກິນ",
+          "start": 19,
+          "end": 22
+        },
+        {
+          "sentenceId": "lo-10",
+          "word": "ເຂົ້າ",
+          "start": 22,
+          "end": 27
+        },
+        {
+          "sentenceId": "lo-10",
+          "word": "ນຳກັນ",
+          "start": 27,
+          "end": 32
+        },
+        {
+          "sentenceId": "lo-10",
+          "word": "ລົມກັນ",
+          "start": 36,
+          "end": 42
+        }
+      ],
+      "percent": 59.7,
+      "suggestedBar": "BELOW"
+    },
+    {
+      "language": "la",
+      "lookupContractSha256": "53bd0913456248b9a68cdea452ac52fb812f8a576933e829f19d460dde122fe0",
+      "dictionary": {
+        "id": "wty-la-en",
+        "title": "[LA-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "a5d1f4e755bd57d05043931f37ffbaf88156c0f20276a3033c6d2a3839c52739",
+        "bytes": 26216455,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/a5d1f4e755bd57d05043931f37ffbaf88156c0f20276a3033c6d2a3839c52739.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/la/en/wty-la-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 51,
+      "contentWords": 51,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "mn",
+      "lookupContractSha256": "08559150b1503e3c2a6535067c3a6d623423802904809c6551b151f6b4c7b894",
+      "dictionary": {
+        "id": "wty-mn-en",
+        "title": "[MN-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "557d8aafc008056801d3eb8782b1705ea780dacb9ec694fff2b0b00820fde8ea",
+        "bytes": 624065,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/557d8aafc008056801d3eb8782b1705ea780dacb9ec694fff2b0b00820fde8ea.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/mn/en/wty-mn-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 32,
+      "contentWords": 62,
+      "misses": [
+        {
+          "sentenceId": "mn-01",
+          "word": "гарагт",
+          "start": 6,
+          "end": 12
+        },
+        {
+          "sentenceId": "mn-01",
+          "word": "Мария",
+          "start": 13,
+          "end": 18
+        },
+        {
+          "sentenceId": "mn-01",
+          "word": "явлаа",
+          "start": 37,
+          "end": 42
+        },
+        {
+          "sentenceId": "mn-02",
+          "word": "худалдаж",
+          "start": 37,
+          "end": 45
+        },
+        {
+          "sentenceId": "mn-02",
+          "word": "авав",
+          "start": 46,
+          "end": 50
+        },
+        {
+          "sentenceId": "mn-03",
+          "word": "мэндэлж",
+          "start": 18,
+          "end": 25
+        },
+        {
+          "sentenceId": "mn-03",
+          "word": "бүлийнх",
+          "start": 31,
+          "end": 38
+        },
+        {
+          "sentenceId": "mn-03",
+          "word": "асуув",
+          "start": 49,
+          "end": 54
+        },
+        {
+          "sentenceId": "mn-04",
+          "word": "Мария",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "mn-04",
+          "word": "хичээллэж",
+          "start": 25,
+          "end": 34
+        },
+        {
+          "sentenceId": "mn-04",
+          "word": "хэлэв",
+          "start": 46,
+          "end": 51
+        },
+        {
+          "sentenceId": "mn-05",
+          "word": "хэссэний",
+          "start": 8,
+          "end": 16
+        },
+        {
+          "sentenceId": "mn-05",
+          "word": "хүрээлэнгээр",
+          "start": 37,
+          "end": 49
+        },
+        {
+          "sentenceId": "mn-05",
+          "word": "алхав",
+          "start": 50,
+          "end": 55
+        },
+        {
+          "sentenceId": "mn-06",
+          "word": "ойролцоо",
+          "start": 19,
+          "end": 27
+        },
+        {
+          "sentenceId": "mn-06",
+          "word": "тоглож",
+          "start": 28,
+          "end": 34
+        },
+        {
+          "sentenceId": "mn-07",
+          "word": "доор",
+          "start": 10,
+          "end": 14
+        },
+        {
+          "sentenceId": "mn-07",
+          "word": "суугаад",
+          "start": 15,
+          "end": 22
+        },
+        {
+          "sentenceId": "mn-07",
+          "word": "уншив",
+          "start": 32,
+          "end": 37
+        },
+        {
+          "sentenceId": "mn-08",
+          "word": "эхлэхэд",
+          "start": 10,
+          "end": 17
+        },
+        {
+          "sentenceId": "mn-08",
+          "word": "шүхрээ",
+          "start": 29,
+          "end": 35
+        },
+        {
+          "sentenceId": "mn-08",
+          "word": "дэлгэв",
+          "start": 36,
+          "end": 42
+        },
+        {
+          "sentenceId": "mn-09",
+          "word": "оройн",
+          "start": 4,
+          "end": 9
+        },
+        {
+          "sentenceId": "mn-09",
+          "word": "хоолноос",
+          "start": 10,
+          "end": 18
+        },
+        {
+          "sentenceId": "mn-09",
+          "word": "харив",
+          "start": 42,
+          "end": 47
+        },
+        {
+          "sentenceId": "mn-10",
+          "word": "бүхэл",
+          "start": 8,
+          "end": 13
+        },
+        {
+          "sentenceId": "mn-10",
+          "word": "бүлээрээ",
+          "start": 18,
+          "end": 26
+        },
+        {
+          "sentenceId": "mn-10",
+          "word": "хооллож",
+          "start": 32,
+          "end": 39
+        },
+        {
+          "sentenceId": "mn-10",
+          "word": "өнгөрсөн",
+          "start": 41,
+          "end": 49
+        },
+        {
+          "sentenceId": "mn-10",
+          "word": "ярилцав",
+          "start": 66,
+          "end": 73
+        }
+      ],
+      "percent": 51.6,
+      "suggestedBar": "BELOW"
+    },
+    {
+      "language": "fa",
+      "lookupContractSha256": "b10157cbdec222536390b9766030a7b4053f87c4fe860d5ba067eda0cc6673df",
+      "dictionary": {
+        "id": "wty-fa-en",
+        "title": "[FA-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "d61abdf49b810b35e892229d306e057e797c846919efe57d77434bacf817e35e",
+        "bytes": 3222212,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/d61abdf49b810b35e892229d306e057e797c846919efe57d77434bacf817e35e.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/fa/en/wty-fa-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 52,
+      "contentWords": 61,
+      "misses": [
+        {
+          "sentenceId": "fa-01",
+          "word": "ماریا",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "fa-03",
+          "word": "خانواده‌اش",
+          "start": 28,
+          "end": 38
+        },
+        {
+          "sentenceId": "fa-04",
+          "word": "ماریا",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "fa-04",
+          "word": "بچه‌هایش",
+          "start": 13,
+          "end": 21
+        },
+        {
+          "sentenceId": "fa-04",
+          "word": "می‌خوانند",
+          "start": 34,
+          "end": 43
+        },
+        {
+          "sentenceId": "fa-06",
+          "word": "می‌کرد",
+          "start": 29,
+          "end": 35
+        },
+        {
+          "sentenceId": "fa-07",
+          "word": "تازه‌ای",
+          "start": 24,
+          "end": 31
+        },
+        {
+          "sentenceId": "fa-08",
+          "word": "آبی‌اش",
+          "start": 24,
+          "end": 30
+        },
+        {
+          "sentenceId": "fa-10",
+          "word": "همهٔ",
+          "start": 3,
+          "end": 7
+        }
+      ],
+      "percent": 85.2,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "pl",
+      "lookupContractSha256": "299ad8c90eceba4b015d6ca379f7f5944662c287f784776da16d14886bfe0bc6",
+      "dictionary": {
+        "id": "wty-pl-en",
+        "title": "[PL-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "6f00fc08b3b75ad5bce41a3061361dd1f72d02e81047a50adecbe4a617982d7d",
+        "bytes": 21600795,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/6f00fc08b3b75ad5bce41a3061361dd1f72d02e81047a50adecbe4a617982d7d.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/pl/en/wty-pl-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 52,
+      "contentWords": 52,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "pt",
+      "lookupContractSha256": "a11668e644e6de672fd851d4603bbad4d6dfac5f02b0a967738261817ef0bb4e",
+      "dictionary": {
+        "id": "wty-pt-en",
+        "title": "[PT-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "86b3fa8d43a0e5360fde9f9ee2dd7715d075ef3352bee01302bbab0b200404f6",
+        "bytes": 11126673,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/86b3fa8d43a0e5360fde9f9ee2dd7715d075ef3352bee01302bbab0b200404f6.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/pt/en/wty-pt-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 49,
+      "contentWords": 53,
+      "misses": [
+        {
+          "sentenceId": "pt-01",
+          "word": "segunda-feira",
+          "start": 3,
+          "end": 16
+        },
+        {
+          "sentenceId": "pt-03",
+          "word": "cumprimentou-a",
+          "start": 11,
+          "end": 25
+        },
+        {
+          "sentenceId": "pt-07",
+          "word": "Sentou-se",
+          "start": 0,
+          "end": 9
+        },
+        {
+          "sentenceId": "pt-08",
+          "word": "guarda-chuva",
+          "start": 33,
+          "end": 45
+        }
+      ],
+      "percent": 92.5,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "ro",
+      "lookupContractSha256": "3ee8f83fc3a37463b15cbd9ed40736f093af5137e7baec93733d32b252005f17",
+      "dictionary": {
+        "id": "wty-ro-en",
+        "title": "[RO-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "1e0d86f30a934fbbfbfd44b0648c2aa6e4880a5c5d03d6b7417b13d9b9e3cd0b",
+        "bytes": 12371695,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/1e0d86f30a934fbbfbfd44b0648c2aa6e4880a5c5d03d6b7417b13d9b9e3cd0b.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/ro/en/wty-ro-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 48,
+      "contentWords": 50,
+      "misses": [
+        {
+          "sentenceId": "ro-03",
+          "word": "salutat-o",
+          "start": 13,
+          "end": 22
+        },
+        {
+          "sentenceId": "ro-03",
+          "word": "întrebat-o",
+          "start": 28,
+          "end": 38
+        }
+      ],
+      "percent": 96,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "sh",
+      "lookupContractSha256": "9f3af3eebe6eb115e2ff1d34f217896d6796ec3b66186032126b1c3a078fcdbf",
+      "dictionary": {
+        "id": "wty-sh-en",
+        "title": "[SH-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "a3aa9a92e3730578801f6460e561b92449ff83c99912e510857ddc985eac888d",
+        "bytes": 11893554,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/a3aa9a92e3730578801f6460e561b92449ff83c99912e510857ddc985eac888d.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/sh/en/wty-sh-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 44,
+      "contentWords": 51,
+      "misses": [
+        {
+          "sentenceId": "sh-03",
+          "word": "pozdravio",
+          "start": 15,
+          "end": 24
+        },
+        {
+          "sentenceId": "sh-05",
+          "word": "prošetala",
+          "start": 17,
+          "end": 26
+        },
+        {
+          "sentenceId": "sh-07",
+          "word": "pročitala",
+          "start": 20,
+          "end": 29
+        },
+        {
+          "sentenceId": "sh-08",
+          "word": "otvorila",
+          "start": 21,
+          "end": 29
+        },
+        {
+          "sentenceId": "sh-10",
+          "word": "jela",
+          "start": 13,
+          "end": 17
+        },
+        {
+          "sentenceId": "sh-10",
+          "word": "razgovarala",
+          "start": 42,
+          "end": 53
+        },
+        {
+          "sentenceId": "sh-10",
+          "word": "proteklom",
+          "start": 56,
+          "end": 65
+        }
+      ],
+      "percent": 86.3,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "sv",
+      "lookupContractSha256": "15810ee7e34ad127cf6755aa3bd2e53b55ec06249c14bfc884319db81049e5c2",
+      "dictionary": {
+        "id": "wty-sv-en",
+        "title": "[SV-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "386f9d3f014f854a18b3b842d32de3d23a4b6e5abc13ad5e5d01e5357d9d2ccd",
+        "bytes": 8252015,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/386f9d3f014f854a18b3b842d32de3d23a4b6e5abc13ad5e5d01e5357d9d2ccd.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/sv/en/wty-sv-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 51,
+      "contentWords": 51,
+      "misses": [],
+      "percent": 100,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "tl",
+      "lookupContractSha256": "70f23173743b5cf1baf2a5bfc9afbacac7bf426272aac9bf9acbd1bad0e8eb80",
+      "dictionary": {
+        "id": "wty-tl-en",
+        "title": "[TL-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "1053f32679a7c63d37a319797724a06aafc8fadac19f743a778cef2c511c4f67",
+        "bytes": 4086587,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/1053f32679a7c63d37a319797724a06aafc8fadac19f743a778cef2c511c4f67.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/tl/en/wty-tl-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 41,
+      "contentWords": 53,
+      "misses": [
+        {
+          "sentenceId": "tl-01",
+          "word": "maagang",
+          "start": 13,
+          "end": 20
+        },
+        {
+          "sentenceId": "tl-02",
+          "word": "sariwang",
+          "start": 15,
+          "end": 23
+        },
+        {
+          "sentenceId": "tl-02",
+          "word": "dalawang",
+          "start": 33,
+          "end": 41
+        },
+        {
+          "sentenceId": "tl-02",
+          "word": "isang",
+          "start": 55,
+          "end": 60
+        },
+        {
+          "sentenceId": "tl-03",
+          "word": "Binati",
+          "start": 0,
+          "end": 6
+        },
+        {
+          "sentenceId": "tl-04",
+          "word": "nag-aaral",
+          "start": 19,
+          "end": 28
+        },
+        {
+          "sentenceId": "tl-07",
+          "word": "bagong",
+          "start": 43,
+          "end": 49
+        },
+        {
+          "sentenceId": "tl-08",
+          "word": "magsimulang",
+          "start": 5,
+          "end": 16
+        },
+        {
+          "sentenceId": "tl-09",
+          "word": "maghapunan",
+          "start": 40,
+          "end": 50
+        },
+        {
+          "sentenceId": "tl-10",
+          "word": "sabay-sabay",
+          "start": 18,
+          "end": 29
+        },
+        {
+          "sentenceId": "tl-10",
+          "word": "buong",
+          "start": 44,
+          "end": 49
+        },
+        {
+          "sentenceId": "tl-10",
+          "word": "nagkuwentuhan",
+          "start": 61,
+          "end": 74
+        }
+      ],
+      "percent": 77.4,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "tr",
+      "lookupContractSha256": "1e7d7874ebd9c92c55a5f5aae26b7e47e00be7f27e6a7d38054f33def901d11d",
+      "dictionary": {
+        "id": "wty-tr-en",
+        "title": "[TR-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "06c728651ccdcf89c4e72ddef0d2c69cfb41069e2949971a20ec818e2e23ffb4",
+        "bytes": 17188551,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/06c728651ccdcf89c4e72ddef0d2c69cfb41069e2949971a20ec818e2e23ffb4.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/tr/en/wty-tr-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 50,
+      "contentWords": 58,
+      "misses": [
+        {
+          "sentenceId": "tr-01",
+          "word": "Maria",
+          "start": 15,
+          "end": 20
+        },
+        {
+          "sentenceId": "tr-04",
+          "word": "Maria",
+          "start": 0,
+          "end": 5
+        },
+        {
+          "sentenceId": "tr-04",
+          "word": "çalıştığını",
+          "start": 29,
+          "end": 40
+        },
+        {
+          "sentenceId": "tr-05",
+          "word": "Alışverişten",
+          "start": 0,
+          "end": 12
+        },
+        {
+          "sentenceId": "tr-07",
+          "word": "oturup",
+          "start": 18,
+          "end": 24
+        },
+        {
+          "sentenceId": "tr-08",
+          "word": "başlayınca",
+          "start": 15,
+          "end": 25
+        },
+        {
+          "sentenceId": "tr-09",
+          "word": "otobüsle",
+          "start": 22,
+          "end": 30
+        },
+        {
+          "sentenceId": "tr-10",
+          "word": "geçtiğini",
+          "start": 52,
+          "end": 61
+        }
+      ],
+      "percent": 86.2,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "vi",
+      "lookupContractSha256": "6fb87a8cb18e6e847608363ea9436a36c88c544ef68cd9898c2fb1fa05dace13",
+      "dictionary": {
+        "id": "wty-vi-en",
+        "title": "[VI-EN] Wiktionary (terms)",
+        "version": "95a9151c1beb",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "823fad8fdfb07b99366a1e7c33914324add1d80d6c537b38e55f7459ce03688d",
+        "bytes": 4244664,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/823fad8fdfb07b99366a1e7c33914324add1d80d6c537b38e55f7459ce03688d.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/vi/en/wty-vi-en.zip",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 32,
+      "contentWords": 50,
+      "misses": [
+        {
+          "sentenceId": "vi-01",
+          "word": "thứ Hai",
+          "start": 5,
+          "end": 12
+        },
+        {
+          "sentenceId": "vi-02",
+          "word": "bánh mì",
+          "start": 7,
+          "end": 14
+        },
+        {
+          "sentenceId": "vi-02",
+          "word": "quả táo",
+          "start": 25,
+          "end": 32
+        },
+        {
+          "sentenceId": "vi-03",
+          "word": "Người bán hàng",
+          "start": 0,
+          "end": 14
+        },
+        {
+          "sentenceId": "vi-03",
+          "word": "hỏi thăm",
+          "start": 26,
+          "end": 34
+        },
+        {
+          "sentenceId": "vi-03",
+          "word": "gia đình",
+          "start": 35,
+          "end": 43
+        },
+        {
+          "sentenceId": "vi-05",
+          "word": "Mua sắm",
+          "start": 0,
+          "end": 7
+        },
+        {
+          "sentenceId": "vi-05",
+          "word": "đi bộ",
+          "start": 17,
+          "end": 22
+        },
+        {
+          "sentenceId": "vi-05",
+          "word": "công viên",
+          "start": 27,
+          "end": 36
+        },
+        {
+          "sentenceId": "vi-07",
+          "word": "gốc cây",
+          "start": 13,
+          "end": 20
+        },
+        {
+          "sentenceId": "vi-07",
+          "word": "cuốn sách",
+          "start": 32,
+          "end": 41
+        },
+        {
+          "sentenceId": "vi-08",
+          "word": "bắt đầu",
+          "start": 9,
+          "end": 16
+        },
+        {
+          "sentenceId": "vi-08",
+          "word": "chiếc ô",
+          "start": 28,
+          "end": 35
+        },
+        {
+          "sentenceId": "vi-08",
+          "word": "màu xanh",
+          "start": 36,
+          "end": 44
+        },
+        {
+          "sentenceId": "vi-09",
+          "word": "xe buýt",
+          "start": 6,
+          "end": 13
+        },
+        {
+          "sentenceId": "vi-09",
+          "word": "bữa tối",
+          "start": 27,
+          "end": 34
+        },
+        {
+          "sentenceId": "vi-10",
+          "word": "Buổi tối",
+          "start": 0,
+          "end": 8
+        },
+        {
+          "sentenceId": "vi-10",
+          "word": "gia đình",
+          "start": 13,
+          "end": 21
+        }
+      ],
+      "percent": 64,
+      "suggestedBar": "MEETS"
+    },
+    {
+      "language": "ja",
+      "lookupContractSha256": "ea9fecdce3a33fb340c923db6b227264697472205bf8c4d1adf7327f1cd32ff3",
+      "dictionary": {
+        "id": "jmdict-en",
+        "title": "JMdict (en)",
+        "version": "2026-07-23",
+        "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
+        "sha256": "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
+        "bytes": 15509389,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9.zip",
+        "license": {
+          "spdx": "CC-BY-SA-4.0",
+          "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+          "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "redistribution": "allowed",
+          "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+        }
+      },
+      "archiveScan": {
+        "mode": "full-production-import"
+      },
+      "sentences": 10,
+      "annotated": 52,
+      "contentWords": 54,
+      "misses": [
+        {
+          "sentenceId": "ja-07",
+          "word": "木",
+          "start": 3,
+          "end": 4
+        },
+        {
+          "sentenceId": "ja-07",
+          "word": "下",
+          "start": 5,
+          "end": 6
+        }
+      ],
+      "percent": 96.3,
+      "suggestedBar": "MEETS"
+    }
+  ]
+}

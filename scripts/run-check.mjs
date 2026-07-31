@@ -144,6 +144,10 @@ const lanes = [
         // config/quality/file-size-baseline.json and only growth fails, so it is a
         // ratchet rather than a wall. ~1s of line counting.
         stage('file-size-ratchet', 'node scripts/file-size-audit.mjs'),
+        // Fast replay of compact evidence from the pinned published dictionaries.
+        // Any hit or miss changing under the recorded runtime/lookup contract
+        // requires a fresh authoritative archive measurement and baseline.
+        stage('multilingual-parity-ratchet', 'npm run -s quality:multilingual-parity'),
     ),
     lane(testStage('test:ci', 'npm run -s test:ci')),
     lane(
