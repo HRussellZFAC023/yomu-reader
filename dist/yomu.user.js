@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.58
+// @version 1.8.59
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.7f66c9672a9c.user.js#sha256=f2bJZyqcVXiKInw3OvdOF3V/iGlZ+aUYVFMaCGt4npw=
+// @require https://yomureader.com/greasyfork/yomu-runtime.9d2e5215d501.user.js#sha256=nS5SFdUBqTUGJfTCbo7jfQY/KEgquYuBTgwFtlxAJpU=
 // @resource yomuCss  https://yomureader.com/yomu.25e8d11f407c.css#sha256=JejRH0B8pOC/+MjHcK1QcOn0/1uuMIrRHwshoj4sNto=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -875,8 +875,8 @@ function adoptLearningTargetLanguage(value) {
 function defaultLearningTargetModule() {
   return runtime().defaultLearningTargetModule();
 }
-function learningTargetModuleFor(language) {
-  return runtime().learningTargetModuleFor(language);
+function learningTargetModuleFor(language2) {
+  return runtime().learningTargetModuleFor(language2);
 }
 function normalizeLearningTargetLanguage(value) {
   return runtime().normalizeLearningTargetLanguage(value);
@@ -3239,22 +3239,22 @@ function dispatchStorageBridgeReady() {
 function storageBridgeRequestDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || !isGmStorageOp(record.op)) return void 0;
-  return { id: record.id, op: record.op, key: typeof record.key === "string" ? record.key : void 0, value: record.value };
+  const record2 = detail;
+  if (typeof record2.id !== "string" || !isGmStorageOp(record2.op)) return void 0;
+  return { id: record2.id, op: record2.op, key: typeof record2.key === "string" ? record2.key : void 0, value: record2.value };
 }
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function isGmStorageOp(value) {
@@ -3334,13 +3334,13 @@ function rememberBridgeRequestId$1(ids, id) {
 }
 function noop$1() {
 }
-const entries = [];
+const entries$1 = [];
 const registeredKeys = new Set();
 function registerManagedState(entry) {
   const identity = managedStateIdentity(entry);
   if (registeredKeys.has(identity)) return;
   registeredKeys.add(identity);
-  entries.push(entry);
+  entries$1.push(entry);
 }
 function registerManagedStates(list) {
   for (const entry of list) registerManagedState(entry);
@@ -3349,18 +3349,18 @@ function managedStateIdentity(entry) {
   return `${entry.kind}:${entry.key ?? ""}:${entry.prefix ?? ""}`;
 }
 function managedStateEntries() {
-  return entries;
+  return entries$1;
 }
 function registeredManagedStorageKeys() {
   const keys = new Set();
-  for (const entry of entries) {
+  for (const entry of entries$1) {
   if (entry.kind !== "idb" && entry.key) keys.add(entry.key);
   }
   return [...keys];
 }
 function registeredManagedIndexedDbNames() {
   const names = new Set();
-  for (const entry of entries) {
+  for (const entry of entries$1) {
   if (entry.kind === "idb" && entry.key) names.add(entry.key);
   }
   return [...names];
@@ -3578,10 +3578,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
+  const record2 = { ...value };
+  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  return record2;
 }
 function pendingHostedLocalPatch(key) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
@@ -4048,13 +4048,13 @@ function normalizedFactoryResetHref(href) {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -4317,8 +4317,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -4458,6 +4458,13 @@ function languageSubtag(value) {
   return new Intl.Locale(canonical).language;
   } catch {
   return canonical.split("-")[0]?.toLowerCase() ?? null;
+  }
+}
+function languageDisplayName(language2, locale = "en") {
+  try {
+  return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+  } catch {
+  return language2;
   }
 }
 const languages = [
@@ -4857,19 +4864,19 @@ const LEARNER_LANGUAGE_IDS = [
 const configuredLanguages = languageConfig.languages;
 const LEARNER_LANGUAGES = Object.freeze(
   configuredLanguages.map(
-  (language) => Object.freeze({
-    ...language,
-    scripts: Object.freeze([...language.scripts])
+  (language2) => Object.freeze({
+    ...language2,
+    scripts: Object.freeze([...language2.scripts])
   })
   )
 );
 const LANGUAGE_BY_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [language.id, language])
+  LEARNER_LANGUAGES.map((language2) => [language2.id, language2])
 );
 function learnerLanguageById(id) {
-  const language = LANGUAGE_BY_ID.get(id);
-  if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
-  return language;
+  const language2 = LANGUAGE_BY_ID.get(id);
+  if (!language2) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+  return language2;
 }
 function isLearnerLanguageId(value) {
   return LEARNER_LANGUAGE_IDS.includes(value);
@@ -4890,13 +4897,13 @@ const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el
 const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
 Object.freeze([
   JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
-  ...language,
-  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  ...LEARNER_LANGUAGES.map((language2) => Object.freeze({
+  ...language2,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
   }))
 ]);
 Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+  LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
 );
 function canonicalTagForSlice1Language(id) {
   const runtimeLocale = learnerLanguageById(id).runtimeLocale;
@@ -5087,6 +5094,9 @@ function isTargetDefaultOcrLanguageTag(value) {
   if (!tag) return false;
   return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
 }
+function yomitanDictionaryIdentity(title) {
+  return title.replace(/\s*[\[(][^\])]*\d[^\])]*[\])]\s*$/u, "").replace(/\s+v?\d{4}[-.]\d{2}[-.]\d{2}\s*$/u, "").replace(/\s+v\d+(?:\.\d+)*\s*$/u, "").trim().toLowerCase() || title.trim().toLowerCase();
+}
 const CARD_STATE_LABEL_KEYS = {
   new: "stateNew",
   learning: "stateLearning",
@@ -5106,23 +5116,23 @@ const CARD_STATE_LABEL_KEYS = {
   frequent: "stateFrequent",
   unparsed: "stateUnparsed"
 };
-function resolveUiLanguage(language) {
-  return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
+function resolveUiLanguage(language2) {
+  return yomuI18nCompanion()?.resolveUiLanguage(language2) ?? fallbackResolveUiLanguage(language2);
 }
-function uiText(language, key) {
-  return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
+function uiText(language2, key) {
+  return yomuI18nCompanion()?.uiText(language2, key) ?? fallbackUiText(key);
 }
-function cardStateLabel(state, language, fallback = state) {
-  return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
+function cardStateLabel(state, language2, fallback = state) {
+  return yomuI18nCompanion()?.cardStateLabel(state, language2, fallback) ?? fallbackCardStateLabel(state, fallback);
 }
-function formatUiText(language, key, values) {
-  return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
+function formatUiText(language2, key, values) {
+  return yomuI18nCompanion()?.formatUiText(language2, key, values) ?? formatTemplate(fallbackUiText(key), values);
 }
-function uiList(language, parts) {
-  return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
+function uiList(language2, parts) {
+  return yomuI18nCompanion()?.uiList(language2, parts) ?? new Intl.ListFormat(resolveUiLanguage(language2), { style: "short", type: "conjunction" }).format(parts);
 }
-function fallbackResolveUiLanguage(language) {
-  if (language === "ja" || language === "en") return language;
+function fallbackResolveUiLanguage(language2) {
+  if (language2 === "ja" || language2 === "en") return language2;
   const languages2 = typeof navigator === "undefined" ? [] : [
   ...Array.isArray(navigator.languages) ? navigator.languages : [],
   navigator.language
@@ -6225,11 +6235,11 @@ new Set([
   ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
 ]);
 const CODE_TOKEN = /%code%/g;
-function hasTargetLookupSites(targetLanguage) {
-  return Object.hasOwn(CATALOGUE.targets, targetLanguage);
+function hasTargetLookupSites(targetLanguage2) {
+  return Object.hasOwn(CATALOGUE.targets, targetLanguage2);
 }
-function targetLookupSites(targetLanguage) {
-  const entry = CATALOGUE.targets[targetLanguage];
+function targetLookupSites(targetLanguage2) {
+  const entry = CATALOGUE.targets[targetLanguage2];
   if (!entry) return [];
   const natives = entry.links.map((site, index) => ({
   ...site,
@@ -6251,8 +6261,8 @@ function targetLookupSites(targetLanguage) {
   }
   return [...natives, ...shared2];
 }
-function targetLookupLinks(targetLanguage) {
-  return targetLookupSites(targetLanguage).map((site) => ({
+function targetLookupLinks(targetLanguage2) {
+  return targetLookupSites(targetLanguage2).map((site) => ({
   id: site.id,
   label: site.label,
   urlTemplate: site.urlTemplate,
@@ -6455,11 +6465,11 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
-function normalizeDictionaryLookupLinkSettings(value, targetLanguage = "ja") {
+function normalizeDictionaryLookupLinkSettings(value, targetLanguage2 = "ja") {
   const links = normalizeDictionaryLookupLinks(
   value?.dictionaryLookupLinks,
   !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
-  targetLanguage
+  targetLanguage2
   );
   if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
   return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
@@ -6469,23 +6479,23 @@ function normalizeDictionaryPreferences(value) {
   return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-  const record = objectRecord$2(item);
-  if (!record) return null;
-  const name = stringValue(record.name);
+  const record2 = objectRecord$2(item);
+  if (!record2) return null;
+  const name = stringValue(record2.name);
   if (!name.trim()) return null;
-  const alias = stringValue(record.alias);
+  const alias = stringValue(record2.alias);
   return {
   name,
   alias: alias.trim() ? alias : name,
-  enabled: booleanValue(record.enabled, true),
-  priority: finiteNumber$1(record.priority, index),
-  allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
-  type: normalizeDictionaryType(record.type, name)
+  enabled: booleanValue(record2.enabled, true),
+  priority: finiteNumber$1(record2.priority, index),
+  allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
+  type: normalizeDictionaryType(record2.type, name)
   };
 }
-function defaultDictionaryLookupLinks(mode = "local", targetLanguage = "ja") {
-  if (targetLanguage !== "ja" && hasTargetLookupSites(targetLanguage)) {
-  return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
+function defaultDictionaryLookupLinks(mode = "local", targetLanguage2 = "ja") {
+  if (targetLanguage2 !== "ja" && hasTargetLookupSites(targetLanguage2)) {
+  return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage2), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
   }
   return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
   ...link,
@@ -6530,8 +6540,8 @@ function isDictionaryLookupLink(link) {
 function matchesLegacyLookupLink(link, expected) {
   return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
 }
-function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage = "ja") {
-  const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
+function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage2 = "ja") {
+  const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage2);
   if (!Array.isArray(value)) return builtIns;
   const normalized = [];
   const seen = new Set();
@@ -6584,42 +6594,42 @@ function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
 }
 function normalizeDictionaryLookupLink(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  const id = normalizedLookupLinkId(record);
-  const label = normalizedLookupLinkLabel(record, id);
-  const urlTemplate = normalizedLookupLinkUrlTemplate(record);
-  const action = normalizedLookupLinkAction(record, id);
+  const record2 = value;
+  const id = normalizedLookupLinkId(record2);
+  const label = normalizedLookupLinkLabel(record2, id);
+  const urlTemplate = normalizedLookupLinkUrlTemplate(record2);
+  const action = normalizedLookupLinkAction(record2, id);
   if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
   return {
   id,
   label,
   urlTemplate,
-  enabled: normalizedLookupLinkEnabled(record),
+  enabled: normalizedLookupLinkEnabled(record2),
   action,
-  priority: finiteNumber$1(record.priority, Number.MAX_SAFE_INTEGER)
+  priority: finiteNumber$1(record2.priority, Number.MAX_SAFE_INTEGER)
   };
 }
-function normalizedLookupLinkUrlTemplate(record) {
-  return typeof record.urlTemplate === "string" ? record.urlTemplate.trim() : "";
+function normalizedLookupLinkUrlTemplate(record2) {
+  return typeof record2.urlTemplate === "string" ? record2.urlTemplate.trim() : "";
 }
-function normalizedLookupLinkEnabled(record) {
-  return typeof record.enabled === "boolean" ? record.enabled : true;
+function normalizedLookupLinkEnabled(record2) {
+  return typeof record2.enabled === "boolean" ? record2.enabled : true;
 }
 function isUsableDictionaryLookupLink(id, label, urlTemplate, action) {
   if (!id || !label) return false;
   return action === "copy" || action === "frequency-live" || action === "frequency-local" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
 }
-function normalizedLookupLinkId(record) {
-  if (typeof record.id === "string" && record.id.trim()) return record.id.trim();
-  return typeof record.label === "string" ? `custom-${stableLookupLinkId(record.label)}` : "";
+function normalizedLookupLinkId(record2) {
+  if (typeof record2.id === "string" && record2.id.trim()) return record2.id.trim();
+  return typeof record2.label === "string" ? `custom-${stableLookupLinkId(record2.label)}` : "";
 }
-function normalizedLookupLinkLabel(record, id) {
-  return typeof record.label === "string" && record.label.trim() ? record.label.trim().slice(0, 24) : id;
+function normalizedLookupLinkLabel(record2, id) {
+  return typeof record2.label === "string" && record2.label.trim() ? record2.label.trim().slice(0, 24) : id;
 }
-function normalizedLookupLinkAction(record, id) {
-  if (record.action === "copy" || id === "copy") return "copy";
-  if (record.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
-  if (record.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
+function normalizedLookupLinkAction(record2, id) {
+  if (record2.action === "copy" || id === "copy") return "copy";
+  if (record2.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
+  if (record2.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
   return "open";
 }
 function stableLookupLinkId(value) {
@@ -7427,19 +7437,19 @@ function languageProfileDictionariesFromPreferences(preferences) {
   order: ordered.map((preference) => preference.name)
   };
 }
-function dictionaryPreferencesForLanguageProfile(preferences, dictionaries) {
-  if (!dictionaries.installed.length) return preferences;
-  const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
-  const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
+function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
+  if (!dictionaries2.installed.length) return preferences;
+  const installed = new Set(dictionaries2.installed.map(normalizedProfileDictionaryId));
+  const enabled = new Set(dictionaries2.enabled.map(normalizedProfileDictionaryId));
   const order = new Map(
-  dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index])
+  dictionaries2.order.map((id, index) => [normalizedProfileDictionaryId(id), index])
   );
   return preferences.map((preference, index) => {
   const key = normalizedProfileDictionaryId(preference.name);
   return {
     ...preference,
     enabled: installed.has(key) && enabled.has(key),
-    priority: order.get(key) ?? dictionaries.order.length + index
+    priority: order.get(key) ?? dictionaries2.order.length + index
   };
   }).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
 }
@@ -8338,9 +8348,9 @@ function subscribeToSettingsStorageChanges(onSettings) {
   let active = true;
   let refreshRevision = 0;
   const refresh = () => {
-  const revision = ++refreshRevision;
+  const revision2 = ++refreshRevision;
   void loadSettings().then((settings) => {
-    if (active && revision === refreshRevision) onSettings(settings);
+    if (active && revision2 === refreshRevision) onSettings(settings);
   });
   };
   const unsubscribers = [
@@ -8435,15 +8445,15 @@ function isAudioSourceType(value) {
   return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
 }
 function normalizeAudioSource(value) {
-  const record = audioSourceRecord(value);
-  if (!record) return null;
-  if (!isAudioSourceType(record.type)) return null;
-  const subSources = normalizeAudioSubSources(record.subSources);
+  const record2 = audioSourceRecord(value);
+  if (!record2) return null;
+  if (!isAudioSourceType(record2.type)) return null;
+  const subSources = normalizeAudioSubSources(record2.subSources);
   return {
-  type: record.type,
-  url: stringValue(record.url),
-  voice: stringValue(record.voice),
-  enabled: audioSourceEnabled(record.enabled),
+  type: record2.type,
+  url: stringValue(record2.url),
+  voice: stringValue(record2.voice),
+  enabled: audioSourceEnabled(record2.enabled),
   ...subSources.length ? { subSources } : {}
   };
 }
@@ -8453,13 +8463,13 @@ function normalizeAudioSubSources(value) {
   const subSources = [];
   for (const entry of value) {
   if (!entry || typeof entry !== "object") continue;
-  const record = entry;
-  const name = stringValue(record.name).trim();
+  const record2 = entry;
+  const name = stringValue(record2.name).trim();
   if (!name) continue;
   const key = audioSubSourceNameKey(name);
   if (seen.has(key)) continue;
   seen.add(key);
-  subSources.push({ name, enabled: audioSourceEnabled(record.enabled) });
+  subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
   }
   return subSources;
 }
@@ -13478,17 +13488,17 @@ function recordRubyRoomGrowth(box) {
   rubyRoomGrowthRecords.set(box, { before: rubyRoomStyleSnapshot(box) });
 }
 function recordRubyRoomGrowthWrite(box) {
-  const record = rubyRoomGrowthRecords.get(box);
-  if (record) record.written = rubyRoomStyleSnapshot(box);
+  const record2 = rubyRoomGrowthRecords.get(box);
+  if (record2) record2.written = rubyRoomStyleSnapshot(box);
 }
 function releaseRubyRoomGrowth(root = document) {
   const boxes = queryAllInAnnotationRoots(root, "[data-yomu-ruby-room]");
   for (const box of boxes) {
-  const record = rubyRoomGrowthRecords.get(box);
-  restoreRubyRoomProperty(box, "min-height", record, (r) => [r.minHeight, r.minHeightPriority]);
-  restoreRubyRoomProperty(box, "height", record, (r) => [r.height, r.heightPriority]);
-  restoreRubyRoomProperty(box, "max-height", record, (r) => [r.maxHeight, r.maxHeightPriority]);
-  restoreRubyRoomProperty(box, "padding-top", record, (r) => [r.paddingTop, r.paddingTopPriority]);
+  const record2 = rubyRoomGrowthRecords.get(box);
+  restoreRubyRoomProperty(box, "min-height", record2, (r) => [r.minHeight, r.minHeightPriority]);
+  restoreRubyRoomProperty(box, "height", record2, (r) => [r.height, r.heightPriority]);
+  restoreRubyRoomProperty(box, "max-height", record2, (r) => [r.maxHeight, r.maxHeightPriority]);
+  restoreRubyRoomProperty(box, "padding-top", record2, (r) => [r.paddingTop, r.paddingTopPriority]);
   delete box.dataset.yomuRubyRoom;
   delete box.dataset.yomuRubyRoomHeight;
   delete box.dataset.yomuRubyRoomPadTop;
@@ -13496,14 +13506,14 @@ function releaseRubyRoomGrowth(root = document) {
   }
   return boxes.length;
 }
-function restoreRubyRoomProperty(box, property, record, pick) {
-  if (record?.written) {
-  const [writtenValue, writtenPriority] = pick(record.written);
+function restoreRubyRoomProperty(box, property, record2, pick) {
+  if (record2?.written) {
+  const [writtenValue, writtenPriority] = pick(record2.written);
   const currentValue = box.style.getPropertyValue(property);
   const currentPriority = box.style.getPropertyPriority(property);
   if (currentValue !== writtenValue || currentPriority !== writtenPriority) return;
   }
-  const [value, priority2] = record ? pick(record.before) : ["", ""];
+  const [value, priority2] = record2 ? pick(record2.before) : ["", ""];
   if (value) box.style.setProperty(property, value, priority2);
   else box.style.removeProperty(property);
 }
@@ -15051,11 +15061,11 @@ function jitenWordTtsUrl(wordId, readingIndex, voice) {
 function jitenSentenceTtsUrl(sentenceId, voice) {
   return `${JITEN_TTS_API_BASE_URL}/sentence/${sentenceId}?voice=${encodeURIComponent(voice)}`;
 }
-async function renderStudyToolResult(button, action, sentence, grammarHints, language = "en", options = {}) {
-  await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language, options);
+async function renderStudyToolResult(button, action, sentence, grammarHints, language2 = "en", options = {}) {
+  await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language2, options);
 }
-function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
-  return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language, options) ?? false;
+function handleStudyGrammarAction(button, sentence, language2 = "en", options = {}) {
+  return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language2, options) ?? false;
 }
 function userFacingError(copyKey, options = {}) {
   return Object.assign(
@@ -15063,10 +15073,10 @@ function userFacingError(copyKey, options = {}) {
   { name: "UserFacingError", yomuUiCopyKey: copyKey }
   );
 }
-function userFacingErrorText(language, fallbackKey, error) {
+function userFacingErrorText(language2, fallbackKey, error) {
   const copyKey = userFacingCopyKey(error) ?? fallbackKey;
-  const message = uiText(language, copyKey);
-  return typeof message === "string" ? message : uiText(language, fallbackKey);
+  const message = uiText(language2, copyKey);
+  return typeof message === "string" ? message : uiText(language2, fallbackKey);
 }
 function userFacingCopyKey(error) {
   if (!error || typeof error !== "object") return void 0;
@@ -15133,13 +15143,13 @@ function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
   if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
   const normalizedReading = (reading || normalizedExpression).normalize("NFKC").trim() || normalizedExpression;
   const partOfSpeech = options.partOfSpeech?.normalize("NFKC").trim() ?? "";
-  const language = canonicalLanguageTag(options.language ?? "ja");
-  if (!language) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
+  const language2 = canonicalLanguageTag(options.language ?? "ja");
+  if (!language2) throw new TypeError("Vocabulary language must be a valid BCP-47 tag.");
   const slots = [
   normalizedExpression,
   normalizedReading,
   partOfSpeech,
-  language === "ja" ? "" : language
+  language2 === "ja" ? "" : language2
   ];
   while (slots.at(-1) === "") slots.pop();
   return {
@@ -15147,7 +15157,7 @@ function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
   expression: normalizedExpression,
   reading: normalizedReading,
   partOfSpeech,
-  language
+  language: language2
   };
 }
 function isRecord$1(value) {
@@ -15326,18 +15336,18 @@ function normalizeStoredCard(value) {
   reading: identity.reading,
   ...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
   ...identity.language !== "ja" ? { language: identity.language } : {},
-  meanings: stringArray(value.meanings),
+  meanings: stringArray$1(value.meanings),
   ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
   ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
   ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
   ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-  tags: stringArray(value.tags),
+  tags: stringArray$1(value.tags),
   dueAt: finiteNumber(value.dueAt, createdAt),
   lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
   createdAt,
   updatedAt,
-  reviews: nonNegativeInteger(value.reviews),
-  lapses: nonNegativeInteger(value.lapses),
+  reviews: nonNegativeInteger$1(value.reviews),
+  lapses: nonNegativeInteger$1(value.lapses),
   intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
   ease: finiteNumber(value.ease, 2.5),
   retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
@@ -15410,7 +15420,7 @@ function requiredText(value, label) {
 function cleanOptional(value) {
   return typeof value === "string" && value.trim() ? value.trim() : void 0;
 }
-function stringArray(value) {
+function stringArray$1(value) {
   return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
 }
 function uniqueText(values) {
@@ -15419,7 +15429,7 @@ function uniqueText(values) {
 function finiteNumber(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
-function nonNegativeInteger(value) {
+function nonNegativeInteger$1(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
@@ -15506,10 +15516,10 @@ function normalizeIndex(value) {
   tombstoneIds: [...new Set(candidate.tombstoneIds)].sort()
   };
 }
-function indexForDeck(deck, revision = 0) {
+function indexForDeck(deck, revision2 = 0) {
   return {
   version: 2,
-  revision,
+  revision: revision2,
   cardIds: Object.keys(deck.cards).sort(),
   tombstoneIds: Object.keys(deck.tombstones ?? {}).sort()
   };
@@ -15589,8 +15599,8 @@ class LocalYomuSrsRepository {
   }
   async queue(limit = 50, options = {}) {
   const now = this.now();
-  const language = options.language ? canonicalLanguageTag(options.language) : "";
-  const cards = Object.values((await this.readDeck()).cards).filter((card) => !language || canonicalLanguageTag(card.language ?? "ja") === language);
+  const language2 = options.language ? canonicalLanguageTag(options.language) : "";
+  const cards = Object.values((await this.readDeck()).cards).filter((card) => !language2 || canonicalLanguageTag(card.language ?? "ja") === language2);
   const cap = normalizedQueueLimit(limit);
   const byDue = (a, b) => a.dueAt - b.dueAt || a.createdAt - b.createdAt;
   const due = cards.filter((card) => card.dueAt <= now).sort(byDue);
@@ -16470,9 +16480,9 @@ function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "und
   refreshContrastForChangedWords(changed);
   return changed.length;
 }
-function localIdentity(expression, reading, language) {
+function localIdentity(expression, reading, language2) {
   try {
-  return canonicalStudyCardIdentity(expression, reading, { language });
+  return canonicalStudyCardIdentity(expression, reading, { language: language2 });
   } catch {
   return null;
   }
@@ -17521,22 +17531,22 @@ function duplicateAnkiAddResult(error) {
   throw error;
 }
 function ankiSentToast(context, settings, hasWordAudio = false) {
-  const language = settings.interfaceLanguage;
+  const language2 = settings.interfaceLanguage;
   const hasAudio = Boolean(context.audioDataUrl || hasWordAudio);
-  if (context.imageDataUrl && hasAudio) return uiText(language, "sentToAnkiWithContextImageAndAudio");
-  if (context.imageDataUrl) return uiText(language, "sentToAnkiWithContextImage");
-  if (hasAudio) return uiText(language, "sentToAnkiWithAudio");
-  return uiText(language, "sentToAnki");
+  if (context.imageDataUrl && hasAudio) return uiText(language2, "sentToAnkiWithContextImageAndAudio");
+  if (context.imageDataUrl) return uiText(language2, "sentToAnkiWithContextImage");
+  if (hasAudio) return uiText(language2, "sentToAnkiWithAudio");
+  return uiText(language2, "sentToAnki");
 }
 function ankiMergeToast(result, settings) {
-  const language = settings.interfaceLanguage;
-  if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return uiText(language, "ankiMergeNoNewData");
+  const language2 = settings.interfaceLanguage;
+  if (!result.updatedFields.length && !result.audioAdded && !result.imageAdded) return uiText(language2, "ankiMergeNoNewData");
   const parts = [
-  result.updatedFields.length ? `${result.updatedFields.length} ${uiText(language, result.updatedFields.length === 1 ? "ankiMergeFieldSingular" : "ankiMergeFieldPlural")}` : "",
-  result.audioAdded ? uiText(language, "ankiMergeAudio") : "",
-  result.imageAdded ? uiText(language, "ankiMergeImage") : ""
+  result.updatedFields.length ? `${result.updatedFields.length} ${uiText(language2, result.updatedFields.length === 1 ? "ankiMergeFieldSingular" : "ankiMergeFieldPlural")}` : "",
+  result.audioAdded ? uiText(language2, "ankiMergeAudio") : "",
+  result.imageAdded ? uiText(language2, "ankiMergeImage") : ""
   ].filter(Boolean);
-  return formatUiText(language, "ankiMergeComplete", { parts: uiList(language, parts) });
+  return formatUiText(language2, "ankiMergeComplete", { parts: uiList(language2, parts) });
 }
 function selectedAnkiAudioMergeMode(button) {
   const value = button.closest(".jpdb-reader-anki-card-preview")?.querySelector("[data-anki-audio-merge]")?.value;
@@ -17785,7 +17795,7 @@ const BUILT_IN_SOURCE_NAME_KEYS = {
   [KANJI_ORIGINS_SOURCE_ID]: "originStructure"
 };
 function definitionSourceRows(settings) {
-  const language = settings.interfaceLanguage;
+  const language2 = settings.interfaceLanguage;
   const builtInRows = [
   {
     id: JITEN_DEFINITION_SOURCE_ID,
@@ -17795,7 +17805,7 @@ function definitionSourceRows(settings) {
     priority: settings.jitenDefinitionsPriority,
     prefix: "jitenDefinitions",
     readonly: true,
-    help: uiText(language, "sourceHelpJiten")
+    help: uiText(language2, "sourceHelpJiten")
   },
   {
     id: JPDB_DEFINITION_SOURCE_ID,
@@ -17805,7 +17815,7 @@ function definitionSourceRows(settings) {
     priority: settings.jpdbDefinitionsPriority,
     prefix: "jpdbDefinitions",
     readonly: true,
-    help: uiText(language, "sourceHelpJpdb")
+    help: uiText(language2, "sourceHelpJpdb")
   },
   {
     id: BUNPRO_DEFINITION_SOURCE_ID,
@@ -17815,7 +17825,7 @@ function definitionSourceRows(settings) {
     priority: settings.bunproDefinitionsPriority,
     prefix: "bunproDefinitions",
     readonly: true,
-    help: uiText(language, "sourceHelpBunpro")
+    help: uiText(language2, "sourceHelpBunpro")
   },
   {
     id: WANIKANI_DEFINITION_SOURCE_ID,
@@ -17825,17 +17835,17 @@ function definitionSourceRows(settings) {
     priority: settings.wanikaniDefinitionsPriority,
     prefix: "wanikaniDefinitions",
     readonly: true,
-    help: uiText(language, "sourceHelpWanikani")
+    help: uiText(language2, "sourceHelpWanikani")
   },
   {
     id: STUDY_TRANSLATION_SOURCE_ID,
-    name: uiText(language, "sourceNameTranslation"),
+    name: uiText(language2, "sourceNameTranslation"),
     alias: settings.studyTranslationAlias,
     enabled: settings.studyTranslationEnabled,
     priority: settings.studyTranslationPriority,
     prefix: "studyTranslation",
     readonly: true,
-    help: uiText(language, "sourceHelpTranslation")
+    help: uiText(language2, "sourceHelpTranslation")
   },
   {
     id: ANKI_SOURCE_ID,
@@ -17845,27 +17855,27 @@ function definitionSourceRows(settings) {
     priority: settings.ankiSectionPriority,
     prefix: "ankiSection",
     readonly: true,
-    help: uiText(language, "sourceHelpAnki")
+    help: uiText(language2, "sourceHelpAnki")
   },
   {
     id: STUDY_GRAMMAR_SOURCE_ID,
-    name: uiText(language, "sourceNameGrammar"),
+    name: uiText(language2, "sourceNameGrammar"),
     alias: settings.studyGrammarAlias,
     enabled: settings.studyGrammarEnabled,
     priority: settings.studyGrammarPriority,
     prefix: "studyGrammar",
     readonly: true,
-    help: uiText(language, "sourceHelpGrammar")
+    help: uiText(language2, "sourceHelpGrammar")
   },
   {
     id: IMMERSION_KIT_SOURCE_ID,
-    name: uiText(language, "sourceNameImmersionKit"),
+    name: uiText(language2, "sourceNameImmersionKit"),
     alias: settings.immersionKitAlias,
     enabled: settings.immersionKitEnabled,
     priority: settings.immersionKitPriority,
     prefix: "immersionKit",
     readonly: true,
-    help: uiText(language, "sourceHelpImmersionKit")
+    help: uiText(language2, "sourceHelpImmersionKit")
   }
   ];
   return [
@@ -17888,9 +17898,9 @@ function definitionSourceRows(settings) {
   ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
 }
 function kanjiSourceRows(settings) {
-  const language = settings.interfaceLanguage;
+  const language2 = settings.interfaceLanguage;
   const apiSource = activeKanjiFactSource(settings);
-  const readingsComponentsName = apiSource.name === "Jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
+  const readingsComponentsName = apiSource.name === "Jiten" ? uiText(language2, "sourceNameJitenKanjiFacts") : uiText(language2, "readingsComponents");
   const kanjiDictionaryRows = settings.dictionaryPreferences.filter((preference) => preference.type === "kanji").map((preference) => ({
   id: kanjiDictionarySourceId(preference.name),
   name: preference.name,
@@ -17901,18 +17911,18 @@ function kanjiSourceRows(settings) {
   readonly: false,
   removable: true,
   dictionaryType: "kanji",
-  help: uiText(language, "sourceHelpImportedKanjiDictionary")
+  help: uiText(language2, "sourceHelpImportedKanjiDictionary")
   }));
   return [
   {
     id: KANJI_STROKE_SOURCE_ID,
-    name: uiText(language, "sourceNameStrokePractice"),
+    name: uiText(language2, "sourceNameStrokePractice"),
     alias: settings.kanjivgAlias,
     enabled: settings.kanjivgEnabled,
     priority: settings.kanjivgPriority,
     prefix: "kanjivg",
     readonly: true,
-    help: uiText(language, "sourceHelpStrokePractice")
+    help: uiText(language2, "sourceHelpStrokePractice")
   },
   {
     id: KANJI_JPDB_SOURCE_ID,
@@ -17922,7 +17932,7 @@ function kanjiSourceRows(settings) {
     priority: settings.jpdbKanjiPriority,
     prefix: "jpdbKanji",
     readonly: true,
-    help: apiSource.name === "Jiten" ? uiText(language, "sourceHelpJitenKanjiFacts") : uiText(language, "sourceHelpReadingsComponents")
+    help: apiSource.name === "Jiten" ? uiText(language2, "sourceHelpJitenKanjiFacts") : uiText(language2, "sourceHelpReadingsComponents")
   },
   {
     id: KANJI_RTK_SOURCE_ID,
@@ -17932,17 +17942,17 @@ function kanjiSourceRows(settings) {
     priority: settings.rtkPriority,
     prefix: "rtk",
     readonly: true,
-    help: uiText(language, "sourceHelpRtk")
+    help: uiText(language2, "sourceHelpRtk")
   },
   {
     id: IMMERSION_KIT_SOURCE_ID,
-    name: uiText(language, "sourceNameImmersionKit"),
+    name: uiText(language2, "sourceNameImmersionKit"),
     alias: settings.kanjiImmersionKitAlias,
     enabled: settings.kanjiImmersionKitEnabled,
     priority: settings.kanjiImmersionKitPriority,
     prefix: "kanjiImmersionKit",
     readonly: true,
-    help: uiText(language, "sourceHelpImmersionKit")
+    help: uiText(language2, "sourceHelpImmersionKit")
   },
   {
     id: KANJI_UCHISEN_SOURCE_ID,
@@ -17952,7 +17962,7 @@ function kanjiSourceRows(settings) {
     priority: settings.uchisenPriority,
     prefix: "uchisen",
     readonly: true,
-    help: uiText(language, "sourceHelpUchisen")
+    help: uiText(language2, "sourceHelpUchisen")
   },
   {
     id: KANJI_WANIKANI_SOURCE_ID,
@@ -17962,28 +17972,28 @@ function kanjiSourceRows(settings) {
     priority: settings.wanikaniKanjiPriority,
     prefix: "wanikaniKanji",
     readonly: true,
-    help: uiText(language, "sourceHelpWanikaniKanji")
+    help: uiText(language2, "sourceHelpWanikaniKanji")
   },
   ...kanjiDictionaryRows.length ? [] : [{
     id: KANJI_DICTIONARIES_SOURCE_ID,
-    name: uiText(language, "sourceNameImportedKanjiDictionaries"),
+    name: uiText(language2, "sourceNameImportedKanjiDictionaries"),
     alias: settings.kanjiDictionariesAlias,
     enabled: settings.localDictionaryShowKanji,
     priority: settings.kanjiDictionariesPriority,
     prefix: "kanjiDictionaries",
     readonly: true,
-    help: uiText(language, "sourceHelpImportedKanjiDictionaries")
+    help: uiText(language2, "sourceHelpImportedKanjiDictionaries")
   }],
   ...kanjiDictionaryRows,
   {
     id: KANJI_ORIGINS_SOURCE_ID,
-    name: uiText(language, "originStructure"),
+    name: uiText(language2, "originStructure"),
     alias: settings.kanjiOriginsAlias,
     enabled: settings.kanjiOriginsEnabled,
     priority: settings.kanjiOriginsPriority,
     prefix: "kanjiOrigins",
     readonly: true,
-    help: uiText(language, "sourceHelpComponentGraph")
+    help: uiText(language2, "sourceHelpComponentGraph")
   }
   ].sort(compareSourceRows);
 }
@@ -18053,16 +18063,16 @@ function orderedDefinitionSourceIds(settings, dictionaryNames) {
   ];
   return sources.filter((source) => source.enabled).sort(compareSourceOrder).map((source) => source.id);
 }
-function definitionSourceLabel(settings, sourceId, fallback = "", language = settings.interfaceLanguage) {
+function definitionSourceLabel(settings, sourceId, fallback = "", language2 = settings.interfaceLanguage) {
   const row = definitionSourceRows(settings).find((candidate) => candidate.id === sourceId);
-  return localizedSourceRowLabel(row, language) || fallback;
+  return localizedSourceRowLabel(row, language2) || fallback;
 }
 function orderedKanjiSourceIds(settings) {
   return kanjiSourceRows(settings).filter((row) => row.enabled).filter((row) => row.id !== KANJI_SIMILAR_WORDS_SOURCE_ID).filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).filter((row) => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some((preference) => preference.type === "kanji")).map((row) => row.id);
 }
-function kanjiSourceLabel(settings, sourceId, fallback = "", language = settings.interfaceLanguage) {
+function kanjiSourceLabel(settings, sourceId, fallback = "", language2 = settings.interfaceLanguage) {
   const row = kanjiSourceRows(settings).find((candidate) => candidate.id === sourceId);
-  return localizedSourceRowLabel(row, language) || fallback;
+  return localizedSourceRowLabel(row, language2) || fallback;
 }
 function kanjiDictionarySourceId(name) {
   return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;
@@ -18076,12 +18086,12 @@ function compareSourceRows(a, b) {
 function compareSourceOrder(a, b) {
   return a.priority - b.priority || a.name.localeCompare(b.name);
 }
-function localizedSourceRowLabel(row, language) {
+function localizedSourceRowLabel(row, language2) {
   if (!row) return "";
   if (row.alias) return row.alias;
-  if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, "readingsComponents")) return row.name;
+  if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language2, "readingsComponents")) return row.name;
   const key = builtInSourceNameKey(row.id);
-  return key ? uiText(language, key) : row.name;
+  return key ? uiText(language2, key) : row.name;
 }
 function builtInSourceNameKey(sourceId) {
   return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
@@ -18122,25 +18132,25 @@ const LOCAL_TERM_TAG_LABELS_JA = new Map([
   ["vi", "自動詞"],
   ["vt", "他動詞"]
 ]);
-function localTermTags(entries2, language = "en") {
-  const tags = entries2.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map((tag) => localTermTagLabel(tag, language)).filter(Boolean);
+function localTermTags(entries2, language2 = "en") {
+  const tags = entries2.flatMap((entry) => [entry.definitionTags, entry.termTags, entry.rules]).flatMap((value) => typeof value === "string" ? value.split(LOCAL_TAG_SPLIT_RE) : []).map((value) => value.trim()).map((tag) => localTermTagLabel(tag, language2)).filter(Boolean);
   return [...new Set(tags)].slice(0, 8);
 }
-function localTermTagLabel(tag, language) {
+function localTermTagLabel(tag, language2) {
   const normalized = tag.toLowerCase();
   if (!normalized || HIDDEN_LOCAL_TERM_TAGS.has(normalized)) return "";
-  if (language === "ja") return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
+  if (language2 === "ja") return LOCAL_TERM_TAG_LABELS_JA.get(normalized) ?? tag;
   return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
 }
 function hasRichStructuredGlossary(value) {
   if (!value || typeof value !== "object") return false;
   if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
-  const record = value;
-  return isRichStructuredGlossaryRecord(record) || hasRichStructuredGlossary(record.content);
+  const record2 = value;
+  return isRichStructuredGlossaryRecord(record2) || hasRichStructuredGlossary(record2.content);
 }
-function isRichStructuredGlossaryRecord(record) {
-  const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
-  return record.type === "image" || "path" in record || tag === "img" || tag === "table";
+function isRichStructuredGlossaryRecord(record2) {
+  const tag = typeof record2.tag === "string" ? record2.tag.toLowerCase() : "";
+  return record2.type === "image" || "path" in record2 || tag === "img" || tag === "table";
 }
 function pillStyle(key) {
   const hue = stableHue(key);
@@ -18171,8 +18181,8 @@ function metaFrequencyRank(value) {
 }
 function nestedMetaFrequencyValue(value) {
   if (!value || typeof value !== "object") return void 0;
-  const record = value;
-  return record.frequency ?? record.value ?? record.displayValue;
+  const record2 = value;
+  return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 function numericFrequencyRank(value) {
   return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
@@ -18266,8 +18276,8 @@ function rankFromFrequencyString(value) {
 }
 function nestedFrequencyValue(value) {
   if (!value || typeof value !== "object") return void 0;
-  const record = value;
-  return record.frequency ?? record.value ?? record.displayValue;
+  const record2 = value;
+  return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 Logger.scope("DictionaryArchiveCache");
 const PRIVATE_IPV4_RANGES = [
@@ -18673,20 +18683,20 @@ function primitiveGlossaryText(value) {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return void 0;
 }
-function glossaryRecordToText(record, options) {
-  if (typeof record.text === "string") return record.text;
-  if ("content" in record) return glossaryValueToProfileText(record.content, options);
-  const values = glossaryRecordTextValues(record, options);
+function glossaryRecordToText(record2, options) {
+  if (typeof record2.text === "string") return record2.text;
+  if ("content" in record2) return glossaryValueToProfileText(record2.content, options);
+  const values = glossaryRecordTextValues(record2, options);
   if (values.length) return values.join(" ");
-  if ("path" in record) return glossaryPathRecordText(record);
+  if ("path" in record2) return glossaryPathRecordText(record2);
   return "";
 }
-function glossaryPathRecordText(record) {
-  return String(record.description || record.alt || "");
+function glossaryPathRecordText(record2) {
+  return String(record2.description || record2.alt || "");
 }
-function glossaryRecordTextValues(record, options) {
+function glossaryRecordTextValues(record2, options) {
   const values = [];
-  for (const [key, childValue] of Object.entries(record)) {
+  for (const [key, childValue] of Object.entries(record2)) {
   if (!shouldReadRecordTextKey(key, options)) continue;
   const childText = glossaryValueToProfileText(childValue, options);
   if (childText) values.push(childText);
@@ -18768,8 +18778,8 @@ function isStructuredPrimitive(value) {
 function renderGlossaryArray(value, context) {
   return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
 }
-function renderGlossaryRecord(record, context) {
-  return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
+function renderGlossaryRecord(record2, context) {
+  return renderDirectGlossaryRecord(record2, context) ?? renderTaggedGlossaryRecord(record2, context);
 }
 const DIRECT_GLOSSARY_RECORD_RENDERERS = [
   renderTextGlossaryRecord,
@@ -18777,72 +18787,72 @@ const DIRECT_GLOSSARY_RECORD_RENDERERS = [
   renderImageGlossaryRecord,
   renderTextContentGlossaryRecord
 ];
-function renderDirectGlossaryRecord(record, context) {
+function renderDirectGlossaryRecord(record2, context) {
   for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
-  const html = render(record, context);
+  const html = render(record2, context);
   if (html !== null) return html;
   }
   return null;
 }
-function renderTextGlossaryRecord(record) {
-  return typeof record.text === "string" ? escapeHtml(record.text) : null;
+function renderTextGlossaryRecord(record2) {
+  return typeof record2.text === "string" ? escapeHtml(record2.text) : null;
 }
-function renderStructuredContentGlossaryRecord(record, context) {
-  return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
+function renderStructuredContentGlossaryRecord(record2, context) {
+  return record2.type === "structured-content" ? renderStructuredContent(record2, context) : null;
 }
-function renderImageGlossaryRecord(record, context) {
-  return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
+function renderImageGlossaryRecord(record2, context) {
+  return isStructuredImageRecord(record2) ? renderStructuredImage(record2, context.dictionary) : null;
 }
-function renderTextContentGlossaryRecord(record, context) {
-  return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
+function renderTextContentGlossaryRecord(record2, context) {
+  return record2.type === "text" && "content" in record2 ? renderGlossaryValue(record2.content, context) : null;
 }
-function renderStructuredContent(record, context) {
+function renderStructuredContent(record2, context) {
   const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
-  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, context)}</span>`;
+  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record2.content, context)}</span>`;
 }
-function renderTaggedGlossaryRecord(record, context) {
-  const tag = structuredRecordTag(record);
-  if (!tag) return renderRecordValues(record, context);
-  return renderKnownTaggedGlossaryRecord(record, tag, context) ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
+function renderTaggedGlossaryRecord(record2, context) {
+  const tag = structuredRecordTag(record2);
+  if (!tag) return renderRecordValues(record2, context);
+  return renderKnownTaggedGlossaryRecord(record2, tag, context) ?? structuredFallbackContent(record2, taggedRecordContent(record2, tag, context));
 }
-function renderKnownTaggedGlossaryRecord(record, tag, context) {
-  if (tag === "a") return renderStructuredLink(record, context);
-  if (tag === "img") return renderStructuredImage(record, context.dictionary);
-  const content = taggedRecordContent(record, tag, context);
-  if (tag === "table") return renderStructuredTable(record, content, context.dictionary);
-  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
+function renderKnownTaggedGlossaryRecord(record2, tag, context) {
+  if (tag === "a") return renderStructuredLink(record2, context);
+  if (tag === "img") return renderStructuredImage(record2, context.dictionary);
+  const content = taggedRecordContent(record2, tag, context);
+  if (tag === "table") return renderStructuredTable(record2, content, context.dictionary);
+  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record2, tag, content, context.dictionary);
   return null;
 }
-function taggedRecordContent(record, tag, context) {
-  return tag === "br" ? "" : renderGlossaryValue(record.content, context);
+function taggedRecordContent(record2, tag, context) {
+  return tag === "br" ? "" : renderGlossaryValue(record2.content, context);
 }
-function structuredFallbackContent(record, content) {
-  return content || escapeHtml(glossaryValueToText(record));
+function structuredFallbackContent(record2, content) {
+  return content || escapeHtml(glossaryValueToText(record2));
 }
-function structuredRecordTag(record) {
-  if (typeof record.tag === "string") return record.tag.toLowerCase();
-  return "content" in record ? "span" : "";
+function structuredRecordTag(record2) {
+  if (typeof record2.tag === "string") return record2.tag.toLowerCase();
+  return "content" in record2 ? "span" : "";
 }
-function renderRecordValues(record, context) {
-  return Object.values(record).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+function renderRecordValues(record2, context) {
+  return Object.values(record2).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
 }
-function renderStructuredTable(record, content, dictionary) {
-  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, "table", dictionary)}>${content}</table></div>`;
+function renderStructuredTable(record2, content, dictionary) {
+  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record2, "table", dictionary)}>${content}</table></div>`;
 }
-function renderStructuredElement(record, tag, content, dictionary) {
-  const attrs = renderStructuredElementAttributes(record, tag, dictionary);
+function renderStructuredElement(record2, tag, content, dictionary) {
+  const attrs = renderStructuredElementAttributes(record2, tag, dictionary);
   return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
 }
-function renderStructuredElementAttributes(record, tag, dictionary) {
+function renderStructuredElementAttributes(record2, tag, dictionary) {
   return [
   ` class="gloss-sc-${escapeHtml(tag)}"`,
   dictionaryDataAttribute(dictionary),
-  renderStructuredDataAttributes(record.data),
-  renderDirectDataAttributes(record),
-  structuredStyleAttribute(record.style),
-  structuredStringAttribute("title", record.title),
-  structuredStringAttribute("lang", record.lang),
-  ...structuredStateAttributes(record, tag)
+  renderStructuredDataAttributes(record2.data),
+  renderDirectDataAttributes(record2),
+  structuredStyleAttribute(record2.style),
+  structuredStringAttribute("title", record2.title),
+  structuredStringAttribute("lang", record2.lang),
+  ...structuredStateAttributes(record2, tag)
   ].filter(Boolean).join("");
 }
 function dictionaryDataAttribute(dictionary) {
@@ -18855,15 +18865,15 @@ function structuredStyleAttribute(value) {
 function structuredStringAttribute(name, value) {
   return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
 }
-function structuredStateAttributes(record, tag) {
+function structuredStateAttributes(record2, tag) {
   return [
-  tag === "details" && record.open === true ? " open" : "",
-  tableCellSpanAttribute(record, tag, "colSpan", "colspan"),
-  tableCellSpanAttribute(record, tag, "rowSpan", "rowspan")
+  tag === "details" && record2.open === true ? " open" : "",
+  tableCellSpanAttribute(record2, tag, "colSpan", "colspan"),
+  tableCellSpanAttribute(record2, tag, "rowSpan", "rowspan")
   ];
 }
-function tableCellSpanAttribute(record, tag, key, attr) {
-  const value = Number(record[key]);
+function tableCellSpanAttribute(record2, tag, key, attr) {
+  const value = Number(record2[key]);
   return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
 }
 function isTableCellTag(tag) {
@@ -18879,8 +18889,8 @@ function renderStructuredDataAttribute(key, rawValue) {
 function isStructuredAttributeValue(value) {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
-function renderDirectDataAttributes(record) {
-  return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
+function renderDirectDataAttributes(record2) {
+  return Object.entries(record2).map(renderDirectDataAttribute).filter(Boolean).join("");
 }
 function renderDirectDataAttribute([key, value]) {
   return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
@@ -18913,14 +18923,14 @@ function structuredStyleDeclaration(key, property, rawValue) {
   if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
   return "";
 }
-function renderStructuredLink(record, context) {
-  const content = renderGlossaryValue(record.content, context) || escapeHtml(glossaryValueToText(record));
-  const link = structuredLinkModel(record, context);
+function renderStructuredLink(record2, context) {
+  const content = renderGlossaryValue(record2.content, context) || escapeHtml(glossaryValueToText(record2));
+  const link = structuredLinkModel(record2, context);
   const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
-  return `<a${structuredLinkAttrs(link, context.dictionary, record.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+  return `<a${structuredLinkAttrs(link, context.dictionary, record2.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
 }
-function structuredLinkModel(record, context) {
-  const rawHref = typeof record.href === "string" ? record.href : "";
+function structuredLinkModel(record2, context) {
+  const rawHref = typeof record2.href === "string" ? record2.href : "";
   const searchReference = structuredLinkSearchReference(rawHref, context);
   const kanjiReference = structuredLinkKanjiReference(rawHref, context);
   const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
@@ -18979,35 +18989,35 @@ function externalLinkAttributes(external) {
 function langAttribute(lang) {
   return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
 }
-function renderStructuredImage(record, dictionary) {
-  const path = typeof record.path === "string" ? record.path : "";
-  const title = typeof record.title === "string" ? record.title : "";
-  const description = structuredImageDescription(record);
+function renderStructuredImage(record2, dictionary) {
+  const path = typeof record2.path === "string" ? record2.path : "";
+  const title = typeof record2.title === "string" ? record2.title : "";
+  const description = structuredImageDescription(record2);
   const src = structuredImageSrc(path);
   const alt = escapeHtml(description || title || "Dictionary image");
   const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
-  return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+  return `<span${renderStructuredImageAttributes(record2, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
 }
-function renderStructuredImageAttributes(record, dictionary) {
+function renderStructuredImageAttributes(record2, dictionary) {
   return [
   ` class="gloss-image-link"`,
   dictionaryAttribute(dictionary),
-  structuredImageStateAttribute(record)
+  structuredImageStateAttribute(record2)
   ].join("");
 }
-function structuredImageStateAttribute(record) {
-  const path = typeof record.path === "string" ? record.path : "";
+function structuredImageStateAttribute(record2) {
+  const path = typeof record2.path === "string" ? record2.path : "";
   return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
 }
 function structuredImageSrc(path) {
   return /^data:image\//i.test(path) ? path : "";
 }
-function structuredImageDescription(record) {
-  if (typeof record.description === "string") return record.description;
-  return typeof record.alt === "string" ? record.alt : "";
+function structuredImageDescription(record2) {
+  if (typeof record2.description === "string") return record2.description;
+  return typeof record2.alt === "string" ? record2.alt : "";
 }
-function isStructuredImageRecord(record) {
-  return record.type === "image" || "path" in record;
+function isStructuredImageRecord(record2) {
+  return record2.type === "image" || "path" in record2;
 }
 function normalizeStructuredHref(href) {
   if (!href) return "";
@@ -19080,14 +19090,14 @@ function formatMetaFrequency(value) {
 function metaFrequencyDisplayValue(value) {
   const primitive = primitiveMetaValue(value);
   if (primitive !== null) return primitive;
-  const record = objectRecord$1(value);
-  return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  const record2 = objectRecord$1(value);
+  return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function scalarMetaValue(value) {
   const primitive = primitiveMetaValue(value);
   if (primitive !== null) return primitive;
-  const record = objectRecord$1(value);
-  return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  const record2 = objectRecord$1(value);
+  return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function primitiveMetaValue(value) {
   return typeof value === "number" || typeof value === "string" ? String(value) : null;
@@ -19095,8 +19105,8 @@ function primitiveMetaValue(value) {
 function objectRecord$1(value) {
   return value && typeof value === "object" ? value : null;
 }
-function nestedMetaValue(record) {
-  return record.displayValue ?? record.frequency ?? record.value;
+function nestedMetaValue(record2) {
+  return record2.displayValue ?? record2.frequency ?? record2.value;
 }
 function groupTermEntriesByDictionary(entries2) {
   const grouped = new Map();
@@ -19147,14 +19157,14 @@ function summarizeLearnerGlossary(entry) {
   return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
 }
 const renderJpdbDefinitionSource = (...args) => yomuJpdbCompanion()?.renderJpdbDefinitionSource?.(...args) ?? "";
-function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel, reference) {
-  const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
+function renderLocalDefinitionSourcesSection(dictionaries2, grouped, settings, sourceAttributes, dictionaryLabel, reference) {
+  const groupsByDictionary = dictionaries2.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
   const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference)).filter(Boolean);
   return dictionarySections.join("");
 }
-function renderKanjiDefinitions(entries2, sourceAttributes, dictionaryLabel, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
+function renderKanjiDefinitions(entries2, sourceAttributes, dictionaryLabel, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language2 = "en") {
   if (!entries2.length) return "";
-  const heading = title ?? uiText(language, "kanjiDictionaries");
+  const heading = title ?? uiText(language2, "kanjiDictionaries");
   return `
     <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" data-source="local-kanji-dictionaries" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
         <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(heading)}</summary>
@@ -19165,8 +19175,8 @@ function renderKanjiDefinitions(entries2, sourceAttributes, dictionaryLabel, sou
                     <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel(entry.dictionary))}</span>
                 </div>
                 <div class="jpdb-reader-kanji-readings">
-                    ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
-                    ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
+                    ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language2, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
+                    ${entry.kunyomi.length ? `<span>${escapeHtml$1(uiText(language2, "kunReading"))} ${escapeHtml$1(entry.kunyomi.join("、"))}</span>` : ""}
                 </div>
                 <div
                     class="jpdb-reader-local-glossary jpdb-reader-parseable"
@@ -19194,25 +19204,25 @@ function kanjiSourceStateKey(sourceId) {
 function kanjiFactProviderTitle(source) {
   return source === "jiten" ? "Jiten" : "JPDB";
 }
-function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel, language, reference) {
+function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel, language2, reference) {
   const entryCount = groups.length;
   return `
     <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
         <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore>
             <span>${escapeHtml$1(dictionaryLabel(dictionary))}</span>
-            <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
+            <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language2, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
         </summary>
         <div class="jpdb-reader-local-terms">
-            ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, { showDictionaryTag: false })).join("")}
+            ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel, language2, reference, { showDictionaryTag: false })).join("")}
         </div>
     </details>
   `;
 }
-function renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, options = {}) {
+function renderLocalTermGroup(dictionary, group, dictionaryLabel, language2, reference, options = {}) {
   return `
     <article class="jpdb-reader-local-entry jpdb-reader-local-term">
         ${renderLocalTermHead(group, reference)}
-        ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
+        ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language2)}
         ${renderLocalTermMeaning(dictionary, group)}
     </article>
   `;
@@ -19241,10 +19251,10 @@ function matchesLookupReading(group, reference) {
 function renderLocalTermReading(group) {
   return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
 }
-function renderLocalTermTags(dictionary, group, dictionaryLabel, showDictionaryTag, language) {
+function renderLocalTermTags(dictionary, group, dictionaryLabel, showDictionaryTag, language2) {
   const tagItems = [
   showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel(dictionary))}</span>` : "",
-  ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
+  ...localTermTags(group.entries, language2).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
   ].filter(Boolean);
   return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
 }
@@ -19633,18 +19643,18 @@ function collectPitchPatterns(normalizedExpression, normalizedReading, reading, 
   return patterns;
 }
 function readPitchCandidates(value, normalizedReading) {
-  const record = objectRecord(value);
-  if (!record || !pitchMetadataReadingMatches(record, normalizedReading)) return [];
-  const candidates = pitchPositionCandidates(record).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
+  const record2 = objectRecord(value);
+  if (!record2 || !pitchMetadataReadingMatches(record2, normalizedReading)) return [];
+  const candidates = pitchPositionCandidates(record2).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
   if (candidates.length) return candidates;
-  const direct = pitchCandidateFromValue(record.position);
+  const direct = pitchCandidateFromValue(record2.position);
   return direct == null ? [] : [direct];
 }
 function pitchPatternFromCandidate(reading, candidate) {
   return typeof candidate === "number" ? pitchPatternFromPosition(reading, candidate) : normalizePitchPatternsForReading([candidate], reading)[0] ?? "";
 }
-function pitchMetadataReadingMatches(record, normalizedReading) {
-  const metadataReading = typeof record.reading === "string" ? record.reading : "";
+function pitchMetadataReadingMatches(record2, normalizedReading) {
+  const metadataReading = typeof record2.reading === "string" ? record2.reading : "";
   return readingIdentity(metadataReading) === normalizedReading;
 }
 function expressionIdentity(value) {
@@ -19653,16 +19663,16 @@ function expressionIdentity(value) {
 function readingIdentity(value) {
   return expressionIdentity(value).replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
 }
-function pitchPositionCandidates(record) {
-  if (Array.isArray(record.pitches)) return record.pitches;
-  return Array.isArray(record.positions) ? record.positions : [];
+function pitchPositionCandidates(record2) {
+  if (Array.isArray(record2.pitches)) return record2.pitches;
+  return Array.isArray(record2.positions) ? record2.positions : [];
 }
 function pitchCandidateFromValue(value) {
   const direct = directPitchCandidateValue(value);
   if (direct !== null) return direct;
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  return pitchCandidateFromValue(record.position);
+  const record2 = value;
+  return pitchCandidateFromValue(record2.position);
 }
 function directPitchCandidateValue(value) {
   if (typeof value === "number") return validPitchPosition(value);
@@ -19975,11 +19985,11 @@ class CardPopoverRenderer {
   const cardStates = normalizeCardStates(card.cardState);
   const state = primaryCardState(cardStates);
   const settings = this.settings();
-  const language = settings.interfaceLanguage;
+  const language2 = settings.interfaceLanguage;
   const provider = this.apiProviderForCard(card);
   const selectedDeckLabel = this.selectedApiDeckLabel(provider, data);
-  const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language) : "";
-  const miningActions = this.renderApiMiningActions(card, cardStates, language, data, provider);
+  const reviewBlockReason = !data.ankiLookup.primary?.primaryCardId ? this.reviewBlockReason(cardStates, language2) : "";
+  const miningActions = this.renderApiMiningActions(card, cardStates, language2, data, provider);
   const ankiActions = data.loading ? "" : renderAnkiActionRow(data.ankiLookup, settings);
   return {
     cardStates,
@@ -19988,7 +19998,7 @@ class CardPopoverRenderer {
     jpdbUrl: jpdbVocabularyUrl(card),
     cardPos: formatPartOfSpeech(card.partOfSpeech),
     cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
-    language,
+    language: language2,
     provider,
     miningActions,
     ankiActions,
@@ -19999,12 +20009,12 @@ class CardPopoverRenderer {
       provider,
       selectedDeckLabel,
       reviewBlockReason,
-      language
+      language: language2
     }),
     metaItems: this.renderMetaItems(card, provider, state, data),
-    loadingDetails: this.renderLoadingDetails(data.loading, language),
+    loadingDetails: this.renderLoadingDetails(data.loading, language2),
     audioButtonDisabled: !settings.audioEnabled,
-    audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
+    audioButtonTitle: uiText(language2, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
   };
   }
   renderHeader(card, data, view, trigger) {
@@ -20105,32 +20115,32 @@ class CardPopoverRenderer {
         ${view.ankiActions}
     </div>`;
   }
-  renderApiMiningActions(card, cardStates, language, data, provider) {
-  return renderApiMiningActions(this.settings(), card, cardStates, language, data, provider);
+  renderApiMiningActions(card, cardStates, language2, data, provider) {
+  return renderApiMiningActions(this.settings(), card, cardStates, language2, data, provider);
   }
   renderReviewButtons(options) {
-  const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
+  const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language: language2 } = options;
   const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
   if (earlyResult !== void 0) return earlyResult;
-  const targets2 = this.popoverReviewTargets(card, data, provider, language);
-  if (targets2.length) return this.renderTargetedReviewButtons(targets2, language, targets2.length > 1, this.switchProviderTarget(card, provider));
+  const targets2 = this.popoverReviewTargets(card, data, provider, language2);
+  if (targets2.length) return this.renderTargetedReviewButtons(targets2, language2, targets2.length > 1, this.switchProviderTarget(card, provider));
   if (provider?.id === "yomu-local" && card.reviewSource === "jpdb-live") {
     return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
   }
   if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
     return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
   }
-  return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
+  return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2);
   }
   reviewButtonsEarlyResult(card, data, reviewBlockReason) {
   if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
   if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
   return void 0;
   }
-  renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language) {
+  renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language2) {
   return renderReviewButtons(this.settings(), null, {
-    targetLabel: provider?.label ?? uiText(language, "gradeJpdbCardTarget"),
-    title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
+    targetLabel: provider?.label ?? uiText(language2, "gradeJpdbCardTarget"),
+    title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language2),
     intervals: card.reviewGradeIntervals
   });
   }
@@ -20149,17 +20159,17 @@ class CardPopoverRenderer {
   const next = cycle[(cycle.indexOf(provider.id) + 1) % cycle.length];
   return next && next !== provider.id ? this.providerForReviewTarget({ id: next, kind: next, label: "", shortLabel: "", gradeProfile: "standard" }, null) : null;
   }
-  popoverReviewTargets(card, data, provider, language) {
-  const ankiTargets = this.ankiReviewTargets(data, language);
+  popoverReviewTargets(card, data, provider, language2) {
+  const ankiTargets = this.ankiReviewTargets(data, language2);
   if (provider?.id === "yomu-local" && ankiTargets.length) return ankiTargets;
-  const apiTargets = this.apiReviewTargets(card, provider, language);
+  const apiTargets = this.apiReviewTargets(card, provider, language2);
   if ((provider?.id === "bunpro" || provider?.id === "wanikani") && apiTargets.length) return apiTargets;
   if (apiTargets.length && ankiTargets.length) {
     const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
     if (!apiProvider) return [...apiTargets, ...ankiTargets];
     const primaryAnki = ankiTargets[0];
     return [
-      this.bothReviewTarget(apiProvider, primaryAnki, language),
+      this.bothReviewTarget(apiProvider, primaryAnki, language2),
       ...apiTargets,
       ...ankiTargets
     ];
@@ -20180,12 +20190,12 @@ class CardPopoverRenderer {
   if (target.kind === "yomu-local") return { id: "yomu-local", label: ACADEMY_SRS_LABEL, deckSource: "yomu-local", hasApiKey: true };
   return fallback;
   }
-  apiReviewTarget(provider, language, card) {
+  apiReviewTarget(provider, language2, card) {
   if (provider.id === "yomu-local") {
     return {
       id: "yomu-local",
       kind: "yomu-local",
-      label: uiText(language, "gradeTargetYomuLocal"),
+      label: uiText(language2, "gradeTargetYomuLocal"),
       shortLabel: provider.label,
       gradeProfile: "standard"
     };
@@ -20194,7 +20204,7 @@ class CardPopoverRenderer {
     return {
       id: "bunpro",
       kind: "bunpro",
-      label: uiText(language, "gradeTargetBunpro"),
+      label: uiText(language2, "gradeTargetBunpro"),
       shortLabel: provider.label,
       gradeProfile: card.bunproReviewInputMode === "fsrs" ? "bunpro-fsrs" : "bunpro-regular"
     };
@@ -20203,7 +20213,7 @@ class CardPopoverRenderer {
     return {
       id: "wanikani",
       kind: "wanikani",
-      label: uiText(language, "gradeTargetWanikani"),
+      label: uiText(language2, "gradeTargetWanikani"),
       shortLabel: provider.label,
       gradeProfile: "standard"
     };
@@ -20212,23 +20222,23 @@ class CardPopoverRenderer {
   return {
     id: provider.id,
     kind: isJiten ? "jiten" : "jpdb",
-    label: uiText(language, isJiten ? "gradeTargetJiten" : "gradeTargetJpdb"),
+    label: uiText(language2, isJiten ? "gradeTargetJiten" : "gradeTargetJpdb"),
     shortLabel: provider.label,
     gradeProfile: "standard"
   };
   }
-  bothReviewTarget(provider, ankiTarget, language) {
-  const label = provider.id === "bunpro" ? uiText(language, "gradeTargetBunproAndAnki") : provider.id === "yomu-local" ? uiText(language, "gradeTargetYomuLocalAndAnki") : provider.id === "jiten" ? uiText(language, "gradeTargetJitenAndAnki") : uiText(language, "gradeTargetJpdbAndAnki");
+  bothReviewTarget(provider, ankiTarget, language2) {
+  const label = provider.id === "bunpro" ? uiText(language2, "gradeTargetBunproAndAnki") : provider.id === "yomu-local" ? uiText(language2, "gradeTargetYomuLocalAndAnki") : provider.id === "jiten" ? uiText(language2, "gradeTargetJitenAndAnki") : uiText(language2, "gradeTargetJpdbAndAnki");
   return {
     id: "both",
     kind: "both",
     label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
-    shortLabel: uiText(language, "gradeTargetBoth"),
+    shortLabel: uiText(language2, "gradeTargetBoth"),
     ankiCardId: ankiTarget.ankiCardId,
     gradeProfile: "standard"
   };
   }
-  ankiReviewTargets(data, language) {
+  ankiReviewTargets(data, language2) {
   const settings = this.settings();
   if (!settings.enableReviews || !settings.ankiEnabled || !settings.ankiSectionEnabled) return [];
   const orderedNotes = data.ankiLookup.primary ? [
@@ -20242,25 +20252,25 @@ class CardPopoverRenderer {
     kind: "anki",
     ankiCardId: cardId,
     plainLabel: label,
-    label: formatTargetLabel(uiText(language, "gradeTargetAnki"), label),
+    label: formatTargetLabel(uiText(language2, "gradeTargetAnki"), label),
     shortLabel: compactAnkiReviewTargetLabel(label, cardId),
     gradeProfile: "standard"
   }));
   }
-  renderTargetedReviewButtons(targets2, language, canSwitchTarget, switchProviderTarget) {
+  renderTargetedReviewButtons(targets2, language2, canSwitchTarget, switchProviderTarget) {
   const settings = this.settings();
   const selected = targets2[0];
   if (!selected) return "";
   const standardGrades = reviewButtonGrades(settings);
   const bunproRegularGrades = [
-    ["fail", uiText(language, "bunproGradeHardLabel")],
-    ["pass", uiText(language, "bunproGradeGoodLabel")]
+    ["fail", uiText(language2, "bunproGradeHardLabel")],
+    ["pass", uiText(language2, "bunproGradeGoodLabel")]
   ];
   const bunproFsrsGrades = [
-    ["nothing", uiText(language, "bunproGradeAgainLabel")],
-    ["hard", uiText(language, "bunproGradeHardLabel")],
-    ["okay", uiText(language, "bunproGradeGoodLabel")],
-    ["easy", uiText(language, "bunproGradeEasyLabel")]
+    ["nothing", uiText(language2, "bunproGradeAgainLabel")],
+    ["hard", uiText(language2, "bunproGradeHardLabel")],
+    ["okay", uiText(language2, "bunproGradeGoodLabel")],
+    ["easy", uiText(language2, "bunproGradeEasyLabel")]
   ];
   const profiles = new Set(targets2.map((target) => target.gradeProfile));
   const gradeRows = [
@@ -20269,8 +20279,8 @@ class CardPopoverRenderer {
     profiles.has("bunpro-fsrs") ? renderTargetedGradeRow(bunproFsrsGrades, selected, "bunpro-fsrs", selected.gradeProfile !== "bunpro-fsrs") : ""
   ].filter(Boolean).join("");
   if (!gradeRows) return "";
-  const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language) : "";
-  const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, switchProviderTarget);
+  const selector = canSwitchTarget ? renderReviewTargetSelector(targets2, language2) : "";
+  const targetGutter = renderReviewTargetGutter(selected, language2, canSwitchTarget, switchProviderTarget);
   return `
         ${targetGutter}
         ${selector}
@@ -20287,12 +20297,12 @@ class CardPopoverRenderer {
     renderAnkiMeta(data.ankiLookup, settings)
   ].filter(Boolean);
   }
-  renderLoadingDetails(loading, language) {
-  return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$1(uiText(language, "loadingDictionaryDetails"))}</div>` : "";
+  renderLoadingDetails(loading, language2) {
+  return loading ? `<div class="jpdb-reader-help" data-card-details-loading>${escapeHtml$1(uiText(language2, "loadingDictionaryDetails"))}</div>` : "";
   }
-  reviewBlockReason(cardStates, language) {
-  if (cardStates.includes("blacklisted")) return uiText(language, "reviewBlockedBlacklisted");
-  if (cardStates.includes("never-forget")) return uiText(language, "reviewBlockedNeverForget");
+  reviewBlockReason(cardStates, language2) {
+  if (cardStates.includes("blacklisted")) return uiText(language2, "reviewBlockedBlacklisted");
+  if (cardStates.includes("never-forget")) return uiText(language2, "reviewBlockedNeverForget");
   return "";
   }
   settings() {
@@ -20363,20 +20373,20 @@ function togglePopoverReviewTargetSelection(button) {
 function reviewButtonsIncludeTargetGutter(reviewButtons) {
   return reviewButtons.includes("data-review-target-gutter");
 }
-function renderReviewTargetGutter(target, language, canSwitchTarget, switchProviderTarget) {
-  const label = uiText(language, "showMiningActions");
-  const switchLabel = uiText(language, "switchReviewTarget");
+function renderReviewTargetGutter(target, language2, canSwitchTarget, switchProviderTarget) {
+  const label = uiText(language2, "showMiningActions");
+  const switchLabel = uiText(language2, "switchReviewTarget");
   const currentTarget = switchProviderTarget || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
-  const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
+  const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language2, currentTarget) : currentTarget;
   return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
     ${targetControl}
     ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button>
   </div>`;
 }
-function renderReviewTargetSelector(targets2, language) {
+function renderReviewTargetSelector(targets2, language2) {
   return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-    <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language, "gradeTargetSelector"))}">
+    <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml$1(uiText(language2, "gradeTargetSelector"))}">
         ${targets2.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-grade-profile="${target.gradeProfile}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
     </select>
   </div>`;
@@ -20393,25 +20403,25 @@ function reviewTargetButtonAttrs(target) {
 function formatTargetLabel(template, target) {
   return template.replaceAll("{target}", target);
 }
-function reviewButtonTitle(data, cardStates, selectedDeckLabel, language) {
+function reviewButtonTitle(data, cardStates, selectedDeckLabel, language2) {
   const reviewAddsToDeck = !data.ankiLookup.primary?.primaryCardId && cardStates.includes("not-in-deck");
-  return reviewAddsToDeck ? `${uiText(language, "reviewAddsToDeck")} ${selectedDeckLabel}` : "";
+  return reviewAddsToDeck ? `${uiText(language2, "reviewAddsToDeck")} ${selectedDeckLabel}` : "";
 }
-function miningActionState(cardStates, language) {
+function miningActionState(cardStates, language2) {
   const isNeverForget = cardStates.includes("never-forget");
   const isBlacklisted = cardStates.includes("blacklisted");
   return {
   isNeverForget,
   isBlacklisted,
-  neverForgetLabel: isNeverForget ? uiText(language, "forget") : uiText(language, "never"),
-  blacklistLabel: isBlacklisted ? uiText(language, "unlist") : uiText(language, "blacklist")
+  neverForgetLabel: isNeverForget ? uiText(language2, "forget") : uiText(language2, "never"),
+  blacklistLabel: isBlacklisted ? uiText(language2, "unlist") : uiText(language2, "blacklist")
   };
 }
-function renderApiMiningActions(settings, card, cardStates, language, data, provider) {
-  const state = miningActionState(cardStates, language);
-  const addDeckSelect = renderAddDeckSelect(settings, card, data, language, provider);
+function renderApiMiningActions(settings, card, cardStates, language2, data, provider) {
+  const state = miningActionState(cardStates, language2);
+  const addDeckSelect = renderAddDeckSelect(settings, card, data, language2, provider);
   if (!addDeckSelect && !canRenderApiMiningActions(settings, provider)) return "";
-  return renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
+  return renderApiMiningActionDetails(language2, state, addDeckSelect, provider, canToggleApiDeckState(card, settings));
 }
 function canToggleApiDeckState(card, settings) {
   return apiSrsSwitchableProviderIds(card, settings).some((id) => id === "jpdb" || id === "jiten");
@@ -20419,7 +20429,7 @@ function canToggleApiDeckState(card, settings) {
 function canRenderApiMiningActions(settings, provider) {
   return Boolean(provider?.hasApiKey && isApiSrsProviderEnabled(settings, provider.id));
 }
-function renderAddDeckSelect(settings, card, data, language, provider) {
+function renderAddDeckSelect(settings, card, data, language2, provider) {
   const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
   includeJpdb: provider?.id === "jpdb",
   includeJiten: provider?.id === "jiten",
@@ -20428,17 +20438,17 @@ function renderAddDeckSelect(settings, card, data, language, provider) {
   jitenDecks: data.jitenDecks ?? []
   });
   if (!deckOptions) return "";
-  return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
+  return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language2, "deck"))}" hidden>${deckOptions}</select>`;
 }
-function renderApiMiningActionDetails(language, state, addDeckSelect, provider, canToggleDeckState) {
-  const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
+function renderApiMiningActionDetails(language2, state, addDeckSelect, provider, canToggleDeckState) {
+  const addToDeckLabel = `${uiText(language2, "addToDeck")} +`;
   const directAdd = (provider?.id === "bunpro" || provider?.id === "yomu-local") && (addDeckSelect.match(/data-deck-source=/g)?.length ?? 0) <= 1;
   const directDeckSource = provider?.id === "bunpro" ? "bunpro" : provider?.id === "yomu-local" ? "yomu-local" : "";
   const deckStateButtons = canToggleDeckState ? `
                     <button class="jpdb-reader-btn nf${state.isNeverForget ? " danger" : ""}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
                     <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>` : "";
   return `
-            <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
+            <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language2, "deckActions"))}">
                 <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: ${canToggleDeckState ? 3 : 1}">
                     <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="${directAdd ? "add" : "deck-picker"}"${directAdd ? ` data-deck-source="${directDeckSource}"` : ""} aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>${deckStateButtons}
                 </div>
@@ -20450,8 +20460,8 @@ function renderAnkiMeta(lookup, settings) {
   if (!settings.ankiEnabled) return "";
   if (lookup.trusted === false && !lookup.primary) return "";
   if (!lookup.primary && lookup.state === "not-in-deck") return "";
-  const language = settings.interfaceLanguage;
-  return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>Anki ${escapeHtml$1(cardStateLabel(lookup.state, language))}</span>`;
+  const language2 = settings.interfaceLanguage;
+  return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>Anki ${escapeHtml$1(cardStateLabel(lookup.state, language2))}</span>`;
 }
 function renderMeta(metaItems) {
   return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
@@ -20509,15 +20519,15 @@ function expressionComponentRubyToken(text2, reading, pitchClass) {
   sentence: text2
   };
 }
-function renderProviderToggle(nextProvider, language, content = "") {
-  const label = `${uiText(language, "switchGradingProvider")} (${nextProvider.label})`;
+function renderProviderToggle(nextProvider, language2, content = "") {
+  const label = `${uiText(language2, "switchGradingProvider")} (${nextProvider.label})`;
   return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}" title="${escapeHtml$1(label)}">⇄ ${content}</button>`;
 }
 function canExpandMiningDrawer() {
   return Boolean(yomuKanjiStudyCompanion()?.setMiningControlsExpanded);
 }
-function renderMiningGutter(miningActions, language) {
-  const label = uiText(language, "showMiningActions");
+function renderMiningGutter(miningActions, language2) {
+  const label = uiText(language2, "showMiningActions");
   return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button></div>` : "";
 }
 function jitenDeckLabel(deck) {
@@ -20963,9 +20973,9 @@ class JitenApiClient {
   const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
   if (!Array.isArray(response)) return [];
   return response.map((row) => {
-    const record = row;
-    const id = Number(record?.userStudyDeckId);
-    const name = typeof record?.name === "string" ? record.name : "";
+    const record2 = row;
+    const id = Number(record2?.userStudyDeckId);
+    const name = typeof record2?.name === "string" ? record2.name : "";
     return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
   }).filter((deck) => deck !== null);
   }
@@ -20974,10 +20984,10 @@ class JitenApiClient {
   const keys = new Set();
   if (!Array.isArray(response)) return keys;
   for (const row of response) {
-    const record = row;
-    const wordId = Number(record?.wordId);
+    const record2 = row;
+    const wordId = Number(record2?.wordId);
     if (!Number.isFinite(wordId)) continue;
-    keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
+    keys.add(`${wordId}:${Number(record2?.readingIndex) || 0}`);
   }
   return keys;
   }
@@ -21435,22 +21445,22 @@ const JITEN_CARD_STATE_MAP = {
   7: "in-deck"
 };
 function normalizeJitenVocabularyInfo(value) {
-  const record = jitenPayloadRecord(value);
-  if (!record) return null;
-  const wordId = finiteJitenInteger(record.wordId);
+  const record2 = jitenPayloadRecord(value);
+  if (!record2) return null;
+  const wordId = finiteJitenInteger(record2.wordId);
   if (wordId === void 0 || wordId <= 0) return null;
-  const mainReading = normalizeJitenVocabularyReading(record.mainReading);
+  const mainReading = normalizeJitenVocabularyReading(record2.mainReading);
   return {
   wordId,
   mainReading,
-  alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
-  partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
-  definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
-  pitchAccents: jitenStateNumbers(record.pitchAccents),
-  knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
-  composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
-  usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
-  usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
+  alternativeReadings: arrayOfRecords(record2.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
+  partsOfSpeech: arrayOfStrings(record2.partsOfSpeech),
+  definitions: arrayOfRecords(record2.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
+  pitchAccents: jitenStateNumbers(record2.pitchAccents),
+  knownStates: Array.isArray(record2.knownStates) ? jitenKnownStateToCardStates(record2.knownStates) : [],
+  composedOf: normalizeJitenVocabularyWordSummaries(record2.composedOf),
+  usedIn: normalizeJitenVocabularyWordSummaries(record2.usedIn),
+  usedInTotal: finiteJitenInteger(record2.usedInTotal) ?? 0,
   examples: []
   };
 }
@@ -21721,16 +21731,16 @@ function positiveJitenInteger(value) {
 function nullableFiniteNumber(value) {
   return finiteJitenNumber(value) ?? null;
 }
-function firstRecordString(record, keys) {
+function firstRecordString(record2, keys) {
   for (const key of keys) {
-  const value = record[key];
+  const value = record2[key];
   if (typeof value === "string" && value.trim()) return value.trim();
   }
   return null;
 }
-function firstRecordFiniteNumber(record, keys) {
+function firstRecordFiniteNumber(record2, keys) {
   for (const key of keys) {
-  const value = finiteJitenNumber(record[key]);
+  const value = finiteJitenNumber(record2[key]);
   if (value !== void 0) return value;
   }
   return null;
@@ -21809,9 +21819,9 @@ function jitenStateNumbers(value) {
   return Array.isArray(value) ? value.map(finiteJitenInteger).filter((item) => item !== void 0) : [];
 }
 function jitenReviewGradeIntervals(payload) {
-  const record = payload;
+  const record2 = payload;
   for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
-  const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
+  const parsed = jitenReviewGradeIntervalsFromValue(record2[key]);
   if (parsed) return parsed;
   }
   return void 0;
@@ -21829,10 +21839,10 @@ function jitenReviewGradeIntervalsFromArray(values) {
   });
   return Object.keys(intervals).length ? intervals : void 0;
 }
-function jitenReviewGradeIntervalsFromRecord(record) {
+function jitenReviewGradeIntervalsFromRecord(record2) {
   const intervals = {};
   for (const meta of JITEN_REVIEW_RATINGS) {
-  const value = meta.keys.map((key) => record[key]).find((candidate) => candidate !== void 0);
+  const value = meta.keys.map((key) => record2[key]).find((candidate) => candidate !== void 0);
   addJitenReviewInterval(intervals, meta, value);
   }
   return Object.keys(intervals).length ? intervals : void 0;
@@ -21844,9 +21854,9 @@ function addJitenReviewInterval(intervals, meta, value) {
   for (const grade of meta.grades) intervals[grade] = interval;
 }
 function jitenReviewInterval(value, meta) {
-  const record = isJsonRecord(value) ? value : null;
-  const buttonLabel = jitenReviewButtonLabel(record, meta);
-  const intervalLabel = jitenReviewIntervalLabel(value, record);
+  const record2 = isJsonRecord(value) ? value : null;
+  const buttonLabel = jitenReviewButtonLabel(record2, meta);
+  const intervalLabel = jitenReviewIntervalLabel(value, record2);
   if (!intervalLabel) return null;
   return {
   buttonLabel,
@@ -21855,12 +21865,12 @@ function jitenReviewInterval(value, meta) {
   source: "jiten-study-batch"
   };
 }
-function jitenReviewButtonLabel(record, meta) {
-  return firstString(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
+function jitenReviewButtonLabel(record2, meta) {
+  return firstString(record2, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
 }
-function jitenReviewIntervalLabel(value, record) {
+function jitenReviewIntervalLabel(value, record2) {
   if (typeof value === "string") return normalizeIntervalLabel(value);
-  const explicit = firstString(record, [
+  const explicit = firstString(record2, [
   "intervalLabel",
   "nextReviewLabel",
   "nextIntervalLabel",
@@ -21873,26 +21883,26 @@ function jitenReviewIntervalLabel(value, record) {
   "text"
   ]);
   if (explicit) return normalizeIntervalLabel(explicit);
-  return jitenReviewIntervalNumberLabel(record) ?? "";
+  return jitenReviewIntervalNumberLabel(record2) ?? "";
 }
-function jitenReviewIntervalNumberLabel(record) {
-  if (!record) return null;
+function jitenReviewIntervalNumberLabel(record2) {
+  if (!record2) return null;
   for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
-  const value = finiteJitenNumber(record[key]);
+  const value = finiteJitenNumber(record2[key]);
   if (value !== void 0) return formatJitenInterval(value, unit);
   }
   return null;
 }
-function jitenReviewRatingMetaFromRecord(record) {
-  const rating = finiteJitenInteger(record.rating) ?? finiteJitenInteger(record.ease) ?? finiteJitenInteger(record.button) ?? finiteJitenInteger(record.value);
+function jitenReviewRatingMetaFromRecord(record2) {
+  const rating = finiteJitenInteger(record2.rating) ?? finiteJitenInteger(record2.ease) ?? finiteJitenInteger(record2.button) ?? finiteJitenInteger(record2.value);
   if (rating !== void 0) return JITEN_REVIEW_RATINGS.find((meta) => meta.rating === rating);
-  const label = firstString(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
+  const label = firstString(record2, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
   return label ? JITEN_REVIEW_RATINGS.find((meta) => meta.keys.includes(normalizeJitenReviewKey(label))) : void 0;
 }
-function firstString(record, keys) {
-  if (!record) return null;
+function firstString(record2, keys) {
+  if (!record2) return null;
   for (const key of keys) {
-  const value = record[key];
+  const value = record2[key];
   if (typeof value === "string" && value.trim()) return value.trim();
   }
   return null;
@@ -22450,10 +22460,10 @@ ${entry.reading}`);
   }
   }
   async parseLocalDictionaryText(text2, options) {
-  const { dictionaries, getSettings } = this.dependencies;
+  const { dictionaries: dictionaries2, getSettings } = this.dependencies;
   if (!await this.hasLocalTermDictionaries()) return [];
   const settings = getSettings();
-  const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
+  const matches = await dictionaries2.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences).catch((error) => {
     log$5.warn("Local dictionary parse failed", { length: text2.length }, error);
     return [];
   });
@@ -23861,8 +23871,8 @@ const log$3 = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
 const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
-function resetFactoryResetDictionaryDatabase(dictionaries) {
-  return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
+function resetFactoryResetDictionaryDatabase(dictionaries2) {
+  return dictionaries2.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
 }
 function createFactoryResetCoordinator(options) {
   return new FactoryResetCoordinator({
@@ -26441,8 +26451,8 @@ function unsupportedCapabilities() {
   };
 }
 const IMMERSION_KIT_EXAMPLE_SOURCE_ID = "immersion-kit";
-function immersionKitCapabilitiesFor(targetLanguage) {
-  const base = targetLanguage.trim().toLowerCase().split(/[-_]/u)[0];
+function immersionKitCapabilitiesFor(targetLanguage2) {
+  const base = targetLanguage2.trim().toLowerCase().split(/[-_]/u)[0];
   if (base !== "ja") return unsupportedCapabilities();
   return {
   supported: true,
@@ -26539,7 +26549,7 @@ function renderRowBody(options) {
             <button class="jpdb-reader-btn" type="button" data-action="retry-example-source" data-example-source-id="${escapeHtml$1(options.sourceId)}">${escapeHtml$1(uiText(options.interfaceLanguage, "exampleSourceRetry"))}</button>`;
   case "loaded":
     return `
-            <ul class="jpdb-reader-jpdb-examples">${collection.items.map((record) => renderExampleRecord(record, options)).join("")}</ul>
+            <ul class="jpdb-reader-jpdb-examples">${collection.items.map((record2) => renderExampleRecord(record2, options)).join("")}</ul>
             ${mediaNotices(options, collection)}
         `;
   }
@@ -26560,7 +26570,7 @@ function statusChip(options) {
 function mediaNotices(options, collection) {
   const notices = [];
   const audio = options.capabilities.audio;
-  const playable = collection.items.some((record) => record.audio?.length);
+  const playable = collection.items.some((record2) => record2.audio?.length);
   if (audio.availability === "none") {
   notices.push(reasonBlock(options, "no-sentence-audio-source"));
   } else if (!playable) {
@@ -26581,32 +26591,32 @@ function helpBlock(reason, message) {
   return `<p class="jpdb-reader-help" data-example-reason="${escapeHtml$1(reason)}">${escapeHtml$1(message)}</p>`;
 }
 function reasonText(options, reason) {
-  const language = options.interfaceLanguage;
+  const language2 = options.interfaceLanguage;
   switch (reason) {
   case "unsupported-target":
-    return formatUiText(language, "exampleSourceUnsupported", {
-      language: languageName(options.targetLanguage, language)
+    return formatUiText(language2, "exampleSourceUnsupported", {
+      language: languageName(options.targetLanguage, language2)
     });
   case "limited-corpus":
-    return uiText(language, "exampleSourceLimitedCorpus");
+    return uiText(language2, "exampleSourceLimitedCorpus");
   case "no-results":
-    return uiText(language, "exampleSourceEmpty");
+    return uiText(language2, "exampleSourceEmpty");
   case "no-licensed-audio":
-    return uiText(language, "exampleSourceNoLicensedAudio");
+    return uiText(language2, "exampleSourceNoLicensedAudio");
   case "no-sentence-audio-source":
-    return formatUiText(language, "exampleSourceNoSentenceAudio", {
-      language: languageName(options.targetLanguage, language)
+    return formatUiText(language2, "exampleSourceNoSentenceAudio", {
+      language: languageName(options.targetLanguage, language2)
     });
   case "no-image-source":
-    return uiText(language, "exampleSourceNoImage");
+    return uiText(language2, "exampleSourceNoImage");
   case "no-human-translation":
-    return formatUiText(language, "exampleSourceNoTranslation", {
-      language: languageName(options.outputLanguage, language)
+    return formatUiText(language2, "exampleSourceNoTranslation", {
+      language: languageName(options.outputLanguage, language2)
     });
   case "auth":
   case "network":
   case "schema":
-    return uiText(language, "exampleSourceFailed");
+    return uiText(language2, "exampleSourceFailed");
   }
 }
 function languageName(tag, interfaceLanguage) {
@@ -26617,40 +26627,40 @@ function languageName(tag, interfaceLanguage) {
   return tag;
   }
 }
-function renderExampleRecord(record, options) {
-  const audio = record.audio?.[0];
+function renderExampleRecord(record2, options) {
+  const audio = record2.audio?.[0];
   return `
-    <li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml$1(record.id)}">
+    <li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml$1(record2.id)}">
         <div class="jpdb-reader-jpdb-example-row${audio ? " has-audio" : ""}">
             ${audio ? renderAudioButton(audio.url, options.interfaceLanguage) : ""}
             <div class="jpdb-reader-jpdb-example-text">
-                <div class="jpdb-reader-example-sentence" lang="${escapeHtml$1(record.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml$1(record.text.value)}</div>
-                ${renderTranslation(record, options)}
-                ${renderProvenance(record, options)}
+                <div class="jpdb-reader-example-sentence" lang="${escapeHtml$1(record2.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml$1(record2.text.value)}</div>
+                ${renderTranslation(record2, options)}
+                ${renderProvenance(record2, options)}
             </div>
         </div>
     </li>
   `;
 }
-function renderTranslation(record, options) {
-  if (!record.translation) return reasonBlock(options, "no-human-translation");
+function renderTranslation(record2, options) {
+  if (!record2.translation) return reasonBlock(options, "no-human-translation");
   const blurred = options.blurTranslations ?? false;
   return `<div class="jpdb-reader-example-translation"
-    lang="${escapeHtml$1(record.translation.language)}"
+    lang="${escapeHtml$1(record2.translation.language)}"
     dir="auto"
     data-provider-example-translation
-    data-translation-provenance="${escapeHtml$1(record.translation.provenance)}"
+    data-translation-provenance="${escapeHtml$1(record2.translation.provenance)}"
     ${blurred ? 'data-provider-translation-blurred="true" role="button" tabindex="0" aria-label="' + escapeHtml$1(uiText(options.interfaceLanguage, "revealTranslation")) + '"' : ""}
-    >${escapeHtml$1(record.translation.value)}</div>`;
+    >${escapeHtml$1(record2.translation.value)}</div>`;
 }
-function renderProvenance(record, options) {
+function renderProvenance(record2, options) {
   const marks = [];
-  if (record.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
-  if (record.translation && record.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
-  const audioCredit = record.audio?.[0];
+  if (record2.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
+  if (record2.translation && record2.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
+  const audioCredit = record2.audio?.[0];
   return `<div class="jpdb-reader-example-provenance" data-example-provenance>
-    <a href="${escapeHtml$1(record.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml$1(record.source.attribution)}</a>
-    <span data-example-licence>${escapeHtml$1(record.source.licence)}</span>
+    <a href="${escapeHtml$1(record2.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml$1(record2.source.attribution)}</a>
+    <span data-example-licence>${escapeHtml$1(record2.source.licence)}</span>
     ${audioCredit ? `<span data-example-audio-licence>${escapeHtml$1(`${audioCredit.attribution} · ${audioCredit.licence.id}`)}</span>` : ""}
     ${marks.map((mark) => `<span data-example-translation-mark>${escapeHtml$1(mark)}</span>`).join("")}
   </div>`;
@@ -26756,7 +26766,7 @@ function createTatoebaExampleSource(options = {}) {
   return {
   id: TATOEBA_EXAMPLE_SOURCE_ID,
   name: "Tatoeba",
-  supports: (targetLanguage) => tatoebaCapabilitiesFor(targetLanguage),
+  supports: (targetLanguage2) => tatoebaCapabilitiesFor(targetLanguage2),
   async search(request) {
     const coverage = coverageFor(request.targetLanguage);
     const term = request.term.trim();
@@ -26783,14 +26793,14 @@ function createTatoebaExampleSource(options = {}) {
     }
     if (!failure) backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
     const withheldMedia = [];
-    const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row) => toExampleRecord(row, coverage, request.outputLanguage, withheldMedia)).filter((record) => Boolean(record)).slice(0, limit);
+    const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row) => toExampleRecord(row, coverage, request.outputLanguage, withheldMedia)).filter((record2) => Boolean(record2)).slice(0, limit);
     if (!items.length) return { availability: "empty", items: [] };
     return withheldMedia.length ? { availability: "loaded", items, withheldMedia } : { availability: "loaded", items };
   }
   };
 }
-function tatoebaCapabilitiesFor(targetLanguage) {
-  const coverage = coverageFor(targetLanguage);
+function tatoebaCapabilitiesFor(targetLanguage2) {
+  const coverage = coverageFor(targetLanguage2);
   if (!coverage) return unsupportedCapabilities();
   const { entry } = coverage;
   const hasSentenceAudio = entry.sentenceAudioRows > 0;
@@ -26807,8 +26817,8 @@ function tatoebaCapabilitiesFor(targetLanguage) {
   sentenceAudioRows: entry.sentenceAudioRows
   };
 }
-function coverageFor(targetLanguage) {
-  const base = targetLanguage.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
+function coverageFor(targetLanguage2) {
+  const base = targetLanguage2.trim().toLowerCase().split(/[-_]/u)[0] ?? "";
   const id = TATOEBA_LANGUAGE_ALIASES[base] ?? base;
   const entry = TATOEBA_COVERAGE[id];
   return entry ? { id, entry } : null;
@@ -26862,18 +26872,18 @@ function sentenceRows(payload) {
   return payload.data.filter(isRecord);
 }
 function toExampleRecord(row, coverage, outputLanguage, withheldMedia) {
-  const value = text(row.text);
-  const id = text(row.id);
+  const value = text$1(row.text);
+  const id = text$1(row.id);
   if (!value || !id) return null;
-  const sentenceLicence = text(row.license) || "CC BY 2.0 FR";
-  const owner = text(row.owner);
+  const sentenceLicence = text$1(row.license) || "CC BY 2.0 FR";
+  const owner = text$1(row.owner);
   const audio = licensedAudio(row.audios, withheldMedia, coverage);
   return {
   id: `${TATOEBA_EXAMPLE_SOURCE_ID}:${id}`,
   text: {
     value,
-    language: text(row.lang) || coverage.entry.codes[0] || coverage.id,
-    ...text(row.script) ? { script: text(row.script) } : {}
+    language: text$1(row.lang) || coverage.entry.codes[0] || coverage.id,
+    ...text$1(row.script) ? { script: text$1(row.script) } : {}
   },
   ...translationOf(row, outputLanguage) ?? {},
   ...audio.length ? { audio } : {},
@@ -26893,13 +26903,13 @@ function toExampleRecord(row, coverage, outputLanguage, withheldMedia) {
 function translationOf(row, outputLanguage) {
   const wanted = tatoebaTranslationCode(outputLanguage);
   const candidates = Array.isArray(row.translations) ? row.translations.filter(isRecord) : [];
-  const matches = candidates.filter((candidate) => text(candidate.text) && (!wanted || text(candidate.lang) === wanted));
+  const matches = candidates.filter((candidate) => text$1(candidate.text) && (!wanted || text$1(candidate.lang) === wanted));
   const chosen = matches.find((candidate) => candidate.is_direct === true) ?? matches[0];
   if (!chosen) return null;
   return {
   translation: {
-    value: text(chosen.text),
-    language: text(chosen.lang) || wanted || outputLanguage,
+    value: text$1(chosen.text),
+    language: text$1(chosen.lang) || wanted || outputLanguage,
     provenance: "source",
     direct: chosen.is_direct === true
   }
@@ -26908,22 +26918,22 @@ function translationOf(row, outputLanguage) {
 function licensedAudio(raw, withheldMedia, coverage) {
   if (!Array.isArray(raw)) return [];
   const assets = [];
-  raw.filter(isRecord).forEach((record) => {
-  const id = text(record.id);
-  const decision = decideMediaLicence(record.license);
+  raw.filter(isRecord).forEach((record2) => {
+  const id = text$1(record2.id);
+  const decision = decideMediaLicence(record2.license);
   if (!decision.allowed) {
-    withheldMedia.push({ kind: "audio", licence: text(record.license) || "", reason: decision.withheld });
+    withheldMedia.push({ kind: "audio", licence: text$1(record2.license) || "", reason: decision.withheld });
     return;
   }
   if (!id) return;
-  const author = text(record.author);
+  const author = text$1(record2.author);
   assets.push({
     kind: "audio",
     scope: "sentence",
-    url: text(record.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
+    url: text$1(record2.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
     licence: decision.licence,
     attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
-    recordUrl: text(record.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
+    recordUrl: text$1(record2.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
   });
   });
   return assets;
@@ -26931,7 +26941,7 @@ function licensedAudio(raw, withheldMedia, coverage) {
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-function text(value) {
+function text$1(value) {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return "";
@@ -26947,27 +26957,27 @@ function registerExampleSource(adapter) {
 function registeredExampleSources() {
   return [...ADAPTERS.values()];
 }
-function exampleSourcesForTarget(targetLanguage) {
-  return registeredExampleSources().filter((adapter) => adapter.supports(targetLanguage).supported);
+function exampleSourcesForTarget(targetLanguage2) {
+  return registeredExampleSources().filter((adapter) => adapter.supports(targetLanguage2).supported);
 }
-function declaredExampleCapabilities(targetLanguage) {
+function declaredExampleCapabilities(targetLanguage2) {
   return [
-  { sourceId: IMMERSION_KIT_EXAMPLE_SOURCE_ID, sourceName: "Immersion Kit", capabilities: immersionKitCapabilitiesFor(targetLanguage) },
-  { sourceId: TATOEBA_EXAMPLE_SOURCE_ID, sourceName: "Tatoeba", capabilities: tatoebaCapabilitiesFor(targetLanguage) }
+  { sourceId: IMMERSION_KIT_EXAMPLE_SOURCE_ID, sourceName: "Immersion Kit", capabilities: immersionKitCapabilitiesFor(targetLanguage2) },
+  { sourceId: TATOEBA_EXAMPLE_SOURCE_ID, sourceName: "Tatoeba", capabilities: tatoebaCapabilitiesFor(targetLanguage2) }
   ];
 }
 registerExampleSource(createTatoebaExampleSource());
 const DEFAULT_EXAMPLE_LIMIT = 8;
 function renderTargetExampleSourceMounts(settings, sourceAttributes) {
-  const targetLanguage = targetLanguageOf(settings);
+  const targetLanguage2 = targetLanguageOf(settings);
   const outputLanguage = outputLanguageOf(settings);
-  return declaredExampleCapabilities(targetLanguage).map((row) => {
+  return declaredExampleCapabilities(targetLanguage2).map((row) => {
   if (!row.capabilities.supported) {
     return renderExampleSourceRow({
       sourceId: row.sourceId,
       sourceName: row.sourceName,
       interfaceLanguage: settings.interfaceLanguage,
-      targetLanguage,
+      targetLanguage: targetLanguage2,
       outputLanguage,
       capabilities: row.capabilities,
       collection: { availability: "unsupported", items: [] },
@@ -26978,7 +26988,7 @@ function renderTargetExampleSourceMounts(settings, sourceAttributes) {
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-example-source-card"
             data-example-source="${escapeHtml$1(row.sourceId)}"
             data-availability="pending"
-            data-example-target="${escapeHtml$1(targetLanguage)}"
+            data-example-target="${escapeHtml$1(targetLanguage2)}"
             ${sourceAttributes(exampleSourceStateKey(row.sourceId), false)}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary" data-jpdb-reader-surface-ignore>
                 <span class="jpdb-reader-example-source">${escapeHtml$1(row.sourceName)}</span>
@@ -26992,8 +27002,8 @@ function renderTargetExampleSourceMounts(settings, sourceAttributes) {
 }
 const ROOT_ABORT_CONTROLLERS = new WeakMap();
 function installTargetExampleSources(root, options) {
-  const targetLanguage = targetLanguageOf(options.settings);
-  const adapters = options.adapters ?? exampleSourcesForTarget(targetLanguage);
+  const targetLanguage2 = targetLanguageOf(options.settings);
+  const adapters = options.adapters ?? exampleSourcesForTarget(targetLanguage2);
   if (!adapters.length) return;
   installExampleSourceControls(root, options);
   adapters.forEach((adapter) => {
@@ -27021,13 +27031,13 @@ function replaceSourceController(root, sourceId) {
   return controller;
 }
 async function loadOneSource(root, adapter, options, controller) {
-  const targetLanguage = targetLanguageOf(options.settings);
+  const targetLanguage2 = targetLanguageOf(options.settings);
   const outputLanguage = outputLanguageOf(options.settings);
   let collection;
   try {
   collection = await adapter.search({
     term: options.term,
-    targetLanguage,
+    targetLanguage: targetLanguage2,
     outputLanguage,
     signal: controller.signal,
     limit: exampleLimit(options.settings)
@@ -27044,9 +27054,9 @@ async function loadOneSource(root, adapter, options, controller) {
   sourceId: adapter.id,
   sourceName: adapter.name,
   interfaceLanguage: options.settings.interfaceLanguage,
-  targetLanguage,
+  targetLanguage: targetLanguage2,
   outputLanguage,
-  capabilities: adapter.supports(targetLanguage),
+  capabilities: adapter.supports(targetLanguage2),
   collection,
   sourceAttributes: options.sourceAttributes,
   blurTranslations: options.settings.immersionKitRevealTranslationOnClick
@@ -27111,10 +27121,10 @@ function renderDefinitionSourcesStack(params) {
   const sections = renderDefinitionSourceSections(context, params);
   return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : params.noDefinitionsHtml();
 }
-function renderDictionarySetupNudge(language) {
+function renderDictionarySetupNudge(language2) {
   return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
-    <span><strong>${escapeHtml$1(uiText(language, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language, "finishSetupDictionaryHelp"))}</span>
-    <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language, "finishSetup"))}</button>
+    <span><strong>${escapeHtml$1(uiText(language2, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language2, "finishSetupDictionaryHelp"))}</span>
+    <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language2, "finishSetup"))}</button>
   </aside>`;
 }
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
@@ -27594,9 +27604,9 @@ const VIEWPORT_SCALE_SETTLE_MS = 240;
 function hostHasBottomActionDock() {
   return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
 }
-function puckStateLabel(language, state) {
-  if (state === "no-furigana") return `${APP_NAME}: ${uiText(language, "furiganaOffToast")}`;
-  if (state === "paused") return `${APP_NAME}: ${uiText(language, "annotationsPausedToast")}`;
+function puckStateLabel(language2, state) {
+  if (state === "no-furigana") return `${APP_NAME}: ${uiText(language2, "furiganaOffToast")}`;
+  if (state === "paused") return `${APP_NAME}: ${uiText(language2, "annotationsPausedToast")}`;
   return APP_NAME;
 }
 class FloatingButtonController {
@@ -27669,19 +27679,19 @@ class FloatingButtonController {
   const button = this.button;
   if (!button) return;
   const powerState = this.actions?.powerState() ?? "on";
-  const language = this.settings?.interfaceLanguage ?? "en";
+  const language2 = this.settings?.interfaceLanguage ?? "en";
   button.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
   button.classList.toggle("jpdb-reader-fab--on", powerState === "on");
   button.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
   button.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
-  button.title = puckStateLabel(language, powerState);
+  button.title = puckStateLabel(language2, powerState);
   button.setAttribute("aria-label", button.title);
   }
   buildRadialActions() {
   const settings = this.settings;
   const actions = this.actions;
   if (!settings || !actions) return [];
-  const language = settings.interfaceLanguage;
+  const language2 = settings.interfaceLanguage;
   const powerState = actions.powerState();
   const ocrMode = actions.ocrMode();
   const audioOn = actions.isAutoPlayAudioEnabled();
@@ -27690,7 +27700,7 @@ class FloatingButtonController {
   const items = [
     {
       id: "power",
-      label: uiText(language, powerLabelKey),
+      label: uiText(language2, powerLabelKey),
       icon: powerState === "on" ? radialPowerIcon() : powerState === "no-furigana" ? radialFuriganaHiddenIcon() : radialPausedIcon(),
       tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "partial" : "off",
       primary: true,
@@ -27699,7 +27709,7 @@ class FloatingButtonController {
     },
     {
       id: "audio",
-      label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
+      label: uiText(language2, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
       icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
       tone: audioOn ? "on" : "off",
       keepOpen: true,
@@ -27707,7 +27717,7 @@ class FloatingButtonController {
     },
     {
       id: "ocr",
-      label: ocrModeLabel(language, ocrMode),
+      label: ocrModeLabel(language2, ocrMode),
       icon: ocrMode === "manual" ? radialOcrOnIcon() : radialOcrIcon(),
       tone: ocrMode === "off" || powerState === "paused" ? "off" : "on",
       keepOpen: true,
@@ -27715,7 +27725,7 @@ class FloatingButtonController {
     },
     {
       id: "japanese-site",
-      label: uiText(language, "preferJapaneseSiteLanguage"),
+      label: uiText(language2, "preferJapaneseSiteLanguage"),
       icon: "日",
       glyph: true,
       tone: japaneseSiteLanguage ? "on" : "off",
@@ -27724,13 +27734,13 @@ class FloatingButtonController {
     },
     {
       id: "settings",
-      label: uiText(language, "settings"),
+      label: uiText(language2, "settings"),
       icon: radialSettingsIcon(),
       run: () => actions.openSettings()
     },
     {
       id: "study",
-      label: uiText(language, "puckStudyPage"),
+      label: uiText(language2, "puckStudyPage"),
       icon: "よ",
       glyph: true,
       run: () => actions.openStudyPage()
@@ -27740,7 +27750,7 @@ class FloatingButtonController {
     const subtitlesOn = actions.isAutoSubtitlesEnabled();
     items.push({
       id: "subtitles",
-      label: uiText(language, "subtitleAutoDetect"),
+      label: uiText(language2, "subtitleAutoDetect"),
       icon: "字",
       glyph: true,
       tone: subtitlesOn ? "on" : "off",
@@ -27752,7 +27762,7 @@ class FloatingButtonController {
     const enabled = actions.isYoutubeFilterEnabled();
     items.push({
       id: "youtube",
-      label: uiText(language, "toggleYoutubeImmersion"),
+      label: uiText(language2, "toggleYoutubeImmersion"),
       icon: radialYoutubeIcon(),
       tone: enabled ? "on" : "off",
       keepOpen: true,
@@ -27905,10 +27915,10 @@ class FloatingButtonController {
   button.addEventListener("pointercancel", finishDrag);
   }
 }
-function ocrModeLabel(language, mode) {
-  if (mode === "auto") return uiText(language, "puckOcrAuto");
-  if (mode === "manual") return uiText(language, "puckOcrManual");
-  return uiText(language, "puckOcrOff");
+function ocrModeLabel(language2, mode) {
+  if (mode === "auto") return uiText(language2, "puckOcrAuto");
+  if (mode === "manual") return uiText(language2, "puckOcrManual");
+  return uiText(language2, "puckOcrOff");
 }
 function shouldShowFloatingButton(settings) {
   return settings.showFloatingButton || isCoarsePointerDevice();
@@ -28846,7 +28856,7 @@ function publicVocabularyFuriganaSettings(word, settings) {
   if (settings.showFurigana && settings.furiganaMode === "all") return settings;
   return { ...settings, showFurigana: true, furiganaMode: "all" };
 }
-function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
+function applyAnkiLookupToRenderedWord(word, ankiLookup, language2, options = {}) {
   if (!ankiLookup.primary) {
   if (ankiLookup.trusted === false) return;
   if (options.preserveExistingEmpty && renderedWordHasAnkiState(word)) {
@@ -28856,7 +28866,7 @@ function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {})
   clearRenderedWordAnkiState(word);
   word.classList.add(`anki-${ankiLookup.state}`);
   word.dataset.ankiState = ankiLookup.state;
-  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}`;
+  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language2)}`;
   return;
   }
   clearRenderedWordAnkiState(word);
@@ -28864,7 +28874,7 @@ function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {})
   word.dataset.ankiState = ankiLookup.state;
   word.dataset.ankiDecks = ankiLookup.primary?.deckNames.join(", ") ?? "";
   applyAnkiDeckMembershipToRenderedWord(word, ankiLookup.primary?.deckNames ?? []);
-  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
+  word.title = `Anki: ${cardStateLabel(ankiLookup.state, language2)}${word.dataset.ankiDecks ? ` (${word.dataset.ankiDecks})` : ""}`;
 }
 function applyAnkiDeckMembershipToRenderedWord(word, deckNames) {
   if (!deckNames.length) return;
@@ -29352,25 +29362,25 @@ class PopupNavigationController {
   popPreviousKanji() {
   return this.kanjiStack.pop();
   }
-  renderWordHistory(language, trigger) {
+  renderWordHistory(language2, trigger) {
   if (trigger !== "modal") return "";
   const previous = this.wordStack[this.wordStack.length - 1];
   if (!previous) return "";
   return renderModalNavigation({
     backAction: "word-history-back",
-    backTitle: previous.kind === "kanji" ? `${uiText(language, "backToKanji")}: ${previous.kanji}` : `${uiText(language, "backToWord")}: ${previous.card.spelling}`,
+    backTitle: previous.kind === "kanji" ? `${uiText(language2, "backToKanji")}: ${previous.kanji}` : `${uiText(language2, "backToWord")}: ${previous.card.spelling}`,
     label: previous.kind === "kanji" ? previous.kanji : previous.card.spelling
   });
   }
-  kanjiModalBack(card, language) {
+  kanjiModalBack(card, language2) {
   const previousKanji = this.kanjiStack[this.kanjiStack.length - 1];
   return previousKanji ? {
     backAction: "kanji-history-back",
-    backTitle: `${uiText(language, "backToKanji")}: ${previousKanji.kanji}`,
+    backTitle: `${uiText(language2, "backToKanji")}: ${previousKanji.kanji}`,
     label: previousKanji.kanji
   } : {
     backAction: "word-back",
-    backTitle: `${uiText(language, "backToWord")}: ${card.spelling}`,
+    backTitle: `${uiText(language2, "backToWord")}: ${card.spelling}`,
     label: card.spelling
   };
   }
@@ -29434,11 +29444,11 @@ function renderModalNavigation(options) {
 function renderWordPills(options) {
   const context = wordPillContext(options.card, options.overrideQuery);
   const query = context.query;
-  const language = options.settings.interfaceLanguage;
+  const language2 = options.settings.interfaceLanguage;
   const enabledLinks = options.settings.dictionaryLookupLinks.filter((link) => link.enabled);
   const { pills: frequencyPills, mergedLiveRanks } = frequencyPillsByLookupId(options);
-  const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
-  const ankiPill = renderAnkiPill(options, language, query);
+  const linkPills = enabledLinks.map((link) => renderConfiguredLookupPill(options, context, language2, query, link, frequencyPills, mergedLiveRanks)).filter(Boolean);
+  const ankiPill = renderAnkiPill(options, language2, query);
   const configuredFrequencyIds = new Set(enabledLinks.filter((link) => isFrequencyLookupPill(link)).map((link) => link.id));
   const leftoverFrequencyPills = Array.from(frequencyPills).filter(([id]) => !configuredFrequencyIds.has(id)).map(([, html]) => html);
   const pills = [...linkPills, ankiPill, ...leftoverFrequencyPills].filter(Boolean);
@@ -29454,8 +29464,8 @@ function renderSelectionLookupPills(selected, settings) {
   vid: "0",
   sid: "0"
   };
-  const language = settings.interfaceLanguage;
-  const pills = settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => renderSelectionLookupPill(context, language, link)).filter(Boolean);
+  const language2 = settings.interfaceLanguage;
+  const pills = settings.dictionaryLookupLinks.filter((link) => link.enabled).map((link) => renderSelectionLookupPill(context, language2, link)).filter(Boolean);
   return pills.length ? `<div class="jpdb-reader-word-pills jpdb-reader-selection-pills">${pills.join("")}</div>` : "";
 }
 function updateHeadingWordPills(popover, options) {
@@ -29463,24 +29473,24 @@ function updateHeadingWordPills(popover, options) {
   if (!heading) return;
   replaceOptionalElement(heading, ".jpdb-reader-word-pills", renderWordPills(options));
 }
-function renderSelectionLookupPill(context, language, link) {
+function renderSelectionLookupPill(context, language2, link) {
   const style = lookupPillStyle(link.id || link.label);
-  if (link.action === "copy" || link.id === "copy") return renderSelectionCopyPill(language, context.query, style);
+  if (link.action === "copy" || link.id === "copy") return renderSelectionCopyPill(language2, context.query, style);
   const url = formatLookupUrl(link.urlTemplate, context);
   if (!url) return "";
-  const title = lookupSelectionPillTitle(language, link);
+  const title = lookupSelectionPillTitle(language2, link);
   return `<a class="${lookupLinkPillClass(link.id)}" href="${escapeHtml$1(url)}" target="_blank" rel="noopener"${lookupPillStyleAttribute(style)} title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${title}: ${context.query}`)}">${escapeHtml$1(link.label)} ${externalLinkIcon()}</a>`;
 }
-function lookupSelectionPillTitle(language, link) {
-  return link.id === "jpdb" ? uiText(language, "openOnJpdb") : uiText(language, "openOnLookup").replace("{label}", link.label);
+function lookupSelectionPillTitle(language2, link) {
+  return link.id === "jpdb" ? uiText(language2, "openOnJpdb") : uiText(language2, "openOnLookup").replace("{label}", link.label);
 }
-function renderLookupLinkPill(options, context, language, query, link, mergedLiveRanks) {
+function renderLookupLinkPill(options, context, language2, query, link, mergedLiveRanks) {
   const style = lookupPillStyle(link.id || link.label);
-  if (link.action === "copy" || link.id === "copy") return renderCopyPill(language, query, style, options.inert);
+  if (link.action === "copy" || link.id === "copy") return renderCopyPill(language2, query, style, options.inert);
   const url = lookupLinkPillUrl(options, context, link);
   if (!url) return "";
   const rank = linkPillLiveRank(link, mergedLiveRanks);
-  const baseTitle = lookupLinkPillTitle(options, language, link);
+  const baseTitle = lookupLinkPillTitle(options, language2, link);
   const title = rank?.detail ? `${baseTitle}
 ${rank.detail}` : baseTitle;
   const label = rank ? `${link.label} ${rank.display ?? `#${rank.rank}`}` : link.label;
@@ -29500,17 +29510,17 @@ const BUNPRO_FREQUENCY_LIST_LABELS = {
   netflix: ["Netflix", "Netflix"],
   dictionary: ["Dictionary", "辞書"]
 };
-function bunproFrequencyDetail(language, lists) {
-  const japanese = language === "ja";
+function bunproFrequencyDetail(language2, lists) {
+  const japanese = language2 === "ja";
   return lists.map((entry) => {
   const label = BUNPRO_FREQUENCY_LIST_LABELS[entry.list];
   const corpus = label ? label[japanese ? 1 : 0] : entry.list;
   return `${corpus} #${entry.rank.toLocaleString("en-US")}`;
   }).join(" · ");
 }
-function renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks) {
+function renderConfiguredLookupPill(options, context, language2, query, link, frequencyPills, mergedLiveRanks) {
   if (isFrequencyLookupPill(link)) return frequencyPills.get(link.id) ?? "";
-  return renderLookupLinkPill(options, context, language, query, link, mergedLiveRanks);
+  return renderLookupLinkPill(options, context, language2, query, link, mergedLiveRanks);
 }
 function isFrequencyLookupPill(link) {
   return link.action === "frequency-live" || link.action === "frequency-local";
@@ -29521,44 +29531,44 @@ function lookupLinkPillUrl(options, context, link) {
   }
   return link.id === "jpdb" && (Boolean(options.overrideQuery) || options.isJpdbBackedCard(options.card)) ? options.jpdbUrl : formatLookupUrl(link.urlTemplate, context);
 }
-function lookupLinkPillTitle(options, language, link) {
-  if (link.id !== "jpdb") return uiText(language, "openOnLookup").replace("{label}", link.label);
-  return options.overrideQuery ? uiText(language, "openKanjiOnJpdb") : uiText(language, "openOnJpdb");
+function lookupLinkPillTitle(options, language2, link) {
+  if (link.id !== "jpdb") return uiText(language2, "openOnLookup").replace("{label}", link.label);
+  return options.overrideQuery ? uiText(language2, "openKanjiOnJpdb") : uiText(language2, "openOnJpdb");
 }
 function lookupLinkPillClass(id) {
   return `jpdb-reader-pill jpdb-reader-action-pill${id === "jpdb" ? " jpdb-reader-jpdb-pill" : ""}`;
 }
-function renderAnkiPill(options, language, query) {
+function renderAnkiPill(options, language2, query) {
   const lookup = options.ankiLookup;
   if (options.overrideQuery || !options.settings.ankiEnabled || !lookup) return "";
-  if (lookup.primary) return renderEditAnkiPill(lookup, language, query, options.inert);
+  if (lookup.primary) return renderEditAnkiPill(lookup, language2, query, options.inert);
   if (lookup.state !== "not-in-deck") return "";
   const mobileHandoff = canUseMobileAnkiHandoff(options.settings);
   if (!mobileHandoff && lookup.trusted === false) return "";
-  const title = mobileHandoff ? mobileAnkiHandoffButtonLabel(language) : uiText(language, "addToAnki");
+  const title = mobileHandoff ? mobileAnkiHandoffButtonLabel(language2) : uiText(language2, "addToAnki");
   return ankiPillButton({
   action: "anki",
   title,
   query,
-  language,
+  language: language2,
   inert: options.inert
   });
 }
-function renderEditAnkiPill(lookup, language, query, inert = false) {
+function renderEditAnkiPill(lookup, language2, query, inert = false) {
   const noteId = Number(lookup.primary?.noteId);
   if (!Number.isFinite(noteId) || noteId <= 0) return "";
   return ankiPillButton({
   action: "anki-edit",
-  title: uiText(language, "editInAnki"),
+  title: uiText(language2, "editInAnki"),
   query,
-  language,
+  language: language2,
   inert,
   noteId
   });
 }
-function mobileAnkiHandoffButtonLabel(language) {
+function mobileAnkiHandoffButtonLabel(language2) {
   const app = mobileAnkiHandoffAppName();
-  return language === "ja" ? formatUiText(language, "sendToMobileAnki", { app }) : ["Send", "to", app].join(" ");
+  return language2 === "ja" ? formatUiText(language2, "sendToMobileAnki", { app }) : ["Send", "to", app].join(" ");
 }
 function ankiPillButton(options) {
   const styleAttribute = lookupPillStyleAttribute(lookupPillStyle("anki"));
@@ -29575,18 +29585,18 @@ function ankiPillButton(options) {
 function lookupPillStyleAttribute(style) {
   return style ? ` style="${style}"` : "";
 }
-function renderSelectionCopyPill(language, query, style = lookupPillStyle("copy")) {
-  const copyTitle = uiText(language, "copyWordTitle");
+function renderSelectionCopyPill(language2, query, style = lookupPillStyle("copy")) {
+  const copyTitle = uiText(language2, "copyWordTitle");
   const styleAttribute = style ? ` style="${style}"` : "";
-  return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
+  return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-selection" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language2, "copyWord"))} ${copyIcon()}</button>`;
 }
-function renderCopyPill(language, query, style = lookupPillStyle("copy"), inert = false) {
-  const copyTitle = uiText(language, "copyWordTitle");
+function renderCopyPill(language2, query, style = lookupPillStyle("copy"), inert = false) {
+  const copyTitle = uiText(language2, "copyWordTitle");
   const styleAttribute = style ? ` style="${style}"` : "";
   if (inert) {
-  return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</span>`;
+  return `<span class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" role="button" aria-disabled="true" tabindex="-1"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language2, "copyWord"))} ${copyIcon()}</span>`;
   }
-  return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language, "copyWord"))} ${copyIcon()}</button>`;
+  return `<button class="jpdb-reader-pill jpdb-reader-action-pill jpdb-reader-copy-pill" data-action="copy-word" type="button"${styleAttribute} title="${escapeHtml$1(copyTitle)}" aria-label="${escapeHtml$1(`${copyTitle}: ${query}`)}">${escapeHtml$1(uiText(language2, "copyWord"))} ${copyIcon()}</button>`;
 }
 function frequencyPillsByLookupId(options) {
   const mergeIntoLinkPill = options.settings.showLookupPillFrequency !== false;
@@ -29674,12 +29684,12 @@ function isSingleKanji(value) {
   return /^[\u4e00-\u9faf\u3400-\u4dbf\u3005-\u3007]$/u.test(value.trim());
 }
 function renderTokenListHtml(tokens, selected, previousNavigationEntry, settings) {
-  const language = settings.interfaceLanguage;
-  const title = uiText(language, "search");
+  const language2 = settings.interfaceLanguage;
+  const title = uiText(language2, "search");
   return `
         <div class="jpdb-reader-sheet-handle"></div>
         <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml$1(selected)}">
-            ${renderTokenListNavigation(previousNavigationEntry, language)}
+            ${renderTokenListNavigation(previousNavigationEntry, language2)}
             <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
             ${renderSelectionLookupPills(selected, settings)}
             ${renderTokenSentence(tokens, selected, settings)}
@@ -29710,11 +29720,11 @@ function installTokenListHandlers(popover, tokens, anchor, context, callbacks) {
 function tokenListSelectedText(popover) {
   return popover.querySelector("[data-token-list-selected]")?.dataset.tokenListSelected ?? "";
 }
-function renderTokenListNavigation(previousNavigationEntry, language) {
+function renderTokenListNavigation(previousNavigationEntry, language2) {
   if (!previousNavigationEntry) return "";
   return renderModalNavigation({
   backAction: "token-list-back",
-  backTitle: previousNavigationEntry.kind === "kanji" ? `${uiText(language, "backToKanji")}: ${previousNavigationEntry.kanji}` : `${uiText(language, "backToWord")}: ${previousNavigationEntry.card.spelling}`,
+  backTitle: previousNavigationEntry.kind === "kanji" ? `${uiText(language2, "backToKanji")}: ${previousNavigationEntry.kanji}` : `${uiText(language2, "backToWord")}: ${previousNavigationEntry.card.spelling}`,
   label: previousNavigationEntry.kind === "kanji" ? previousNavigationEntry.kanji : previousNavigationEntry.card.spelling
   });
 }
@@ -30723,8 +30733,8 @@ function watchMokuroOcrToggle(onChange) {
   };
   bindToggleInputs();
   const observer = new MutationObserver((records) => {
-  for (const record of records) {
-    if (record.addedNodes.length) {
+  for (const record2 of records) {
+    if (record2.addedNodes.length) {
       bindToggleInputs();
       return;
     }
@@ -30759,8 +30769,8 @@ function installMokuroOcrToggleNote() {
   };
   run();
   new MutationObserver((records) => {
-  for (const record of records) {
-    if (record.addedNodes.length) {
+  for (const record2 of records) {
+    if (record2.addedNodes.length) {
       schedule();
       return;
     }
@@ -31354,8 +31364,8 @@ async function publicLookupFallbackCards(cards, deps, options) {
   });
   return result;
 }
-async function translateJapaneseSentence(sentence, language = "en") {
-  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
+async function translateJapaneseSentence(sentence, language2 = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language2) ?? Promise.resolve(""));
 }
 const LANGUAGE_FAMILY_CLASSES = [
   "jp-only",
@@ -31364,8 +31374,8 @@ const LANGUAGE_FAMILY_CLASSES = [
   "not-jpzhyueko"
 ];
 const familyNodesByRoot = new WeakMap();
-function syncLanguageFamilyDom(root, language) {
-  const base = languageSubtag(language) ?? language.toLowerCase();
+function syncLanguageFamilyDom(root, language2) {
+  const base = languageSubtag(language2) ?? language2.toLowerCase();
   root.dataset.language = base;
   for (const state of languageFamilyNodes(root)) {
   if (languageFamilyIncludes(state.family, base)) {
@@ -31375,8 +31385,8 @@ function syncLanguageFamilyDom(root, language) {
   }
   }
 }
-function languageFamilyIncludes(family, language) {
-  const base = languageSubtag(language) ?? language.toLowerCase();
+function languageFamilyIncludes(family, language2) {
+  const base = languageSubtag(language2) ?? language2.toLowerCase();
   if (family === "jp-only") return base === "ja";
   const jpZhYue = base === "ja" || base === "zh" || base === "yue";
   if (family === "jpzhyue-only") return jpZhYue;
@@ -32510,7 +32520,7 @@ function buildLocale(source) {
 const INTERFACE_LOCALES = Object.freeze(
   [
   ...LEARNER_LANGUAGES.map(
-    (language) => buildLocale({ ...language, direction: language.direction })
+    (language2) => buildLocale({ ...language2, direction: language2.direction })
   ),
   buildLocale(JAPANESE_INTERFACE_LOCALE)
   ].sort((left, right) => {
@@ -32600,13 +32610,13 @@ function resolveInterfaceLocale(requested, options = {}) {
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage2 = "ja") {
   const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
   if (deferCookieResponseReloadUntilPersisted) {
-  apply?.(enabled, revertOnDisable, true, targetLanguage);
+  apply?.(enabled, revertOnDisable, true, targetLanguage2);
   return;
   }
-  apply?.(enabled, revertOnDisable, false, targetLanguage);
+  apply?.(enabled, revertOnDisable, false, targetLanguage2);
 }
 function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
@@ -32735,8 +32745,8 @@ function bindReaderRuntimeEvents(handlers, signal) {
   }, { signal });
   addWindowEventListener(INTERFACE_LANGUAGE_CHANGE_EVENT, (event) => {
   if (handlers.isDestroyed()) return;
-  const language = interfaceLanguageChangeDetail(event.detail);
-  if (language) void handlers.setInterfaceLanguage(language);
+  const language2 = interfaceLanguageChangeDetail(event.detail);
+  if (language2) void handlers.setInterfaceLanguage(language2);
   }, { signal });
   addWindowEventListener(SETTINGS_CHANGE_EVENT, (event) => {
   if (handlers.isDestroyed()) return;
@@ -32787,16 +32797,16 @@ async function loadReaderStartupSettings(options) {
 }
 function adoptHostedInterfaceLanguage(settings, href = location.href) {
   if (!isYomuHostedAppUrl(href)) return settings;
-  const language = hostedPageInterfaceLanguage();
-  if (!language || settings.interfaceLanguage === language) return settings;
-  return { ...settings, interfaceLanguage: language };
+  const language2 = hostedPageInterfaceLanguage();
+  if (!language2 || settings.interfaceLanguage === language2) return settings;
+  return { ...settings, interfaceLanguage: language2 };
 }
 function hostedPageInterfaceLanguage() {
   try {
   const raw = window.localStorage?.getItem(SETTINGS_STORAGE_KEY);
   if (!raw) return null;
-  const record = JSON.parse(raw);
-  const value = record?.interfaceLanguage;
+  const record2 = JSON.parse(raw);
+  const value = record2?.interfaceLanguage;
   return value === "auto" || value === "en" || value === "ja" ? value : null;
   } catch {
   return null;
@@ -33544,8 +33554,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.58"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.58"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.59"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.59"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33688,7 +33698,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.58"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.59"}`;
   } catch {
   return null;
   }
@@ -33726,6 +33736,34957 @@ const CompanionBackedStudySourceController = class {
   return Controller ? new Controller(dependencies) : new DisabledStudySourceController();
   }
 };
+function dictionaryEntryDownload(entry, objectsBaseUrl2) {
+  const distribution = entry.distribution;
+  if (distribution.state === "published") {
+  return {
+    url: new URL(distribution.object.key, objectsBaseUrl2).href,
+    sha256: distribution.object.sha256,
+    bytes: distribution.object.bytes,
+    mirrored: true
+  };
+  }
+  if (distribution.state === "upstream") {
+  return {
+    url: distribution.archive.url,
+    ...distribution.archive.bytes === void 0 ? {} : { bytes: distribution.archive.bytes },
+    mirrored: false
+  };
+  }
+  return void 0;
+}
+const revision = "2026-07-23.574961e8.wty-95a9151c1beb";
+const objectsBaseUrl = "https://dictionaries.yomureader.com/";
+const entries = [
+  [
+  "drive-cantonese-honzi-words-hk-honzi-2026-07-22-uu85lmu1zc",
+  "[Honzi] Words.hk.Honzi.2026-07-22",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "6f0e89b9f5b205d0b9624657f27904a250c687ec45ea0951694e315c025c3db6",
+    419691
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-canto-cedict-xzilfb-6rh",
+  "[YUE-EN] Canto CEDICT",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "75d813527576e05c282f347515079da3ecb56eac002fd1d77058e409f25ce731",
+    4213381
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-cantodict-eoambdgefg",
+  "[YUE-EN] Cantodict",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "fd280b50aaaadfd68e86489cf5ed057d85ede564efe399cd1e36451b62a453cc",
+    6938729
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-cc-canto-2026-07-23-ahjcvhw4yp",
+  "[YUE-EN] CC-Canto (2026-07-23)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "aa4a75ee452d6a479dd5f0e7bd019d6b76ea865c41f4b6f10fa9dfc0537bd28d",
+    1785659
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-cc-cedict-canto-2026-07-23-qzveiz98tv",
+  "[YUE-EN] CC-CEDICT.Canto (2026-07-23)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "a805e2574e16ad111664f4bd7ebde507e1c168db305bf33782486788c84a24f4",
+    5492726
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-ce-wiktionary-d5mtwj7m8h",
+  "[YUE-EN] CE Wiktionary",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "aa1058b8c657d8c67bf9c36d5edc011d8a6bc60846b00182d0a38862f44692cf",
+    4547140
+  ]
+  ],
+  [
+  "drive-cantonese-yue-en-yue-words-hk-2026-07-22-hietpkiipw",
+  "[YUE-EN & YUE] Words.hk.2026-07-22",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en",
+    "yue"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "65667cc0fcbc39b39c0c0362bb21fc0159a747adf1a533a70c4b1a01783ba437",
+    13578603
+  ]
+  ],
+  [
+  "drive-cantonese-yue-freq-cifu-spoken-or6hj6tyhn",
+  "[Yue Freq] Cifu Spoken",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "e45569fe1f3de5a6ce91384373818d0a579c96c40e0eaf4045632ac7ac80e3b0",
+    287304
+  ]
+  ],
+  [
+  "drive-cantonese-yue-freq-cifu-written-zw5jykw1gd",
+  "[Yue Freq] Cifu Written",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "3a4ac257dec766a108186cf24364dce7a1f2e0ee0e7e2cc27b2f94a2775b6779",
+    302573
+  ]
+  ],
+  [
+  "drive-cantonese-yue-freq-words-hk-frequency-kxfqlurjf1",
+  "[YUE Freq] Words.hk Frequency",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "cantonese",
+  [
+    "published",
+    "727cfbcf4e93de69014fdf842424964556eaf7d9d1f8b905fcdcc6c90d8012b9",
+    458065
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-babylon-japanese-english-v1-0-0-lle9qom6if",
+  "[JA-EN] Babylon_Japanese_English.v1.0.0",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "bac2bce41d3dc4ef47a1e4154c257e3ca925d1709b87d9c6eed0ea5adaaa1c5b",
+    27417861
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-grammar-1-05-wkdfwdb1-j",
+  "[JA-EN Grammar] どんなときどう使う 日本語表現文型辞典_1_05",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "b91845b2a565bce855b3eca593ae1441eb6b30c49486e0a163e2ec1e570d21ff",
+    261913
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-grammar-bunpro-evbyekxmr",
+  "[JA-EN Grammar] Bunpro",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "97993a47f25d1a82fc519a62153694e35528c4c00d97dc0744dd17d12047dc0e",
+    705411
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+  "[JA-EN Grammar] dojg-consolidated-v1_01",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "d75584cb93ec505e56842c2276012dd281f444811373152770b1e1dc2eea63ac",
+    398490
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-jitendex-yomitan-2026-07-09-icndfbtjny",
+  "[JA-EN] jitendex-yomitan (2026-07-09)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "807d911114af9d2154d270702972aafb2b6a6c2dc2400afa98db870d035c1a0b",
+    38545572
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-living-japanese-slang-dictionary-scripting-japan-bwfym6gnub",
+  "[JA-EN] Living_Japanese_Slang_Dictionary_Scripting_Japan",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "a69b026bfe2230d1a919dffe19e5846a1fc74a831d22853658aafcd64d09443a",
+    98247
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-new-lmleferqcz",
+  "[JA-EN] NEW 斎藤和英大辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "26ef62ec98f7c10382cda37e7f6da73aa3b7472af5fe98ccd7a5f0c692fd3746",
+    9801945
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-onomatopoeia-onomatoproject-dyjkroskej",
+  "[JA-EN Onomatopoeia] Onomatoproject",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "0624588dfa6506980fc3d51ef56f4b98fae5595eed479afda1a61ee120869205",
+    12838560
+  ]
+  ],
+  [
+  "drive-japanese-ja-en-u0bmorzqvv",
+  "[JA-EN] 新和英",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "194d9aad9c3f23605a14cc67157dc815703472c55e11966888a42a34e0955d5d",
+    8130650
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-aozora-bunko-pdmkz2ibar",
+  "[JA Freq] Aozora Bunko",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "116009c3034d97a16b257fda10f2138067815986c954bffbb5c93aad60faa867",
+    899404
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-bccwj-suw-luw-combined-wpf0pnuvsu",
+  "[JA Freq] BCCWJ_SUW_LUW_combined",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7d17054735e738d02e9f7f62fdad5d6e592a458abd93301367500d04d0c000c3",
+    18659666
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-freq-cc100-zhf-o0ydep",
+  "[JA Freq] Freq_CC100",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "64f2a7d79e42dc842a30697e36f8b4f77dbcb3c6ff7fd1feec756b1fe65396e0",
+    2249154
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-innocentranked-1iz1rd-nkf",
+  "[JA Freq] InnocentRanked",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "c507c18b57a40b333034ce5d3a4fba543e1fa591e06b7be897ae97c5252e9852",
+    2709967
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-jiten-freq-global-2026-07-23-gtrllz-fon",
+  "[JA Freq] jiten_freq_global (2026-07-23)",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "201f994cbbbf0279c6b0a9a5242d73cc45db6c1e00338e0b631831f3b952b6c4",
+    7779788
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+  "[JA Freq] JPDB_v2.2_Frequency_Kana_2024-10-13",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "4fa06c784155ea0ea0953740b99d421296c775ee0d035cfe1ff65a40d7d3e685",
+    5996363
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-novels-te2t4weknm",
+  "[JA Freq] Novels",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "e4559b3da1c7039f34ae375663306106dd219f9513979f8360a526831d33d4e1",
+    2359559
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-wikipedia-v2-ycn-hfnpik",
+  "[JA Freq] Wikipedia v2",
+  null,
+  [
+    "frequency",
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "d85bb5bb4cdb3277dd862d662ec5e8e87971457ac53a87c2f25b41446c57d6c8",
+    7318855
+  ]
+  ],
+  [
+  "drive-japanese-ja-freq-youtubefreqv3-qapxynsdpf",
+  "[JA Freq] YoutubeFreqV3",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "b4e9611c967a81ab16759a344480ffac2eee3dcd4e78435ad3e43f0528effb77",
+    1743347
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-0-dfj-co3f",
+  "[JA-JA] 全訳漢辞海",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "250f823d9e61af61d4003c476e9c6bab0790accd7ea1d0fb1bf0dffc11861fb6",
+    3360497
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-15akbsjf2a",
+  "[JA-JA] 新選国語辞典　第十版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "f614b989d7397c56a709d42c136515a95bc256349bf1e00e0a31d0222804c501",
+    44648708
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-2024-06-30-ifw1xvw32z",
+  "[JA-JA] 絵でわかる慣用句 [2024-06-30]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "577fb9578c729ea29785bd4bccc919ce362e120ac3f0bbd94d3c68c5376efd24",
+    558765858
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-2025-04-29-2btt7vi-sd",
+  "[JA-JA] 大辞泉 第二版[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "2d5301fa0774ac5d089343cdb3e55d6a0f01d67169e11e89f20417b96409af61",
+    397593472
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-2025-04-29-zb6ofvbrgv",
+  "[JA-JA] 旺文社国語辞典 第十二版[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "2ca93cf00766d5db7db45915420bfdd2f07c7821e579c93cd2abcc881db55381",
+    60007825
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-2025-08-18-14thiyc1dx",
+  "[JA-JA] 小学館例解学習国語 第十二版[2025-08-18]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "9a0be840d0df7afeb22fc30b45eb4263c770ea622b954388b5232d4407632159",
+    78472194
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-2025-08-18-rvr1lg9sy1",
+  "[JA-JA] 明鏡国語辞典 第三版[2025-08-18]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "487a709a0d3b77f2dc9bf9dc8773d5e2c56dfa59b4b13c2bd4eff4b7709f7c63",
+    33215326
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-4-6pv9c6i",
+  "[JA-JA] 日本語俗語辞書",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "19fa2b81a40606c052e3a1bb78724f08a8fe31871cedff1446366d276374c177",
+    4313156
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-59cl6m8wkp",
+  "[JA-JA] 漢検漢字辞典　第二版",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "a6739881ab206afb91a9362ef38aaef1d6ad595e96e32cb8b08d2aaba8c56330",
+    52746549
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-5bg-cwdhkp",
+  "[JA-JA] ことわざ・慣用句の百科事典",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7746ba758806d6793547cf39db8c3899cba95f49b68c55d0776ddd0c241be364",
+    109309269
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-antonyms-2024-04-30-lxdj-szrdh",
+  "[JA-JA Antonyms] 対義語辞典オンライン [2024-04-30]",
+  null,
+  [
+    "thesaurus"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "80c5766b4a555c72b1487b7c4513c6c94713c527a3d4ced2984f4f42c6ac7445",
+    388550
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-b0-4o0s25l",
+  "[JA-JA] 国語辞典オンライン",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "dcce30b648c64aa223287fb37a38fb916640e76373ad85c5cc98daed96716f8d",
+    4628370
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-bgwk29u4ot",
+  "[JA-JA] 大辞林　第四版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "88b24c352334ab9760ab8af81c386ff960055bd1b4fae357ca4dea71df9db76b",
+    87168893
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-cazghn604c",
+  "[JA-JA] 三省堂国語辞典　第八版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "354690df41c227dfdae261da8f8ac7106518a81955af1d6cf2fc51d871d58d87",
+    57326230
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-counters-2024-02-13-ecgtlrtwe8",
+  "[JA-JA Counters] 数え方辞典オンライン (2024-02-13)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "2396c76f9231df2267049e299bd0422fff95526b5723b3f7faf32f40d2313c2f",
+    142649
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-csnif2ndlb",
+  "[JA-JA] 福日木健二字熟語",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7f21a51543b221182c45c09b572302386ebf2fa95788cfc9c8f5a284d9a7b856",
+    83501
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-d-0oxulxmp",
+  "[JA-JA] 字通［普及版］",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "4ccdc1011c739380df27361c06b744d812a33941862fa175a4b90d47655bbe8c",
+    48698746
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-dialect-49ghu34wzs",
+  "[JA-JA Dialect] 全国方言辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "bf16ddbb1fc9ca0c87c96aef9786baf9cc534dd746262a91b9ee88e2ac202030",
+    645504
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-encyclopedia-ja-wikipedia-2022-12-01-v1-4-0-vn7smk4vpd",
+  "[JA-JA Encyclopedia] JA Wikipedia [2022-12-01] (v1.4.0)",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "f361319e982f77a13b3cbc35d6c4a4b221c38202847115171f90a147fa12dcc6",
+    205370527
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-encyclopedia-n3hpafayac",
+  "[JA-JA Encyclopedia] きっずジャポニカ 新版",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7560d4c5aa27a60281732811d39d32baed025a59198dab202f67c50cf7c7adfc",
+    465296152
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye",
+  "[JA-JA Encyclopedia] PixivLight_2026-07-23",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "9f29d7f280025e45f95c09faec90346de90eeafc387bd56e4f7fa183006bce55",
+    51170783
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-expressions-hxyqvyrxbz",
+  "[JA-JA Expressions] 故事・ことわざ・慣用句オンライン",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "1d82f5a65b5deee69a96a9a39e65b9713a2ab6ad94e4970231e57cd8efc3b83c",
+    1063830
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-expressions-scpuj443tk",
+  "[JA-JA Expressions] 故事ことわざの辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "edc4126f1038a588ecafb666c2faa6230f45461346cdd058162e88e68c82d012",
+    2046506
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-foh2eszjnt",
+  "[JA-JA] 岩波国語辞典　第八版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "9318b6815fa3360720e5f0ed38a1b2e89da0d3766de60e49bec37cd398670477",
+    12571611
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-gi0ok9ftug",
+  "[JA-JA] 新語時事用語辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "2df87975a61fdb49fba49a73b5954705cae2fafa5f8c1c046a5df34b414ec769",
+    4106594
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-go-jiowiut0a",
+  "[JA-JA] 漢字でGO!",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "77ab78a1e7fc8ce3f7ccd0ed5cf2f72b02e90b04c85a4f8eeca7ba98cea0be26",
+    41809333
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-grammar-net-nihongo-kyoushi-v1-03-lv0fkixv5n",
+  "[JA-JA Grammar] 日本語NET(nihongo_kyoushi)_v1_03",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "183c94e1f5b3e859411a53608c1589c71495f075fc6480a298a4b5c8790455c3",
+    247726
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-grammar-nihongo-no-sensei-1-04-aunidtkanw",
+  "[JA-JA Grammar] nihongo_no_sensei_1_04",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "a99e6ddbeae01b6eff10274aa2ab424d473622787af0995ac5f79cfbf271e117",
+    645588
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-grammar-v3-xfr7jmvlci",
+  "[JA-JA Grammar] [画像付き] 絵でわかる日本語 v3",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "789e334d6c07af110f814da28508e4f525626d945ad191854f3f55c60eccce67",
+    94546395
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-gylvd9d3ev",
+  "[JA-JA] 広辞苑 第七版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "59ab7b07f60558c1b187ad324b44b9d667220d51132ed0a7936d77e0a48fb470",
+    201673976
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-j-t6m8m1do",
+  "[JA-JA] 精選版 日本国語大辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "b748425d66c2dd320c1f633a15ca0a2e95d9f54951f46e6356507e37689e519c",
+    46383704
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-jt6rycjzjs",
+  "[JA-JA] 語彙力・二字熟語の百科事典",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "4402eeb10b32bb75faff8bbd9aa32e8e17f19a52e32b3563f49b0d342335d2ec",
+    122742713
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kanji-2025-04-29-bbfvavkqi",
+  "[JA-JA Kanji] 角川新字源 改訂新版[2025-04-29]",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "d9230a8fe4f179d78f58b9fa6dd30efd9807019fce9b73198e95541539a1ddd5",
+    78472752
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kanji-2025-08-18-bjynrwxvfj",
+  "[JA-JA Kanji] 旺文社漢字典 第四版[2025-08-18]",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "996ae9cafe926776a12841260f4ccf0f563f76781ec3856643ef80a7e08a5bc1",
+    75250013
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kanji-94-2tnvalz",
+  "[JA-JA Kanji] 漢字林",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "5ca0405438b29dacfb81c1fc06216dee34371ea2a02e7de1c9c6bd10db54230e",
+    3352861
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kanji-tismkanji-2025-04-24-nmbl-ys8vj",
+  "[JA-JA Kanji] TISMKANJI[2025-04-24]",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "5a0e69a4dbc775b2671e5dd43638d9b111cb791b8b0108cc105d0c2ce7804c2a",
+    5017334
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-ko-50vkkfinp",
+  "[JA-JA] KO字源",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7b42b4a512caf369ddcbcd79d6b2c89d165d244258a00ceae1984edce23919bd",
+    4077023
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kogo-2025-04-29-ift9q1bzyo",
+  "[JA-JA Kogo] 旺文社 全訳古語辞典[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "555c16357cd44d6392d92f3c83bae00352649b28c02d01d022d0086e0b0fa6ca",
+    109903835
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kogo-2025-04-29-wyera4i77",
+  "[JA-JA Kogo] 三省堂 全訳読解古語辞典[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "92cb81221e7d5bf8c8e4194fae803917f4da86b2b30b4fb98c837fe3ad554e05",
+    87470461
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-kogo-weblio-kogo-expanded-with-conjugation-puvgjvpntg",
+  "[JA-JA Kogo] weblio_kogo_expanded_with_conjugation",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "99495ade7e6acf05748c0615fe8a861b057f65dfb4619839b7bfd463382e6d17",
+    4118625
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-law-2025-04-22-qk-z5v6f2e",
+  "[JA-JA Law] 有斐閣 法律用語辞典[2025-04-22]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "f93e8c924be27c343dfbfe8de125419c87f9127fff48b8f30842fd88a57adb05",
+    3023962
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-medical-20-2025-04-29-qflwxrcemh",
+  "[JA-JA Medical] 南山堂医学大辞典 第20版[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "85c3f2e5590c9d9626e54a46c1d87c05a7ca61da1bcc8a65eea6a4a4f72f76e9",
+    72979411
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-n3-xsg-qke",
+  "[JA-JA] 現代国語例解辞典　第五版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "11cd9b6bdf16496bc2d31b3fcf6eba2a0fc17287033742bad8cca2be83f8c9ca",
+    24474583
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-names-jmnedict-2026-07-22-8aozvqccg",
+  "[JA-JA Names] JMnedict (2026-07-22)",
+  null,
+  [
+    "names"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "a2acc655939c1f5e41a764952ca1403ebac9ecddac7961468368cd8a4dede6c3",
+    11423321
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-nouns-ja-wikipedia-proper-nouns-g6-uohqmzs",
+  "[JA-JA Nouns] JA Wikipedia Proper Nouns",
+  null,
+  [
+    "names",
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "1bde0d9ea99eb9f6778b3d93c66988c52056b6e831eb8e58eafa3a93db19fa63",
+    221663
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-onomatopoeia-bchc-guq5w",
+  "[JA-JA Onomatopoeia] 擬音語・擬態語辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "be9b223d6ea2ea5e1b00377f9823cf2c0a9a314dd8b8bfc0113525ce3a5295b4",
+    334217
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-onomatopoeia-surasura-x-6i-8iy8",
+  "[JA-JA Onomatopoeia] surasura",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "f8d882b8db922e9638d4d577885c0e939266a15d285c0807c5117ee59d13f56e",
+    104920
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-origins-6ov6-t3tk6",
+  "[JA-JA Origins] 語源由来辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "663a71266094036ffb55937d96ae372c7f2e1df2a10279164ad4866a2fc15326",
+    1631748
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-origins-7y7yihcsxo",
+  "[JA-JA Origins] 複合語起源",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "4e15250659268f5470fd5e8ab848fc9b259c94876d3027716481f9f83303f4b8",
+    5280
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-ph1cuqpw6s",
+  "[JA-JA] 漢字源",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "b15408885ef8f092c13b03f59df2d3a29df6711807b93888713ce3b5a16dc8d2",
+    4408770
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-psychology-2025-04-29-x-glum1-2",
+  "[JA-JA Psychology] 有斐閣現代心理学辞典[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "2976b1e5fafe9aa56fd9095d054e04a700e4e8eb9346175de639074cb40b2537",
+    27964039
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+  "[JA-JA Sentences] 用例.jp",
+  null,
+  [
+    "examples"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "d08d064dc68f4840ac591e8ab9dcc85ebc41db7d3021579837248a15b248e94f",
+    39227058
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-slang-uecklmiw-e",
+  "[JA-JA Slang] ネット用語辞典「ネット王子」",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "912d2d7e5526274ec28a563a3457769b5eba8a78c2b1fe3d756ea852f4143d58",
+    1780149
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-thesaurus-2024-02-09-m5t-v2btsd",
+  "[JA-JA Thesaurus] 類語辞典オンライン (2024-02-09)",
+  null,
+  [
+    "thesaurus"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "a4ec53824dd9f8d016cfab651ec53f9e1ae913725d6e39b77ea7a19f0075c452",
+    1695654
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-thesaurus-2024-05-02-9dnb0m0x3f",
+  "[JA-JA Thesaurus] 使い方の分かる 類語例解辞典 [2024-05-02]",
+  null,
+  [
+    "thesaurus"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "cb835f1bea4f32087f49441008fd3f71e39796223ae0cb48f03dec8e56f33bd8",
+    7526878
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-ukmi3vhk6",
+  "[JA-JA] 新明解国語辞典　第八版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "866175eaf5216fdcbb536907cb48489c00e1b65cb5d836e731dcfcd46dd4b981",
+    10507053
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-v7udykgmsl",
+  "[JA-JA] 実用日本語表現辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "de30c24e86c54ba2d924f7598e4b43121b42dadf0a9facf8fd0dea3b6f2fe83b",
+    9843534
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-yoji-2024-06-30-e-bh0wdtgh",
+  "[JA-JA Yoji] 四字熟語の百科事典 [2024-06-30]",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "0473609ca5e18807564a5b6acc4c6bdde6863580e4ea4c88d7591d8d817a5ce9",
+    104383887
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-yoji-cp4juqmrkp",
+  "[JA-JA Yoji] 学研 四字熟語辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "4483978611e9b18dcedb0fc89cfac3b78587fa4ee70df2fb80bfafbe5dee4c32",
+    544305
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-yoji-wu-gk2wtug",
+  "[JA-JA Yoji] 四字熟語辞典オンライン",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7c0b2d58d115a5103616ab16a21e255c315ea1c79189095d8848aa147a2164f1",
+    1722973
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-yoji-x5ihnyikfq",
+  "[JA-JA Yoji] 新明解四字熟語辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "42f4377a6f795101209b9a927ec56ae0ff395c6444f3ab88f53903a43a141358",
+    510408
+  ]
+  ],
+  [
+  "drive-japanese-ja-ja-yoji-yoji-jukugo-h3pbkllsxp",
+  "[JA-JA Yoji] YOJI-JUKUGO",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "93ab5ac199f073cf270aa452c01e4483053b84a1b7ff631ef03aa430e18871dd",
+    386678
+  ]
+  ],
+  [
+  "drive-japanese-kanji-frequency-aozora-bunko-xmlyq2unyr",
+  "[Kanji Frequency] Aozora Bunko",
+  null,
+  [
+    "frequency",
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "9a5c9f208de92fb413a07cba5f3a91ada73601ae073b143aceb23f83bd1e7198",
+    81484
+  ]
+  ],
+  [
+  "drive-japanese-kanji-frequency-innocent-corpus-kanji-p-u1iudi46",
+  "[Kanji Frequency] Innocent Corpus Kanji",
+  null,
+  [
+    "frequency",
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "af3e01f785692b69ff0405e8f3ee8f9654185f347e51feb2b6676ecc7659bb95",
+    69289
+  ]
+  ],
+  [
+  "drive-japanese-kanji-frequency-jpdb-kanji-uapfwjd95i",
+  "[Kanji Frequency] JPDB Kanji",
+  null,
+  [
+    "frequency",
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "1b02fc3ff6fa1215db43e47e087f192892887954d7d66b7f3ed60f59c9d52590",
+    30363
+  ]
+  ],
+  [
+  "drive-japanese-kanji-frequency-wikipedia-deojwepeyv",
+  "[Kanji Frequency] Wikipedia",
+  null,
+  [
+    "frequency",
+    "kanji",
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "6e2acfc52c505068e87fbbfa2c923cb2a8a6f0b59addf0ca67938c046b0b4419",
+    107739
+  ]
+  ],
+  [
+  "drive-japanese-kanji-jitai-gjw8of1bl",
+  "[Kanji] jitai",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "c32018de61ae76b7d7c4391d8630c97053848997e97ef4baf70c467c1c58b401",
+    12696
+  ]
+  ],
+  [
+  "drive-japanese-kanji-jpdb-kanji-gyuvmtw8ve",
+  "[Kanji] JPDB Kanji",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "536e9e3f5e244eacbc8848eca1122b6e3690a9eda2e6fdf1d6c0500c1f2dc08d",
+    381784
+  ]
+  ],
+  [
+  "drive-japanese-kanji-kanjidic-english-2026-07-22-fgu8qrhgct",
+  "[Kanji] KANJIDIC_english (2026-07-22)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "7379e560713628e9d7bc65e695ae716871dee67f00655f0fdd30e122ec60c031",
+    721025
+  ]
+  ],
+  [
+  "drive-japanese-kanji-ldb7ko-dc8",
+  "[Kanji] 漢字辞典オンライン",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "5a4eebb1d800388f77cb2880bc5c117f15592df731b82edb3adb44109dc503dc",
+    3553419
+  ]
+  ],
+  [
+  "drive-japanese-kanji-mozc-kanji-variants-hibcouxfti",
+  "[Kanji] mozc Kanji Variants",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "44a980885ee852b124bb3f37fd67a0bd320474234013b62f3d98b108c0752cff",
+    19126
+  ]
+  ],
+  [
+  "drive-japanese-kanji-thekanjimap-e1cr78racv",
+  "[Kanji] TheKanjiMap",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "cf0201cd27dbee86c4d4d60394c0b283ebf9a7a8cc9e640a5db0b7e877fe9f75",
+    119178
+  ]
+  ],
+  [
+  "drive-japanese-kanji-wiktionary-dhu4mgq95b",
+  "[Kanji] Wiktionary",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "ad77bed59ca3f5aa0f77efbf070db760cc191c770d16885ed711d6ec6c00f195",
+    721592
+  ]
+  ],
+  [
+  "drive-japanese-other-2024-04-30-j4iy-f51mi",
+  "全市区町村辞典 [2024-04-30]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "132cc03c2c8029e199092a848392779357d9d9a312e934b9894b896ef8080e87",
+    68061157
+  ]
+  ],
+  [
+  "drive-japanese-other-ja-grammar-edewakaru-v-1-03-jx6bmlbrs4",
+  "[JA Grammar] edewakaru_v_1_03",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "8666fd8e7f5be988dee282b42156aff62d599aa9dd2995dcb8ea156227ba0e54",
+    514134
+  ]
+  ],
+  [
+  "drive-japanese-other-tmw-club-v2-2024-05-12-dup5mn7nkk",
+  "TMW Club v2 [2024-05-12]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "82c815e2b29b6cf5a86831b5523e9549c659c816b10b9c8542031c682198794f",
+    181832405
+  ]
+  ],
+  [
+  "drive-japanese-other-unicode-2e57d23e85c0dc21-vy4mew6hgp",
+  "形容詞・動詞のイラスト素材辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "c8cd449fd063422e7d25bcf94ad2756742bb394213007038c7419672264c9fa3",
+    365001022
+  ]
+  ],
+  [
+  "drive-japanese-other-unicode-b0dfd37a3de01233-dlpyawutga",
+  "ポケモン図鑑",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "cd33176629fde83890ca3a118ba76ad7296d59845b76323b5daa62fcbb9e0ceb",
+    79413315
+  ]
+  ],
+  [
+  "drive-japanese-other-unicode-b588f276129d61c6-sr-ovk0avp",
+  "素材辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese/other",
+  [
+    "published",
+    "645379dfdbd3ef91139a1679d56e3fb6b133f0e3c8a4bb0a3471cfc8345fe748",
+    1066641382
+  ]
+  ],
+  [
+  "drive-japanese-pitch-i6krk6jf-d",
+  "[Pitch] 三省堂第八版",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "0472a3119c1a5bfc8119a4a392548f8b290f18e936df75ac2fed9491225ab9e0",
+    965920
+  ]
+  ],
+  [
+  "drive-japanese-pitch-nhk-lpvpeu-xlu",
+  "[Pitch] NHK日本語発音アクセント新辞典",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "ef8c1832e8b69987b7eb89a15d193974264bc5720ddac287b92e87c3c67a080c",
+    2082380
+  ]
+  ],
+  [
+  "drive-japanese-pitch-nhk2016-1mnoljvyue",
+  "[Pitch] NHK2016",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "0b5f6f9d5163e689adc6414cba986ceb2094d6c94cfac3ead5edeed87f978a49",
+    1012489
+  ]
+  ],
+  [
+  "drive-japanese-pitch-tfgtqojcrq",
+  "[Pitch] 大辞林第四版",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "bdae9c9001ff7b2cda063144e8a70c59e3efddc5773f564bce54e3108aa55240",
+    1870056
+  ]
+  ],
+  [
+  "drive-japanese-pitch-uqjc3nbsp9",
+  "[Pitch] 新明解第八版",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "0209d339a05131636859d41151eb4b9de2a30e6cffbe8c6bdad5435572c74a58",
+    907203
+  ]
+  ],
+  [
+  "drive-japanese-pitch-venilbfgbl",
+  "[Pitch] 大辞泉",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "japanese",
+  [
+    "published",
+    "52f9981a2c582c7320fae7552d714f7896183e7e647dc689eb1e2f76b1a60cea",
+    1021883
+  ]
+  ],
+  [
+  "drive-mandarin-hanzi-cc-cedict-hanzi-2026-07-23-4v5m-vki1x",
+  "[Hanzi] CC-CEDICT.Hanzi (2026-07-23)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "db7abbef1f9f06c66e6f2a63d199f524eafc1ae095fa2e6dfbe2c570e8275aa9",
+    4286468
+  ]
+  ],
+  [
+  "drive-mandarin-hanzi-edhcc-lnzdr6mdzy",
+  "[Hanzi] EDHCC",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "0401d4a5b890052044a66ad318a4ca36d70c59257990f0e0478de7cd541671e0",
+    490769
+  ]
+  ],
+  [
+  "drive-mandarin-hanzi-wiktionary-xeuiwganun",
+  "[Hanzi] Wiktionary",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "f3b4dd79c1a8616b8f6f1ae5c09590bab3e49d08b640a9af5052de7ee5493813",
+    3877011
+  ]
+  ],
+  [
+  "drive-mandarin-lzh-en-kroll-s-student-s-dictionary-of-classical-medieval-chinese-uddsj5ewf3",
+  "[LZH-EN] Kroll’s Student’s Dictionary of Classical Medieval Chinese",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "lzh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "dcea3b6f2de490efbb9ac93e9b10c286c95033031ac6003a26c2ce42f939da06",
+    2007263
+  ]
+  ],
+  [
+  "drive-mandarin-lzh-en-vogelsang-s-dictionary-wkz-4uf7s5",
+  "[LZH-EN] Vogelsang's Dictionary",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "lzh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "183ecbb341341b27cf8ec4b61f942eb91e9db65e5e7359775af87e04271d509a",
+    197709
+  ]
+  ],
+  [
+  "drive-mandarin-lzh-freq-classical-chinese-frequency-dictionary-rv3rxic-xc",
+  "[LZH Freq] Classical Chinese Frequency Dictionary",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "d7650084920a8b5f47b27459bb190837f996ccdf4e14313f5c7101e883961c78",
+    104117
+  ]
+  ],
+  [
+  "drive-mandarin-lzh-zh-hanzi-6hgeifpd68",
+  "[LZH-ZH Hanzi] 古漢語常用字字典第四版",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "lzh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "7b517bf14ecbdc93195fcb2e183cd91a31d6ef8f0f956d2a0d23214959edc105",
+    1190061
+  ]
+  ],
+  [
+  "drive-mandarin-lzh-zh-hanzi-vqggdznc7l",
+  "[LZH-ZH Hanzi] 廣韻",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "lzh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "5f717808d0260276076e87f86a73de30a3d193eba63e50b3c571648f100fb5fd",
+    734267
+  ]
+  ],
+  [
+  "drive-mandarin-outdated-zh-zh-jff42-dmjd",
+  "[ZH-ZH] 五南國語活用辭典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin/outdated",
+  [
+    "published",
+    "41a30110874e159de622599858157834ad3ea83759f080dd7298ca546d7db06f",
+    3560229
+  ]
+  ],
+  [
+  "drive-mandarin-outdated-zh-zh-pinyin-deic-vslbr",
+  "[ZH-ZH] 萌典.pinyin",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin/outdated",
+  [
+    "published",
+    "f458516305fe889fd2ed208f4cfac0ef724218067badfcd5b47f66e891b8fc42",
+    11446668
+  ]
+  ],
+  [
+  "drive-mandarin-simplified-conversions-zh-zh-crossstraits-owbofpcw7h",
+  "[ZH-ZH] CrossStraits",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin/simplified-conversions",
+  [
+    "published",
+    "da3c43aa2e55432b8f474a972ea74393e23826878dce0eaa9f8a3849bfbcbbce",
+    11150914
+  ]
+  ],
+  [
+  "drive-mandarin-simplified-conversions-zh-zh-dacidian-hmll3sm7hr",
+  "[ZH-ZH] DaCidian 汉语大词典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin/simplified-conversions",
+  [
+    "published",
+    "bb54a6936f37f8f1427441fddb6fcf3c61f909b784fef50a3b4fb5fafc91e332",
+    73785493
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-500idioms-opav3fmpvc",
+  "[ZH-EN] 500idioms",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "4497a02a1c53f7a1e710190ef81da240ecd170212b7f6c706b3c322c5534a363",
+    235665
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-7wnjxpx9hk",
+  "[ZH-EN] 牛津英汉汉英词典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "cbba840a425a228a2b19362f94eb77fa89c0a67456f1302f1961ec7f4bbdebc5",
+    4160466
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-cc-cedict-canto-2026-07-23-2trqomly0c",
+  "[ZH-EN] CC-CEDICT.Canto (2026-07-23)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "a805e2574e16ad111664f4bd7ebde507e1c168db305bf33782486788c84a24f4",
+    5492726
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-dreye-3nxon8bqqh",
+  "[ZH-EN] DrEye 譯典通英漢雙向字典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "7263b525d6c1be4b81a80418d97ee76001619e60e89294fd7166bd19270b9465",
+    1985109
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-oxford-tljfvrguz",
+  "[ZH-EN] Oxford 牛津英汉汉英词典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "2ff458b3ba5e73461417cb1a48f3a5b01443a10c3097980d563055e136d9b137",
+    4262564
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-oxford-zh-en-um4guyxykj",
+  "[ZH-EN] oxford-zh-en",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "4aaf6e881e5785c56a87fd02ecefde1ec24cbe24609155c7f38d1503e67ae55f",
+    6419302
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-tuttle-learner-s-chinese-english-dictionary-ws8uszmpyl",
+  "[ZH-EN] Tuttle Learner's Chinese-English Dictionary",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "1c15ab793d9566becece1a581a9ebed91a5c5b1cac2e66ac180a974b664abd00",
+    348186
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-vlxcp6qalp",
+  "[ZH-EN] 譯典通英漢雙向字典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "e46efde50de4b1c23d574a6c2ed35bc6038b0f687b96780bb4bc23941f6bd5e1",
+    2197352
+  ]
+  ],
+  [
+  "drive-mandarin-zh-en-wenlinabc-gdbau4ywxe",
+  "[ZH-EN] WenlinABC",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "d431894187d8fda794481152aae5d0da0caffd70e4071e3b0bbeba9769ae9a6e",
+    7421942
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-blcucoll-itekjzrcai",
+  "[ZH Freq] BLCUcoll",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "e2cde5f9ddadd4ac8f87ffddffb47240270f19bd0c1a51f51508a55afc7bd224",
+    894227
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-blculit-qhcqzgl2ku",
+  "[ZH Freq] BLCUlit",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "c30f83efa8f662e3969c9ce0b540975cd2bb4e26723ae5abc0672afee3487078",
+    879553
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-blcumixed-5oehlay7iz",
+  "[ZH Freq] BLCUmixed",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "759bfe6ce4f5062659160cdbc02c0927c84e749535f151f3a37245768cf0e89d",
+    964657
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-blcunews-qtwbvpra6v",
+  "[ZH Freq] BLCUnews",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "638cd86b2e1ab8fe5c1ae5cc6b9ee34b9421d167132b99148aafb64d00958d0e",
+    888167
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-blcusci-mcfmevvzaf",
+  "[ZH Freq] BLCUsci",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "f7c8de4bc47dccac8f9b23be239f459aef1f12fa909f9713f0066fbe0d986243",
+    901779
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-hsk-ngk1xpeq1y",
+  "[ZH Freq] HSK",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "c0c5777b65b56f25b73747499731816978fc95dfb734339c8eecf1f7d4251e0b",
+    47258
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-sinica-tcacrl7080",
+  "[ZH Freq] Sinica",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "6b5e071a14b4353f3261fbc18e2c90c73ad02c981a47be114dfd9cef72f42638",
+    96912
+  ]
+  ],
+  [
+  "drive-mandarin-zh-freq-subtlex-ch-8as80maif0",
+  "[ZH Freq] SUBTLEX-CH",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "2091c284bcd861365ec73dc352df5f148f477d2afc452bd3e2bd261d255b319e",
+    588466
+  ]
+  ],
+  [
+  "drive-mandarin-zh-ja-3-2025-05-03-pinyin-hesc0gxc3",
+  "[ZH-JA] 小学館中日辞典 第3版[2025-05-03][pinyin]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "5a514a759df77ac8a98714cc4d800bfba4a6f3828b312ebd99d67eb4d6e5c68f",
+    46125802
+  ]
+  ],
+  [
+  "drive-mandarin-zh-ja-ipydxvtx24",
+  "[ZH-JA] 白水社 中国語辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "03e3d847dd46940e8b1c188d7a59825cd092aeba65b43aaccfe6e9d7922c9597",
+    8572285
+  ]
+  ],
+  [
+  "drive-mandarin-zh-ja-tdvrnc8jjq",
+  "[ZH-JA] 中日大辞典　第二版",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "c04a550a228875d2ee51606819501effba655a1379e4925330f193d542269309",
+    9796229
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-1xe8s-zfg4",
+  "[ZH-ZH] 漢語大詞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "4d85b72e4403cd6e5cc3f1709b281a39d92fefeee8ba675fc258e1c5a6a2ab30",
+    106433487
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-9ftllpuggt",
+  "[ZH-ZH] 國語辭典簡編本",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "6105e70998ebf3625fcfcac083ccb99304f039f66b5b0df39c5c1390a37fc66c",
+    3930297
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-encyclopedia-zh-wikipedia-v1-1-iv8gegx5ht",
+  "[ZH-ZH Encyclopedia] ZH Wikipedia (v1.1)",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "2d9f095f6930b5f573486621b00ab7d327f4051d5e2bddde959279170d4f3c2b",
+    229575271
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-hanzi-k-nhnuptoc",
+  "[ZH-ZH Hanzi] 康熙字典",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "a761299e1b939b69d2ed6b5781b4628b97d6c9ec40c0a7f33dadd60ab2063d8f",
+    4106923
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-i12nqhfqrp",
+  "[ZH-ZH] 兩岸詞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "e2db42d14555b72d6c24637834ca573fe6dc7670855ed9e5a0743a64f42ba793",
+    15374118
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-moedict-wod2p1ksky",
+  "[ZH-ZH] MoeDict 萌典国语辞典 (简体字)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "224ac12b65d7b424516905cf8006cb3fd19a6f602b95557c14ab1e214f0ff31a",
+    33044965
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-n0shkm5eaw",
+  "[ZH-ZH] 辭源",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "dad0497bc802d00832c22f94e3b4d4aa0f23f0bca7b8490fed0a71eb10c938c4",
+    13822863
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-vcfb7zi3-b",
+  "[ZH-ZH] 现代汉语词典（第七版）",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "a437618f83bfd535623e29a580c67b39f5e0ac12aa03835c495a87261479407c",
+    15093631
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-wunan-2qflsavgte",
+  "[ZH-ZH] Wunan 五南国语活用辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "31c32a02aa8fe172c269f19dfa4851a96eaf1e04e19e1f41855cf40ca99d702a",
+    3291363
+  ]
+  ],
+  [
+  "drive-mandarin-zh-zh-xiandaiguifan-3-ptwavgsm4p",
+  "[ZH-ZH] XiandaiGuifan 3 现代汉语规范词典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "mandarin",
+  [
+    "published",
+    "32c1b2959f23411fd7da175ed54c31a3f2033185c75f4642a767e70e573b2d5d",
+    3394443
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-en-fs1erg-lke",
+  "[JA-EN] 新和英",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "194d9aad9c3f23605a14cc67157dc815703472c55e11966888a42a34e0955d5d",
+    8130650
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-en-grammar-dojg-consolidated-v1-01-hj9a8psvy",
+  "[JA-EN Grammar] dojg-consolidated-v1_01",
+  null,
+  [
+    "grammar"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "d75584cb93ec505e56842c2276012dd281f444811373152770b1e1dc2eea63ac",
+    398490
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-en-jitendex-yomitan-2026-07-09-n0rr9b60hp",
+  "[JA-EN] jitendex-yomitan (2026-07-09)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "807d911114af9d2154d270702972aafb2b6a6c2dc2400afa98db870d035c1a0b",
+    38545572
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-freq-bccwj-suw-luw-combined-zfopqydlz2",
+  "[JA Freq] BCCWJ_SUW_LUW_combined",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "7d17054735e738d02e9f7f62fdad5d6e592a458abd93301367500d04d0c000c3",
+    18659666
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-freq-freq-cc100-0weawu0ugl",
+  "[JA Freq] Freq_CC100",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "64f2a7d79e42dc842a30697e36f8b4f77dbcb3c6ff7fd1feec756b1fe65396e0",
+    2249154
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-freq-jiten-freq-global-2026-07-14-f3v2udocmb",
+  "[JA Freq] jiten_freq_global (2026-07-14)",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "201f994cbbbf0279c6b0a9a5242d73cc45db6c1e00338e0b631831f3b952b6c4",
+    7779788
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-vokxv1mbks",
+  "[JA Freq] JPDB_v2.2_Frequency_Kana_2024-10-13",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "4fa06c784155ea0ea0953740b99d421296c775ee0d035cfe1ff65a40d7d3e685",
+    5996363
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-2025-04-29-xxou4obrts",
+  "[JA-JA] 大辞泉 第二版[2025-04-29]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "2d5301fa0774ac5d089343cdb3e55d6a0f01d67169e11e89f20417b96409af61",
+    397593472
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-2025-08-18-zlpzwitiil",
+  "[JA-JA] 小学館例解学習国語 第十二版[2025-08-18]",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "9a0be840d0df7afeb22fc30b45eb4263c770ea622b954388b5232d4407632159",
+    78472194
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-encyclopedia-pixivlight-2026-07-23-t-azaoggig",
+  "[JA-JA Encyclopedia] PixivLight_2026-07-23",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "9f29d7f280025e45f95c09faec90346de90eeafc387bd56e4f7fa183006bce55",
+    51170783
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-names-jmnedict-2026-07-22-4orngp1lh6",
+  "[JA-JA Names] JMnedict (2026-07-22)",
+  null,
+  [
+    "names"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "a2acc655939c1f5e41a764952ca1403ebac9ecddac7961468368cd8a4dede6c3",
+    11423321
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-onycbgadmf",
+  "[JA-JA] 漢検漢字辞典　第二版",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "a6739881ab206afb91a9362ef38aaef1d6ad595e96e32cb8b08d2aaba8c56330",
+    52746549
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-ox2qhaousp",
+  "[JA-JA] 実用日本語表現辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "de30c24e86c54ba2d924f7598e4b43121b42dadf0a9facf8fd0dea3b6f2fe83b",
+    9843534
+  ]
+  ],
+  [
+  "drive-starter-pack-ja-ja-thesaurus-2024-05-02-xzjk9y1ul1",
+  "[JA-JA Thesaurus] 使い方の分かる 類語例解辞典 [2024-05-02]",
+  null,
+  [
+    "thesaurus"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "cb835f1bea4f32087f49441008fd3f71e39796223ae0cb48f03dec8e56f33bd8",
+    7526878
+  ]
+  ],
+  [
+  "drive-starter-pack-kanji-jpdb-kanji-iibmlavzob",
+  "[Kanji] JPDB Kanji",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "536e9e3f5e244eacbc8848eca1122b6e3690a9eda2e6fdf1d6c0500c1f2dc08d",
+    381784
+  ]
+  ],
+  [
+  "drive-starter-pack-kanji-kanjidic-english-2026-07-22-gzxihx-fe6",
+  "[Kanji] KANJIDIC_english (2026-07-22)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "7379e560713628e9d7bc65e695ae716871dee67f00655f0fdd30e122ec60c031",
+    721025
+  ]
+  ],
+  [
+  "drive-starter-pack-pitch-nhk2016-bzgua0trxj",
+  "[Pitch] NHK2016",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "0b5f6f9d5163e689adc6414cba986ceb2094d6c94cfac3ead5edeed87f978a49",
+    1012489
+  ]
+  ],
+  [
+  "drive-starter-pack-pitch-qqjne9p0bv",
+  "[Pitch] 大辞泉",
+  null,
+  [
+    "pronunciation"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "starter-pack",
+  [
+    "published",
+    "52f9981a2c582c7320fae7552d714f7896183e7e647dc689eb1e2f76b1a60cea",
+    1021883
+  ]
+  ],
+  [
+  "jmdict-de",
+  "JMdict (de)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "24ab5777cb003c068237449ae63174843be309d0ef78ff88e3fa47315a4e8c0d",
+    6341873
+  ]
+  ],
+  [
+  "jmdict-en",
+  "JMdict (en)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "5a413fc1bb5cd9250088dd27180df436bd518c6541cd82a597a62e2f1bd4bbe9",
+    15509389
+  ]
+  ],
+  [
+  "jmdict-en-legacy",
+  "JMdict Legacy (en)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-en-legacy-without-proper-names",
+  "JMdict Legacy without proper names (en)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-en-with-examples",
+  "JMdict with examples (en)",
+  null,
+  [
+    "terms",
+    "examples"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-en-without-proper-names",
+  "JMdict without proper names (en)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-es",
+  "JMdict (es)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "0da1dcd493ac8144e7573031b9e4fd670147f5bdd30b560ccf1d8b7a2879aaa5",
+    1332886
+  ]
+  ],
+  [
+  "jmdict-forms",
+  "JMdict Forms",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-fr",
+  "JMdict (fr)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "c53ee70b65f69b0f0917322929f09b83aa1d25473cd71168da5c7c4ea03e4f20",
+    576727
+  ]
+  ],
+  [
+  "jmdict-hu",
+  "JMdict (hu)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "9b89004b50b868ec02ec4c973c5ee59968758221055fd0c1bb2f5615b6ecd7db",
+    1814012
+  ]
+  ],
+  [
+  "jmdict-nl",
+  "JMdict (nl)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "5579d462db56cd24075d37fe763f6f208bd8122778136d65e9447d68a4a7c54d",
+    3107202
+  ]
+  ],
+  [
+  "jmdict-ru",
+  "JMdict (ru)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "e88ac22d79fecd596120eb9c007c73ac35a5501cc44aa61b5d19b48787e95d08",
+    3452083
+  ]
+  ],
+  [
+  "jmdict-sl",
+  "JMdict (sl)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "sl"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "jmdict-sv",
+  "JMdict (sv)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "f3e39e9497eaf1a8007eeba627bb6663f4ffd11e62203ddd32a03dda1f2491a3",
+    398940
+  ]
+  ],
+  [
+  "jmnedict",
+  "JMnedict (en)",
+  null,
+  [
+    "names"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Terms",
+  [
+    "published",
+    "bd3c687afc4dca42b6c6cd374d87c7f29242effef161f2b122ed2221b56e743f",
+    11423324
+  ]
+  ],
+  [
+  "kanjidic-en",
+  "KANJIDIC (en)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Kanji / KANJIDIC",
+  [
+    "published",
+    "d163fb13c86240cde1afa44646fe2fccb1258527fc5e78a126f76f2e5dc2e114",
+    721025
+  ]
+  ],
+  [
+  "kanjidic-es",
+  "KANJIDIC (es)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Kanji / KANJIDIC",
+  [
+    "published",
+    "7c87f672b5d6a2bd87cab05f6010bba3c764d99e25090da31b4f3a157cf702d6",
+    339023
+  ]
+  ],
+  [
+  "kanjidic-fr",
+  "KANJIDIC (fr)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Kanji / KANJIDIC",
+  [
+    "published",
+    "df7aaf8a2ec337c03659b09d0a49a7c7155f18798da302b0748b95e30cf1e93b",
+    301439
+  ]
+  ],
+  [
+  "kanjidic-pt",
+  "KANJIDIC (pt)",
+  null,
+  [
+    "kanji"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/jmdict-yomitan",
+  "Japanese / Kanji / KANJIDIC",
+  [
+    "published",
+    "2b62f1ee5d3c96b4511fece96e1105429d429de02f6510e5c0d5fdbac719a277",
+    283592
+  ]
+  ],
+  [
+  "marvnc-ja-freq-innocent-corpus",
+  "[JA Freq] Innocent Corpus",
+  null,
+  [
+    "frequency"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "Japanese / Frequency",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "marvnc-jp-mongolian",
+  "[JP-Mongolian] Japanese-Mongolian 日・モ辞典",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "Japanese / Bilingual",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "marvnc-jp-mongolian-no-sentences",
+  "[JP-Mongolian] Japanese-Mongolian 日・モ辞典 (No Sentences)",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "Japanese / Bilingual",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "marvnc-monolingual-pixiv",
+  "[Monolingual] Pixiv",
+  null,
+  [
+    "encyclopedia"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "Japanese / Monolingual",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "marvnc-other-nico-pixiv",
+  "[Other] Nico-Pixiv",
+  null,
+  [
+    "terms"
+  ],
+  [
+    "ja"
+  ],
+  [
+    "ja"
+  ],
+  "https://github.com/MarvNC/yomitan-dictionaries",
+  "Japanese / Other",
+  [
+    "source-only"
+  ]
+  ],
+  [
+  "wty-es-en",
+  "[ES-EN] Wiktionary (terms)",
+  "wty-es-en",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7d8304996949cb70c7d3c4008a6c7c640f5eaca5edc1084336f266a60575a966",
+    21074465
+  ]
+  ],
+  [
+  "wty-es-en-ipa",
+  "[ES-EN] Wiktionary (IPA)",
+  "wty-es-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8f8ebe83314af10cf20a970e44879af1e38f401dfda9f56496cf63d519e0d2e4",
+    3374420
+  ]
+  ],
+  [
+  "wty-es-es",
+  "[ES-ES] Wiktionary (terms)",
+  "wty-es-es",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c62956244557725ab44eb264a38def6d141507c50688a278993c0afe55bb766c",
+    21853169
+  ]
+  ],
+  [
+  "wty-es-es-ipa",
+  "[ES-ES] Wiktionary (IPA)",
+  "wty-es-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "246405962cf1351be0c29c62ba16df150ae42330226accd6e0d0197678593b56",
+    10112702
+  ]
+  ],
+  [
+  "wty-fr-en",
+  "[FR-EN] Wiktionary (terms)",
+  "wty-fr-en",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5c67e3098dec7fab7eee1863675e49d890c0c56bcab44d7f811c992813206660",
+    10871156
+  ]
+  ],
+  [
+  "wty-fr-en-ipa",
+  "[FR-EN] Wiktionary (IPA)",
+  "wty-fr-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2ff1578a9e5e308693111e163e08b129af20a41b18aeb48687739bec220755af",
+    1861551
+  ]
+  ],
+  [
+  "wty-fr-fr",
+  "[FR-FR] Wiktionary (terms)",
+  "wty-fr-fr",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fbc7ec7ce69d569b72589957fb69dfd40ef15f12d5e5273e60b858555ee564c3",
+    75810942
+  ]
+  ],
+  [
+  "wty-fr-fr-ipa",
+  "[FR-FR] Wiktionary (IPA)",
+  "wty-fr-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "957b30fc3ff2b08578e8b45498d5343bff0fd1f0d7ab34fe2647c9d1428d3360",
+    19087822
+  ]
+  ],
+  [
+  "wty-de-en",
+  "[DE-EN] Wiktionary (terms)",
+  "wty-de-en",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3a053ee7f2f2765dc6876cb698215e6b3607f27e02adf7d74f32bf6147d6f8c",
+    16936546
+  ]
+  ],
+  [
+  "wty-de-en-ipa",
+  "[DE-EN] Wiktionary (IPA)",
+  "wty-de-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eb7ae79faacb0725a44f99160d2d820e4607dbe1281181acddf52c5aef872537",
+    1534929
+  ]
+  ],
+  [
+  "wty-de-de",
+  "[DE-DE] Wiktionary (terms)",
+  "wty-de-de",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3e59ddb02d9e697f964a02762a8e249dca8935a21effc4bce5137d4a3e3986c",
+    53210298
+  ]
+  ],
+  [
+  "wty-de-de-ipa",
+  "[DE-DE] Wiktionary (IPA)",
+  "wty-de-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dfb043585d21ec154d40ffc209b5bc4991bfa31778d35754f60c02fe69cd1a27",
+    12619620
+  ]
+  ],
+  [
+  "wty-ru-en",
+  "[RU-EN] Wiktionary (terms)",
+  "wty-ru-en",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d67e8f7b4d1ca0cc7083b198333d4d2fce2c61c3f13ef32abfd39f7c437cb8b",
+    26007867
+  ]
+  ],
+  [
+  "wty-ru-en-ipa",
+  "[RU-EN] Wiktionary (IPA)",
+  "wty-ru-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "35b40ace8b19e88996ea9fb5becc18791c8da81a75b94fb978014e167bc0d502",
+    6121159
+  ]
+  ],
+  [
+  "wty-ru-ru",
+  "[RU-RU] Wiktionary (terms)",
+  "wty-ru-ru",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "36db08980211e1cfbbc9e4b96dcc721c505d2df07fe49ed601529bca47659281",
+    82672811
+  ]
+  ],
+  [
+  "wty-ru-ru-ipa",
+  "[RU-RU] Wiktionary (IPA)",
+  "wty-ru-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a30a615534b5db2135459d2515ecd823ae0607c65d6a0efd0881e6853ddd4efd",
+    6498278
+  ]
+  ],
+  [
+  "wty-ko-en",
+  "[KO-EN] Wiktionary (terms)",
+  "wty-ko-en",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "227dc4b28b20f841ded44c13079949f46b689e93da52f370cb0555a329d608d5",
+    7178977
+  ]
+  ],
+  [
+  "wty-ko-en-ipa",
+  "[KO-EN] Wiktionary (IPA)",
+  "wty-ko-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cae06a6657e9856daaf8ebb754d187febdff98e04ec8719170e5cbff8cbc4089",
+    636398
+  ]
+  ],
+  [
+  "wty-ko-ko",
+  "[KO-KO] Wiktionary (terms)",
+  "wty-ko-ko",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7d59c010672e9bde2c3fef3e7c83ca81f560185d9a7a4dc966f050bf34b19405",
+    4129423
+  ]
+  ],
+  [
+  "wty-ko-ko-ipa",
+  "[KO-KO] Wiktionary (IPA)",
+  "wty-ko-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d8480940671a60cd139dfe0a60593a4d28c5355220d948d2d8ee0c9df65fa5e",
+    1049472
+  ]
+  ],
+  [
+  "wty-vi-en",
+  "[VI-EN] Wiktionary (terms)",
+  "wty-vi-en",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "823fad8fdfb07b99366a1e7c33914324add1d80d6c537b38e55f7459ce03688d",
+    4244664
+  ]
+  ],
+  [
+  "wty-vi-en-ipa",
+  "[VI-EN] Wiktionary (IPA)",
+  "wty-vi-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "67134835b7afa4c429105a46d5cb7918eef0ce0f4ba3ee5405d464b28605c45d",
+    931347
+  ]
+  ],
+  [
+  "wty-vi-vi",
+  "[VI-VI] Wiktionary (terms)",
+  "wty-vi-vi",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5e80b5b2481d951c4ff83ce258d72174a283279c080687ab29b6ee1fe574e7a6",
+    3730344
+  ]
+  ],
+  [
+  "wty-vi-vi-ipa",
+  "[VI-VI] Wiktionary (IPA)",
+  "wty-vi-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3bcfef6cf1c04840f8e905283f8dc72d7c665d093400f8ce597b1613d0b8135",
+    1560638
+  ]
+  ],
+  [
+  "wty-ar-de-ipa",
+  "[AR-DE] Wiktionary (IPA)",
+  "wty-ar-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e91e180b700bc9bb71d3eb0cbd979708fee9d2fc82f6f0308d4315d3435a507d",
+    12685
+  ]
+  ],
+  [
+  "wty-ar-de",
+  "[AR-DE] Wiktionary (terms)",
+  "wty-ar-de",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5dd364b6b20312a51dc565896b0e98aaee00648398f040db14d73212db004350",
+    73192
+  ]
+  ],
+  [
+  "wty-ar-el-ipa",
+  "[AR-EL] Wiktionary (IPA)",
+  "wty-ar-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "53bc4f8676462c13a0999a2a5db0e06979dea0e6afbdb05fb074b231ebcc2e42",
+    8554
+  ]
+  ],
+  [
+  "wty-ar-el",
+  "[AR-EL] Wiktionary (terms)",
+  "wty-ar-el",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8a3bd620f06f940bee6cf50d10cf4884004a4730982da9954bbfaff6279c66bc",
+    30213
+  ]
+  ],
+  [
+  "wty-ar-en-ipa",
+  "[AR-EN] Wiktionary (IPA)",
+  "wty-ar-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e0cda8e2f98cfbf8647021d5f3bbd20a690f2ab93467f4d48b587d1d12b1fb15",
+    346070
+  ]
+  ],
+  [
+  "wty-ar-en",
+  "[AR-EN] Wiktionary (terms)",
+  "wty-ar-en",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d1eaa02bc4650b37d90b2b35722be63a9fab4169d791e4c0a1b490f419f9d402",
+    13259415
+  ]
+  ],
+  [
+  "wty-ar-es-ipa",
+  "[AR-ES] Wiktionary (IPA)",
+  "wty-ar-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "656b911022f436bc70fff5287ff609e46a4672b6328491b7452527193521523c",
+    13973
+  ]
+  ],
+  [
+  "wty-ar-es",
+  "[AR-ES] Wiktionary (terms)",
+  "wty-ar-es",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fd7696048f97de9322d94c3d3e2eab4c836ed7771079d8db290077dff48c3735",
+    29235
+  ]
+  ],
+  [
+  "wty-ar-fr-ipa",
+  "[AR-FR] Wiktionary (IPA)",
+  "wty-ar-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b516812873c5b41a95fb06ed15037a0866698574b9e178081bcc600b436161ab",
+    16329
+  ]
+  ],
+  [
+  "wty-ar-fr",
+  "[AR-FR] Wiktionary (terms)",
+  "wty-ar-fr",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c7b7d2f8294e851e168dcb58dcba2479c4c1084acfd96a7d69550cc27373be69",
+    1194081
+  ]
+  ],
+  [
+  "wty-ar-id",
+  "[AR-ID] Wiktionary (terms)",
+  "wty-ar-id",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "97526741a1b95ebd3b90df092b221233db33c2c396bffffc9a169d6f3868ee5b",
+    8975
+  ]
+  ],
+  [
+  "wty-ar-it-ipa",
+  "[AR-IT] Wiktionary (IPA)",
+  "wty-ar-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90175e525d7002d12a437da52e398901c8c07433b4f344b8c57cdd36d40ee475",
+    25432
+  ]
+  ],
+  [
+  "wty-ar-it",
+  "[AR-IT] Wiktionary (terms)",
+  "wty-ar-it",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9f16f7389db7128fca2d3ea7dd8e3dc5ef4ac9da80252d8ea299631e759e67d9",
+    39832
+  ]
+  ],
+  [
+  "wty-ar-ko-ipa",
+  "[AR-KO] Wiktionary (IPA)",
+  "wty-ar-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8d8a296fef7e15e7cd70541ebd6285cd84ded2ce9ee08e932c77548b1109c39a",
+    15736
+  ]
+  ],
+  [
+  "wty-ar-ko",
+  "[AR-KO] Wiktionary (terms)",
+  "wty-ar-ko",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7f6a175a5d361c9e398a00f2cd4e0f69526dafbec9062ba5969a0b82fa79f665",
+    83350
+  ]
+  ],
+  [
+  "wty-ar-nl-ipa",
+  "[AR-NL] Wiktionary (IPA)",
+  "wty-ar-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "890d00efde876ec06e7a563c803e7e0c89eece6879f193417646dcdc15426d07",
+    7007
+  ]
+  ],
+  [
+  "wty-ar-nl",
+  "[AR-NL] Wiktionary (terms)",
+  "wty-ar-nl",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f0f96b2d42dd3accc6fe16cc77ff24bfa2ec9d5ac7062b41dcf79ff4fe09304e",
+    27758
+  ]
+  ],
+  [
+  "wty-ar-pl-ipa",
+  "[AR-PL] Wiktionary (IPA)",
+  "wty-ar-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "23236a1f4ae7ece7bdff6edd822e8ebf57137489c2a39b51957f32ddd4752ef6",
+    63230
+  ]
+  ],
+  [
+  "wty-ar-pl",
+  "[AR-PL] Wiktionary (terms)",
+  "wty-ar-pl",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "97385bf292857f67ba78c59797834fe2fc780780e1da715c24d64fc888875b92",
+    730812
+  ]
+  ],
+  [
+  "wty-ar-pt-ipa",
+  "[AR-PT] Wiktionary (IPA)",
+  "wty-ar-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "40f50d72cd37fff7b36eb773ccc0a1682aa91b96fdc68342e43a864acd36a2d5",
+    7793
+  ]
+  ],
+  [
+  "wty-ar-pt",
+  "[AR-PT] Wiktionary (terms)",
+  "wty-ar-pt",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7d18b8c4df3dc025f3bf9e24d8c523bb749f561e76a42f0f747fa292a3d92a5",
+    58188
+  ]
+  ],
+  [
+  "wty-ar-ru-ipa",
+  "[AR-RU] Wiktionary (IPA)",
+  "wty-ar-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "db4857e804dc2e9a45d7a5b9aa553aaedf97e4546282cca54675f76f73f26c54",
+    38100
+  ]
+  ],
+  [
+  "wty-ar-ru",
+  "[AR-RU] Wiktionary (terms)",
+  "wty-ar-ru",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d000f2439bb289f9233d7122b3af7e07b9671ee03da1c12a4246aff705d61da0",
+    580579
+  ]
+  ],
+  [
+  "wty-ar-th-ipa",
+  "[AR-TH] Wiktionary (IPA)",
+  "wty-ar-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "86e1507eac2e6231a707238997b2d6803ce8bb68a2accbf98c368d56fb7b783f",
+    8414
+  ]
+  ],
+  [
+  "wty-ar-th",
+  "[AR-TH] Wiktionary (terms)",
+  "wty-ar-th",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2de3a431eecff1192ddbbab8a9b33084c10b282ec18a1984eb263e95d596c759",
+    28165
+  ]
+  ],
+  [
+  "wty-ar-tr-ipa",
+  "[AR-TR] Wiktionary (IPA)",
+  "wty-ar-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ecaa7f3f41fc7aca68629e625fc02a8d49b3b7e0daa34c88fb25eded35984e7c",
+    27936
+  ]
+  ],
+  [
+  "wty-ar-tr",
+  "[AR-TR] Wiktionary (terms)",
+  "wty-ar-tr",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "77c1d14b3fdd3679c80f708917384cb86d09ceab5fd92adb2fc371c3e66cdcee",
+    234186
+  ]
+  ],
+  [
+  "wty-ar-vi-ipa",
+  "[AR-VI] Wiktionary (IPA)",
+  "wty-ar-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5fcbc9c335556a113620e166e250df8b965d49f3ce934842c44866b9ae9bdf2e",
+    10192
+  ]
+  ],
+  [
+  "wty-ar-vi",
+  "[AR-VI] Wiktionary (terms)",
+  "wty-ar-vi",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3772b6d7d24f6641d97bcb7688080baceb7206262262ff174dd45055eb43e240",
+    28704
+  ]
+  ],
+  [
+  "wty-ar-zh-ipa",
+  "[AR-ZH] Wiktionary (IPA)",
+  "wty-ar-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "330651e078ad5a3688a4de19c97b56b93c9ac969479086661c517c9a3ad505a6",
+    39220
+  ]
+  ],
+  [
+  "wty-ar-zh",
+  "[AR-ZH] Wiktionary (terms)",
+  "wty-ar-zh",
+  [
+    "terms"
+  ],
+  [
+    "ar"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "22df1d070d17bb89d4b01d5e9bbd023eae8f91a16d634d8789bb80b5f8c8e52f",
+    372513
+  ]
+  ],
+  [
+  "wty-da-de-ipa",
+  "[DA-DE] Wiktionary (IPA)",
+  "wty-da-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "da954f97bf64ea43d9cc4541dd6a5006d439e22a2d874185787175dd4ffbba0d",
+    18918
+  ]
+  ],
+  [
+  "wty-da-de",
+  "[DA-DE] Wiktionary (terms)",
+  "wty-da-de",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bc040d798122c6869cddf9ff1377b7d345368f8e1be1f40c35d8b9c05cd1642f",
+    75728
+  ]
+  ],
+  [
+  "wty-da-el-ipa",
+  "[DA-EL] Wiktionary (IPA)",
+  "wty-da-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ba60572a386c261f5da337cdcd760b1659b60564b59eeb70fd20abd169664ed",
+    7612
+  ]
+  ],
+  [
+  "wty-da-el",
+  "[DA-EL] Wiktionary (terms)",
+  "wty-da-el",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "da0c6124972a532caad0f08adeb5ecbf062422a06f77e0d28854954afa925d6d",
+    876015
+  ]
+  ],
+  [
+  "wty-da-en-ipa",
+  "[DA-EN] Wiktionary (IPA)",
+  "wty-da-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5481eb16a3714f892e11d6ffe29be049a4fd471bd11090414d6705928e3bae46",
+    164816
+  ]
+  ],
+  [
+  "wty-da-en",
+  "[DA-EN] Wiktionary (terms)",
+  "wty-da-en",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "72136192c80fe297a337ec1f3d1a8742e2f40384a8251b8a540500d3abedb8cc",
+    3163406
+  ]
+  ],
+  [
+  "wty-da-es-ipa",
+  "[DA-ES] Wiktionary (IPA)",
+  "wty-da-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a790c34cf7ddc069c72456746a55e4d4a4595e530bafd5d7f12491f16f7ca6e5",
+    11527
+  ]
+  ],
+  [
+  "wty-da-es",
+  "[DA-ES] Wiktionary (terms)",
+  "wty-da-es",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "03b2a611996a793e26ef33424013ee224212b4036c545402bd298822cb8a19eb",
+    36107
+  ]
+  ],
+  [
+  "wty-da-fr-ipa",
+  "[DA-FR] Wiktionary (IPA)",
+  "wty-da-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bcfa0e135620bc5fed5b34fc176d213bc1d256f998c9d43c11430caafdd41066",
+    15974
+  ]
+  ],
+  [
+  "wty-da-fr",
+  "[DA-FR] Wiktionary (terms)",
+  "wty-da-fr",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "890994f81f17a84ae12217da03e7401fe5db897200b891d6b5c8622711f43386",
+    335691
+  ]
+  ],
+  [
+  "wty-da-id",
+  "[DA-ID] Wiktionary (terms)",
+  "wty-da-id",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1f32b6ff9f84b78bdffcfc2d356d15e9911e4079599c962de5dbb1c25a005a98",
+    4997
+  ]
+  ],
+  [
+  "wty-da-it-ipa",
+  "[DA-IT] Wiktionary (IPA)",
+  "wty-da-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ded771db6850e446e7d47389aeaf4467236d8856e693af98fe141bdda218b9bb",
+    8775
+  ]
+  ],
+  [
+  "wty-da-it",
+  "[DA-IT] Wiktionary (terms)",
+  "wty-da-it",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d61e52bf68bbd9d4f7532b812268ef17b627c111055c225558d233ccf8679efa",
+    25432
+  ]
+  ],
+  [
+  "wty-da-ko-ipa",
+  "[DA-KO] Wiktionary (IPA)",
+  "wty-da-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4e3b1ddabf37ed8ad94ca7736b7e5f2f2c16a2da80cc86f2bc4f3dd62ae304d5",
+    8446
+  ]
+  ],
+  [
+  "wty-da-ko",
+  "[DA-KO] Wiktionary (terms)",
+  "wty-da-ko",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6723bcda063bd26ee68cd29010edcf85553f7d7a37ccf43d0b2a141d6d0f1857",
+    46544
+  ]
+  ],
+  [
+  "wty-da-nl-ipa",
+  "[DA-NL] Wiktionary (IPA)",
+  "wty-da-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "10ff25eb996557f3f052df3c67a241ee9c709b310e8760b4e36909b569a45d7e",
+    25584
+  ]
+  ],
+  [
+  "wty-da-nl",
+  "[DA-NL] Wiktionary (terms)",
+  "wty-da-nl",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90e6c4cb680f0cb350f5e02994c208c225f4ab7e9c8e372253fa3cfc56f10eef",
+    196629
+  ]
+  ],
+  [
+  "wty-da-pl-ipa",
+  "[DA-PL] Wiktionary (IPA)",
+  "wty-da-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4ab6a2308949f7604c65951944a7c7f309cd28d1073990fd0528e9616f716a72",
+    26061
+  ]
+  ],
+  [
+  "wty-da-pl",
+  "[DA-PL] Wiktionary (terms)",
+  "wty-da-pl",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "70eae8ad936bc16ec978e36e5d01e027fe83fa08252a8c0f341cc2cb76b47940",
+    843916
+  ]
+  ],
+  [
+  "wty-da-pt-ipa",
+  "[DA-PT] Wiktionary (IPA)",
+  "wty-da-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b4d1ebdde3de102247d0769364278482aeae25b437a846d1a0abb30bb0da356d",
+    9478
+  ]
+  ],
+  [
+  "wty-da-pt",
+  "[DA-PT] Wiktionary (terms)",
+  "wty-da-pt",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d9c79ea35be46524d34d6e1ae20e7a477da57b44c22e2c04d2a658d02513f526",
+    73499
+  ]
+  ],
+  [
+  "wty-da-ru-ipa",
+  "[DA-RU] Wiktionary (IPA)",
+  "wty-da-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "339afa1df4fcdcb06e341828a7cc17a21646952e4861c37b2185a1039b8ebf2d",
+    16093
+  ]
+  ],
+  [
+  "wty-da-ru",
+  "[DA-RU] Wiktionary (terms)",
+  "wty-da-ru",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dcb78c45be8c5a4eb32e7b5d18f038628b27650f30ff4fb930c4c674acaf6427",
+    447754
+  ]
+  ],
+  [
+  "wty-da-th-ipa",
+  "[DA-TH] Wiktionary (IPA)",
+  "wty-da-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb480979382f573562b1435aa38a865595599b2cecdeaa587a53fb79b8d066d6",
+    8749
+  ]
+  ],
+  [
+  "wty-da-th",
+  "[DA-TH] Wiktionary (terms)",
+  "wty-da-th",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "de4ff90167f40c3b9ffb375c303e45f4ee74c7e54af6120fab0d742ba4ed22d8",
+    179725
+  ]
+  ],
+  [
+  "wty-da-tr-ipa",
+  "[DA-TR] Wiktionary (IPA)",
+  "wty-da-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b9a0725ac0ae0874f34bae4ea9e2ebc73289e9f80b1b231a8b1f6f30a0c44b44",
+    7574
+  ]
+  ],
+  [
+  "wty-da-tr",
+  "[DA-TR] Wiktionary (terms)",
+  "wty-da-tr",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2c6d28c2214ac9a5f0be5a4a74495024d9b71a3e191dc8efdc10e6357116323a",
+    397217
+  ]
+  ],
+  [
+  "wty-da-vi-ipa",
+  "[DA-VI] Wiktionary (IPA)",
+  "wty-da-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f780b0eba4b32a5b0fddc38bea1f5ea974b481cce4e61b254727771e2491558a",
+    9135
+  ]
+  ],
+  [
+  "wty-da-vi",
+  "[DA-VI] Wiktionary (terms)",
+  "wty-da-vi",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3883d6b9e6e4275a379c4037d3b7b8fa437cc47b310a4a63555cad64dd0eda9b",
+    24809
+  ]
+  ],
+  [
+  "wty-da-zh-ipa",
+  "[DA-ZH] Wiktionary (IPA)",
+  "wty-da-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "da"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c7aad4c0d5c4a0a31178a178781ee7d7641d641d1d1c50560fb017499e5bdd25",
+    29283
+  ]
+  ],
+  [
+  "wty-da-zh",
+  "[DA-ZH] Wiktionary (terms)",
+  "wty-da-zh",
+  [
+    "terms"
+  ],
+  [
+    "da"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7db5a67f69b6518ae8de649e8d27e34f63a437ea28c63a5b6c574076e6409bcc",
+    218728
+  ]
+  ],
+  [
+  "wty-de-ar-gloss",
+  "[DE-AR] Wiktionary (gloss)",
+  "wty-de-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cd1e2c6eee3fc3ba35f92ba6d4b8cfcaec2ef23ab4b884fcdbdca99ed292d8a2",
+    238207
+  ]
+  ],
+  [
+  "wty-de-da-gloss",
+  "[DE-DA] Wiktionary (gloss)",
+  "wty-de-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "71573b7fb6dfd996a4d2cdc3434c750801a5e8d2cc90696557b8b398afa7c183",
+    489175
+  ]
+  ],
+  [
+  "wty-de-el-gloss",
+  "[DE-EL] Wiktionary (gloss)",
+  "wty-de-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f1b92261fc548474dd3bb1ca8490d724aa9ae9e60118f727efed6d288547266e",
+    591199
+  ]
+  ],
+  [
+  "wty-de-el-ipa",
+  "[DE-EL] Wiktionary (IPA)",
+  "wty-de-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6c461e18c6ee00e00f7e40f09dd072bff21c3a636f597fba5f229539cf6226af",
+    25549
+  ]
+  ],
+  [
+  "wty-de-el",
+  "[DE-EL] Wiktionary (terms)",
+  "wty-de-el",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d037f36012ba5accefa17ff5e95f79a70183b495e4be7c78f804bdd1e18062fd",
+    2615526
+  ]
+  ],
+  [
+  "wty-de-en-gloss",
+  "[DE-EN] Wiktionary (gloss)",
+  "wty-de-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3f3b759977283ce86059dbca08008f8c286bab34d3d49fe5f1731b01a85f965",
+    4172232
+  ]
+  ],
+  [
+  "wty-de-es-gloss",
+  "[DE-ES] Wiktionary (gloss)",
+  "wty-de-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc4561d444aa38fd43c4b1e0c03be77c2c2a674c12d21fa9c207811f083744ba",
+    2083146
+  ]
+  ],
+  [
+  "wty-de-es-ipa",
+  "[DE-ES] Wiktionary (IPA)",
+  "wty-de-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "637998ca0ce0c618ea7a24c81b23bf7b3406eb3037e53f17cdb9007c67657d34",
+    52930
+  ]
+  ],
+  [
+  "wty-de-es",
+  "[DE-ES] Wiktionary (terms)",
+  "wty-de-es",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ca5b870f3f3720f12a2b7975d860bafe89961fa4e627002b690d0e8cf3189138",
+    224796
+  ]
+  ],
+  [
+  "wty-de-fa-gloss",
+  "[DE-FA] Wiktionary (gloss)",
+  "wty-de-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e74c28dc2af29828d62df013389b5f52d96e5cad73ec8804a1ad7c6752c6e0c5",
+    220683
+  ]
+  ],
+  [
+  "wty-de-fi-gloss",
+  "[DE-FI] Wiktionary (gloss)",
+  "wty-de-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1ea51dc7a11f7f66356ca2add175be8738b318e3b6bb40f6400de8c14ef21d4b",
+    644999
+  ]
+  ],
+  [
+  "wty-de-fr-gloss",
+  "[DE-FR] Wiktionary (gloss)",
+  "wty-de-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7cb91c87cf680b9f001547288a13731e86b99676134c050d43d8222787cb0244",
+    3420652
+  ]
+  ],
+  [
+  "wty-de-fr-ipa",
+  "[DE-FR] Wiktionary (IPA)",
+  "wty-de-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c51c5c0b1a7cd12d979a2aef53ac4cbdfaecc78a5c79e267374e59605e1f0fb9",
+    8416339
+  ]
+  ],
+  [
+  "wty-de-fr",
+  "[DE-FR] Wiktionary (terms)",
+  "wty-de-fr",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d1b1c23a38b8073a52a81761822b49ab4002ab0e4ae7d148f833b9e46906fa67",
+    16564432
+  ]
+  ],
+  [
+  "wty-de-grc-gloss",
+  "[DE-GRC] Wiktionary (gloss)",
+  "wty-de-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "634e2cc28b5bbdaac539f0e60bff9999fe1d7ebfc75104a883bae6046e6ee688",
+    60381
+  ]
+  ],
+  [
+  "wty-de-hu-gloss",
+  "[DE-HU] Wiktionary (gloss)",
+  "wty-de-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a63a7479d02764fe963477e32a9fb579703a1cb9286dcecdc994de35be819a0e",
+    754004
+  ]
+  ],
+  [
+  "wty-de-id-gloss",
+  "[DE-ID] Wiktionary (gloss)",
+  "wty-de-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e1472009c1b29610df91549c249273d15ec183e7bb47efdd0c04bb669e23ee81",
+    139173
+  ]
+  ],
+  [
+  "wty-de-id-ipa",
+  "[DE-ID] Wiktionary (IPA)",
+  "wty-de-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9cff38a027220bc2d7b160b68b6ec702b7baefde11f0e43695b66921bb451b60",
+    6858
+  ]
+  ],
+  [
+  "wty-de-id",
+  "[DE-ID] Wiktionary (terms)",
+  "wty-de-id",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2b0083336d56d0cb5ab5ebff5e8bd7678efc41d9f3ec2b67156f7bbb0bf3f9f2",
+    7321
+  ]
+  ],
+  [
+  "wty-de-it-gloss",
+  "[DE-IT] Wiktionary (gloss)",
+  "wty-de-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0a1fb3727c69e1c24e7ad2d5001cd8132b937485bb0213582053c935513b85a2",
+    1915621
+  ]
+  ],
+  [
+  "wty-de-it-ipa",
+  "[DE-IT] Wiktionary (IPA)",
+  "wty-de-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6aa9cfad2fecea10230dd25af3b7e87c0a35d71f7dc8aa6a7aa32e49f6b72cd6",
+    100975
+  ]
+  ],
+  [
+  "wty-de-it",
+  "[DE-IT] Wiktionary (terms)",
+  "wty-de-it",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "de6f22c6e874f7c4e0d6853e7f310745e531793f873e4a77c6fa277bae0feee5",
+    508830
+  ]
+  ],
+  [
+  "wty-de-km-gloss",
+  "[DE-KM] Wiktionary (gloss)",
+  "wty-de-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3b77c82daffb8f51b95166a0efea76c8f784fd884322abbeb4b18b787c34c5f7",
+    19073
+  ]
+  ],
+  [
+  "wty-de-ko-gloss",
+  "[DE-KO] Wiktionary (gloss)",
+  "wty-de-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "493e025e1d30442448a64861f684ab9f4c71f45d1c20d61824d6bc50fff3aa1a",
+    160952
+  ]
+  ],
+  [
+  "wty-de-ko-ipa",
+  "[DE-KO] Wiktionary (IPA)",
+  "wty-de-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aa4223840fb5244385de40d4b80b14c73e16b2a74b11bffbe44df6e8aa8aa004",
+    71377
+  ]
+  ],
+  [
+  "wty-de-ko",
+  "[DE-KO] Wiktionary (terms)",
+  "wty-de-ko",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "08ac76b333da4eaf8fec9bd03cabe8cefcc5dca23b1a0cf7c5f3fee756db5bb3",
+    229556
+  ]
+  ],
+  [
+  "wty-de-la-gloss",
+  "[DE-LA] Wiktionary (gloss)",
+  "wty-de-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a049c40f5773fea7af8aac1a766fb78000a9affa299eee437c99371fda0c3fc6",
+    434002
+  ]
+  ],
+  [
+  "wty-de-lo-gloss",
+  "[DE-LO] Wiktionary (gloss)",
+  "wty-de-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f268736b46336d1700612228bf0beb551301d6a08eaa19454318cf40155ee274",
+    15048
+  ]
+  ],
+  [
+  "wty-de-mn-gloss",
+  "[DE-MN] Wiktionary (gloss)",
+  "wty-de-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "100442a8527b7f6280b544121df37e00043f1c4fe1299e098407177a922e8eae",
+    36914
+  ]
+  ],
+  [
+  "wty-de-nl-gloss",
+  "[DE-NL] Wiktionary (gloss)",
+  "wty-de-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7bed325ab07f68f9f742e53e57c96bae3d16af915a20c766998bbcdf14f8787",
+    1069302
+  ]
+  ],
+  [
+  "wty-de-nl-ipa",
+  "[DE-NL] Wiktionary (IPA)",
+  "wty-de-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "40620ca03741dadd0789e0c312568dd25ea4e5b70a6dd1f4d6be4719f22ed6d0",
+    66849
+  ]
+  ],
+  [
+  "wty-de-nl",
+  "[DE-NL] Wiktionary (terms)",
+  "wty-de-nl",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c23d92163ddc75b68ec293198ab2d5112997bd9e0a56be25a39ed104a80e3d89",
+    490248
+  ]
+  ],
+  [
+  "wty-de-pl-gloss",
+  "[DE-PL] Wiktionary (gloss)",
+  "wty-de-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "55a7473d174941932e69c4706255d065e0107dbf174bbf3b0d7a88aaf35c6791",
+    1324546
+  ]
+  ],
+  [
+  "wty-de-pl-ipa",
+  "[DE-PL] Wiktionary (IPA)",
+  "wty-de-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aa7e42f3b830d071310a72f6bce9eb2bdf7c4f7cf79a12c9a8bfa482b8caf018",
+    595142
+  ]
+  ],
+  [
+  "wty-de-pl",
+  "[DE-PL] Wiktionary (terms)",
+  "wty-de-pl",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96c26b13d0e88d45b061437d7834ea49391bcf487863ab8c44547bb1534d9b04",
+    2478319
+  ]
+  ],
+  [
+  "wty-de-pt-gloss",
+  "[DE-PT] Wiktionary (gloss)",
+  "wty-de-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7733d878f990cd8de8ac7ba4839000de1d57cff60997c55e2b7ee65f8270f284",
+    1140241
+  ]
+  ],
+  [
+  "wty-de-pt-ipa",
+  "[DE-PT] Wiktionary (IPA)",
+  "wty-de-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8f2b4c976490048a6aa35b8743347270b26c5dc736ca00e44cdbe40f08447b95",
+    50865
+  ]
+  ],
+  [
+  "wty-de-pt",
+  "[DE-PT] Wiktionary (terms)",
+  "wty-de-pt",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d753b8e6cdcbf068b8ba640d6ff5bb0021a12631f944673aaa48e33c3de1fef6",
+    270544
+  ]
+  ],
+  [
+  "wty-de-ro-gloss",
+  "[DE-RO] Wiktionary (gloss)",
+  "wty-de-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5273e93f47bcc3cef9544798de17761f535bd992ae628cc9b763d2a88b7f8e2d",
+    690033
+  ]
+  ],
+  [
+  "wty-de-ru-gloss",
+  "[DE-RU] Wiktionary (gloss)",
+  "wty-de-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf24ecaa38bc5732983948b9dab3e783ac615e8db678fcf5a2d0b2a03a5a1751",
+    1657756
+  ]
+  ],
+  [
+  "wty-de-ru-ipa",
+  "[DE-RU] Wiktionary (IPA)",
+  "wty-de-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7203e5717820160cb6fe2252420ee2473ffba1506279418aa764a9fac3de3258",
+    232496
+  ]
+  ],
+  [
+  "wty-de-ru",
+  "[DE-RU] Wiktionary (terms)",
+  "wty-de-ru",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e96e66abdb99b742064a2cee30e289245e1e8783430cb5876b8ed728ee4f0619",
+    5006694
+  ]
+  ],
+  [
+  "wty-de-sh-gloss",
+  "[DE-SH] Wiktionary (gloss)",
+  "wty-de-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a500674360eeed06668735193876653cbe03433b7cb79294370e635724144b20",
+    426351
+  ]
+  ],
+  [
+  "wty-de-sq-gloss",
+  "[DE-SQ] Wiktionary (gloss)",
+  "wty-de-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "88f5ac83436586c1eb7e3a3d490f0dfa19600da59692fb7ea696620b126dac94",
+    149624
+  ]
+  ],
+  [
+  "wty-de-sv-gloss",
+  "[DE-SV] Wiktionary (gloss)",
+  "wty-de-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b3c322940cd53ab40b7a165b8ebb6d63782aa117d81d00b40dbae287a0f7a6d",
+    2648114
+  ]
+  ],
+  [
+  "wty-de-th-gloss",
+  "[DE-TH] Wiktionary (gloss)",
+  "wty-de-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3871e32c87b31fbca3bf8730012c2a7488cff44a4f1966f28d8882ea06fe84a5",
+    60569
+  ]
+  ],
+  [
+  "wty-de-th-ipa",
+  "[DE-TH] Wiktionary (IPA)",
+  "wty-de-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8920a1f27160a9fce03a0503d92c764767710b42380dbfd383df1b843d21e4f6",
+    50358
+  ]
+  ],
+  [
+  "wty-de-th",
+  "[DE-TH] Wiktionary (terms)",
+  "wty-de-th",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "603ab8cb8c70e6f787cd67fdc167fa617aab3048744651c6f5e3c4fe6d482784",
+    842532
+  ]
+  ],
+  [
+  "wty-de-tl-gloss",
+  "[DE-TL] Wiktionary (gloss)",
+  "wty-de-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d9611d3ac08e68f984f8d1646a9b7a097e18f59ee45ff782951add29bfffea37",
+    41980
+  ]
+  ],
+  [
+  "wty-de-tr-gloss",
+  "[DE-TR] Wiktionary (gloss)",
+  "wty-de-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f464681d3a3f0f426d46c0de1e8c9bea6e6c7540ae16ac386234b84062687e19",
+    897535
+  ]
+  ],
+  [
+  "wty-de-tr-ipa",
+  "[DE-TR] Wiktionary (IPA)",
+  "wty-de-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3e90e99fcccf7bfeedfe6b7cdea32e070d5c8a5fbb6240ca78e4616879c42ad",
+    46478
+  ]
+  ],
+  [
+  "wty-de-tr",
+  "[DE-TR] Wiktionary (terms)",
+  "wty-de-tr",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "897533b023597b6a4a8b08a9ae9a3af975e9b2487791ef4d68327b60d31cb7b5",
+    1007334
+  ]
+  ],
+  [
+  "wty-de-vi-gloss",
+  "[DE-VI] Wiktionary (gloss)",
+  "wty-de-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c3b88ef4f3bf0b5414ce8e11e802cd54149173f961dcc709d20a34eaa4af106",
+    155119
+  ]
+  ],
+  [
+  "wty-de-vi-ipa",
+  "[DE-VI] Wiktionary (IPA)",
+  "wty-de-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e7f681bebc0b4197241b4d63dbc5c5441d3db6d77b14ca52457cbb6e2733a9b0",
+    24059
+  ]
+  ],
+  [
+  "wty-de-vi",
+  "[DE-VI] Wiktionary (terms)",
+  "wty-de-vi",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "12ea6b71bc48315b271a62602e9e72d9e68a874100f937a9eeacd0f9e46d0f6d",
+    64761
+  ]
+  ],
+  [
+  "wty-de-yue-gloss",
+  "[DE-YUE] Wiktionary (gloss)",
+  "wty-de-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "63059cdc16654baa1b4f551216d9e4d2e8a7dd4f9c23da02fcf78e6a7c2cdffc",
+    29368
+  ]
+  ],
+  [
+  "wty-de-zh-gloss",
+  "[DE-ZH] Wiktionary (gloss)",
+  "wty-de-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1eed234e29244bf9e566eb784483b82682af279bdb0545d7fd9234ef0616b87d",
+    224471
+  ]
+  ],
+  [
+  "wty-de-zh-ipa",
+  "[DE-ZH] Wiktionary (IPA)",
+  "wty-de-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "de"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e1e26b7bd56f84ee6ad5b08206570bbd30686f983dff060aa3428c0a135cd2d",
+    848139
+  ]
+  ],
+  [
+  "wty-de-zh",
+  "[DE-ZH] Wiktionary (terms)",
+  "wty-de-zh",
+  [
+    "terms"
+  ],
+  [
+    "de"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3f46e9b17ab0b34808dc9d1aad5140b6f4b36bc2d373660b85fc19e4647a7c8",
+    5593325
+  ]
+  ],
+  [
+  "wty-el-ar-gloss",
+  "[EL-AR] Wiktionary (gloss)",
+  "wty-el-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d1463a9b9c7984b16b1cfc0bf88127eafef2f25d03edb27c080bf24f75b97ff1",
+    28708
+  ]
+  ],
+  [
+  "wty-el-da-gloss",
+  "[EL-DA] Wiktionary (gloss)",
+  "wty-el-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dfa822d16bd29349cf3ab4d3bad8e56e745d7723c07464176857c43c2ba0eaee",
+    36536
+  ]
+  ],
+  [
+  "wty-el-de-gloss",
+  "[EL-DE] Wiktionary (gloss)",
+  "wty-el-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2f3b37a17aa78ec3aa68995bfb3d86f8840e302c2e119f3d951ff9f861a76c5a",
+    289605
+  ]
+  ],
+  [
+  "wty-el-de-ipa",
+  "[EL-DE] Wiktionary (IPA)",
+  "wty-el-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bb6d2c123e935e3e2f6e99504506852680fb65b108439305f0471c5c73f8b5c7",
+    13730
+  ]
+  ],
+  [
+  "wty-el-de",
+  "[EL-DE] Wiktionary (terms)",
+  "wty-el-de",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6ecd80d23964df0c5386147598e2923641494b372f4420e05f7843ebd898b78b",
+    52261
+  ]
+  ],
+  [
+  "wty-el-el-ipa",
+  "[EL-EL] Wiktionary (IPA)",
+  "wty-el-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0709ae40465fa241fd0b1699e064ad63d25b9a87aef91591340c3ce9995511be",
+    690852
+  ]
+  ],
+  [
+  "wty-el-el",
+  "[EL-EL] Wiktionary (terms)",
+  "wty-el-el",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "54fe926e5f2454a33e15c5c1243e18ecc45bfc9f6d4d7d86a161383f9f83b4e2",
+    37522576
+  ]
+  ],
+  [
+  "wty-el-en-gloss",
+  "[EL-EN] Wiktionary (gloss)",
+  "wty-el-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6b5b30c741c18188b3eb7bbe8f95430450fbfd733d32246983e818a43e26f2bb",
+    780076
+  ]
+  ],
+  [
+  "wty-el-en-ipa",
+  "[EL-EN] Wiktionary (IPA)",
+  "wty-el-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "53f55d3b45d958c71bdb17633d3cd503f5ef99e7a13b4b175eb332cf7567af00",
+    336309
+  ]
+  ],
+  [
+  "wty-el-en",
+  "[EL-EN] Wiktionary (terms)",
+  "wty-el-en",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dce93970d1c99c97a13411c1774a22671861e753dd056485e905d96482e206f0",
+    6003058
+  ]
+  ],
+  [
+  "wty-el-es-gloss",
+  "[EL-ES] Wiktionary (gloss)",
+  "wty-el-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eb1f1c35c098b61970722242467c2c5f2966600d164934478f20be3f68752041",
+    126298
+  ]
+  ],
+  [
+  "wty-el-es-ipa",
+  "[EL-ES] Wiktionary (IPA)",
+  "wty-el-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ccf84c35a691f3727f5d2470c737da75d50a57d987fcbb54f44f7aa66a94567d",
+    13809
+  ]
+  ],
+  [
+  "wty-el-es",
+  "[EL-ES] Wiktionary (terms)",
+  "wty-el-es",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b26ce12e904279ea5be2cb764f3a2a3670d43ce772d2cdd1413ae0943f422cc",
+    41131
+  ]
+  ],
+  [
+  "wty-el-fa-gloss",
+  "[EL-FA] Wiktionary (gloss)",
+  "wty-el-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1eb93f52eb25cfd6210ab1528b81b2ecf14e14c0f3902ce1b486efad5c0093b6",
+    19672
+  ]
+  ],
+  [
+  "wty-el-fi-gloss",
+  "[EL-FI] Wiktionary (gloss)",
+  "wty-el-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "940d9b56ec6372d0876a22204636e50bcc757ebddd0d1e78a35112bd815e7a5a",
+    58748
+  ]
+  ],
+  [
+  "wty-el-fr-gloss",
+  "[EL-FR] Wiktionary (gloss)",
+  "wty-el-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fcc8dda9525dc10792cec66f7d5daf943e45829ea6a80ad1dc1708cf63198a5a",
+    586834
+  ]
+  ],
+  [
+  "wty-el-fr-ipa",
+  "[EL-FR] Wiktionary (IPA)",
+  "wty-el-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a30df19ec5c5f043ee1f4b03c0f99bc7e884135f470b888493b6758860541b86",
+    93748
+  ]
+  ],
+  [
+  "wty-el-fr",
+  "[EL-FR] Wiktionary (terms)",
+  "wty-el-fr",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "819bd7f54de7599a6cdbe3eef60cf664b0599b09d306035979ea2c8f58a5dd1a",
+    826527
+  ]
+  ],
+  [
+  "wty-el-grc-gloss",
+  "[EL-GRC] Wiktionary (gloss)",
+  "wty-el-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af433183f24a6e23da315271decdf16383d2044a6acfe0dca37a5f97b6836c0b",
+    11718
+  ]
+  ],
+  [
+  "wty-el-hu-gloss",
+  "[EL-HU] Wiktionary (gloss)",
+  "wty-el-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "94cab20e026a16786b4f6e318169351e9351d95388dfb875ba94f04a17cdbfcf",
+    50563
+  ]
+  ],
+  [
+  "wty-el-id-gloss",
+  "[EL-ID] Wiktionary (gloss)",
+  "wty-el-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3125a577de173891a30fec7667f38b01d6782fd601055d9e008a089dfca615f",
+    14437
+  ]
+  ],
+  [
+  "wty-el-id",
+  "[EL-ID] Wiktionary (terms)",
+  "wty-el-id",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e194b59f2e78d9a5aeb175cdc0e712d06a05b95745c3aed3b4c35e8a5771f76f",
+    6029
+  ]
+  ],
+  [
+  "wty-el-it-gloss",
+  "[EL-IT] Wiktionary (gloss)",
+  "wty-el-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2e36af5539d2cfeacb768003d249377727f75088ee16cf3bee835ba0bb016f61",
+    113075
+  ]
+  ],
+  [
+  "wty-el-it-ipa",
+  "[EL-IT] Wiktionary (IPA)",
+  "wty-el-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e25e70f8a776a018b4230b6bf903f038053c96aa40af63163f48b57ab9088f61",
+    8652
+  ]
+  ],
+  [
+  "wty-el-it",
+  "[EL-IT] Wiktionary (terms)",
+  "wty-el-it",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b42a252bb5cb762bf560045529b640802414b17117b652b6e9ec591464ca82b4",
+    41512
+  ]
+  ],
+  [
+  "wty-el-km-gloss",
+  "[EL-KM] Wiktionary (gloss)",
+  "wty-el-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d3c392dbb444803f3fee5393556f5d08e6a4a420ad041145ebb8350826205981",
+    7315
+  ]
+  ],
+  [
+  "wty-el-ko-gloss",
+  "[EL-KO] Wiktionary (gloss)",
+  "wty-el-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "564755e4c2ede2d53b90c6cc07139a7336cd894b76ed711b6224fa3eae6112fc",
+    29470
+  ]
+  ],
+  [
+  "wty-el-ko-ipa",
+  "[EL-KO] Wiktionary (IPA)",
+  "wty-el-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "010fd9e12d40d8785cb4409c8fc51ac883ce608e7ff1c0cdb6aa9e3bd8d621f3",
+    9813
+  ]
+  ],
+  [
+  "wty-el-ko",
+  "[EL-KO] Wiktionary (terms)",
+  "wty-el-ko",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a32e1f6018e373e3e22c3926333046d384c63a7432d2443b092e40d5cc78c05",
+    34751
+  ]
+  ],
+  [
+  "wty-el-la-gloss",
+  "[EL-LA] Wiktionary (gloss)",
+  "wty-el-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4fa7436f857f8e763dbe1d16cd973507590f99d16107023ad47b22e75a6e192f",
+    42752
+  ]
+  ],
+  [
+  "wty-el-lo-gloss",
+  "[EL-LO] Wiktionary (gloss)",
+  "wty-el-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "99dbfc16e1b017248600aeb05db9536eab8e4d481d915578662031047cb0fe5f",
+    7156
+  ]
+  ],
+  [
+  "wty-el-mn-gloss",
+  "[EL-MN] Wiktionary (gloss)",
+  "wty-el-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cc708f5e59f329ddbfdf616ac357f1cea306e2fe6e04e36e576e2a4f0a23a288",
+    8199
+  ]
+  ],
+  [
+  "wty-el-nl-gloss",
+  "[EL-NL] Wiktionary (gloss)",
+  "wty-el-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cbc58642a7d4df39478a3c051118c308fc3018ba9815f48be1ed9fe6f9a24f40",
+    55445
+  ]
+  ],
+  [
+  "wty-el-nl-ipa",
+  "[EL-NL] Wiktionary (IPA)",
+  "wty-el-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e37cec8883a2fa1365ad5a5aba9dad34b0ee30581a97f7ce4f2189baef30c3b0",
+    9521
+  ]
+  ],
+  [
+  "wty-el-nl",
+  "[EL-NL] Wiktionary (terms)",
+  "wty-el-nl",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f0831d4ce6c37ab62ce0cb486e4ff589e27cc7a7abb14470085aff4093ad07d9",
+    52263
+  ]
+  ],
+  [
+  "wty-el-pl-gloss",
+  "[EL-PL] Wiktionary (gloss)",
+  "wty-el-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "baf3e951dabba0e0405390d2b95d0a0cda2d04fd750cfdc51965d6886c4aad28",
+    125129
+  ]
+  ],
+  [
+  "wty-el-pl-ipa",
+  "[EL-PL] Wiktionary (IPA)",
+  "wty-el-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c8479488181e5ea782d7f06c3518d27c5435954b66a65dcbbfd4fa2b28cd5629",
+    200133
+  ]
+  ],
+  [
+  "wty-el-pl",
+  "[EL-PL] Wiktionary (terms)",
+  "wty-el-pl",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a5cba84cb78ac2320761332b00a266f3b3ee413c35e5d5f01d3439e0ff896a01",
+    1080882
+  ]
+  ],
+  [
+  "wty-el-pt-gloss",
+  "[EL-PT] Wiktionary (gloss)",
+  "wty-el-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e7843ac6a1d90e2e48d64f51ebd7b2469af4d20b687726116c47b28e799c198a",
+    72371
+  ]
+  ],
+  [
+  "wty-el-pt-ipa",
+  "[EL-PT] Wiktionary (IPA)",
+  "wty-el-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ea6d8a3289664f070888220754d023f4cf001f22ca859d15936a968098674826",
+    13011
+  ]
+  ],
+  [
+  "wty-el-pt",
+  "[EL-PT] Wiktionary (terms)",
+  "wty-el-pt",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "61d61cae661a5f658f2716c820865c00ce8f4cfeae45cd3445453f569ed505e8",
+    73459
+  ]
+  ],
+  [
+  "wty-el-ro-gloss",
+  "[EL-RO] Wiktionary (gloss)",
+  "wty-el-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cf7a5569f9555522db8e713b55c4f34ee0397fe8fdb8d93fff28e2823efdc493",
+    52642
+  ]
+  ],
+  [
+  "wty-el-ru-gloss",
+  "[EL-RU] Wiktionary (gloss)",
+  "wty-el-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3aa5acbcb12e84981e8a93503aa468f8f045e9571c2728165bb4b0b0592c0019",
+    109192
+  ]
+  ],
+  [
+  "wty-el-ru-ipa",
+  "[EL-RU] Wiktionary (IPA)",
+  "wty-el-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a06669c417591df271419a595bc6df89568c34349c80ae4f6145b3f0a88d0cf5",
+    59460
+  ]
+  ],
+  [
+  "wty-el-ru",
+  "[EL-RU] Wiktionary (terms)",
+  "wty-el-ru",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6dcf9ac1f67cb2b08879b6845d2c4380aa7417eb65d87eb429998f5191651f8d",
+    757249
+  ]
+  ],
+  [
+  "wty-el-sh-gloss",
+  "[EL-SH] Wiktionary (gloss)",
+  "wty-el-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e5a3b528aaaa040ed3bb90ff093993edbf14d40c491cb4ba06a563a7730193f8",
+    11588
+  ]
+  ],
+  [
+  "wty-el-sq-gloss",
+  "[EL-SQ] Wiktionary (gloss)",
+  "wty-el-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e654bd4363203c8288947367573d7465169b2e935b98fab697c1ce17f559dcd4",
+    22820
+  ]
+  ],
+  [
+  "wty-el-sv-gloss",
+  "[EL-SV] Wiktionary (gloss)",
+  "wty-el-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b1b96524273d680e3e4c0e6239276a4ef29b51de7f784faa4344deae84500642",
+    50770
+  ]
+  ],
+  [
+  "wty-el-th-gloss",
+  "[EL-TH] Wiktionary (gloss)",
+  "wty-el-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5770804c78f65288143918f08d9a08e70c1558981145b8d5fef00fb08414032f",
+    18407
+  ]
+  ],
+  [
+  "wty-el-th-ipa",
+  "[EL-TH] Wiktionary (IPA)",
+  "wty-el-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f84cc10e872de9c0f41176990df8e34136581cdeda869e78e4a592b87b4a8e3e",
+    9695
+  ]
+  ],
+  [
+  "wty-el-th",
+  "[EL-TH] Wiktionary (terms)",
+  "wty-el-th",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3728e12b7e970bb871bbe04a00a7628e63620c315c4ca1ccdfda76c3c7fef30a",
+    268004
+  ]
+  ],
+  [
+  "wty-el-tl-gloss",
+  "[EL-TL] Wiktionary (gloss)",
+  "wty-el-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "122d94b070c1514e24b29e3657da815bf326d518f919fdc9d624d4e0257a97a4",
+    11106
+  ]
+  ],
+  [
+  "wty-el-tr-gloss",
+  "[EL-TR] Wiktionary (gloss)",
+  "wty-el-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96fe18bc5275a855a082dcb4951584ac0979523443a31128c4552f4a8bb4aaca",
+    71780
+  ]
+  ],
+  [
+  "wty-el-tr-ipa",
+  "[EL-TR] Wiktionary (IPA)",
+  "wty-el-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "08dc2a3550e3b00b8580aea2849e85d9cfa400d4344f1a7c453f54112fdf252c",
+    55393
+  ]
+  ],
+  [
+  "wty-el-tr",
+  "[EL-TR] Wiktionary (terms)",
+  "wty-el-tr",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "217ea231842f853e39da33a4f17b0fb6b252c08ad880f3acd492f9d219b73fc2",
+    6172579
+  ]
+  ],
+  [
+  "wty-el-vi-gloss",
+  "[EL-VI] Wiktionary (gloss)",
+  "wty-el-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "26528fc0d473a9d5b043d146fb1fa7a5a2caa774242e0620e2f09f219d37f32d",
+    14675
+  ]
+  ],
+  [
+  "wty-el-vi-ipa",
+  "[EL-VI] Wiktionary (IPA)",
+  "wty-el-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b96e9e8f5c3698c503ad2766900d0b13e8ee18e97a518ec51cfc5c0ee210663c",
+    8773
+  ]
+  ],
+  [
+  "wty-el-vi",
+  "[EL-VI] Wiktionary (terms)",
+  "wty-el-vi",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b365746d7c3dbfa64f22467aca66142dcb1cb8b800bc27148861342b2de3ec3a",
+    28951
+  ]
+  ],
+  [
+  "wty-el-zh-gloss",
+  "[EL-ZH] Wiktionary (gloss)",
+  "wty-el-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e9ada480cc260587c93113f9f721be94861624d560df14c0f4274f74ebbccb70",
+    39527
+  ]
+  ],
+  [
+  "wty-el-zh-ipa",
+  "[EL-ZH] Wiktionary (IPA)",
+  "wty-el-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "el"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "716568851a795dc3c17c0080b4c4d0120c6af815c2a8ce9164d17887b7530993",
+    31444
+  ]
+  ],
+  [
+  "wty-el-zh",
+  "[EL-ZH] Wiktionary (terms)",
+  "wty-el-zh",
+  [
+    "terms"
+  ],
+  [
+    "el"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "278312846f84e317ef52a3a25279504efaf2be40bdf70fcbcd3d1869c1c76a58",
+    434585
+  ]
+  ],
+  [
+  "wty-en-ar-gloss",
+  "[EN-AR] Wiktionary (gloss)",
+  "wty-en-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6478877a34afc4458eb045ff552265c15b6db5c58f31d9dd643b0161d5e3903b",
+    1028205
+  ]
+  ],
+  [
+  "wty-en-da-gloss",
+  "[EN-DA] Wiktionary (gloss)",
+  "wty-en-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "25e3a8219dfa7269847e9074c7de928257403dc764ae2a0f87d55909a2928075",
+    1048547
+  ]
+  ],
+  [
+  "wty-en-de-gloss",
+  "[EN-DE] Wiktionary (gloss)",
+  "wty-en-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f19fd2ff6b2c6593df4243fde30dcc46592b0345c6524a6ac9a51410e3c78074",
+    3313452
+  ]
+  ],
+  [
+  "wty-en-de-ipa",
+  "[EN-DE] Wiktionary (IPA)",
+  "wty-en-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "37b0ab1f936f605ad519fdc032297cc81ac2ff69ef553e6c42618546e9fa168a",
+    460057
+  ]
+  ],
+  [
+  "wty-en-de",
+  "[EN-DE] Wiktionary (terms)",
+  "wty-en-de",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "16a8f3f15fbce42ef998200a76f95a54e9f2326deb3cd0b0fd3a7e023c71a7c2",
+    2050164
+  ]
+  ],
+  [
+  "wty-en-el-gloss",
+  "[EN-EL] Wiktionary (gloss)",
+  "wty-en-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e276bd14aabd4fec0457f88f316c135da30fa4386e1aa01d6799ec9e9bc529d",
+    1446630
+  ]
+  ],
+  [
+  "wty-en-el-ipa",
+  "[EN-EL] Wiktionary (IPA)",
+  "wty-en-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "51b045cbe0e9c79b9378d742e374b08b1c54f058ad4f222ea5bbb884f332a518",
+    54158
+  ]
+  ],
+  [
+  "wty-en-el",
+  "[EN-EL] Wiktionary (terms)",
+  "wty-en-el",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96019db8a367e283d820a6fc2c7c6abc982ab3d69ccbd304f41cfda1eac6448a",
+    4717417
+  ]
+  ],
+  [
+  "wty-en-en-ipa",
+  "[EN-EN] Wiktionary (IPA)",
+  "wty-en-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a613f6c09f4c71351ed8c43d35f7bca2ee3c86dc74e5bcc7337d262837024c7",
+    2703449
+  ]
+  ],
+  [
+  "wty-en-en",
+  "[EN-EN] Wiktionary (terms)",
+  "wty-en-en",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e40e505e2dd70383d1a56319f20bb92c21433ed2004fbc5b7a98d2269a774db5",
+    106198289
+  ]
+  ],
+  [
+  "wty-en-es-gloss",
+  "[EN-ES] Wiktionary (gloss)",
+  "wty-en-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "24662fbe5d02a47fff7bf027b6f2b71c5bd7dcfb1c56cbb1a8222b9324236969",
+    2886666
+  ]
+  ],
+  [
+  "wty-en-es-ipa",
+  "[EN-ES] Wiktionary (IPA)",
+  "wty-en-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a6be192990bd069cc719172bf7f9a3be32b1b9c5e367cc1f62c99f37fa49100b",
+    350304
+  ]
+  ],
+  [
+  "wty-en-es",
+  "[EN-ES] Wiktionary (terms)",
+  "wty-en-es",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1504916bdb612ea6464a32f7bf7a4094b7a1d2fa2f07da7d5a928db050268dd1",
+    1626587
+  ]
+  ],
+  [
+  "wty-en-fa-gloss",
+  "[EN-FA] Wiktionary (gloss)",
+  "wty-en-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "10fa45565e3c42e1d12e76788f96906f0628b57e636b2a7a63070065e1b28bf5",
+    574310
+  ]
+  ],
+  [
+  "wty-en-fi-gloss",
+  "[EN-FI] Wiktionary (gloss)",
+  "wty-en-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0ca1d64a67d2e616c1dc6b115a5700d4d59cf0efa542d6b68418a5dab0f3288f",
+    3697775
+  ]
+  ],
+  [
+  "wty-en-fr-gloss",
+  "[EN-FR] Wiktionary (gloss)",
+  "wty-en-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8844e071f4375968786e91f4ab0449a1cf6a4839fbce8a147eee64d0e84b8933",
+    2979248
+  ]
+  ],
+  [
+  "wty-en-fr-ipa",
+  "[EN-FR] Wiktionary (IPA)",
+  "wty-en-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b91a94ba3ddbe90de0eeeacb3b0bf466e70ed561daa75442d3fc4a8dc9aee4a8",
+    782687
+  ]
+  ],
+  [
+  "wty-en-fr",
+  "[EN-FR] Wiktionary (terms)",
+  "wty-en-fr",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8df401b78e45f02affba728f6eb3a65ad8cc9851211bc7eaaad7d765a48bbd16",
+    8338712
+  ]
+  ],
+  [
+  "wty-en-grc-gloss",
+  "[EN-GRC] Wiktionary (gloss)",
+  "wty-en-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "edab81b7b807d7d0a068b202bfb9d838ab992e3a0269fd28283a91178256b505",
+    439082
+  ]
+  ],
+  [
+  "wty-en-hu-gloss",
+  "[EN-HU] Wiktionary (gloss)",
+  "wty-en-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b72cd49d0cc235e462fbc98b93e3de821ee35a59ccd7e434a510ebff0e68e11a",
+    1809102
+  ]
+  ],
+  [
+  "wty-en-id-gloss",
+  "[EN-ID] Wiktionary (gloss)",
+  "wty-en-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "632502ce79517502e01ffec38222169e0d770b12dd582142523dd5b7c386da10",
+    608435
+  ]
+  ],
+  [
+  "wty-en-id-ipa",
+  "[EN-ID] Wiktionary (IPA)",
+  "wty-en-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9db0771a1f067a911405b62f9eaafeff501998410e99fd6e3e2a653084002133",
+    6899
+  ]
+  ],
+  [
+  "wty-en-id",
+  "[EN-ID] Wiktionary (terms)",
+  "wty-en-id",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "541c7ce1508594e5dc885e701371939b8a7aa450ea45fa21cd79594f670bf850",
+    32120
+  ]
+  ],
+  [
+  "wty-en-it-gloss",
+  "[EN-IT] Wiktionary (gloss)",
+  "wty-en-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09ff12fb2ac8445c70add88ddd43b249d1c7c81563bad88b7f58a76bc246c7c6",
+    2134646
+  ]
+  ],
+  [
+  "wty-en-it-ipa",
+  "[EN-IT] Wiktionary (IPA)",
+  "wty-en-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "edb46ac8b7342f3a55e239957fd53b2e9b187c519a740eb2fa6790396a6c1583",
+    106787
+  ]
+  ],
+  [
+  "wty-en-it",
+  "[EN-IT] Wiktionary (terms)",
+  "wty-en-it",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e66d3810c4c2186c92519bd9289aac104c1f69312882ff6b9e1668bdb76caf1f",
+    1314073
+  ]
+  ],
+  [
+  "wty-en-km-gloss",
+  "[EN-KM] Wiktionary (gloss)",
+  "wty-en-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "820bc058da6715e9af0da944871a50f008927758613a6c29b0e9613a91a261b2",
+    312734
+  ]
+  ],
+  [
+  "wty-en-ko-gloss",
+  "[EN-KO] Wiktionary (gloss)",
+  "wty-en-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c6632fc2870c018a345f65dee9bcf05de83abb2823d92d1d0591909cbb0e162a",
+    1113191
+  ]
+  ],
+  [
+  "wty-en-ko-ipa",
+  "[EN-KO] Wiktionary (IPA)",
+  "wty-en-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e94bcfb56481e09b8762485004a88485df9d2ffea489c8758ee8710f57751c0c",
+    79602
+  ]
+  ],
+  [
+  "wty-en-ko",
+  "[EN-KO] Wiktionary (terms)",
+  "wty-en-ko",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf44565c8568aae7c919c5e24add8c4418997e813a51bd43d63e8fc376490fe1",
+    1154024
+  ]
+  ],
+  [
+  "wty-en-la-gloss",
+  "[EN-LA] Wiktionary (gloss)",
+  "wty-en-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3864e6fdd68f2f27534d712ae74ec599021f6d3154d262932eb551bc01ea3bfb",
+    723144
+  ]
+  ],
+  [
+  "wty-en-lo-gloss",
+  "[EN-LO] Wiktionary (gloss)",
+  "wty-en-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2e360e7e9afd05a21af289b5387e2e9007d4fc970db57f518604c521fccfd6d9",
+    191575
+  ]
+  ],
+  [
+  "wty-en-mn-gloss",
+  "[EN-MN] Wiktionary (gloss)",
+  "wty-en-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "29cc81f95a42f82a62224ff7a846c39366ca22d89cad68b0f7ffebb6dd51e505",
+    280898
+  ]
+  ],
+  [
+  "wty-en-nl-gloss",
+  "[EN-NL] Wiktionary (gloss)",
+  "wty-en-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f2821215c8aeae41a18c204d79424948d9da4cd18bd10cd96b5174afca8604b2",
+    1817946
+  ]
+  ],
+  [
+  "wty-en-nl-ipa",
+  "[EN-NL] Wiktionary (IPA)",
+  "wty-en-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b55802a61e63041db7ff2fc86a365b595f6012471cce10c6506919878ef86f0f",
+    85098
+  ]
+  ],
+  [
+  "wty-en-nl",
+  "[EN-NL] Wiktionary (terms)",
+  "wty-en-nl",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "53cc079e1084051ca41509dbc647fe4558ba5857d9454dfcd580b64470bb2193",
+    854049
+  ]
+  ],
+  [
+  "wty-en-pl-gloss",
+  "[EN-PL] Wiktionary (gloss)",
+  "wty-en-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3830b6c88c00d8edfd9fdcaa4f039e265afd22b0978701fb4ba5b1a591ccf1d2",
+    2792146
+  ]
+  ],
+  [
+  "wty-en-pl-ipa",
+  "[EN-PL] Wiktionary (IPA)",
+  "wty-en-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "05b36ba6c46ffeec973711d7477c0946c893ae0f142f753e4bd2fd71cefa2ffe",
+    480781
+  ]
+  ],
+  [
+  "wty-en-pl",
+  "[EN-PL] Wiktionary (terms)",
+  "wty-en-pl",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cdf8e157bff149cc3ca778c5a30b1207a8b0968b984d8af8243fef9c259bd2a2",
+    4935898
+  ]
+  ],
+  [
+  "wty-en-pt-gloss",
+  "[EN-PT] Wiktionary (gloss)",
+  "wty-en-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2e319c0c150097e379ddf15a40d179f59b22984ee30529575f493946a3a24fcb",
+    2328572
+  ]
+  ],
+  [
+  "wty-en-pt-ipa",
+  "[EN-PT] Wiktionary (IPA)",
+  "wty-en-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4aed596810155345bcf576f92e920064f0331d8b5e0e7d37b3f7b40f8c5b6a33",
+    83565
+  ]
+  ],
+  [
+  "wty-en-pt",
+  "[EN-PT] Wiktionary (terms)",
+  "wty-en-pt",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ad4a6beddd6f2bd7a7fd07338e3b25472ca3bc59e0908182a1bc272d6ef33686",
+    998788
+  ]
+  ],
+  [
+  "wty-en-ro-gloss",
+  "[EN-RO] Wiktionary (gloss)",
+  "wty-en-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "20a21f9da79aa0879dd3fa0e82ecd6924a05a7586f1a6561aedfc4fa902912da",
+    1141052
+  ]
+  ],
+  [
+  "wty-en-ru-gloss",
+  "[EN-RU] Wiktionary (gloss)",
+  "wty-en-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "18e678c494a59585f26565d2b7299b31092045088b856c768161c5cce3cc8f97",
+    3274342
+  ]
+  ],
+  [
+  "wty-en-ru-ipa",
+  "[EN-RU] Wiktionary (IPA)",
+  "wty-en-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "66e72c4274086162007394f953e5a80bf41f47d2abe0fc431d0b388ad35ce535",
+    218819
+  ]
+  ],
+  [
+  "wty-en-ru",
+  "[EN-RU] Wiktionary (terms)",
+  "wty-en-ru",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3fb79bac7f1ea1943d6950010fab883e9f5da94b00e4be6547efe6dd17c670df",
+    4854305
+  ]
+  ],
+  [
+  "wty-en-sh-gloss",
+  "[EN-SH] Wiktionary (gloss)",
+  "wty-en-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4d2a593d3ff2de4f08a8d295f0ad8b4769853bc3e077232610b6673a68315882",
+    1039741
+  ]
+  ],
+  [
+  "wty-en-sq-gloss",
+  "[EN-SQ] Wiktionary (gloss)",
+  "wty-en-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af976f1de5113c12622f940c9168055bacbaf0a04c15ac454ea0e2915db76297",
+    331084
+  ]
+  ],
+  [
+  "wty-en-sv-gloss",
+  "[EN-SV] Wiktionary (gloss)",
+  "wty-en-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6fd1993770c93e1f9ae55557739ce67ef797720d41ec8e3566991637a466bcbe",
+    1814703
+  ]
+  ],
+  [
+  "wty-en-th-gloss",
+  "[EN-TH] Wiktionary (gloss)",
+  "wty-en-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b361ba3d6ff6b5f5b57f3751198c2c715b49c0351c2af4a96aff0602c9f221e4",
+    580838
+  ]
+  ],
+  [
+  "wty-en-th-ipa",
+  "[EN-TH] Wiktionary (IPA)",
+  "wty-en-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6fa78393deac0c214e4651a174bb1de8afd6a039444110f0dae75f971c174097",
+    110818
+  ]
+  ],
+  [
+  "wty-en-th",
+  "[EN-TH] Wiktionary (terms)",
+  "wty-en-th",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f93b7a2f43bc355856cbbcfb8d5844574cd09d1c354f39746e6b38c307bbf708",
+    5906597
+  ]
+  ],
+  [
+  "wty-en-tl-gloss",
+  "[EN-TL] Wiktionary (gloss)",
+  "wty-en-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d5e7a879baf93251f7110a5544cd51dc819487bd1ddb47a600e70a07e1197206",
+    454840
+  ]
+  ],
+  [
+  "wty-en-tr-gloss",
+  "[EN-TR] Wiktionary (gloss)",
+  "wty-en-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "23b66e47b6347e69a694520c4ca79d52adb8a58755154acc71c3a2619ccb97ef",
+    1141544
+  ]
+  ],
+  [
+  "wty-en-tr-ipa",
+  "[EN-TR] Wiktionary (IPA)",
+  "wty-en-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "21df5960a0bb9be53051a2b9bab371513b4a2014fe799ee10a538bee697287ec",
+    35456
+  ]
+  ],
+  [
+  "wty-en-tr",
+  "[EN-TR] Wiktionary (terms)",
+  "wty-en-tr",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d135b69d333c24fec9caa8b5ea7da08fe10dc175c6e3e7c9b9be339bb1d39a1",
+    2300265
+  ]
+  ],
+  [
+  "wty-en-vi-gloss",
+  "[EN-VI] Wiktionary (gloss)",
+  "wty-en-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3009f8fe27267f28e8866b5275afc7c4b7f89982903b3caef41cf7cfc8498552",
+    726128
+  ]
+  ],
+  [
+  "wty-en-vi-ipa",
+  "[EN-VI] Wiktionary (IPA)",
+  "wty-en-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "236336066c83f6cbd3b8ad4da58d5ecc43ff212e9f97db9c4e6eec83c1ffbb56",
+    690893
+  ]
+  ],
+  [
+  "wty-en-vi",
+  "[EN-VI] Wiktionary (terms)",
+  "wty-en-vi",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f12361910096b6f18c2c4fd78d98fa66424b0a76eb35db7098275516bf4f0977",
+    6005289
+  ]
+  ],
+  [
+  "wty-en-yue-gloss",
+  "[EN-YUE] Wiktionary (gloss)",
+  "wty-en-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "600d60d1b91077d8f931f48ab876bff3325b8b03861af41a5a195941ef8ab8c1",
+    379175
+  ]
+  ],
+  [
+  "wty-en-zh-gloss",
+  "[EN-ZH] Wiktionary (gloss)",
+  "wty-en-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f42cafe2e7d5bcc807d506403be85b92e27ad3737bd79a9577ea0bf8c187e8a9",
+    101753
+  ]
+  ],
+  [
+  "wty-en-zh-ipa",
+  "[EN-ZH] Wiktionary (IPA)",
+  "wty-en-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "en"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "65743479ffd910ef5e17332b0377d5131e0714d1fe49537469f84dac6448814d",
+    293508
+  ]
+  ],
+  [
+  "wty-en-zh",
+  "[EN-ZH] Wiktionary (terms)",
+  "wty-en-zh",
+  [
+    "terms"
+  ],
+  [
+    "en"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3396147595c6637e846f2d0552d55d7a2ab01637521f3348106b6d0687b305dc",
+    5322149
+  ]
+  ],
+  [
+  "wty-es-ar-gloss",
+  "[ES-AR] Wiktionary (gloss)",
+  "wty-es-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c158f6b4ef9bf5ef102710d969c00b02d16f3bcd59838886a80b90bb2cbf836b",
+    34338
+  ]
+  ],
+  [
+  "wty-es-da-gloss",
+  "[ES-DA] Wiktionary (gloss)",
+  "wty-es-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "061959d736551eeb1d962896cc4399c78bd74f69c4e596d68db202b6c9204804",
+    42407
+  ]
+  ],
+  [
+  "wty-es-de-gloss",
+  "[ES-DE] Wiktionary (gloss)",
+  "wty-es-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "216fc9f55735d72cf9cccf76c1b2603308eeb8199fe43ed2d8de5f393067188d",
+    190712
+  ]
+  ],
+  [
+  "wty-es-de-ipa",
+  "[ES-DE] Wiktionary (IPA)",
+  "wty-es-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "955bbe62e98a94c351af6fe6680f14217020804a43e5661b0a4f6ec417ab7856",
+    79358
+  ]
+  ],
+  [
+  "wty-es-de",
+  "[ES-DE] Wiktionary (terms)",
+  "wty-es-de",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2631311e97a31623b5964f02990e93dce0d41664bb47e8392058401fa52e14cf",
+    278349
+  ]
+  ],
+  [
+  "wty-es-el-gloss",
+  "[ES-EL] Wiktionary (gloss)",
+  "wty-es-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3495469832cd86a1aa470d15f319669b9df13d11e8901be0971e5ef449d5796f",
+    49523
+  ]
+  ],
+  [
+  "wty-es-el-ipa",
+  "[ES-EL] Wiktionary (IPA)",
+  "wty-es-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b40efd545c1446987af7334a2b5f839d234be650154c7dd5ef2b32acac26ea4",
+    14728
+  ]
+  ],
+  [
+  "wty-es-el",
+  "[ES-EL] Wiktionary (terms)",
+  "wty-es-el",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "931724df4d673b35a0aa27dfb3a50b217491b2d6f9ef4f74ed40f4fabdf10b26",
+    174259
+  ]
+  ],
+  [
+  "wty-es-en-gloss",
+  "[ES-EN] Wiktionary (gloss)",
+  "wty-es-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "98d579080c04b14e83d180456a4cbf16dd87620e7fa3227ade98a117b14934cf",
+    322683
+  ]
+  ],
+  [
+  "wty-es-fa-gloss",
+  "[ES-FA] Wiktionary (gloss)",
+  "wty-es-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7bbf14759b504138ac53c4998e94c26a005e1a47aeb545569b6bcdcae8a3d241",
+    20684
+  ]
+  ],
+  [
+  "wty-es-fi-gloss",
+  "[ES-FI] Wiktionary (gloss)",
+  "wty-es-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "56b1ef3d9e2ea49f4d3d6e71d08becef54e48da467786f23cba50abda4079d57",
+    51942
+  ]
+  ],
+  [
+  "wty-es-fr-gloss",
+  "[ES-FR] Wiktionary (gloss)",
+  "wty-es-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d61382aef84889e9b4d40ccadb3fed919ec16acd068f1a7f7eb47b0913f7dafa",
+    226612
+  ]
+  ],
+  [
+  "wty-es-fr-ipa",
+  "[ES-FR] Wiktionary (IPA)",
+  "wty-es-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "27206b4204aa995849469a04283a4e64be85bdeace2f89f2fed874271699bbe0",
+    3850795
+  ]
+  ],
+  [
+  "wty-es-fr",
+  "[ES-FR] Wiktionary (terms)",
+  "wty-es-fr",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "35e351b8b3948642563933d69822ed7cdb91b7d9bd3be6add0d87e7c749e7ff5",
+    6416780
+  ]
+  ],
+  [
+  "wty-es-grc-gloss",
+  "[ES-GRC] Wiktionary (gloss)",
+  "wty-es-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "644d001c873468afa99e7629ab9dd473611b8529bd0e48a8c18fa8d519fa80b1",
+    9900
+  ]
+  ],
+  [
+  "wty-es-hu-gloss",
+  "[ES-HU] Wiktionary (gloss)",
+  "wty-es-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "93d43b84cedd3e0102cd59095e35e7efd75900630bea48ce7c4fee306a52f610",
+    41406
+  ]
+  ],
+  [
+  "wty-es-id-gloss",
+  "[ES-ID] Wiktionary (gloss)",
+  "wty-es-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "612fd6aeb571c08f612d5f5603a6988929296288c5ab6d789894388b24e1defb",
+    21146
+  ]
+  ],
+  [
+  "wty-es-id",
+  "[ES-ID] Wiktionary (terms)",
+  "wty-es-id",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "831bbecd1c14cfab62f82f2c40704f0f43e7a530b2a00b5ca7664d70cffb39b4",
+    7401
+  ]
+  ],
+  [
+  "wty-es-it-gloss",
+  "[ES-IT] Wiktionary (gloss)",
+  "wty-es-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9661c6397a2bf676e1fe26e5597aa5c1c0b66d4b17572a8a6736ae22d514c41e",
+    138909
+  ]
+  ],
+  [
+  "wty-es-it-ipa",
+  "[ES-IT] Wiktionary (IPA)",
+  "wty-es-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "92b574026de45c8d0a3d699e54e920db8a66d5d492404d1cc6975f53e677d209",
+    28866
+  ]
+  ],
+  [
+  "wty-es-it",
+  "[ES-IT] Wiktionary (terms)",
+  "wty-es-it",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7aad2f281a2ecede49897c735908cad7a82b454250bcaf10ff79ab08e80611b7",
+    209473
+  ]
+  ],
+  [
+  "wty-es-km-gloss",
+  "[ES-KM] Wiktionary (gloss)",
+  "wty-es-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb288a92deee2293f2de701c070d555b3da629bc2139f0e18158d2a9869daa1e",
+    8521
+  ]
+  ],
+  [
+  "wty-es-ko-gloss",
+  "[ES-KO] Wiktionary (gloss)",
+  "wty-es-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cb093d66049041501ed2e99a828b128231a738c4fbcf98836f3ab964a8a0a476",
+    27916
+  ]
+  ],
+  [
+  "wty-es-ko-ipa",
+  "[ES-KO] Wiktionary (IPA)",
+  "wty-es-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5de3094bd9e58da3cee922f29fd7c2b5933191e7e8279539093c81bcdfca6d07",
+    18506
+  ]
+  ],
+  [
+  "wty-es-ko",
+  "[ES-KO] Wiktionary (terms)",
+  "wty-es-ko",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "45721f46d19e845cf0fcc7f9bd379747b29d864be817f07d41a53cf119a98702",
+    251431
+  ]
+  ],
+  [
+  "wty-es-la-gloss",
+  "[ES-LA] Wiktionary (gloss)",
+  "wty-es-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "158c2b2559a3a067b73a6dc7ec584d385ab82559bc7801a0079cd78e5deb0846",
+    27843
+  ]
+  ],
+  [
+  "wty-es-lo-gloss",
+  "[ES-LO] Wiktionary (gloss)",
+  "wty-es-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c58dc7ebaaf147b1cc2fbdbb7c77479c77b7a6770bb420ef2dd38ce4ce9a018e",
+    8159
+  ]
+  ],
+  [
+  "wty-es-mn-gloss",
+  "[ES-MN] Wiktionary (gloss)",
+  "wty-es-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84963c5331d449909a6c3f9cd3850b245ad5424479afffdf7cbe4dfa9191fd74",
+    16945
+  ]
+  ],
+  [
+  "wty-es-nl-gloss",
+  "[ES-NL] Wiktionary (gloss)",
+  "wty-es-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "979dff1d13b3d6b66877f6d2edba1bd1b1b9183f2eacfa3048280587c9f6d9ec",
+    112341
+  ]
+  ],
+  [
+  "wty-es-nl-ipa",
+  "[ES-NL] Wiktionary (IPA)",
+  "wty-es-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3ee9a74ca59fc2903408237d12ba2819c4bc87fd6e6c21027cd8614824776166",
+    27964
+  ]
+  ],
+  [
+  "wty-es-nl",
+  "[ES-NL] Wiktionary (terms)",
+  "wty-es-nl",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b7ea698d5a7d16355a3f53e9552911af7e8e87740d69975663861cc448ca4998",
+    2714917
+  ]
+  ],
+  [
+  "wty-es-pl-gloss",
+  "[ES-PL] Wiktionary (gloss)",
+  "wty-es-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a0a7fcbb26577db114242f59a6a727b78b3564865407a9683ef95430cc1c405f",
+    80437
+  ]
+  ],
+  [
+  "wty-es-pl-ipa",
+  "[ES-PL] Wiktionary (IPA)",
+  "wty-es-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "14bac4c23a3ac9c27e527930517c6586427bd7d78dfad4d2da0290cc7a5a5847",
+    324877
+  ]
+  ],
+  [
+  "wty-es-pl",
+  "[ES-PL] Wiktionary (terms)",
+  "wty-es-pl",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e7fa2a9a143cc28979ccee5d22dabca9c2d509e7f466256d950ff0a657d2b46",
+    1975405
+  ]
+  ],
+  [
+  "wty-es-pt-gloss",
+  "[ES-PT] Wiktionary (gloss)",
+  "wty-es-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "329c61d09627afcbb4e2c6bdca7c357bb4253fee151ea650c82787c0fe7f6a81",
+    127261
+  ]
+  ],
+  [
+  "wty-es-pt-ipa",
+  "[ES-PT] Wiktionary (IPA)",
+  "wty-es-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5e1c5369d4a6de1bbefd5bd75a0d1f8e71db4b516e3279cb977699a8b094d723",
+    38300
+  ]
+  ],
+  [
+  "wty-es-pt",
+  "[ES-PT] Wiktionary (terms)",
+  "wty-es-pt",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "58a88ce859d88dfe45877ce07016b1af144c8d260d3a1e59e3b1db166203fb72",
+    397269
+  ]
+  ],
+  [
+  "wty-es-ro-gloss",
+  "[ES-RO] Wiktionary (gloss)",
+  "wty-es-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4992f15c206099e7d432257575c097728ab4fc98c69a46753dbdabe5b7a5d797",
+    39709
+  ]
+  ],
+  [
+  "wty-es-ru-gloss",
+  "[ES-RU] Wiktionary (gloss)",
+  "wty-es-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e6fd4496c30e75372da52e856a50ca3cbafd4375755baa26d172994b65d24f49",
+    69334
+  ]
+  ],
+  [
+  "wty-es-ru-ipa",
+  "[ES-RU] Wiktionary (IPA)",
+  "wty-es-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2b78b70e1d151017e2840469397bb02507ecf3ba1851d5eb03ff5991d4b161f6",
+    54730
+  ]
+  ],
+  [
+  "wty-es-ru",
+  "[ES-RU] Wiktionary (terms)",
+  "wty-es-ru",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5ee5cc5de1727b74558d945cb157100c3fbd766a58578085b457ee726b8d7093",
+    1024798
+  ]
+  ],
+  [
+  "wty-es-sh-gloss",
+  "[ES-SH] Wiktionary (gloss)",
+  "wty-es-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c155be9c40b8603b32d021593a523751ca0daa8b9d890c2fa77ad183a137000d",
+    36423
+  ]
+  ],
+  [
+  "wty-es-sq-gloss",
+  "[ES-SQ] Wiktionary (gloss)",
+  "wty-es-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc017de9b3efb79525ceb95516699a7b1b68853ea5f40e5a62118dc0c2582fc7",
+    18469
+  ]
+  ],
+  [
+  "wty-es-sv-gloss",
+  "[ES-SV] Wiktionary (gloss)",
+  "wty-es-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "13894c9ab25068cac002f02e785d3c6f88d6e069290a88f367d5db59430c9433",
+    57829
+  ]
+  ],
+  [
+  "wty-es-th-gloss",
+  "[ES-TH] Wiktionary (gloss)",
+  "wty-es-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "77cff60b5d29e218d28346640663b1a9cdfe1098e3090ce41dfd813a445101e7",
+    18828
+  ]
+  ],
+  [
+  "wty-es-th-ipa",
+  "[ES-TH] Wiktionary (IPA)",
+  "wty-es-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c62cdfcf5b332dbbfef49f0869ad5240a2c0f4b3417b3c12fbf8ca31bb376318",
+    13478
+  ]
+  ],
+  [
+  "wty-es-th",
+  "[ES-TH] Wiktionary (terms)",
+  "wty-es-th",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8260e6967d1f3d5eb364feb8c422b84baf62bb0c1ba6f1886a7316f0a3e6b6ee",
+    3375959
+  ]
+  ],
+  [
+  "wty-es-tl-gloss",
+  "[ES-TL] Wiktionary (gloss)",
+  "wty-es-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9aa1f544c8674f6cd81268a6411039d2d27d885d65d86d9af5b357f4ba6943af",
+    15773
+  ]
+  ],
+  [
+  "wty-es-tr-gloss",
+  "[ES-TR] Wiktionary (gloss)",
+  "wty-es-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8660561e6e9f9a406b8e23f99fd54a1ff8f3e431ce10bbcae954ec3832b38e88",
+    32515
+  ]
+  ],
+  [
+  "wty-es-tr-ipa",
+  "[ES-TR] Wiktionary (IPA)",
+  "wty-es-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c0944e7bf8cbe47acec9027764017f6c7fb32b1d2f3374f65e532d7136e5946",
+    9101
+  ]
+  ],
+  [
+  "wty-es-tr",
+  "[ES-TR] Wiktionary (terms)",
+  "wty-es-tr",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b3cb6c2b4bbfe7c7e493c6c93d353833e044bdfe35dea9677073f1d9a11b7262",
+    161085
+  ]
+  ],
+  [
+  "wty-es-vi-gloss",
+  "[ES-VI] Wiktionary (gloss)",
+  "wty-es-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7dce1f06f56ba3dbeabb6821441abded2006ecc72d547da69e2b31cb207bf476",
+    20011
+  ]
+  ],
+  [
+  "wty-es-vi-ipa",
+  "[ES-VI] Wiktionary (IPA)",
+  "wty-es-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "986d41b216994e7c62295c7166227094eb8d920fd0a3fb5a1dfb4e1125e40492",
+    8698
+  ]
+  ],
+  [
+  "wty-es-vi",
+  "[ES-VI] Wiktionary (terms)",
+  "wty-es-vi",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d3e067a415600a6923ce3b79cf913c1bec4519fac82099005473519aa5c6005a",
+    105581
+  ]
+  ],
+  [
+  "wty-es-yue-gloss",
+  "[ES-YUE] Wiktionary (gloss)",
+  "wty-es-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "60e2aaed00223a4e98e0248a2336c9e7d2f53daf9ef3ad76d463f5da16eb5970",
+    9165
+  ]
+  ],
+  [
+  "wty-es-zh-gloss",
+  "[ES-ZH] Wiktionary (gloss)",
+  "wty-es-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4d41e3de18e7762cbd4b421ad4926f7d1c7308866001b7f2518b274ec3d42586",
+    32674
+  ]
+  ],
+  [
+  "wty-es-zh-ipa",
+  "[ES-ZH] Wiktionary (IPA)",
+  "wty-es-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "es"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b311a61efce4d61e8c99812b3a84d1bdb39af1298144eaa0e606a047c6c8dd5e",
+    482644
+  ]
+  ],
+  [
+  "wty-es-zh",
+  "[ES-ZH] Wiktionary (terms)",
+  "wty-es-zh",
+  [
+    "terms"
+  ],
+  [
+    "es"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "999bb97dd96b01eee364c1c7cf9a164bb0aa25c7d5d851af91a05b4f9b77a26b",
+    3273338
+  ]
+  ],
+  [
+  "wty-fa-de-ipa",
+  "[FA-DE] Wiktionary (IPA)",
+  "wty-fa-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "97b6c1d97af71169a66cf469f44e6560ee884098ca599039e6c31ac8589d15a2",
+    9579
+  ]
+  ],
+  [
+  "wty-fa-de",
+  "[FA-DE] Wiktionary (terms)",
+  "wty-fa-de",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4a57fe1c336b15d47486263963b1b3a3ad29fdbe185bcf98a755a42d8c02aefa",
+    25233
+  ]
+  ],
+  [
+  "wty-fa-el-ipa",
+  "[FA-EL] Wiktionary (IPA)",
+  "wty-fa-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4117a84a841c5bcdd48ee0da1e9ee206397e3010cf5d733ba9a6acb14e511922",
+    7405
+  ]
+  ],
+  [
+  "wty-fa-el",
+  "[FA-EL] Wiktionary (terms)",
+  "wty-fa-el",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "686084c6ccee6066edc7b9bd00d071ee323bf60b3e76c8f74d550ee5b48d0f6e",
+    20083
+  ]
+  ],
+  [
+  "wty-fa-en-ipa",
+  "[FA-EN] Wiktionary (IPA)",
+  "wty-fa-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3ee8968a7564cf62816b2b4ef507e90cd56f071d927c1593da8fe780328e4647",
+    636618
+  ]
+  ],
+  [
+  "wty-fa-en",
+  "[FA-EN] Wiktionary (terms)",
+  "wty-fa-en",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d61abdf49b810b35e892229d306e057e797c846919efe57d77434bacf817e35e",
+    3222212
+  ]
+  ],
+  [
+  "wty-fa-es-ipa",
+  "[FA-ES] Wiktionary (IPA)",
+  "wty-fa-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "818e2ec897927aa45d4d6d1602d95643be6c3b4d2ce181d76788b9358a15cf63",
+    7581
+  ]
+  ],
+  [
+  "wty-fa-es",
+  "[FA-ES] Wiktionary (terms)",
+  "wty-fa-es",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cb2f58b55b903c737e5abddb45de06d7c250096a2e5d4ffcd47e73d2f0fca947",
+    12794
+  ]
+  ],
+  [
+  "wty-fa-fr-ipa",
+  "[FA-FR] Wiktionary (IPA)",
+  "wty-fa-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9937a2e29782a301da64367d81bcac0a4717ae800b80b923b35c0f84831d4472",
+    11340
+  ]
+  ],
+  [
+  "wty-fa-fr",
+  "[FA-FR] Wiktionary (terms)",
+  "wty-fa-fr",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "89b4a12fe5cb2c5d99813e396c5dcee36df35d79ad8d46bbe076261321fca20b",
+    122481
+  ]
+  ],
+  [
+  "wty-fa-id",
+  "[FA-ID] Wiktionary (terms)",
+  "wty-fa-id",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e99ed5993c38e9323281e6c03e3977deef0d9d672cd53022bb5ae3d5cb450a3",
+    6654
+  ]
+  ],
+  [
+  "wty-fa-it-ipa",
+  "[FA-IT] Wiktionary (IPA)",
+  "wty-fa-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3ff71087d4410004f82a2e47f85cfcc15597c56d877dc1be53be68943081ee32",
+    6926
+  ]
+  ],
+  [
+  "wty-fa-it",
+  "[FA-IT] Wiktionary (terms)",
+  "wty-fa-it",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1663d738045650f68fa0506b34af8bd744a63327e3b31628d559adcc17785d18",
+    13836
+  ]
+  ],
+  [
+  "wty-fa-ko-ipa",
+  "[FA-KO] Wiktionary (IPA)",
+  "wty-fa-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6cb675d901e1ba4e1b7f7b5d11796bc422ecb3fc772a6b0114d9785d6d638d53",
+    19228
+  ]
+  ],
+  [
+  "wty-fa-ko",
+  "[FA-KO] Wiktionary (terms)",
+  "wty-fa-ko",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46f05d2a380613d80e8f8ee5918c749691402acfa5e3f8931078ccb415aa0867",
+    59315
+  ]
+  ],
+  [
+  "wty-fa-nl-ipa",
+  "[FA-NL] Wiktionary (IPA)",
+  "wty-fa-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "95b44e6bb0698593ee28aa06df419d9d2602cad1fe3abb367df943c00d15b004",
+    6990
+  ]
+  ],
+  [
+  "wty-fa-nl",
+  "[FA-NL] Wiktionary (terms)",
+  "wty-fa-nl",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2c5deea238ef43c410ec16fd3fe1b89234543434696325db2a36a1954ca8580d",
+    35219
+  ]
+  ],
+  [
+  "wty-fa-pl-ipa",
+  "[FA-PL] Wiktionary (IPA)",
+  "wty-fa-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d33f8e403321c1ffafb2715c1e33eeefc6b7ebab0eb2b47a0a6f6ae080897f24",
+    10891
+  ]
+  ],
+  [
+  "wty-fa-pl",
+  "[FA-PL] Wiktionary (terms)",
+  "wty-fa-pl",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e81b397cfb2fc76591efdb3df750cd9a38fcd835043c43ce4794779c7646305e",
+    107895
+  ]
+  ],
+  [
+  "wty-fa-pt-ipa",
+  "[FA-PT] Wiktionary (IPA)",
+  "wty-fa-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e39bdbf48426537dec651be7659278235e42c2d1900f8cd4b5328d32da6146d",
+    8664
+  ]
+  ],
+  [
+  "wty-fa-pt",
+  "[FA-PT] Wiktionary (terms)",
+  "wty-fa-pt",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9f4d5fd8581ecbeea3ba45f5b1e6c8329a0fc377975d54bf6b30bd6f572a6c8e",
+    38256
+  ]
+  ],
+  [
+  "wty-fa-ru-ipa",
+  "[FA-RU] Wiktionary (IPA)",
+  "wty-fa-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7e0a93360507dd4a152cb8d8071abfe64a07b6ca9ae301f016d873841bd683d7",
+    17400
+  ]
+  ],
+  [
+  "wty-fa-ru",
+  "[FA-RU] Wiktionary (terms)",
+  "wty-fa-ru",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d021397377d7898428ea624af60f0d61dec81724578b7b99247f0945cc23015c",
+    337982
+  ]
+  ],
+  [
+  "wty-fa-th-ipa",
+  "[FA-TH] Wiktionary (IPA)",
+  "wty-fa-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9077c9f2e44f9751fa6620db8a50f73392cafca6ee5cb991b8da61d6765b5964",
+    8341
+  ]
+  ],
+  [
+  "wty-fa-th",
+  "[FA-TH] Wiktionary (terms)",
+  "wty-fa-th",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2be18529bcbb569c6016d7ed7b92979d31707c1e6305a9717280e56f2c807dd6",
+    13848
+  ]
+  ],
+  [
+  "wty-fa-tr-ipa",
+  "[FA-TR] Wiktionary (IPA)",
+  "wty-fa-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "925c1dcc9a9b62a5d7d0c5b0c86f6f7a1cd82c80828b351f405d56b424363d74",
+    14535
+  ]
+  ],
+  [
+  "wty-fa-tr",
+  "[FA-TR] Wiktionary (terms)",
+  "wty-fa-tr",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "200765add673d29ef93b4e9ad08e2ba9b49508cb2eaee11fff95611ff2a99ba0",
+    56188
+  ]
+  ],
+  [
+  "wty-fa-vi-ipa",
+  "[FA-VI] Wiktionary (IPA)",
+  "wty-fa-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "332c2b911d4e400b2cc1fd41a1c7b86af986275560e483600643a6e89b7b34ec",
+    9805
+  ]
+  ],
+  [
+  "wty-fa-vi",
+  "[FA-VI] Wiktionary (terms)",
+  "wty-fa-vi",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "04282814568a6c4d33275517f3a01356fb83960d91e7f4422f1995ebb2417164",
+    16226
+  ]
+  ],
+  [
+  "wty-fa-zh-ipa",
+  "[FA-ZH] Wiktionary (IPA)",
+  "wty-fa-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1112b2de21b5acf7879f95d09f5ab9d823af124da8f5655bfa2b1408da68a5bf",
+    13546
+  ]
+  ],
+  [
+  "wty-fa-zh",
+  "[FA-ZH] Wiktionary (terms)",
+  "wty-fa-zh",
+  [
+    "terms"
+  ],
+  [
+    "fa"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9d7d45e60fb0c401e7b11a59d9d593a74f151b800d9447720d9d50ae040e152b",
+    242619
+  ]
+  ],
+  [
+  "wty-fi-de-ipa",
+  "[FI-DE] Wiktionary (IPA)",
+  "wty-fi-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af61ac4bec7aace5608efe58fe35c6b76319b67deac57a59d95f6814d8303d8a",
+    36971
+  ]
+  ],
+  [
+  "wty-fi-de",
+  "[FI-DE] Wiktionary (terms)",
+  "wty-fi-de",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6d6b1e63bb96bec61d81ae6cda098dfa25d9efe28c227d2eb84112f10c9e0dfe",
+    168714
+  ]
+  ],
+  [
+  "wty-fi-el-ipa",
+  "[FI-EL] Wiktionary (IPA)",
+  "wty-fi-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ed20fd099254d1388fec442b10dfd638dad3ee2dc3be56765404457c05e661c5",
+    9333
+  ]
+  ],
+  [
+  "wty-fi-el",
+  "[FI-EL] Wiktionary (terms)",
+  "wty-fi-el",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "72d5d4601bab10288eeb01da9c1c4435f5b17f2580a4028ccf44e2bcdfb8f2b3",
+    1106925
+  ]
+  ],
+  [
+  "wty-fi-en-ipa",
+  "[FI-EN] Wiktionary (IPA)",
+  "wty-fi-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "43cacfe14653e32138b9a2b3f86e8f7af38e47ae342d12885f6ebbc661ad8271",
+    4253753
+  ]
+  ],
+  [
+  "wty-fi-en",
+  "[FI-EN] Wiktionary (terms)",
+  "wty-fi-en",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d47e10b78a02fd31eeff0176ea6d17bc78d94cc9f3b0572a170d48881a0b8765",
+    118145164
+  ]
+  ],
+  [
+  "wty-fi-es-ipa",
+  "[FI-ES] Wiktionary (IPA)",
+  "wty-fi-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6327b97fd07c6338f1be5022cbd67702434b730cb6aa78d4a33b595079a0118f",
+    19961
+  ]
+  ],
+  [
+  "wty-fi-es",
+  "[FI-ES] Wiktionary (terms)",
+  "wty-fi-es",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "237edbc2293c0bf31cbfb0294a87e8f5927c66e1c6c3af03f18eb848f011f50c",
+    47478
+  ]
+  ],
+  [
+  "wty-fi-fr-ipa",
+  "[FI-FR] Wiktionary (IPA)",
+  "wty-fi-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dacf91c284cd19d501847ff82d0fc0b20e6e750882c74d22807a06174e67466a",
+    2048033
+  ]
+  ],
+  [
+  "wty-fi-fr",
+  "[FI-FR] Wiktionary (terms)",
+  "wty-fi-fr",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ba45f897092e239cca1070b5a087f3c248dd5ef4c5302607ee979c1ebbab22c6",
+    3265244
+  ]
+  ],
+  [
+  "wty-fi-it-ipa",
+  "[FI-IT] Wiktionary (IPA)",
+  "wty-fi-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d4ceb19756d662b90450b091e62657d47bc7c06cee6956692497d308031c8bc8",
+    7861
+  ]
+  ],
+  [
+  "wty-fi-it",
+  "[FI-IT] Wiktionary (terms)",
+  "wty-fi-it",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3d7e885adb2cb7062029e5e12d8f72b9dee3b4be2d3a8c43b3c0da3a4cacaac",
+    61967
+  ]
+  ],
+  [
+  "wty-fi-ko-ipa",
+  "[FI-KO] Wiktionary (IPA)",
+  "wty-fi-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "07652aee3d5811a20527484b3eb8520e433c35299523dd7fffaede1a85670a10",
+    12297
+  ]
+  ],
+  [
+  "wty-fi-ko",
+  "[FI-KO] Wiktionary (terms)",
+  "wty-fi-ko",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4898e0356cff742eb87321f1fbe2cccdef10c95dc40947ec6e39b28fe863f300",
+    85514
+  ]
+  ],
+  [
+  "wty-fi-nl-ipa",
+  "[FI-NL] Wiktionary (IPA)",
+  "wty-fi-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c64483b7af73685e91a912d1494f3844c0a7cffc540bc5a897753005a3a3031",
+    8785
+  ]
+  ],
+  [
+  "wty-fi-nl",
+  "[FI-NL] Wiktionary (terms)",
+  "wty-fi-nl",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "56e65a45d165ab211ba493011c4144175ea12f30e61f2821cd3f28369c066332",
+    39617
+  ]
+  ],
+  [
+  "wty-fi-pl-ipa",
+  "[FI-PL] Wiktionary (IPA)",
+  "wty-fi-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "15503b4f136e613e92e990b938e8c210a7c632bab51ff46162e132cd5c11934b",
+    37990
+  ]
+  ],
+  [
+  "wty-fi-pl",
+  "[FI-PL] Wiktionary (terms)",
+  "wty-fi-pl",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c413a2bfbb2eccc7fb3acedacb425867a81cbf148ec0cd18b6848b5c4007fa04",
+    333146
+  ]
+  ],
+  [
+  "wty-fi-pt-ipa",
+  "[FI-PT] Wiktionary (IPA)",
+  "wty-fi-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a5a869cf88df2db27feb59fc222360f917cd99afed60e6e1628ec7254fcc871e",
+    12323
+  ]
+  ],
+  [
+  "wty-fi-pt",
+  "[FI-PT] Wiktionary (terms)",
+  "wty-fi-pt",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "915f4346c80d941f55c9d1cdea593475ef0661be1315abcb8af2f3584fc98571",
+    89790
+  ]
+  ],
+  [
+  "wty-fi-ru-ipa",
+  "[FI-RU] Wiktionary (IPA)",
+  "wty-fi-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "69d20ed55c1a5c1ecd11e011fdbc0e70662bebf647c5d4cf5149d130b20e96a8",
+    27185
+  ]
+  ],
+  [
+  "wty-fi-ru",
+  "[FI-RU] Wiktionary (terms)",
+  "wty-fi-ru",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f4e8bd2a61b24fbca9f5af25a8ad1960df97e5fba73087b44b9d95163000663c",
+    939886
+  ]
+  ],
+  [
+  "wty-fi-th-ipa",
+  "[FI-TH] Wiktionary (IPA)",
+  "wty-fi-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ebd63c1ca2c0e40eb98ef968281c98d4fba2872d49425571ce448d2dd115de9",
+    8795
+  ]
+  ],
+  [
+  "wty-fi-th",
+  "[FI-TH] Wiktionary (terms)",
+  "wty-fi-th",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3087348035af3ba08b9c8af3605b8a333f5776df070a2f6984cbae844c95af07",
+    476774
+  ]
+  ],
+  [
+  "wty-fi-tr-ipa",
+  "[FI-TR] Wiktionary (IPA)",
+  "wty-fi-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4e0e181c9dfa451b34d772f709adaa9ec13e477eb6c71ac312cbcbfa57f832df",
+    9844
+  ]
+  ],
+  [
+  "wty-fi-tr",
+  "[FI-TR] Wiktionary (terms)",
+  "wty-fi-tr",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "464f786d8ecbee1fbe4a0efee3388403a30f13451dd2c81e50faad9701420271",
+    527908
+  ]
+  ],
+  [
+  "wty-fi-vi-ipa",
+  "[FI-VI] Wiktionary (IPA)",
+  "wty-fi-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ad97d45b62ab83815996e3441694e6a52018bada9867ea55f40a65b23a065b63",
+    6863
+  ]
+  ],
+  [
+  "wty-fi-vi",
+  "[FI-VI] Wiktionary (terms)",
+  "wty-fi-vi",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0e6aaddcf9462e1b0fbe39eb90a0f719faf56172c92c88d51a859dcb16e58bea",
+    42090
+  ]
+  ],
+  [
+  "wty-fi-zh-ipa",
+  "[FI-ZH] Wiktionary (IPA)",
+  "wty-fi-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b9c0710895f660d98071db9b3f99188b9554e92ab06792313216f9f9b94521f4",
+    7791
+  ]
+  ],
+  [
+  "wty-fi-zh",
+  "[FI-ZH] Wiktionary (terms)",
+  "wty-fi-zh",
+  [
+    "terms"
+  ],
+  [
+    "fi"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0b2c1f7bcf643cdc52191c477cb3b943dfed50f6e00c7500d4207824017d7c05",
+    723113
+  ]
+  ],
+  [
+  "wty-fr-ar-gloss",
+  "[FR-AR] Wiktionary (gloss)",
+  "wty-fr-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c551a60a53681603d47b4e0f120bea45b147d8a1d7a588db1f4f86a1f691d0e4",
+    454625
+  ]
+  ],
+  [
+  "wty-fr-da-gloss",
+  "[FR-DA] Wiktionary (gloss)",
+  "wty-fr-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6809ba659acfe379fb6b3e32edd548bd5564b1f6ec0359f95458d6ad1f17754c",
+    307932
+  ]
+  ],
+  [
+  "wty-fr-de-gloss",
+  "[FR-DE] Wiktionary (gloss)",
+  "wty-fr-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4fcba35d107303fdbb0bd1e82304869c9b8c6f79a40f105f38c5854c7f587073",
+    1325309
+  ]
+  ],
+  [
+  "wty-fr-de-ipa",
+  "[FR-DE] Wiktionary (IPA)",
+  "wty-fr-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84030d8eb3d5642027e7d3183bf0cf8818ad35a70497639fe58d6dabbdf097de",
+    188622
+  ]
+  ],
+  [
+  "wty-fr-de",
+  "[FR-DE] Wiktionary (terms)",
+  "wty-fr-de",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0e5210d6dbcccf9266972bc8e1501948cf5880152c7124533373b5195551cb54",
+    904671
+  ]
+  ],
+  [
+  "wty-fr-el-gloss",
+  "[FR-EL] Wiktionary (gloss)",
+  "wty-fr-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "72a0d7a5ba51df7a42cfa5f80857e6e6c8af39b653f693093d92b50603d4a27a",
+    346904
+  ]
+  ],
+  [
+  "wty-fr-el-ipa",
+  "[FR-EL] Wiktionary (IPA)",
+  "wty-fr-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0c88d9e8314205c0bfd087d105c523e3b4dc7f7786594f012a125d64e53d1078",
+    141305
+  ]
+  ],
+  [
+  "wty-fr-el",
+  "[FR-EL] Wiktionary (terms)",
+  "wty-fr-el",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d7ab7109f0c68c2923532f0267c87a05b62b5caf79ca75345928ff7e9e7efc2",
+    2712744
+  ]
+  ],
+  [
+  "wty-fr-en-gloss",
+  "[FR-EN] Wiktionary (gloss)",
+  "wty-fr-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d962658da02c6f79879c833482efbdf5b83a034056c846d78edc3ddbb5a01f4e",
+    2595781
+  ]
+  ],
+  [
+  "wty-fr-es-gloss",
+  "[FR-ES] Wiktionary (gloss)",
+  "wty-fr-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "83555bcec500c8ea31e16b6fe39896a95d8e43e00923c7bdaa699cd4cd07d478",
+    1139155
+  ]
+  ],
+  [
+  "wty-fr-es-ipa",
+  "[FR-ES] Wiktionary (IPA)",
+  "wty-fr-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cc0f303eb9b3ceb878145067c6010f17bd213aa22990b19102bea25594de11f7",
+    128908
+  ]
+  ],
+  [
+  "wty-fr-es",
+  "[FR-ES] Wiktionary (terms)",
+  "wty-fr-es",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc3783da6af2fa0caf8ad0b546726af72a3721f97482842b503b856b1b42b9ea",
+    484249
+  ]
+  ],
+  [
+  "wty-fr-fa-gloss",
+  "[FR-FA] Wiktionary (gloss)",
+  "wty-fr-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5f484e9755e9ec54f7bc77e16d9079604b341c1edfbf9220b9694ed370010923",
+    131143
+  ]
+  ],
+  [
+  "wty-fr-fi-gloss",
+  "[FR-FI] Wiktionary (gloss)",
+  "wty-fr-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "70f604792b2b47cc97be95b0b06a2966587c8482607a2400a2f199c04b8feeb6",
+    428240
+  ]
+  ],
+  [
+  "wty-fr-grc-gloss",
+  "[FR-GRC] Wiktionary (gloss)",
+  "wty-fr-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4eec856d21f03982f9559af0c61de3b01131521c37770be2d456f39720a2cff",
+    95709
+  ]
+  ],
+  [
+  "wty-fr-hu-gloss",
+  "[FR-HU] Wiktionary (gloss)",
+  "wty-fr-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0c79f79f59670e741dbc64f7f5b83c5d58e35b55eaacbc183ec71347e7ce007d",
+    219601
+  ]
+  ],
+  [
+  "wty-fr-id-gloss",
+  "[FR-ID] Wiktionary (gloss)",
+  "wty-fr-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3d69e1036db4befa6a9c2e4a2f6316c2add33a90d725a4a6056df583fbf32895",
+    173319
+  ]
+  ],
+  [
+  "wty-fr-id-ipa",
+  "[FR-ID] Wiktionary (IPA)",
+  "wty-fr-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e608ac884739e2413c1bb90b4387d8ba053bfa48f16ef444be6efb20a0155500",
+    6832
+  ]
+  ],
+  [
+  "wty-fr-id",
+  "[FR-ID] Wiktionary (terms)",
+  "wty-fr-id",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf88b7805c68b8f9f29ccfeb991ecbcc454524a95b8eda3182c09ec5eb4c27c2",
+    10329
+  ]
+  ],
+  [
+  "wty-fr-it-gloss",
+  "[FR-IT] Wiktionary (gloss)",
+  "wty-fr-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a2dc06b8fc5283ea5a87e502b7de28e2a67b1b7e89ff6d30151ffad6a90a1f75",
+    1362799
+  ]
+  ],
+  [
+  "wty-fr-it-ipa",
+  "[FR-IT] Wiktionary (IPA)",
+  "wty-fr-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a586a34aa3e913aee069a795b16c3a754fc7fff6de17b9488b3b356ddcd6135e",
+    187713
+  ]
+  ],
+  [
+  "wty-fr-it",
+  "[FR-IT] Wiktionary (terms)",
+  "wty-fr-it",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aab9756e2a438aec00810ee51e752e76daf496545777c40bad7a54881535e2da",
+    554830
+  ]
+  ],
+  [
+  "wty-fr-km-gloss",
+  "[FR-KM] Wiktionary (gloss)",
+  "wty-fr-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "755644ceae7b647c66ef552ee52e61410d9562b09b61741f4c3b0ffdcf7827ba",
+    20007
+  ]
+  ],
+  [
+  "wty-fr-ko-gloss",
+  "[FR-KO] Wiktionary (gloss)",
+  "wty-fr-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e5c81d4532b2525172bcdb93ba0d1aebcb352ef145d46564dc202220ee905df",
+    199704
+  ]
+  ],
+  [
+  "wty-fr-ko-ipa",
+  "[FR-KO] Wiktionary (IPA)",
+  "wty-fr-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "334391ded4a749acdf2936a1e119206f8065eb7c219ef42d65d99cb778939f9b",
+    25312
+  ]
+  ],
+  [
+  "wty-fr-ko",
+  "[FR-KO] Wiktionary (terms)",
+  "wty-fr-ko",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f1f815c6a7ec7406993789ca76861a887f997aecd03c26f54bd7b009100bf7ba",
+    277612
+  ]
+  ],
+  [
+  "wty-fr-la-gloss",
+  "[FR-LA] Wiktionary (gloss)",
+  "wty-fr-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b3b6f1e1167d478a9af17104ba9396a68747d7a761f14761a760094d8089e31d",
+    172402
+  ]
+  ],
+  [
+  "wty-fr-lo-gloss",
+  "[FR-LO] Wiktionary (gloss)",
+  "wty-fr-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c0d82527a1b0c629381877e6af12aa84f6f034a680158d25468c78391fa2fe0",
+    16302
+  ]
+  ],
+  [
+  "wty-fr-mn-gloss",
+  "[FR-MN] Wiktionary (gloss)",
+  "wty-fr-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "608f52a469f388f5da97c10917142a7d74a51962661f763f0cba44437b1b6ff9",
+    31653
+  ]
+  ],
+  [
+  "wty-fr-nl-gloss",
+  "[FR-NL] Wiktionary (gloss)",
+  "wty-fr-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "607dfc1e47a147679afb77f7e3475ceae9e3c92eea8797a5350598d19bf64f22",
+    877651
+  ]
+  ],
+  [
+  "wty-fr-nl-ipa",
+  "[FR-NL] Wiktionary (IPA)",
+  "wty-fr-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0dc30a02afb71a1477ce49f98deead3736ca21ff0186f787847f589ab2597fc5",
+    223958
+  ]
+  ],
+  [
+  "wty-fr-nl",
+  "[FR-NL] Wiktionary (terms)",
+  "wty-fr-nl",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "13beae9d8ea40700bdab0ed63e4e38177f519ff50d7c97c12fffdc80a4e276ab",
+    1579433
+  ]
+  ],
+  [
+  "wty-fr-pl-gloss",
+  "[FR-PL] Wiktionary (gloss)",
+  "wty-fr-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a348c297e1d4018648f32284760c08b21447ae78aceaf098dafca4a0081f4a4",
+    501883
+  ]
+  ],
+  [
+  "wty-fr-pl-ipa",
+  "[FR-PL] Wiktionary (IPA)",
+  "wty-fr-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "391c47fa52d2787e4e6b953392c0574d9238c2f2c4788ead7f41792f77b586e3",
+    306435
+  ]
+  ],
+  [
+  "wty-fr-pl",
+  "[FR-PL] Wiktionary (terms)",
+  "wty-fr-pl",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e15ca13191d9086d854ea262025b3b54d72562116b8845f847597ff3fd2807e2",
+    1384858
+  ]
+  ],
+  [
+  "wty-fr-pt-gloss",
+  "[FR-PT] Wiktionary (gloss)",
+  "wty-fr-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "06c1d6c08c58c5e0c8be6e07119de92c3001a08ef5fc8179ddf13c7191b1003e",
+    672902
+  ]
+  ],
+  [
+  "wty-fr-pt-ipa",
+  "[FR-PT] Wiktionary (IPA)",
+  "wty-fr-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3d45bce65136677873cd6a38ffd6a7fdf1a9768bbcf8db51a294012af246385a",
+    38804
+  ]
+  ],
+  [
+  "wty-fr-pt",
+  "[FR-PT] Wiktionary (terms)",
+  "wty-fr-pt",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf4063e06b888cba5eb0a9a53f56db355188dd7f0e421b7f86fa9271151b3a75",
+    274437
+  ]
+  ],
+  [
+  "wty-fr-ro-gloss",
+  "[FR-RO] Wiktionary (gloss)",
+  "wty-fr-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a326ceb013242f38e187d7eeaf9f23e6f5cb72032b24f87a2e7835eb39e8b361",
+    288949
+  ]
+  ],
+  [
+  "wty-fr-ru-gloss",
+  "[FR-RU] Wiktionary (gloss)",
+  "wty-fr-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a99731dd4e004c4dbdb659eadd267c86505d77508aecc19328fa991ecc527bd",
+    657211
+  ]
+  ],
+  [
+  "wty-fr-ru-ipa",
+  "[FR-RU] Wiktionary (IPA)",
+  "wty-fr-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dd6ba18e7735b3838aab59997b56d00a245fc57c578cfec9866f42092419c4cb",
+    114847
+  ]
+  ],
+  [
+  "wty-fr-ru",
+  "[FR-RU] Wiktionary (terms)",
+  "wty-fr-ru",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cb633d7ec239db9f914184946337cf686da7a104ec04e7cdde4f3e2c82f82250",
+    1685184
+  ]
+  ],
+  [
+  "wty-fr-sh-gloss",
+  "[FR-SH] Wiktionary (gloss)",
+  "wty-fr-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ae2e0849cfb2fbf0c331b917e2da3ecee6da4ffebf44f5ff1c41931c1ba3f0dc",
+    45871
+  ]
+  ],
+  [
+  "wty-fr-sq-gloss",
+  "[FR-SQ] Wiktionary (gloss)",
+  "wty-fr-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a1c2bfc2476c8e3aebc035d51866e55eb708177d9d3f2ee66addeba2e32f5e41",
+    70472
+  ]
+  ],
+  [
+  "wty-fr-sv-gloss",
+  "[FR-SV] Wiktionary (gloss)",
+  "wty-fr-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "85825c55af65c06442b47a47bc76932b26b1e019f2a2c7c68e4d084fecd2cc86",
+    456802
+  ]
+  ],
+  [
+  "wty-fr-th-gloss",
+  "[FR-TH] Wiktionary (gloss)",
+  "wty-fr-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "307640950b914ce206b7c981f741cabde813f88f3a196a86c8d00b80b1c49d04",
+    60754
+  ]
+  ],
+  [
+  "wty-fr-th-ipa",
+  "[FR-TH] Wiktionary (IPA)",
+  "wty-fr-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b9e8eac00f7d707bb0f5359847cd6776848f6436b1c39ed86467112d037fc7c3",
+    236206
+  ]
+  ],
+  [
+  "wty-fr-th",
+  "[FR-TH] Wiktionary (terms)",
+  "wty-fr-th",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "db3e98207247c0040b00ab26ad1f194a6ace1b2f215472092cd42689c4afcfcf",
+    1791872
+  ]
+  ],
+  [
+  "wty-fr-tl-gloss",
+  "[FR-TL] Wiktionary (gloss)",
+  "wty-fr-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f406816cd03eac334409a21f0b7b1eaaacb4d25d76310fc15cf6648146f7a1e9",
+    49748
+  ]
+  ],
+  [
+  "wty-fr-tr-gloss",
+  "[FR-TR] Wiktionary (gloss)",
+  "wty-fr-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8ce197dda240d8cbe8ccdb6c9f5e881503c8283b1cf5a05044d1349e1fd6c521",
+    204094
+  ]
+  ],
+  [
+  "wty-fr-tr-ipa",
+  "[FR-TR] Wiktionary (IPA)",
+  "wty-fr-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "df2dd44fe497f9f6d34d690ef6dbb41d731c85f7ab859feb4b37a2f37f9706e0",
+    11859
+  ]
+  ],
+  [
+  "wty-fr-tr",
+  "[FR-TR] Wiktionary (terms)",
+  "wty-fr-tr",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b351ca8130e9351c8b89af3c32107702c1f8f9b12101bb04329d2edb1f0a5dd",
+    3167434
+  ]
+  ],
+  [
+  "wty-fr-vi-gloss",
+  "[FR-VI] Wiktionary (gloss)",
+  "wty-fr-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dcac007bf03b4c7f7d0bada8105dfc1e381d43df979061b1005d0fe2074364eb",
+    123978
+  ]
+  ],
+  [
+  "wty-fr-vi-ipa",
+  "[FR-VI] Wiktionary (IPA)",
+  "wty-fr-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "98039d180d52eb79f74ae4d453f672d501df5c9f7777928e3a7f55fe4abfbf47",
+    198762
+  ]
+  ],
+  [
+  "wty-fr-vi",
+  "[FR-VI] Wiktionary (terms)",
+  "wty-fr-vi",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7d5279807029a8bf380be48c73a3308739df52e80d66c5b8718d698346f3375b",
+    3105117
+  ]
+  ],
+  [
+  "wty-fr-yue-gloss",
+  "[FR-YUE] Wiktionary (gloss)",
+  "wty-fr-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e031836d8d8213031b77d1ceb909f794f2b6b36d4e8107ce06cc617a02784d23",
+    17894
+  ]
+  ],
+  [
+  "wty-fr-zh-gloss",
+  "[FR-ZH] Wiktionary (gloss)",
+  "wty-fr-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "61bf10f4e8c6493c754f84ddc08ed148b175cccfc5a5d78100449aab1650e493",
+    280639
+  ]
+  ],
+  [
+  "wty-fr-zh-ipa",
+  "[FR-ZH] Wiktionary (IPA)",
+  "wty-fr-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ed4b7a5cc1e41154d9a8a94f500a588e45a2d212ab43a87a214de57ff0473efd",
+    363128
+  ]
+  ],
+  [
+  "wty-fr-zh",
+  "[FR-ZH] Wiktionary (terms)",
+  "wty-fr-zh",
+  [
+    "terms"
+  ],
+  [
+    "fr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c3223daac53956128eb4d384007d6dcd624771b7af3cc352d76e5ac1aa1d881",
+    2981270
+  ]
+  ],
+  [
+  "wty-grc-de-ipa",
+  "[GRC-DE] Wiktionary (IPA)",
+  "wty-grc-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "15a74237450109ecbc75bfcdcda4d2c3026230cbc37a2489e03e50fcdc89dfe7",
+    16705
+  ]
+  ],
+  [
+  "wty-grc-de",
+  "[GRC-DE] Wiktionary (terms)",
+  "wty-grc-de",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9b9e8f3d25ad5cc8f73f6ce823ad9472c950014d560a314b06c38e465a1a9046",
+    354041
+  ]
+  ],
+  [
+  "wty-grc-el-ipa",
+  "[GRC-EL] Wiktionary (IPA)",
+  "wty-grc-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9dcbc8555b30078b74a58070a63051dfcd4342ffb367d30c70d0aa5443a72fb2",
+    25844
+  ]
+  ],
+  [
+  "wty-grc-el",
+  "[GRC-EL] Wiktionary (terms)",
+  "wty-grc-el",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6c329bde949da3a7da06a328d62aa767502bcfe40a254d21537f6a9faefc68ec",
+    6021552
+  ]
+  ],
+  [
+  "wty-grc-en-ipa",
+  "[GRC-EN] Wiktionary (IPA)",
+  "wty-grc-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "011d25ff279bbabf7dc52cc305dcc0f96f121815f4549068728f22d9ad9d1195",
+    1958150
+  ]
+  ],
+  [
+  "wty-grc-en",
+  "[GRC-EN] Wiktionary (terms)",
+  "wty-grc-en",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90f198b43909c56c6f7588ad24890a90e6a2009d321fb3abffec78b95f7292a3",
+    14829592
+  ]
+  ],
+  [
+  "wty-grc-es-ipa",
+  "[GRC-ES] Wiktionary (IPA)",
+  "wty-grc-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1bebd5d99a187961c53ba8ed59505266d91e1cc8a0b913a223775fb6b8a808be",
+    14120
+  ]
+  ],
+  [
+  "wty-grc-es",
+  "[GRC-ES] Wiktionary (terms)",
+  "wty-grc-es",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96970a929777ca17e027cf07fcba3e42e6c07a19f9bdfd584d9312952853b5fb",
+    28704
+  ]
+  ],
+  [
+  "wty-grc-fr-ipa",
+  "[GRC-FR] Wiktionary (IPA)",
+  "wty-grc-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0569ebddecca0f9d24f66fa741618f86f75325523d90869e79ae8c84a176839f",
+    95310
+  ]
+  ],
+  [
+  "wty-grc-fr",
+  "[GRC-FR] Wiktionary (terms)",
+  "wty-grc-fr",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "336b935ee1281d3c942bed857a92ed8d12c7db725f8d93d013b7b4149580848b",
+    1639015
+  ]
+  ],
+  [
+  "wty-grc-id",
+  "[GRC-ID] Wiktionary (terms)",
+  "wty-grc-id",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "00ef8b08c7d2b0c8483616a41a95aa8ddbda5f26eb43c3d3ddd731f662958b46",
+    4628
+  ]
+  ],
+  [
+  "wty-grc-it-ipa",
+  "[GRC-IT] Wiktionary (IPA)",
+  "wty-grc-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "32fa54efe763736be55f097bc601e0a5b97c056a0ccf5d4bdd110d7a28c56edc",
+    23211
+  ]
+  ],
+  [
+  "wty-grc-it",
+  "[GRC-IT] Wiktionary (terms)",
+  "wty-grc-it",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "602f743423a1408a334f909208c75c7412edbd26d54cca852c6b319f07f327b0",
+    130219
+  ]
+  ],
+  [
+  "wty-grc-ko-ipa",
+  "[GRC-KO] Wiktionary (IPA)",
+  "wty-grc-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "545635606ca3f0241ef33ef358b2498af72045d998a2011e1369ad67c4a2f09a",
+    10535
+  ]
+  ],
+  [
+  "wty-grc-ko",
+  "[GRC-KO] Wiktionary (terms)",
+  "wty-grc-ko",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "058dbdbe9d0994a1a323eb0b4ae7f68662c1c24ad7c97e66c9acf427eefb98da",
+    33870
+  ]
+  ],
+  [
+  "wty-grc-nl-ipa",
+  "[GRC-NL] Wiktionary (IPA)",
+  "wty-grc-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a558d1ff2bae894e694b1243c31b4623b2dc798c28def4c65cbd99dbf8fac17",
+    7530
+  ]
+  ],
+  [
+  "wty-grc-nl",
+  "[GRC-NL] Wiktionary (terms)",
+  "wty-grc-nl",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c87024be8225db2a53a174d46971a2c34722b261c03f948c5c6a643557089faf",
+    29258
+  ]
+  ],
+  [
+  "wty-grc-pt-ipa",
+  "[GRC-PT] Wiktionary (IPA)",
+  "wty-grc-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "baaa84c7d61058de3f63e287c84267378ecd8c499feb8a1e7cf0a7a6446cc62e",
+    12330
+  ]
+  ],
+  [
+  "wty-grc-pt",
+  "[GRC-PT] Wiktionary (terms)",
+  "wty-grc-pt",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "68dd1c47a308677b413d45e6bb8f1510ce7d2797d4c7668cd3fe6fd785c654c7",
+    40229
+  ]
+  ],
+  [
+  "wty-grc-ru-ipa",
+  "[GRC-RU] Wiktionary (IPA)",
+  "wty-grc-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9b4c4ee3315be11755c5a3d1ddaa23a530a3711a40559663c320e93180087a01",
+    8634
+  ]
+  ],
+  [
+  "wty-grc-ru",
+  "[GRC-RU] Wiktionary (terms)",
+  "wty-grc-ru",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fda380c0fd557dbd4c50da2a29225c726053c7521c7e3901a0966f58220fe8d1",
+    708553
+  ]
+  ],
+  [
+  "wty-grc-th-ipa",
+  "[GRC-TH] Wiktionary (IPA)",
+  "wty-grc-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f3d2ee3521efc174b8afcee30285aac20dd555565a1e5b89b34c11909b2fefca",
+    7277
+  ]
+  ],
+  [
+  "wty-grc-th",
+  "[GRC-TH] Wiktionary (terms)",
+  "wty-grc-th",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b15915cb6fbcd50b1f321edc426e5e3b80e47da700977bd3864fe4d1ed8fa90e",
+    8929
+  ]
+  ],
+  [
+  "wty-grc-tr-ipa",
+  "[GRC-TR] Wiktionary (IPA)",
+  "wty-grc-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4dc79acc73a7aeb10f2040945a33a88906ceb844596ff002ed781f7ef095832f",
+    12122
+  ]
+  ],
+  [
+  "wty-grc-tr",
+  "[GRC-TR] Wiktionary (terms)",
+  "wty-grc-tr",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2fd0b233435ce2ab7601365dae2a8d8d11554c572394b6eb46afdc49416d2259",
+    91955
+  ]
+  ],
+  [
+  "wty-grc-vi-ipa",
+  "[GRC-VI] Wiktionary (IPA)",
+  "wty-grc-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "05371c6e9d8ccee8bc8fa2f73ac70f3207795637324df852e95d0bd08030dfca",
+    10574
+  ]
+  ],
+  [
+  "wty-grc-vi",
+  "[GRC-VI] Wiktionary (terms)",
+  "wty-grc-vi",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2ce99c66000ae0181dca988228ed4d1bf0d53e01f7bbbfdfcdb3158d48724850",
+    20782
+  ]
+  ],
+  [
+  "wty-grc-zh-ipa",
+  "[GRC-ZH] Wiktionary (IPA)",
+  "wty-grc-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ebd6e47204574e8352fda47d8ea6556509ffe7cb971dcbb473acb36fb2a46ac9",
+    6882
+  ]
+  ],
+  [
+  "wty-grc-zh",
+  "[GRC-ZH] Wiktionary (terms)",
+  "wty-grc-zh",
+  [
+    "terms"
+  ],
+  [
+    "grc"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "524981e6dd34c61170e00c025810f21de2335ad7fc9d65b32bedc6756d440544",
+    340837
+  ]
+  ],
+  [
+  "wty-hu-de-ipa",
+  "[HU-DE] Wiktionary (IPA)",
+  "wty-hu-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b42aaa4f52ca3dc67a5fcc2bb7e2035225b65cfbdc9dbe0d4467d928493419d2",
+    20047
+  ]
+  ],
+  [
+  "wty-hu-de",
+  "[HU-DE] Wiktionary (terms)",
+  "wty-hu-de",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e5989a07df59fe611268a4b9370f2ebfa1508a08037d5291561efcd55d796bd2",
+    91270
+  ]
+  ],
+  [
+  "wty-hu-el-ipa",
+  "[HU-EL] Wiktionary (IPA)",
+  "wty-hu-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b387d279520c4d963548838c0b2f5274206793956655389e76fe9d1937220549",
+    8537
+  ]
+  ],
+  [
+  "wty-hu-el",
+  "[HU-EL] Wiktionary (terms)",
+  "wty-hu-el",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e2205aa9c4e61ba158c2f6c6fd9797aa8edb1fe298b62f8fbed176622144ba76",
+    41558
+  ]
+  ],
+  [
+  "wty-hu-en-ipa",
+  "[HU-EN] Wiktionary (IPA)",
+  "wty-hu-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d8e025083b55913de6108459b016a61daec695f66e38c1527cbe611c9cda64f9",
+    999126
+  ]
+  ],
+  [
+  "wty-hu-en",
+  "[HU-EN] Wiktionary (terms)",
+  "wty-hu-en",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d4d529bcb84bab352d7de89344a61f00fe4e8c98d604975556824c0ec7679967",
+    13015596
+  ]
+  ],
+  [
+  "wty-hu-es-ipa",
+  "[HU-ES] Wiktionary (IPA)",
+  "wty-hu-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dd748e3ba361d41c4dc6d6f856788fb663873900b58689b7bea0994bc8d474d2",
+    10058
+  ]
+  ],
+  [
+  "wty-hu-es",
+  "[HU-ES] Wiktionary (terms)",
+  "wty-hu-es",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "23cb070c4943388840e571945d35e2fd9f14bb774b28dd3eb883c005861cde6f",
+    26201
+  ]
+  ],
+  [
+  "wty-hu-fr-ipa",
+  "[HU-FR] Wiktionary (IPA)",
+  "wty-hu-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "38b679b53946aa7323a6832f2a8cd47594621ebd7ae6ffaddfe0c10113fc20ab",
+    47036
+  ]
+  ],
+  [
+  "wty-hu-fr",
+  "[HU-FR] Wiktionary (terms)",
+  "wty-hu-fr",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "343ece72d9e81249ef427660b14e8a61b72eac173e8478023e71a917b821984f",
+    252374
+  ]
+  ],
+  [
+  "wty-hu-id",
+  "[HU-ID] Wiktionary (terms)",
+  "wty-hu-id",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46464b2ded424644f94fbe93bb91abc50fd0c1b9395183e904fd39d5987cb80a",
+    5414
+  ]
+  ],
+  [
+  "wty-hu-it-ipa",
+  "[HU-IT] Wiktionary (IPA)",
+  "wty-hu-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af8d140715ebce8794f24f11468a9773cd36472fc3a4ae9b39f061a34b8651c4",
+    15628
+  ]
+  ],
+  [
+  "wty-hu-it",
+  "[HU-IT] Wiktionary (terms)",
+  "wty-hu-it",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ded15768d70ac4af6c8f6842d763f9f66d16f60e3ab5651f44346e743060f04",
+    60280
+  ]
+  ],
+  [
+  "wty-hu-ko-ipa",
+  "[HU-KO] Wiktionary (IPA)",
+  "wty-hu-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "665e3050d87b0b5600f6510c1186c374cad3bf3e565a2e45159282a9f10a92e4",
+    26744
+  ]
+  ],
+  [
+  "wty-hu-ko",
+  "[HU-KO] Wiktionary (terms)",
+  "wty-hu-ko",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "976549a0cee758e35076fc0ab1b5cfadd4778e648cfdfed2874578f4b4116866",
+    92226
+  ]
+  ],
+  [
+  "wty-hu-nl-ipa",
+  "[HU-NL] Wiktionary (IPA)",
+  "wty-hu-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "17f7cea3517439137a9c86733aaac364f9c6fbfbc569a43518588e3e2a592687",
+    12769
+  ]
+  ],
+  [
+  "wty-hu-nl",
+  "[HU-NL] Wiktionary (terms)",
+  "wty-hu-nl",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e5492c241cfb97c448d04e79d188469f220dcab8e8c03226193358a74b15101",
+    44338
+  ]
+  ],
+  [
+  "wty-hu-pl-ipa",
+  "[HU-PL] Wiktionary (IPA)",
+  "wty-hu-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8fd8f5696bb7458f12c999cf91b0513a9c36574f4d9b23eaa78a78e536d0cbfa",
+    50479
+  ]
+  ],
+  [
+  "wty-hu-pl",
+  "[HU-PL] Wiktionary (terms)",
+  "wty-hu-pl",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "410d612be35334a7c0b75ed66922ee5979af33207e7b9ee46b189a48bd782148",
+    1467678
+  ]
+  ],
+  [
+  "wty-hu-pt-ipa",
+  "[HU-PT] Wiktionary (IPA)",
+  "wty-hu-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "da4bc015cdfd7774ad88b58ed88d2dc62dcb3dc375d6ebee19132013684986e3",
+    12009
+  ]
+  ],
+  [
+  "wty-hu-pt",
+  "[HU-PT] Wiktionary (terms)",
+  "wty-hu-pt",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "43e8b515384b121e8fae56eaa8503339b37c16405d68bfbef6eb9ddd8bcd4dec",
+    53009
+  ]
+  ],
+  [
+  "wty-hu-ru-ipa",
+  "[HU-RU] Wiktionary (IPA)",
+  "wty-hu-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "36eea817d9f39027d6ede44efa1ab1b782d7309b25ecc9a9561e49d94dc16487",
+    34240
+  ]
+  ],
+  [
+  "wty-hu-ru",
+  "[HU-RU] Wiktionary (terms)",
+  "wty-hu-ru",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a29bc2513c532a58eeabb62e7f2f90ef4a0265f8120e46bec780407145fa44e5",
+    561933
+  ]
+  ],
+  [
+  "wty-hu-th-ipa",
+  "[HU-TH] Wiktionary (IPA)",
+  "wty-hu-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09d116ae713d5813075e2a7c2a38c6a6b062bd28cf42bb272fbdede6677a6b4b",
+    11308
+  ]
+  ],
+  [
+  "wty-hu-th",
+  "[HU-TH] Wiktionary (terms)",
+  "wty-hu-th",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "999fea55d720f16990390f455c8c9b228b1776ca8020bdb811301c99675b57d4",
+    24750
+  ]
+  ],
+  [
+  "wty-hu-tr-ipa",
+  "[HU-TR] Wiktionary (IPA)",
+  "wty-hu-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ab64d2fd61d1ed5d3237be5448b0b2f4ba65c55b4eebdbc6c33a96b7644c1d39",
+    9131
+  ]
+  ],
+  [
+  "wty-hu-tr",
+  "[HU-TR] Wiktionary (terms)",
+  "wty-hu-tr",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b5e0b9fa102ee86e413e75eee9e632f9f72c9103e1b1d46351fb8b85cfa49ff",
+    100990
+  ]
+  ],
+  [
+  "wty-hu-vi-ipa",
+  "[HU-VI] Wiktionary (IPA)",
+  "wty-hu-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6d1b90d211fca066496afbe77622933df8a62a9510818ba03f336666e67af9c3",
+    22614
+  ]
+  ],
+  [
+  "wty-hu-vi",
+  "[HU-VI] Wiktionary (terms)",
+  "wty-hu-vi",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6dd21fe16022b78d40bc205600e93df495705c16c36cd4b9a312a86b4559eec9",
+    30547
+  ]
+  ],
+  [
+  "wty-hu-zh-ipa",
+  "[HU-ZH] Wiktionary (IPA)",
+  "wty-hu-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5f68168f696b0232937c80b89ffea7141177cfd97d3af38bf557d3ebf56973b1",
+    102764
+  ]
+  ],
+  [
+  "wty-hu-zh",
+  "[HU-ZH] Wiktionary (terms)",
+  "wty-hu-zh",
+  [
+    "terms"
+  ],
+  [
+    "hu"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d89c37b4c1bad2486072f24d4db4276eaf243092cefb3821c3db71d74bf75dc1",
+    541735
+  ]
+  ],
+  [
+  "wty-id-de-gloss",
+  "[ID-DE] Wiktionary (gloss)",
+  "wty-id-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8f1d8976c35012d401373a2dfb053651c86d41f537894b4775d384eada2b5d3a",
+    7110
+  ]
+  ],
+  [
+  "wty-id-de-ipa",
+  "[ID-DE] Wiktionary (IPA)",
+  "wty-id-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "643dfeaefa8cd54d1f6f964c6864c103c05e17eed98c452d03836d2ccfe9cf2f",
+    8980
+  ]
+  ],
+  [
+  "wty-id-de",
+  "[ID-DE] Wiktionary (terms)",
+  "wty-id-de",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "474fb826927679978b5ad7508ec3068d0adf9d22e2378385a850477202175843",
+    23203
+  ]
+  ],
+  [
+  "wty-id-el-ipa",
+  "[ID-EL] Wiktionary (IPA)",
+  "wty-id-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bc28f6a2fbd3777da6916b1f8022c572f61a20d519ec7e1b83c02717b02406f2",
+    7131
+  ]
+  ],
+  [
+  "wty-id-el",
+  "[ID-EL] Wiktionary (terms)",
+  "wty-id-el",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dd96fc61eb980377137443bab6654c91cbc8eeca65516d6ae46b84f26ae12d1e",
+    15824
+  ]
+  ],
+  [
+  "wty-id-en-gloss",
+  "[ID-EN] Wiktionary (gloss)",
+  "wty-id-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ec9718821cc9d5e5db09c425c3003611d3ff8c93e6a3abc8838509551268c9ee",
+    7026
+  ]
+  ],
+  [
+  "wty-id-en-ipa",
+  "[ID-EN] Wiktionary (IPA)",
+  "wty-id-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d972fd396bee378a03d5404a10570b9ec197afe3a5d54bb3db35ccd4f5931d9",
+    517407
+  ]
+  ],
+  [
+  "wty-id-en",
+  "[ID-EN] Wiktionary (terms)",
+  "wty-id-en",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d3602b05ab696cc6f820aea16cd502c2809e90a3bb04e80ae1a92d5cc7d638ed",
+    3816418
+  ]
+  ],
+  [
+  "wty-id-es-ipa",
+  "[ID-ES] Wiktionary (IPA)",
+  "wty-id-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "235eeefdc738b328c81f28688afd64cf72687eb775867cb112f579926d2bfaab",
+    7396
+  ]
+  ],
+  [
+  "wty-id-es",
+  "[ID-ES] Wiktionary (terms)",
+  "wty-id-es",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ff6a51c1ca21035b0c01edb0bed4587dd30e4d2416ee641771938375d57cd79e",
+    14728
+  ]
+  ],
+  [
+  "wty-id-fr-gloss",
+  "[ID-FR] Wiktionary (gloss)",
+  "wty-id-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f32b52452b456e7f356c25255a09bc6ffa452aa054b2057290d0bcc33cdcde25",
+    6808
+  ]
+  ],
+  [
+  "wty-id-fr-ipa",
+  "[ID-FR] Wiktionary (IPA)",
+  "wty-id-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a7159f3fb3ae84b7cfddfadaa5ee9f8b7b460a4434a1a9ffd1997f2f32e7a908",
+    7986
+  ]
+  ],
+  [
+  "wty-id-fr",
+  "[ID-FR] Wiktionary (terms)",
+  "wty-id-fr",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "18efb395962b5d439eb635f78baa722a9e09004825f6f4dd2da5e39575a99d8d",
+    669915
+  ]
+  ],
+  [
+  "wty-id-id-ipa",
+  "[ID-ID] Wiktionary (IPA)",
+  "wty-id-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a1606029b276c4347f0dcf96a89cdb68b6ca010e872346363d31afe2f1b18d2f",
+    6974
+  ]
+  ],
+  [
+  "wty-id-id",
+  "[ID-ID] Wiktionary (terms)",
+  "wty-id-id",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9fb83b88f4e0e9a5fd8295bbbee039d6610d672ab0ca78a987aff6099e94fe7f",
+    2102187
+  ]
+  ],
+  [
+  "wty-id-it-ipa",
+  "[ID-IT] Wiktionary (IPA)",
+  "wty-id-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "788868f7f334666e580027ed16c67b49e76568850fa0eb62357e9741df80f49a",
+    6895
+  ]
+  ],
+  [
+  "wty-id-it",
+  "[ID-IT] Wiktionary (terms)",
+  "wty-id-it",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fa880a8a5d0b78762c12c8950b8183e0d1d0ab3092566969b68e79c39985609b",
+    11102
+  ]
+  ],
+  [
+  "wty-id-ko-ipa",
+  "[ID-KO] Wiktionary (IPA)",
+  "wty-id-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6310eede2733382f878a5af2ed2a374f47136d6aa584e19f99dda9a5c69d8543",
+    7896
+  ]
+  ],
+  [
+  "wty-id-ko",
+  "[ID-KO] Wiktionary (terms)",
+  "wty-id-ko",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cda67332428335207d20ddecea6902de4c2d2b37a94434e1fce6c1458dfba365",
+    49635
+  ]
+  ],
+  [
+  "wty-id-nl-gloss",
+  "[ID-NL] Wiktionary (gloss)",
+  "wty-id-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0a83275d87d7a0e018effec223bd334aee369d145bfcf00ca1575dd5d1adb42e",
+    6900
+  ]
+  ],
+  [
+  "wty-id-nl-ipa",
+  "[ID-NL] Wiktionary (IPA)",
+  "wty-id-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6560f27d19b8c52326f982462d01ea7cdcc868eabfa9a540a70971e7466ef15e",
+    7230
+  ]
+  ],
+  [
+  "wty-id-nl",
+  "[ID-NL] Wiktionary (terms)",
+  "wty-id-nl",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "134ee57d0b1ee483dc330160c001fce3c86b610226e5ff20c919a8f4a190b2bb",
+    163301
+  ]
+  ],
+  [
+  "wty-id-pl-ipa",
+  "[ID-PL] Wiktionary (IPA)",
+  "wty-id-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "20b8a07f374756cef5378f4ee5cb11d3a49089c48b8187e9f474ae1c40e5d80a",
+    8061
+  ]
+  ],
+  [
+  "wty-id-pl",
+  "[ID-PL] Wiktionary (terms)",
+  "wty-id-pl",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bce113969c6effe09f154660a1181b4bb873505f8ced2fe9619c1595a4e20faa",
+    65779
+  ]
+  ],
+  [
+  "wty-id-pt-ipa",
+  "[ID-PT] Wiktionary (IPA)",
+  "wty-id-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0ec554de3c8033efc15fa9a65090a2c7066de3b95e16f2838f0f016d81af18a4",
+    7299
+  ]
+  ],
+  [
+  "wty-id-pt",
+  "[ID-PT] Wiktionary (terms)",
+  "wty-id-pt",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a5636868defcb20f438206bea29a72d9b0c18124bdf0f0e554cd96a9f49f3b04",
+    45520
+  ]
+  ],
+  [
+  "wty-id-ru-gloss",
+  "[ID-RU] Wiktionary (gloss)",
+  "wty-id-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "997d62606253750b6cb53e4535b99631b7f4338d129f6c17ba40d45d17679031",
+    4432
+  ]
+  ],
+  [
+  "wty-id-ru-ipa",
+  "[ID-RU] Wiktionary (IPA)",
+  "wty-id-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2707e0ada3359927f5abd3e43d9ab4b7be1a6f547c6876b0c1eaa3291495fb52",
+    10194
+  ]
+  ],
+  [
+  "wty-id-ru",
+  "[ID-RU] Wiktionary (terms)",
+  "wty-id-ru",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "abe90bf5ed1513be3d5393a7f31ce96a04d837d228b9ca7b9c467b8f81876e72",
+    207352
+  ]
+  ],
+  [
+  "wty-id-th-ipa",
+  "[ID-TH] Wiktionary (IPA)",
+  "wty-id-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "205282770e6f131140b9cefa366f1920e8b73259884f5b14e5b7c78ded27dc7e",
+    8201
+  ]
+  ],
+  [
+  "wty-id-th",
+  "[ID-TH] Wiktionary (terms)",
+  "wty-id-th",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9811a3edd54d6327c8228ba748dc68caa631133ad918d7a4453142b279e71a86",
+    36065
+  ]
+  ],
+  [
+  "wty-id-tr-ipa",
+  "[ID-TR] Wiktionary (IPA)",
+  "wty-id-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "235c4919f6ccb2ecef97fb6a01c55f3ac1f5120fe94f4402909b2a0ec8165b12",
+    6985
+  ]
+  ],
+  [
+  "wty-id-tr",
+  "[ID-TR] Wiktionary (terms)",
+  "wty-id-tr",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "720194ef74ba41e5ac992608bfe832f898ab7e94fb76b66256e25d0f58566196",
+    29411
+  ]
+  ],
+  [
+  "wty-id-vi-ipa",
+  "[ID-VI] Wiktionary (IPA)",
+  "wty-id-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9ab22d67f7cf8295f469e76cbf9d7806726bd210ae6ff279a63647eb2bc9ca31",
+    7720
+  ]
+  ],
+  [
+  "wty-id-vi",
+  "[ID-VI] Wiktionary (terms)",
+  "wty-id-vi",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "00abd94b682449d00ca4a936347f7f3a1923215c4500ef237acd98160664b3d5",
+    15861
+  ]
+  ],
+  [
+  "wty-id-zh-ipa",
+  "[ID-ZH] Wiktionary (IPA)",
+  "wty-id-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "id"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "431fe48e94df635b8afbaa730e445cde10d1a43f57927ec44ac1799a15ac9c6b",
+    39092
+  ]
+  ],
+  [
+  "wty-id-zh",
+  "[ID-ZH] Wiktionary (terms)",
+  "wty-id-zh",
+  [
+    "terms"
+  ],
+  [
+    "id"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "300c38e8f495ef0b7c9cf7e43da394c97b88788a178067482ce2321e6f2eac86",
+    213344
+  ]
+  ],
+  [
+  "wty-it-ar-gloss",
+  "[IT-AR] Wiktionary (gloss)",
+  "wty-it-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4a0a2a677cc39f79e76bf91452ef22beda1dec4e8c67f097c82ad4b2e6d66409",
+    22319
+  ]
+  ],
+  [
+  "wty-it-da-gloss",
+  "[IT-DA] Wiktionary (gloss)",
+  "wty-it-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "95cb821a050cd9b6a0c8e1516b86cf8876774275d74c5f2ca79eab80fe1aeabd",
+    28583
+  ]
+  ],
+  [
+  "wty-it-de-gloss",
+  "[IT-DE] Wiktionary (gloss)",
+  "wty-it-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2dea9f10b3b95d9e63d9b404b1f7db06b6e792a5b8808ceba9d0dc54e550978a",
+    259043
+  ]
+  ],
+  [
+  "wty-it-de-ipa",
+  "[IT-DE] Wiktionary (IPA)",
+  "wty-it-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46e03dc12bf13938baccd5b1ab7363b04782e1f570915ee3161623e7918d388a",
+    165698
+  ]
+  ],
+  [
+  "wty-it-de",
+  "[IT-DE] Wiktionary (terms)",
+  "wty-it-de",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c61454591c4c7b23ed93f3dd45ae6be97dc1e0dc73d634e63d627c68a0c64534",
+    740470
+  ]
+  ],
+  [
+  "wty-it-el-gloss",
+  "[IT-EL] Wiktionary (gloss)",
+  "wty-it-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5814d3cff3fccffe6f4daa4d188380dee100e1835721b7dd2320090c377a6541",
+    34097
+  ]
+  ],
+  [
+  "wty-it-el-ipa",
+  "[IT-EL] Wiktionary (IPA)",
+  "wty-it-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5f509a667b1f73f82e95adcfbf462c2141082dc0e7d67ba705fb6c807c3cfc4b",
+    12545
+  ]
+  ],
+  [
+  "wty-it-el",
+  "[IT-EL] Wiktionary (terms)",
+  "wty-it-el",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0aad905f8e7128b8af6640639b020e0bedd1c3222f6dffb3d7741ef1329bc449",
+    3450689
+  ]
+  ],
+  [
+  "wty-it-en-gloss",
+  "[IT-EN] Wiktionary (gloss)",
+  "wty-it-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "77130e8e269dd46b9260d2296d289ded0e200fb48a24eda103bb505e77ee3a54",
+    1066790
+  ]
+  ],
+  [
+  "wty-it-en-ipa",
+  "[IT-EN] Wiktionary (IPA)",
+  "wty-it-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "444cf4ff172011d74faff4dd7b24901a72ad29d09f7584d70f20c019b3864246",
+    1237750
+  ]
+  ],
+  [
+  "wty-it-en",
+  "[IT-EN] Wiktionary (terms)",
+  "wty-it-en",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "460a1a2e6138909018482c7104c9f8fefbf7ad0a2f9c64181ef10a85ba5179c4",
+    17176704
+  ]
+  ],
+  [
+  "wty-it-es-gloss",
+  "[IT-ES] Wiktionary (gloss)",
+  "wty-it-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7dd60ff6db222af51c1a7da31e0b2fbabc1508e1e5bf088cff722edac7ebb49b",
+    149859
+  ]
+  ],
+  [
+  "wty-it-es-ipa",
+  "[IT-ES] Wiktionary (IPA)",
+  "wty-it-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "296df256a46efeb2e60cd7013d5d0ae81d6e51a97db26750ff82d3d701944032",
+    102837
+  ]
+  ],
+  [
+  "wty-it-es",
+  "[IT-ES] Wiktionary (terms)",
+  "wty-it-es",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3fd310dcd22610f45973cad51e85400b8b14c0f4156527e827b34a2599d84d85",
+    292705
+  ]
+  ],
+  [
+  "wty-it-fa-gloss",
+  "[IT-FA] Wiktionary (gloss)",
+  "wty-it-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a33c7e604a3c24727ebf548ffef8ad0dcdb69c7109baa9c66f4a0d4897bd5877",
+    18702
+  ]
+  ],
+  [
+  "wty-it-fi-gloss",
+  "[IT-FI] Wiktionary (gloss)",
+  "wty-it-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "532ac75a33dc76ec2d2f09d320ce0f6b2503595c9affe4ca004a4236b5a975a4",
+    45801
+  ]
+  ],
+  [
+  "wty-it-fr-gloss",
+  "[IT-FR] Wiktionary (gloss)",
+  "wty-it-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5f2c70a76e43a9afcb165515b41006f365d56fb9a944a6b076795c4786efef09",
+    216610
+  ]
+  ],
+  [
+  "wty-it-fr-ipa",
+  "[IT-FR] Wiktionary (IPA)",
+  "wty-it-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "61f8ebb33bfeb4726b0082ef9ea90327910763a10d47f8b25a504615d459adce",
+    7955644
+  ]
+  ],
+  [
+  "wty-it-fr",
+  "[IT-FR] Wiktionary (terms)",
+  "wty-it-fr",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc9cd8623f19c1e8a8a67cfec36eb22c3258d827fcbce27f9ea8b9666cfc2820",
+    19854953
+  ]
+  ],
+  [
+  "wty-it-grc-gloss",
+  "[IT-GRC] Wiktionary (gloss)",
+  "wty-it-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "882a5188ec5ec8395b41f33705779aa6cb3a065fd7d3189dd5f8af0f0afc1ced",
+    10672
+  ]
+  ],
+  [
+  "wty-it-hu-gloss",
+  "[IT-HU] Wiktionary (gloss)",
+  "wty-it-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc905992a567b9dc3c52e149f64af8f77d62cb4fed9e95e99705a173df70753f",
+    42872
+  ]
+  ],
+  [
+  "wty-it-id-gloss",
+  "[IT-ID] Wiktionary (gloss)",
+  "wty-it-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "021f102d8ea722f1ad11a9168400eb737bd6e808a5680eed5ab8e1ae86d400d0",
+    17481
+  ]
+  ],
+  [
+  "wty-it-id",
+  "[IT-ID] Wiktionary (terms)",
+  "wty-it-id",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5475f711d765c2d337fb7c177de509d9cb1c75b51c0c57d27c1127205907bf88",
+    7336
+  ]
+  ],
+  [
+  "wty-it-it-ipa",
+  "[IT-IT] Wiktionary (IPA)",
+  "wty-it-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b277dacbdc08da6f434fa30cab44d2c75bdb69d6fbb31e1ffc010d6454fe8bfa",
+    658664
+  ]
+  ],
+  [
+  "wty-it-it",
+  "[IT-IT] Wiktionary (terms)",
+  "wty-it-it",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3890434c4c463d9e998d35c57fe03dd1479b4561f89980d7129b4736950bf485",
+    12877019
+  ]
+  ],
+  [
+  "wty-it-km-gloss",
+  "[IT-KM] Wiktionary (gloss)",
+  "wty-it-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1e7c59926a746ace7d90e81d1b940ada2f1c3f3acd5368933937ee363622442b",
+    8161
+  ]
+  ],
+  [
+  "wty-it-ko-gloss",
+  "[IT-KO] Wiktionary (gloss)",
+  "wty-it-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6915d62bcf9f190e0e6cefd8648fdee08ec626576c32da0f0a0f98c1cb87885f",
+    20306
+  ]
+  ],
+  [
+  "wty-it-ko-ipa",
+  "[IT-KO] Wiktionary (IPA)",
+  "wty-it-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "262235e43b18b7d71cd5c730996ceac1929c619fa12f58fd8a2470124e08c5a9",
+    9738
+  ]
+  ],
+  [
+  "wty-it-ko",
+  "[IT-KO] Wiktionary (terms)",
+  "wty-it-ko",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4fc5e1dfe61f39e9c58c116e90a4415b248d558333df43afb1b9cc514cc0ac61",
+    201021
+  ]
+  ],
+  [
+  "wty-it-la-gloss",
+  "[IT-LA] Wiktionary (gloss)",
+  "wty-it-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9abc62d64bb623346e705fa7c01344e7a50baa8fb7c8514ec51bf3a448560093",
+    209672
+  ]
+  ],
+  [
+  "wty-it-lo-gloss",
+  "[IT-LO] Wiktionary (gloss)",
+  "wty-it-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "45e821d8f4dcd96596930bc1b1b5e722ce6c48d4062dfcb97c00085b795e7fd9",
+    7403
+  ]
+  ],
+  [
+  "wty-it-mn-gloss",
+  "[IT-MN] Wiktionary (gloss)",
+  "wty-it-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9d0ade19c8d5b67839aec093a480600be66a8d00d02fa7383fb0b028f2c411f3",
+    9448
+  ]
+  ],
+  [
+  "wty-it-nl-gloss",
+  "[IT-NL] Wiktionary (gloss)",
+  "wty-it-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a1806969b7b2657bd80e01219b849e717223d1b90dada528c026b64ec1a624f2",
+    78667
+  ]
+  ],
+  [
+  "wty-it-nl-ipa",
+  "[IT-NL] Wiktionary (IPA)",
+  "wty-it-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84f735581ba04cdb5fd923ee59ba891fc15dbca2a4e393cccc7d22f78fbe1774",
+    32888
+  ]
+  ],
+  [
+  "wty-it-nl",
+  "[IT-NL] Wiktionary (terms)",
+  "wty-it-nl",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e3369e242e48e68517a0f8a3b4185790ce9ec2c492d4c28052dd6d13526d5482",
+    167265
+  ]
+  ],
+  [
+  "wty-it-pl-gloss",
+  "[IT-PL] Wiktionary (gloss)",
+  "wty-it-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "622c0f5562f110f7cfe9fca7dacd1cac044ce2f2877723789375aec14192e88b",
+    45823
+  ]
+  ],
+  [
+  "wty-it-pl-ipa",
+  "[IT-PL] Wiktionary (IPA)",
+  "wty-it-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9d0af73e29702093ba272dc24b13c6c025b0ab8889b0d980da44ba57de40805c",
+    280133
+  ]
+  ],
+  [
+  "wty-it-pl",
+  "[IT-PL] Wiktionary (terms)",
+  "wty-it-pl",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6f39b4bfd492d945b23f24ee1d3f90cb6c68767fff994e87e87994f8efe06976",
+    2048384
+  ]
+  ],
+  [
+  "wty-it-pt-gloss",
+  "[IT-PT] Wiktionary (gloss)",
+  "wty-it-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8536f4513bccfa613f170fe5f0ec341677e8f04bbfd832fea96cb678d1c3d9d1",
+    107579
+  ]
+  ],
+  [
+  "wty-it-pt-ipa",
+  "[IT-PT] Wiktionary (IPA)",
+  "wty-it-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c1c078360ea063471dbd2c9de83f059ccd09a25e465b1ed5a084f87994db8d09",
+    22762
+  ]
+  ],
+  [
+  "wty-it-pt",
+  "[IT-PT] Wiktionary (terms)",
+  "wty-it-pt",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2cb86937f8609570a53d43c0391b8e9e5dae7513840bcda2158d7184ae1cc158",
+    193899
+  ]
+  ],
+  [
+  "wty-it-ro-gloss",
+  "[IT-RO] Wiktionary (gloss)",
+  "wty-it-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "11a4f048cca2497eb01eec586bc904d7d6d00cbccaeb5b963c6b743e1e1d60cd",
+    26294
+  ]
+  ],
+  [
+  "wty-it-ru-gloss",
+  "[IT-RU] Wiktionary (gloss)",
+  "wty-it-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "29152136f7507265d7321aa6e1ce3c34249d374f3f15e79ae57148de702ef536",
+    63255
+  ]
+  ],
+  [
+  "wty-it-ru-ipa",
+  "[IT-RU] Wiktionary (IPA)",
+  "wty-it-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a750286fdacb8a99b833739c5cf9cb79a1ad0f174ccd6ff1b1d3ed82ae1a701b",
+    37017
+  ]
+  ],
+  [
+  "wty-it-ru",
+  "[IT-RU] Wiktionary (terms)",
+  "wty-it-ru",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "08a649998a75dfd2bbab05ada2d1834e4aed95543447ba133c1d1e02384300c3",
+    889805
+  ]
+  ],
+  [
+  "wty-it-sh-gloss",
+  "[IT-SH] Wiktionary (gloss)",
+  "wty-it-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6353b1cc8ebdfa6a96575c14135112349adc87c9bfe807aeed5c9f1195a64449",
+    12988
+  ]
+  ],
+  [
+  "wty-it-sq-gloss",
+  "[IT-SQ] Wiktionary (gloss)",
+  "wty-it-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c48c1b821ccad7466b3b2398276d73ddcabe863cab7bfcba3c0d70e294589d87",
+    15649
+  ]
+  ],
+  [
+  "wty-it-sv-gloss",
+  "[IT-SV] Wiktionary (gloss)",
+  "wty-it-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "87137963a65f911c432dc1cfe6aacc94f8f2711faa2737416b4c3b2a47b3befa",
+    44595
+  ]
+  ],
+  [
+  "wty-it-th-gloss",
+  "[IT-TH] Wiktionary (gloss)",
+  "wty-it-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b6cac07a106482fa607419c6bba651e07a472247c8c5cfe06ae3f745df147d64",
+    16323
+  ]
+  ],
+  [
+  "wty-it-th-ipa",
+  "[IT-TH] Wiktionary (IPA)",
+  "wty-it-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76275cfab51446d524593c1b9be2c330e426668f2ad84d358309a3c9bbcc93e1",
+    7975
+  ]
+  ],
+  [
+  "wty-it-th",
+  "[IT-TH] Wiktionary (terms)",
+  "wty-it-th",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "188126a3b893eda29c5c335e556b0463f44abb43288a7a2651a6af67cc4ea90d",
+    384955
+  ]
+  ],
+  [
+  "wty-it-tl-gloss",
+  "[IT-TL] Wiktionary (gloss)",
+  "wty-it-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5c95613c5e83ac8245ae43256aed9ef8b8beb0a524a0298fe46b890e0e902cbe",
+    11868
+  ]
+  ],
+  [
+  "wty-it-tr-gloss",
+  "[IT-TR] Wiktionary (gloss)",
+  "wty-it-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0ef133a8acceccfc36f7e97bedfcf64c20dfe18af2ffc65514cc05c99a92c5f4",
+    25397
+  ]
+  ],
+  [
+  "wty-it-tr-ipa",
+  "[IT-TR] Wiktionary (IPA)",
+  "wty-it-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6491d3d72aa865483a898ec84e6a1bc65b55b12ba1d5b5c148c3aafddad80c32",
+    7907
+  ]
+  ],
+  [
+  "wty-it-tr",
+  "[IT-TR] Wiktionary (terms)",
+  "wty-it-tr",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7aa7db7043189c3b94d7ba502f155e9e44fdf3f505eddd6dd38be89cc289c56c",
+    2754074
+  ]
+  ],
+  [
+  "wty-it-vi-gloss",
+  "[IT-VI] Wiktionary (gloss)",
+  "wty-it-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4b8a7a262299703d13a8847b0cd9a0d6621120e276a32cabe0fac0edcd1b20bf",
+    16759
+  ]
+  ],
+  [
+  "wty-it-vi-ipa",
+  "[IT-VI] Wiktionary (IPA)",
+  "wty-it-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "111748472472499fde2603636f955e43d9f5e3c6165e5ac139368faf5b9b9efc",
+    7101
+  ]
+  ],
+  [
+  "wty-it-vi",
+  "[IT-VI] Wiktionary (terms)",
+  "wty-it-vi",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bc113bae5842cb14d8be9dd543c92488017ca64edfaf20a7e9c3ebdc0d429164",
+    32686
+  ]
+  ],
+  [
+  "wty-it-yue-gloss",
+  "[IT-YUE] Wiktionary (gloss)",
+  "wty-it-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c10b96653ebee3f7e7b71ee5fb69741204c85ed88463817336b3df991256ae49",
+    6775
+  ]
+  ],
+  [
+  "wty-it-zh-gloss",
+  "[IT-ZH] Wiktionary (gloss)",
+  "wty-it-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a61c30ddafee761ad1ce2bf7d8cbcb89b17c56e3738d5be9a1c6cc8da952c881",
+    30157
+  ]
+  ],
+  [
+  "wty-it-zh-ipa",
+  "[IT-ZH] Wiktionary (IPA)",
+  "wty-it-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "it"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ab73f40c89f180b4860681a02dadde70da210c3948a6828f1ee6b5d0dc6182f0",
+    212758
+  ]
+  ],
+  [
+  "wty-it-zh",
+  "[IT-ZH] Wiktionary (terms)",
+  "wty-it-zh",
+  [
+    "terms"
+  ],
+  [
+    "it"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3c4512f843c62e3d73ae0cbcb537d8686b56f37e03091b6ca9468b85a32db327",
+    2562798
+  ]
+  ],
+  [
+  "wty-km-de-ipa",
+  "[KM-DE] Wiktionary (IPA)",
+  "wty-km-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c4293a6e219b1ef485ee42124cb704edf064b12acbb83bb0d9c03759168a2fb0",
+    9131
+  ]
+  ],
+  [
+  "wty-km-de",
+  "[KM-DE] Wiktionary (terms)",
+  "wty-km-de",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4db083038aeff948200c0787ac51638efcbb22d9d9be618186b884467238a316",
+    16410
+  ]
+  ],
+  [
+  "wty-km-el-ipa",
+  "[KM-EL] Wiktionary (IPA)",
+  "wty-km-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "28bb1a235a6fe1adf7395ca4c6a38a7933ff6bad6f2ee1e8c03f6e27a367374b",
+    7229
+  ]
+  ],
+  [
+  "wty-km-el",
+  "[KM-EL] Wiktionary (terms)",
+  "wty-km-el",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4e98fa15c90d2e5d04b5d81ad674745cc1c320d7a4363c72cbef633ffe439509",
+    8122
+  ]
+  ],
+  [
+  "wty-km-en-ipa",
+  "[KM-EN] Wiktionary (IPA)",
+  "wty-km-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7f6b5f8257ffb5d8230e6df8215b99bd86b8afb9e9143698c34fa6a819670d8",
+    7049
+  ]
+  ],
+  [
+  "wty-km-en",
+  "[KM-EN] Wiktionary (terms)",
+  "wty-km-en",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a294a835c8f1bc48b8331e9b752609155785371631badbf3ee7737c1447763e",
+    946828
+  ]
+  ],
+  [
+  "wty-km-es-ipa",
+  "[KM-ES] Wiktionary (IPA)",
+  "wty-km-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "59baf48444e594dc0edf88a8bb173c16b1d25bd35e57f19edc37375c0cef132c",
+    7586
+  ]
+  ],
+  [
+  "wty-km-es",
+  "[KM-ES] Wiktionary (terms)",
+  "wty-km-es",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5295d86419b6b4e6f78a64ccf6d260579b33986fcca28b85997de9149c412b29",
+    8878
+  ]
+  ],
+  [
+  "wty-km-fr-ipa",
+  "[KM-FR] Wiktionary (IPA)",
+  "wty-km-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0ed2acd203c937eeb0487962be95cd0fa72ff95b558b42997bdb705638aeb328",
+    9380
+  ]
+  ],
+  [
+  "wty-km-fr",
+  "[KM-FR] Wiktionary (terms)",
+  "wty-km-fr",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "601c65185d1a1ef3e2c95ede0494e17acb476b79a68285eb5d368ab15e6c44f4",
+    20481
+  ]
+  ],
+  [
+  "wty-km-id",
+  "[KM-ID] Wiktionary (terms)",
+  "wty-km-id",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c7277f3d7ab1325333523089e2cb984b5622edda7103a39edbf47ea2b1d2c3b",
+    5070
+  ]
+  ],
+  [
+  "wty-km-it",
+  "[KM-IT] Wiktionary (terms)",
+  "wty-km-it",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc41c070615f44b8e08ad8baf5bbd76e1abf349c42dd7aac3e9d77a2b16ca51b",
+    7787
+  ]
+  ],
+  [
+  "wty-km-ko-ipa",
+  "[KM-KO] Wiktionary (IPA)",
+  "wty-km-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "47043e1bd329edb665e4e354d0d01dae0828ed3cf2fb502870aaf46e7d150eae",
+    8102
+  ]
+  ],
+  [
+  "wty-km-ko",
+  "[KM-KO] Wiktionary (terms)",
+  "wty-km-ko",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a66794bb87d379756f0b9910bf66488fbec3adfbf0e85e9b0ebf701d21963983",
+    11629
+  ]
+  ],
+  [
+  "wty-km-nl",
+  "[KM-NL] Wiktionary (terms)",
+  "wty-km-nl",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a186a810724c33f5f12816c7ca9abb34be3b986393d84f0bdd4aef86451c7e2",
+    9421
+  ]
+  ],
+  [
+  "wty-km-pl-ipa",
+  "[KM-PL] Wiktionary (IPA)",
+  "wty-km-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8b8ca2ab9f8c58bd13cff580e1fc33f1918a0d7e1a6a3561dbd5aa654f67d100",
+    8821
+  ]
+  ],
+  [
+  "wty-km-pl",
+  "[KM-PL] Wiktionary (terms)",
+  "wty-km-pl",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2681ec2e65efb2006010e336922468051420ad83d3f0542d83083cf70e1974db",
+    41096
+  ]
+  ],
+  [
+  "wty-km-pt-ipa",
+  "[KM-PT] Wiktionary (IPA)",
+  "wty-km-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8c11ce854763865745ee0f38b610c290a70d65f48753385bc48b5dc4340ed221",
+    7347
+  ]
+  ],
+  [
+  "wty-km-pt",
+  "[KM-PT] Wiktionary (terms)",
+  "wty-km-pt",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "271ce80b71875ea5cfd66982969d99c7d729171e849cd449d0b7e468cd794836",
+    12308
+  ]
+  ],
+  [
+  "wty-km-ru-ipa",
+  "[KM-RU] Wiktionary (IPA)",
+  "wty-km-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "720e3a63c8508fbc7000d049cb07bb381243c2e2a138d2f0e78159ce4c5be6fc",
+    16399
+  ]
+  ],
+  [
+  "wty-km-ru",
+  "[KM-RU] Wiktionary (terms)",
+  "wty-km-ru",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7d20af4d19f0de51b001e16dc174817b070dae3e56c1e6be68eba6b21f15e45",
+    225381
+  ]
+  ],
+  [
+  "wty-km-th-ipa",
+  "[KM-TH] Wiktionary (IPA)",
+  "wty-km-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b073cbd57059636d65de53bbc94dffc2049cd970bb55f80a17969ace34e759c7",
+    37624
+  ]
+  ],
+  [
+  "wty-km-th",
+  "[KM-TH] Wiktionary (terms)",
+  "wty-km-th",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "463ba1db7754508c7452d7c477be570ba8f34b291e5ee55177cce437fe090b75",
+    100799
+  ]
+  ],
+  [
+  "wty-km-tr-ipa",
+  "[KM-TR] Wiktionary (IPA)",
+  "wty-km-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dcf077af9625d847438d249c105aca8640ad88af5c5f0d4e6de5fdac0428ccfc",
+    9070
+  ]
+  ],
+  [
+  "wty-km-tr",
+  "[KM-TR] Wiktionary (terms)",
+  "wty-km-tr",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8bd154bed95574e9146a353719e9222936089b6cb83056bba6982bef0a210697",
+    18617
+  ]
+  ],
+  [
+  "wty-km-vi-ipa",
+  "[KM-VI] Wiktionary (IPA)",
+  "wty-km-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a2a836259e3cae1efecb0a057ca6e5383d13e99ae26e6e061c79ae0ef7640019",
+    22090
+  ]
+  ],
+  [
+  "wty-km-vi",
+  "[KM-VI] Wiktionary (terms)",
+  "wty-km-vi",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "346c298c5e125435e706d34825c3668f45f6b85c24866bd9e61056c21f87bb7c",
+    33033
+  ]
+  ],
+  [
+  "wty-km-zh-ipa",
+  "[KM-ZH] Wiktionary (IPA)",
+  "wty-km-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "km"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "584fc3ea2c4dec71117a744e01df0f802bc7550a800b1b82e09cce0b93880562",
+    7146
+  ]
+  ],
+  [
+  "wty-km-zh",
+  "[KM-ZH] Wiktionary (terms)",
+  "wty-km-zh",
+  [
+    "terms"
+  ],
+  [
+    "km"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e0261c1e03c95ea55e8cb0d06aac4abf26227f797a30e81bcb7ec9f3b5b69cf2",
+    82107
+  ]
+  ],
+  [
+  "wty-ko-ar-gloss",
+  "[KO-AR] Wiktionary (gloss)",
+  "wty-ko-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "041f2d031757597bcef3870acd7852687f8cf9b3d2e7b803b20f7a44c8f673df",
+    89016
+  ]
+  ],
+  [
+  "wty-ko-da-gloss",
+  "[KO-DA] Wiktionary (gloss)",
+  "wty-ko-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7c360041a6afed6fb851ccc6cfb907f89bcba57a2b1cfe229bba03d32a91129e",
+    84724
+  ]
+  ],
+  [
+  "wty-ko-de-gloss",
+  "[KO-DE] Wiktionary (gloss)",
+  "wty-ko-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "766dff43680821fc62361128f6365347a1bf98fc6f79f9cb7f35848aeb7096b8",
+    146684
+  ]
+  ],
+  [
+  "wty-ko-de-ipa",
+  "[KO-DE] Wiktionary (IPA)",
+  "wty-ko-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "97e72979fa04e2778e581f4344da93c3523c85ccd4325182dab54dc97dda0a07",
+    11155
+  ]
+  ],
+  [
+  "wty-ko-de",
+  "[KO-DE] Wiktionary (terms)",
+  "wty-ko-de",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "523b551556b74d2ccddbf20399d62789219e5ef8ecbd5af7ca20ae0052c7fb5c",
+    39239
+  ]
+  ],
+  [
+  "wty-ko-el-gloss",
+  "[KO-EL] Wiktionary (gloss)",
+  "wty-ko-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a6cfa06ed088c8b5017ac9049c7f801b37afb991f235f648d32fa41c64ac0363",
+    104643
+  ]
+  ],
+  [
+  "wty-ko-el-ipa",
+  "[KO-EL] Wiktionary (IPA)",
+  "wty-ko-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "54359283e333067f75e88812a0f037032bdbf22304b8b1cd050d79384cf2c287",
+    8018
+  ]
+  ],
+  [
+  "wty-ko-el",
+  "[KO-EL] Wiktionary (terms)",
+  "wty-ko-el",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fbdc68a0c26e54a2e8c2fd45fa4e90cc18d07f61ae471daf42665b396c002697",
+    29039
+  ]
+  ],
+  [
+  "wty-ko-en-gloss",
+  "[KO-EN] Wiktionary (gloss)",
+  "wty-ko-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ac6715e286d80e3426ea87c30fd290884fe5a30f0da485da9b38e47a4bd1eef4",
+    431054
+  ]
+  ],
+  [
+  "wty-ko-es-gloss",
+  "[KO-ES] Wiktionary (gloss)",
+  "wty-ko-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2b6cb51faafd272fbde0dfef6faf8c632d207fb89dae530308cd6d4af4123a37",
+    131465
+  ]
+  ],
+  [
+  "wty-ko-es-ipa",
+  "[KO-ES] Wiktionary (IPA)",
+  "wty-ko-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eb78b360ab5ce5284524b9d04485d0e0599f222dd90c2ea8696f030f4fb283c3",
+    10540
+  ]
+  ],
+  [
+  "wty-ko-es",
+  "[KO-ES] Wiktionary (terms)",
+  "wty-ko-es",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "555c08a72ccc295d6b2d6427b2625811ede6321de4315768594a1e9cf390ea86",
+    29646
+  ]
+  ],
+  [
+  "wty-ko-fa-gloss",
+  "[KO-FA] Wiktionary (gloss)",
+  "wty-ko-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0d7c859b9fe3d71222977554d178d690f5f0b04f2714ca535df7f26a9336af28",
+    59779
+  ]
+  ],
+  [
+  "wty-ko-fi-gloss",
+  "[KO-FI] Wiktionary (gloss)",
+  "wty-ko-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "abf6f421f707227631f539a7e263e22c3aca0ee10d950b69331a3c782bf9f9d2",
+    120325
+  ]
+  ],
+  [
+  "wty-ko-fr-gloss",
+  "[KO-FR] Wiktionary (gloss)",
+  "wty-ko-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9021e7c1483b93ff9c9ce099e049fe25113b4a6344c470e133897bfcdabc59e9",
+    152177
+  ]
+  ],
+  [
+  "wty-ko-fr-ipa",
+  "[KO-FR] Wiktionary (IPA)",
+  "wty-ko-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6522746dc86fa7d4de5fd81760765f0ab24d549fffd9de9c9f8aa41e19bfa514",
+    43454
+  ]
+  ],
+  [
+  "wty-ko-fr",
+  "[KO-FR] Wiktionary (terms)",
+  "wty-ko-fr",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "35ca5fb071779132213921031f3e87668aebe73f0f48b843393083b58ce0e56a",
+    1027045
+  ]
+  ],
+  [
+  "wty-ko-grc-gloss",
+  "[KO-GRC] Wiktionary (gloss)",
+  "wty-ko-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "123e3919dc2db23d591aac5456cd3121c0d18d238cbab8345066878ee0672a25",
+    6802
+  ]
+  ],
+  [
+  "wty-ko-hu-gloss",
+  "[KO-HU] Wiktionary (gloss)",
+  "wty-ko-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3ae33cfb0b8765484e51f724658e320114b3be94722144eb60ff3aae143c6caa",
+    104190
+  ]
+  ],
+  [
+  "wty-ko-id-gloss",
+  "[KO-ID] Wiktionary (gloss)",
+  "wty-ko-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ae0536f637b6d0f3e09dad75dc52167f195ca359ee6cdf8b90de29239758ff01",
+    67693
+  ]
+  ],
+  [
+  "wty-ko-id-ipa",
+  "[KO-ID] Wiktionary (IPA)",
+  "wty-ko-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6a7e6fd8807f1163469b4a2f03499de1429a9f58309949b50c00fa6f366e3a6b",
+    6810
+  ]
+  ],
+  [
+  "wty-ko-id",
+  "[KO-ID] Wiktionary (terms)",
+  "wty-ko-id",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "40d4f6d0743e6d9480d4d0c82f5e15d238b04d2ce758b4f8224239eb1ce2d085",
+    9066
+  ]
+  ],
+  [
+  "wty-ko-it-gloss",
+  "[KO-IT] Wiktionary (gloss)",
+  "wty-ko-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5c627e5b6da0912dc56a7a4087ef4f3a676ed09694467acb3edc29f8068f8fb5",
+    119398
+  ]
+  ],
+  [
+  "wty-ko-it-ipa",
+  "[KO-IT] Wiktionary (IPA)",
+  "wty-ko-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4afa4fe574b748263fe7def905a9a8e7f238f73d2a35f5b64970917fa309087",
+    7063
+  ]
+  ],
+  [
+  "wty-ko-it",
+  "[KO-IT] Wiktionary (terms)",
+  "wty-ko-it",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2a70c836c8dd7c37066f7dbfc8c2d51aa022a61f4117993b676d121bb5057d21",
+    41863
+  ]
+  ],
+  [
+  "wty-ko-km-gloss",
+  "[KO-KM] Wiktionary (gloss)",
+  "wty-ko-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2da139e45b1cbd60d47695296ff3a886087db2f78634ed738cf1e097d6e4b788",
+    19422
+  ]
+  ],
+  [
+  "wty-ko-la-gloss",
+  "[KO-LA] Wiktionary (gloss)",
+  "wty-ko-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c8bf2ab68062e04e9112449890922215c70075d835d4813587fde40345f51147",
+    70110
+  ]
+  ],
+  [
+  "wty-ko-lo-gloss",
+  "[KO-LO] Wiktionary (gloss)",
+  "wty-ko-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ffeeebdbdb9b72b34fb60ad4628417f9e1aed89242a7f4e74320a74f027db2d",
+    21062
+  ]
+  ],
+  [
+  "wty-ko-mn-gloss",
+  "[KO-MN] Wiktionary (gloss)",
+  "wty-ko-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "87fc1165253e0629edc8d0585f63d6212dd47145d4d7a18f796af31e8f7322ad",
+    34914
+  ]
+  ],
+  [
+  "wty-ko-nl-gloss",
+  "[KO-NL] Wiktionary (gloss)",
+  "wty-ko-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4b41bf7ffe04627889fe65599238d2af9088ad12f97db0938fdba95110b435eb",
+    116890
+  ]
+  ],
+  [
+  "wty-ko-nl-ipa",
+  "[KO-NL] Wiktionary (IPA)",
+  "wty-ko-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b6b6aedad6d82294aa5b39d7ba4ea0ca31e6a160833a8f641a104c75cbd2e17e",
+    8402
+  ]
+  ],
+  [
+  "wty-ko-nl",
+  "[KO-NL] Wiktionary (terms)",
+  "wty-ko-nl",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "24bd1b52dccfd825368fde60e64c8c9188fe47152cf4a4031901dc3dd8949923",
+    24645
+  ]
+  ],
+  [
+  "wty-ko-pl-gloss",
+  "[KO-PL] Wiktionary (gloss)",
+  "wty-ko-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96c140cd09c98aa277da2ac159564c521601083c8a94d888c219a2e9afc96918",
+    118882
+  ]
+  ],
+  [
+  "wty-ko-pl-ipa",
+  "[KO-PL] Wiktionary (IPA)",
+  "wty-ko-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5f09372e7a4d3d874d744111565564d0151a9d06864746aff1eca9abd6b42c3f",
+    45005
+  ]
+  ],
+  [
+  "wty-ko-pl",
+  "[KO-PL] Wiktionary (terms)",
+  "wty-ko-pl",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "17f364d19ba7d97c035e40dd93810a65a27bcb9156dc75974422e3d38f0dcda1",
+    262733
+  ]
+  ],
+  [
+  "wty-ko-pt-gloss",
+  "[KO-PT] Wiktionary (gloss)",
+  "wty-ko-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9969e31e7ebdf30f5221616cd0d59aed4ff9901e1b889eedb0653f27905fc058",
+    120172
+  ]
+  ],
+  [
+  "wty-ko-pt-ipa",
+  "[KO-PT] Wiktionary (IPA)",
+  "wty-ko-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1f6be36a720eae8903fae858196dcc90a31cf27b54f86ce8616e8e57caad9086",
+    10706
+  ]
+  ],
+  [
+  "wty-ko-pt",
+  "[KO-PT] Wiktionary (terms)",
+  "wty-ko-pt",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "25a5f046d820cda0cfbe8ab3a2a3562dbf1e6d2f6b8476d1d9e9e05761be9637",
+    37204
+  ]
+  ],
+  [
+  "wty-ko-ro-gloss",
+  "[KO-RO] Wiktionary (gloss)",
+  "wty-ko-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "633496d252654a51f0e03fdf3696011561686ec503db7349bd98b184af1439b9",
+    82830
+  ]
+  ],
+  [
+  "wty-ko-ru-gloss",
+  "[KO-RU] Wiktionary (gloss)",
+  "wty-ko-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a59ec6138da1cc2009bbe48bd57b11e639e7994bf603191e65a70ad630259620",
+    183583
+  ]
+  ],
+  [
+  "wty-ko-ru-ipa",
+  "[KO-RU] Wiktionary (IPA)",
+  "wty-ko-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4ceb689946bf6913b03a0a27cff3e39ca54e0b6345d4292e17beb8e232afc906",
+    21913
+  ]
+  ],
+  [
+  "wty-ko-ru",
+  "[KO-RU] Wiktionary (terms)",
+  "wty-ko-ru",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c894885a2cef408a1ef1c04a1142e3e0c6d78885da0b6eb0d720820fa22a8874",
+    287136
+  ]
+  ],
+  [
+  "wty-ko-sh-gloss",
+  "[KO-SH] Wiktionary (gloss)",
+  "wty-ko-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "544a46b04360a436b8fbff8b6372ebb438563d8ebed7c2c3cadc73ba03318deb",
+    28864
+  ]
+  ],
+  [
+  "wty-ko-sq-gloss",
+  "[KO-SQ] Wiktionary (gloss)",
+  "wty-ko-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8990db066e0cee66a491c84a41b3294be94b015573db84a441298ed2f70295f5",
+    52759
+  ]
+  ],
+  [
+  "wty-ko-sv-gloss",
+  "[KO-SV] Wiktionary (gloss)",
+  "wty-ko-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4eae1f73b90ac207b521dbb5f702c8c091a1d8e700944e85739ba1370636061b",
+    105706
+  ]
+  ],
+  [
+  "wty-ko-th-gloss",
+  "[KO-TH] Wiktionary (gloss)",
+  "wty-ko-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd0bed8bf2118f33ec9c56bcbcccc496b6e36ad3653e22a36e7d56e857cb2a99",
+    57883
+  ]
+  ],
+  [
+  "wty-ko-th-ipa",
+  "[KO-TH] Wiktionary (IPA)",
+  "wty-ko-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eba00a4e2cf943d0e4f13596a66c7a8f0c1a89f7d468e7957ee0171d1b7b339e",
+    14414
+  ]
+  ],
+  [
+  "wty-ko-th",
+  "[KO-TH] Wiktionary (terms)",
+  "wty-ko-th",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fd0d652525075aad5d191bef702717cf16e5f963286eb26b1d5c4b575a9aca37",
+    65824
+  ]
+  ],
+  [
+  "wty-ko-tl-gloss",
+  "[KO-TL] Wiktionary (gloss)",
+  "wty-ko-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ff0ed725c7092c65eeb882c5fefc819ba1192382e729ddf0ec88cc8e7c3a5833",
+    35802
+  ]
+  ],
+  [
+  "wty-ko-tr-gloss",
+  "[KO-TR] Wiktionary (gloss)",
+  "wty-ko-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b6ee3268fc322232daec067452ce2137825789e69a47f7154ed7b6c97e92c639",
+    101495
+  ]
+  ],
+  [
+  "wty-ko-tr-ipa",
+  "[KO-TR] Wiktionary (IPA)",
+  "wty-ko-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b22bdc19823b8194e793d15bc9f0e4dfa04e2d5a1af127872c6ba08024a1fa39",
+    10288
+  ]
+  ],
+  [
+  "wty-ko-tr",
+  "[KO-TR] Wiktionary (terms)",
+  "wty-ko-tr",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2dbc92aaea43c4c86390e750c9db75a5d747d97a5972aa6e9e0bef5beba82fc1",
+    43930
+  ]
+  ],
+  [
+  "wty-ko-vi-gloss",
+  "[KO-VI] Wiktionary (gloss)",
+  "wty-ko-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a6e60d8ccc387868ea46dc334ba8779f78609297b6e87bbc722f22eec8803549",
+    81902
+  ]
+  ],
+  [
+  "wty-ko-vi-ipa",
+  "[KO-VI] Wiktionary (IPA)",
+  "wty-ko-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "902f498d002878d8ea2ef93d6f21c74e5409e0f181b44e6bc1bc6f070455eb4b",
+    14796
+  ]
+  ],
+  [
+  "wty-ko-vi",
+  "[KO-VI] Wiktionary (terms)",
+  "wty-ko-vi",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9b26f41f39451e97ba0d2d8d1b2bd3e93e9ae45ed1bb902dc1e94985e4466b81",
+    54701
+  ]
+  ],
+  [
+  "wty-ko-yue-gloss",
+  "[KO-YUE] Wiktionary (gloss)",
+  "wty-ko-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb99acfe4c1eead45f6f7f9404efd4461d5dd2da8c9ab68f8e2502a3afe2d972",
+    6898
+  ]
+  ],
+  [
+  "wty-ko-zh-gloss",
+  "[KO-ZH] Wiktionary (gloss)",
+  "wty-ko-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "37811403a0e4a7981e3d8e1ad74315e7666f2e47385bc080d2dae67ae6150501",
+    134779
+  ]
+  ],
+  [
+  "wty-ko-zh-ipa",
+  "[KO-ZH] Wiktionary (IPA)",
+  "wty-ko-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1d7a978df9d2cc943baeb98e8ad12a9ca21c82bcd05dea702efc15ad1f398cff",
+    111315
+  ]
+  ],
+  [
+  "wty-ko-zh",
+  "[KO-ZH] Wiktionary (terms)",
+  "wty-ko-zh",
+  [
+    "terms"
+  ],
+  [
+    "ko"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "26aa6aec308fce4ffade74fd269c690306b4bea0abb8afc7b0a561ef288bd0b8",
+    7235635
+  ]
+  ],
+  [
+  "wty-la-de-ipa",
+  "[LA-DE] Wiktionary (IPA)",
+  "wty-la-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d800e41670f1b9cb45d81a7207cda74e9722e98f9a2f6f7ae4d0a5c00d5d3cb9",
+    40321
+  ]
+  ],
+  [
+  "wty-la-de",
+  "[LA-DE] Wiktionary (terms)",
+  "wty-la-de",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4b51a85776d18a9d4d78b3e9211b9f68ac7c8df85048cf32ea50e1c7f51bee12",
+    2062053
+  ]
+  ],
+  [
+  "wty-la-el-ipa",
+  "[LA-EL] Wiktionary (IPA)",
+  "wty-la-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "50d319fe5b791ed1c0b5cb4fc917f8d05a57840d0f57a378912f41a0ac0e7625",
+    11275
+  ]
+  ],
+  [
+  "wty-la-el",
+  "[LA-EL] Wiktionary (terms)",
+  "wty-la-el",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "883a23d63d02ba79e2ac7e6f2430e98fa7045a1d1c312a1ab518155a8e13f0c8",
+    275900
+  ]
+  ],
+  [
+  "wty-la-en-ipa",
+  "[LA-EN] Wiktionary (IPA)",
+  "wty-la-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4e06b535fbb45715403ddedc23098a0f1045b2d68a7ac294d9d13bd48a303b9a",
+    1666034
+  ]
+  ],
+  [
+  "wty-la-en",
+  "[LA-EN] Wiktionary (terms)",
+  "wty-la-en",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a5d1f4e755bd57d05043931f37ffbaf88156c0f20276a3033c6d2a3839c52739",
+    26216455
+  ]
+  ],
+  [
+  "wty-la-es-ipa",
+  "[LA-ES] Wiktionary (IPA)",
+  "wty-la-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b2e84c0322c5018951221132abcd39b37f0d19ac8d1d108a3d043c3e2339e330",
+    105665
+  ]
+  ],
+  [
+  "wty-la-es",
+  "[LA-ES] Wiktionary (terms)",
+  "wty-la-es",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "32b1efcc6f2c68c5cd318bdc866123cb454150e8f36d699f98ddc0d6176187b8",
+    446383
+  ]
+  ],
+  [
+  "wty-la-fr-ipa",
+  "[LA-FR] Wiktionary (IPA)",
+  "wty-la-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bcbc817146d46320727b413c0a7c55b81b31a96403f38beff9a4faba1e156325",
+    91984
+  ]
+  ],
+  [
+  "wty-la-fr",
+  "[LA-FR] Wiktionary (terms)",
+  "wty-la-fr",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0e27c8b394301092236c2ccf3b1c4f3267da9cde784c409e2928cc6bbc4d8ba7",
+    6647607
+  ]
+  ],
+  [
+  "wty-la-id",
+  "[LA-ID] Wiktionary (terms)",
+  "wty-la-id",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8114b6723e86d5fc6a492a428007ea8d3765e73aa7910f0afa3ea345409c04c0",
+    7572
+  ]
+  ],
+  [
+  "wty-la-it-ipa",
+  "[LA-IT] Wiktionary (IPA)",
+  "wty-la-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a969081a14f83f7ecfdebccc2666ae28d108947ac29c7aa35a3143797bf6b823",
+    937951
+  ]
+  ],
+  [
+  "wty-la-it",
+  "[LA-IT] Wiktionary (terms)",
+  "wty-la-it",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "502799267a735897cbd2c024055bcebfe9f0efba0c7fec0b20f081b337cc2d9c",
+    2072478
+  ]
+  ],
+  [
+  "wty-la-ko-ipa",
+  "[LA-KO] Wiktionary (IPA)",
+  "wty-la-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e28b46bd7306981e17d562f823ef8a01858c8984ba06e5692dc6c1282a52e17f",
+    7944
+  ]
+  ],
+  [
+  "wty-la-ko",
+  "[LA-KO] Wiktionary (terms)",
+  "wty-la-ko",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d650b59f80ed33e253f8d27da29eaae4bf5fd7a8ead96036f06b59ecd7314704",
+    118711
+  ]
+  ],
+  [
+  "wty-la-nl-ipa",
+  "[LA-NL] Wiktionary (IPA)",
+  "wty-la-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fee1a8226f68f6c051c5bf9c314da2332517afc5496e431aaeba7ed76d756958",
+    15288
+  ]
+  ],
+  [
+  "wty-la-nl",
+  "[LA-NL] Wiktionary (terms)",
+  "wty-la-nl",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76428b7f8419cc63118e4490415c5f5f85d2284eb989fb00856e0e4737635312",
+    128489
+  ]
+  ],
+  [
+  "wty-la-pl-ipa",
+  "[LA-PL] Wiktionary (IPA)",
+  "wty-la-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6560a36d60ba441a44a16e5a26bcddd82ad8642fa421127916ee4fa4c19b10f4",
+    11822
+  ]
+  ],
+  [
+  "wty-la-pl",
+  "[LA-PL] Wiktionary (terms)",
+  "wty-la-pl",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "add7ef06a2de26e81cd42bfd7fe51cf68438608f5d30f771a8957371a0caaab2",
+    822261
+  ]
+  ],
+  [
+  "wty-la-pt-ipa",
+  "[LA-PT] Wiktionary (IPA)",
+  "wty-la-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e2d8019a3043fa10500d681ca01800093f7d0611dbdf7f69cabef9062bc115a1",
+    19102
+  ]
+  ],
+  [
+  "wty-la-pt",
+  "[LA-PT] Wiktionary (terms)",
+  "wty-la-pt",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2bd55664abd30b557b08887ea350305d1e45d4cb1f550b3a12e1c6c88fa0de03",
+    166764
+  ]
+  ],
+  [
+  "wty-la-ru-ipa",
+  "[LA-RU] Wiktionary (IPA)",
+  "wty-la-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "579af46a3eb37e4748e02639c22e05222521b8d048a8fa973557497e51c47243",
+    23807
+  ]
+  ],
+  [
+  "wty-la-ru",
+  "[LA-RU] Wiktionary (terms)",
+  "wty-la-ru",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cdef9d4f8035c1786c5b1139194528576cfe44577fd5dc7a96f3f48e23992240",
+    5450339
+  ]
+  ],
+  [
+  "wty-la-th-ipa",
+  "[LA-TH] Wiktionary (IPA)",
+  "wty-la-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cf344e5e414752fcc3da7127baa438a62ba364754a6b480e4a7f606dca4f65b5",
+    17161
+  ]
+  ],
+  [
+  "wty-la-th",
+  "[LA-TH] Wiktionary (terms)",
+  "wty-la-th",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1dd0eb68e9a0350464f8916aa3865ef8adf7fc336deb95e93bd61d168a12f032",
+    50081
+  ]
+  ],
+  [
+  "wty-la-tr-ipa",
+  "[LA-TR] Wiktionary (IPA)",
+  "wty-la-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1f6b84aa3c2f20d7753e39e81d5bead1f6ebf2da7a60881ee518f1bccf3c86f8",
+    8327
+  ]
+  ],
+  [
+  "wty-la-tr",
+  "[LA-TR] Wiktionary (terms)",
+  "wty-la-tr",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2a2f0c38ae5cad2c338cea89019c10ac2d386d8df5750fc5d7bff60b995b5a5f",
+    59701
+  ]
+  ],
+  [
+  "wty-la-vi-ipa",
+  "[LA-VI] Wiktionary (IPA)",
+  "wty-la-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "16dcd55e2f9a0f268cb27422ed8302c34cf455679fc6585783ec19f1fe5a8e1e",
+    35071
+  ]
+  ],
+  [
+  "wty-la-vi",
+  "[LA-VI] Wiktionary (terms)",
+  "wty-la-vi",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1e1c0f674f77d2af62b5f33540b159cd26fe536f9048d26cce1a27760718dba3",
+    31744
+  ]
+  ],
+  [
+  "wty-la-zh-ipa",
+  "[LA-ZH] Wiktionary (IPA)",
+  "wty-la-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "la"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ab72286f59096f64d129ccc9b96e877c6b1af9388cd2155fb7cfdce21ae88d2b",
+    141365
+  ]
+  ],
+  [
+  "wty-la-zh",
+  "[LA-ZH] Wiktionary (terms)",
+  "wty-la-zh",
+  [
+    "terms"
+  ],
+  [
+    "la"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dca37c9d3e8595d6e866df2d23bbcb1a60b1ad108c46fec339682184c1e46d64",
+    1625619
+  ]
+  ],
+  [
+  "wty-lo-de-ipa",
+  "[LO-DE] Wiktionary (IPA)",
+  "wty-lo-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bb8038bd37f05263dedc0ac5a90e554a2e84d4fbaeda10b0b78dcf0a49c89912",
+    7285
+  ]
+  ],
+  [
+  "wty-lo-de",
+  "[LO-DE] Wiktionary (terms)",
+  "wty-lo-de",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b40b0442ef3349f8d346e2d8ed440b3d468ab49979bf92e1a0364153a9d06316",
+    8409
+  ]
+  ],
+  [
+  "wty-lo-el",
+  "[LO-EL] Wiktionary (terms)",
+  "wty-lo-el",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7982ee7225bb6cc50567a0ed48d631322d97120d3fed33ed0209fdae709e9e6c",
+    7676
+  ]
+  ],
+  [
+  "wty-lo-en-ipa",
+  "[LO-EN] Wiktionary (IPA)",
+  "wty-lo-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "57105dee12081543a265e006881f06ff62ef7aaf3455cf573a06916a16267cd5",
+    60201
+  ]
+  ],
+  [
+  "wty-lo-en",
+  "[LO-EN] Wiktionary (terms)",
+  "wty-lo-en",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09dd9968bc15700b161c514dd317fccc2004f4e734b15860077c7f7e60a808ae",
+    265131
+  ]
+  ],
+  [
+  "wty-lo-es-ipa",
+  "[LO-ES] Wiktionary (IPA)",
+  "wty-lo-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "94519494c43bd77a0f7a818500444f6b6b69964fffad0d29f6440e9e99828e86",
+    7128
+  ]
+  ],
+  [
+  "wty-lo-es",
+  "[LO-ES] Wiktionary (terms)",
+  "wty-lo-es",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d54463ddd33e2dd596d6804e321bf1e6905d5110d98f6adabe8a4e09e95dfc13",
+    8660
+  ]
+  ],
+  [
+  "wty-lo-fr-ipa",
+  "[LO-FR] Wiktionary (IPA)",
+  "wty-lo-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9485d08df1f9fcd076d99ae1ab0b68f1494e3f9f0d221be956ad36cc7f65cb57",
+    8133
+  ]
+  ],
+  [
+  "wty-lo-fr",
+  "[LO-FR] Wiktionary (terms)",
+  "wty-lo-fr",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c47105d74981aff3d87431e3f7ba3ad448fd8603a30c5a15cfed81f80282ba2c",
+    12187
+  ]
+  ],
+  [
+  "wty-lo-id",
+  "[LO-ID] Wiktionary (terms)",
+  "wty-lo-id",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d90113a6c21eb475ebead26ef3bd21eded2e1ce29b0bd85dc756bdd82458306",
+    4900
+  ]
+  ],
+  [
+  "wty-lo-it",
+  "[LO-IT] Wiktionary (terms)",
+  "wty-lo-it",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "691380c9f6b55c60dbc65a1cd48637f1f9eda14ca5735ac26a8342a2f1a02a0f",
+    7158
+  ]
+  ],
+  [
+  "wty-lo-ko-ipa",
+  "[LO-KO] Wiktionary (IPA)",
+  "wty-lo-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c0f7515e75c8e07a82ab2e51f63c0e0b850b15423255371bcd4c919676749880",
+    12492
+  ]
+  ],
+  [
+  "wty-lo-ko",
+  "[LO-KO] Wiktionary (terms)",
+  "wty-lo-ko",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2cc357759eafa14b61fce2cab816aa6b50ce7dc8208ebdc043c8e2bfab37be65",
+    21613
+  ]
+  ],
+  [
+  "wty-lo-nl-ipa",
+  "[LO-NL] Wiktionary (IPA)",
+  "wty-lo-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "016c22b77492c407752d6f7a3eaba802d6c6380c5d62cbeaae4a2a0983914414",
+    7463
+  ]
+  ],
+  [
+  "wty-lo-nl",
+  "[LO-NL] Wiktionary (terms)",
+  "wty-lo-nl",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eeb558d3c1e744be36786428d59c491860888cb7f50e9bd0c08ced4ed1698286",
+    9941
+  ]
+  ],
+  [
+  "wty-lo-pl-ipa",
+  "[LO-PL] Wiktionary (IPA)",
+  "wty-lo-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76fee6b4353fba034dbb63406b97cfd60ec8266463e8b286c53920c8263821e2",
+    12582
+  ]
+  ],
+  [
+  "wty-lo-pl",
+  "[LO-PL] Wiktionary (terms)",
+  "wty-lo-pl",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4e2dd8e537883b1116a95c90f668999f75fbc11a5cc7adaf50d13d597f9f630",
+    32565
+  ]
+  ],
+  [
+  "wty-lo-pt-ipa",
+  "[LO-PT] Wiktionary (IPA)",
+  "wty-lo-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c4b9f70cb7a32c1b2a318954204bc713c6d33a445b1206c0c956da4ececf4c45",
+    7708
+  ]
+  ],
+  [
+  "wty-lo-pt",
+  "[LO-PT] Wiktionary (terms)",
+  "wty-lo-pt",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c4ab9e6b32b94a257da17cfaefe0407325c9ba49f07a2d7de92c0eb21023ba24",
+    9117
+  ]
+  ],
+  [
+  "wty-lo-ru-ipa",
+  "[LO-RU] Wiktionary (IPA)",
+  "wty-lo-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "63f90090c7077d97e451063044b53831007ef2663897c4de150a5c9e50746fec",
+    10229
+  ]
+  ],
+  [
+  "wty-lo-ru",
+  "[LO-RU] Wiktionary (terms)",
+  "wty-lo-ru",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "043b14588096fb2ad4ec0c908ed969ae112728d9c07030cac278a945bc9dd316",
+    60058
+  ]
+  ],
+  [
+  "wty-lo-th-ipa",
+  "[LO-TH] Wiktionary (IPA)",
+  "wty-lo-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9655238046bf77c1714a89558c2c0662d15cfce0e288b49ebe1ebd224083815e",
+    260646
+  ]
+  ],
+  [
+  "wty-lo-th",
+  "[LO-TH] Wiktionary (terms)",
+  "wty-lo-th",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cf086f17be858f52f3e264d73749204da3549084141349e2e4ba1a983b96e2be",
+    948563
+  ]
+  ],
+  [
+  "wty-lo-tr-ipa",
+  "[LO-TR] Wiktionary (IPA)",
+  "wty-lo-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b084b68241468fd4bb1aaa74ecbb657b71de26bbf98b510e3ea8292a582ff664",
+    7114
+  ]
+  ],
+  [
+  "wty-lo-tr",
+  "[LO-TR] Wiktionary (terms)",
+  "wty-lo-tr",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "41ce490c5580280c67e0f85b985f2f9b8211813c89ba8fb23448ed38ec794ff4",
+    13510
+  ]
+  ],
+  [
+  "wty-lo-vi-ipa",
+  "[LO-VI] Wiktionary (IPA)",
+  "wty-lo-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90b7cb441cdd4900fbd9bfec10ffabab5cb6f767cdf7d33b4a937bffa9a26243",
+    6835
+  ]
+  ],
+  [
+  "wty-lo-vi",
+  "[LO-VI] Wiktionary (terms)",
+  "wty-lo-vi",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "012b1a65b3611d2907f4086537d3a2e9dd1be10d851c0d08eaa6792901000564",
+    23128
+  ]
+  ],
+  [
+  "wty-lo-zh-ipa",
+  "[LO-ZH] Wiktionary (IPA)",
+  "wty-lo-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "65d59930eaaaf8dc72949a1fa534c38f853d5497d4098db1f884a23f30dcaab3",
+    7619
+  ]
+  ],
+  [
+  "wty-lo-zh",
+  "[LO-ZH] Wiktionary (terms)",
+  "wty-lo-zh",
+  [
+    "terms"
+  ],
+  [
+    "lo"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b53c9c49779ae64623cd2c9726cb8cc7482817079f85b10d7cb85b44e4e26496",
+    63679
+  ]
+  ],
+  [
+  "wty-mn-de-ipa",
+  "[MN-DE] Wiktionary (IPA)",
+  "wty-mn-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cc9616257607ee941b504ccd8730fd60067c7ac594cb7787fe884a3b292be0ec",
+    7673
+  ]
+  ],
+  [
+  "wty-mn-de",
+  "[MN-DE] Wiktionary (terms)",
+  "wty-mn-de",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "65a6b75d470d771a62b7bd40be534941a0d25e304c9e62ec1310c582e613ff06",
+    10204
+  ]
+  ],
+  [
+  "wty-mn-el",
+  "[MN-EL] Wiktionary (terms)",
+  "wty-mn-el",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ecfae7ed29bd41c5e44757fd0828ef804a4e08622f01af8032f7f515c2378a18",
+    10127
+  ]
+  ],
+  [
+  "wty-mn-en-ipa",
+  "[MN-EN] Wiktionary (IPA)",
+  "wty-mn-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb47e867828679d25e8448e67e1a0c2fc0da08d1e408d05e91fa30ea89dff046",
+    77725
+  ]
+  ],
+  [
+  "wty-mn-en",
+  "[MN-EN] Wiktionary (terms)",
+  "wty-mn-en",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "557d8aafc008056801d3eb8782b1705ea780dacb9ec694fff2b0b00820fde8ea",
+    624065
+  ]
+  ],
+  [
+  "wty-mn-es-ipa",
+  "[MN-ES] Wiktionary (IPA)",
+  "wty-mn-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f0743c322a35ba2571c211f1f7435da6ff0871b31ba796730dff21b755f70dcb",
+    8173
+  ]
+  ],
+  [
+  "wty-mn-es",
+  "[MN-ES] Wiktionary (terms)",
+  "wty-mn-es",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "740bec19dc2b949b7e1ea47ebe35923f6bfe599520a30e1352c60a67fd8dc622",
+    27717
+  ]
+  ],
+  [
+  "wty-mn-fr-ipa",
+  "[MN-FR] Wiktionary (IPA)",
+  "wty-mn-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2361450e2bf0f5fd66a77c1268fb6e3978d242e00d0a6b27ed3fc23db2d42d1f",
+    10785
+  ]
+  ],
+  [
+  "wty-mn-fr",
+  "[MN-FR] Wiktionary (terms)",
+  "wty-mn-fr",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf54e4714b3dc811a1bbf4924a5baf865f5189285736bcc85ff700a296406e0a",
+    95155
+  ]
+  ],
+  [
+  "wty-mn-id",
+  "[MN-ID] Wiktionary (terms)",
+  "wty-mn-id",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7b9d85adf9e146dff7708ea3c5a4515515b663aa620b2359e4d9c680394ac01",
+    4756
+  ]
+  ],
+  [
+  "wty-mn-it",
+  "[MN-IT] Wiktionary (terms)",
+  "wty-mn-it",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3592742faf611ea0ebda26fb8502d534aa06cffe5452b5ecb44435d7ecee710f",
+    7825
+  ]
+  ],
+  [
+  "wty-mn-ko-ipa",
+  "[MN-KO] Wiktionary (IPA)",
+  "wty-mn-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "06efb7c56afaeb09d504906e2701030f4fd922c3acd3a1897a5be77852d5c3f1",
+    12879
+  ]
+  ],
+  [
+  "wty-mn-ko",
+  "[MN-KO] Wiktionary (terms)",
+  "wty-mn-ko",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9aaa8ed49fc9c51a769038b709e4ea874b36e9ee2dbda845e0e8cd370560dc9e",
+    29946
+  ]
+  ],
+  [
+  "wty-mn-nl-ipa",
+  "[MN-NL] Wiktionary (IPA)",
+  "wty-mn-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b7822f542c7af1d2c10409310a80993a176df94675017ee3327861d7d3f5e603",
+    6996
+  ]
+  ],
+  [
+  "wty-mn-nl",
+  "[MN-NL] Wiktionary (terms)",
+  "wty-mn-nl",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0fb18362c2c70ca1a7bf2c8139b3bef22f8fd46095563de3eff6eb16c8057664",
+    12859
+  ]
+  ],
+  [
+  "wty-mn-pl-ipa",
+  "[MN-PL] Wiktionary (IPA)",
+  "wty-mn-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "56c34cfd7f325b1fcb8f2f2e4d117cf983d354018ed8c365fe7e1a3394aa2957",
+    8282
+  ]
+  ],
+  [
+  "wty-mn-pl",
+  "[MN-PL] Wiktionary (terms)",
+  "wty-mn-pl",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "01cfaf3f6836d3079c9162b0341fc99f385333d71686ad8a0142dbe186f9911f",
+    49599
+  ]
+  ],
+  [
+  "wty-mn-pt-ipa",
+  "[MN-PT] Wiktionary (IPA)",
+  "wty-mn-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b928bdc9c53b747fdd2f661bd4dce949e4040ee2b5931f2ea2663799003d3b69",
+    6829
+  ]
+  ],
+  [
+  "wty-mn-pt",
+  "[MN-PT] Wiktionary (terms)",
+  "wty-mn-pt",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d5a8996c2b651429858fd18bd1263b751adbdd979e9e7050fe4dd1d002b9c22a",
+    21566
+  ]
+  ],
+  [
+  "wty-mn-ru-ipa",
+  "[MN-RU] Wiktionary (IPA)",
+  "wty-mn-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dfbb7806302e736e5ddb7251faaa0c14f12c4b772f07ff8aa88c85bad180cf08",
+    9808
+  ]
+  ],
+  [
+  "wty-mn-ru",
+  "[MN-RU] Wiktionary (terms)",
+  "wty-mn-ru",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ecd2360f172ceab5e2d38d5cf63df77288e9ba13adf0106161abec9f2d2f603f",
+    145854
+  ]
+  ],
+  [
+  "wty-mn-th-ipa",
+  "[MN-TH] Wiktionary (IPA)",
+  "wty-mn-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c257fcd4440e705f477aa89ad13d29e549a53b9b0f0bb2a1effc8e9a6f417c7f",
+    7458
+  ]
+  ],
+  [
+  "wty-mn-th",
+  "[MN-TH] Wiktionary (terms)",
+  "wty-mn-th",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46b07cd372f9fafaac78c5d4c170fce9e5ebc7e72002d1986996e061f469a1ce",
+    10245
+  ]
+  ],
+  [
+  "wty-mn-tr-ipa",
+  "[MN-TR] Wiktionary (IPA)",
+  "wty-mn-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c02113ce2b2cc5fb99cf862ce162acd30949d120cba2cda44e1057353fc47fb9",
+    7058
+  ]
+  ],
+  [
+  "wty-mn-tr",
+  "[MN-TR] Wiktionary (terms)",
+  "wty-mn-tr",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "da0407cf04b0af77c79c8a445029989557f62739e571f3cf6d5c9d49ce55f6e3",
+    21332
+  ]
+  ],
+  [
+  "wty-mn-vi-ipa",
+  "[MN-VI] Wiktionary (IPA)",
+  "wty-mn-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e58f9fdeccad897aa03147b2e690cc75a050c39aecfb151263fa505a89b4cff",
+    19522
+  ]
+  ],
+  [
+  "wty-mn-vi",
+  "[MN-VI] Wiktionary (terms)",
+  "wty-mn-vi",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dda4637bf95ff5ba3ad0bbefe2ecdb72d7da5cb376982ee9aeee2c002b198b0e",
+    45182
+  ]
+  ],
+  [
+  "wty-mn-zh-ipa",
+  "[MN-ZH] Wiktionary (IPA)",
+  "wty-mn-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f5bceef7c838a95fc195000fc9534b83ea6320456372a76f27c06e846c9f510d",
+    15436
+  ]
+  ],
+  [
+  "wty-mn-zh",
+  "[MN-ZH] Wiktionary (terms)",
+  "wty-mn-zh",
+  [
+    "terms"
+  ],
+  [
+    "mn"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "89a81fc84d651397cf6ac785e531393d3f94d21b75fcbc8e8559d5e6784ce0c8",
+    201537
+  ]
+  ],
+  [
+  "wty-nl-ar-gloss",
+  "[NL-AR] Wiktionary (gloss)",
+  "wty-nl-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d743a7b6f24cdaaea6b1fb61415534f95a6f3c41f78a523091028c2bbb5702f",
+    53037
+  ]
+  ],
+  [
+  "wty-nl-da-gloss",
+  "[NL-DA] Wiktionary (gloss)",
+  "wty-nl-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a1de051bc1500e72917df48ef91288722d096ac8923c82ca8bd3c74f15b5a174",
+    133134
+  ]
+  ],
+  [
+  "wty-nl-de-gloss",
+  "[NL-DE] Wiktionary (gloss)",
+  "wty-nl-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ce4feda34259a76bca22d4bc13e266eba2ebc9114fe0a8cc9997429ab0ea1532",
+    734279
+  ]
+  ],
+  [
+  "wty-nl-de-ipa",
+  "[NL-DE] Wiktionary (IPA)",
+  "wty-nl-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fbdb5e3941c3055f53dcec576300539276d9a2ae673c51e886ba053eb05fc7d4",
+    25984
+  ]
+  ],
+  [
+  "wty-nl-de",
+  "[NL-DE] Wiktionary (terms)",
+  "wty-nl-de",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "634a42005f5e775ca97a93126a5eeb300e0b8a2e3fc81e4ddea71e409c534297",
+    131205
+  ]
+  ],
+  [
+  "wty-nl-el-gloss",
+  "[NL-EL] Wiktionary (gloss)",
+  "wty-nl-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cf599524ba1769d386daec3882aeec73dd064ce10746b15eec960556057ae672",
+    88527
+  ]
+  ],
+  [
+  "wty-nl-el-ipa",
+  "[NL-EL] Wiktionary (IPA)",
+  "wty-nl-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e6885d994ec1b177ccd45a9130e4f7e9a2521c6b7452d5151e8724ff03834a15",
+    8985
+  ]
+  ],
+  [
+  "wty-nl-el",
+  "[NL-EL] Wiktionary (terms)",
+  "wty-nl-el",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a0e8864ac9a4134ff8c44bb6d1ddad2553372e0db3111801378352e3fe788d90",
+    239101
+  ]
+  ],
+  [
+  "wty-nl-en-gloss",
+  "[NL-EN] Wiktionary (gloss)",
+  "wty-nl-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8e37a40cfcf9b04d8eaa41c1cffd408afffe88e0bc88cc5fd09e8f290c7d04e0",
+    1317274
+  ]
+  ],
+  [
+  "wty-nl-en-ipa",
+  "[NL-EN] Wiktionary (IPA)",
+  "wty-nl-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "432a5ef8f33b0faca7ec90c736805cf476aa7f24e8bec05c8bd5824934ee7a5a",
+    918773
+  ]
+  ],
+  [
+  "wty-nl-en",
+  "[NL-EN] Wiktionary (terms)",
+  "wty-nl-en",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "243e195625a2babc4b6970be519ba923fbed41a8f8a0be42185bc6c89ad155c0",
+    8509132
+  ]
+  ],
+  [
+  "wty-nl-es-gloss",
+  "[NL-ES] Wiktionary (gloss)",
+  "wty-nl-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "386b0456b484369da45be94d19ffd098ed9f2424da6349a4dad4c31cf82a2d1c",
+    842068
+  ]
+  ],
+  [
+  "wty-nl-es-ipa",
+  "[NL-ES] Wiktionary (IPA)",
+  "wty-nl-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a9bb8cfb44a2f3e57960abbf49cf642b06252f18629afea5ca7f374606feb598",
+    16202
+  ]
+  ],
+  [
+  "wty-nl-es",
+  "[NL-ES] Wiktionary (terms)",
+  "wty-nl-es",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "67ccfddd27b0d198535d118789d397eec76454dcd198bae35a93707ba6a5ea12",
+    84929
+  ]
+  ],
+  [
+  "wty-nl-fa-gloss",
+  "[NL-FA] Wiktionary (gloss)",
+  "wty-nl-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7eeb4cd19633f8e8ea005b8b4cfad95df6929548acf4edb1b09f8fb28dad88b1",
+    48310
+  ]
+  ],
+  [
+  "wty-nl-fi-gloss",
+  "[NL-FI] Wiktionary (gloss)",
+  "wty-nl-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7cd64d1ce1784d4fcb13d00a05c075c6eb7f4c4abdc0e863ceb80176848174f4",
+    132623
+  ]
+  ],
+  [
+  "wty-nl-fr-gloss",
+  "[NL-FR] Wiktionary (gloss)",
+  "wty-nl-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fe27ce9269be40d7920d8f664de0e8b4db4c996e8019f3f7b20f0f924ca20b44",
+    687898
+  ]
+  ],
+  [
+  "wty-nl-fr-ipa",
+  "[NL-FR] Wiktionary (IPA)",
+  "wty-nl-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "92231fc582d958c9a401bb6a72806a6fd2c6a68801e170985afd48400a44632b",
+    78254
+  ]
+  ],
+  [
+  "wty-nl-fr",
+  "[NL-FR] Wiktionary (terms)",
+  "wty-nl-fr",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "33dcd6c67370251b5ff11f59341e6d53e319ec5e3d3136b7056228f0f1d8df67",
+    2512018
+  ]
+  ],
+  [
+  "wty-nl-grc-gloss",
+  "[NL-GRC] Wiktionary (gloss)",
+  "wty-nl-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4fa485bd3fc605a872daae9d241e54a1e2f1c4fa357f1ac55cfa3d10758ab43c",
+    11762
+  ]
+  ],
+  [
+  "wty-nl-hu-gloss",
+  "[NL-HU] Wiktionary (gloss)",
+  "wty-nl-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "652f3d8813c0e8196687a8f156e7c1ff00cfe5ac1ad271749652a00fd9eb9b6d",
+    85785
+  ]
+  ],
+  [
+  "wty-nl-id-gloss",
+  "[NL-ID] Wiktionary (gloss)",
+  "wty-nl-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aeade2c323e22c744d818c7d71a04897e9b128fec1296d310b8365f8cfd905cd",
+    63290
+  ]
+  ],
+  [
+  "wty-nl-id-ipa",
+  "[NL-ID] Wiktionary (IPA)",
+  "wty-nl-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "099232a49f21be5f8cf7cf872430110d19876d8a8d30dc711d9f3c6d09a3e6b9",
+    6842
+  ]
+  ],
+  [
+  "wty-nl-id",
+  "[NL-ID] Wiktionary (terms)",
+  "wty-nl-id",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "483940128afe930a72e40aac3be6000324a5eedca40f8677be990ecc7abdc78a",
+    9807
+  ]
+  ],
+  [
+  "wty-nl-it-gloss",
+  "[NL-IT] Wiktionary (gloss)",
+  "wty-nl-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6aba1afe6c0c1a6ed68dd3d7591c2cfec64782bfa1e6f6b5bece6626f88bc202",
+    247462
+  ]
+  ],
+  [
+  "wty-nl-it-ipa",
+  "[NL-IT] Wiktionary (IPA)",
+  "wty-nl-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "496bd5c8ef0f2018dd655b9860d5b9ad9bfe5418aca5106c6093d3bd79758053",
+    14217
+  ]
+  ],
+  [
+  "wty-nl-it",
+  "[NL-IT] Wiktionary (terms)",
+  "wty-nl-it",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "966a50c9e85be38462371d836a165e409578c01a9b9f39627c2a64cb6a9a93e8",
+    104927
+  ]
+  ],
+  [
+  "wty-nl-km-gloss",
+  "[NL-KM] Wiktionary (gloss)",
+  "wty-nl-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b2f07898ae19c5a1fe345d59ae817ef8f63ea3ea045ee945fe13ef54c13df381",
+    10831
+  ]
+  ],
+  [
+  "wty-nl-ko-gloss",
+  "[NL-KO] Wiktionary (gloss)",
+  "wty-nl-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b077a03637361bae1a7e06ad2fe54224983b93d94d7fd5fa5619724a18bb7339",
+    55821
+  ]
+  ],
+  [
+  "wty-nl-ko-ipa",
+  "[NL-KO] Wiktionary (IPA)",
+  "wty-nl-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "247a20313a27e0dbb9a230ce883efe107de415f00dbceb2adb66bfea99a37554",
+    10762
+  ]
+  ],
+  [
+  "wty-nl-ko",
+  "[NL-KO] Wiktionary (terms)",
+  "wty-nl-ko",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2782025db0dcf3d974f78843b5ce9bd5ffe633f08b0fa21a98db37fdbd96b0e0",
+    62445
+  ]
+  ],
+  [
+  "wty-nl-la-gloss",
+  "[NL-LA] Wiktionary (gloss)",
+  "wty-nl-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ceadf3c158cce590af43c4b21639176e9dd33fdb9d6b4a877a65a62a52baccd6",
+    62523
+  ]
+  ],
+  [
+  "wty-nl-lo-gloss",
+  "[NL-LO] Wiktionary (gloss)",
+  "wty-nl-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "27194f882ea0e9a9138c56f14e4bd8026c5e9aca3576889a8118c8dd894bdbe4",
+    10843
+  ]
+  ],
+  [
+  "wty-nl-mn-gloss",
+  "[NL-MN] Wiktionary (gloss)",
+  "wty-nl-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8cc43b2f6167deb33e6e16f1bb9f23eb623225bbe17a4afc3504106619c7418f",
+    16856
+  ]
+  ],
+  [
+  "wty-nl-nl-ipa",
+  "[NL-NL] Wiktionary (IPA)",
+  "wty-nl-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd0a969968a3518bfeeccd205409a25519438f649aaf1270d51d489d09537556",
+    1639776
+  ]
+  ],
+  [
+  "wty-nl-nl",
+  "[NL-NL] Wiktionary (terms)",
+  "wty-nl-nl",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c414fd04d0ef426006f33dbd8f9e3cf1180d153c81d3c1b629439fe46e3d3a4a",
+    26849019
+  ]
+  ],
+  [
+  "wty-nl-pl-gloss",
+  "[NL-PL] Wiktionary (gloss)",
+  "wty-nl-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6e6736e83b2684d3989b5271cfdb5ae07e6ab4859cbc19dca816bfc76b207d4d",
+    201860
+  ]
+  ],
+  [
+  "wty-nl-pl-ipa",
+  "[NL-PL] Wiktionary (IPA)",
+  "wty-nl-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0f2fe9da64b8b366210f4fdf69fd001e2e731f2b1ec6a6217dd850a2ae0a720b",
+    40368
+  ]
+  ],
+  [
+  "wty-nl-pl",
+  "[NL-PL] Wiktionary (terms)",
+  "wty-nl-pl",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "26e0d223c8b8bc73791e03d14c47d4c539618ff5b7efe5fa9912b41ea8c04be8",
+    220930
+  ]
+  ],
+  [
+  "wty-nl-pt-gloss",
+  "[NL-PT] Wiktionary (gloss)",
+  "wty-nl-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dd9691b126efe8f5f66611297ef05ad368ce6c0de9c1fa3045ed9aa526c6636c",
+    158182
+  ]
+  ],
+  [
+  "wty-nl-pt-ipa",
+  "[NL-PT] Wiktionary (IPA)",
+  "wty-nl-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "56b599ef8148239fb480ebddf768b41cb41a896b6af5b3d597548ec5ab15c6bf",
+    14613
+  ]
+  ],
+  [
+  "wty-nl-pt",
+  "[NL-PT] Wiktionary (terms)",
+  "wty-nl-pt",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "44a31d3981d3e3755c731a0b6a94613d8cb1923e3e100bb1661fcd862c81335c",
+    102015
+  ]
+  ],
+  [
+  "wty-nl-ro-gloss",
+  "[NL-RO] Wiktionary (gloss)",
+  "wty-nl-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "10ae2d977fbfbf6842770ac0fafddff4cb5e818e24303b89db01fab0437599a4",
+    69322
+  ]
+  ],
+  [
+  "wty-nl-ru-gloss",
+  "[NL-RU] Wiktionary (gloss)",
+  "wty-nl-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2de576a5dac4829dc31dc2035371e57c91659b4b4cd57749b93a216ef14bde56",
+    157073
+  ]
+  ],
+  [
+  "wty-nl-ru-ipa",
+  "[NL-RU] Wiktionary (IPA)",
+  "wty-nl-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c092b371ecfb3840bd6b6004d004faf7f3957b0ac1f386717b045e1690ca3900",
+    34788
+  ]
+  ],
+  [
+  "wty-nl-ru",
+  "[NL-RU] Wiktionary (terms)",
+  "wty-nl-ru",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46a42314f9105beeb65c377856c852d5692ea731105cc9b266a563711af14726",
+    613786
+  ]
+  ],
+  [
+  "wty-nl-sh-gloss",
+  "[NL-SH] Wiktionary (gloss)",
+  "wty-nl-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c5c22d05dd1fcdd02198c01f87ded25c4c5ea761c2f416981c6c739ae3af43b2",
+    19241
+  ]
+  ],
+  [
+  "wty-nl-sq-gloss",
+  "[NL-SQ] Wiktionary (gloss)",
+  "wty-nl-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "54b5174b2621e6fdca7cd8177ffff4fc12dc2cd8c847c78906dceae47db981bf",
+    32636
+  ]
+  ],
+  [
+  "wty-nl-sv-gloss",
+  "[NL-SV] Wiktionary (gloss)",
+  "wty-nl-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b959f4208ee226d8cd0659f638fc469a6e5791e23a838698863d3c995958b6bc",
+    189039
+  ]
+  ],
+  [
+  "wty-nl-th-gloss",
+  "[NL-TH] Wiktionary (gloss)",
+  "wty-nl-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1cb95838dfa3ee16f1cafdaacd58f9646c0046e35463cdd460a2b87d8041ba10",
+    37015
+  ]
+  ],
+  [
+  "wty-nl-th-ipa",
+  "[NL-TH] Wiktionary (IPA)",
+  "wty-nl-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "398c2f95964b6ccba8c946b6ca80e6cbf82d1db77f39dc1dde7c356e2e07f918",
+    14426
+  ]
+  ],
+  [
+  "wty-nl-th",
+  "[NL-TH] Wiktionary (terms)",
+  "wty-nl-th",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2af8ab55dd7f3c08f2e11767cb459d693b3b6c75eda0eef575b9b948d7335ee9",
+    74295
+  ]
+  ],
+  [
+  "wty-nl-tl-gloss",
+  "[NL-TL] Wiktionary (gloss)",
+  "wty-nl-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c144a3316a1034791bc9f51995009870f5679500083d2ed0c4da507c8f1248d0",
+    26114
+  ]
+  ],
+  [
+  "wty-nl-tr-gloss",
+  "[NL-TR] Wiktionary (gloss)",
+  "wty-nl-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ba6cba560cb39c8d063bfa4c30e0e2f00a1368d5b5eec3924d9299ccb4311ff",
+    93741
+  ]
+  ],
+  [
+  "wty-nl-tr-ipa",
+  "[NL-TR] Wiktionary (IPA)",
+  "wty-nl-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bbbdb4d085eb2b9fc8ff14529ff3bc7916c4197fb005aa285912bd6f7e691e15",
+    8606
+  ]
+  ],
+  [
+  "wty-nl-tr",
+  "[NL-TR] Wiktionary (terms)",
+  "wty-nl-tr",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bca1c6849b9a36022b16f1cdc212c38ef7a680ef85356e2d517c94d6e8f5c4c2",
+    82940
+  ]
+  ],
+  [
+  "wty-nl-vi-gloss",
+  "[NL-VI] Wiktionary (gloss)",
+  "wty-nl-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c9080ac02888273501a427d288a3ac873942c6b59f0e27debe61740e6b04d3dd",
+    50669
+  ]
+  ],
+  [
+  "wty-nl-vi-ipa",
+  "[NL-VI] Wiktionary (IPA)",
+  "wty-nl-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4de4b11a5970ea524fcefdf8186f7ea630c92f2f5b8d521103b469076fb944c9",
+    13379
+  ]
+  ],
+  [
+  "wty-nl-vi",
+  "[NL-VI] Wiktionary (terms)",
+  "wty-nl-vi",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "00b3eab5ef8ec8752eed2b8a6af13eb0ca415d27d112fda966e895b1564c07d7",
+    117467
+  ]
+  ],
+  [
+  "wty-nl-yue-gloss",
+  "[NL-YUE] Wiktionary (gloss)",
+  "wty-nl-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e1939f7944da272b5482cd6b4ac386797a51c981e286d98ed734ea9db57e8967",
+    10138
+  ]
+  ],
+  [
+  "wty-nl-zh-gloss",
+  "[NL-ZH] Wiktionary (gloss)",
+  "wty-nl-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "904a86ea33e3f232f6a4af20a273a2c41108c5ab37ea5c7c383fc4dc432030a3",
+    67171
+  ]
+  ],
+  [
+  "wty-nl-zh-ipa",
+  "[NL-ZH] Wiktionary (IPA)",
+  "wty-nl-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fcb6985e2a726cd8e17a96cb13cd7ec2ce745d7c0fb8474c4057869035e8f33f",
+    116667
+  ]
+  ],
+  [
+  "wty-nl-zh",
+  "[NL-ZH] Wiktionary (terms)",
+  "wty-nl-zh",
+  [
+    "terms"
+  ],
+  [
+    "nl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8f8f031ab0d6d6bbea7fbc26d57bf33224ee9a395e8e018dd6dfba20d58f0874",
+    903719
+  ]
+  ],
+  [
+  "wty-pl-ar-gloss",
+  "[PL-AR] Wiktionary (gloss)",
+  "wty-pl-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7e78d06c953eb37a356bb1866d095b847ee0ddb70416009a269d4ec61a9b66d0",
+    129787
+  ]
+  ],
+  [
+  "wty-pl-da-gloss",
+  "[PL-DA] Wiktionary (gloss)",
+  "wty-pl-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b20dd3a8c0730d6c9661f895f04b1870a55905ca9f6480a0ad1408e579ce2f0c",
+    230614
+  ]
+  ],
+  [
+  "wty-pl-de-gloss",
+  "[PL-DE] Wiktionary (gloss)",
+  "wty-pl-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "58e96e9748169e91896ab82f7d15c56df0f64f13809372d7b686463107436e16",
+    432398
+  ]
+  ],
+  [
+  "wty-pl-de-ipa",
+  "[PL-DE] Wiktionary (IPA)",
+  "wty-pl-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9cbdcf0af9436b721a9ab5d5e29a91700735f6090e2f533a4bfdf66b01338b6f",
+    267190
+  ]
+  ],
+  [
+  "wty-pl-de",
+  "[PL-DE] Wiktionary (terms)",
+  "wty-pl-de",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "49271045cf93f5eaf7e80bf3e61393cbdf511bf0d576fb388e1750530d09634d",
+    1376919
+  ]
+  ],
+  [
+  "wty-pl-el-gloss",
+  "[PL-EL] Wiktionary (gloss)",
+  "wty-pl-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8d9af73a3ea2eaf7474ba52aaf67e6ecfdcd47d0e59f5239f77c4cc2b217431d",
+    269361
+  ]
+  ],
+  [
+  "wty-pl-el-ipa",
+  "[PL-EL] Wiktionary (IPA)",
+  "wty-pl-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fafdf099e656aa347d8bd9c255c25bae7e7fa6e86737a220fe5857b28d23405c",
+    27722
+  ]
+  ],
+  [
+  "wty-pl-el",
+  "[PL-EL] Wiktionary (terms)",
+  "wty-pl-el",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "156568ddd26cc24f06e8e2d02a5fa5861888e38e207504c0f7f52c0089346523",
+    355572
+  ]
+  ],
+  [
+  "wty-pl-en-gloss",
+  "[PL-EN] Wiktionary (gloss)",
+  "wty-pl-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f5caf3dcadbffc77c36b2c826ff2bd3f20885a6a8d2b5d3f239ed53fc3767f54",
+    719794
+  ]
+  ],
+  [
+  "wty-pl-en-ipa",
+  "[PL-EN] Wiktionary (IPA)",
+  "wty-pl-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b943a75378a44df98700e4bc6be252d3ce53abc96e52cebce0c293c69c373fb3",
+    2685850
+  ]
+  ],
+  [
+  "wty-pl-en",
+  "[PL-EN] Wiktionary (terms)",
+  "wty-pl-en",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6f00fc08b3b75ad5bce41a3061361dd1f72d02e81047a50adecbe4a617982d7d",
+    21600795
+  ]
+  ],
+  [
+  "wty-pl-es-gloss",
+  "[PL-ES] Wiktionary (gloss)",
+  "wty-pl-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "73c6c9aab52b87a34216cb69443158638af55cf5d834ad1967e481e9ee8284f9",
+    392538
+  ]
+  ],
+  [
+  "wty-pl-es-ipa",
+  "[PL-ES] Wiktionary (IPA)",
+  "wty-pl-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6c672747c010ce5b9b0966764cd09115c2b89b9479d405fcd0f88d3ad973173f",
+    41537
+  ]
+  ],
+  [
+  "wty-pl-es",
+  "[PL-ES] Wiktionary (terms)",
+  "wty-pl-es",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fe5539c191bc2f39886c686f8b0bd651a5510ec1be7338835ff3d5c0a13cc323",
+    87769
+  ]
+  ],
+  [
+  "wty-pl-fa-gloss",
+  "[PL-FA] Wiktionary (gloss)",
+  "wty-pl-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cbfe821777286f5c3a50ca045ab801c762718bc9a26c15b91c03b9e3415e1ac3",
+    24122
+  ]
+  ],
+  [
+  "wty-pl-fi-gloss",
+  "[PL-FI] Wiktionary (gloss)",
+  "wty-pl-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ef40c0d0ce5c487fbdfca1b47367319ae3c3a64c1db8a33c99c2b2c63467e13",
+    76111
+  ]
+  ],
+  [
+  "wty-pl-fr-gloss",
+  "[PL-FR] Wiktionary (gloss)",
+  "wty-pl-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "86d3a4476db210f5e49d3824f5fff61e38062dfe4fa4cd12b69ece1a0eae5678",
+    330296
+  ]
+  ],
+  [
+  "wty-pl-fr-ipa",
+  "[PL-FR] Wiktionary (IPA)",
+  "wty-pl-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "879bdc0d881bffefbad4bc9e100cf09910f3bb00cbbe2c736686afb74f4a16ae",
+    151654
+  ]
+  ],
+  [
+  "wty-pl-fr",
+  "[PL-FR] Wiktionary (terms)",
+  "wty-pl-fr",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "143e2ea5b13939b21b114a6a89e93306c493d34a9f2c6fcf8b28080898b2c09c",
+    1571138
+  ]
+  ],
+  [
+  "wty-pl-hu-gloss",
+  "[PL-HU] Wiktionary (gloss)",
+  "wty-pl-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c02daea5e48beb5c78254190aa65ab5f14a34b692126a863834f76943c84547b",
+    159155
+  ]
+  ],
+  [
+  "wty-pl-id-gloss",
+  "[PL-ID] Wiktionary (gloss)",
+  "wty-pl-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7441b3c8de3fcc9ad82931eabcf50cdc1c71868b7aafb316383821758eb91c0a",
+    23653
+  ]
+  ],
+  [
+  "wty-pl-id",
+  "[PL-ID] Wiktionary (terms)",
+  "wty-pl-id",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "36879313a03c7c3db5602bdf40aa08665b360b16ebc3fe266992db0696e86a24",
+    7166
+  ]
+  ],
+  [
+  "wty-pl-it-gloss",
+  "[PL-IT] Wiktionary (gloss)",
+  "wty-pl-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "897b4c2480f32fde3d91645827e1d15addb3a92f60ea53da94140d78366a3540",
+    337932
+  ]
+  ],
+  [
+  "wty-pl-it-ipa",
+  "[PL-IT] Wiktionary (IPA)",
+  "wty-pl-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d0d505f923ff8831243be415c556fd6295c0dbf00892f31cc51e22e72cb5d540",
+    12656
+  ]
+  ],
+  [
+  "wty-pl-it",
+  "[PL-IT] Wiktionary (terms)",
+  "wty-pl-it",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2a279fe34a15c83d9dcbea0b2167c13a39d394d473cea282e23afd8d9678aaf3",
+    81383
+  ]
+  ],
+  [
+  "wty-pl-km-gloss",
+  "[PL-KM] Wiktionary (gloss)",
+  "wty-pl-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6c03a45a4570d2f3d7c5a06e66b79615e9fff359d16a363da73671448cce76f8",
+    10662
+  ]
+  ],
+  [
+  "wty-pl-ko-gloss",
+  "[PL-KO] Wiktionary (gloss)",
+  "wty-pl-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3f24152e95ee857bb265f909a49eaa70e099a96f05dcb5e99d8c4c0dd92b7971",
+    39679
+  ]
+  ],
+  [
+  "wty-pl-ko-ipa",
+  "[PL-KO] Wiktionary (IPA)",
+  "wty-pl-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fa7dd740661f1f4702aa5de474a2729b327a42fac0e747f3d05a2e2d844a27ed",
+    33358
+  ]
+  ],
+  [
+  "wty-pl-ko",
+  "[PL-KO] Wiktionary (terms)",
+  "wty-pl-ko",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4f10c31034f48a10710b466908e80a67470dcdd59b777d1a6eb3fec6f8c6b23",
+    107228
+  ]
+  ],
+  [
+  "wty-pl-la-gloss",
+  "[PL-LA] Wiktionary (gloss)",
+  "wty-pl-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f9b7c8c21834ecbb27007d774a6c8e37bd98029d7d7df8ffc96e4d96c0e67643",
+    109339
+  ]
+  ],
+  [
+  "wty-pl-lo-gloss",
+  "[PL-LO] Wiktionary (gloss)",
+  "wty-pl-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5dc5294eb54fed8ce8ab4275cda026cde2c4f277f3600eece8d75b9b49559e0d",
+    9882
+  ]
+  ],
+  [
+  "wty-pl-mn-gloss",
+  "[PL-MN] Wiktionary (gloss)",
+  "wty-pl-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bb9dc5f039fcb54da31fdbfee290eb270b185d2ca42e7abad1fd3e1f1583aa4f",
+    13251
+  ]
+  ],
+  [
+  "wty-pl-nl-gloss",
+  "[PL-NL] Wiktionary (gloss)",
+  "wty-pl-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6fd17f7c79f30e09989221e2853736c6d0e33269d9cbffae8394ac49d3f6a412",
+    73965
+  ]
+  ],
+  [
+  "wty-pl-nl-ipa",
+  "[PL-NL] Wiktionary (IPA)",
+  "wty-pl-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "88d934bafbbd7c39a2f014fe224e0da76608dcb45c61228b41ceb769f207bac4",
+    15421
+  ]
+  ],
+  [
+  "wty-pl-nl",
+  "[PL-NL] Wiktionary (terms)",
+  "wty-pl-nl",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be986741913973a213a7533ea8d86bd78d95208ce226b186b065144de918e2d1",
+    80224
+  ]
+  ],
+  [
+  "wty-pl-pl-ipa",
+  "[PL-PL] Wiktionary (IPA)",
+  "wty-pl-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1ca86b25c9e872af0203c25a0c35e0ef6a0119d6f2a1c85704750175221977e6",
+    1213020
+  ]
+  ],
+  [
+  "wty-pl-pl",
+  "[PL-PL] Wiktionary (terms)",
+  "wty-pl-pl",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3c671393be36e1d132c0b9c63f15a0908a488b067c0eccf92985ade0a184ee5",
+    22191606
+  ]
+  ],
+  [
+  "wty-pl-pt-gloss",
+  "[PL-PT] Wiktionary (gloss)",
+  "wty-pl-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "18ad875f23d3416abf415e269672abeac780b7068263f6db33a36fcdebf3491f",
+    96640
+  ]
+  ],
+  [
+  "wty-pl-pt-ipa",
+  "[PL-PT] Wiktionary (IPA)",
+  "wty-pl-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a9b131f76fe4a9cf4018a0654101b549866f5fd5c0c434baed35ab868d8df0d",
+    13748
+  ]
+  ],
+  [
+  "wty-pl-pt",
+  "[PL-PT] Wiktionary (terms)",
+  "wty-pl-pt",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "79c99ad7d5b56c99086cc25efcdacd36e9cb8b070e2297cf4e5e69808bacdc0f",
+    129254
+  ]
+  ],
+  [
+  "wty-pl-ro-gloss",
+  "[PL-RO] Wiktionary (gloss)",
+  "wty-pl-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2517bd7b121660d877595fa87ac05ba28955de0ce883477d7c14d754d395aba5",
+    50747
+  ]
+  ],
+  [
+  "wty-pl-ru-gloss",
+  "[PL-RU] Wiktionary (gloss)",
+  "wty-pl-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8682688ef53427cc681c6f581cff9aae7b02be285b2463ca75c737bd4b1a6776",
+    495939
+  ]
+  ],
+  [
+  "wty-pl-ru-ipa",
+  "[PL-RU] Wiktionary (IPA)",
+  "wty-pl-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be6686099df6f17c5364ea3e3aa284697f597287acdc49e539a8e1b32baaf888",
+    50250
+  ]
+  ],
+  [
+  "wty-pl-ru",
+  "[PL-RU] Wiktionary (terms)",
+  "wty-pl-ru",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0422b3ca109b81d1c9347a8616aa83c9102a2ffb82d33c522eeb1f22dee82e96",
+    1325086
+  ]
+  ],
+  [
+  "wty-pl-sh-gloss",
+  "[PL-SH] Wiktionary (gloss)",
+  "wty-pl-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b030397738f1cec5f968843c239275923629c4bf08ece8a3255c6ff343105dd4",
+    9872
+  ]
+  ],
+  [
+  "wty-pl-sq-gloss",
+  "[PL-SQ] Wiktionary (gloss)",
+  "wty-pl-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c614f4122311c0791327837e0b47a8139e86bb7306056e31aad2b295f00ce5c1",
+    26978
+  ]
+  ],
+  [
+  "wty-pl-sv-gloss",
+  "[PL-SV] Wiktionary (gloss)",
+  "wty-pl-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f0552549a6abae706b7368114817d8e6028afbe8186da260a2f6e1b52f79ed2f",
+    194920
+  ]
+  ],
+  [
+  "wty-pl-th-gloss",
+  "[PL-TH] Wiktionary (gloss)",
+  "wty-pl-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b08750fbb6ac79aa8577314ec54b752040701c39c7a8e4e86603e0695bbefc3",
+    25813
+  ]
+  ],
+  [
+  "wty-pl-th-ipa",
+  "[PL-TH] Wiktionary (IPA)",
+  "wty-pl-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cde28310a688eaa5eca9356393f74dec81b4cf41f474393db2b5eeabe2a533dd",
+    12400
+  ]
+  ],
+  [
+  "wty-pl-th",
+  "[PL-TH] Wiktionary (terms)",
+  "wty-pl-th",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "18f75186695d9c73ef5b64414fe72d0d4ab414b27add891a84e3c527b0015138",
+    37341
+  ]
+  ],
+  [
+  "wty-pl-tl-gloss",
+  "[PL-TL] Wiktionary (gloss)",
+  "wty-pl-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5107668fe8060dc650b0000004234e2d25a829f916ae13760f1ae22cccc40b7e",
+    12848
+  ]
+  ],
+  [
+  "wty-pl-tr-gloss",
+  "[PL-TR] Wiktionary (gloss)",
+  "wty-pl-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "579bcdccde94229a1b590f1e9f10a83bd767624255ae8cc141f43a749064d940",
+    68302
+  ]
+  ],
+  [
+  "wty-pl-tr-ipa",
+  "[PL-TR] Wiktionary (IPA)",
+  "wty-pl-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ece4ddeb6bd07349c69d9b050812dd4298a4914dda98e00723ebef7f1d4bff2f",
+    8465
+  ]
+  ],
+  [
+  "wty-pl-tr",
+  "[PL-TR] Wiktionary (terms)",
+  "wty-pl-tr",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7912a7f74124b4b71231f2022bf3b69c338956908e81027c4db0f8248dd9f646",
+    576009
+  ]
+  ],
+  [
+  "wty-pl-vi-gloss",
+  "[PL-VI] Wiktionary (gloss)",
+  "wty-pl-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d42c396ffe08d21dbfb2e0d5cf54b968914a3a2e94449ebc3c5289e2c5059ea3",
+    24949
+  ]
+  ],
+  [
+  "wty-pl-vi-ipa",
+  "[PL-VI] Wiktionary (IPA)",
+  "wty-pl-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c4872c124fd3274d1774099e5253405f2cff277882e93bf129a7be786a143a55",
+    7022
+  ]
+  ],
+  [
+  "wty-pl-vi",
+  "[PL-VI] Wiktionary (terms)",
+  "wty-pl-vi",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "82663391a38c24c1088a60232c18a5dd443c1a3c8f75b4e49986e4fde81eb04b",
+    29825
+  ]
+  ],
+  [
+  "wty-pl-yue-gloss",
+  "[PL-YUE] Wiktionary (gloss)",
+  "wty-pl-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6fa70961a47803768751d72d59d41068d28a028375951b5637200384da515993",
+    8725
+  ]
+  ],
+  [
+  "wty-pl-zh-gloss",
+  "[PL-ZH] Wiktionary (gloss)",
+  "wty-pl-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dfdd8c0ba9982358d0d24a9c3591b0f64363a224f51c35cce035c66322fffe40",
+    55760
+  ]
+  ],
+  [
+  "wty-pl-zh-ipa",
+  "[PL-ZH] Wiktionary (IPA)",
+  "wty-pl-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f1d9965e11b31713cac57fb08e8adc5ecdcade88ddc12b0c0c47b46eeea97831",
+    289446
+  ]
+  ],
+  [
+  "wty-pl-zh",
+  "[PL-ZH] Wiktionary (terms)",
+  "wty-pl-zh",
+  [
+    "terms"
+  ],
+  [
+    "pl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "589858716f1807841e2170872d171886f258c98ee4c5f3ea5005a7ae807ba221",
+    961419
+  ]
+  ],
+  [
+  "wty-pt-ar-gloss",
+  "[PT-AR] Wiktionary (gloss)",
+  "wty-pt-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e65a60d9092cd1f29c2228b4103ed7f55d291995121a2c4e939ad75006c510ba",
+    81109
+  ]
+  ],
+  [
+  "wty-pt-da-gloss",
+  "[PT-DA] Wiktionary (gloss)",
+  "wty-pt-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9aaf7d5abfa234d90ea577c3838a33ffc26f0105a33162bce131dc9ebf3b84cb",
+    96359
+  ]
+  ],
+  [
+  "wty-pt-de-gloss",
+  "[PT-DE] Wiktionary (gloss)",
+  "wty-pt-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a8707a11b15a293eb3090ed022760a4c761abfad2584184df05fbc274eeafefe",
+    228179
+  ]
+  ],
+  [
+  "wty-pt-de-ipa",
+  "[PT-DE] Wiktionary (IPA)",
+  "wty-pt-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2cc2421a015dbde71201acd9966e05663eae0ce1e53c460a248fa7f2fdc85512",
+    71231
+  ]
+  ],
+  [
+  "wty-pt-de",
+  "[PT-DE] Wiktionary (terms)",
+  "wty-pt-de",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "70401f8e260220074e9f76049ed91d4cf51c7ef4c3a13fc5304263eb99174ed7",
+    170954
+  ]
+  ],
+  [
+  "wty-pt-el-gloss",
+  "[PT-EL] Wiktionary (gloss)",
+  "wty-pt-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d3e6eefce96b974ea78a189467c6e9910436fe05410266b257cd00e7a0b4e4c7",
+    98034
+  ]
+  ],
+  [
+  "wty-pt-el-ipa",
+  "[PT-EL] Wiktionary (IPA)",
+  "wty-pt-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "62081608fefee2096d6c673fe77bdddada64ba24b1be1048a0e6c58adf9676d2",
+    10682
+  ]
+  ],
+  [
+  "wty-pt-el",
+  "[PT-EL] Wiktionary (terms)",
+  "wty-pt-el",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "99203f1533575746c42ecd0c8dc6ee84edaf1aa0a4396b9fa97ad356acbc2c9f",
+    119585
+  ]
+  ],
+  [
+  "wty-pt-en-gloss",
+  "[PT-EN] Wiktionary (gloss)",
+  "wty-pt-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1b9073a805eaf15be8b694a0c9909894a49466aeb614aa6b19020a577e93525f",
+    357268
+  ]
+  ],
+  [
+  "wty-pt-en-ipa",
+  "[PT-EN] Wiktionary (IPA)",
+  "wty-pt-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a9a46a1d70e0118844c3bbbd691b455e5b68303683b85315b7c1c8d245dd0f18",
+    3238262
+  ]
+  ],
+  [
+  "wty-pt-en",
+  "[PT-EN] Wiktionary (terms)",
+  "wty-pt-en",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "86b3fa8d43a0e5360fde9f9ee2dd7715d075ef3352bee01302bbab0b200404f6",
+    11126673
+  ]
+  ],
+  [
+  "wty-pt-es-gloss",
+  "[PT-ES] Wiktionary (gloss)",
+  "wty-pt-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a90b2dbe32ee9f8ecf5ee7d4c3fcb10dc35e377d6689f04f427f4e5939393d66",
+    252542
+  ]
+  ],
+  [
+  "wty-pt-es-ipa",
+  "[PT-ES] Wiktionary (IPA)",
+  "wty-pt-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a59f4634d4ca369c897fb816ba1db44ec47cff09cc54f1ac66f4b679c79d9540",
+    128085
+  ]
+  ],
+  [
+  "wty-pt-es",
+  "[PT-ES] Wiktionary (terms)",
+  "wty-pt-es",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e71fcdf2d138f06aa2959cce9678f9d506766a5996b6a624bcbc59c351dfb9ad",
+    346402
+  ]
+  ],
+  [
+  "wty-pt-fa-gloss",
+  "[PT-FA] Wiktionary (gloss)",
+  "wty-pt-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "218af04b938eea06ce2801063e836ebd8532c085b10a7b53bd76d0370b4f7d85",
+    63433
+  ]
+  ],
+  [
+  "wty-pt-fi-gloss",
+  "[PT-FI] Wiktionary (gloss)",
+  "wty-pt-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9c47e1073098de9a0816c131c1f0f02508868cd1d13a4239a6b351a46f380994",
+    117877
+  ]
+  ],
+  [
+  "wty-pt-fr-gloss",
+  "[PT-FR] Wiktionary (gloss)",
+  "wty-pt-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "234b80c12a24c4247814d6978ee63fca825fc4d61174b3e3093042d774918b30",
+    253848
+  ]
+  ],
+  [
+  "wty-pt-fr-ipa",
+  "[PT-FR] Wiktionary (IPA)",
+  "wty-pt-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b9516ab27b304cad755ca92e79d9ac80a1ed0f4e57c9302f8366fa844cb0725a",
+    4872809
+  ]
+  ],
+  [
+  "wty-pt-fr",
+  "[PT-FR] Wiktionary (terms)",
+  "wty-pt-fr",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "883c61f77cb07a7baafea7883af977c2c24336a42dfac24a1f7dbe9ed3c5352a",
+    5026268
+  ]
+  ],
+  [
+  "wty-pt-grc-gloss",
+  "[PT-GRC] Wiktionary (gloss)",
+  "wty-pt-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e0f3a4e41f52c801241236d466205ad77720e4d8d793a27aa83018e3d2ed5226",
+    18536
+  ]
+  ],
+  [
+  "wty-pt-hu-gloss",
+  "[PT-HU] Wiktionary (gloss)",
+  "wty-pt-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "028a6b839476b0f3e29855dba4d535dea3cd6f7069f0d168d66d4cadcbc4dd4e",
+    92980
+  ]
+  ],
+  [
+  "wty-pt-id-gloss",
+  "[PT-ID] Wiktionary (gloss)",
+  "wty-pt-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ab3be17ec277de8b8a1ebc1b7118eeee74fbd7775f6689b0ebc9a40ec27a7b64",
+    63381
+  ]
+  ],
+  [
+  "wty-pt-id",
+  "[PT-ID] Wiktionary (terms)",
+  "wty-pt-id",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7191d35d2321f0f9dfe145bf8e47456af07a76c5d5515d2a7cc134946e81d9df",
+    7143
+  ]
+  ],
+  [
+  "wty-pt-it-gloss",
+  "[PT-IT] Wiktionary (gloss)",
+  "wty-pt-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7f171f9c0e77ea6269fe68ad96a13ec36107b96aa496af266f992197d6594daf",
+    202287
+  ]
+  ],
+  [
+  "wty-pt-it-ipa",
+  "[PT-IT] Wiktionary (IPA)",
+  "wty-pt-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "efaaaa30899eb54d4b1b59eef6b40103416ff2e9e5745233355d2694236a7cd2",
+    13532
+  ]
+  ],
+  [
+  "wty-pt-it",
+  "[PT-IT] Wiktionary (terms)",
+  "wty-pt-it",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aa3d2f9991ccec0c2f35f25438abe28e2a28a22f98a2ab20da5a6d3fc02d4a54",
+    69379
+  ]
+  ],
+  [
+  "wty-pt-km-gloss",
+  "[PT-KM] Wiktionary (gloss)",
+  "wty-pt-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bfb6e02914b58539aa19dc1d655f6f158b557c7e49672e89ae623e0a55312299",
+    12885
+  ]
+  ],
+  [
+  "wty-pt-ko-gloss",
+  "[PT-KO] Wiktionary (gloss)",
+  "wty-pt-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d456ac7a275791be58d1c62e298db638865a426ce758a2365a76544deb339207",
+    71868
+  ]
+  ],
+  [
+  "wty-pt-ko-ipa",
+  "[PT-KO] Wiktionary (IPA)",
+  "wty-pt-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "99f10f0402967bcb5c17e23359b726fb70b3b7f687a3ae01439dc626431e03f5",
+    13343
+  ]
+  ],
+  [
+  "wty-pt-ko",
+  "[PT-KO] Wiktionary (terms)",
+  "wty-pt-ko",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90a3c7ba69c407aa65b71d671120b7624c49646b0547a99d2e26a005d265f1dc",
+    84459
+  ]
+  ],
+  [
+  "wty-pt-la-gloss",
+  "[PT-LA] Wiktionary (gloss)",
+  "wty-pt-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b62b219cb3a112612ae0e4165093debc25ee9071ac71da7776a42046620f30b1",
+    66933
+  ]
+  ],
+  [
+  "wty-pt-lo-gloss",
+  "[PT-LO] Wiktionary (gloss)",
+  "wty-pt-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "308c3fed66b31b5b6c56d1325adbf55fa9928ff62bf7525cc697a1b50223ea2f",
+    12470
+  ]
+  ],
+  [
+  "wty-pt-mn-gloss",
+  "[PT-MN] Wiktionary (gloss)",
+  "wty-pt-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "488eeef4af3527fd10b3d0e5ce1b14d6c7f480337fa49499e8f12f63649f7655",
+    19057
+  ]
+  ],
+  [
+  "wty-pt-nl-gloss",
+  "[PT-NL] Wiktionary (gloss)",
+  "wty-pt-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4586bca7d7a639152070d743fea2f67009be669a4853565d87084d5c58f9506f",
+    139841
+  ]
+  ],
+  [
+  "wty-pt-nl-ipa",
+  "[PT-NL] Wiktionary (IPA)",
+  "wty-pt-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "13c483a766c084524966396f90da27a1c1ce7faa13f2b6786fbf392005667ddb",
+    8581
+  ]
+  ],
+  [
+  "wty-pt-nl",
+  "[PT-NL] Wiktionary (terms)",
+  "wty-pt-nl",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d203f1d3a8b2a15f9756ace91efaa3010d9b802ad300a0ae61c8427368c74bd3",
+    55830
+  ]
+  ],
+  [
+  "wty-pt-pl-gloss",
+  "[PT-PL] Wiktionary (gloss)",
+  "wty-pt-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "354bf745ab1dfe30f153ecbe03d2183a1ac48e90a4849dc752296f6f5ceb36ab",
+    134950
+  ]
+  ],
+  [
+  "wty-pt-pl-ipa",
+  "[PT-PL] Wiktionary (IPA)",
+  "wty-pt-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd67fdf76351637a9116ef81429717be23c3dd69c5387343ce3bb6bcb450c38b",
+    65292
+  ]
+  ],
+  [
+  "wty-pt-pl",
+  "[PT-PL] Wiktionary (terms)",
+  "wty-pt-pl",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ec8b3eef2b22ee819032125ca1c6cd80b35ea22ecf8a25cabdd85a22b83986dc",
+    425781
+  ]
+  ],
+  [
+  "wty-pt-pt-ipa",
+  "[PT-PT] Wiktionary (IPA)",
+  "wty-pt-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5cc388106309458d521b5d999c59df7a227d29bd773c081a733b510d7bd9b416",
+    403820
+  ]
+  ],
+  [
+  "wty-pt-pt",
+  "[PT-PT] Wiktionary (terms)",
+  "wty-pt-pt",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9663e0004b20823024f463981c76292bd516893a2d016b9f91a74b8bd3cdf5ca",
+    12031923
+  ]
+  ],
+  [
+  "wty-pt-ro-gloss",
+  "[PT-RO] Wiktionary (gloss)",
+  "wty-pt-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "83ee08e2adc4bd207e09734781240780532290cba76653cdd8f64c62ba0370b5",
+    79786
+  ]
+  ],
+  [
+  "wty-pt-ru-gloss",
+  "[PT-RU] Wiktionary (gloss)",
+  "wty-pt-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3177508124e1e3adc25670de3f4ddaf11118f32d087d28809c98536c5ce9c587",
+    150098
+  ]
+  ],
+  [
+  "wty-pt-ru-ipa",
+  "[PT-RU] Wiktionary (IPA)",
+  "wty-pt-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f7603e99d8689ff5249127869bfe38c171342bee59ec001a142c04d8019adfc8",
+    26802
+  ]
+  ],
+  [
+  "wty-pt-ru",
+  "[PT-RU] Wiktionary (terms)",
+  "wty-pt-ru",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "051f27bae4955655d6cb77c68d4f709e56b0fc8b5f92a07e02341b66676492bd",
+    683983
+  ]
+  ],
+  [
+  "wty-pt-sh-gloss",
+  "[PT-SH] Wiktionary (gloss)",
+  "wty-pt-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dcab0fb03c2b91a47dd74413bd044924b7a565c6cbbc7b081b46e533d81e2694",
+    30309
+  ]
+  ],
+  [
+  "wty-pt-sq-gloss",
+  "[PT-SQ] Wiktionary (gloss)",
+  "wty-pt-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c5fa94d8a1cf344dc0f2f9dd12071de38134f0e56fb56c2ba95bba2bda5f9412",
+    43428
+  ]
+  ],
+  [
+  "wty-pt-sv-gloss",
+  "[PT-SV] Wiktionary (gloss)",
+  "wty-pt-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0ee44e2fa57bd9f408a000af0c52e86c07ae451c26e923cd78ccbda8e441e6f9",
+    132676
+  ]
+  ],
+  [
+  "wty-pt-th-gloss",
+  "[PT-TH] Wiktionary (gloss)",
+  "wty-pt-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb548f5d60256923754448231ab971c3020c9a841e6fb316d67a239cc16fd091",
+    49387
+  ]
+  ],
+  [
+  "wty-pt-th-ipa",
+  "[PT-TH] Wiktionary (IPA)",
+  "wty-pt-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "83124122505f2cf4d9ec364be92ce606f7f879ac6f2c00bb53746762958cb81c",
+    96696
+  ]
+  ],
+  [
+  "wty-pt-th",
+  "[PT-TH] Wiktionary (terms)",
+  "wty-pt-th",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d03ad8b78698f25462ba215811c4064e80439ee271ffc68692263cbf9ce235a",
+    1908393
+  ]
+  ],
+  [
+  "wty-pt-tl-gloss",
+  "[PT-TL] Wiktionary (gloss)",
+  "wty-pt-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f71b978d4cd22891c9491f1307fabf1ca97faa1be89a242d2998bd1124681fab",
+    27829
+  ]
+  ],
+  [
+  "wty-pt-tr-gloss",
+  "[PT-TR] Wiktionary (gloss)",
+  "wty-pt-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "307e346be9c3947e0d147eb97c13d3eaddf7a72f35706649c16ac1a379e3875d",
+    83212
+  ]
+  ],
+  [
+  "wty-pt-tr-ipa",
+  "[PT-TR] Wiktionary (IPA)",
+  "wty-pt-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "44cdf3841ec21aa9fa6008e6eedde6be87bc2ab1a4dc35bc69c4e20dbc379417",
+    8451
+  ]
+  ],
+  [
+  "wty-pt-tr",
+  "[PT-TR] Wiktionary (terms)",
+  "wty-pt-tr",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7c379af77fb43617c5e1a15cdfbbec963a2c764a785072e091b6a04fe536335a",
+    60412
+  ]
+  ],
+  [
+  "wty-pt-vi-gloss",
+  "[PT-VI] Wiktionary (gloss)",
+  "wty-pt-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1586b4db8c227db48efe76fa3c180663001cd239f6f94287b73626590c748264",
+    41171
+  ]
+  ],
+  [
+  "wty-pt-vi-ipa",
+  "[PT-VI] Wiktionary (IPA)",
+  "wty-pt-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6bb06473a23cc96f7a0bf9cf5aab35eefcc61072818db45357e2f01916079d2c",
+    22786
+  ]
+  ],
+  [
+  "wty-pt-vi",
+  "[PT-VI] Wiktionary (terms)",
+  "wty-pt-vi",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "379ffcd4f5b9f0f14f29eb9af895bb002d07478217c9a7f2ecc53743d2e416b8",
+    36306
+  ]
+  ],
+  [
+  "wty-pt-yue-gloss",
+  "[PT-YUE] Wiktionary (gloss)",
+  "wty-pt-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5e0c8c5713d252db5d20c6560eee79105764634aa8080a5b88d5c266e7d5ceeb",
+    20871
+  ]
+  ],
+  [
+  "wty-pt-zh-gloss",
+  "[PT-ZH] Wiktionary (gloss)",
+  "wty-pt-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "55acdea70ca013bdf76f152a59487f5c4f494068d17412ef09dd87072d95f711",
+    95219
+  ]
+  ],
+  [
+  "wty-pt-zh-ipa",
+  "[PT-ZH] Wiktionary (IPA)",
+  "wty-pt-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b382b142f3c39c1754557ba3c47f8f6b9c64d2f202fea437e809239ffa230dcf",
+    19893
+  ]
+  ],
+  [
+  "wty-pt-zh",
+  "[PT-ZH] Wiktionary (terms)",
+  "wty-pt-zh",
+  [
+    "terms"
+  ],
+  [
+    "pt"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "52cbe9750f91b135dd4c6101b34574771c9b9f616315a91bd2d2d4bb560c2683",
+    1811830
+  ]
+  ],
+  [
+  "wty-ro-de-ipa",
+  "[RO-DE] Wiktionary (IPA)",
+  "wty-ro-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c5f27d2b2e900ca493b676eacf90d85fb9dddef9e4963dbca8b87df7c4c4c8c0",
+    27142
+  ]
+  ],
+  [
+  "wty-ro-de",
+  "[RO-DE] Wiktionary (terms)",
+  "wty-ro-de",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8cdab54056693384cd2615ff4770eb020059855c5850ab3b5adf06c9b0a6dd6d",
+    63689
+  ]
+  ],
+  [
+  "wty-ro-el-ipa",
+  "[RO-EL] Wiktionary (IPA)",
+  "wty-ro-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "491d75bcfc116a883cb02bdb1ec84cc7848d424e1f01e2ab0ae2b3a0d228bece",
+    7807
+  ]
+  ],
+  [
+  "wty-ro-el",
+  "[RO-EL] Wiktionary (terms)",
+  "wty-ro-el",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a63eec0d72510ce38c02973db4507d69b6481fc420317a5191c083c46f20e13b",
+    115597
+  ]
+  ],
+  [
+  "wty-ro-en-ipa",
+  "[RO-EN] Wiktionary (IPA)",
+  "wty-ro-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "347240d49348f4b5d3599b256ad533807f36d3c0dd6d15987de6ba03a5b17024",
+    237578
+  ]
+  ],
+  [
+  "wty-ro-en",
+  "[RO-EN] Wiktionary (terms)",
+  "wty-ro-en",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1e0d86f30a934fbbfbfd44b0648c2aa6e4880a5c5d03d6b7417b13d9b9e3cd0b",
+    12371695
+  ]
+  ],
+  [
+  "wty-ro-es-ipa",
+  "[RO-ES] Wiktionary (IPA)",
+  "wty-ro-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a90fff693584b651b75ec4b43afe966c4956a0abc0049c96a39a8934c992ee21",
+    35152
+  ]
+  ],
+  [
+  "wty-ro-es",
+  "[RO-ES] Wiktionary (terms)",
+  "wty-ro-es",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3d7d0d7f5d431867f706d60e7820d7093298d614490f9ee6d49c279c73f92f9b",
+    133622
+  ]
+  ],
+  [
+  "wty-ro-fr-ipa",
+  "[RO-FR] Wiktionary (IPA)",
+  "wty-ro-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8ad341a36c4c3529550ff0a1a8a0784f821ee3b9e7a238dc462dd6792823e454",
+    40517
+  ]
+  ],
+  [
+  "wty-ro-fr",
+  "[RO-FR] Wiktionary (terms)",
+  "wty-ro-fr",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3680e90dc8d12306dda28796d621b4342dd045b0224c5720941689cf02a805b6",
+    934261
+  ]
+  ],
+  [
+  "wty-ro-id",
+  "[RO-ID] Wiktionary (terms)",
+  "wty-ro-id",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "741ab62875c3778ed87e14cbf1d4eee30dc5a10306aed29070f36e2ea4ea89b2",
+    6957
+  ]
+  ],
+  [
+  "wty-ro-it-ipa",
+  "[RO-IT] Wiktionary (IPA)",
+  "wty-ro-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fdf8a5b8d80e0258f849252d792bdd9cd67d7610f24c2118b3f1b7cdddf40cb5",
+    7909
+  ]
+  ],
+  [
+  "wty-ro-it",
+  "[RO-IT] Wiktionary (terms)",
+  "wty-ro-it",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e25089b2293f5f1d3a0d4861f316022ff5aca41dcb7aaa3bc3397753abd45b0",
+    20808
+  ]
+  ],
+  [
+  "wty-ro-ko-ipa",
+  "[RO-KO] Wiktionary (IPA)",
+  "wty-ro-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "607bac9581110eb98358b0c9f387d82f2e158c48b64c809e9e18211774d6e01a",
+    15838
+  ]
+  ],
+  [
+  "wty-ro-ko",
+  "[RO-KO] Wiktionary (terms)",
+  "wty-ro-ko",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "064d1654be07d655be267e477ce4038e81e5b5b989ee24df65c3b464245b3b5f",
+    60857
+  ]
+  ],
+  [
+  "wty-ro-nl-ipa",
+  "[RO-NL] Wiktionary (IPA)",
+  "wty-ro-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "45f8cc8f5aea98383500d65252cc118bc9ff0df9c1b9f0a5f48a810946729ca5",
+    8674
+  ]
+  ],
+  [
+  "wty-ro-nl",
+  "[RO-NL] Wiktionary (terms)",
+  "wty-ro-nl",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f19fb78972f7c77d5442c14d39fc5aa4c84fef14d485575678c05a97fe8d5b19",
+    31840
+  ]
+  ],
+  [
+  "wty-ro-pl-ipa",
+  "[RO-PL] Wiktionary (IPA)",
+  "wty-ro-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "49a9b985557982e809bc2f81bf7c55925f578d5949bb9acbbe97d1ff66729fed",
+    26539
+  ]
+  ],
+  [
+  "wty-ro-pl",
+  "[RO-PL] Wiktionary (terms)",
+  "wty-ro-pl",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "726850db3051382a8cf6c67d2d18190a6633e657d2afb74f5a8b8143c173216f",
+    158659
+  ]
+  ],
+  [
+  "wty-ro-pt-ipa",
+  "[RO-PT] Wiktionary (IPA)",
+  "wty-ro-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "45d06e9108b6414dd0f7dfff670eb150355a00459096d0dabba5a7d3e1e14e21",
+    10662
+  ]
+  ],
+  [
+  "wty-ro-pt",
+  "[RO-PT] Wiktionary (terms)",
+  "wty-ro-pt",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c475c3a17742fb9c4c07a2eb21aa51b07bece4d987177f18747b28479560cf60",
+    63044
+  ]
+  ],
+  [
+  "wty-ro-ru-ipa",
+  "[RO-RU] Wiktionary (IPA)",
+  "wty-ro-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "165c19e3beba55af04b787c3f6563b7f7ab9033500f2259475f06a9f3e427152",
+    36028
+  ]
+  ],
+  [
+  "wty-ro-ru",
+  "[RO-RU] Wiktionary (terms)",
+  "wty-ro-ru",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ca0c61e9a0ed3a3ae5eed5de1f2b0b511a6a36dbb94873fb3e0a387c63dc2706",
+    579061
+  ]
+  ],
+  [
+  "wty-ro-th-ipa",
+  "[RO-TH] Wiktionary (IPA)",
+  "wty-ro-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "92cc28c19da3a65bbb6ac02296dc9d13567c7d92bc9780d2584a6f71db5f02bb",
+    9582
+  ]
+  ],
+  [
+  "wty-ro-th",
+  "[RO-TH] Wiktionary (terms)",
+  "wty-ro-th",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "547a03d9ad81212b618c20f1fd5ab08553192dde89f961952ef67403c82b98d4",
+    31250
+  ]
+  ],
+  [
+  "wty-ro-tr-ipa",
+  "[RO-TR] Wiktionary (IPA)",
+  "wty-ro-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c0a05b0413b4e7e9fd88f8e7ce37e5faac0f8c01b807d4cc71e0dc63a8b395d8",
+    7663
+  ]
+  ],
+  [
+  "wty-ro-tr",
+  "[RO-TR] Wiktionary (terms)",
+  "wty-ro-tr",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "52f18ced355d5bb01b6ccd0342a12b921274520f1354d25a447f85807f6a558d",
+    209509
+  ]
+  ],
+  [
+  "wty-ro-vi-ipa",
+  "[RO-VI] Wiktionary (IPA)",
+  "wty-ro-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8021c9a69fd1584255869c1ee20298ec6db4acc23ee1d3cb39bc6000e95fdc3c",
+    10140
+  ]
+  ],
+  [
+  "wty-ro-vi",
+  "[RO-VI] Wiktionary (terms)",
+  "wty-ro-vi",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cfbb8cf4cd8ec6de129dca1c25badd165fd6500699bc0d4f53eddac5fce07c9f",
+    26883
+  ]
+  ],
+  [
+  "wty-ro-zh-ipa",
+  "[RO-ZH] Wiktionary (IPA)",
+  "wty-ro-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dfc6422150fccc5bf67d78120d3d037a3f3212d98dbab0b2a454a158f5e341eb",
+    53698
+  ]
+  ],
+  [
+  "wty-ro-zh",
+  "[RO-ZH] Wiktionary (terms)",
+  "wty-ro-zh",
+  [
+    "terms"
+  ],
+  [
+    "ro"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3e783583ad19c9dfe10e26a907ffe3053aca7169230d06ecb8b252d1c6a95c68",
+    584426
+  ]
+  ],
+  [
+  "wty-ru-ar-gloss",
+  "[RU-AR] Wiktionary (gloss)",
+  "wty-ru-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "219d4e8be9c7b0f0bab89cd356b6e0c57bc957009a57afe61ce07e0a697432ee",
+    171432
+  ]
+  ],
+  [
+  "wty-ru-da-gloss",
+  "[RU-DA] Wiktionary (gloss)",
+  "wty-ru-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a450ef98c81eef507c36ab4b25fc9661dc71fe6878f70cb22a2857bc99c25eb7",
+    241798
+  ]
+  ],
+  [
+  "wty-ru-de-gloss",
+  "[RU-DE] Wiktionary (gloss)",
+  "wty-ru-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cd4df2bc70fe8e55d6b17e2b5c692b0591488f478f07d478d465174da5a1ef67",
+    812517
+  ]
+  ],
+  [
+  "wty-ru-de-ipa",
+  "[RU-DE] Wiktionary (IPA)",
+  "wty-ru-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "561ddec7c727d6fbb1b857fa77de9b3d3608e2d10bb989aaaa830b531383a708",
+    54521
+  ]
+  ],
+  [
+  "wty-ru-de",
+  "[RU-DE] Wiktionary (terms)",
+  "wty-ru-de",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "41ccb492e0fb0e8738a09549ff140ba2331d2dc61ec94ca2b27d9b0c947768d8",
+    309761
+  ]
+  ],
+  [
+  "wty-ru-el-gloss",
+  "[RU-EL] Wiktionary (gloss)",
+  "wty-ru-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1df16faffc9071a25c334158e6936b9c4005c7da651c3235587ae03fc959427c",
+    288379
+  ]
+  ],
+  [
+  "wty-ru-el-ipa",
+  "[RU-EL] Wiktionary (IPA)",
+  "wty-ru-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c5dc6f0b27b0e41a284fa5acd543343164af72ad9695c41ca35bec72817efd7f",
+    13961
+  ]
+  ],
+  [
+  "wty-ru-el",
+  "[RU-EL] Wiktionary (terms)",
+  "wty-ru-el",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "400d36b8c4d9adf12b883e1bd5b85e612330329be53350c0f3d292fa2dfe167c",
+    106635
+  ]
+  ],
+  [
+  "wty-ru-en-gloss",
+  "[RU-EN] Wiktionary (gloss)",
+  "wty-ru-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ec464d72ebc2575623e81e683349c5e541d28c34f93019fc3f60d1defa584430",
+    1451423
+  ]
+  ],
+  [
+  "wty-ru-es-gloss",
+  "[RU-ES] Wiktionary (gloss)",
+  "wty-ru-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e0035bf195c60f779773aef18d212078443ffe68ad1710ff945c6c1bf12f7d8e",
+    633925
+  ]
+  ],
+  [
+  "wty-ru-es-ipa",
+  "[RU-ES] Wiktionary (IPA)",
+  "wty-ru-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cb38a589dfed15b82c39d5108040a18aa717b54edd945bfdb57c973745808b87",
+    26951
+  ]
+  ],
+  [
+  "wty-ru-es",
+  "[RU-ES] Wiktionary (terms)",
+  "wty-ru-es",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be2d5e83237b84b86e5955f35422e8a16a67f030cdbf0a1d4d47a6eb2b57b20c",
+    57986
+  ]
+  ],
+  [
+  "wty-ru-fa-gloss",
+  "[RU-FA] Wiktionary (gloss)",
+  "wty-ru-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ebc75adb20196e85b309504fb163d7d31ad5f8c9272417b4baf08dd6697e35fc",
+    148733
+  ]
+  ],
+  [
+  "wty-ru-fi-gloss",
+  "[RU-FI] Wiktionary (gloss)",
+  "wty-ru-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "93940eeb8ef55ccbeb6386845ac7e9317bc5a0f40a94c33472eb618c31ef3439",
+    303696
+  ]
+  ],
+  [
+  "wty-ru-fr-gloss",
+  "[RU-FR] Wiktionary (gloss)",
+  "wty-ru-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "11fe2c6efafcbd31a20970d65ef575d78d15bab001a7f5fc1a9ab525f35ffb39",
+    910719
+  ]
+  ],
+  [
+  "wty-ru-fr-ipa",
+  "[RU-FR] Wiktionary (IPA)",
+  "wty-ru-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bf63662ddad86e2731c24d41a78de9a43a429e3e43b58e6e9014794dcdc0a11e",
+    319094
+  ]
+  ],
+  [
+  "wty-ru-fr",
+  "[RU-FR] Wiktionary (terms)",
+  "wty-ru-fr",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1eb0519910e556a57064545a383fb999761e9435772e19d5f539ab521a0ef6de",
+    8385671
+  ]
+  ],
+  [
+  "wty-ru-grc-gloss",
+  "[RU-GRC] Wiktionary (gloss)",
+  "wty-ru-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e059235571e830f491e2b2e47e2b7a336a4910484b0b883abd1f3d20d9d085b4",
+    67146
+  ]
+  ],
+  [
+  "wty-ru-hu-gloss",
+  "[RU-HU] Wiktionary (gloss)",
+  "wty-ru-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e63a5d7a6b88888fc4b7022b97963317a9891078f9b1b081fa0e7acc55ed5b8",
+    265377
+  ]
+  ],
+  [
+  "wty-ru-id-gloss",
+  "[RU-ID] Wiktionary (gloss)",
+  "wty-ru-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4f2fe4e97139d92847ab5ac1473d168778102e501566b706569af68e6c96b990",
+    178238
+  ]
+  ],
+  [
+  "wty-ru-id",
+  "[RU-ID] Wiktionary (terms)",
+  "wty-ru-id",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3cb05430189a2843c1d588bee2402f80e0c05121d7df369c97c590dea57143fa",
+    28836
+  ]
+  ],
+  [
+  "wty-ru-it-gloss",
+  "[RU-IT] Wiktionary (gloss)",
+  "wty-ru-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "21ca3459d9780e9bf60fdf6a41c69fc26d9a77be4a65c2efc944904104648164",
+    540079
+  ]
+  ],
+  [
+  "wty-ru-it-ipa",
+  "[RU-IT] Wiktionary (IPA)",
+  "wty-ru-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b0720ceb06686855dbee4c4a52d38cb65ee63e36feb455805757f5c5f374b5fe",
+    12067
+  ]
+  ],
+  [
+  "wty-ru-it",
+  "[RU-IT] Wiktionary (terms)",
+  "wty-ru-it",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d72af2bca737c98d5516a87f5a5c9ee9a6022718644e759c2a61f4e3e4b4ba08",
+    76921
+  ]
+  ],
+  [
+  "wty-ru-km-gloss",
+  "[RU-KM] Wiktionary (gloss)",
+  "wty-ru-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "daea0585a6e8d3cabcd8bee4f881ba45b892cb3c6ec9ced3a835355b9f82367f",
+    58123
+  ]
+  ],
+  [
+  "wty-ru-ko-gloss",
+  "[RU-KO] Wiktionary (gloss)",
+  "wty-ru-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d3d485d099bc299a2cea2dc2e262a5c34f403cf60f5606f7dbb0691feb10a3b8",
+    195787
+  ]
+  ],
+  [
+  "wty-ru-ko-ipa",
+  "[RU-KO] Wiktionary (IPA)",
+  "wty-ru-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a3b8e9f796e1bc64fec2994fbd3f74f3e8cc32a2ff475c5b84633a200e92f02",
+    173068
+  ]
+  ],
+  [
+  "wty-ru-ko",
+  "[RU-KO] Wiktionary (terms)",
+  "wty-ru-ko",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f93e00723af475e9daa3cc38d0bd246e5cd10520ae8790b04795fb3e4c3e3488",
+    933365
+  ]
+  ],
+  [
+  "wty-ru-la-gloss",
+  "[RU-LA] Wiktionary (gloss)",
+  "wty-ru-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7264f47ba7bb54779f45aa41c8f127a57b00f065c5e7efa02a693d3b4680a00e",
+    203125
+  ]
+  ],
+  [
+  "wty-ru-lo-gloss",
+  "[RU-LO] Wiktionary (gloss)",
+  "wty-ru-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb5a75c0bc213937c84c2908c30a28c428e5f182d6884d0e9c9d90ee112eba43",
+    55663
+  ]
+  ],
+  [
+  "wty-ru-mn-gloss",
+  "[RU-MN] Wiktionary (gloss)",
+  "wty-ru-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1fc6df3f8341e7cbd040c4a2d49e85d5e08e1f8a25e1e36098ece1343dfbebd3",
+    106473
+  ]
+  ],
+  [
+  "wty-ru-nl-gloss",
+  "[RU-NL] Wiktionary (gloss)",
+  "wty-ru-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4f0357d9ed078c9e1cbfedd0ea8cf8630fc4866f765ba019d69fd18c68c42cdb",
+    312015
+  ]
+  ],
+  [
+  "wty-ru-nl-ipa",
+  "[RU-NL] Wiktionary (IPA)",
+  "wty-ru-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "184c732a76dd934117368da0179c59ccf161a83711dd49aaea2f14df0f879716",
+    21089
+  ]
+  ],
+  [
+  "wty-ru-nl",
+  "[RU-NL] Wiktionary (terms)",
+  "wty-ru-nl",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "561bc15a5c2928397f62681191f883685cc5b361bb76fb491c26173f34932ea9",
+    195506
+  ]
+  ],
+  [
+  "wty-ru-pl-gloss",
+  "[RU-PL] Wiktionary (gloss)",
+  "wty-ru-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5ad02f940aeb5fadd2e744441ecf0d35bbf657ae4dad594e32707c11134f570f",
+    433309
+  ]
+  ],
+  [
+  "wty-ru-pl-ipa",
+  "[RU-PL] Wiktionary (IPA)",
+  "wty-ru-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c537f3d0835d1d218c5a0a7dcda9d1bec83b3449418f5554b8434c21051a4c70",
+    62629
+  ]
+  ],
+  [
+  "wty-ru-pl",
+  "[RU-PL] Wiktionary (terms)",
+  "wty-ru-pl",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "abe61da78c59702173b4d51be6674442813f460e35953c08dc34d7e8fbefdd2b",
+    1541264
+  ]
+  ],
+  [
+  "wty-ru-pt-gloss",
+  "[RU-PT] Wiktionary (gloss)",
+  "wty-ru-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1dc96cf0145efeadd639bef32193398f0ef28447b38fe19b2a96fe1b0c4ed0a7",
+    369177
+  ]
+  ],
+  [
+  "wty-ru-pt-ipa",
+  "[RU-PT] Wiktionary (IPA)",
+  "wty-ru-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2037d15a8f245ba4563bc2dad49376f779afa4c88685465c21fc8f3c3cbbf233",
+    20160
+  ]
+  ],
+  [
+  "wty-ru-pt",
+  "[RU-PT] Wiktionary (terms)",
+  "wty-ru-pt",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "15516c2204b0b293329667f1ea3dd644090640a984933a4020605875f31c256d",
+    190193
+  ]
+  ],
+  [
+  "wty-ru-ro-gloss",
+  "[RU-RO] Wiktionary (gloss)",
+  "wty-ru-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "89a72f5bbe7691ac35eae7cfdefc2e75fd58a0d9aa34adfe94e0cb00048ada2a",
+    244520
+  ]
+  ],
+  [
+  "wty-ru-sh-gloss",
+  "[RU-SH] Wiktionary (gloss)",
+  "wty-ru-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "87b9eba58d62bbf7628fc6ec9b6a5064e213abc853b1abb689e66a65f7aaec4c",
+    12053
+  ]
+  ],
+  [
+  "wty-ru-sq-gloss",
+  "[RU-SQ] Wiktionary (gloss)",
+  "wty-ru-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d73d51cf9b51d55c668db2ed148eb708307dbdf744e80dd137bd18c73f5832d",
+    146194
+  ]
+  ],
+  [
+  "wty-ru-sv-gloss",
+  "[RU-SV] Wiktionary (gloss)",
+  "wty-ru-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "720a841195d13ab6c89d497c609abd375892c82b2db63b521be2cd17907a9e24",
+    475956
+  ]
+  ],
+  [
+  "wty-ru-th-gloss",
+  "[RU-TH] Wiktionary (gloss)",
+  "wty-ru-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "828eb74f0a04db0801c56e5edc7d434a80d347c8d9bebf633e6f164b57928fe8",
+    126912
+  ]
+  ],
+  [
+  "wty-ru-th-ipa",
+  "[RU-TH] Wiktionary (IPA)",
+  "wty-ru-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6c2e47bd6fffdc8b63efc35f785165268f70b4fe7cbf6155f03f2c9004b643d0",
+    21972
+  ]
+  ],
+  [
+  "wty-ru-th",
+  "[RU-TH] Wiktionary (terms)",
+  "wty-ru-th",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7373f5ec54a548fdaae106509b271711aa6932551a244aac136a8f819fff5d14",
+    89888
+  ]
+  ],
+  [
+  "wty-ru-tl-gloss",
+  "[RU-TL] Wiktionary (gloss)",
+  "wty-ru-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0a2c4022904f2326e61a5d80671c6c3501f46663db4cb64081d11760d335ecf5",
+    81429
+  ]
+  ],
+  [
+  "wty-ru-tr-gloss",
+  "[RU-TR] Wiktionary (gloss)",
+  "wty-ru-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "21b5ff424bda079053930c219e7846229472a22450f5ff78012ab5e28a2d66e1",
+    303606
+  ]
+  ],
+  [
+  "wty-ru-tr-ipa",
+  "[RU-TR] Wiktionary (IPA)",
+  "wty-ru-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "082b1d7c85bbb66196513708c323448660fa39eb55b7ba5e10d392ca45ce46a1",
+    16335
+  ]
+  ],
+  [
+  "wty-ru-tr",
+  "[RU-TR] Wiktionary (terms)",
+  "wty-ru-tr",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "890f4739011c6883edacbc2b42552b42e0b18e7aa5a033f316c4d5e9b18f627f",
+    614890
+  ]
+  ],
+  [
+  "wty-ru-vi-gloss",
+  "[RU-VI] Wiktionary (gloss)",
+  "wty-ru-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "52f6faaaae7951df4ab628edb26c2a8db04ba08e25451eebee06a12a3bdd58e2",
+    142423
+  ]
+  ],
+  [
+  "wty-ru-vi-ipa",
+  "[RU-VI] Wiktionary (IPA)",
+  "wty-ru-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a8707621cc4256268ae0b22e0dfb21b203a716c88c0066d7a81188c0a931454d",
+    30977
+  ]
+  ],
+  [
+  "wty-ru-vi",
+  "[RU-VI] Wiktionary (terms)",
+  "wty-ru-vi",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d1df8538537eec223b400cf843f58d4dae54b7fb241b84761d386df5ab0369f",
+    2709163
+  ]
+  ],
+  [
+  "wty-ru-yue-gloss",
+  "[RU-YUE] Wiktionary (gloss)",
+  "wty-ru-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "51ac3c37789ef4ba0509819e0ded6702ffcab90085c836181ddf2daed42b13df",
+    9985
+  ]
+  ],
+  [
+  "wty-ru-zh-gloss",
+  "[RU-ZH] Wiktionary (gloss)",
+  "wty-ru-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ee7d55673a780de9385356cd8c45a5ba0b61eafb8141bf9ef8d53f0842b40edd",
+    253141
+  ]
+  ],
+  [
+  "wty-ru-zh-ipa",
+  "[RU-ZH] Wiktionary (IPA)",
+  "wty-ru-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9d210dc157ed0c57d6122265dfe851c63251958a7f129d22011ae2c9b1be4c03",
+    1126598
+  ]
+  ],
+  [
+  "wty-ru-zh",
+  "[RU-ZH] Wiktionary (terms)",
+  "wty-ru-zh",
+  [
+    "terms"
+  ],
+  [
+    "ru"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9518d9df0694a58124bc5bd222aa3299631f4e61d286db1bb0a097c84dd312dc",
+    7673781
+  ]
+  ],
+  [
+  "wty-sh-de-ipa",
+  "[SH-DE] Wiktionary (IPA)",
+  "wty-sh-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "24ebda08236c6f5108204b8d3b1a82c042c9155f449a28f51d7c72f42ead1537",
+    7608
+  ]
+  ],
+  [
+  "wty-sh-de",
+  "[SH-DE] Wiktionary (terms)",
+  "wty-sh-de",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a22607b4db0787b20de3e73d486979c2c13e06e63487a11b7bda865a47d24475",
+    10051
+  ]
+  ],
+  [
+  "wty-sh-el-ipa",
+  "[SH-EL] Wiktionary (IPA)",
+  "wty-sh-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ab02c4e5ac70aeabff84cda873fa258a61a54a6e0552eb607bab6722bfb6359d",
+    8254
+  ]
+  ],
+  [
+  "wty-sh-el",
+  "[SH-EL] Wiktionary (terms)",
+  "wty-sh-el",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "27ac33b43067a6d7f2906847cfc035b92a127a1032792fd3b7b4f2f709735359",
+    24214
+  ]
+  ],
+  [
+  "wty-sh-en-ipa",
+  "[SH-EN] Wiktionary (IPA)",
+  "wty-sh-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "427162408ce865f41b1a672a2a83de30738f2456a728b7ee4091c916e03b769c",
+    713333
+  ]
+  ],
+  [
+  "wty-sh-en",
+  "[SH-EN] Wiktionary (terms)",
+  "wty-sh-en",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a3aa9a92e3730578801f6460e561b92449ff83c99912e510857ddc985eac888d",
+    11893554
+  ]
+  ],
+  [
+  "wty-sh-es-ipa",
+  "[SH-ES] Wiktionary (IPA)",
+  "wty-sh-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "64c0280fcabd1a69b33f51b9cb171ad4bad2734fafcca618ba203de520aef393",
+    13956
+  ]
+  ],
+  [
+  "wty-sh-es",
+  "[SH-ES] Wiktionary (terms)",
+  "wty-sh-es",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0698adbb2b36376d3bf45e109fee6beb97d58121da782e6a871f4306afc0818d",
+    29481
+  ]
+  ],
+  [
+  "wty-sh-fr-ipa",
+  "[SH-FR] Wiktionary (IPA)",
+  "wty-sh-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2368586c8d394bd151d7f8299f7b96304016f3de76f946df89db8daa0436d16b",
+    8259
+  ]
+  ],
+  [
+  "wty-sh-fr",
+  "[SH-FR] Wiktionary (terms)",
+  "wty-sh-fr",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "29c2db7f001d013ac23269c7318af47301980345936d27e01d4be6a94029113d",
+    58207
+  ]
+  ],
+  [
+  "wty-sh-it-ipa",
+  "[SH-IT] Wiktionary (IPA)",
+  "wty-sh-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "656142663b1b564cda4ad8f3e15dac84bf2ca2be522b65a757122135fff4a62a",
+    6858
+  ]
+  ],
+  [
+  "wty-sh-it",
+  "[SH-IT] Wiktionary (terms)",
+  "wty-sh-it",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "992ccccc3b8bd8a7178dd6edc4cf70dea29c758840c9ebd0c3d7c9efa111bc10",
+    8816
+  ]
+  ],
+  [
+  "wty-sh-nl",
+  "[SH-NL] Wiktionary (terms)",
+  "wty-sh-nl",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d7c0ccb779fce5bb56a05787de55d3551ebc7fca91fd2cd7eae828f144fdcb56",
+    15409
+  ]
+  ],
+  [
+  "wty-sh-pt-ipa",
+  "[SH-PT] Wiktionary (IPA)",
+  "wty-sh-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f5ecf9973906876d70ca94a5e9481345108e64bf6643e575cdbf41e9ecdbe473",
+    7903
+  ]
+  ],
+  [
+  "wty-sh-pt",
+  "[SH-PT] Wiktionary (terms)",
+  "wty-sh-pt",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c55fab8a228b9831a381e03b45d3f0910e859393209501af877d9c6155c05da4",
+    32714
+  ]
+  ],
+  [
+  "wty-sh-ru-ipa",
+  "[SH-RU] Wiktionary (IPA)",
+  "wty-sh-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d5cd5b0bb14fac8a2094215f0136d2e6478529a81e425f3df4f5722973289828",
+    7243
+  ]
+  ],
+  [
+  "wty-sh-ru",
+  "[SH-RU] Wiktionary (terms)",
+  "wty-sh-ru",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c9b1829891d1dbf44af2dff3fe8c0a573af5b0c8904bc1c1e91c3c8c14a0387d",
+    22971
+  ]
+  ],
+  [
+  "wty-sh-th-ipa",
+  "[SH-TH] Wiktionary (IPA)",
+  "wty-sh-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b60e025378c52813184014bbee21761aabe45e9bed9f2c9915930a7c2728a921",
+    12178
+  ]
+  ],
+  [
+  "wty-sh-th",
+  "[SH-TH] Wiktionary (terms)",
+  "wty-sh-th",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fe4be685f6591aabe70649ab4fef1e4bcbced5c0b843eb7c7ea38fb737f04134",
+    34499
+  ]
+  ],
+  [
+  "wty-sh-vi-ipa",
+  "[SH-VI] Wiktionary (IPA)",
+  "wty-sh-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9a6a0dab81bdba013bb423e84d4d79e096c61d1d65592b983b972d2d27f6c382",
+    9156
+  ]
+  ],
+  [
+  "wty-sh-vi",
+  "[SH-VI] Wiktionary (terms)",
+  "wty-sh-vi",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8ddb3e1c4abc2b73cd7b2447fc5a528611933fada5180a95ce198fa1696c638e",
+    21726
+  ]
+  ],
+  [
+  "wty-sh-zh-ipa",
+  "[SH-ZH] Wiktionary (IPA)",
+  "wty-sh-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a168a59cdcbc22587fc36db37f60440147fba34d6342029b7f08c5ef441458c",
+    115863
+  ]
+  ],
+  [
+  "wty-sh-zh",
+  "[SH-ZH] Wiktionary (terms)",
+  "wty-sh-zh",
+  [
+    "terms"
+  ],
+  [
+    "sh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d08686240b72c9feebdd981e23c181edbae7c5deab7e00432dc2fb4273231b44",
+    584328
+  ]
+  ],
+  [
+  "wty-sq-de-ipa",
+  "[SQ-DE] Wiktionary (IPA)",
+  "wty-sq-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "95dd2a51c6bbb8775cf50fad9ce3d850743a7a4051003321d3326d948ecf6903",
+    20590
+  ]
+  ],
+  [
+  "wty-sq-de",
+  "[SQ-DE] Wiktionary (terms)",
+  "wty-sq-de",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4412c62019134cd901099c8fea9a57a383e716f2e8f5ee139dc36f299b85159f",
+    122516
+  ]
+  ],
+  [
+  "wty-sq-el-ipa",
+  "[SQ-EL] Wiktionary (IPA)",
+  "wty-sq-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d099282d6133fa6531ca0df0f7cea9db83725531b012ddf6206458ebdedad8ef",
+    7604
+  ]
+  ],
+  [
+  "wty-sq-el",
+  "[SQ-EL] Wiktionary (terms)",
+  "wty-sq-el",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ece263d5fbb767264bc8e531392a98ce647f768412eb1b3ccdfe0622dc172e6",
+    133773
+  ]
+  ],
+  [
+  "wty-sq-en-ipa",
+  "[SQ-EN] Wiktionary (IPA)",
+  "wty-sq-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "648fc8ae09a38741e0f6de3117dae2d7f5688ddb8074fa61af0439841f268a1d",
+    95107
+  ]
+  ],
+  [
+  "wty-sq-en",
+  "[SQ-EN] Wiktionary (terms)",
+  "wty-sq-en",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "880a322d4b14639138d1479d3cbe36549cddfd6f07024071ab2a56c744e7e4d2",
+    2599961
+  ]
+  ],
+  [
+  "wty-sq-es-ipa",
+  "[SQ-ES] Wiktionary (IPA)",
+  "wty-sq-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "81d0f0df1898d222388173d5ab5d4a687cf75a9b7d0ffc5cfbcd11af4f371776",
+    7732
+  ]
+  ],
+  [
+  "wty-sq-es",
+  "[SQ-ES] Wiktionary (terms)",
+  "wty-sq-es",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "621e09a82af495971205b3b6445893627e1ab23cf12e92b2b97d579cbbcf3a4e",
+    18276
+  ]
+  ],
+  [
+  "wty-sq-fr-ipa",
+  "[SQ-FR] Wiktionary (IPA)",
+  "wty-sq-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd16a7a9e0b062fa91c2df16bfbbff706d3c266da5d442900e317aee68c4fa15",
+    19839
+  ]
+  ],
+  [
+  "wty-sq-fr",
+  "[SQ-FR] Wiktionary (terms)",
+  "wty-sq-fr",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5a4964c3941ef9adf5cce230cb2ead401a6e0d4ca3fc75465953e2e78328108f",
+    135137
+  ]
+  ],
+  [
+  "wty-sq-id",
+  "[SQ-ID] Wiktionary (terms)",
+  "wty-sq-id",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8577c61e0336c99b9f5f6c37271bf3f198f57b23040ba79b76ad11cd73ca1fa6",
+    4902
+  ]
+  ],
+  [
+  "wty-sq-it-ipa",
+  "[SQ-IT] Wiktionary (IPA)",
+  "wty-sq-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "615660c36df1faa0e08d12f6b56b96a3c19d4a6695fac22aa5fa9e6494d99ce3",
+    7466
+  ]
+  ],
+  [
+  "wty-sq-it",
+  "[SQ-IT] Wiktionary (terms)",
+  "wty-sq-it",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3dd77cf9709983e70266acec0c6b20ef45b77829e34aed61fee85545e7819406",
+    15704
+  ]
+  ],
+  [
+  "wty-sq-ko-ipa",
+  "[SQ-KO] Wiktionary (IPA)",
+  "wty-sq-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5dba4c1746a7e4303e97210ed3b3de1ab2e6b4ceb1e6e4aec07e0089caefc7e5",
+    11274
+  ]
+  ],
+  [
+  "wty-sq-ko",
+  "[SQ-KO] Wiktionary (terms)",
+  "wty-sq-ko",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "73506ba01105802b581e023caa59ca650c5b3019e6916691ad86f44ad63eaa3a",
+    41855
+  ]
+  ],
+  [
+  "wty-sq-nl-ipa",
+  "[SQ-NL] Wiktionary (IPA)",
+  "wty-sq-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b7dedc62dd27c682b9e149a621f5e1efc37a74c601cbe8081e7d967ecb2361fa",
+    6839
+  ]
+  ],
+  [
+  "wty-sq-nl",
+  "[SQ-NL] Wiktionary (terms)",
+  "wty-sq-nl",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "38273c2bf1c81ff3c4f6d8841d28f5a464d7c4cf3f774d16bb907c1dd89e4d35",
+    15768
+  ]
+  ],
+  [
+  "wty-sq-pl-ipa",
+  "[SQ-PL] Wiktionary (IPA)",
+  "wty-sq-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b568156b60bff966ea20678c9d4adb7ddb71f83c8b8cb1782c9911a7ae746150",
+    12023
+  ]
+  ],
+  [
+  "wty-sq-pl",
+  "[SQ-PL] Wiktionary (terms)",
+  "wty-sq-pl",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "60d3a3cf684849c79d581d32b845ad4489d185de6ddec5a20f1fdfbe541e7c82",
+    107375
+  ]
+  ],
+  [
+  "wty-sq-pt-ipa",
+  "[SQ-PT] Wiktionary (IPA)",
+  "wty-sq-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd88562eed02e1dbda1c69456693de19050b510c7be91549727d6fd55a076450",
+    7808
+  ]
+  ],
+  [
+  "wty-sq-pt",
+  "[SQ-PT] Wiktionary (terms)",
+  "wty-sq-pt",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c736098aa3367453f6bf0291b76aa5c7996c2701f82fea1e8c9cf7b7f548d61a",
+    36348
+  ]
+  ],
+  [
+  "wty-sq-ru-ipa",
+  "[SQ-RU] Wiktionary (IPA)",
+  "wty-sq-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "858a79859f011b50b3d0a9aea469b591e8276d5564af86d53f102731d01ff2e6",
+    10916
+  ]
+  ],
+  [
+  "wty-sq-ru",
+  "[SQ-RU] Wiktionary (terms)",
+  "wty-sq-ru",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "95887cb7bd8212500776040f46e5737e5147eb67f29a2c2aca43bef435eb099b",
+    207074
+  ]
+  ],
+  [
+  "wty-sq-th-ipa",
+  "[SQ-TH] Wiktionary (IPA)",
+  "wty-sq-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2cc7db3e641aaa5e64bc6217291656bad9bb99e5e98ff7291e9f4362d58bae28",
+    13262
+  ]
+  ],
+  [
+  "wty-sq-th",
+  "[SQ-TH] Wiktionary (terms)",
+  "wty-sq-th",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4af224bbaf3ea3c7893331f6d742538a7711f0b7b46c370ec867b2aee57bd677",
+    45715
+  ]
+  ],
+  [
+  "wty-sq-tr-ipa",
+  "[SQ-TR] Wiktionary (IPA)",
+  "wty-sq-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2d6f5c2c41f65c6f9f97e4886d7844668532036f8e03b8ac7733d654f55897a2",
+    7361
+  ]
+  ],
+  [
+  "wty-sq-tr",
+  "[SQ-TR] Wiktionary (terms)",
+  "wty-sq-tr",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6f7c3211ae47630084b9cc1fbf114419f6c37074ebc69d6446ea5ec8b28bd9ef",
+    95850
+  ]
+  ],
+  [
+  "wty-sq-vi-ipa",
+  "[SQ-VI] Wiktionary (IPA)",
+  "wty-sq-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ae6fb037af13c7768c97e33ff38994b70c0f16c15d47517933e2f8fc8721fb8c",
+    7477
+  ]
+  ],
+  [
+  "wty-sq-vi",
+  "[SQ-VI] Wiktionary (terms)",
+  "wty-sq-vi",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4ace09c3f1a452b8e34b8e0b5d320125cb93c5a73ad6fcd84aa1607bc9c4775d",
+    16722
+  ]
+  ],
+  [
+  "wty-sq-zh-ipa",
+  "[SQ-ZH] Wiktionary (IPA)",
+  "wty-sq-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d5c7ebd437f79ffdd269f08652733af1448f30a7edbb0f74e189677a8069d13c",
+    18160
+  ]
+  ],
+  [
+  "wty-sq-zh",
+  "[SQ-ZH] Wiktionary (terms)",
+  "wty-sq-zh",
+  [
+    "terms"
+  ],
+  [
+    "sq"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "36ff69395b92c6212e664cf3f89e4f6d1b873d360cb839e7de537b3c8b9aa03e",
+    154685
+  ]
+  ],
+  [
+  "wty-sv-de-ipa",
+  "[SV-DE] Wiktionary (IPA)",
+  "wty-sv-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7626ee2188247b791058a3cc9f064ccae556e386958a4cb11df130c03cab5af2",
+    112853
+  ]
+  ],
+  [
+  "wty-sv-de",
+  "[SV-DE] Wiktionary (terms)",
+  "wty-sv-de",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cf53dac7abf89749361237350bc3ff69603bc2e086a6688b31ba02f02b34e94d",
+    1692127
+  ]
+  ],
+  [
+  "wty-sv-el-ipa",
+  "[SV-EL] Wiktionary (IPA)",
+  "wty-sv-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "22cab242c96701a1e05588d27f6e3aec39939ace0bdca920879474b37c962493",
+    7612
+  ]
+  ],
+  [
+  "wty-sv-el",
+  "[SV-EL] Wiktionary (terms)",
+  "wty-sv-el",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7503cb6cc49a2f32a399158a22136374f42ad18a966b406de8f737dc17064f0e",
+    2325289
+  ]
+  ],
+  [
+  "wty-sv-en-ipa",
+  "[SV-EN] Wiktionary (IPA)",
+  "wty-sv-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e747a3b8aaa1d53c76aefe03afd4a5ddd4afb74131e541a034483bc5c58e102c",
+    106117
+  ]
+  ],
+  [
+  "wty-sv-en",
+  "[SV-EN] Wiktionary (terms)",
+  "wty-sv-en",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "386f9d3f014f854a18b3b842d32de3d23a4b6e5abc13ad5e5d01e5357d9d2ccd",
+    8252015
+  ]
+  ],
+  [
+  "wty-sv-es-ipa",
+  "[SV-ES] Wiktionary (IPA)",
+  "wty-sv-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4552d50b3831f7a0c1bde03dd24071d0e97e9277ffed3c713cd89f4efb3fa85e",
+    34298
+  ]
+  ],
+  [
+  "wty-sv-es",
+  "[SV-ES] Wiktionary (terms)",
+  "wty-sv-es",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "64df6bfb0d7cf545616e37fc21afef2d8e583149c879f5d4e8d8dae2d19a484e",
+    184572
+  ]
+  ],
+  [
+  "wty-sv-fr-ipa",
+  "[SV-FR] Wiktionary (IPA)",
+  "wty-sv-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cdecb3b0e5fb6e5d3012173f5bf32c8dfa999983ed5680b40c4453c0ea08e63e",
+    17641
+  ]
+  ],
+  [
+  "wty-sv-fr",
+  "[SV-FR] Wiktionary (terms)",
+  "wty-sv-fr",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a25070052729965ecd5dd867d503662071aede0b46a793077f21891364e73fb3",
+    2039832
+  ]
+  ],
+  [
+  "wty-sv-id",
+  "[SV-ID] Wiktionary (terms)",
+  "wty-sv-id",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "677884a28afcbd74cc5e486381aca084d25ced5750e90130f4e92856a7b3908c",
+    8003
+  ]
+  ],
+  [
+  "wty-sv-it-ipa",
+  "[SV-IT] Wiktionary (IPA)",
+  "wty-sv-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "44219d0d1e1798f55c7e0e3098a08f592dadb393a11d2d3351f9d60af0334cf5",
+    11914
+  ]
+  ],
+  [
+  "wty-sv-it",
+  "[SV-IT] Wiktionary (terms)",
+  "wty-sv-it",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "26f52f2d0683fc1c1e72b0cb180cf1eec78dce6bad071d6e7c59884b4535f84d",
+    58092
+  ]
+  ],
+  [
+  "wty-sv-ko-ipa",
+  "[SV-KO] Wiktionary (IPA)",
+  "wty-sv-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b72e85fb6ccccd8f1a32e50873426212b3df7db5b8f40b25a6cfb0fdd4a3ac41",
+    7893
+  ]
+  ],
+  [
+  "wty-sv-ko",
+  "[SV-KO] Wiktionary (terms)",
+  "wty-sv-ko",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76d63597d6bed1633921ec167d0d8383c6d4c374deaf9b552d31f6542c5bed95",
+    78808
+  ]
+  ],
+  [
+  "wty-sv-nl-ipa",
+  "[SV-NL] Wiktionary (IPA)",
+  "wty-sv-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "276367eac8d571b470b22a56a87e66ff0bacfdb84e21aa3bda515c9633fce3f5",
+    14287
+  ]
+  ],
+  [
+  "wty-sv-nl",
+  "[SV-NL] Wiktionary (terms)",
+  "wty-sv-nl",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "acf8d58edf4d95d49ba67d9801c58cbd792159c9f5a2e91c53707a05122c7a4f",
+    166334
+  ]
+  ],
+  [
+  "wty-sv-pl-ipa",
+  "[SV-PL] Wiktionary (IPA)",
+  "wty-sv-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "133223e1cbb27b7d20f7d88bed4f708bddf751d4e4147bf077b0072db64f57be",
+    24428
+  ]
+  ],
+  [
+  "wty-sv-pl",
+  "[SV-PL] Wiktionary (terms)",
+  "wty-sv-pl",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ed5b00cf6473833009d12b1efdd16572177cff91febaa6eb866b11443e446b9b",
+    1037990
+  ]
+  ],
+  [
+  "wty-sv-pt-ipa",
+  "[SV-PT] Wiktionary (IPA)",
+  "wty-sv-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a96be947c44278a6c5d858fffe545851dc67410fd3c2775924854329ee958e65",
+    11525
+  ]
+  ],
+  [
+  "wty-sv-pt",
+  "[SV-PT] Wiktionary (terms)",
+  "wty-sv-pt",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "85213d167a78bfca02a726a26a17190d87b62cc2d01213c0bda10080789f162b",
+    97056
+  ]
+  ],
+  [
+  "wty-sv-ru-ipa",
+  "[SV-RU] Wiktionary (IPA)",
+  "wty-sv-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4de214c541b15be1adda13d09fedd3518806145e2f593ca17565090393d2de26",
+    17061
+  ]
+  ],
+  [
+  "wty-sv-ru",
+  "[SV-RU] Wiktionary (terms)",
+  "wty-sv-ru",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2b5443e1aca64685123620da746918e850fa05e589e19efba6fa0a768abd2a45",
+    815959
+  ]
+  ],
+  [
+  "wty-sv-th-ipa",
+  "[SV-TH] Wiktionary (IPA)",
+  "wty-sv-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e43a7b2bbd58f003c06688f1ce37cd944d02d2595587050686ba3a977e43c633",
+    9073
+  ]
+  ],
+  [
+  "wty-sv-th",
+  "[SV-TH] Wiktionary (terms)",
+  "wty-sv-th",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c4ae85c11733cb8838e29c0e2384a3bba2be78915e759e6a0c922cde934309f",
+    48691
+  ]
+  ],
+  [
+  "wty-sv-tr-ipa",
+  "[SV-TR] Wiktionary (IPA)",
+  "wty-sv-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c378d5ca4d387d757ef139facbc9e50596a4ab04dba424d3acb5092e391b0d7",
+    8199
+  ]
+  ],
+  [
+  "wty-sv-tr",
+  "[SV-TR] Wiktionary (terms)",
+  "wty-sv-tr",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b54df0eaf61ae40a4f20e5c398eb018bfa356f4a7ed7f6ec5328876e32d1e2ba",
+    165417
+  ]
+  ],
+  [
+  "wty-sv-vi-ipa",
+  "[SV-VI] Wiktionary (IPA)",
+  "wty-sv-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "972c0a8743a9ed30e19da4f9a4c8a5a0789e24192cff8c496885529544a19541",
+    7851
+  ]
+  ],
+  [
+  "wty-sv-vi",
+  "[SV-VI] Wiktionary (terms)",
+  "wty-sv-vi",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3aca7c7c9ecbd19710e347f44b465603f6a357765c6325cee14e83f9fb2fdf7d",
+    33957
+  ]
+  ],
+  [
+  "wty-sv-zh-ipa",
+  "[SV-ZH] Wiktionary (IPA)",
+  "wty-sv-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9bfce0e16fa9874c4dc26c051a32988cddf67c0ddbac45d1ffae9af9c47d5578",
+    27236
+  ]
+  ],
+  [
+  "wty-sv-zh",
+  "[SV-ZH] Wiktionary (terms)",
+  "wty-sv-zh",
+  [
+    "terms"
+  ],
+  [
+    "sv"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be79f1b1dfb66ccacb86242653c826a181a2d2ce40472c932255a63d40104e55",
+    1418269
+  ]
+  ],
+  [
+  "wty-th-ar-gloss",
+  "[TH-AR] Wiktionary (gloss)",
+  "wty-th-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76469705d3238a76cf8d0e776e8fb63f29db36d10659f258e0b64b9b9927cc95",
+    17189
+  ]
+  ],
+  [
+  "wty-th-da-gloss",
+  "[TH-DA] Wiktionary (gloss)",
+  "wty-th-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b8c5cb5c5f20860294df4065b6639bf7fc5e7e97eecafb78cad3bae9af82d719",
+    13649
+  ]
+  ],
+  [
+  "wty-th-de-gloss",
+  "[TH-DE] Wiktionary (gloss)",
+  "wty-th-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ffc7a737125165767dff6e087d18b9c30370e9b274dd897f0c045b922d2b299c",
+    29921
+  ]
+  ],
+  [
+  "wty-th-de-ipa",
+  "[TH-DE] Wiktionary (IPA)",
+  "wty-th-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7bd9898979c23e736122c5333ae41cb3af07e0991ec0f1d706b0974d1d68184b",
+    13225
+  ]
+  ],
+  [
+  "wty-th-de",
+  "[TH-DE] Wiktionary (terms)",
+  "wty-th-de",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0b60ca38df2b50385085f152d0493033c7b164ecc8b131e33c70996c5a328d75",
+    32310
+  ]
+  ],
+  [
+  "wty-th-el-gloss",
+  "[TH-EL] Wiktionary (gloss)",
+  "wty-th-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "effb97e112a40aaf1cc581c72807dda2b9b48631223ffc2174181f11b03fd78d",
+    16368
+  ]
+  ],
+  [
+  "wty-th-el-ipa",
+  "[TH-EL] Wiktionary (IPA)",
+  "wty-th-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5ca84f1ccb5ece5a62ec1177305ff8f764b38ae9b5d25fe689909bfc4461855d",
+    7281
+  ]
+  ],
+  [
+  "wty-th-el",
+  "[TH-EL] Wiktionary (terms)",
+  "wty-th-el",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1fad10524d4918356b398ce9f5791010f82bbdaabb5876d7b1afe2dbad3acff8",
+    17131
+  ]
+  ],
+  [
+  "wty-th-en-gloss",
+  "[TH-EN] Wiktionary (gloss)",
+  "wty-th-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5e88fbb9d26f1ef3062f8edd0a262661c8a2d31a3d6ae812ef87d29f96ab60a0",
+    77454
+  ]
+  ],
+  [
+  "wty-th-en-ipa",
+  "[TH-EN] Wiktionary (IPA)",
+  "wty-th-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e6de1aefa8bfb9c8d7c5a199f463d404256e0bffdd66eedd841b2f3b71d17fad",
+    330691
+  ]
+  ],
+  [
+  "wty-th-en",
+  "[TH-EN] Wiktionary (terms)",
+  "wty-th-en",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e38547583923978c0b75337bd523a13c89aedd9b4e31aa44cc67afacd12100ef",
+    2666547
+  ]
+  ],
+  [
+  "wty-th-es-gloss",
+  "[TH-ES] Wiktionary (gloss)",
+  "wty-th-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1c3fad56c365d0ec31d2e37adc73152fce0ea193cc79b2688c98dcdf24d88c72",
+    42364
+  ]
+  ],
+  [
+  "wty-th-es-ipa",
+  "[TH-ES] Wiktionary (IPA)",
+  "wty-th-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "29467dfe48ae6a91f401ae174d88b8beda74c8cb4c31ce231063bf44edeb402d",
+    8971
+  ]
+  ],
+  [
+  "wty-th-es",
+  "[TH-ES] Wiktionary (terms)",
+  "wty-th-es",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "74beed9ed0ac6ff2e856a299d9d080071f39e74ba4c95da0156284cf000b57f4",
+    18292
+  ]
+  ],
+  [
+  "wty-th-fa-gloss",
+  "[TH-FA] Wiktionary (gloss)",
+  "wty-th-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0599dba1f660bdb7a460b19dcce9f1b09d282e929b7e69001962a609119f6cea",
+    10671
+  ]
+  ],
+  [
+  "wty-th-fi-gloss",
+  "[TH-FI] Wiktionary (gloss)",
+  "wty-th-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7bb97a4b3fdc920945fc20851e0f80789ff315603168ad68a8067b4b014e8ede",
+    16960
+  ]
+  ],
+  [
+  "wty-th-fr-gloss",
+  "[TH-FR] Wiktionary (gloss)",
+  "wty-th-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f72f29e862da9ef62e35fbe202b38ccc317d26f81fe0ff5aacc778e766be8158",
+    29949
+  ]
+  ],
+  [
+  "wty-th-fr-ipa",
+  "[TH-FR] Wiktionary (IPA)",
+  "wty-th-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "07c0362c4ea6bfb632c4515f473a1a33b0884afeea4be2e41f7be50d0bf780f4",
+    10894
+  ]
+  ],
+  [
+  "wty-th-fr",
+  "[TH-FR] Wiktionary (terms)",
+  "wty-th-fr",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "49488f1b2675a1eda46679bb24c1b5deeb8d41ee3139a6351db06971760160bb",
+    35463
+  ]
+  ],
+  [
+  "wty-th-grc-gloss",
+  "[TH-GRC] Wiktionary (gloss)",
+  "wty-th-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9123308f529bac2eb3225f85747af742481808320e93ed5f8a2a438743682580",
+    8014
+  ]
+  ],
+  [
+  "wty-th-hu-gloss",
+  "[TH-HU] Wiktionary (gloss)",
+  "wty-th-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3617c1101c6450a8791418b9771547720468a00a23af0e01dd946f7f7527515",
+    14032
+  ]
+  ],
+  [
+  "wty-th-id-gloss",
+  "[TH-ID] Wiktionary (gloss)",
+  "wty-th-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7dc7eb3de76e9f4991ff72d5e598699e53bc483735f2f5dfee6b2f9ef04870f0",
+    17828
+  ]
+  ],
+  [
+  "wty-th-id",
+  "[TH-ID] Wiktionary (terms)",
+  "wty-th-id",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "82a1c991cdd3ca64bcb9201ea5200ed61c91fd215e71bd6a00d015b8e4913577",
+    7014
+  ]
+  ],
+  [
+  "wty-th-it-gloss",
+  "[TH-IT] Wiktionary (gloss)",
+  "wty-th-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f42481264ba72c97da17e42126f951f38b1b105ecb67a94acbc467ca1edebf93",
+    19863
+  ]
+  ],
+  [
+  "wty-th-it-ipa",
+  "[TH-IT] Wiktionary (IPA)",
+  "wty-th-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b3b5b3df758062cdf04057a841029106e85486bc0e10f379a4bd7c0bd12cf9ac",
+    7467
+  ]
+  ],
+  [
+  "wty-th-it",
+  "[TH-IT] Wiktionary (terms)",
+  "wty-th-it",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4885efe750dcf1fcbbe67361e00488f4afd968d6cf37777465fd1afd8432db60",
+    14360
+  ]
+  ],
+  [
+  "wty-th-km-gloss",
+  "[TH-KM] Wiktionary (gloss)",
+  "wty-th-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a14f7817d20866de2467955a2869196ad2ab25382fadcac53e35fdf40fd038c6",
+    24409
+  ]
+  ],
+  [
+  "wty-th-ko-gloss",
+  "[TH-KO] Wiktionary (gloss)",
+  "wty-th-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4e72f187c50328744aef716b008e769b102e91d768139ba2fa7565057d4c70d",
+    24304
+  ]
+  ],
+  [
+  "wty-th-la-gloss",
+  "[TH-LA] Wiktionary (gloss)",
+  "wty-th-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eb84f442952db0f357e354126b14ed76286d7b437411aedbb78c6b1042ff849d",
+    13963
+  ]
+  ],
+  [
+  "wty-th-lo-gloss",
+  "[TH-LO] Wiktionary (gloss)",
+  "wty-th-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b2398e83b1f7ec0233affbb5bde5a0716cdaf9a51a6a71c1375ec2ff5d02f59d",
+    56407
+  ]
+  ],
+  [
+  "wty-th-mn-gloss",
+  "[TH-MN] Wiktionary (gloss)",
+  "wty-th-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e6af2b1a90cbc8b33ad73fbd581a40d73a79eb124d727097d82383f42de04eb8",
+    9301
+  ]
+  ],
+  [
+  "wty-th-nl-gloss",
+  "[TH-NL] Wiktionary (gloss)",
+  "wty-th-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ddd2f7d8990c1c0116b9988254ce713a3016653260717f6abf45d23bd9e8964c",
+    30844
+  ]
+  ],
+  [
+  "wty-th-nl-ipa",
+  "[TH-NL] Wiktionary (IPA)",
+  "wty-th-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09145436427acb56557fad08b9a66431a5abac7740aad69a5a37fd8ee80e189b",
+    7104
+  ]
+  ],
+  [
+  "wty-th-nl",
+  "[TH-NL] Wiktionary (terms)",
+  "wty-th-nl",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be3ab49fe6bdcb517bab9256958e2ed0bbb5ce520146cf439642bd5ae980d097",
+    18366
+  ]
+  ],
+  [
+  "wty-th-pl-gloss",
+  "[TH-PL] Wiktionary (gloss)",
+  "wty-th-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c0c9e4140f8011721cb361ee353c889f224835214f583ef47d1e8f37ff2d0adf",
+    15657
+  ]
+  ],
+  [
+  "wty-th-pl-ipa",
+  "[TH-PL] Wiktionary (IPA)",
+  "wty-th-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b045bce4ad733945bb640220cbeb740292c4d7d76c6d84bb99658527237c867d",
+    48132
+  ]
+  ],
+  [
+  "wty-th-pl",
+  "[TH-PL] Wiktionary (terms)",
+  "wty-th-pl",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bc93e5bb62e07cf09b34698aa580c9ebb08f6941ae2e39c10e5a39df372fec0e",
+    186843
+  ]
+  ],
+  [
+  "wty-th-pt-gloss",
+  "[TH-PT] Wiktionary (gloss)",
+  "wty-th-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e9c682db68d7bb659680aff935378d40f1e42fbbf2b04416d9a315051a231a1c",
+    29408
+  ]
+  ],
+  [
+  "wty-th-pt-ipa",
+  "[TH-PT] Wiktionary (IPA)",
+  "wty-th-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "098cb352fd31b1bd1fc2d09ef5a0dfcec2be55e275e037cf3ee696352d941748",
+    8790
+  ]
+  ],
+  [
+  "wty-th-pt",
+  "[TH-PT] Wiktionary (terms)",
+  "wty-th-pt",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "492569275c27e6d1d33bcd49de5325b87567ddd1d7d5e88ca01ee675dc6ba3b0",
+    25857
+  ]
+  ],
+  [
+  "wty-th-ro-gloss",
+  "[TH-RO] Wiktionary (gloss)",
+  "wty-th-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "89eaa0fc02feb72c96bbee36c4fe1692ee7280b7f62410a1d5741d7c820bbfda",
+    12482
+  ]
+  ],
+  [
+  "wty-th-ru-gloss",
+  "[TH-RU] Wiktionary (gloss)",
+  "wty-th-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7b3b00160ce03bf26f259342a5326ff4737727b0706e9b7b78285d8e60048420",
+    21065
+  ]
+  ],
+  [
+  "wty-th-ru-ipa",
+  "[TH-RU] Wiktionary (IPA)",
+  "wty-th-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7a7fff6bdf7bec97d8efed03263d65b6769e6412ac5682c2b189dc0e62c5817d",
+    16687
+  ]
+  ],
+  [
+  "wty-th-ru",
+  "[TH-RU] Wiktionary (terms)",
+  "wty-th-ru",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "dbd96b12ef441a03528f9840827e612a6fbe202f9e03adfaa9d400859ae7267d",
+    148343
+  ]
+  ],
+  [
+  "wty-th-sh-gloss",
+  "[TH-SH] Wiktionary (gloss)",
+  "wty-th-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ddbcda37fbaf08c5bde52d4bda73ebc7c2063e0d5e5aa812fa3d9b7d55769a4b",
+    14904
+  ]
+  ],
+  [
+  "wty-th-sq-gloss",
+  "[TH-SQ] Wiktionary (gloss)",
+  "wty-th-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "990dd251326d970a215a613f8d9aee9d48a1ea820a1569d3bc2727c897affe12",
+    8915
+  ]
+  ],
+  [
+  "wty-th-sv-gloss",
+  "[TH-SV] Wiktionary (gloss)",
+  "wty-th-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7fa6219fa34689ebcb3a5b4df0056678a3809b5f25fa9ca2704d71d22dc91dd6",
+    15770
+  ]
+  ],
+  [
+  "wty-th-th-ipa",
+  "[TH-TH] Wiktionary (IPA)",
+  "wty-th-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "00445a1b1da70c158553fa2ca6be5670da1591a62abccc81cfa8b44841b16e5f",
+    494848
+  ]
+  ],
+  [
+  "wty-th-th",
+  "[TH-TH] Wiktionary (terms)",
+  "wty-th-th",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9c50a6aa0e4a31a942a82f86c876c44cf975376121972f1b742721b200d8630e",
+    2920888
+  ]
+  ],
+  [
+  "wty-th-tl-gloss",
+  "[TH-TL] Wiktionary (gloss)",
+  "wty-th-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a35af8a1bcacfe673cbc167fd84dfdc941e76167e9dc7265cde5eceff25ad719",
+    16241
+  ]
+  ],
+  [
+  "wty-th-tr-gloss",
+  "[TH-TR] Wiktionary (gloss)",
+  "wty-th-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3b3233051d772c55f87a05d52b59f1494a30a8864c409762037e7f03ee360361",
+    13277
+  ]
+  ],
+  [
+  "wty-th-tr-ipa",
+  "[TH-TR] Wiktionary (IPA)",
+  "wty-th-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "df47cc2aa84ca71fcaf45ee1a0076846b2b7080985ec2f5f0f573e555ff394f0",
+    8974
+  ]
+  ],
+  [
+  "wty-th-tr",
+  "[TH-TR] Wiktionary (terms)",
+  "wty-th-tr",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "725ce464b94c9b82c754bb74f99fe00ddaa239e9c5fb26481082ce3684fc4e61",
+    29832
+  ]
+  ],
+  [
+  "wty-th-vi-gloss",
+  "[TH-VI] Wiktionary (gloss)",
+  "wty-th-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ce158e5977459b3569743c9d31cea8eb1eb36209a7a34da5112693a613da11a",
+    23741
+  ]
+  ],
+  [
+  "wty-th-vi-ipa",
+  "[TH-VI] Wiktionary (IPA)",
+  "wty-th-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "de12a6280c7456231ee421f1e034c7e5d22938530b6aa8e6a8d81967826d8e57",
+    15657
+  ]
+  ],
+  [
+  "wty-th-vi",
+  "[TH-VI] Wiktionary (terms)",
+  "wty-th-vi",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2dfc15258e8e44014d86b0380d6900af6e2d44b32796a78e338b5089a4fae3cf",
+    42753
+  ]
+  ],
+  [
+  "wty-th-yue-gloss",
+  "[TH-YUE] Wiktionary (gloss)",
+  "wty-th-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a8a71b806b4d6d009e4c832086979f7143f190dfc42d1fdb240d0d8c146900be",
+    15899
+  ]
+  ],
+  [
+  "wty-th-zh-gloss",
+  "[TH-ZH] Wiktionary (gloss)",
+  "wty-th-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "934c637d11229b7cb19d6601a86fe615fbc2184433f02347e9e05cd366b37305",
+    8504
+  ]
+  ],
+  [
+  "wty-th-zh-ipa",
+  "[TH-ZH] Wiktionary (IPA)",
+  "wty-th-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "th"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "40743e94f358ff7f4d0cb2b16969d7a6bf3159deab8a55316938b99659fc3e25",
+    49396
+  ]
+  ],
+  [
+  "wty-th-zh",
+  "[TH-ZH] Wiktionary (terms)",
+  "wty-th-zh",
+  [
+    "terms"
+  ],
+  [
+    "th"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d5e4c72f3c476b4b89483c859b522402152a6c7bc03f71fd7e99f2f803c65bab",
+    279763
+  ]
+  ],
+  [
+  "wty-tl-de-ipa",
+  "[TL-DE] Wiktionary (IPA)",
+  "wty-tl-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1975fc7623634367f5452f40921736dbb8c96eb873c2057a7537d4c0820af369",
+    10337
+  ]
+  ],
+  [
+  "wty-tl-de",
+  "[TL-DE] Wiktionary (terms)",
+  "wty-tl-de",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7c2c1398286ff9280bcf63654538e3ac3d571289508f1caa6b4240b8bf671fab",
+    33823
+  ]
+  ],
+  [
+  "wty-tl-el",
+  "[TL-EL] Wiktionary (terms)",
+  "wty-tl-el",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2bb39a032eb7d91ed9adb8900eeffe75d2bb7cd76eb10843411b9723ca4b55eb",
+    11384
+  ]
+  ],
+  [
+  "wty-tl-en-ipa",
+  "[TL-EN] Wiktionary (IPA)",
+  "wty-tl-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bc46fd407ed511c4974af8ac55d0b94c178a775d840a1103ea02f37a63f87bfe",
+    844139
+  ]
+  ],
+  [
+  "wty-tl-en",
+  "[TL-EN] Wiktionary (terms)",
+  "wty-tl-en",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1053f32679a7c63d37a319797724a06aafc8fadac19f743a778cef2c511c4f67",
+    4086587
+  ]
+  ],
+  [
+  "wty-tl-es-ipa",
+  "[TL-ES] Wiktionary (IPA)",
+  "wty-tl-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d4364b5774cc890be6502c8d9faff10b116078de92c29a8e9adeb50a1e80d5d6",
+    7701
+  ]
+  ],
+  [
+  "wty-tl-es",
+  "[TL-ES] Wiktionary (terms)",
+  "wty-tl-es",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "867aa7faf685dd0f1db9743c755b9ec7fcaf4bada853e40deb9c0bb3cac4d4d6",
+    13761
+  ]
+  ],
+  [
+  "wty-tl-fr-ipa",
+  "[TL-FR] Wiktionary (IPA)",
+  "wty-tl-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af0004ca494b0f4150ca310fea2e80b36275f063ef4d6b2752b96dd1624e2dd3",
+    8881
+  ]
+  ],
+  [
+  "wty-tl-fr",
+  "[TL-FR] Wiktionary (terms)",
+  "wty-tl-fr",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "485562f32df5288860f3c982cde34a3227ba71a848953ca15d6e2c5a7be85a3c",
+    75656
+  ]
+  ],
+  [
+  "wty-tl-id",
+  "[TL-ID] Wiktionary (terms)",
+  "wty-tl-id",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5056e15e92c2617938c31149a6181698ff2fd01a743c4556da7ab52f3fda3da3",
+    6993
+  ]
+  ],
+  [
+  "wty-tl-it-ipa",
+  "[TL-IT] Wiktionary (IPA)",
+  "wty-tl-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84fe1a58722dbb140c8a0ef03aa95636d0fa3c52ff44d52616b071be57d3b608",
+    6876
+  ]
+  ],
+  [
+  "wty-tl-it",
+  "[TL-IT] Wiktionary (terms)",
+  "wty-tl-it",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "970239c708d6940dcbd887c6a7ab72c2a0d1f9a2670c66dc65529253815a3b42",
+    8670
+  ]
+  ],
+  [
+  "wty-tl-ko-ipa",
+  "[TL-KO] Wiktionary (IPA)",
+  "wty-tl-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "68300a94bcef7c72dbbfd87caaf0bd164d72fdb03ffa840777edc0d061993986",
+    7493
+  ]
+  ],
+  [
+  "wty-tl-ko",
+  "[TL-KO] Wiktionary (terms)",
+  "wty-tl-ko",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f8c3b0902359fbbf454e83455656e8816172eb75b7ded711138b0abfb373e7a9",
+    23974
+  ]
+  ],
+  [
+  "wty-tl-nl-ipa",
+  "[TL-NL] Wiktionary (IPA)",
+  "wty-tl-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "844d290d28059fa8a80837d129bf5ae3882c5c1fbfbb4f07689b78f0245773b0",
+    6813
+  ]
+  ],
+  [
+  "wty-tl-nl",
+  "[TL-NL] Wiktionary (terms)",
+  "wty-tl-nl",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a05d05a2d6729b0d605b7a2ec5a71aa767bf24a0cbb85404eba5a27676e0a277",
+    18336
+  ]
+  ],
+  [
+  "wty-tl-pl-ipa",
+  "[TL-PL] Wiktionary (IPA)",
+  "wty-tl-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "01c6dc0fe20f7bb4d26d8b4faba17994991e5548e3fc283051413c81e8605fb1",
+    9175
+  ]
+  ],
+  [
+  "wty-tl-pl",
+  "[TL-PL] Wiktionary (terms)",
+  "wty-tl-pl",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "daa86ecd1edd706ec44c8d8df1e3902f4e0739c33b567dfe88c54fcb49822273",
+    43319
+  ]
+  ],
+  [
+  "wty-tl-pt-ipa",
+  "[TL-PT] Wiktionary (IPA)",
+  "wty-tl-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "15f6e503e13ee723b9d85ad3bdb106c93fdbadf04cbfadf380dce68e91568c0d",
+    7031
+  ]
+  ],
+  [
+  "wty-tl-pt",
+  "[TL-PT] Wiktionary (terms)",
+  "wty-tl-pt",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "44ddff5260bb1acc3e9000bd84d03dfefa311466a1e6a542db0932114644598f",
+    31076
+  ]
+  ],
+  [
+  "wty-tl-ru-ipa",
+  "[TL-RU] Wiktionary (IPA)",
+  "wty-tl-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6b38a45ce070672ba7ecc94e5d7fda150ad8b942532699cbbfc0ee4abb911a9f",
+    8429
+  ]
+  ],
+  [
+  "wty-tl-ru",
+  "[TL-RU] Wiktionary (terms)",
+  "wty-tl-ru",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f11735ca2121d984d3a8b10c973531fef847aa1a8a7ffc6b91cc5605f1bf6184",
+    99357
+  ]
+  ],
+  [
+  "wty-tl-th-ipa",
+  "[TL-TH] Wiktionary (IPA)",
+  "wty-tl-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f54aaf4c8c47c9e3792692c196a380623d788390163a788e43f406cb20c81d5a",
+    9182
+  ]
+  ],
+  [
+  "wty-tl-th",
+  "[TL-TH] Wiktionary (terms)",
+  "wty-tl-th",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1d237c2c5b6cc3056d409028706e5f880f9afe374d0ccbb15152808e41894826",
+    28186
+  ]
+  ],
+  [
+  "wty-tl-tr-ipa",
+  "[TL-TR] Wiktionary (IPA)",
+  "wty-tl-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d896e2fe02c4ced44a5adb8601a4b1a2ea27b563e8853dd6f14812de30ff2038",
+    6901
+  ]
+  ],
+  [
+  "wty-tl-tr",
+  "[TL-TR] Wiktionary (terms)",
+  "wty-tl-tr",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "28cf4d917b93c308c8c494fd48d5849a9a69a1b874afddce0fbda8faefd9a8fd",
+    46438
+  ]
+  ],
+  [
+  "wty-tl-vi-ipa",
+  "[TL-VI] Wiktionary (IPA)",
+  "wty-tl-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "713e019dd268d01b410e1e7eafffa1cdbcd724f7fbfffefda5b5c5317a0d6a11",
+    6985
+  ]
+  ],
+  [
+  "wty-tl-vi",
+  "[TL-VI] Wiktionary (terms)",
+  "wty-tl-vi",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b3a2a93aa3b1eba51973c1acfbeee84cf962fdc3ce23535a5242d76224daafae",
+    13816
+  ]
+  ],
+  [
+  "wty-tl-zh-ipa",
+  "[TL-ZH] Wiktionary (IPA)",
+  "wty-tl-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "481dec45455d78d9dfdf4bd95828b67ef8281ef0373bf5d40867a139bac89e74",
+    43272
+  ]
+  ],
+  [
+  "wty-tl-zh",
+  "[TL-ZH] Wiktionary (terms)",
+  "wty-tl-zh",
+  [
+    "terms"
+  ],
+  [
+    "tl"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "49824d0dec6c3b16acac2ecc00165f8535a317cf039175b47b6d684cf2473722",
+    154621
+  ]
+  ],
+  [
+  "wty-tr-ar-gloss",
+  "[TR-AR] Wiktionary (gloss)",
+  "wty-tr-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3a3d6c085bb3046fb6ca5ed6f17724a983ddac36d7559e7b6671beaf45c567ae",
+    70525
+  ]
+  ],
+  [
+  "wty-tr-da-gloss",
+  "[TR-DA] Wiktionary (gloss)",
+  "wty-tr-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "69c1df621a09cc3af8e17c8e7c2fdbbed756ad21d9d1c83a900f5f508fb5a519",
+    44992
+  ]
+  ],
+  [
+  "wty-tr-de-gloss",
+  "[TR-DE] Wiktionary (gloss)",
+  "wty-tr-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fb3cc9fba50dc0b46a4dd708f729a1996caa865ed5c73b06a907fc5a8c84e636",
+    194067
+  ]
+  ],
+  [
+  "wty-tr-de-ipa",
+  "[TR-DE] Wiktionary (IPA)",
+  "wty-tr-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "12ca9987f689aec22196866741e77f6293a6f07108fbc5c2beb51af11cf6717f",
+    16705
+  ]
+  ],
+  [
+  "wty-tr-de",
+  "[TR-DE] Wiktionary (terms)",
+  "wty-tr-de",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "313522f155b35d65c1e194f7fc1dec016a2b3a199e0c8bda5ee848cafe759fa2",
+    92651
+  ]
+  ],
+  [
+  "wty-tr-el-gloss",
+  "[TR-EL] Wiktionary (gloss)",
+  "wty-tr-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6a68f939cc68653857f6670aad44d10986a299f528822430aadf1e4c7666a3a9",
+    57188
+  ]
+  ],
+  [
+  "wty-tr-el-ipa",
+  "[TR-EL] Wiktionary (IPA)",
+  "wty-tr-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "233cec8b340c538b433c731c39fdb9c18e3d052b4ba5645c687666497fab641e",
+    21928
+  ]
+  ],
+  [
+  "wty-tr-el",
+  "[TR-EL] Wiktionary (terms)",
+  "wty-tr-el",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0d68b6d996f949188bcbd46061bad4c409a917b6eb1991abbe13c8a0020b8866",
+    1375385
+  ]
+  ],
+  [
+  "wty-tr-en-gloss",
+  "[TR-EN] Wiktionary (gloss)",
+  "wty-tr-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0eac1463e0441b96be29996bc3c56f04e72ab17bd302108811c0ad33116b86aa",
+    290308
+  ]
+  ],
+  [
+  "wty-tr-en-ipa",
+  "[TR-EN] Wiktionary (IPA)",
+  "wty-tr-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2bcd1d5892a22cea81d5fca35b67e4df366eceadf2c7eab3a0ab010e22d06504",
+    293381
+  ]
+  ],
+  [
+  "wty-tr-en",
+  "[TR-EN] Wiktionary (terms)",
+  "wty-tr-en",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "06c728651ccdcf89c4e72ddef0d2c69cfb41069e2949971a20ec818e2e23ffb4",
+    17188551
+  ]
+  ],
+  [
+  "wty-tr-es-gloss",
+  "[TR-ES] Wiktionary (gloss)",
+  "wty-tr-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2541336ae8c871571eea20d8789a89d7f8261a02332841b09210eb9261dc4476",
+    79197
+  ]
+  ],
+  [
+  "wty-tr-es-ipa",
+  "[TR-ES] Wiktionary (IPA)",
+  "wty-tr-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c6e53d9a8a1a5ca2f61b97508ef732bf48f640700c414a2d94db35825a6fa818",
+    13825
+  ]
+  ],
+  [
+  "wty-tr-es",
+  "[TR-ES] Wiktionary (terms)",
+  "wty-tr-es",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "77c0a6310f260bc83aeec49dbe73e6cb62775a0f959aa170a276407ef0e580c4",
+    23133
+  ]
+  ],
+  [
+  "wty-tr-fa-gloss",
+  "[TR-FA] Wiktionary (gloss)",
+  "wty-tr-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5e383811f5748466775602ec6d476c47ba108036850e2c903a14762a0d5ec3e9",
+    29409
+  ]
+  ],
+  [
+  "wty-tr-fi-gloss",
+  "[TR-FI] Wiktionary (gloss)",
+  "wty-tr-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1e56d55a686a493ef45735f2ff9f087dc77c6379cbe571756ff52e7a079571e4",
+    260251
+  ]
+  ],
+  [
+  "wty-tr-fr-gloss",
+  "[TR-FR] Wiktionary (gloss)",
+  "wty-tr-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "624ad487ce82460342ab601e96cc47ae41f023c425678bd5aa7ecb2cb1be0a8d",
+    157789
+  ]
+  ],
+  [
+  "wty-tr-fr-ipa",
+  "[TR-FR] Wiktionary (IPA)",
+  "wty-tr-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09167bbb1afccf7ff2eb470a6a7d28677bb13c7e48f167668f4c2bcbb7ab2b6b",
+    31173
+  ]
+  ],
+  [
+  "wty-tr-fr",
+  "[TR-FR] Wiktionary (terms)",
+  "wty-tr-fr",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8d8861ae551ecbf04a2bc407b815ff004544370b93568b284c4f5daf1139197a",
+    249477
+  ]
+  ],
+  [
+  "wty-tr-grc-gloss",
+  "[TR-GRC] Wiktionary (gloss)",
+  "wty-tr-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "24cd21d584edb62b7d2d406e45265f0e766ab8480847dd643813ad18455b0a6c",
+    8771
+  ]
+  ],
+  [
+  "wty-tr-hu-gloss",
+  "[TR-HU] Wiktionary (gloss)",
+  "wty-tr-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "606771f267a02aa00b9c4124fb5c39ff4ad01c243e5dab17cf99969662024b41",
+    60405
+  ]
+  ],
+  [
+  "wty-tr-id-gloss",
+  "[TR-ID] Wiktionary (gloss)",
+  "wty-tr-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9be495f0edc8330c2cc6f15ebb4f9fef3c3bba378544dce1cbdbe8455f9e9bfc",
+    21005
+  ]
+  ],
+  [
+  "wty-tr-id",
+  "[TR-ID] Wiktionary (terms)",
+  "wty-tr-id",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8390d09fbcf93cdd8966e07cc37da69ac2dc6585b9ddf0be2180d56f575cfb6a",
+    6979
+  ]
+  ],
+  [
+  "wty-tr-it-gloss",
+  "[TR-IT] Wiktionary (gloss)",
+  "wty-tr-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "725a392fd1ef3ea9a070f550e85737e977125a0a808b0c17de7d34286fec4350",
+    85447
+  ]
+  ],
+  [
+  "wty-tr-it-ipa",
+  "[TR-IT] Wiktionary (IPA)",
+  "wty-tr-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ef6de9d822ba991693b766ef4dcef9305855a9afca199255fa6baa46c7712c23",
+    8329
+  ]
+  ],
+  [
+  "wty-tr-it",
+  "[TR-IT] Wiktionary (terms)",
+  "wty-tr-it",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9941eda9bfed743bbdfe8d784a26c6e48cd8816a9e4799e0ec1f4c1a4615f0ae",
+    27032
+  ]
+  ],
+  [
+  "wty-tr-km-gloss",
+  "[TR-KM] Wiktionary (gloss)",
+  "wty-tr-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "88ab48e7d95eae285b8d12392e7128f6dbb6b63b57a3a42c3bbb3caa7c2f5038",
+    9172
+  ]
+  ],
+  [
+  "wty-tr-ko-gloss",
+  "[TR-KO] Wiktionary (gloss)",
+  "wty-tr-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90443acc321fc2c55d5882719ea4106ac1bb7568feeaaeda08187dc4db5b3a86",
+    23503
+  ]
+  ],
+  [
+  "wty-tr-ko-ipa",
+  "[TR-KO] Wiktionary (IPA)",
+  "wty-tr-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "40efe5bfef032a378412418a4c8622825a29cdff8b45ff510ca4fe1c99da0c5d",
+    6909
+  ]
+  ],
+  [
+  "wty-tr-ko",
+  "[TR-KO] Wiktionary (terms)",
+  "wty-tr-ko",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5400c0b1252a5d85ab23b630b2689c09173979ab7efb81527617426ce9f7b7b0",
+    9010
+  ]
+  ],
+  [
+  "wty-tr-la-gloss",
+  "[TR-LA] Wiktionary (gloss)",
+  "wty-tr-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9ed22b3e13d29c45dbd90e4ce193be77abd855dd41049085dc1de6d7357e26b6",
+    38401
+  ]
+  ],
+  [
+  "wty-tr-lo-gloss",
+  "[TR-LO] Wiktionary (gloss)",
+  "wty-tr-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "36f48928aed703b3a67bd4a455bed30d7d062ee8b44867b3b51ae9c34cbf9c5a",
+    10538
+  ]
+  ],
+  [
+  "wty-tr-mn-gloss",
+  "[TR-MN] Wiktionary (gloss)",
+  "wty-tr-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "03c4290f0e9a39c5e1fa967bf2255552d22aeff445b8b992abefe09b7d3034c8",
+    11305
+  ]
+  ],
+  [
+  "wty-tr-nl-gloss",
+  "[TR-NL] Wiktionary (gloss)",
+  "wty-tr-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "db62838f0c531fd4cc04d815c43eeb7cead349d86aaf783f33569e363d2e4d2d",
+    64929
+  ]
+  ],
+  [
+  "wty-tr-nl-ipa",
+  "[TR-NL] Wiktionary (IPA)",
+  "wty-tr-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f0198fff71585a28cf61fff3d5259065041a1aa00ce99354a075b02bb96ec221",
+    8265
+  ]
+  ],
+  [
+  "wty-tr-nl",
+  "[TR-NL] Wiktionary (terms)",
+  "wty-tr-nl",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1a88e298d8bd0e73c49056c644dae4f998de0ad9b9b584ebd823e1b48d5727a0",
+    217332
+  ]
+  ],
+  [
+  "wty-tr-pl-gloss",
+  "[TR-PL] Wiktionary (gloss)",
+  "wty-tr-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bb15210957aea3c73b5d0e08554381e345f8fa8017b3198f05ab4bf2743c5f3c",
+    61834
+  ]
+  ],
+  [
+  "wty-tr-pl-ipa",
+  "[TR-PL] Wiktionary (IPA)",
+  "wty-tr-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ede98dfeb3707513567f2c1771bd8655b14c34ac3eedaea1c5edbf00a9f00172",
+    32044
+  ]
+  ],
+  [
+  "wty-tr-pl",
+  "[TR-PL] Wiktionary (terms)",
+  "wty-tr-pl",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bdcc01ae5ec8336327a71354dbd793be7f8e993d147c7f4d315673528a77e887",
+    297950
+  ]
+  ],
+  [
+  "wty-tr-pt-gloss",
+  "[TR-PT] Wiktionary (gloss)",
+  "wty-tr-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3ebe5c386e1b4b4b9e829e58ea0932cc6fb74f5e5f7a74502585b98fc88ca280",
+    47071
+  ]
+  ],
+  [
+  "wty-tr-pt-ipa",
+  "[TR-PT] Wiktionary (IPA)",
+  "wty-tr-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6d2cfee0702f4c1fef7b207a02ec3d7a505ba62994815f95e0276ac1fcabe628",
+    9434
+  ]
+  ],
+  [
+  "wty-tr-pt",
+  "[TR-PT] Wiktionary (terms)",
+  "wty-tr-pt",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "90cde1f81ac8e16ef984a953595f1f98a4f00ddeed1e4a0715a7b2c64badd62f",
+    53167
+  ]
+  ],
+  [
+  "wty-tr-ro-gloss",
+  "[TR-RO] Wiktionary (gloss)",
+  "wty-tr-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a2609cc156a33f00ba61c3c8ede700869fcb5eb4570cc6bceb6cf2576b4b85c0",
+    28577
+  ]
+  ],
+  [
+  "wty-tr-ru-gloss",
+  "[TR-RU] Wiktionary (gloss)",
+  "wty-tr-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4814f5598065a3fd189cdb267baff8f93759768a2a8e07cec6bd0e3a8e25015b",
+    114785
+  ]
+  ],
+  [
+  "wty-tr-ru-ipa",
+  "[TR-RU] Wiktionary (IPA)",
+  "wty-tr-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ef01814cbded4827982042c2133b7f7d581d4fa5cac6cc51d4d91ca2129c57e4",
+    17530
+  ]
+  ],
+  [
+  "wty-tr-ru",
+  "[TR-RU] Wiktionary (terms)",
+  "wty-tr-ru",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ecda5dec9eab1b735be424131245ebf2fe228de25a9b4eb4432eacb11ff932dd",
+    972938
+  ]
+  ],
+  [
+  "wty-tr-sh-gloss",
+  "[TR-SH] Wiktionary (gloss)",
+  "wty-tr-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84e80fb50e632d141892c99b677d0c78d56ccf27ff4eaa6c75464cce28a2604a",
+    38468
+  ]
+  ],
+  [
+  "wty-tr-sq-gloss",
+  "[TR-SQ] Wiktionary (gloss)",
+  "wty-tr-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "935a3121c3c5a32f559d9372761ed8213f5d4e32de1b33668d98a3fef0efb3e5",
+    28752
+  ]
+  ],
+  [
+  "wty-tr-sv-gloss",
+  "[TR-SV] Wiktionary (gloss)",
+  "wty-tr-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3257503edd2d5757d7b9a885e32c17597e5cb35bb2d674f8c251c3786af8c52b",
+    118887
+  ]
+  ],
+  [
+  "wty-tr-th-gloss",
+  "[TR-TH] Wiktionary (gloss)",
+  "wty-tr-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f166a020a303fa4b984021911c7fc08f9d4ecd76ba75465fee23bc2ca5b31d77",
+    17041
+  ]
+  ],
+  [
+  "wty-tr-th-ipa",
+  "[TR-TH] Wiktionary (IPA)",
+  "wty-tr-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5ab9f95f89401005fc5a6dcf449dd09f60af20c446f82cd3fcd32ff6dd4cc762",
+    8664
+  ]
+  ],
+  [
+  "wty-tr-th",
+  "[TR-TH] Wiktionary (terms)",
+  "wty-tr-th",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bd4a82b9fcf00d515d4098fbd00e8560c7971e400cae1bbb35394c0f7426e58d",
+    92611
+  ]
+  ],
+  [
+  "wty-tr-tl-gloss",
+  "[TR-TL] Wiktionary (gloss)",
+  "wty-tr-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "343cbdea221684731f4cb4e2424da319d551b8516e4fdb067948f35ceb6dfd80",
+    11548
+  ]
+  ],
+  [
+  "wty-tr-tr-ipa",
+  "[TR-TR] Wiktionary (IPA)",
+  "wty-tr-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4d8f6b6f5bfc704462aa3986e8632d4a758874bf5ecae42d4ca8c376f88d29a2",
+    229556
+  ]
+  ],
+  [
+  "wty-tr-tr",
+  "[TR-TR] Wiktionary (terms)",
+  "wty-tr-tr",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ae5d5e7c7123ff5d9ed3e136db10926fe35afa0c955b5b97fc36ec266b96f70a",
+    14303004
+  ]
+  ],
+  [
+  "wty-tr-vi-gloss",
+  "[TR-VI] Wiktionary (gloss)",
+  "wty-tr-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ebc82c819a09de14e23018e3b82586550006922cc560527fdff8766bc13737d1",
+    14044
+  ]
+  ],
+  [
+  "wty-tr-vi-ipa",
+  "[TR-VI] Wiktionary (IPA)",
+  "wty-tr-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "102db632e2b2ce3082bf407368abc5503574a3a02f4c92b26708a7fd87b49e41",
+    9323
+  ]
+  ],
+  [
+  "wty-tr-vi",
+  "[TR-VI] Wiktionary (terms)",
+  "wty-tr-vi",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a597b3d6aa1ba0a01dceb3b9ffbc0f3e1ff49d1a5eca582f72644bcb726a5d3b",
+    26775
+  ]
+  ],
+  [
+  "wty-tr-yue-gloss",
+  "[TR-YUE] Wiktionary (gloss)",
+  "wty-tr-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3bbaff93a41d8606c6ea0605fa6426215c54eafb13d72b765d0000270bcb79b6",
+    8020
+  ]
+  ],
+  [
+  "wty-tr-zh-gloss",
+  "[TR-ZH] Wiktionary (gloss)",
+  "wty-tr-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "99811cbc6f9e805bfb1c4d757769bec9fb6a1dc3e79c7caad8a5c2352edfaa4c",
+    23213
+  ]
+  ],
+  [
+  "wty-tr-zh-ipa",
+  "[TR-ZH] Wiktionary (IPA)",
+  "wty-tr-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "19cd16197736e5c63996e5ea1068e0531cd7842d96cc25e0e0fdee20f6ddd144",
+    43651
+  ]
+  ],
+  [
+  "wty-tr-zh",
+  "[TR-ZH] Wiktionary (terms)",
+  "wty-tr-zh",
+  [
+    "terms"
+  ],
+  [
+    "tr"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c5f898d4e6aab30cfe0b4f2f7ed8415ffe4d6b73ae918783dfa0173fb725da5",
+    467902
+  ]
+  ],
+  [
+  "wty-vi-ar-gloss",
+  "[VI-AR] Wiktionary (gloss)",
+  "wty-vi-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c866d9065d1ccfb92c21bd560bf2d0ea791fdfb9f021b1ace9265f2e716438ee",
+    14525
+  ]
+  ],
+  [
+  "wty-vi-da-gloss",
+  "[VI-DA] Wiktionary (gloss)",
+  "wty-vi-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4490fe89f32b95116288db5aec0e5c44533bf1d59f277c4a646778e0ce20229",
+    12955
+  ]
+  ],
+  [
+  "wty-vi-de-gloss",
+  "[VI-DE] Wiktionary (gloss)",
+  "wty-vi-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "19d130b1af4c05b96e7995f3a26dfbad937e49654532645194920c597985f498",
+    18868
+  ]
+  ],
+  [
+  "wty-vi-de-ipa",
+  "[VI-DE] Wiktionary (IPA)",
+  "wty-vi-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d93dd7f38270d7a45cf6da9e5a4860377a260020f90e28943eb22e9a750d5335",
+    19849
+  ]
+  ],
+  [
+  "wty-vi-de",
+  "[VI-DE] Wiktionary (terms)",
+  "wty-vi-de",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b863b5d56b63e94e355df8f3cb4b4f68913baa4f593e5044cf274a953b005b05",
+    115035
+  ]
+  ],
+  [
+  "wty-vi-el-gloss",
+  "[VI-EL] Wiktionary (gloss)",
+  "wty-vi-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3421fc457d0bea3a221b09a7429b44b6e892b0fbdd89da589980af103a0214d4",
+    13689
+  ]
+  ],
+  [
+  "wty-vi-el-ipa",
+  "[VI-EL] Wiktionary (IPA)",
+  "wty-vi-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a8940e3edb8a7bed47b3e1c096039d46dc2bcfd2aa3f643b82510dae4dc411e6",
+    7196
+  ]
+  ],
+  [
+  "wty-vi-el",
+  "[VI-EL] Wiktionary (terms)",
+  "wty-vi-el",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "81e479e21cabc9db5a2452ce26c04417531aafde56e1972026fdf54c2dc7bde2",
+    15868
+  ]
+  ],
+  [
+  "wty-vi-en-gloss",
+  "[VI-EN] Wiktionary (gloss)",
+  "wty-vi-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "65d8c478122d687b217b5ae0d5046f33061f13c61d975c0ed4ea9b8bc28456f6",
+    97873
+  ]
+  ],
+  [
+  "wty-vi-es-gloss",
+  "[VI-ES] Wiktionary (gloss)",
+  "wty-vi-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "083f43bf9828dc2a2c5d5e580a583b8b634577a3a9b50f99b1e27770bab73013",
+    29546
+  ]
+  ],
+  [
+  "wty-vi-es-ipa",
+  "[VI-ES] Wiktionary (IPA)",
+  "wty-vi-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b6920d5aa8f032747069f12af68ba78af9f39e56b9f2d2c18e70002873ecb268",
+    8044
+  ]
+  ],
+  [
+  "wty-vi-es",
+  "[VI-ES] Wiktionary (terms)",
+  "wty-vi-es",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "88f68580542553ceb9251c5f33aa7cf0189d8fc3edef6beccd994a31dfc16170",
+    17403
+  ]
+  ],
+  [
+  "wty-vi-fa-gloss",
+  "[VI-FA] Wiktionary (gloss)",
+  "wty-vi-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09474bcd8a30124647cd0daa4531e5ed3c6d20617dfb2c7ff7735a663c318aa0",
+    11481
+  ]
+  ],
+  [
+  "wty-vi-fi-gloss",
+  "[VI-FI] Wiktionary (gloss)",
+  "wty-vi-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5d9ec92a5722a59939d407cb501f061a22cdfed9c7507ee1e684cdba5f97ad58",
+    16272
+  ]
+  ],
+  [
+  "wty-vi-fr-gloss",
+  "[VI-FR] Wiktionary (gloss)",
+  "wty-vi-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2c1cdfd6c69732b8f0964d8c59bddadacb41031d92a821be0cffe0dac84cc21c",
+    33054
+  ]
+  ],
+  [
+  "wty-vi-fr-ipa",
+  "[VI-FR] Wiktionary (IPA)",
+  "wty-vi-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a68f41d3e88480f211a0f62e8df393c7de0ef39f1d1bcba9ce0f5b6afea04476",
+    236096
+  ]
+  ],
+  [
+  "wty-vi-fr",
+  "[VI-FR] Wiktionary (terms)",
+  "wty-vi-fr",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "42f85b1dd214ed422d07c9c956e8b245b02a6e3526d0c268232c43c481a983ee",
+    1295742
+  ]
+  ],
+  [
+  "wty-vi-grc-gloss",
+  "[VI-GRC] Wiktionary (gloss)",
+  "wty-vi-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2825c6e8ac589df156a02a877a0472af91f260011d1906586e376c82557c1fd3",
+    8180
+  ]
+  ],
+  [
+  "wty-vi-hu-gloss",
+  "[VI-HU] Wiktionary (gloss)",
+  "wty-vi-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0dfd3f4242da7b9bb68b720faed7d6557dab27c308e74a6441ffb7e82510195f",
+    13919
+  ]
+  ],
+  [
+  "wty-vi-id-gloss",
+  "[VI-ID] Wiktionary (gloss)",
+  "wty-vi-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1254bfaece31679a78f3ed23e4d410b8bb0ab2e332112f7a1cb75e964ebfb2b4",
+    11147
+  ]
+  ],
+  [
+  "wty-vi-id-ipa",
+  "[VI-ID] Wiktionary (IPA)",
+  "wty-vi-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8dacd2c1be54efb52231ad8c9d38c7a6ba84c03cb7ca0fe4a119ad59af8c3333",
+    6823
+  ]
+  ],
+  [
+  "wty-vi-id",
+  "[VI-ID] Wiktionary (terms)",
+  "wty-vi-id",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6de69cb0e14a231fae317e23d4d94750e90c7c7f4a07908061dd929119fd56ed",
+    8310
+  ]
+  ],
+  [
+  "wty-vi-it-gloss",
+  "[VI-IT] Wiktionary (gloss)",
+  "wty-vi-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d8e96e7a7c0648c2fc4ed79ffe05ab38a907b6148e8ae4d799f877babeb34052",
+    14676
+  ]
+  ],
+  [
+  "wty-vi-it",
+  "[VI-IT] Wiktionary (terms)",
+  "wty-vi-it",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "25a7c1c1b738606e84dcb7d9657020d619e85b0074c5d9150e7f6973d9475b3f",
+    14050
+  ]
+  ],
+  [
+  "wty-vi-km-gloss",
+  "[VI-KM] Wiktionary (gloss)",
+  "wty-vi-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "afbef38f4334e068cbe62063d21e43699dcb3fcd64c2cad7bc86211ad0fd1f8c",
+    11985
+  ]
+  ],
+  [
+  "wty-vi-ko-gloss",
+  "[VI-KO] Wiktionary (gloss)",
+  "wty-vi-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "af40a40e6c1144b6a7dcc8245104d0d669b96da36f8536c76420ad1c505832da",
+    17351
+  ]
+  ],
+  [
+  "wty-vi-ko-ipa",
+  "[VI-KO] Wiktionary (IPA)",
+  "wty-vi-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e5a504242d4e367412ede4c16903bfbab297991b8fdc99995e7ac10f37a0452",
+    50339
+  ]
+  ],
+  [
+  "wty-vi-ko",
+  "[VI-KO] Wiktionary (terms)",
+  "wty-vi-ko",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eca8b47f345d2efd5f5858e8ad0a0ef1d048fe36c08fa3811049ee6f52d4b195",
+    285005
+  ]
+  ],
+  [
+  "wty-vi-la-gloss",
+  "[VI-LA] Wiktionary (gloss)",
+  "wty-vi-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1407e712c7016f44d1bfb78ea13c7ee65a246c2f70cc830d61bdb93a83af4bc1",
+    10109
+  ]
+  ],
+  [
+  "wty-vi-lo-gloss",
+  "[VI-LO] Wiktionary (gloss)",
+  "wty-vi-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0b1ff06639ed9c0527936d8c62ebea8a3cb8451747eca0916019bdf40576de40",
+    10898
+  ]
+  ],
+  [
+  "wty-vi-mn-gloss",
+  "[VI-MN] Wiktionary (gloss)",
+  "wty-vi-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f418c6a40f835bcf48e40094ce8df7d2324600d49fb0c92e125a736a9f680563",
+    9450
+  ]
+  ],
+  [
+  "wty-vi-nl-gloss",
+  "[VI-NL] Wiktionary (gloss)",
+  "wty-vi-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "2bd66a9be3d1b2e0f678b7c7432b0e3cb71eebc3242a47afa34e27df5326e169",
+    23350
+  ]
+  ],
+  [
+  "wty-vi-nl-ipa",
+  "[VI-NL] Wiktionary (IPA)",
+  "wty-vi-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "64b851b3f970630e780278ed287747c4aae0c290018e46781d6109b6f2c7a5de",
+    11259
+  ]
+  ],
+  [
+  "wty-vi-nl",
+  "[VI-NL] Wiktionary (terms)",
+  "wty-vi-nl",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "12a835c0840c72ff23f7c64447a77eedee2424605da966ce4aef5f0b038e3b62",
+    102389
+  ]
+  ],
+  [
+  "wty-vi-pl-gloss",
+  "[VI-PL] Wiktionary (gloss)",
+  "wty-vi-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f3a2acb47ae5ed3ad17592ebc602cdc7499146276dc9598325a4240392d22d07",
+    14752
+  ]
+  ],
+  [
+  "wty-vi-pl-ipa",
+  "[VI-PL] Wiktionary (IPA)",
+  "wty-vi-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9551cef4d2fcc4db1ab1adf8cf037ba7e93eb8b99a39b5303026cfab50527237",
+    14353
+  ]
+  ],
+  [
+  "wty-vi-pl",
+  "[VI-PL] Wiktionary (terms)",
+  "wty-vi-pl",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7539264302ff4c780ebed43ce967325a67bd9ea78aaf78e20502261e29139e12",
+    102725
+  ]
+  ],
+  [
+  "wty-vi-pt-gloss",
+  "[VI-PT] Wiktionary (gloss)",
+  "wty-vi-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "aeea153025f972004fafd4aa1e24d45ee26a3ac6ecfed90fa339c1317b7abede",
+    15026
+  ]
+  ],
+  [
+  "wty-vi-pt-ipa",
+  "[VI-PT] Wiktionary (IPA)",
+  "wty-vi-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "682855cb79d9f9bda3ec3548f8ed61640e0efd8e21edf030f83275aaedcbc0f2",
+    7896
+  ]
+  ],
+  [
+  "wty-vi-pt",
+  "[VI-PT] Wiktionary (terms)",
+  "wty-vi-pt",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "226ad20e1a406f8758e8d0c88f97f1b1cf143c80d92091ecd1db7571178e454d",
+    40279
+  ]
+  ],
+  [
+  "wty-vi-ro-gloss",
+  "[VI-RO] Wiktionary (gloss)",
+  "wty-vi-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c269f629cac42eeae1f06c21d0547baac31c71fe159ece14a7e035b908122425",
+    11558
+  ]
+  ],
+  [
+  "wty-vi-ru-gloss",
+  "[VI-RU] Wiktionary (gloss)",
+  "wty-vi-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9cf78daf65ce25a0eebd1c582b0cebf8af208f395fec43b616f68323ec4a6390",
+    25793
+  ]
+  ],
+  [
+  "wty-vi-ru-ipa",
+  "[VI-RU] Wiktionary (IPA)",
+  "wty-vi-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b51b733dc883c047250938b2b65405fc3e3ba421be8a1827d89ae2a2be7097fe",
+    9768
+  ]
+  ],
+  [
+  "wty-vi-ru",
+  "[VI-RU] Wiktionary (terms)",
+  "wty-vi-ru",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f8e3587cd73a71d582745d382d4b0a3570073bc48f649cb2e810b9c1b58911dc",
+    90499
+  ]
+  ],
+  [
+  "wty-vi-sh-gloss",
+  "[VI-SH] Wiktionary (gloss)",
+  "wty-vi-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "fc04e53ca7dd80ed922a537487030d0e43d7dcb7b5f09b8f6a7d6721d719b93a",
+    10238
+  ]
+  ],
+  [
+  "wty-vi-sq-gloss",
+  "[VI-SQ] Wiktionary (gloss)",
+  "wty-vi-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "96c5b689dfd1aae4e3687225f888e30d75681b20f73f74ca68275a25b3e7b032",
+    10313
+  ]
+  ],
+  [
+  "wty-vi-sv-gloss",
+  "[VI-SV] Wiktionary (gloss)",
+  "wty-vi-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "45dc65b23a673e2c96c51fa4e2b7df785885fd32866a25a84e7077ec997ff351",
+    13789
+  ]
+  ],
+  [
+  "wty-vi-th-gloss",
+  "[VI-TH] Wiktionary (gloss)",
+  "wty-vi-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f752751e824f288d406509e0f7a9b3f8229caf2799d32f3a294c206fa591f50d",
+    15341
+  ]
+  ],
+  [
+  "wty-vi-th-ipa",
+  "[VI-TH] Wiktionary (IPA)",
+  "wty-vi-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a6f9c605802ec24ec971b0ec07706ae9a9d27a1c14f26121702b8b0fd1c1d392",
+    36130
+  ]
+  ],
+  [
+  "wty-vi-th",
+  "[VI-TH] Wiktionary (terms)",
+  "wty-vi-th",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6f066d30c40741d012d23de6d5c28c0601367af25215d473777c3245c31377ac",
+    80248
+  ]
+  ],
+  [
+  "wty-vi-tl-gloss",
+  "[VI-TL] Wiktionary (gloss)",
+  "wty-vi-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "299ecade24aff7fcb285b885ac9a3d31b20bf281f923ff0a332394d7a4cf720a",
+    10079
+  ]
+  ],
+  [
+  "wty-vi-tr-gloss",
+  "[VI-TR] Wiktionary (gloss)",
+  "wty-vi-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e7f9d800feeb3bf617e7c306d6dd066efc1e9c02fbe09e893033883fbb6faa80",
+    12126
+  ]
+  ],
+  [
+  "wty-vi-tr-ipa",
+  "[VI-TR] Wiktionary (IPA)",
+  "wty-vi-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4974259b1c93763b51de11c63a24fb5ff7b449dc132c139caef105fa8c84c22a",
+    6976
+  ]
+  ],
+  [
+  "wty-vi-tr",
+  "[VI-TR] Wiktionary (terms)",
+  "wty-vi-tr",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5030d2f802109383a0998eb33262b1683974bbefaec4f453b92559a7b423b70c",
+    19966
+  ]
+  ],
+  [
+  "wty-vi-yue-gloss",
+  "[VI-YUE] Wiktionary (gloss)",
+  "wty-vi-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c3f76bc5aab9427a697e640cd7d98d2e481279bece14d24b2e5d21b2e1f868a3",
+    11937
+  ]
+  ],
+  [
+  "wty-vi-zh-gloss",
+  "[VI-ZH] Wiktionary (gloss)",
+  "wty-vi-zh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a13df8e5077d8611b09fdcaec11ba5d3bb69ceb26910e9fe608d1b8b5f8deabd",
+    20366
+  ]
+  ],
+  [
+  "wty-vi-zh-ipa",
+  "[VI-ZH] Wiktionary (IPA)",
+  "wty-vi-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c32ede484ab7b2fe6f2f248d8205141aa033c77c943823b32c4b3a920708b15d",
+    112241
+  ]
+  ],
+  [
+  "wty-vi-zh",
+  "[VI-ZH] Wiktionary (terms)",
+  "wty-vi-zh",
+  [
+    "terms"
+  ],
+  [
+    "vi"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "bb92c241bc083354e552c37713b9e0fbd3225b6836614ae33102bc9ac2e21d08",
+    1588116
+  ]
+  ],
+  [
+  "wty-yue-de-ipa",
+  "[YUE-DE] Wiktionary (IPA)",
+  "wty-yue-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c242f21d790a0665be61a307b5903a1878a1364f4921cf53776c61db0b59f7ad",
+    7041
+  ]
+  ],
+  [
+  "wty-yue-de",
+  "[YUE-DE] Wiktionary (terms)",
+  "wty-yue-de",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e35f1016d25967278b2d60e053529832a0784fea819b2c09e14921d024c0ad4b",
+    7640
+  ]
+  ],
+  [
+  "wty-yue-en-ipa",
+  "[YUE-EN] Wiktionary (IPA)",
+  "wty-yue-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "53648e7516cf6125f82f2c5e625a97044c5f9d597daef1b0f4d36c68bbb0749a",
+    26103
+  ]
+  ],
+  [
+  "wty-yue-en",
+  "[YUE-EN] Wiktionary (terms)",
+  "wty-yue-en",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d0dc3d6a5de7d4384de620084a44741fec6e0dd7ec82c1e14a2c4c780f8a0281",
+    28109
+  ]
+  ],
+  [
+  "wty-yue-es-ipa",
+  "[YUE-ES] Wiktionary (IPA)",
+  "wty-yue-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c43a20b733e3df0f0a789357c8a2509684bcf195f1c0210e703b4ea57fb0baef",
+    6825
+  ]
+  ],
+  [
+  "wty-yue-es",
+  "[YUE-ES] Wiktionary (terms)",
+  "wty-yue-es",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "58c49027e648f7ee53cd73512d0bfa36fcf635176d69e0d3820425d27f1a9050",
+    8235
+  ]
+  ],
+  [
+  "wty-yue-fr-ipa",
+  "[YUE-FR] Wiktionary (IPA)",
+  "wty-yue-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c4c3612f454a90edd8b9fe0735d68dfaf1eb4fd937e89664d840ed7fe0a622b",
+    17249
+  ]
+  ],
+  [
+  "wty-yue-fr",
+  "[YUE-FR] Wiktionary (terms)",
+  "wty-yue-fr",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "894623481a2c295a03c57c8b82410e61c710ddd99e310292ba06d6873d2acaff",
+    123102
+  ]
+  ],
+  [
+  "wty-yue-id",
+  "[YUE-ID] Wiktionary (terms)",
+  "wty-yue-id",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "86df1ed1f07e59b9331e7633dc756ac21069d622d5be6fcdf2d6e992bb2f6331",
+    7488
+  ]
+  ],
+  [
+  "wty-yue-it",
+  "[YUE-IT] Wiktionary (terms)",
+  "wty-yue-it",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "862eb2adc5a3425cdefd6e08d59153ad3be734e9b68857aa0d6b7326e9705b4d",
+    7120
+  ]
+  ],
+  [
+  "wty-yue-nl-ipa",
+  "[YUE-NL] Wiktionary (IPA)",
+  "wty-yue-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "09d24bce4958f0c96d281011f00c6e55d5e34d9093d6a05c005b1c3dbc9c44f2",
+    6811
+  ]
+  ],
+  [
+  "wty-yue-nl",
+  "[YUE-NL] Wiktionary (terms)",
+  "wty-yue-nl",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b0e36c01db24501c33505abd5bcc7ff5d07683299983d5c8dfa322d993259c5d",
+    7478
+  ]
+  ],
+  [
+  "wty-yue-pl-ipa",
+  "[YUE-PL] Wiktionary (IPA)",
+  "wty-yue-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ce19fe317874f630df13e2b9aaa60196d3931e512b3374a567066def6f651c64",
+    6975
+  ]
+  ],
+  [
+  "wty-yue-pl",
+  "[YUE-PL] Wiktionary (terms)",
+  "wty-yue-pl",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c0193c3322d6d45b2fdb72bd5b971d36c984411c567c52563ad10d5c12bf65cb",
+    9638
+  ]
+  ],
+  [
+  "wty-yue-pt-ipa",
+  "[YUE-PT] Wiktionary (IPA)",
+  "wty-yue-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b093780fc8a82f0138fef90086a7e243f19c9187ff640dd8b44e869e4692f488",
+    8997
+  ]
+  ],
+  [
+  "wty-yue-pt",
+  "[YUE-PT] Wiktionary (terms)",
+  "wty-yue-pt",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "9e3bcb5f5e8ec7267bdd5531cbaf0a332f5e9a2f7b70d8a097260e087312757b",
+    15053
+  ]
+  ],
+  [
+  "wty-yue-ru-ipa",
+  "[YUE-RU] Wiktionary (IPA)",
+  "wty-yue-ru-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "74b0915ea97a91ab325ea7a5cc6819e023f90278a00de7b105347ce769663cc0",
+    6820
+  ]
+  ],
+  [
+  "wty-yue-ru",
+  "[YUE-RU] Wiktionary (terms)",
+  "wty-yue-ru",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1f539f19cef8cbb3d23e96fc847cb63907eb9e1ee0b7cd84cf6966770fb8cf5f",
+    9319
+  ]
+  ],
+  [
+  "wty-yue-th-ipa",
+  "[YUE-TH] Wiktionary (IPA)",
+  "wty-yue-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cee2183c6094e732e98047d3c653ccb7d9cc8343a36b00f4c60d3c0383de59c4",
+    10097
+  ]
+  ],
+  [
+  "wty-yue-th",
+  "[YUE-TH] Wiktionary (terms)",
+  "wty-yue-th",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "390d4a3101b8cddeb44bcbf1ed3ccfeceeb65e8b6c2659b399182e7eab4b621d",
+    32320
+  ]
+  ],
+  [
+  "wty-yue-tr-ipa",
+  "[YUE-TR] Wiktionary (IPA)",
+  "wty-yue-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f59740cb57025f7504a03a5272ce1f85a92623bb0caab3b87665d91c7adf93d2",
+    6817
+  ]
+  ],
+  [
+  "wty-yue-tr",
+  "[YUE-TR] Wiktionary (terms)",
+  "wty-yue-tr",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "80e68cb172800f9747149a8f0606920462f8a8cd70e3c4276f9fafc6232dd1f4",
+    6698
+  ]
+  ],
+  [
+  "wty-yue-vi-ipa",
+  "[YUE-VI] Wiktionary (IPA)",
+  "wty-yue-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c4ae8440659463ff9fb291f892c1aef8e46a1707f6b535cb76b32615d5aa5048",
+    7819
+  ]
+  ],
+  [
+  "wty-yue-vi",
+  "[YUE-VI] Wiktionary (terms)",
+  "wty-yue-vi",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "84af178befb83f72e773400598bc46f63d5e7140e92d11509ad4c82080d2c4b7",
+    7850
+  ]
+  ],
+  [
+  "wty-yue-zh-ipa",
+  "[YUE-ZH] Wiktionary (IPA)",
+  "wty-yue-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f8c94196f89a64f73c9e1054e766b09f0a85d987d396f08d1474100759869fd1",
+    9019
+  ]
+  ],
+  [
+  "wty-yue-zh",
+  "[YUE-ZH] Wiktionary (terms)",
+  "wty-yue-zh",
+  [
+    "terms"
+  ],
+  [
+    "yue"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e3c9a595e4b3576a21f8c1e0de983319311b25f44c224f877358fb8cdeae599c",
+    7591
+  ]
+  ],
+  [
+  "wty-zh-ar-gloss",
+  "[ZH-AR] Wiktionary (gloss)",
+  "wty-zh-ar-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ar"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "be684dac904cf773f72813054993e7a1cea3cba55638fa12c81f9cf988bb8c4a",
+    187852
+  ]
+  ],
+  [
+  "wty-zh-da-gloss",
+  "[ZH-DA] Wiktionary (gloss)",
+  "wty-zh-da-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "da"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "ae78eeb370b58fd33084b7e920d6b334141a929e77f539c588b197c907545621",
+    167883
+  ]
+  ],
+  [
+  "wty-zh-de-gloss",
+  "[ZH-DE] Wiktionary (gloss)",
+  "wty-zh-de-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8c790f53ed6cae9aab674c8dc917cd5899297f352ea23c793c2f9c2d9eecce85",
+    286217
+  ]
+  ],
+  [
+  "wty-zh-de-ipa",
+  "[ZH-DE] Wiktionary (IPA)",
+  "wty-zh-de-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d0211d9a6b635a73719003f40a2a23fdb6882abff10cf14ec984a758d015ee1b",
+    9482
+  ]
+  ],
+  [
+  "wty-zh-de",
+  "[ZH-DE] Wiktionary (terms)",
+  "wty-zh-de",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "de"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "76da73c6f79204f61dd6d84c5252e928017cbb545884031ecc92b7125f4fa98c",
+    51700
+  ]
+  ],
+  [
+  "wty-zh-el-gloss",
+  "[ZH-EL] Wiktionary (gloss)",
+  "wty-zh-el-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "652b53d2ffbe88f3b909d9aaa5ea0edf9d2e520375e2bc97cdfbae2cae3803b6",
+    192502
+  ]
+  ],
+  [
+  "wty-zh-el-ipa",
+  "[ZH-EL] Wiktionary (IPA)",
+  "wty-zh-el-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5dcd9bc4d61c85529840de72391c96f190e4ce30aa437b7e279d5d5909ce8347",
+    8183
+  ]
+  ],
+  [
+  "wty-zh-el",
+  "[ZH-EL] Wiktionary (terms)",
+  "wty-zh-el",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "el"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b2cdecb15d18a6f0fb8290a16237d56e76f948a420e0a967a5832914a21d6c5b",
+    41233
+  ]
+  ],
+  [
+  "wty-zh-en-gloss",
+  "[ZH-EN] Wiktionary (gloss)",
+  "wty-zh-en-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1425b27b44ca29db24d50c4f776eb44a73cc24a2cb74e6ec7b040fe61aef56b0",
+    558840
+  ]
+  ],
+  [
+  "wty-zh-en-ipa",
+  "[ZH-EN] Wiktionary (IPA)",
+  "wty-zh-en-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "4c0566bcce4393201882d77c6d078ec63191d99cf2aeee46fda737cc32806d36",
+    29603958
+  ]
+  ],
+  [
+  "wty-zh-en",
+  "[ZH-EN] Wiktionary (terms)",
+  "wty-zh-en",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "en"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5858be89170e4b05e51388f9896da06e2ad7e09fe3d7e2486a7435143329c74d",
+    19970130
+  ]
+  ],
+  [
+  "wty-zh-es-gloss",
+  "[ZH-ES] Wiktionary (gloss)",
+  "wty-zh-es-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a8bda266e97229a7060d20233ed9a33c9e36852d22e112ab6c4f190a68f75c96",
+    260942
+  ]
+  ],
+  [
+  "wty-zh-es-ipa",
+  "[ZH-ES] Wiktionary (IPA)",
+  "wty-zh-es-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "df34c257ecfc2fcacc4b1f60c80a841f441d6f8a4e045c672fb2d0b903af2043",
+    6911
+  ]
+  ],
+  [
+  "wty-zh-es",
+  "[ZH-ES] Wiktionary (terms)",
+  "wty-zh-es",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "es"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "04467516ab78ae6113d908b1461a2230fc8c058ab10b9a006fadc8b3c821ced5",
+    9256
+  ]
+  ],
+  [
+  "wty-zh-fa-gloss",
+  "[ZH-FA] Wiktionary (gloss)",
+  "wty-zh-fa-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "fa"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0e33a600cc2c0b4d9a275b890ec01d6ed99a8d5cce5f754e426adcdfb50e16c1",
+    133814
+  ]
+  ],
+  [
+  "wty-zh-fi-gloss",
+  "[ZH-FI] Wiktionary (gloss)",
+  "wty-zh-fi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "fi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3952c4e50f916248cb9a43517e66021b48d2b89cc6436116463390cb8803986d",
+    267621
+  ]
+  ],
+  [
+  "wty-zh-fr-gloss",
+  "[ZH-FR] Wiktionary (gloss)",
+  "wty-zh-fr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5c17072a34b50a32433ecb1372a7bf27961dcf3c4a64479255ebd09f6f98f9fb",
+    272927
+  ]
+  ],
+  [
+  "wty-zh-fr-ipa",
+  "[ZH-FR] Wiktionary (IPA)",
+  "wty-zh-fr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d10b3211c041c2cbf48dda1b6c82e02c8f5bb77ee7abb0cb0c10c947bd1b4755",
+    1076399
+  ]
+  ],
+  [
+  "wty-zh-fr",
+  "[ZH-FR] Wiktionary (terms)",
+  "wty-zh-fr",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "fr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "54ce3da39c7c2231e1e1b6db2a8b35b612d984586be9efc31bd518d461a5e498",
+    996812
+  ]
+  ],
+  [
+  "wty-zh-grc-gloss",
+  "[ZH-GRC] Wiktionary (gloss)",
+  "wty-zh-grc-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "grc"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1175e2a97bd7dbb153bd992a120134ceed7c67d9cffa47dbfe0fbef8252f4b7c",
+    57749
+  ]
+  ],
+  [
+  "wty-zh-hu-gloss",
+  "[ZH-HU] Wiktionary (gloss)",
+  "wty-zh-hu-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "hu"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e571cd79b7824d40713c8cb99f46ae011d689ca85b6941db02cae98703abe2d3",
+    206496
+  ]
+  ],
+  [
+  "wty-zh-id-gloss",
+  "[ZH-ID] Wiktionary (gloss)",
+  "wty-zh-id-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a48392ba512fac926cb6caadcecc5ec797fa9b8b0faaeb3691843d362b0e0b75",
+    114844
+  ]
+  ],
+  [
+  "wty-zh-id-ipa",
+  "[ZH-ID] Wiktionary (IPA)",
+  "wty-zh-id-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "75bcc6892bd3cfb2857f5425cfd021d03ffc5358dc25f833bb3a90431e4726f7",
+    6823
+  ]
+  ],
+  [
+  "wty-zh-id",
+  "[ZH-ID] Wiktionary (terms)",
+  "wty-zh-id",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "id"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "6befbf55f3e137bfd37248216922e76d53b51e7e29134185e7ffe29bc5a202aa",
+    24025
+  ]
+  ],
+  [
+  "wty-zh-it-gloss",
+  "[ZH-IT] Wiktionary (gloss)",
+  "wty-zh-it-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e7e61bf5034b6dc0ab67169c584e0e64ce46e8ea25e736cffe3728b3cdb8f409",
+    213201
+  ]
+  ],
+  [
+  "wty-zh-it-ipa",
+  "[ZH-IT] Wiktionary (IPA)",
+  "wty-zh-it-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8dbf2321d97a1d09a65ec6832006b1d20c0a5b29ff68d31115c0f16ba64564c9",
+    8075
+  ]
+  ],
+  [
+  "wty-zh-it",
+  "[ZH-IT] Wiktionary (terms)",
+  "wty-zh-it",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "it"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a296e051a3cd8924924e8d43379456bb603f3cd1359961d280b08e2d63161124",
+    122744
+  ]
+  ],
+  [
+  "wty-zh-km-gloss",
+  "[ZH-KM] Wiktionary (gloss)",
+  "wty-zh-km-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "km"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "80e69a87340478a8162a2763597823ede632d363dd71de5159cf8412f8e2bece",
+    96088
+  ]
+  ],
+  [
+  "wty-zh-ko-gloss",
+  "[ZH-KO] Wiktionary (gloss)",
+  "wty-zh-ko-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "06073f916f58747572e273a6977784ebac0281f1afc7b57845b600f365face02",
+    223667
+  ]
+  ],
+  [
+  "wty-zh-ko-ipa",
+  "[ZH-KO] Wiktionary (IPA)",
+  "wty-zh-ko-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "eba247f0325376c2e63f559bc7b06e879bf9613f583d1c676e8f64c5b650cc8d",
+    12685
+  ]
+  ],
+  [
+  "wty-zh-ko",
+  "[ZH-KO] Wiktionary (terms)",
+  "wty-zh-ko",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ko"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8601acc21aec2e732c1324fec06db6580c79e9abfa85488da56e483160dbb406",
+    988551
+  ]
+  ],
+  [
+  "wty-zh-la-gloss",
+  "[ZH-LA] Wiktionary (gloss)",
+  "wty-zh-la-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "la"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "500d7b5767011a393651b6c26be8bd3f33d6182f75bf880061ca368baea5e768",
+    107769
+  ]
+  ],
+  [
+  "wty-zh-lo-gloss",
+  "[ZH-LO] Wiktionary (gloss)",
+  "wty-zh-lo-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "lo"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "91e06d0f263ea3cdd086e3756a8a703b488839bfdf99f6da5b7c21c18f9694b3",
+    70189
+  ]
+  ],
+  [
+  "wty-zh-mn-gloss",
+  "[ZH-MN] Wiktionary (gloss)",
+  "wty-zh-mn-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "mn"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5b9ed146f144c20f92973ec8e11b40b70b9ec7e56fd412bc022d7bc7e9c25de2",
+    92326
+  ]
+  ],
+  [
+  "wty-zh-nl-gloss",
+  "[ZH-NL] Wiktionary (gloss)",
+  "wty-zh-nl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "83e4c8303c8a1b01542ab01d5adea4fd9d6b9a6a6639b9b13e7756fe1839d368",
+    205945
+  ]
+  ],
+  [
+  "wty-zh-nl-ipa",
+  "[ZH-NL] Wiktionary (IPA)",
+  "wty-zh-nl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c086612a11bb3fdff0374099a70efb3280f7534a1a8bf9c2a4a7f85e2d95e0a4",
+    10157
+  ]
+  ],
+  [
+  "wty-zh-nl",
+  "[ZH-NL] Wiktionary (terms)",
+  "wty-zh-nl",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "nl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f180e2702beee31f7b39a427c4c76930f138de77fa7f6a8c531a89ea8148b908",
+    46051
+  ]
+  ],
+  [
+  "wty-zh-pl-gloss",
+  "[ZH-PL] Wiktionary (gloss)",
+  "wty-zh-pl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "0111adc68d695917f2aac8c02d7b63b36a9b84faa5fdce4e66ab7abbf69d49d7",
+    228844
+  ]
+  ],
+  [
+  "wty-zh-pl-ipa",
+  "[ZH-PL] Wiktionary (IPA)",
+  "wty-zh-pl-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "209901a4f05b1263e592398e57db73bd8d8a8f341e102b12992db29eb92e072f",
+    51633
+  ]
+  ],
+  [
+  "wty-zh-pl",
+  "[ZH-PL] Wiktionary (terms)",
+  "wty-zh-pl",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "f5a12a4d07dabf960658c61d2877196ee2d895c72a751ed53a739015fb876fcb",
+    623465
+  ]
+  ],
+  [
+  "wty-zh-pt-gloss",
+  "[ZH-PT] Wiktionary (gloss)",
+  "wty-zh-pt-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "efb51e5077a2d1e149444618237598b8e224b8074c47116e069f6c7e1a8908dd",
+    247317
+  ]
+  ],
+  [
+  "wty-zh-pt-ipa",
+  "[ZH-PT] Wiktionary (IPA)",
+  "wty-zh-pt-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "1a23ae2d3343569b879f132177c7dead5aec477ab64c852951a437fe1b2b34e2",
+    12702
+  ]
+  ],
+  [
+  "wty-zh-pt",
+  "[ZH-PT] Wiktionary (terms)",
+  "wty-zh-pt",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "pt"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "3cd1dc9bd345d1c89231ea1e138baec5b1d5b509c9f5688b5788b7e8a0fe49e1",
+    88770
+  ]
+  ],
+  [
+  "wty-zh-ro-gloss",
+  "[ZH-RO] Wiktionary (gloss)",
+  "wty-zh-ro-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ro"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e2430991ad55cece8869cd491305374108e42bc4d61c276c715586b117cb9153",
+    170463
+  ]
+  ],
+  [
+  "wty-zh-ru-gloss",
+  "[ZH-RU] Wiktionary (gloss)",
+  "wty-zh-ru-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "ru"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d1615a16cf90306dc732f9c8b69e6169fa73665cab3aeb7c63fcd3d6580ff966",
+    4553134
+  ]
+  ],
+  [
+  "wty-zh-sh-gloss",
+  "[ZH-SH] Wiktionary (gloss)",
+  "wty-zh-sh-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "sh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "46253a67f38c88b0d164bd1127a06a116821316d83eaf9dd3a96a5ab2e5f671c",
+    208955
+  ]
+  ],
+  [
+  "wty-zh-sq-gloss",
+  "[ZH-SQ] Wiktionary (gloss)",
+  "wty-zh-sq-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "sq"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "8612d0d29351fb48975306c06407a6db51bd9db170ac42b6e97d1cd150610f76",
+    84933
+  ]
+  ],
+  [
+  "wty-zh-sv-gloss",
+  "[ZH-SV] Wiktionary (gloss)",
+  "wty-zh-sv-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "sv"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "a4a515b4415c10fe13f430e1b8af266e6746e6c20a6157d4549cc6b2cc554093",
+    209767
+  ]
+  ],
+  [
+  "wty-zh-th-gloss",
+  "[ZH-TH] Wiktionary (gloss)",
+  "wty-zh-th-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "c631eec9345b87f88683499bf05547f62417a0a67e42a34b19fd655d69293028",
+    144426
+  ]
+  ],
+  [
+  "wty-zh-th-ipa",
+  "[ZH-TH] Wiktionary (IPA)",
+  "wty-zh-th-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "53a5d3e5f5be1e2dd40ea670a410022da0dfe074ddf978d4c679597558be094e",
+    857016
+  ]
+  ],
+  [
+  "wty-zh-th",
+  "[ZH-TH] Wiktionary (terms)",
+  "wty-zh-th",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "th"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "934e9d08d8ace707bf7d5b7c7af076cf007bb2040f8d122e4a34c88b69f1622f",
+    258977
+  ]
+  ],
+  [
+  "wty-zh-tl-gloss",
+  "[ZH-TL] Wiktionary (gloss)",
+  "wty-zh-tl-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "tl"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5a7a9879f03b6338c3aa749b0a4d1874abfa4ece8fe2229c20f69e26cf7c9a07",
+    106424
+  ]
+  ],
+  [
+  "wty-zh-tr-gloss",
+  "[ZH-TR] Wiktionary (gloss)",
+  "wty-zh-tr-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "5379b92cc7bc71286fc6e7c73d2a95fa57fa89e2583003f30d53613cb9578f1f",
+    175865
+  ]
+  ],
+  [
+  "wty-zh-tr-ipa",
+  "[ZH-TR] Wiktionary (IPA)",
+  "wty-zh-tr-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d95a7051c4d31884345d3b744c2a116533e73092b00fa570759660611a6eea94",
+    7592
+  ]
+  ],
+  [
+  "wty-zh-tr",
+  "[ZH-TR] Wiktionary (terms)",
+  "wty-zh-tr",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "tr"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "18bc5e563b5a263dae259a31a6a9f366c4f39434c0f5062de83f2dcd62b763fc",
+    35633
+  ]
+  ],
+  [
+  "wty-zh-vi-gloss",
+  "[ZH-VI] Wiktionary (gloss)",
+  "wty-zh-vi-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "e712023264765a95da46b4b80dd3702bb4dcadd3c4cab5c5cd114af00cd4e3ea",
+    171885
+  ]
+  ],
+  [
+  "wty-zh-vi-ipa",
+  "[ZH-VI] Wiktionary (IPA)",
+  "wty-zh-vi-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "49f33711413076abeed4072d56a76378ccd3c8bd21abaf33ef4463a1ca41a685",
+    281516
+  ]
+  ],
+  [
+  "wty-zh-vi",
+  "[ZH-VI] Wiktionary (terms)",
+  "wty-zh-vi",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "vi"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "cd8061a1347ba79794f4e07eaa74c47c36bd06eb52461f63f71951a99191ac69",
+    140466
+  ]
+  ],
+  [
+  "wty-zh-yue-gloss",
+  "[ZH-YUE] Wiktionary (gloss)",
+  "wty-zh-yue-gloss",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "yue"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "b95d9fdb3721acedd779181698572fcdb65281176ecaacf9308369358b2520c3",
+    7014
+  ]
+  ],
+  [
+  "wty-zh-zh-ipa",
+  "[ZH-ZH] Wiktionary (IPA)",
+  "wty-zh-zh-ipa",
+  [
+    "pronunciation"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "d17ff83b25e5ef20704f5ea7fb9f7c80897a513f6372c6babdec88cc85f87de5",
+    19115357
+  ]
+  ],
+  [
+  "wty-zh-zh",
+  "[ZH-ZH] Wiktionary (terms)",
+  "wty-zh-zh",
+  [
+    "terms"
+  ],
+  [
+    "zh"
+  ],
+  [
+    "zh"
+  ],
+  "https://github.com/yomidevs/wiktionary-to-yomitan",
+  "wiktionary-multilingual",
+  [
+    "published",
+    "7ec642fa5f7208209feab32a254555c4012e24b500adc2b42bb90b75bec8f13e",
+    7908238
+  ]
+  ]
+];
+const runtimeCatalogJson = {
+  revision,
+  objectsBaseUrl,
+  entries
+};
+const schemaVersion$1 = 1;
+const catalogRevision = "2026-07-23.574961e8.wty-95a9151c1beb";
+const learnerLanguage = "en";
+const targetLanguage$1 = "ja";
+const strategy = "native-first";
+const readiness = "ready";
+const blockers = [];
+const dictionaries = [
+  {
+  dictionaryId: "jmdict-en",
+  role: "primary-terms",
+  priority: 10,
+  selectedByDefault: true,
+  definitionLanguage: "en",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "jmnedict",
+  role: "names",
+  priority: 20,
+  selectedByDefault: true,
+  definitionLanguage: "en",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "kanjidic-en",
+  role: "kanji",
+  priority: 30,
+  selectedByDefault: true,
+  definitionLanguage: "en",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+  role: "monolingual",
+  priority: 40,
+  selectedByDefault: false,
+  definitionLanguage: "ja",
+  translationMode: "offer"
+  },
+  {
+  dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+  role: "grammar",
+  priority: 50,
+  selectedByDefault: false,
+  definitionLanguage: "en",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+  role: "frequency",
+  priority: 60,
+  selectedByDefault: true,
+  definitionLanguage: "ja",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+  role: "pronunciation",
+  priority: 70,
+  selectedByDefault: true,
+  definitionLanguage: "ja",
+  translationMode: "off"
+  },
+  {
+  dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+  role: "examples",
+  priority: 80,
+  selectedByDefault: false,
+  definitionLanguage: "ja",
+  translationMode: "offer"
+  }
+];
+const enRecommendations = {
+  schemaVersion: schemaVersion$1,
+  catalogRevision,
+  learnerLanguage,
+  targetLanguage: targetLanguage$1,
+  strategy,
+  readiness,
+  blockers,
+  dictionaries
+};
+Logger.scope("GoogleTranslation");
+function normalizeTranslationLanguage(language2, options = {}) {
+  const trimmed = language2.trim();
+  if (options.allowAuto && trimmed.toLowerCase() === "auto") return "auto";
+  if (!trimmed) throw new Error("Translation language is required.");
+  try {
+  return Intl.getCanonicalLocales(trimmed)[0] ?? trimmed;
+  } catch {
+  throw new Error(`Invalid translation language: ${language2}`);
+  }
+}
+function googleTranslationLanguageCapability(language2) {
+  const logicalLanguage = normalizeTranslationLanguage(language2);
+  const locale = new Intl.Locale(logicalLanguage);
+  if (locale.language === "grc") {
+  return {
+    logicalLanguage,
+    providerLanguage: null,
+    supported: false
+  };
+  }
+  if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
+  return {
+    logicalLanguage,
+    providerLanguage: "bs",
+    supported: true
+  };
+  }
+  return {
+  logicalLanguage,
+  providerLanguage: logicalLanguage,
+  supported: true
+  };
+}
+const DICTIONARY_CATALOG_SCHEMA_VERSION = 1;
+const DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE = "ja";
+const SLICE1_LEARNER_LANGUAGES = [
+  "sq",
+  "grc",
+  "ar",
+  "yue",
+  "zh",
+  "da",
+  "nl",
+  "en",
+  "fi",
+  "fr",
+  "de",
+  "el",
+  "hu",
+  "id",
+  "it",
+  "km",
+  "ko",
+  "lo",
+  "la",
+  "mn",
+  "fa",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "sh",
+  "es",
+  "sv",
+  "tl",
+  "th",
+  "tr",
+  "vi"
+];
+const SLICE1_TARGET_LANGUAGES = [
+  DEFAULT_DICTIONARY_CATALOG_TARGET_LANGUAGE,
+  ...SLICE1_LEARNER_LANGUAGES
+];
+function isSlice1LearnerLanguage(value) {
+  return SLICE1_LEARNER_LANGUAGES.includes(value);
+}
+function isSlice1TargetLanguage(value) {
+  return SLICE1_TARGET_LANGUAGES.includes(value);
+}
+const LANGUAGE_TAG_PATTERN = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
+const RECOMMENDATION_ROLES = new Set([
+  "primary-terms",
+  "fallback-terms",
+  "monolingual",
+  "names",
+  "kanji",
+  "grammar",
+  "frequency",
+  "pronunciation",
+  "examples"
+]);
+class DictionaryManifestError extends Error {
+  constructor(path, message) {
+  super(`${path}: ${message}`);
+  this.name = "DictionaryManifestError";
+  }
+}
+function parseDictionaryRecommendationManifest(input) {
+  const root = record(input, "$");
+  schemaVersion(root.schemaVersion, "$.schemaVersion");
+  const learnerLanguage2 = language(root.learnerLanguage, "$.learnerLanguage");
+  const recommendationTargetLanguage = targetLanguage(root.targetLanguage, "$.targetLanguage");
+  literal(root.strategy, "native-first", "$.strategy");
+  const readiness2 = oneOf(root.readiness, ["ready", "blocked"], "$.readiness");
+  const blockers2 = stringArray(root.blockers, "$.blockers");
+  if (readiness2 === "ready" && blockers2.length) fail("$.blockers", "must be empty when readiness is ready");
+  if (readiness2 === "blocked" && !blockers2.length) fail("$.blockers", "must explain why readiness is blocked");
+  const dictionaries2 = array(root.dictionaries, "$.dictionaries").map((entry, index) => parseRecommendation(entry, `$.dictionaries[${index}]`));
+  assertUnique(dictionaries2.map((entry) => entry.dictionaryId), "$.dictionaries", "dictionary id");
+  for (let index = 1; index < dictionaries2.length; index += 1) {
+  if (dictionaries2[index - 1].priority > dictionaries2[index].priority) {
+    fail("$.dictionaries", "must be sorted by ascending priority");
+  }
+  }
+  return {
+  schemaVersion: DICTIONARY_CATALOG_SCHEMA_VERSION,
+  catalogRevision: text(root.catalogRevision, "$.catalogRevision"),
+  learnerLanguage: learnerLanguage2,
+  targetLanguage: recommendationTargetLanguage,
+  strategy: "native-first",
+  readiness: readiness2,
+  blockers: blockers2,
+  dictionaries: dictionaries2
+  };
+}
+function assertRecommendationReferencesCatalog(recommendation, catalog) {
+  const entries2 = new Map(catalog.entries.map((entry) => [entry.id, entry]));
+  for (const entry of recommendation.dictionaries) {
+  const catalogEntry = entries2.get(entry.dictionaryId);
+  if (!catalogEntry) {
+    fail("$.dictionaries", `references unknown dictionary "${entry.dictionaryId}"`);
+  }
+  if (!catalogEntry.headwordLanguages.includes(recommendation.targetLanguage)) {
+    fail(
+      "$.dictionaries",
+      `dictionary "${entry.dictionaryId}" does not cover target language "${recommendation.targetLanguage}"`
+    );
+  }
+  }
+  if (recommendation.catalogRevision !== catalog.revision) {
+  fail("$.catalogRevision", `must match catalog revision "${catalog.revision}"`);
+  }
+}
+function parseRecommendation(input, path) {
+  const value = record(input, path);
+  const role = text(value.role, `${path}.role`);
+  if (!RECOMMENDATION_ROLES.has(role)) fail(`${path}.role`, "is not a supported recommendation role");
+  return {
+  dictionaryId: text(value.dictionaryId, `${path}.dictionaryId`),
+  role,
+  priority: nonNegativeInteger(value.priority, `${path}.priority`),
+  selectedByDefault: boolean(value.selectedByDefault, `${path}.selectedByDefault`),
+  definitionLanguage: languageTag(value.definitionLanguage, `${path}.definitionLanguage`),
+  translationMode: oneOf(value.translationMode, ["off", "offer"], `${path}.translationMode`)
+  };
+}
+function schemaVersion(value, path) {
+  if (value !== DICTIONARY_CATALOG_SCHEMA_VERSION) fail(path, `must equal ${DICTIONARY_CATALOG_SCHEMA_VERSION}`);
+}
+function language(value, path) {
+  const tag = text(value, path);
+  if (!isSlice1LearnerLanguage(tag)) fail(path, "is not in the frozen 32-language roster");
+  return tag;
+}
+function targetLanguage(value, path) {
+  const tag = text(value, path);
+  if (!isSlice1TargetLanguage(tag)) fail(path, "is not in the frozen 33-target roster");
+  return tag;
+}
+function languageTag(value, path) {
+  const tag = text(value, path);
+  if (!LANGUAGE_TAG_PATTERN.test(tag)) fail(path, "must be a BCP-47-shaped language tag");
+  return tag;
+}
+function record(value, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail(path, "must be an object");
+  return value;
+}
+function array(value, path) {
+  if (!Array.isArray(value)) fail(path, "must be an array");
+  return value;
+}
+function text(value, path) {
+  if (typeof value !== "string" || !value.trim()) fail(path, "must be a non-empty string");
+  return value;
+}
+function boolean(value, path) {
+  if (typeof value !== "boolean") fail(path, "must be a boolean");
+  return value;
+}
+function nonNegativeInteger(value, path) {
+  if (!Number.isSafeInteger(value) || Number(value) < 0) fail(path, "must be a non-negative safe integer");
+  return Number(value);
+}
+function literal(value, expected, path) {
+  if (value !== expected) fail(path, `must equal "${expected}"`);
+  return expected;
+}
+function oneOf(value, values, path) {
+  if (typeof value !== "string" || !values.includes(value)) {
+  fail(path, `must be one of: ${values.join(", ")}`);
+  }
+  return value;
+}
+function stringArray(value, path) {
+  return array(value, path).map((entry, index) => text(entry, `${path}[${index}]`));
+}
+function assertUnique(values, path, label) {
+  const seen = new Set();
+  for (const value of values) {
+  if (seen.has(value)) fail(path, `contains duplicate ${label} "${value}"`);
+  seen.add(value);
+  }
+}
+function fail(path, message) {
+  throw new DictionaryManifestError(path, message);
+}
+const FROZEN_DICTIONARY_CATALOG = runtimeDictionaryCatalog(runtimeCatalogJson);
+const JAPANESE_RECOMMENDATION_TEMPLATE = parseDictionaryRecommendationManifest(enRecommendations);
+Object.freeze(
+  Object.fromEntries(
+  SLICE1_LEARNER_LANGUAGES.map((language2) => {
+    const manifest = japaneseRecommendationManifest(language2);
+    assertRecommendationReferencesCatalog(manifest, FROZEN_DICTIONARY_CATALOG);
+    return [language2, manifest];
+  })
+  )
+);
+function japaneseRecommendationManifest(learnerLanguage2) {
+  return {
+  ...JAPANESE_RECOMMENDATION_TEMPLATE,
+  learnerLanguage: learnerLanguage2,
+  dictionaries: JAPANESE_RECOMMENDATION_TEMPLATE.dictionaries.map(
+    (recommendation) => japaneseRecommendation(recommendation, learnerLanguage2)
+  )
+  };
+}
+function japaneseRecommendation(template, learnerLanguage2) {
+  const family = template.role === "primary-terms" ? "jmdict" : template.role === "kanji" ? "kanjidic" : null;
+  const candidateId = family ? `${family}-${learnerLanguage2}` : template.dictionaryId;
+  const candidate = publishedCatalogEntry(candidateId) ?? publishedCatalogEntry(template.dictionaryId);
+  if (!candidate) {
+  throw new Error(`Japanese recommendation "${template.dictionaryId}" is missing from the catalogue.`);
+  }
+  const definitionLanguage = candidate.definitionLanguages[0] ?? "en";
+  const translationMode = template.role === "frequency" || template.role === "pronunciation" || definitionLanguage === learnerLanguage2 || !googleTranslationLanguageCapability(learnerLanguage2).supported ? "off" : "offer";
+  return {
+  ...template,
+  dictionaryId: candidate.id,
+  role: family === "jmdict" ? definitionLanguage === learnerLanguage2 ? "primary-terms" : "fallback-terms" : template.role,
+  definitionLanguage,
+  translationMode
+  };
+}
+function publishedCatalogEntry(id) {
+  return FROZEN_DICTIONARY_CATALOG.entries.find(
+  (entry) => entry.id === id && entry.distribution.state === "published"
+  );
+}
+function runtimeDictionaryCatalog(input) {
+  const compact2 = input;
+  if (!compact2 || typeof compact2.revision !== "string" || !Array.isArray(compact2.entries)) {
+  throw new Error("Runtime dictionary catalog is invalid. Regenerate it from the published catalog.");
+  }
+  return {
+  schemaVersion: 1,
+  revision: compact2.revision,
+  generatedAt: "runtime-projection",
+  targetLanguage: "ja",
+  objectsBaseUrl: compact2.objectsBaseUrl,
+  sourceSnapshot: {
+    catalogueRepository: "runtime-projection",
+    catalogueCommit: compact2.revision,
+    catalogueFile: "config/dictionaries/published/v1/catalog.json",
+    driveFolderUrl: "https://dictionaries.yomureader.com/",
+    capturedAt: "runtime-projection"
+  },
+  entries: compact2.entries.map(expandRuntimeCatalogEntry)
+  };
+}
+function expandRuntimeCatalogEntry(entry) {
+  const [id, title, installedTitle, categories, headwordLanguages, definitionLanguages, projectUrl, catalogueSection, distribution] = entry;
+  return {
+  id,
+  title,
+  ...installedTitle ? { installedTitle } : {},
+  format: "yomitan",
+  version: "runtime",
+  categories,
+  headwordLanguages,
+  definitionLanguages,
+  source: {
+    acquisitionId: id,
+    url: projectUrl ?? "https://dictionaries.yomureader.com/",
+    ...projectUrl ? { projectUrl } : {},
+    ...catalogueSection ? { catalogueSection } : {}
+  },
+  license: {
+    spdx: null,
+    attribution: title,
+    sourceUrl: projectUrl ?? "https://dictionaries.yomureader.com/",
+    redistribution: "allowed"
+  },
+  distribution: expandRuntimeDistribution(distribution)
+  };
+}
+function expandRuntimeDistribution(distribution) {
+  const [state, value, bytes] = distribution;
+  if (state === "published") {
+  const sha256 = value ?? "";
+  return {
+    state,
+    object: {
+      key: `objects/sha256/${sha256}.zip`,
+      sha256,
+      bytes: bytes ?? 0,
+      contentType: "application/zip"
+    }
+  };
+  }
+  if (state === "upstream") {
+  return {
+    state,
+    archive: {
+      url: value ?? "",
+      ...bytes === null || bytes === void 0 ? {} : { bytes }
+    }
+  };
+  }
+  return state === "blocked" ? { state, reason: value ?? "Unavailable" } : { state: "source-only" };
+}
+const CATEGORY_ORDER = [
+  "terms",
+  "names",
+  "grammar",
+  "kanji",
+  "frequency",
+  "pronunciation",
+  "examples",
+  "thesaurus",
+  "encyclopedia",
+  "utility"
+];
+const UI_CATEGORY_BY_CATALOG_CATEGORY = {
+  terms: "terms",
+  names: "terms",
+  grammar: "terms",
+  kanji: "kanji",
+  frequency: "frequency",
+  pronunciation: "pronunciation",
+  examples: "terms",
+  thesaurus: "terms",
+  encyclopedia: "terms",
+  utility: "terms"
+};
+function catalogBrowseCardId(headwordLanguage, catalogDictionaryId) {
+  return `mirror-${headwordLanguage}-${catalogDictionaryId}`;
+}
+const HEADWORD_LANGUAGE_ENDONYMS = Object.freeze({
+  ja: "日本語",
+  zh: "中文",
+  yue: "粵語",
+  lzh: "文言"
+});
+function headwordLanguageEndonym(language2) {
+  return HEADWORD_LANGUAGE_ENDONYMS[language2] ?? language2;
+}
+function headwordLanguageName(language2, locale = "en") {
+  const display = languageDisplayName(language2, locale);
+  return display === language2 ? headwordLanguageEndonym(language2) : display;
+}
+function formatDictionaryBytes(bytes, locale = "en") {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  const gigabytes = bytes / 1024 ** 3;
+  const megabytes = bytes / 1024 ** 2;
+  const [value, unit] = gigabytes >= 1 ? [gigabytes, "GB"] : megabytes >= 1 ? [megabytes, "MB"] : [bytes / 1024, "KB"];
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
+}
+function buildCatalogBrowseShelves(catalog) {
+  const entriesByLanguage = new Map();
+  for (const entry of catalog.entries) {
+  for (const language2 of entry.headwordLanguages) {
+    const bucket = entriesByLanguage.get(language2);
+    if (bucket) bucket.push(entry);
+    else entriesByLanguage.set(language2, [entry]);
+  }
+  }
+  const shelves = [...entriesByLanguage].map(([language2, entries2]) => ({
+  language: language2,
+  dictionaries: Object.freeze(
+    dedupeByPublishedObject(entries2).map((entry) => browseCard(catalog, language2, entry)).sort(compareForLearnerLanguage(void 0, language2))
+  )
+  }));
+  return Object.freeze(shelves.sort(compareCatalogBrowseShelves(catalog.targetLanguage)));
+}
+function compareCatalogBrowseShelves(targetLanguage2) {
+  return (left, right) => {
+  if (left.language === targetLanguage2 !== (right.language === targetLanguage2)) {
+    return left.language === targetLanguage2 ? -1 : 1;
+  }
+  return right.dictionaries.length - left.dictionaries.length || left.language.localeCompare(right.language, "en");
+  };
+}
+function dedupeByPublishedObject(entries2) {
+  const preferred = new Map();
+  const unpublished = [];
+  for (const entry of entries2) {
+  if (entry.distribution.state !== "published") {
+    unpublished.push(entry);
+    continue;
+  }
+  const sha256 = entry.distribution.object.sha256;
+  const existing = preferred.get(sha256);
+  if (!existing || preferDuplicate(entry, existing)) preferred.set(sha256, entry);
+  }
+  return [...preferred.values(), ...unpublished];
+}
+function preferDuplicate(candidate, existing) {
+  const candidateIsStarterPack = isStarterPackEntry(candidate);
+  if (candidateIsStarterPack !== isStarterPackEntry(existing)) return !candidateIsStarterPack;
+  return candidate.id < existing.id;
+}
+function isStarterPackEntry(entry) {
+  return entry.source.catalogueSection === "starter-pack" || entry.id.startsWith("drive-starter-pack-");
+}
+function browseCard(catalog, headwordLanguage, entry) {
+  const primaryCategory = primaryCatalogCategory(entry);
+  const download = dictionaryEntryDownload(entry, catalog.objectsBaseUrl);
+  return {
+  id: catalogBrowseCardId(headwordLanguage, entry.id),
+  headwordLanguage,
+  category: UI_CATEGORY_BY_CATALOG_CATEGORY[primaryCategory],
+  catalogCategory: primaryCategory,
+  name: entry.title,
+  description: describeMirroredDictionary(entry.definitionLanguages[0], download?.bytes),
+  ...download ? {
+    downloadUrl: download.url,
+    ...download.sha256 === void 0 ? {} : { sha256: download.sha256 },
+    ...download.bytes === void 0 ? {} : { bytes: download.bytes }
+  } : {},
+  ...entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {},
+  origin: "catalog",
+  catalogDictionaryId: entry.id,
+  selectedByDefault: false,
+  definitionLanguage: entry.definitionLanguages[0],
+  translationMode: "off",
+  installedDictionaryIdentity: yomitanDictionaryIdentity(entry.installedTitle ?? entry.title)
+  };
+}
+function primaryCatalogCategory(entry) {
+  return entry.categories.find((category) => CATEGORY_ORDER.includes(category)) ?? "utility";
+}
+function describeMirroredDictionary(definitionLanguage, bytes, locale = "en") {
+  const language2 = definitionLanguage ? languageDisplayName(definitionLanguage, locale) : "";
+  const size = bytes === void 0 ? "" : formatDictionaryBytes(bytes, locale);
+  return [language2, size].filter(Boolean).join(" · ");
+}
+function compareForLearnerLanguage(learnerLanguage2, targetLanguage2) {
+  return (left, right) => {
+  const rank = definitionLanguageRank(right, learnerLanguage2, targetLanguage2) - definitionLanguageRank(left, learnerLanguage2, targetLanguage2);
+  if (rank !== 0) return rank;
+  return left.name.localeCompare(right.name, "en");
+  };
+}
+function definitionLanguageRank(dictionary, learnerLanguage2, targetLanguage2) {
+  const language2 = dictionary.definitionLanguage;
+  if (!language2) return 0;
+  if (language2 === targetLanguage2) return 2;
+  if (language2 === "en") return 1;
+  return 0;
+}
+const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONARY_CATALOG);
+Object.freeze(
+  FROZEN_CATALOG_BROWSE_SHELVES.flatMap((shelf) => shelf.dictionaries)
+);
 const AUTHORED_VOCABULARY_ATTRIBUTE = "data-yomu-authored-vocabulary";
 function applyAuthoredVocabularyOverrides(target, tokens) {
   const annotations = readAuthoredVocabularyAnnotations(target.parent);
@@ -33754,12 +68715,12 @@ function authoredVocabularyOwner(parent) {
 }
 function normalizeAnnotation(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  const surface = exactJapaneseSurface(record.surface);
-  const lemma = normalizedJapaneseText(record.lemma);
-  const reading = normalizedJapaneseText(record.reading);
+  const record2 = value;
+  const surface = exactJapaneseSurface(record2.surface);
+  const lemma = normalizedJapaneseText(record2.lemma);
+  const reading = normalizedJapaneseText(record2.reading);
   if (!surface || !lemma || !reading || !isKanaReading(reading)) return null;
-  const pitch = normalizePitch(record.pitch, reading);
+  const pitch = normalizePitch(record2.pitch, reading);
   return { surface, lemma, reading, ...pitch ? { pitch } : {} };
 }
 function exactJapaneseSurface(value) {
@@ -33771,9 +68732,9 @@ function exactJapaneseSurface(value) {
 }
 function normalizePitch(value, reading) {
   if (!value || typeof value !== "object") return void 0;
-  const record = value;
-  const pattern = typeof record.pattern === "string" ? record.pattern.trim() : "";
-  const source = typeof record.source === "string" ? record.source.trim().slice(0, 120) : "";
+  const record2 = value;
+  const pattern = typeof record2.pattern === "string" ? record2.pattern.trim() : "";
+  const source = typeof record2.source === "string" ? record2.source.trim().slice(0, 120) : "";
   if (!pattern || !source || !pitchClassNameForPattern(pattern, reading)) return void 0;
   return { pattern, source };
 }
@@ -34253,13 +69214,20 @@ class VisiblePageScanner {
   return !this.destroyed && (shouldLookupAnkiStatus(settings) || shouldLookupBunproWordStates(settings));
   }
   handleEmptyVisiblePageScan(silent) {
-  if (!silent) this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "noUnscannedJapaneseText"));
+  if (silent) return;
+  const interfaceLanguage = this.dependencies.getSettings().interfaceLanguage;
+  this.dependencies.toast(formatUiText(interfaceLanguage, "noUnscannedJapaneseText", {
+    language: headwordLanguageName(
+      languageSubtag(activeLearningTargetLanguage()) ?? "ja",
+      resolveUiLanguage(interfaceLanguage)
+    )
+  }));
   }
   handleVisiblePageScanError(error, silent) {
   log$1.warn("Visible page scan failed", error);
   if (!silent) {
-    const language = this.dependencies.getSettings().interfaceLanguage;
-    this.dependencies.toast(userFacingErrorText(language, "jpdbScanFailed", error));
+    const language2 = this.dependencies.getSettings().interfaceLanguage;
+    this.dependencies.toast(userFacingErrorText(language2, "jpdbScanFailed", error));
   }
   }
   reportVisiblePageCoverage(silent) {
@@ -34981,7 +69949,7 @@ class ReaderApp {
   cardPopoverRenderer = new CardPopoverRenderer({
   getSettings: () => this.settings,
   isJpdbBackedCard: (card) => this.isJpdbBackedCard(card),
-  renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
+  renderWordHistory: (language2, trigger) => this.navigation.renderWordHistory(language2, trigger),
   renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup, frequencyRanks) => renderWordPills({
     card,
     jpdbUrl,
@@ -35679,11 +70647,11 @@ class ReaderApp {
   });
   this.youtube.refresh();
   }
-  async setInterfaceLanguage(language) {
-  if (this.settings.interfaceLanguage === language) return;
-  this.settings.interfaceLanguage = language;
+  async setInterfaceLanguage(language2) {
+  if (this.settings.interfaceLanguage === language2) return;
+  this.settings.interfaceLanguage = language2;
   await saveSettings(this.settings);
-  this.settingsDialog?.refreshLanguage(language);
+  this.settingsDialog?.refreshLanguage(language2);
   this.clearHostedPageReaderWords();
   this.installFab();
   this.subtitles.refresh();
@@ -36272,8 +71240,8 @@ class ReaderApp {
   const target = currentPageTermTarget();
   const root = this.createJpdbPageAddonRoot("kanji", `kanji:${kanji}`, target?.anchor ?? document.body, generation);
   if (!root) return;
-  const language = this.settings.interfaceLanguage;
-  const mounts = this.renderKanjiSourceMounts(kanji, language);
+  const language2 = this.settings.interfaceLanguage;
+  const mounts = this.renderKanjiSourceMounts(kanji, language2);
   if (!mounts) {
     root.remove();
     return;
@@ -36282,7 +71250,7 @@ class ReaderApp {
   this.updateJpdbPageAddonHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
   this.installJpdbPageAddonHandlers(root, card);
   this.dictionarySourceState.installTracking(root);
-  this.startKanjiProgressiveRender(root, this.kanjiDetailPromises(kanji), card, kanji, language, target ?? void 0);
+  this.startKanjiProgressiveRender(root, this.kanjiDetailPromises(kanji), card, kanji, language2, target ?? void 0);
   void this.parseJpdbPageAddonJapanese(root);
   }
   createJpdbPageAddonRoot(kind, key, anchor, generation) {
@@ -36866,7 +71834,7 @@ class ReaderApp {
     },
     isDestroyed: () => this.isDestroyed,
     showSettings: (panel) => this.showSettings(panel),
-    setInterfaceLanguage: (language) => this.setInterfaceLanguage(language),
+    setInterfaceLanguage: (language2) => this.setInterfaceLanguage(language2),
     applyTheme: () => this.applyTheme(),
     saveSettings: (settings) => saveSettings(settings),
     clearBridgeCaches: () => this.clearBridgeBackedCaches()
@@ -40126,14 +75094,14 @@ class ReaderApp {
   const navigation = options.navigation ?? "reset";
   this.navigation.updateKanji(card, kanji, sentence, navigation);
   const popover = this.createPopover();
-  const language = this.settings.interfaceLanguage;
+  const language2 = this.settings.interfaceLanguage;
   const kanjiCharacters = uniqueKanji(card.spelling);
   const jpdbUrl = `https://jpdb.io/kanji/${encodeURIComponent(kanji)}`;
   const detailsPromises = this.kanjiDetailPromises(kanji);
-  this.renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language);
+  this.renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language2);
   this.installKanjiCardActions(popover, card, kanji, sentence, anchor);
   this.mountPopover(popover, anchor, { preservePosition: options.preservePosition });
-  this.startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language);
+  this.startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language2);
   }
   kanjiDetailPromises(kanji) {
   const needsKanjiVG = this.settings.kanjivgEnabled || this.settings.kanjiOriginsEnabled && this.settings.kanjiOriginGraphEnabled;
@@ -40160,19 +75128,19 @@ class ReaderApp {
   rtkDetailPromise(kanji) {
   return this.settings.rtkEnabled && this.rtk ? this.rtk.lookup(kanji).catch(() => null) : Promise.resolve(null);
   }
-  renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language) {
+  renderKanjiCardShell(popover, card, kanji, kanjiCharacters, jpdbUrl, language2) {
   setInnerHtml(popover, `
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body">
                 ${renderModalNavigation({
-      ...this.navigation.kanjiModalBack(card, language),
-      controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language)
+      ...this.navigation.kanjiModalBack(card, language2),
+      controlsHtml: this.renderKanjiNavigationControls(kanjiCharacters, kanji, language2)
     })}
                 <div class="jpdb-reader-header">
                     <div class="jpdb-reader-heading">
                         <div class="jpdb-reader-title-row jpdb-reader-kanji-title-row">
                             <div class="jpdb-reader-kanji-display">${escapeHtml$1(kanji)}</div>
-                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "loadingKanjiDetails"))}</div></div>
+                            <div data-kanji-keyword-mount><div class="jpdb-reader-help">${escapeHtml$1(uiText(language2, "loadingKanjiDetails"))}</div></div>
                             ${renderWordPills({
       card,
       jpdbUrl,
@@ -40186,20 +75154,20 @@ class ReaderApp {
                     </div>
                 </div>
                 <div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">
-                    ${this.renderKanjiSourceMounts(kanji, language)}
+                    ${this.renderKanjiSourceMounts(kanji, language2)}
                 </div>
             </div>
             ${this.renderKanjiActionBar(card)}
         `);
   }
-  renderKanjiNavigationControls(kanjiCharacters, kanji, language) {
+  renderKanjiNavigationControls(kanjiCharacters, kanji, language2) {
   if (kanjiCharacters.length <= 1) return "";
   const index = Math.max(0, kanjiCharacters.indexOf(kanji));
   const previous = kanjiCharacters[(index - 1 + kanjiCharacters.length) % kanjiCharacters.length];
   const next = kanjiCharacters[(index + 1) % kanjiCharacters.length];
   return `
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language, "previousKanji"))}">‹</button>
-            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language, "nextKanji"))}">›</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-prev" data-kanji="${escapeHtml$1(previous)}" title="${escapeHtml$1(uiText(language2, "previousKanji"))}">‹</button>
+            <button class="jpdb-reader-icon-mini" type="button" data-action="kanji-next" data-kanji="${escapeHtml$1(next)}" title="${escapeHtml$1(uiText(language2, "nextKanji"))}">›</button>
         `;
   }
   installKanjiCardActions(popover, card, kanji, sentence, anchor) {
@@ -40258,11 +75226,11 @@ class ReaderApp {
   const context = this.jitenKanjiWordsActionContext();
   if (context) await filterJitenKanjiWords(button, context);
   }
-  startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language, pageTarget) {
+  startKanjiProgressiveRender(popover, detailsPromises, card, kanji, language2, pageTarget) {
   this.installKanjiImmersionExamples(popover, card, pageTarget?.queries ?? []);
-  void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language);
+  void this.renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language2);
   if (this.settings.kanjivgEnabled) {
-    void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language);
+    void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, language2);
   }
   }
   async performJpdbKanjiAction(actionId, card, kanji, sentence, anchor) {
@@ -40276,11 +75244,11 @@ class ReaderApp {
     this.toast(uiText(this.settings.interfaceLanguage, "jpdbKanjiUpdateFailedRuntime"));
   }
   }
-  renderKanjiSourceMounts(kanji, language) {
+  renderKanjiSourceMounts(kanji, language2) {
   return renderKanjiSourceMounts({
     settings: this.settings,
     kanji,
-    language,
+    language: language2,
     isSourceOpen: (key) => this.dictionarySourceState.isOpen(key),
     sourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
     sourceTitle: (sourceId) => this.kanjiSourceTitle(sourceId),
@@ -40322,7 +75290,7 @@ class ReaderApp {
   updateKanjiMiningControls(popover, controls) {
   updateKanjiMiningControlsMount(popover, controls, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
   }
-  async renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language) {
+  async renderKanjiDetailsInto(popover, detailsPromises, card, kanji, language2) {
   let jpdbInfo = null;
   let jitenInfo = null;
   let kanjiEntries = [];
@@ -40336,11 +75304,11 @@ class ReaderApp {
   const rtkMount = popover.querySelector("[data-kanji-rtk-mount]");
   const uchisenMount = popover.querySelector("[data-kanji-uchisen-mount]");
   const definitionsMounts = Array.from(popover.querySelectorAll("[data-kanji-definitions-mount]"));
-  this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
+  this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language2);
   this.wanikaniSources.installKanjiMount(popover, kanji);
   const renderKeyword = () => {
     if (!popover.isConnected || !keywordMount?.isConnected) return;
-    setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language, sourceInfo) : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language, sourceInfo));
+    setInnerHtml(keywordMount, jitenInfo ? renderJitenKanjiKeywordLine(jitenInfo, rtkInfo, kanjiEntries, language2, sourceInfo) : this.renderKanjiKeywordLine(jpdbInfo, rtkInfo, kanjiEntries, language2, sourceInfo));
     this.repositionActivePopover();
   };
   const renderKanjiPillRanks = () => {
@@ -40368,7 +75336,7 @@ class ReaderApp {
     }
     const componentSummaries = companion.buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries);
     const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
-    setInnerHtml(rtkMount, companion.renderRtkInfo(rtkInfo, componentSummaries, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey));
+    setInnerHtml(rtkMount, companion.renderRtkInfo(rtkInfo, componentSummaries, language2, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey));
     this.repositionActivePopover();
   };
   const jpdbInfoPromise = detailsPromises.jpdbInfo.then((info) => {
@@ -40376,9 +75344,9 @@ class ReaderApp {
     if (!popover.isConnected) return;
     renderKeyword();
     renderKanjiPillRanks();
-    if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
+    if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language2));
     if (jpdbMount?.isConnected) {
-      setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
+      setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language2));
     }
     renderRtk();
   });
@@ -40388,7 +75356,7 @@ class ReaderApp {
     renderKeyword();
     renderKanjiPillRanks();
     if (jpdbMount?.isConnected) {
-      setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
+      setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language2));
     }
   });
   const kanjiEntriesPromise = detailsPromises.kanjiEntries.then((entries2) => {
@@ -40405,7 +75373,7 @@ class ReaderApp {
         (name) => this.dictionaryLabel(name),
         sourceId,
         dictionaryName ? this.dictionaryLabel(dictionaryName) : this.kanjiSourceTitle(KANJI_DICTIONARIES_SOURCE_ID),
-        language
+        language2
       ));
     }
     renderRtk();
@@ -40431,10 +75399,10 @@ class ReaderApp {
   void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
   this.repositionActivePopover();
   }
-  renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language, sourceInfo) {
-  return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language, sourceInfo) ?? `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "kanjiDetailsUnavailable"))}</div>`;
+  renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language2, sourceInfo) {
+  return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries2, language2, sourceInfo) ?? `<div class="jpdb-reader-help">${escapeHtml$1(uiText(language2, "kanjiDetailsUnavailable"))}</div>`;
   }
-  renderKanjiUchisenInto(popover, mount, kanji, language) {
+  renderKanjiUchisenInto(popover, mount, kanji, language2) {
   if (!mount) return;
   const companion = this.kanjiCompanion;
   if (!this.settings.uchisenEnabled || !companion) {
@@ -40463,7 +75431,7 @@ class ReaderApp {
         this.uchisenDataCache.delete(kanji);
         return companion.loadUchisenData(kanji, this.settings.corsProxyUrl);
       },
-      interfaceLanguage: language
+      interfaceLanguage: language2
     }).then(() => {
       if (!popover.isConnected) return;
       void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
@@ -40493,18 +75461,18 @@ class ReaderApp {
   waitForIdle(timeoutMs = 75) {
   return waitForIdle(timeoutMs);
   }
-  async renderKanjiVGInto(popover, kanjiVGPromise, kanji, language) {
+  async renderKanjiVGInto(popover, kanjiVGPromise, kanji, language2) {
   const info = await kanjiVGPromise;
   if (!info || !popover.isConnected) return;
   const elements = this.kanjiVGStageElements(popover, kanji);
   if (!elements) return;
   const { stage, ghost, help } = elements;
   setInnerHtml(ghost, info.svg);
-  help.textContent = `${info.strokeCount} ${uiText(language, "strokes")}`;
+  help.textContent = `${info.strokeCount} ${uiText(language2, "strokes")}`;
   const trace = stage.closest(".jpdb-reader-kanjivg")?.querySelector("[data-doodle-trace]");
   const traceVisible = !stage.classList.contains("trace-hidden");
   ghost.hidden = !traceVisible;
-  if (trace) trace.textContent = uiText(language, traceVisible ? "hideTrace" : "showTrace");
+  if (trace) trace.textContent = uiText(language2, traceVisible ? "hideTrace" : "showTrace");
   }
   kanjiVGStageElements(popover, kanji) {
   const stage = Array.from(popover.querySelectorAll(".jpdb-reader-doodle-stage")).find((candidate) => candidate.dataset.kanji === kanji);
@@ -41703,15 +76671,15 @@ class ReaderApp {
   if (sourceId === KANJI_UCHISEN_SOURCE_ID) return "Uchisen";
   return "";
   }
-  renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language) {
+  renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language2) {
   const sections = [];
   const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
   if (jpdbInfo && this.kanjiCompanion) {
-    sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle("jpdb")));
+    sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language2, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle("jpdb")));
   }
   if (jitenInfo) {
     const jitenKey = `${jpdbKey}:jiten`;
-    sections.push(renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(jitenKey), jitenKey, this.kanjiFactSourceTitle("jiten")));
+    sections.push(renderJitenKanjiInfo(jitenInfo, language2, this.dictionarySourceState.isOpen(jitenKey), jitenKey, this.kanjiFactSourceTitle("jiten")));
   }
   return sections.join("");
   }
@@ -42179,9 +77147,9 @@ class ReaderApp {
     refreshNewTabIfCurrent: () => void 0,
     clearDictionarySourceOpenOverrides: () => this.dictionarySourceState.clear(),
     resetAllData: () => this.factoryReset.resetAllData(),
-    beginSettingsPreview: (accent, language, theme) => {
+    beginSettingsPreview: (accent, language2, theme) => {
       this.settingsPreviewOriginalAccent = accent;
-      this.settingsPreviewOriginalLanguage = language;
+      this.settingsPreviewOriginalLanguage = language2;
       this.settingsPreviewOriginalTheme = theme;
     },
     clearSettingsPreview: () => {

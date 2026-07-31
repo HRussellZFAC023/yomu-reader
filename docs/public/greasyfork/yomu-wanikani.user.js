@@ -6692,7 +6692,7 @@ yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
-noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+noUnscannedJapaneseText	未スキャンの{language}テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamplesCompact	例文なし
@@ -7156,7 +7156,7 @@ popoverHeightMode	ポップオーバー高さの動作
 popoverHeightAvailable	空き領域まで
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
-popupFontFamily	ポップアップの日本語フォント
+popupFontFamily	ポップアップのフォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
@@ -7165,7 +7165,7 @@ fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
 customFontFamily	カスタムフォント
-popupFontWeight	ポップアップの日本語の太さ
+popupFontWeight	ポップアップのフォントの太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
@@ -7216,7 +7216,7 @@ newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
 newTabStudyStepType	単語を書く
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
 newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
 newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
 newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
@@ -7258,9 +7258,9 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ウェブページの日本語
+pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
-pageScanModeAuto	日本語を自動で検出
+pageScanModeAuto	{language}を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
@@ -7355,7 +7355,7 @@ audioSourceWiktionary	(Commons) Wiktionary
 audioSourceJitenTts	Jiten読み上げ
 audioSourceJpdbTts	JPDB読み上げ
 audioSourceTextToSpeech	ブラウザ読み上げ
-audioSourceTextToSpeechReading	ブラウザ読み上げ (かな読み)
+audioSourceTextToSpeechReading	ブラウザ読み上げ (読み)
 audioSourceCustom	直接音声ファイルURL
 audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL

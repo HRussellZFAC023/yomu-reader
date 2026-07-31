@@ -358,7 +358,9 @@ describe('settings form localization', () => {
         expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('日本語版のサイトを開く');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
-        expect(labelForControl(form, 'popupFontFamily')).toContain('ポップアップの日本語フォント');
+        // Not "日本語フォント": the setting styles the WHOLE popover typeface, so it
+        // was mislabelled for Japanese learners as well as lying to everyone else (b20).
+        expect(labelForControl(form, 'popupFontFamily')).toContain('ポップアップのフォント');
         expect(labelForControl(form, 'subtitleFontFamily')).toContain('字幕フォントファミリー');
         expect(labelForControl(form, 'subtitlePausePanel')).toContain('一時停止時にサイドパネルを開く');
         expect(labelForControl(form, 'subtitleShadowAutoPause')).toContain('シャドー中は各行の後で一時停止');

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.59] - 2026-07-31
+
+### Fixed
+
+- The Hover Lookup hotkey now stays cleared when you clear it, instead of returning to Shift.
+- A setting you put back to its default now stays there, instead of an older stored copy restoring it.
+- Word colour for ignored, suspended, and blacklisted words can now be turned off like every other state.
+- Settings that act on the language you are studying now name that language instead of always saying Japanese.
+
 ## [1.8.58] - 2026-07-31
 
 ### Added

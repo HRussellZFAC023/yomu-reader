@@ -3694,7 +3694,7 @@
       featureGame: "Game",
       featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
-      noUnscannedJapaneseText: "No unscanned Japanese text found.",
+      noUnscannedJapaneseText: "No unscanned {language} text found.",
       jpdbScanFailed: "Page scan failed.",
       pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
       settings: "Settings",
@@ -3804,7 +3804,7 @@
       popoverHeightAvailable: "Grow to available space",
       popoverHeightFixed: "Use height setting",
       readerFontFamily: "Reader interface font",
-      popupFontFamily: "Popup Japanese font",
+      popupFontFamily: "Popup font",
       fontPresetYomuDefault: "Built-in font",
       fontPresetJapaneseSans: "Japanese sans",
       fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
@@ -3813,7 +3813,7 @@
       fontPresetSystemUi: "System UI",
       fontPresetCustom: "Custom...",
       customFontFamily: "Custom font stack",
-      popupFontWeight: "Popup Japanese weight",
+      popupFontWeight: "Popup font weight",
       enableLogging: "Enable diagnostic logging",
       diagnostics: "Diagnostics",
       diagnosticsHelp: "Print diagnostics to the console.",
@@ -3864,7 +3864,7 @@
       newTabStudyStepSpeaking: "Speaking",
       newTabStudyStepType: "Type the word",
       newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-      newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
+      newTabStudyStepWordHelp: "{language} front, meaning and reading on reveal.",
       newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
       newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
       newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
@@ -3906,9 +3906,9 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      pageScanMode: "Japanese text on webpages",
+      pageScanMode: "{language} text on webpages",
       pageScanModeOff: "Leave pages unchanged",
-      pageScanModeAuto: "Scan Japanese automatically",
+      pageScanModeAuto: "Scan {language} automatically",
       pageScanModeManual: "Scan only when I ask",
       manualScanEnabled: "Manual page scanning",
       ocrInteractionMode: "Image OCR scanning",
@@ -4003,7 +4003,7 @@
       audioSourceJitenTts: "Jiten text-to-speech",
       audioSourceJpdbTts: "JPDB text-to-speech",
       audioSourceTextToSpeech: "Text-to-speech",
-      audioSourceTextToSpeechReading: "Text-to-speech (Kana reading)",
+      audioSourceTextToSpeechReading: "Text-to-speech (reading)",
       audioSourceCustom: "Custom direct audio file URL",
       audioSourceCustomJson: "Custom URL",
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
@@ -5077,7 +5077,7 @@ yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
-noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+noUnscannedJapaneseText	未スキャンの{language}テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamplesCompact	例文なし
@@ -5542,7 +5542,7 @@ popoverHeightMode	ポップオーバー高さの動作
 popoverHeightAvailable	空き領域まで
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
-popupFontFamily	ポップアップの日本語フォント
+popupFontFamily	ポップアップのフォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
@@ -5551,7 +5551,7 @@ fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
 customFontFamily	カスタムフォント
-popupFontWeight	ポップアップの日本語の太さ
+popupFontWeight	ポップアップのフォントの太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
@@ -5602,7 +5602,7 @@ newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
 newTabStudyStepType	単語を書く
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
 newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
 newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
 newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
@@ -5644,9 +5644,9 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ウェブページの日本語
+pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
-pageScanModeAuto	日本語を自動で検出
+pageScanModeAuto	{language}を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
@@ -5741,7 +5741,7 @@ audioSourceWiktionary	(Commons) Wiktionary
 audioSourceJitenTts	Jiten読み上げ
 audioSourceJpdbTts	JPDB読み上げ
 audioSourceTextToSpeech	ブラウザ読み上げ
-audioSourceTextToSpeechReading	ブラウザ読み上げ (かな読み)
+audioSourceTextToSpeechReading	ブラウザ読み上げ (読み)
 audioSourceCustom	直接音声ファイルURL
 audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
@@ -57176,7 +57176,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.58".trim() ? "1.8.58".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.59".trim() ? "1.8.59".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -95365,6 +95365,16 @@ ${spelling}`);
     ].join(" "));
     return haystack.includes(query) || context.includes(query);
   }
+  function settingsText(language2) {
+    const targetName = headwordLanguageName(
+      languageSubtag(activeLearningTargetLanguage()) ?? SLICE1_TARGET_LANGUAGE,
+      resolveUiLanguage(language2)
+    );
+    return (key) => {
+      const message = uiText(language2, key);
+      return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
+    };
+  }
   const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
     dutch: "nl",
     english: "en",
@@ -95450,9 +95460,6 @@ ${spelling}`);
   const PROXY_WORKER_README_URL = `${GITHUB_REPOSITORY_URL}/tree/main/workers/jpdb-public-proxy`;
   function localizedOptions(text2, table) {
     return table.map(([value, key]) => [value, text2(key)]);
-  }
-  function settingsText(language2) {
-    return (key) => uiText(language2, key);
   }
   const DEFINITION_TRANSLATION_API_SOURCE_IDS = /* @__PURE__ */ new Set([JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, BUNPRO_DEFINITION_SOURCE_ID, WANIKANI_DEFINITION_SOURCE_ID]);
   const CATALOG_DEFINITION_LANGUAGES = new Map(FROZEN_DICTIONARY_CATALOG.entries.flatMap((entry) => [[normalizeDictionaryIdentity(entry.id), entry.definitionLanguages], [normalizeDictionaryIdentity(entry.title), entry.definitionLanguages]]));
@@ -95946,7 +95953,7 @@ ${spelling}`);
                                     <span>${index + 1}</span>
                                 </label>
                                 <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml$2(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language2, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$2(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapedUiText(language2, NEW_TAB_STUDY_STEP_HELP_KEYS[step])}</div>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$2(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml$2(settingsText(language2)(NEW_TAB_STUDY_STEP_HELP_KEYS[step]))}</div>
                                 ${renderRowOrderTools({
       upAction: "dictionary-source-up",
       downAction: "dictionary-source-down",
@@ -96477,7 +96484,7 @@ ${spelling}`);
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
                 </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language2, "youtubeHelp")}</div>
+                <div id="settings-help-youtube" class="jpdb-reader-help jp-only" data-language-family="youtube-immersion-help" data-youtube-help>${escapedUiText(language2, "youtubeHelp")}</div>
             </fieldset>
     `;
   }
@@ -102392,6 +102399,16 @@ ${spelling}`);
     youtubeImmersionInput;
     preferJapaneseSiteLanguageInput;
     offlineDictionariesInput;
+    /**
+     * Onboarding copy, resolved through the same factory the settings dialog uses so
+     * a `{language}` label cannot leak its raw token here. It did: the master switch
+     * and its auto mode gained that token and this surface -- the FIRST screen a new
+     * user sees -- was still calling uiText directly, printing
+     * "{language} text on webpages" (b20).
+     */
+    text(key) {
+      return settingsText(this.options.getSettings().interfaceLanguage)(key);
+    }
     pageScanModeInputs = [];
     ocrModeInputs = [];
     manualPageScanShortcutInput;
@@ -102415,29 +102432,29 @@ ${spelling}`);
       this.panel.dataset.jpdbReaderRoot = "true";
       this.panel.setAttribute("role", "dialog");
       this.panel.setAttribute("aria-modal", "true");
-      this.panel.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "welcomeLabel"));
+      this.panel.setAttribute("aria-label", this.text("welcomeLabel"));
       this.panel.tabIndex = -1;
       const closeButton = button("");
       closeButton.className = "jpdb-reader-icon-mini jpdb-reader-onboarding-close";
       closeButton.dataset.onboardingAction = "close";
-      closeButton.title = uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding");
-      closeButton.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "closeOnboarding"));
+      closeButton.title = this.text("closeOnboarding");
+      closeButton.setAttribute("aria-label", this.text("closeOnboarding"));
       setInnerHtml(closeButton, closeIcon());
       closeButton.addEventListener("click", () => void this.complete(false));
-      const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", uiText(this.options.getSettings().interfaceLanguage, "onboardingEyebrow"));
+      const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", this.text("onboardingEyebrow"));
       const title = element("h2", "", APP_NAME);
       const copy2 = element(
         "p",
         "",
-        uiText(this.options.getSettings().interfaceLanguage, "onboardingCopy")
+        this.text("onboardingCopy")
       );
       const featureList = document.createElement("ul");
       featureList.className = "jpdb-reader-onboarding-features";
       ONBOARDING_FEATURE_KEYS.forEach(([headingKey, textKey]) => {
         const item = document.createElement("li");
         item.append(
-          element("strong", "", uiText(this.options.getSettings().interfaceLanguage, headingKey)),
-          element("span", "", uiText(this.options.getSettings().interfaceLanguage, textKey))
+          element("strong", "", this.text(headingKey)),
+          element("span", "", this.text(textKey))
         );
         featureList.append(item);
       });
@@ -102482,13 +102499,13 @@ ${spelling}`);
       targetLanguage2.append(targetLanguageText, this.targetLanguageSelect);
       const language2 = document.createElement("label");
       language2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language";
-      const languageText = element("span", "", uiText(this.options.getSettings().interfaceLanguage, "onboardingLanguage"));
+      const languageText = element("span", "", this.text("onboardingLanguage"));
       this.languageSelect = document.createElement("select");
       this.languageSelect.name = "interfaceLanguage";
       [
-        ["auto", uiText(this.options.getSettings().interfaceLanguage, "automatic")],
-        ["en", uiText(this.options.getSettings().interfaceLanguage, "english")],
-        ["ja", uiText(this.options.getSettings().interfaceLanguage, "japanese")]
+        ["auto", this.text("automatic")],
+        ["en", this.text("english")],
+        ["ja", this.text("japanese")]
       ].forEach(([value, text2]) => {
         const option = document.createElement("option");
         option.value = value;
@@ -102503,7 +102520,7 @@ ${spelling}`);
       const accentPicker = document.createElement("fieldset");
       accentPicker.className = "jpdb-reader-onboarding-accent";
       const accentLegend = document.createElement("legend");
-      accentLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor");
+      accentLegend.textContent = this.text("onboardingAccentColor");
       const swatches = document.createElement("div");
       swatches.className = "jpdb-reader-onboarding-swatches";
       ONBOARDING_ACCENT_SWATCHES.forEach((color) => {
@@ -102520,12 +102537,12 @@ ${spelling}`);
       customAccent.className = "jpdb-reader-onboarding-custom-accent";
       const customAccentText = document.createElement("span");
       customAccentText.dataset.onboardingCopy = "customAccentColor";
-      customAccentText.textContent = uiText(this.options.getSettings().interfaceLanguage, "customAccentColor");
+      customAccentText.textContent = this.text("customAccentColor");
       this.accentColorInput = document.createElement("input");
       this.accentColorInput.type = "color";
       this.accentColorInput.name = "accentColor";
       this.accentColorInput.value = sanitizeAccentColor(this.options.getSettings().accentColor);
-      this.accentColorInput.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "onboardingAccentColor"));
+      this.accentColorInput.setAttribute("aria-label", this.text("onboardingAccentColor"));
       this.accentColorInput.addEventListener("input", () => this.previewAccentChoice(this.accentColorInput?.value));
       this.accentColorInput.addEventListener("change", () => this.applyAccentChoice(this.accentColorInput?.value));
       customAccent.append(customAccentText, this.accentColorInput);
@@ -102536,7 +102553,7 @@ ${spelling}`);
       const immersionOptions = document.createElement("fieldset");
       immersionOptions.className = "jpdb-reader-onboarding-options";
       const immersionLegend = document.createElement("legend");
-      immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingImmersionOptions");
+      immersionLegend.textContent = this.text("onboardingImmersionOptions");
       this.hoverLookupShortcutInput = shortcutTextInput(
         "shortcuts.hoverLookup",
         this.options.getSettings().shortcuts.hoverLookup,
@@ -102554,12 +102571,12 @@ ${spelling}`);
       this.offlineDictionariesInput = checkboxInput("onboardingInstallOfflineDictionaries", true);
       const pageScanMode = createModeGroup(
         "pageScanMode",
-        uiText(this.options.getSettings().interfaceLanguage, "pageScanMode"),
+        this.text("pageScanMode"),
         pageScanModeFromSettings(this.options.getSettings()),
         [
-          ["off", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeOff")],
-          ["auto", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeAuto")],
-          ["manual", uiText(this.options.getSettings().interfaceLanguage, "pageScanModeManual")]
+          ["off", this.text("pageScanModeOff")],
+          ["auto", this.text("pageScanModeAuto")],
+          ["manual", this.text("pageScanModeManual")]
         ]
       );
       this.pageScanModeInputs = pageScanMode.inputs;
@@ -102568,12 +102585,12 @@ ${spelling}`);
       });
       const ocrMode = createModeGroup(
         "ocrInteractionMode",
-        uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionMode"),
+        this.text("ocrInteractionMode"),
         ocrInteractionModeFromSettings(this.options.getSettings()),
         [
-          ["auto", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeAuto")],
-          ["manual", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeManual")],
-          ["off", uiText(this.options.getSettings().interfaceLanguage, "ocrInteractionModeOff")]
+          ["auto", this.text("ocrInteractionModeAuto")],
+          ["manual", this.text("ocrInteractionModeManual")],
+          ["off", this.text("ocrInteractionModeOff")]
         ]
       );
       this.ocrModeInputs = ocrMode.inputs;
@@ -102582,19 +102599,19 @@ ${spelling}`);
       const defaultColumn = document.createElement("div");
       defaultColumn.className = "jpdb-reader-onboarding-option-column";
       defaultColumn.append(
-        checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
-        checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
-        checkboxLabel(this.offlineDictionariesInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingInstallOfflineDictionaries"))
+        checkboxLabel(this.youtubeImmersionInput, this.text("youtubeImmersionEnabled")),
+        checkboxLabel(this.preferJapaneseSiteLanguageInput, this.text("preferJapaneseSiteLanguage")),
+        checkboxLabel(this.offlineDictionariesInput, this.text("onboardingInstallOfflineDictionaries"))
       );
       const scanColumn = document.createElement("div");
       scanColumn.className = "jpdb-reader-onboarding-option-column";
       scanColumn.append(pageScanMode.fieldset, ocrMode.fieldset);
       const shortcutColumn = document.createElement("div");
       shortcutColumn.className = "jpdb-reader-onboarding-option-column";
-      this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "manualPageScanShortcut"));
+      this.manualPageScanShortcutLabel = shortcutLabel(this.manualPageScanShortcutInput, this.text("manualPageScanShortcut"));
       this.manualPageScanShortcutLabel.dataset.manualPageScanShortcut = "true";
       shortcutColumn.append(
-        shortcutLabel(this.hoverLookupShortcutInput, uiText(this.options.getSettings().interfaceLanguage, "onboardingHoverShortcut")),
+        shortcutLabel(this.hoverLookupShortcutInput, this.text("onboardingHoverShortcut")),
         this.manualPageScanShortcutLabel
       );
       immersionGrid.append(defaultColumn, scanColumn, shortcutColumn);
@@ -102604,11 +102621,11 @@ ${spelling}`);
       );
       const actions = document.createElement("div");
       actions.className = "jpdb-reader-onboarding-actions";
-      const setup = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingAddApiKey"));
+      const setup = button(this.text("onboardingAddApiKey"));
       setup.className = "jpdb-reader-btn";
       setup.dataset.onboardingAction = "api-key";
       setup.addEventListener("click", () => void this.complete(true));
-      const dictionaries2 = button(uiText(this.options.getSettings().interfaceLanguage, "onboardingUseWithoutApiKey"));
+      const dictionaries2 = button(this.text("onboardingUseWithoutApiKey"));
       dictionaries2.className = "jpdb-reader-btn add";
       dictionaries2.dataset.onboardingAction = "without-api";
       dictionaries2.addEventListener("click", () => void this.complete("dictionaries"));
@@ -102671,36 +102688,37 @@ ${spelling}`);
       return true;
     }
     localize(language2) {
+      const text2 = settingsText(language2);
       const panel = this.panel;
       if (!panel) return;
-      panel.setAttribute("aria-label", uiText(language2, "welcomeLabel"));
-      panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(uiText(language2, "onboardingEyebrow"));
+      panel.setAttribute("aria-label", text2("welcomeLabel"));
+      panel.querySelector(".jpdb-reader-onboarding-eyebrow")?.replaceChildren(text2("onboardingEyebrow"));
       const copy2 = panel.querySelector("p");
-      copy2?.replaceChildren(uiText(language2, "onboardingCopy"));
-      panel.querySelector(".jpdb-reader-onboarding-interface-language span")?.replaceChildren(uiText(language2, "onboardingLanguage"));
+      copy2?.replaceChildren(text2("onboardingCopy"));
+      panel.querySelector(".jpdb-reader-onboarding-interface-language span")?.replaceChildren(text2("onboardingLanguage"));
       const multilingualCopy = onboardingLanguageProfileCopy(language2);
       panel.querySelector('[data-onboarding-multilingual-copy="learnerLanguage"]')?.replaceChildren(multilingualCopy.learnerLanguage);
       panel.querySelector('[data-onboarding-multilingual-copy="targetLanguage"]')?.replaceChildren(multilingualCopy.targetLanguage);
-      panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language2, "theme"));
-      panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language2, "onboardingImmersionOptions"));
-      panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language2, "onboardingHoverShortcut"));
-      this.hoverLookupShortcutInput?.setAttribute("placeholder", uiText(language2, "blankPlainHover"));
-      panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(uiText(language2, "manualPageScanShortcut"));
-      this.manualPageScanShortcutInput?.setAttribute("placeholder", uiText(language2, "pressKeys"));
-      panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language2, "youtubeImmersionEnabled"));
-      panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language2, "preferJapaneseSiteLanguage"));
-      panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(uiText(language2, "onboardingInstallOfflineDictionaries"));
-      panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(uiText(language2, "pageScanMode"));
-      setOnboardingModeLabel(panel, "pageScanMode", "off", uiText(language2, "pageScanModeOff"));
-      setOnboardingModeLabel(panel, "pageScanMode", "auto", uiText(language2, "pageScanModeAuto"));
-      setOnboardingModeLabel(panel, "pageScanMode", "manual", uiText(language2, "pageScanModeManual"));
-      panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(uiText(language2, "ocrInteractionMode"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", uiText(language2, "ocrInteractionModeAuto"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", uiText(language2, "ocrInteractionModeManual"));
-      setOnboardingModeLabel(panel, "ocrInteractionMode", "off", uiText(language2, "ocrInteractionModeOff"));
-      panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language2, "onboardingAccentColor"));
-      panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language2, "customAccentColor"));
-      this.accentColorInput?.setAttribute("aria-label", uiText(language2, "onboardingAccentColor"));
+      panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(text2("theme"));
+      panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(text2("onboardingImmersionOptions"));
+      panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(text2("onboardingHoverShortcut"));
+      this.hoverLookupShortcutInput?.setAttribute("placeholder", text2("blankPlainHover"));
+      panel.querySelector('[data-onboarding-copy="shortcuts.scanPage"]')?.replaceChildren(text2("manualPageScanShortcut"));
+      this.manualPageScanShortcutInput?.setAttribute("placeholder", text2("pressKeys"));
+      panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(text2("youtubeImmersionEnabled"));
+      panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(text2("preferJapaneseSiteLanguage"));
+      panel.querySelector('[data-onboarding-copy="onboardingInstallOfflineDictionaries"]')?.replaceChildren(text2("onboardingInstallOfflineDictionaries"));
+      panel.querySelector('[data-onboarding-mode-legend="pageScanMode"]')?.replaceChildren(text2("pageScanMode"));
+      setOnboardingModeLabel(panel, "pageScanMode", "off", text2("pageScanModeOff"));
+      setOnboardingModeLabel(panel, "pageScanMode", "auto", text2("pageScanModeAuto"));
+      setOnboardingModeLabel(panel, "pageScanMode", "manual", text2("pageScanModeManual"));
+      panel.querySelector('[data-onboarding-mode-legend="ocrInteractionMode"]')?.replaceChildren(text2("ocrInteractionMode"));
+      setOnboardingModeLabel(panel, "ocrInteractionMode", "auto", text2("ocrInteractionModeAuto"));
+      setOnboardingModeLabel(panel, "ocrInteractionMode", "manual", text2("ocrInteractionModeManual"));
+      setOnboardingModeLabel(panel, "ocrInteractionMode", "off", text2("ocrInteractionModeOff"));
+      panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(text2("onboardingAccentColor"));
+      panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(text2("customAccentColor"));
+      this.accentColorInput?.setAttribute("aria-label", text2("onboardingAccentColor"));
       panel.querySelectorAll("[data-onboarding-accent]").forEach((button2) => {
         const color = button2.dataset.onboardingAccent;
         if (!color) return;
@@ -102709,13 +102727,13 @@ ${spelling}`);
         button2.title = label;
       });
       const options = [
-        ["auto", uiText(language2, "automatic")],
-        ["en", uiText(language2, "english")],
-        ["ja", uiText(language2, "japanese")]
+        ["auto", text2("automatic")],
+        ["en", text2("english")],
+        ["ja", text2("japanese")]
       ];
-      options.forEach(([value, text2]) => {
+      options.forEach(([value, text22]) => {
         const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
-        if (option) option.textContent = text2;
+        if (option) option.textContent = text22;
       });
       if (this.targetLanguageSelect) {
         populateStudyTargetSelect(
@@ -102730,14 +102748,14 @@ ${spelling}`);
       const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
       features.forEach((feature, index) => {
         const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
-        feature.querySelector("strong")?.replaceChildren(uiText(language2, headingKey));
-        feature.querySelector("span")?.replaceChildren(uiText(language2, bodyKey));
+        feature.querySelector("strong")?.replaceChildren(text2(headingKey));
+        feature.querySelector("span")?.replaceChildren(text2(bodyKey));
       });
-      panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(uiText(language2, "onboardingAddApiKey"));
-      panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(uiText(language2, "onboardingUseWithoutApiKey"));
+      panel.querySelector('[data-onboarding-action="api-key"]')?.replaceChildren(text2("onboardingAddApiKey"));
+      panel.querySelector('[data-onboarding-action="without-api"]')?.replaceChildren(text2("onboardingUseWithoutApiKey"));
       const closeButton = panel.querySelector('[data-onboarding-action="close"]');
-      closeButton?.setAttribute("aria-label", uiText(language2, "closeOnboarding"));
-      closeButton?.setAttribute("title", uiText(language2, "closeOnboarding"));
+      closeButton?.setAttribute("aria-label", text2("closeOnboarding"));
+      closeButton?.setAttribute("title", text2("closeOnboarding"));
       this.syncThemeSwitch();
       this.annotateJapanese();
     }
@@ -102837,7 +102855,7 @@ ${spelling}`);
       title.className = "jpdb-reader-theme-title";
       title.id = "jpdb-reader-onboarding-theme-label";
       title.dataset.onboardingCopy = "theme";
-      title.textContent = uiText(this.options.getSettings().interfaceLanguage, "theme");
+      title.textContent = this.text("theme");
       const chrome = document.createElement("div");
       chrome.className = "VPNavBarAppearance appearance jpdb-reader-theme-appearance";
       this.themeSwitch = button("");
@@ -102860,9 +102878,8 @@ ${spelling}`);
     }
     syncThemeSwitch() {
       if (!this.themeSwitch) return;
-      const language2 = this.options.getSettings().interfaceLanguage;
       const theme = this.effectiveTheme(this.options.getSettings().theme);
-      const label = uiText(language2, theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
+      const label = this.text(theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
       this.themeSwitch.setAttribute("aria-label", label);
       this.themeSwitch.setAttribute("aria-checked", String(theme === "dark"));
       this.themeSwitch.title = label;
@@ -103021,7 +103038,7 @@ ${spelling}`);
     input2.type = "text";
     input2.name = name;
     input2.value = value;
-    input2.placeholder = uiText(language2, placeholderKey);
+    input2.placeholder = settingsText(language2)(placeholderKey);
     input2.autocomplete = "off";
     input2.inputMode = "none";
     input2.dataset.shortcutInput = "true";
@@ -103076,7 +103093,7 @@ ${spelling}`);
     return `jpdb-reader-onboarding-${name}`;
   }
   function onboardingAccentLabel(language2, color) {
-    return `${uiText(language2, "onboardingAccentColor")} ${color.toUpperCase()}`;
+    return `${settingsText(language2)("onboardingAccentColor")} ${color.toUpperCase()}`;
   }
   function requestOnboardingFrame(callback) {
     if (typeof window.requestAnimationFrame === "function") {

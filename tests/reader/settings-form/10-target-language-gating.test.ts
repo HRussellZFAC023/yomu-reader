@@ -5,6 +5,7 @@ import { studyTargetOptions } from '../../../src/reader/app/study-target-picker'
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { DEFAULT_SETTINGS, renderSettingsTestForm } from './fixtures';
 
 describe('target-language settings', () => {
@@ -54,6 +55,35 @@ describe('target-language settings', () => {
         expect(activeTargetLanguageId(saved)).toBe('es');
         expect(saved.languageProfiles.find(profile => profile.id === saved.activeLanguageProfileId)?.targetLanguage)
             .toBe('es');
+    });
+
+    // b20: the product's MASTER SWITCH read "Japanese text on webpages" with "Scan
+    // Japanese automatically" whatever the learner had chosen, while the probe behind
+    // it asks the ACTIVE target whether text is its language. So the first settings
+    // screen a Russian learner opened told them this product reads Japanese, which
+    // reads as "my language is not supported" -- the exact churn the 32-language
+    // roster exists to prevent. These labels are target-generic, not Japanese-scoped,
+    // so they name the target.
+    it('names the language the learner is studying on the master switch', () => {
+        const japanese = renderSettingsTestForm(DEFAULT_SETTINGS);
+        expect(labelText(japanese, 'pageScanMode')).toContain('Japanese');
+
+        setActiveLearningTargetLanguage('ru');
+        try {
+            const russian = renderSettingsTestForm(DEFAULT_SETTINGS);
+            const legend = labelText(russian, 'pageScanMode');
+            expect(legend).toContain('Russian');
+            expect(legend).not.toContain('Japanese');
+            // And no un-substituted token leaks here. A blanket brace scan over the whole
+            // dialog would be wrong: `audioHelp` deliberately documents "URL tokens:
+            // {term}, {reading}, {language}" for the learner to type, so braces are
+            // legitimate copy in this surface. The onboarding panel has no such copy and
+            // does carry a blanket guard, which is what caught it leaking one.
+            expect(legend).not.toContain('{language}');
+            expect(labelText(russian, 'pageScanMode')).not.toContain('{');
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
     });
 
     it('keeps pronunciation universal, shares reading controls with zh/yue/ko, and restores Japanese-only nodes', () => {
@@ -171,3 +201,9 @@ describe('target-language settings', () => {
         });
     });
 });
+
+function labelText(form: HTMLFormElement, controlName: string): string {
+    const control = form.elements.namedItem(controlName);
+    const group = (control instanceof RadioNodeList ? control[0] : control) as HTMLElement | null;
+    return group?.closest('.jpdb-reader-radio-group')?.querySelector('legend')?.textContent ?? '';
+}

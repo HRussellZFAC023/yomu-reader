@@ -16,7 +16,9 @@ import {
     type TextFragment,
     type TextTarget,
 } from '../dom/index';
-import { formatUiText, uiText } from '../app/i18n';
+import { formatUiText, resolveUiLanguage } from '../app/i18n';
+import { activeLearningTargetLanguage, languageSubtag } from '../languages';
+import { headwordLanguageName } from '../dictionaries/catalog-browse';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
@@ -744,7 +746,16 @@ export class VisiblePageScanner {
     }
 
     private handleEmptyVisiblePageScan(silent: boolean): void {
-        if (!silent) this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, 'noUnscannedJapaneseText'));
+        if (silent) return;
+        // The scan looks for the ACTIVE target's language, so the toast names it
+        // rather than saying "Japanese" to someone studying Russian (b20).
+        const interfaceLanguage = this.dependencies.getSettings().interfaceLanguage;
+        this.dependencies.toast(formatUiText(interfaceLanguage, 'noUnscannedJapaneseText', {
+            language: headwordLanguageName(
+                languageSubtag(activeLearningTargetLanguage()) ?? 'ja',
+                resolveUiLanguage(interfaceLanguage),
+            ),
+        }));
     }
 
     private handleVisiblePageScanError(error: unknown, silent: boolean): void {

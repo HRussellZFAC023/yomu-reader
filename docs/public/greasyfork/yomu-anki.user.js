@@ -2377,7 +2377,7 @@ const COPY = {
   featureGame: "Game",
   featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
   scanPage: "Scan page",
-  noUnscannedJapaneseText: "No unscanned Japanese text found.",
+  noUnscannedJapaneseText: "No unscanned {language} text found.",
   jpdbScanFailed: "Page scan failed.",
   pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
   settings: "Settings",
@@ -2487,7 +2487,7 @@ const COPY = {
   popoverHeightAvailable: "Grow to available space",
   popoverHeightFixed: "Use height setting",
   readerFontFamily: "Reader interface font",
-  popupFontFamily: "Popup Japanese font",
+  popupFontFamily: "Popup font",
   fontPresetYomuDefault: "Built-in font",
   fontPresetJapaneseSans: "Japanese sans",
   fontPresetHiraginoYuGothic: "Hiragino / Yu Gothic",
@@ -2496,7 +2496,7 @@ const COPY = {
   fontPresetSystemUi: "System UI",
   fontPresetCustom: "Custom...",
   customFontFamily: "Custom font stack",
-  popupFontWeight: "Popup Japanese weight",
+  popupFontWeight: "Popup font weight",
   enableLogging: "Enable diagnostic logging",
   diagnostics: "Diagnostics",
   diagnosticsHelp: "Print diagnostics to the console.",
@@ -2547,7 +2547,7 @@ const COPY = {
   newTabStudyStepSpeaking: "Speaking",
   newTabStudyStepType: "Type the word",
   newTabStudyStepKanjiHelp: "Draw each kanji before the word answer is shown. Carries the word meaning so the blank is never ambiguous; tap Hint for the kanji keyword.",
-  newTabStudyStepWordHelp: "Japanese front, meaning and reading on reveal.",
+  newTabStudyStepWordHelp: "{language} front, meaning and reading on reveal.",
   newTabStudyStepRecallHelp: "Type the missing word in the example sentence. Tap Hint for the first kana, then length. Shown only when a card has an example sentence.",
   newTabStudyStepListenHelp: "Hear the word and choose its pitch pattern from the contour options; correctness stays hidden until the final reveal. Shown only when pitch-accent data is available.",
   newTabStudyStepSpeakingHelp: "Shadow the word aloud — your pitch contour is scored against the model on this device. Shown only when audio is available.",
@@ -2589,9 +2589,9 @@ const COPY = {
   lookupOnHover: "Look up on hover",
   lookupOnMiddleMouse: "Look up with middle-mouse hold",
   showFloatingButton: "Show settings puck",
-  pageScanMode: "Japanese text on webpages",
+  pageScanMode: "{language} text on webpages",
   pageScanModeOff: "Leave pages unchanged",
-  pageScanModeAuto: "Scan Japanese automatically",
+  pageScanModeAuto: "Scan {language} automatically",
   pageScanModeManual: "Scan only when I ask",
   manualScanEnabled: "Manual page scanning",
   ocrInteractionMode: "Image OCR scanning",
@@ -2686,7 +2686,7 @@ const COPY = {
   audioSourceJitenTts: "Jiten text-to-speech",
   audioSourceJpdbTts: "JPDB text-to-speech",
   audioSourceTextToSpeech: "Text-to-speech",
-  audioSourceTextToSpeechReading: "Text-to-speech (Kana reading)",
+  audioSourceTextToSpeechReading: "Text-to-speech (reading)",
   audioSourceCustom: "Custom direct audio file URL",
   audioSourceCustomJson: "Custom URL",
   audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
@@ -3760,7 +3760,7 @@ yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
-noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
+noUnscannedJapaneseText	未スキャンの{language}テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
 pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamplesCompact	例文なし
@@ -4225,7 +4225,7 @@ popoverHeightMode	ポップオーバー高さの動作
 popoverHeightAvailable	空き領域まで
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
-popupFontFamily	ポップアップの日本語フォント
+popupFontFamily	ポップアップのフォント
 fontPresetYomuDefault	内蔵フォント
 fontPresetJapaneseSans	日本語サンセリフ
 fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
@@ -4234,7 +4234,7 @@ fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
 customFontFamily	カスタムフォント
-popupFontWeight	ポップアップの日本語の太さ
+popupFontWeight	ポップアップのフォントの太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
@@ -4285,7 +4285,7 @@ newTabStudyStepListen	ピッチ聞き取り
 newTabStudyStepSpeaking	発音
 newTabStudyStepType	単語を書く
 newTabStudyStepKanjiHelp	答えが出る前に各漢字を書きます。単語の意味を表示するので空欄が曖昧になりません。ヒントで漢字キーワードを出せます。
-newTabStudyStepWordHelp	表は日本語、表示後に意味と読み。
+newTabStudyStepWordHelp	表は{language}、表示後に意味と読み。
 newTabStudyStepRecallHelp	例文の空欄に単語を入力します。ヒントで最初の音、次に長さを表示。例文があるカードのみ表示。
 newTabStudyStepListenHelp	音声を聞き、型の候補からピッチ型を選びます。正誤は最後の答え合わせまで表示しません。ピッチアクセント情報がある時のみ表示。
 newTabStudyStepSpeakingHelp	単語をシャドーイングします。ピッチの高低をこの端末でお手本と比較して採点します。音声がある時のみ表示。
@@ -4327,9 +4327,9 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-pageScanMode	ウェブページの日本語
+pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
-pageScanModeAuto	日本語を自動で検出
+pageScanModeAuto	{language}を自動で検出
 pageScanModeManual	指示したときだけ日本語を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
@@ -4424,7 +4424,7 @@ audioSourceWiktionary	(Commons) Wiktionary
 audioSourceJitenTts	Jiten読み上げ
 audioSourceJpdbTts	JPDB読み上げ
 audioSourceTextToSpeech	ブラウザ読み上げ
-audioSourceTextToSpeechReading	ブラウザ読み上げ (かな読み)
+audioSourceTextToSpeechReading	ブラウザ読み上げ (読み)
 audioSourceCustom	直接音声ファイルURL
 audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL

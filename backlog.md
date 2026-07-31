@@ -1540,6 +1540,42 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
         `dir=` anywhere in `src/reader/subtitles/`, no bidi isolation). Arabic and Farsi interface locales stay
         blocked until those land — unblocking on the CSS fix alone would ship a broken Arabic UI.
 
+      **Verified 2026-07-31 by adversarial re-measurement, so the audit stops being trusted blind:**
+      - **b17 (multi-language SRS deck forks cards) DOES NOT REPRODUCE — closed.** `newTabCardTarget`
+        resolves from the CARD's own language, not ambient UI state, and `canonicalStudyCardIdentity` keys on
+        expression|reading|partOfSpeech|language. A mine→grade round trip on a Spanish card gives exactly one
+        deck entry with its review preserved. Residual with no learner-visible harm: `cardHighlightTargets`
+        still asks `optionalJapaneseCardReading`, so a non-Japanese card highlights only its spelling.
+      - **b10 (Japanese "Starter words" served to every target) DOES NOT REPRODUCE — closed.** A Spanish
+        learner with no dictionary now gets an honest empty state (`renderEmpty` → `noCards`: "No cards."),
+        not a `kanji-doodle(連)` drill. Residual: a dead Starter button and no gate test pinning it.
+      - **b9 (recall-cloze deleted for 30 of 33 targets) PARTIALLY FIXED.** The `queryHasJapanese` gate is
+        gone — `bc3c4b64c fix(study): scope multilingual review loops` replaced it with
+        `newTabCardTarget(card).isLookupableText(sentence)` one day after the audit — and a Spanish
+        integration test drives the real controller through `recall-cloze` with `prompt.lang === 'es'`. Three
+        narrow residuals remain: `controller.ts:6921` still hardcodes `prompt.lang = 'ja'` for the WORD step
+        on all 33 targets; there is no empty state when recall is absent (Listen/Speak have one); and
+        `study-sentence-source.ts:29` drops an unpunctuated zh/yue sentence ending in a Han character.
+      - **b8 (typed grading destroys Latin answers) PARTIALLY FIXED.** The kana rewrite is gone and
+        regression-tested. Residual: a correct answer with a trailing full stop or a phone keyboard's curly
+        apostrophe ("l’eau") still grades wrong, and `controller.ts:6653-6657` pins the first outcome, so the
+        miss sticks to the card even after a correct retype.
+      - **b20 (~24 UI strings hardcode "Japanese") REPRODUCED with zero refutations — FIXED 1.8.59.** The
+        master switch read "Japanese text on webpages" with "Scan Japanese automatically" for every learner,
+        while the probe behind it asks the ACTIVE target (`isTargetLanguageText` →
+        `activeLearningTarget().isLookupableText`) — a lie, not honest scoping. A learner who picked Russian
+        was told on their first settings screen that this product reads Japanese. Seven strings corrected in
+        both English and Japanese: the master switch and its auto mode plus the empty-scan toast and the
+        study-step help take a `{language}` token; "Popup Japanese font"/"weight" and
+        "Text-to-speech (Kana reading)" lose the word entirely, because those settings style the WHOLE
+        popover typeface and read whatever `card.reading` holds — mislabelled for Japanese learners too. The
+        substitution lives in one place (`settings/settings-text.ts`), which is what makes it complete: first
+        paint and the live language-switch relabel both resolve through it, so neither can drift or leak a
+        raw token. The orphaned YouTube help line — after gating, the ru media panel was a legend plus a
+        lying help sentence and nothing else — now leaves with the controls it describes.
+        Still open from b20's own measurement: the immersion controls are `jp-only` DETACHED, so 31 targets
+        cannot reach a filter that A48 made work for them. Offering it to every target is the bigger ticket.
+
       **Still open:** `examples`, `mining`, `srs`, `grading`, `frequency`, `grammar`, `audio`,
       `character-lookup` and `handwriting` remain undeclared for generic targets — though the audit measured
       several of those as working anyway, so the matrix still understates reality and the flags are still not
@@ -1662,6 +1698,52 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       not starvation, and left in the known-red set rather than papered over with a bigger number.
       Deliberately NOT added to `MOCK_ISOLATED_TESTS`: that list exists for `vi.mock` registration leakage
       and a conformance test polices it, so parking timeout cases there would make the list lie.
+
+- [x] **A51 — USER BUG REPORTS, GitHub, mirrormc (Discord: moonbeam), 2026-07-31. Two fixed, one dispatched.**
+      Firefox + Tampermonkey userscript, 1.8.56/1.8.57.
+      - **[x] #37 "No Appearance option for hiding word colors for Ignored, Blacklisted, and Suspended words"
+        — FIXED.** Not a missing checkbox: `wordColorHiddenStateGroups` was typed `FuriganaStateGroup[]`,
+        borrowing the furigana taxonomy, so the ignored family was structurally outside the domain in five
+        consumers plus the CSS — and the normalizer validated against the same five, so a stored `'ignored'`
+        would have been dropped on load even if a control had existed. ONE switch, since those three states
+        resolve to one colour behind one picker, reusing that picker's own label. Six independent copies of
+        the group list collapsed to one declaration in `app/constants.ts`; zero hardcoded copies remain.
+      - **[x] #36 "Hover Lookup hotkey changes can get stuck" — FIXED, and it was a whole bug CLASS.** The
+        machinery reads "equals the default" as "never set", and a cleared hotkey IS the default. Two paths
+        refilled it: the legacy `popupActivationMode:'modifier'` backfill tested the emptiness of its own
+        RESULT rather than the absence of a stored choice (so it re-minted `'Shift'` inside every save AND
+        load), and the recovery folds copy a stale donor's value into any field matching its default — every
+        visit to yomureader.com mirrors the whole blob into that origin's localStorage, making a permanent
+        donor that never learns the cleared value and, because the GM store is shared, pushes it to every
+        site. **Blast radius was never shortcuts:** the folds iterate every setting, so any field reset to
+        its default could come back — a cleared API key, a toggle turned back off, a colour put back. Only 15
+        allowlisted keys were protected, a list grown by hand one bug at a time.
+        **Two dead ends worth recording, both caught by existing tests:** recovery cannot switch to "is this
+        key present?" because Yomu persists the WHOLE settings object, so every stored blob has every key
+        (that attempt disables legacy recovery entirely — the appearance test catches it); and
+        `persistSettings` cannot infer intent by diffing against storage, because a save may carry a stale
+        whole-object snapshot and treating its differences as intent clobbers another context's explicit
+        choice (two cross-site tests catch that). Intent has to be declared by the surface that made the
+        edit. The dialog already diffed its form read-back; that diff was just narrowed to those 15 keys and
+        now covers all of them.
+      - **[ ] #38 "Factory Reset does not actually factory reset" — root cause traced, DISPATCHED.**
+        `asyncGmListValues` resolves `GM_listValues` as a **globalThis property** while every sibling
+        accessor uses the **ambient binding**; in a Firefox/Tampermonkey sandbox GM_* are ambient but not
+        globalThis properties, so enumeration silently returns nothing, `addGmStorageKeys` returns early
+        fail-open, and the sweep never reaches any prefix family (`yomu:srs-local:v2:*` — the whole local SRS
+        deck — `yomu-mining-context:*`, `yomu:reader-css-cache:v2:*`, `yomu:lease:*`). Separately the
+        **dictionary archive cache** (`yomu-dictionary-archives` + `yomu-dictionary-archive:` prefix, whole
+        ZIP bytes in GM storage) is not in the manifest at all, and reset's `deleteDatabase()` drops only the
+        IndexedDB — so `scheduleLocalDictionaryReplication()` re-imports from the surviving ZIPs on the next
+        boot. That is literally the reported "reimported all of the previous dictionaries". Third finding:
+        suppression is an in-memory boolean, so there is no durable reset epoch. Full evidence in
+        `scratchpad/i38-diagnosis.txt`; brief in `scratchpad/codex-i38-factory-reset.md`.
+      - **Owner asked separately:** the canonical settings storage key is still `jpdb-popup-reader-settings`,
+        which is what sent this reporter hunting through storage in the first place. The export FILE already
+        writes `yomu-reader-settings`, and the legacy-read chain (`LEGACY_SETTINGS_STORAGE_KEYS`) makes a
+        rename mechanical. The dictionary IndexedDB `jpdb-popup-reader-yomitan` is the hard part — it holds
+        gigabytes, so it needs a migration, not a rename. Do it as its own change: landing a settings-key
+        migration beside the reset fixes would make diagnosing either one much harder.
 
 - [ ] **A49 — Anki auto-mapping corrupts a non-Japanese learner's own deck, and the fix needs the NAME
       signal, not just the script one.** Measured on main 2026-07-31 in `src/reader/anki/field-mapping.ts`.

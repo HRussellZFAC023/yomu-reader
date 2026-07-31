@@ -41,6 +41,7 @@ import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse
 import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
+import { settingsText, type SettingsText } from './settings-text';
 import {
     activeLanguageProfile,
     learningTargetRosterIdForTag,
@@ -88,10 +89,6 @@ type SettingsOptionTable<V extends string = string> = readonly (readonly [V, Set
 // by renderSettingsForm (first paint) and localizeSettingsForm (language switch).
 function localizedOptions<V extends string>(text: SettingsText, table: SettingsOptionTable<V>): [V, string][] {
     return table.map(([value, key]) => [value, text(key)]);
-}
-
-function settingsText(language: InterfaceLanguage): SettingsText {
-    return key => uiText(language, key);
 }
 
 type MultilingualSettingsCopy = {
@@ -696,7 +693,7 @@ function renderNewTabStudyStepRow(step: NewTabStudyChallengeStep, index: number,
                                     <span>${index + 1}</span>
                                 </label>
                                 <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapedUiText(language, NEW_TAB_STUDY_STEP_HELP_KEYS[step])}</div>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml(settingsText(language)(NEW_TAB_STUDY_STEP_HELP_KEYS[step]))}</div>
                                 ${renderRowOrderTools({
                                     upAction: 'dictionary-source-up',
                                     downAction: 'dictionary-source-down',
@@ -1313,7 +1310,7 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                         ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
                     </div>
                 </div>
-                <div id="settings-help-youtube" class="jpdb-reader-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
+                <div id="settings-help-youtube" class="jpdb-reader-help jp-only" data-language-family="youtube-immersion-help" data-youtube-help>${escapedUiText(language, 'youtubeHelp')}</div>
             </fieldset>
     `;
 }
@@ -1672,7 +1669,6 @@ function removeDescribedBy(control: HTMLElement, id: string): void {
     else control.removeAttribute('aria-describedby');
 }
 
-type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
 type SettingsTextKey = Parameters<typeof uiText>[1];
 const LOCAL_TITLE_TEXT_KEYS = [
     [/API access|APIアクセス/, 'apiAccess'],

@@ -60,6 +60,12 @@ describe('OnboardingController', () => {
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
         expect(document.body.textContent).toContain('Leave pages unchanged');
         expect(document.body.textContent).toContain('Scan Japanese automatically');
+        // b20 guard. Several labels gained a `{language}` token so they can name the
+        // learner's own target, and this surface -- the FIRST screen a new user sees --
+        // resolved copy with plain uiText, so it printed "{language} text on webpages"
+        // verbatim. A raw token anywhere here is worse than the Japanese-only label it
+        // replaced, and this catches the next one without naming the key.
+        expect(document.body.textContent).not.toMatch(/\{[a-z][A-Za-z]*\}/u);
         expect(document.body.textContent).toContain('Scan only when I ask');
         expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).not.toBeNull();
         expect(hoverShortcut?.type).toBe('text');

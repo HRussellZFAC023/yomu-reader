@@ -70,8 +70,8 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Popover height (px) | — | `540` | `popoverHeight` |
 | Popover height behavior | — | Use height setting (`fixed`) | `popoverHeightMode` |
 | Reader interface font | — | System UI (`system-ui, -apple-system, BlinkMacSystemFon…`) | `readerFontFamily` |
-| Popup Japanese font | — | Built-in font (`"Nunito Sans", "Extra Sans JP", "Noto Sans …`) | `popupFontFamily` |
-| Popup Japanese weight | — | `450` | `popupFontWeight` |
+| Popup font | — | Built-in font (`"Nunito Sans", "Extra Sans JP", "Noto Sans …`) | `popupFontFamily` |
+| Popup font weight | — | `450` | `popupFontWeight` |
 
 ## Study
 
