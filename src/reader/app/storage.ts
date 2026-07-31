@@ -1101,6 +1101,7 @@ function directGmDeleteValue(): GmDeleteValue | null {
 }
 
 function asyncGmListValues(): GmListValues | null {
+    if (typeof GM_listValues === 'function') return GM_listValues as GmListValues;
     const directListValues = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
     if (typeof directListValues === 'function') return directListValues;
     const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;

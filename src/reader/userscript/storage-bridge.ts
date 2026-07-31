@@ -200,6 +200,7 @@ function directGmDeleteValue(): GmDeleteValue | null {
 }
 
 function directGmListValues(): GmListValues | null {
+    if (typeof GM_listValues === 'function') return GM_listValues as GmListValues;
     const direct = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
     if (typeof direct === 'function') return direct;
     const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
