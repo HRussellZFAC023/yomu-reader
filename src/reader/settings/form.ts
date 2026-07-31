@@ -1158,7 +1158,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jp-only" data-language-family="reading-annotation">
+                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
                         ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
@@ -1166,7 +1166,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     </div>
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
-                    <div class="jp-only" data-language-family="pitch-colouring">
+                    <div data-language-family="pronunciation">
                         ${checkbox('showPitchAccent', text('showPitchAccent'), settings.showPitchAccent)}
                     </div>
                     ${checkbox('suppressRedundantWordUi', text('suppressRedundantWordUi'), settings.suppressRedundantWordUi)}

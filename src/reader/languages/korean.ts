@@ -12,8 +12,8 @@ const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 
 /**
  * A deliberately thin second target. It exists to prove the contract is real:
- * it ships surface-form dictionary lookup but no deinflection or reading data,
- * and it says so through its capability flags. Everything it does
+ * it ships surface-form dictionary lookup and dictionary-supplied Hangul
+ * readings, but no deinflection. Everything it does
  * not declare falls back to the generic behaviour in `module.ts`.
  *
  * Registering it required zero changes to any core call site.
@@ -24,6 +24,8 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     capabilities: {
         'term-lookup': true,
         segmentation: true,
+        'reading-annotation': true,
+        pronunciation: true,
         'text-to-speech': true,
         ocr: true,
         subtitles: true,
@@ -32,8 +34,11 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     featureSemantics: {
         characterSystem: 'hangul',
         phoneticScripts: ['hangul'],
-        pronunciation: 'none',
-        readingAnnotation: 'none',
+        pronunciation: 'ipa',
+        readingAnnotation: 'hangul',
+    },
+    typography: {
+        readingAnnotationMode: 'ruby',
     },
     subtitles: {
         languageAliases: ['kor', 'korean'],

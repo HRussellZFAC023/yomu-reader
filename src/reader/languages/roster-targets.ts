@@ -12,6 +12,7 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
         .filter(language => language.id !== 'ko')
         .map(language => {
             const lookupRewrites = lookupRewritesForTarget(language.id);
+            const readingAnnotation = language.id === 'zh' || language.id === 'yue';
             return createLearningTargetModule({
                 id: `${language.id}-roster-v1`,
                 language: language.runtimeLocale,
@@ -20,16 +21,23 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                     'term-lookup': true,
                     morphology: lookupRewrites.length > 0,
                     segmentation: true,
+                    'reading-annotation': readingAnnotation,
+                    pronunciation: true,
                     'text-to-speech': true,
                     subtitles: true,
                     typing: true,
                 },
                 featureSemantics: {
                     characterSystem: language.defaultScript,
-                    phoneticScripts: [],
-                    pronunciation: 'none',
-                    readingAnnotation: 'none',
+                    phoneticScripts: readingAnnotation
+                        ? [language.id === 'yue' ? 'jyutping' : 'pinyin']
+                        : [],
+                    pronunciation: 'ipa',
+                    readingAnnotation: readingAnnotation
+                        ? (language.id === 'yue' ? 'jyutping' : 'pinyin')
+                        : 'none',
                 },
+                typography: readingAnnotation ? { readingAnnotationMode: 'ruby' } : undefined,
                 detectsText: scriptDetector(language.scripts),
                 lookupRewrites,
             });

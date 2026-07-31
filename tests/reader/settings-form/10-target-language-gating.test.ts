@@ -56,11 +56,9 @@ describe('target-language settings', () => {
             .toBe('es');
     });
 
-    it('physically removes Japanese-only controls and restores the same nodes', () => {
+    it('keeps pronunciation universal, shares reading controls with zh/yue/ko, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const selectors = [
-            'select[name="furiganaMode"]',
-            '[data-language-family="reading-annotation"]',
+        const japaneseOnlySelectors = [
             '[data-language-family="pitch-colouring"]',
             '[data-language-family="pitch-legend"]',
             '[data-language-family="provider-pills"]',
@@ -69,22 +67,39 @@ describe('target-language settings', () => {
             'input[name="youtubeShowFilterNotice"]',
             'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
-        const japaneseNodes = selectors.map(selector => form.querySelector(selector));
+        const japaneseNodes = japaneseOnlySelectors.map(selector => form.querySelector(selector));
+        const reading = form.querySelector('[data-language-family="reading-annotation"]');
+        const furiganaMode = form.querySelector('select[name="furiganaMode"]');
+        const pronunciation = form.querySelector('[data-language-family="pronunciation"]');
+        const pronunciationToggle = form.querySelector('input[name="showPitchAccent"]');
 
         syncLanguageFamilyDom(form, 'ja');
         expect(form.dataset.language).toBe('ja');
         expect(japaneseNodes.every(Boolean)).toBe(true);
+        expect(reading).not.toBeNull();
+        expect(pronunciation).not.toBeNull();
 
         syncLanguageFamilyDom(form, 'ko');
         expect(form.dataset.language).toBe('ko');
-        expect(selectors.map(selector => form.querySelector(selector))).toEqual(
-            selectors.map(() => null),
+        expect(japaneseOnlySelectors.map(selector => form.querySelector(selector))).toEqual(
+            japaneseOnlySelectors.map(() => null),
         );
         expect(form.querySelectorAll('.jp-only')).toHaveLength(0);
+        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
+        expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
+        expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
+        expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
+
+        syncLanguageFamilyDom(form, 'es');
+        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBeNull();
+        expect(form.querySelector('select[name="furiganaMode"]')).toBeNull();
+        expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
+        expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
 
         syncLanguageFamilyDom(form, 'ja');
         expect(form.dataset.language).toBe('ja');
-        expect(selectors.map(selector => form.querySelector(selector))).toEqual(japaneseNodes);
+        expect(japaneseOnlySelectors.map(selector => form.querySelector(selector))).toEqual(japaneseNodes);
+        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
     });
 
     it('uses the shared Japanese, Chinese, Cantonese, and Korean family vocabulary', () => {

@@ -294,6 +294,7 @@ import { applyInterfaceLocaleToRoot, resolveInterfaceLocale, type InterfaceLocal
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchResolutionFromMetaLookup, type LocalPitchResolution } from '../lookup/pitch-meta';
 import { isKanjiCharacter, uniqueKanji } from '../popup/pitch';
+import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import type { ImageOcrController } from '../ocr/controller';
 import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFromSettings, type OcrInteractionMode } from '../ocr/mode';
 import { isApiMiningEnabled } from '../cards/srs-providers';
@@ -7344,7 +7345,7 @@ export class ReaderApp {
     }
 
     private updatePopoverPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
+        updateRenderedPitch(popover, card, metaEntries, this.settings, name => this.dictionaryLabel(name));
     }
 
     private updateCardPopoverPosition(trigger: 'modal' | 'hover'): void {
@@ -9375,6 +9376,7 @@ export class ReaderApp {
     }
 
     private async pitchEnrichedRenderedCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+        if (!cardUsesPitchAccentPronunciation(fallback)) return fallback;
         await this.fillCardPitchFromLocalDictionary(fallback);
         const card = await this.resolvePitchFallbackCard(fallback, options);
         if (card !== fallback) await this.fillCardPitchFromLocalDictionary(card);
@@ -9388,7 +9390,7 @@ export class ReaderApp {
     }
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup'>): Promise<void> {
-        if (!this.settings.showPitchAccent) return;
+        if (!this.settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return;
         if (cardHasContextPitch(card) || hasResolvedPitchComponents(card)) return;
         const allowPublicLookup = options.publicLookup !== false && options.jpdbPublicLookup !== false;
         // Whole-expression evidence always wins. A component accent is never
@@ -9576,7 +9578,9 @@ export class ReaderApp {
             this.noteFallbackVocabularyMiss(key, []);
             return undefined;
         }
-        if (!publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
+        if (cardUsesPitchAccentPronunciation(publicCard)
+            && !publicCard.pitchAccent.length
+            && options.jpdbPublicLookup !== false) {
             publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
         }
         this.rememberResolvedFallbackVocabulary(card, publicCard);

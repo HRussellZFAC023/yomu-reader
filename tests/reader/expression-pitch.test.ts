@@ -42,6 +42,7 @@ function createLoader(options: {
     metaByTerm: Record<string, YomitanMetaEntry[]>;
     settings?: Partial<ReaderSettings>;
     jitenInfo?: JitenVocabularyInfo | null;
+    publicPitchLookup?: (spelling: string, reading: string) => Promise<string[]>;
 }): CardRenderDataLoader {
     return new CardRenderDataLoader({
         getSettings: () => ({
@@ -59,7 +60,7 @@ function createLoader(options: {
             lookupKanji: vi.fn(async () => []),
             lookupTermMeta: vi.fn(async (term: string) => options.metaByTerm[term] ?? []),
         } as unknown as YomitanDictionaryStore,
-        jpdbPublicPitch: { lookup: vi.fn(async () => []) } as unknown as JpdbPublicPitchClient,
+        jpdbPublicPitch: { lookup: vi.fn(options.publicPitchLookup ?? (async () => [])) } as unknown as JpdbPublicPitchClient,
         jpdbVocabulary: { lookup: vi.fn(async () => null) } as unknown as JpdbVocabularyClient,
         anki: { findExistingCards: vi.fn(), deckNames: vi.fn() } as unknown as AnkiConnectClient,
         jpdb: { listDecks: vi.fn() } as unknown as JpdbClient,
@@ -72,6 +73,32 @@ function createLoader(options: {
 }
 
 describe('expression component pitch', () => {
+    it('does not start Japanese pitch enrichment for a Spanish pronunciation card', async () => {
+        const publicPitchLookup = vi.fn(async () => ['LHH']);
+        const loader = createLoader({
+            entriesByTerm: {},
+            metaByTerm: {
+                gratis: [{
+                    expression: 'gratis',
+                    mode: 'ipa',
+                    data: { reading: 'gratis', transcriptions: [{ ipa: '/ˈɡɾatis/' }] },
+                    dictionary: 'Spanish IPA',
+                }],
+            },
+            publicPitchLookup,
+        });
+        const card = { ...expressionCard('gratis', 'gratis'), language: 'es' };
+
+        const data = await loader.load(card).all;
+
+        expect(publicPitchLookup).not.toHaveBeenCalled();
+        expect(card.pitchAccent).toEqual([]);
+        expect(data.componentPitches).toEqual([]);
+        expect(data.metaEntries).toEqual(expect.arrayContaining([
+            expect.objectContaining({ mode: 'ipa', dictionary: 'Spanish IPA' }),
+        ]));
+    });
+
     it('renders an honest exact-source miss after completed lookup instead of a blank pitch area', () => {
         const renderer = new CardPopoverRenderer({
             getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', showPitchAccent: true }),

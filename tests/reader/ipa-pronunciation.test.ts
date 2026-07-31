@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
 import { uiText } from '../../src/reader/app/i18n';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import { CardPopoverRenderer } from '../../src/reader/cards/popover-renderer';
 import { YomitanDictionaryStore, type YomitanMetaEntry } from '../../src/reader/dictionaries/yomitan';
 import { extractIpaPronunciations } from '../../src/reader/lookup/ipa-pronunciation';
 import { renderPitch } from '../../src/reader/popup/pitch';
+import { renderPronunciation } from '../../src/reader/popup/pronunciation';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderWordPills } from '../../src/reader/sources/word-pills';
 import { yomitanZipBlob } from './zip-fixture';
@@ -58,7 +60,7 @@ describe('international IPA metadata', () => {
         ]);
     });
 
-    it('renders visible, accessible IPA pills and respects disabled dictionary preferences', () => {
+    it('renders visible, accessible IPA pronunciation and respects disabled dictionary preferences', () => {
         const settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             ankiEnabled: false,
@@ -75,31 +77,89 @@ describe('international IPA metadata', () => {
             { expression: 'gratis', mode: 'ipa', data: realShapedIpaData, dictionary: 'Spanish IPA' },
         ];
 
-        document.body.innerHTML = renderWordPills({
+        document.body.innerHTML = renderPronunciation({
             card: spanishCard,
-            jpdbUrl: '',
             settings,
             metaEntries,
-            isJpdbBackedCard: () => false,
             dictionaryLabel: name => name === 'Spanish IPA' ? 'Pronunciación' : name,
         });
 
-        const pills = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-ipa-pill'));
-        expect(pills.map(pill => pill.textContent)).toEqual(['IPA /ˈɡɾatis/', 'IPA [ˈɡɾa.t̪is]']);
-        expect(pills[0]?.getAttribute('data-pronunciation-source')).toBe('local');
-        expect(pills[0]?.getAttribute('aria-label')).toBe('IPA /ˈɡɾatis/. Pronunciación');
+        const variants = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-pronunciation-variant'));
+        expect(variants.map(variant => variant.textContent)).toEqual(['IPA /ˈɡɾatis/', 'IPA [ˈɡɾa.t̪is]']);
+        expect(variants[0]?.getAttribute('data-pronunciation-source')).toBe('local');
+        expect(variants[0]?.getAttribute('aria-label')).toBe('IPA /ˈɡɾatis/. Pronunciación');
 
-        expect(renderWordPills({
+        expect(renderPronunciation({
             card: spanishCard,
-            jpdbUrl: '',
             settings: {
                 ...settings,
                 dictionaryPreferences: settings.dictionaryPreferences.map(preference => ({ ...preference, enabled: false })),
             },
             metaEntries,
+            dictionaryLabel: name => name,
+        })).toBe('');
+
+        expect(renderWordPills({
+            card: spanishCard,
+            jpdbUrl: '',
+            settings,
+            metaEntries,
             isJpdbBackedCard: () => false,
             dictionaryLabel: name => name,
         })).toBe('');
+    });
+
+    it('renders Spanish IPA as pronunciation without a Japanese pitch status row', () => {
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en',
+            ankiEnabled: false,
+            dictionaryLookupLinks: [],
+            dictionaryPreferences: [{
+                name: 'Spanish IPA',
+                alias: 'Pronunciación',
+                enabled: true,
+                priority: 0,
+                type: 'pronunciation',
+            }],
+        };
+        const metaEntries: YomitanMetaEntry[] = [
+            { expression: 'gratis', mode: 'ipa', data: realShapedIpaData, dictionary: 'Spanish IPA' },
+        ];
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => settings,
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: (card, jpdbUrl, entries) => renderWordPills({
+                card,
+                jpdbUrl,
+                settings,
+                metaEntries: entries,
+                isJpdbBackedCard: () => false,
+                dictionaryLabel: name => name === 'Spanish IPA' ? 'Pronunciación' : name,
+            }),
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: () => '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderer.render(spanishCard, 'Es gratis.', 'modal', {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries,
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbDecks: [],
+            ankiDecks: [],
+            jpdbVocabularyInfo: null,
+            loading: false,
+        });
+
+        const pronunciation = document.querySelector<HTMLElement>('[data-pronunciation-kind="ipa"]');
+        expect(pronunciation).not.toBeNull();
+        expect(pronunciation!.textContent).toContain('/ˈɡɾatis/');
+        expect(pronunciation!.textContent).toContain('[ˈɡɾa.t̪is]');
+        expect(document.querySelector('[data-pitch-status]')).toBeNull();
+        expect(document.body.textContent).not.toContain('Exact pitch unavailable');
     });
 
     it('keeps Japanese pitch metadata on the existing pitch path', () => {
@@ -118,6 +178,12 @@ describe('international IPA metadata', () => {
 
         expect(extractIpaPronunciations(pitchMeta, { expression: '読む', reading: 'よむ' })).toEqual([]);
         expect(renderPitch(japaneseCard, pitchMeta)).toContain('jpdb-reader-pitch');
+        expect(renderPronunciation({
+            card: japaneseCard,
+            settings: DEFAULT_SETTINGS,
+            metaEntries: pitchMeta,
+            dictionaryLabel: name => name,
+        })).toContain('data-pronunciation-kind="pitch-accent"');
     });
 
     it('classifies and preserves IPA metadata imported from a real-shaped ZIP archive', async () => {

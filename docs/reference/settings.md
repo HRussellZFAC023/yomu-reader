@@ -165,7 +165,7 @@ Set a hover key. Blank means plain hover.
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
 | Color words | — | Use all learning states (`all`) | `wordColorStates` |
 | Not yet described | — | empty list | `wordColorHiddenStateGroups` |
-| Show pitch accent | — | on | `showPitchAccent` |
+| Show pronunciation | — | on | `showPitchAccent` |
 | Hide JPDB-redundant styling | — | off | `suppressRedundantWordUi` |
 | Sheet close button on left | — | off | `sheetCloseButtonOnLeft` |
 | Hide furigana for known cards only | — | on | `hideKnownFurigana` |

@@ -15,7 +15,8 @@ import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 export { delay as wait } from '../core/async-utils';
 import { yomuNormalizeOcrRenderedText } from '../companions/registry';
 import { isPopupLookupEnabled } from '../settings/index';
-import { isKanjiCharacter, renderPitch } from '../popup/render';
+import { isKanjiCharacter } from '../popup/render';
+import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { cardPronunciationReading } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState, setRenderedWordPitchClass } from '../dom/rendered-word-state';
@@ -139,16 +140,27 @@ export function replaceOptionalElement(parent: Element, selector: string, html: 
     if (next) parent.insertBefore(next, before);
 }
 
-export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[], showPitchAccent: boolean): void {
-    if (!showPitchAccent) return;
+export function updateRenderedPitch(
+    popover: HTMLElement,
+    card: JPDBCard,
+    metaEntries: YomitanMetaEntry[],
+    settings: ReaderSettings,
+    dictionaryLabel: (name: string) => string = name => name,
+): void {
+    if (!settings.showPitchAccent) return;
     const spelling = popover.querySelector<HTMLElement>('.jpdb-reader-spelling');
-    if (spelling) {
+    if (spelling && cardUsesPitchAccentPronunciation(card)) {
         const reading = cardPronunciationReading(card) || card.reading;
         setRenderedWordPitchClass(spelling, getPitchClass(card.pitchAccent, reading));
     }
     const tools = popover.querySelector<HTMLElement>('.jpdb-reader-card-tools');
     if (!tools) return;
-    replaceOptionalElement(tools, '.jpdb-reader-pitch', renderPitch(card, metaEntries), tools.firstElementChild);
+    replaceOptionalElement(
+        tools,
+        '.jpdb-reader-pronunciation, .jpdb-reader-pitch',
+        renderPronunciation({ card, settings, metaEntries, dictionaryLabel }),
+        tools.firstElementChild,
+    );
 }
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {

@@ -225,21 +225,28 @@ describe('language profile migration onto the three tiers', () => {
 });
 
 /**
- * A37.3's rule stated as the capability it is really about: the furigana
- * controls and the pitch surfaces exist exactly for targets that declare
- * `reading-annotation`. Pinning the CSS family to the registry means a new
+ * A37.3's rule stated as the capability it is really about: reading controls
+ * exist exactly for targets that declare `reading-annotation`. Pinning the CSS
+ * family to the registry means a new
  * target that gains readings fails here instead of silently rendering nothing.
  */
 describe('reading-annotation DOM gating follows the capability, not a language list', () => {
-    it('gates the Japanese-only family on the registered reading-annotation capability', () => {
+    it('gates the Japanese, Chinese, Cantonese, and Korean family on the registered reading-annotation capability', () => {
         const modules = registeredLearningTargetModules();
         expect(modules.length).toBeGreaterThan(1);
 
         for (const module of modules) {
             expect(
-                languageFamilyIncludes('jp-only', module.language),
-                `jp-only membership disagrees with reading-annotation for ${module.language}`,
+                languageFamilyIncludes('jpzhyueko-only', module.language),
+                `jpzhyueko-only membership disagrees with reading-annotation for ${module.language}`,
             ).toBe(module.capabilities['reading-annotation']);
+        }
+    });
+
+    it('declares a pronunciation surface for every registered target', () => {
+        for (const module of registeredLearningTargetModules()) {
+            expect(module.capabilities.pronunciation, module.language).toBe(true);
+            expect(module.featureSemantics.pronunciation, module.language).not.toBe('none');
         }
     });
 

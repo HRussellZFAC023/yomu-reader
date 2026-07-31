@@ -156,9 +156,16 @@ describe('a second target needs registration and nothing else', () => {
         expect(KOREAN_LEARNING_TARGET.capabilities['term-lookup']).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.segmentation).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.ocr).toBe(true);
-        // Honest about the absence of morphology and reading annotations.
+        // Honest about morphology while exposing dictionary-supplied Hangul
+        // reading annotations and IPA pronunciation.
         expect(KOREAN_LEARNING_TARGET.capabilities.morphology).toBe(false);
-        expect(KOREAN_LEARNING_TARGET.capabilities['reading-annotation']).toBe(false);
+        expect(KOREAN_LEARNING_TARGET.capabilities['reading-annotation']).toBe(true);
+        expect(KOREAN_LEARNING_TARGET.capabilities.pronunciation).toBe(true);
+        expect(KOREAN_LEARNING_TARGET.featureSemantics).toMatchObject({
+            pronunciation: 'ipa',
+            readingAnnotation: 'hangul',
+        });
+        expect(KOREAN_LEARNING_TARGET.typography.readingAnnotationMode).toBe('ruby');
 
         // Locale facts derive from the tag through Intl, not a per-language table.
         expect(KOREAN_LEARNING_TARGET.ocr.defaultLanguage).toBe('ko-KR');

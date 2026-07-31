@@ -96,6 +96,7 @@ import {
     renderKanjiOrigins,
     renderRtkInfo,
 } from '../popup/render';
+import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, jpdbFirstParseOptions } from '../lookup/parser';
 import {
@@ -1163,7 +1164,7 @@ export class NewTabRuntime {
     }
 
     private updateLookupPitch(popover: HTMLElement, card: JPDBCard, metaEntries: YomitanMetaEntry[]): void {
-        updateRenderedPitch(popover, card, metaEntries, this.settings.showPitchAccent);
+        updateRenderedPitch(popover, card, metaEntries, this.settings, name => this.dictionaryLabel(name));
     }
 
     private lookupPreviousNavigationEntry(navigation: CardNavigationMode | undefined): PopupNavigationEntry | undefined {
@@ -2226,7 +2227,9 @@ export class NewTabRuntime {
         // Jiten-only / no-key readers never get pitch underlines.
         const uniqueTokens = this.uniqueTokens(
             tokens,
-            token => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
+            token => cardUsesPitchAccentPronunciation(token.card)
+                && !token.card.pitchAccent.length
+                && Boolean(token.card.spelling.trim()),
             limit,
         );
 

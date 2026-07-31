@@ -9,7 +9,6 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import { frequencyProviderForLookupId, type FrequencyProvider, type ProviderFrequencyRank, type ProviderFrequencyRanks } from '../cards/frequency-ranks';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
 import { extractFrequency } from '../dictionaries/yomitan/ranking';
-import { extractIpaPronunciations } from '../lookup/ipa-pronunciation';
 
 interface WordPillContext {
     query: string;
@@ -42,16 +41,6 @@ export function renderWordPills(options: WordPillRenderOptions): string {
         .map(link => renderConfiguredLookupPill(options, context, language, query, link, frequencyPills, mergedLiveRanks))
         .filter(Boolean);
     const ankiPill = renderAnkiPill(options, language, query);
-    linkPills.unshift(...extractIpaPronunciations(options.metaEntries ?? [], {
-        expression: context.word,
-        reading: context.reading,
-    })
-        .map(({ ipa, dictionary: name }) => {
-            if (options.settings.dictionaryPreferences.some(preference => preference.name === name && !preference.enabled)) return '';
-            const label = `IPA ${ipa}`;
-            const accessibleLabel = `${label}. ${options.dictionaryLabel(name) || name}`;
-            return `<span class="jpdb-reader-pill jpdb-reader-meta-pill jpdb-reader-ipa-pill" data-dictionary="${escapeHtml(name)}" data-pronunciation-source="local" style="${lookupPillStyle(`ipa:${name}`)}" title="${escapeHtml(accessibleLabel)}" aria-label="${escapeHtml(accessibleLabel)}">${escapeHtml(label)}</span>`;
-        }));
     const configuredFrequencyIds = new Set(enabledLinks.filter(link => isFrequencyLookupPill(link)).map(link => link.id));
     const leftoverFrequencyPills = Array.from(frequencyPills)
         .filter(([id]) => !configuredFrequencyIds.has(id))

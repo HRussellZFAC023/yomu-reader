@@ -434,7 +434,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(last);
     });
 
-    it('shows the live-catalogue empty state and restores Japanese-only controls', async () => {
+    it('shows the live-catalogue empty state and restores target-family controls', async () => {
         const publishedDictionaryLanguages = vi.fn().mockResolvedValue(new Set(['ja']));
         const { form } = createSettingsDialog({ publishedDictionaryLanguages });
         const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
@@ -451,7 +451,8 @@ describe('settings dialog keyboard dismissal', () => {
                 === 'Dictionaries for Korean are not available yet.');
 
         expect(form.dataset.language).toBe('ko');
-        expect(form.querySelector('select[name="furiganaMode"]')).toBeNull();
+        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
+        expect(form.querySelector('[data-language-family="pronunciation"]')).not.toBeNull();
         expect(form.querySelector('[data-language-family="pitch-colouring"]')).toBeNull();
         expect(form.querySelector('[data-language-family="pitch-legend"]')).toBeNull();
         expect(form.querySelector('[data-language-family="provider-pills"]')).toBeNull();

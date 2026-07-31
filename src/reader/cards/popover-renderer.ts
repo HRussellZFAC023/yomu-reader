@@ -12,7 +12,8 @@ import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
-import { alignedExpressionComponentPitches, cardPronunciationReading, headwordComponentPitchSegments, renderExpressionComponentPitches, renderPitch, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
+import { cardPronunciationReading, headwordComponentPitchSegments, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/render';
+import { cardUsesPitchAccentPronunciation, renderPronunciation } from '../popup/pronunciation';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -161,7 +162,15 @@ export class CardPopoverRenderer {
                 ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks)}
             </div>
             <div class="jpdb-reader-card-tools">
-                ${this.renderPitch(card, data)}
+                ${renderPronunciation({
+                    card,
+                    settings: this.settings(),
+                    metaEntries: data.metaEntries,
+                    expressionComponents: data.expressionComponents,
+                    componentPitches: data.componentPitches,
+                    loading: data.loading,
+                    dictionaryLabel: name => this.dependencies.dictionaryLabel(name),
+                })}
                 <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? ' disabled' : ''}>${speakerIcon()}</button>
             </div>
         </div>`;
@@ -171,10 +180,13 @@ export class CardPopoverRenderer {
         // Carry the pitch class on the headword so it shows the same pitch-accent
         // underline as words on the page (the underline CSS keys off jpdb-pitch-*);
         // the card header only showed the pitch graph before, never the underline.
-        const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
+        const pitchTarget = cardUsesPitchAccentPronunciation(card);
+        const pitchClass = pitchTarget
+            ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading)
+            : '';
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
         const kanjiNavigation = { enabled: true, label: uiText(view.language, 'showKanji') };
-        const componentSegments = !pitchClass && !data.loading && this.settings().showPitchAccent
+        const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent
             ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? [])
             : [];
         const componentSpelling = componentSegments.length
@@ -186,29 +198,6 @@ export class CardPopoverRenderer {
             <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence} data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${spellingContent}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
-    }
-
-    private renderPitch(card: JPDBCard, data: CardRenderData & { loading: boolean }): string {
-        if (!this.settings().showPitchAccent) return '';
-        // A lexical entry's own accent is authoritative. Component navigation
-        // can still appear in the body, but it must not replace a direct or
-        // safely-composed whole-word contour (e.g. 間違い has direct Jiten pitch
-        // 3 even though Jiten also exposes 間 + 違い as lookup components).
-        const whole = renderPitch(card, data.metaEntries);
-        if (whole) return whole;
-
-        // Only expressions with no usable whole-word contour fall back to one
-        // labelled mini graph per aligned component.
-        const alignedComponents = data.loading ? [] : alignedExpressionComponentPitches(
-            card,
-            data.expressionComponents ?? [],
-            data.componentPitches ?? [],
-        );
-        const components = renderExpressionComponentPitches(alignedComponents);
-        if (components) return components;
-        if (data.loading) return '';
-        const label = uiText(this.settings().interfaceLanguage, 'noExactPitch');
-        return `<div class="jpdb-reader-pitch jpdb-reader-pitch-missing" data-pitch-status="no-exact-match" role="status" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
     }
 
     private renderPartOfSpeech(view: CardPopoverRenderView): string {

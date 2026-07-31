@@ -15,6 +15,7 @@ import { fallbackLookupTermsForCard } from '../lookup/parser';
 import { normalizePitchPatternsForReading, pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { localPitchPatternFromMeta, localPitchResolutionFromMetaLookup } from '../lookup/pitch-meta';
 import { EXPRESSION_CONNECTIVE_KANA, isKanjiCharacter, type ExpressionComponentLookup, type ExpressionComponentPitch } from '../popup/pitch';
+import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { isJitenBackedCard } from './srs-providers';
@@ -292,7 +293,9 @@ export class CardRenderDataLoader {
         // paths wait for primary local/JPDB evidence before appending Bunpro,
         // so a fast Bunpro response can never suppress the public lookup.
         const hydratedBunproPitchData = Promise.all([basePitchAccent, bunproDataLookup]).then(([, result]) => {
-            if (settings.showPitchAccent) applyBunproPitchToCard(card, result.info);
+            if (settings.showPitchAccent && cardUsesPitchAccentPronunciation(card)) {
+                applyBunproPitchToCard(card, result.info);
+            }
             return result;
         });
         // Definition rendering is independent from the public-pitch lookup.
@@ -313,7 +316,7 @@ export class CardRenderDataLoader {
         // has had its normal priority window, then append Bunpro variants so a
         // fast Bunpro response can never make the public lookup skip itself.
         const pitchAccent = Promise.all([basePitchAccent, boundedBunproPitchData]).then(([publicPitch, result]) => {
-            if (!settings.showPitchAccent) return publicPitch;
+            if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return publicPitch;
             applyBunproPitchToCard(card, result.info);
             // Deferred renderers use the resolved array as their repaint
             // signal. Return the effective post-merge evidence, not just the
@@ -342,7 +345,7 @@ export class CardRenderDataLoader {
             card,
             CARD_RENDER_COMPONENT_PITCH_TIMEOUT_MS,
             'expression component pitch',
-            this.loadExpressionComponentPitches(expressionComponents, jitenVocabularyLookup),
+            this.loadExpressionComponentPitches(card, expressionComponents, jitenVocabularyLookup),
             [] as ExpressionComponentPitch[],
         );
         void pitchAccent.catch(() => undefined);
@@ -446,7 +449,9 @@ export class CardRenderDataLoader {
         // reader proxies it CORS-safely). Gating it on a JPDB API credential left
         // Jiten-only and no-key users with no pitch graph during study/lookup — so
         // only require the pitch feature itself and an as-yet-unknown accent.
-        if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
+        if (!settings.showPitchAccent
+            || !cardUsesPitchAccentPronunciation(card)
+            || card.pitchAccent.length) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'JPDB public pitch', this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
             log.warn('Public pitch lookup failed', { term: card.spelling }, error);
             return [];
@@ -714,11 +719,12 @@ export class CardRenderDataLoader {
     // part's own pitch available for chip colouring even when the card now has
     // a whole-word pitch graph from direct or composed metadata.
     private async loadExpressionComponentPitches(
+        card: JPDBCard,
         expressionComponents: Promise<ExpressionComponentLookup[]>,
         jitenVocabularyInfo: Promise<JitenVocabularyInfo | null>,
     ): Promise<ExpressionComponentPitch[]> {
         const settings = this.settings();
-        if (!settings.showPitchAccent) return [];
+        if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return [];
         const [components, jitenInfo] = await Promise.all([
             expressionComponents.catch(() => [] as ExpressionComponentLookup[]),
             jitenVocabularyInfo.catch(() => null),
@@ -801,7 +807,9 @@ export class CardRenderDataLoader {
 
     private async applyLocalPitchAccent(card: JPDBCard, metaEntries: YomitanMetaEntry[]): Promise<void> {
         const settings = this.settings();
-        if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return;
+        if (!settings.showPitchAccent
+            || !cardUsesPitchAccentPronunciation(card)
+            || !settings.localDictionariesEnabled) return;
         const resolution = await localPitchResolutionFromMetaLookup(
             card.spelling,
             card.reading,

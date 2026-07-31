@@ -297,20 +297,26 @@ function preserveDetachedJapaneseSettings(
     current: ReaderSettings,
     data: FormData,
 ): void {
-    if (data.has('furiganaMode')) return;
-    settings.furiganaMode = current.furiganaMode;
-    settings.clampedRowReadings = current.clampedRowReadings;
-    settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
-    settings.showPitchAccent = current.showPitchAccent;
-    settings.pitchColorHeiban = current.pitchColorHeiban;
-    settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
-    settings.pitchColorNakadaka = current.pitchColorNakadaka;
-    settings.pitchColorOdaka = current.pitchColorOdaka;
-    settings.pitchColorUnknown = current.pitchColorUnknown;
-    settings.showLookupPillFrequency = current.showLookupPillFrequency;
-    settings.dictionaryLookupLinks = current.dictionaryLookupLinks.map(link => ({ ...link }));
-    for (const name of COLOR_SOURCE_SETTING_NAMES) {
-        if (current[name] === 'pitch') settings[name] = current[name];
+    if (!data.has('furiganaMode')) {
+        settings.furiganaMode = current.furiganaMode;
+        settings.clampedRowReadings = current.clampedRowReadings;
+        settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
+    }
+    if (!data.has('showPitchAccent')) settings.showPitchAccent = current.showPitchAccent;
+    if (!data.has('pitchColorHeiban')) {
+        settings.pitchColorHeiban = current.pitchColorHeiban;
+        settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
+        settings.pitchColorNakadaka = current.pitchColorNakadaka;
+        settings.pitchColorOdaka = current.pitchColorOdaka;
+        settings.pitchColorUnknown = current.pitchColorUnknown;
+    }
+    // Pitch remains a Japanese-only colour channel. Its <option> is physically
+    // detached for another target, so the browser selects the first remaining
+    // option; keep the stored Japanese choice until that option exists again.
+    if (readTargetLanguage(data, 'ja') !== 'ja') {
+        for (const name of COLOR_SOURCE_SETTING_NAMES) {
+            if (current[name] === 'pitch') settings[name] = current[name];
+        }
     }
 }
 
