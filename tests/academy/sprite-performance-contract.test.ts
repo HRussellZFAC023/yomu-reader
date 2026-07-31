@@ -130,10 +130,35 @@ describe('Academy VN sprite performance contract', () => {
             .toBe(ACADEMY_CAST.length * SPRITE_ANGLES.length * SPRITE_EXPRESSIONS.length);
     });
 
-    it('keeps textbook-legend previews separate from approved runtime art', () => {
-        for (const castId of ['miller', 'tawapon', 'mary', 'takeshi'] as const) {
-            expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT[castId].coverage)
-                .toEqual({ approved: 0, reviewCandidates: 2, missing: 19 });
+    // This asserted `{ approved: 0, reviewCandidates: 2, missing: 19 }` for the four
+    // textbook-legend members, which was a snapshot of "their art is not drawn yet"
+    // wearing the name of an invariant. It went red the moment their families were
+    // legitimately approved, and it contradicted the governing record while doing so:
+    // cast-registry.ts:159-186 declares all four with `visualEvidence: 'approved'`
+    // and `eligibility.likenessRuntime: true`, so approved runtime art is exactly
+    // what the registry permits for them.
+    //
+    // The separation that IS real, and is what the name meant, is that a
+    // textbook-legend member never enters the character directory — world-screen.ts
+    // filters the directory to teacher/classmate/extended-member. That is asserted
+    // here instead, so this test now fails when the policy is broken rather than
+    // when art is drawn.
+    it('keeps textbook-legend members out of the character directory', () => {
+        const textbookLegends = ACADEMY_CAST.filter(member => member.category === 'textbook-legend');
+        expect(textbookLegends.map(member => member.id))
+            .toEqual(['miller', 'tawapon', 'mary', 'takeshi']);
+
+        const directoryCategories = new Set(['teacher', 'classmate', 'extended-member']);
+        for (const member of textbookLegends) {
+            expect(directoryCategories.has(member.category), `${member.id} must stay out of the directory`)
+                .toBe(false);
+            // Their sprite families are allowed to be complete — the registry says so.
+            // What must not happen is a member being runtime-eligible without the
+            // registry recording approved visual evidence for them.
+            if (member.eligibility.likenessRuntime) {
+                expect(member.visualEvidence, `${member.id} is runtime-eligible without approved evidence`)
+                    .toBe('approved');
+            }
         }
     });
 
