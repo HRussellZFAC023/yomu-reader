@@ -27,6 +27,7 @@ Yomu Gaming is a separate desktop download. Academy is in development and open b
 |---|---|
 | Install, first lookup and phone setup | [Week one](/learn/week-one) |
 | Popup readings, meanings, frequency, pitch, audio and examples | [Reading](/learn/reading) |
+| Grammar detection and per-language references | [Grammar coverage](/reference/grammar) |
 | Furigana, pitch underlines and study-state colours | [Week one](/learn/week-one#leave-furigana-on) |
 | Local and imported Yomitan dictionaries | [Your own setup](/learn/your-own-setup#bring-your-dictionaries) |
 | Kanji readings, RTK, components, stroke order and drawing | [Reading](/learn/reading#slow-down-on-one-kanji) |

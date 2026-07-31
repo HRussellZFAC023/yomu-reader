@@ -256,6 +256,7 @@ const siteSidebar = [
         text: 'Reference and help',
         items: [
             { text: 'Homepage', link: '/' },
+            { text: 'Grammar coverage', link: '/reference/grammar' },
             { text: 'Settings reference', link: '/reference/settings' },
             { text: 'FAQ', link: '/faq' },
             { text: 'Privacy', link: '/privacy/' },

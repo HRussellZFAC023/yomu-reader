@@ -4,6 +4,7 @@ import type { InterfaceLanguage } from '../app/types';
 export interface GrammarHint {
     ruleId: string;
     name: string;
+    displayNames?: Readonly<{ en: string; ja: string }>;
     level: GrammarLevel;
     kind: string;
     short: string;

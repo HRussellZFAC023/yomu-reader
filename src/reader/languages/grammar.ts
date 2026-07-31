@@ -65,6 +65,7 @@ export function createLearningTargetGrammar(spec: LearningTargetGrammarSpec = {}
         ruleId: rule.ruleId,
         level: rule.level,
         name: rule.name,
+        ...(rule.displayNames ? { displayNames: Object.freeze({ ...rule.displayNames }) } : {}),
         url: rule.url,
     })));
     const normalizeSentence = spec.normalizeSentence ?? defaultNormalizeGrammarSentence;
@@ -193,6 +194,7 @@ function rankedGrammarMatch(
         ruleId: rule.ruleId,
         name: rule.name,
         level: rule.level,
+        ...(rule.displayNames ? { displayNames: rule.displayNames } : {}),
         match: learnerMatch,
         confidence: rule.confidence,
         index: (match.index ?? 0) + indexOffset,

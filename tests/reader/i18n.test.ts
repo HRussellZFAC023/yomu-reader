@@ -184,6 +184,7 @@ describe('interface language resolution', () => {
         'docs/support.md',
         'docs/faq.md',
         'docs/membership.md',
+        'docs/reference/grammar.md',
     ];
 
     it.each(JAPANESE_DOCS_PAGES)('keeps %s covered by Japanese docs copy', page => {
@@ -421,7 +422,9 @@ function markdownPageTextCopy(pageSource: string): string[] {
         const tableRow = line.match(/^\s*\|(.+)\|\s*$/);
         if (tableRow) {
             if (/^[\s|:\-]+$/.test(line)) continue; // alignment separator row
-            for (const cell of tableRow[1].split('|')) add(decodeMarkdownHtml(decodeMarkdownLinks(cell.replace(/\*\*/g, '').trim())));
+            for (const cell of tableRow[1].split('|')) {
+                for (const segment of markdownPageSegments(cell.replace(/\*\*/g, '').trim())) add(segment);
+            }
             continue;
         }
         for (const match of line.matchAll(/\b(?:aria-label|alt|title|placeholder)="([^"]+)"/g)) add(decodeMarkdownHtml(match[1]));

@@ -12,6 +12,7 @@ export const JAPANESE_GRAMMAR = createLearningTargetGrammar({
         id: 'jlpt',
         levels: ['Core', 'N5', 'N4', 'N3', 'N2', 'N1'],
     },
+    referenceUrl: 'https://www.tofugu.com/japanese-grammar/',
     rules: YOMU_GRAMMAR_REGISTRY,
     normalizeSentence: sentence => sentence.normalize('NFKC').replace(/\s+/g, ''),
     expandPatternSource: source => source

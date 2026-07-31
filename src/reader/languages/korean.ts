@@ -1,4 +1,5 @@
 import { createLearningTargetModule } from './module';
+import { grammarForRosterTarget } from './grammar-catalogue';
 import { koreanLookupSubsegments } from './lookup-policies';
 import type { LearningTargetModule } from './types';
 
@@ -37,6 +38,7 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
         pronunciation: 'ipa',
         readingAnnotation: 'hangul',
     },
+    grammar: grammarForRosterTarget('ko'),
     typography: {
         readingAnnotationMode: 'ruby',
     },

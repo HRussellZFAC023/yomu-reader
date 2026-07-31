@@ -1,6 +1,6 @@
 import { DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml } from '../dom';
-import { grammarRuleText, uiText, type UiCopyKey } from '../app/i18n';
+import { grammarRuleText, resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { activeLearningTarget } from '../languages/target-runtime';
 import { requestJson as requestReaderJson } from '../network/http';
 import {
@@ -21,6 +21,7 @@ import { translateText } from '../translation/google';
 export interface GrammarHint {
     ruleId: string;
     name: string;
+    displayNames?: Readonly<{ en: string; ja: string }>;
     level: GrammarLevel;
     kind: string;
     short: string;
@@ -113,7 +114,7 @@ export function preloadGrammarResources(sentence: string, language: InterfaceLan
     const grammar = activeLearningTarget().grammar;
     const copyId = hints.length ? grammar.ruleCopyId(hints[0].ruleId) : null;
     if (copyId) void loadGrammarRuleData().catch(() => undefined);
-    if (language === 'ja' && copyId) {
+    if (resolveUiLanguage(language) === 'ja' && copyId) {
         void grammarRuleText(language, copyId).catch(() => undefined);
     }
     return hints;
@@ -326,7 +327,7 @@ async function grammarHintDetails(hint: GrammarHint, language: InterfaceLanguage
         ? await loadGrammarRuleData().then(data => data[copyId]).catch(() => undefined)
         : undefined;
     const base = englishData ? { ...fallback, ...englishData } : fallback;
-    if (language !== 'ja') return base;
+    if (resolveUiLanguage(language) !== 'ja') return base;
     const ruleCopy = copyId ? await grammarRuleText(language, copyId) : undefined;
     if (ruleCopy) return { ...base, ...ruleCopy };
     const name = grammarDisplayName(hint, language);
@@ -349,11 +350,16 @@ function grammarHintFallbackData(hint: GrammarHint, language: InterfaceLanguage)
 }
 
 function grammarLevelText(level: GrammarLevel, language: InterfaceLanguage): string {
-    return language === 'ja' && level === 'Core' ? uiText(language, 'grammarLevelCore') : level;
+    return resolveUiLanguage(language) === 'ja' && level === 'Core'
+        ? uiText(language, 'grammarLevelCore')
+        : level;
 }
 
 function grammarDisplayName(hint: GrammarHint, language: InterfaceLanguage): string {
-    if (language !== 'ja' || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
+    const uiLanguage = resolveUiLanguage(language);
+    const localized = hint.displayNames?.[uiLanguage];
+    if (localized) return localized;
+    if (uiLanguage !== 'ja' || !ENGLISH_TEXT_RE.test(hint.name)) return hint.name;
     if (JAPANESE_TEXT_RE.test(hint.match)) return hint.match;
     return japaneseGrammarText(hint.name) || hint.name;
 }
@@ -373,8 +379,9 @@ function renderGrammarHintExamples(examples: GrammarExample[], language: Interfa
 }
 
 function renderGrammarExample(example: GrammarExample, language: InterfaceLanguage, audioEnabled: boolean): string {
-    const english = language === 'ja' || !example.english ? '' : `<div>${escapeHtml(example.english)}</div>`;
-    const note = language === 'ja' || !example.note || ENGLISH_TEXT_RE.test(example.note) ? '' : `<div>${escapeHtml(example.note)}</div>`;
+    const japaneseUi = resolveUiLanguage(language) === 'ja';
+    const english = japaneseUi || !example.english ? '' : `<div>${escapeHtml(example.english)}</div>`;
+    const note = japaneseUi || !example.note || ENGLISH_TEXT_RE.test(example.note) ? '' : `<div>${escapeHtml(example.note)}</div>`;
     return `<div class="jpdb-reader-grammar-example jpdb-reader-parseable">
         <div class="jpdb-reader-grammar-example-japanese">
             <span class="jpdb-reader-parseable">${escapeHtml(example.japanese)}</span>

@@ -1,4 +1,5 @@
 import { LEARNER_LANGUAGES } from '../locales';
+import { grammarForRosterTarget } from './grammar-catalogue';
 import { createLearningTargetModule } from './module';
 import { lookupRewritesForTarget } from './lookup-policies';
 import type { LearningTargetModule } from './types';
@@ -54,6 +55,7 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                         ? (language.id === 'yue' ? 'jyutping' : 'pinyin')
                         : 'none',
                 },
+                grammar: grammarForRosterTarget(language.id),
                 typography: readingAnnotation ? { readingAnnotationMode: 'ruby' } : undefined,
                 ocr: ocrHintFor(language.runtimeLocale),
                 detectsText: scriptDetector(language.scripts),

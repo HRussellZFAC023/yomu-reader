@@ -233,11 +233,18 @@ export interface LearningTargetGrammarLevelScale {
     readonly levels: readonly string[];
 }
 
+/** Human-reviewed labels for the two Reader interface languages. */
+export interface LearningTargetGrammarDisplayNames {
+    readonly en: string;
+    readonly ja: string;
+}
+
 /** Public metadata for one checked grammar rule. Detection details stay private. */
 export interface LearningTargetGrammarRule {
     readonly ruleId: string;
     readonly level: string;
     readonly name: string;
+    readonly displayNames?: LearningTargetGrammarDisplayNames;
     readonly url: string;
 }
 
