@@ -198,9 +198,43 @@ describe('U46 per-target lookup hotlinks', () => {
     describe('measured opt-outs stay opted out', () => {
         const siteIds = (id: string) => targetLookupSites(id).map(site => site.id);
 
-        it('omits YouGlish after every configured route served a bot or quota page', () => {
+        // YouGlish was dropped entirely after a sweep saw "a bot or quota page" on every
+        // route. That conclusion was wrong, and the reason matters: youglish.com serves
+        // a page TITLED "Bot detection!" to any automated client, so a 200 measured by
+        // curl — or by an automated browser — says nothing about whether the link works.
+        // Every "verification" of it was reading the same bot page.
+        //
+        // The authoritative source is YouGlish itself: its own footer enumerates the
+        // languages it covers and its own links emit the URL shape
+        // `https://youglish.com/pronounce/hola/spanish` (read 2026-07-31). A real user
+        // clicking from the popover is a real browser with a real session and never
+        // meets the bot filter, so the link works for them regardless.
+        //
+        // Deliberately NOT fetched here. A test that live-fetched YouGlish would be
+        // flaky, slow, and rude to a free third party; what belongs in a test is that
+        // every language it covers gets the link with the right slug, and no language
+        // it does not cover gets one at all.
+        const YOUGLISH_TARGETS = [
+            'ar', 'de', 'el', 'en', 'es', 'fa', 'fr', 'id', 'it', 'ko',
+            'nl', 'pl', 'pt', 'ro', 'ru', 'sv', 'th', 'tr', 'vi', 'zh',
+        ] as const;
+
+        it('offers YouGlish for every language YouGlish actually covers', () => {
+            for (const id of YOUGLISH_TARGETS) {
+                const site = targetLookupSites(id).find(candidate => candidate.id === 'youglish');
+                expect(site, `${id} should offer YouGlish`).toBeDefined();
+                // The word goes in the PATH, so a diacritic- or non-Latin-bearing query
+                // must survive it — the same trap that broke de/duden and it/demauro.
+                expect(site?.urlTemplate).toMatch(/^https:\/\/youglish\.com\/pronounce\/\{query\}\/[a-z]+$/u);
+                expect(site?.components).toEqual(expect.arrayContaining(['sentences', 'audio']));
+            }
+        });
+
+        it('omits YouGlish only where YouGlish has no such language', () => {
+            const covered = new Set<string>(YOUGLISH_TARGETS);
             for (const id of NON_JAPANESE_TARGETS) {
-                expect(siteIds(id), id).not.toContain('youglish');
+                if (covered.has(id)) continue;
+                expect(siteIds(id), `${id} is not a YouGlish language`).not.toContain('youglish');
             }
         });
 
