@@ -15,6 +15,7 @@ import {
     setTargetGrammarRuleKnown as persistGrammarRuleKnown,
     setTargetKnownGrammarVisible as persistKnownGrammarVisible,
 } from './grammar-knowledge';
+import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 import { translateText } from '../translation/google';
 
 export interface GrammarHint {
@@ -175,7 +176,7 @@ function normalizeSentenceForTranslationRequest(sentence: string): string {
 }
 
 export async function renderGrammarHints(hints: GrammarHint[], sentence: string, preferences = readTargetGrammarPreferences(activeLearningTarget()), language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<string> {
-    if (!hints.length) return '';
+    if (!hints.length) return renderGrammarAvailability(currentGrammarAvailability(language), language);
     const knownRuleIds = new Set(preferences.knownRuleIds);
     const visibleHints = visibleGrammarHints(hints, knownRuleIds, preferences.showKnown);
     const visibleGroups = groupGrammarHintsByRule(visibleHints);

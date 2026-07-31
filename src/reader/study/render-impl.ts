@@ -6,6 +6,7 @@ import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGr
 import type { GrammarHint } from './tools';
 import { renderStudyEmpty, renderStudyMeaningBlock } from './section-render';
 import type { InterfaceLanguage } from '../app/types';
+import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 
 const log = Logger.scope('StudyRender');
 
@@ -33,15 +34,24 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
             done();
         }
     }
-    const hints = resolvedGrammarHints(sentence, grammarHints);
-    if (!hints.length) {
-        panel.hidden = true;
-        panel.textContent = '';
+    try {
+        const hints = resolvedGrammarHints(sentence, grammarHints);
+        if (!hints.length) {
+            const availability = currentGrammarAvailability(language);
+            panel.dataset.grammarAvailability = availability.state;
+            replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
+            return;
+        }
+        panel.dataset.grammarAvailability = 'loaded';
+        replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
+    } catch (error) {
+        log.warn('Study grammar check failed', { sentenceLength: sentence.length }, error);
+        const availability = currentGrammarAvailability(language, true);
+        panel.dataset.grammarAvailability = availability.state;
+        replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
+    } finally {
         done();
-        return;
     }
-    replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
-    done();
 }
 
 function studyToolPendingText(action: string, language: InterfaceLanguage): string {

@@ -1,6 +1,7 @@
 import { ACADEMY_SRS_LABEL, APP_NAME, DOCS_BASE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA } from './constants';
 import { requestJson } from '../network/http';
 import { formatIsolated, isRtlInterface } from '../locales/direction';
+import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
@@ -1237,21 +1238,7 @@ const COPY = {
         openSectionToTranslate: 'Open this section to translate.',
         translationUnavailable: 'Translation unavailable.',
         translating: 'Translating...',
-        findingGrammar: 'Finding grammar...',
-        grammarKnown: 'Known',
-        grammarReview: 'Review',
-        grammarDetails: 'Details',
-        grammarFoundIn: 'Found in',
-        grammarExample: 'Example',
-        grammarGuide: 'Guide',
-        grammarHideKnown: 'Hide known',
-        grammarShowKnown: 'Show known',
-        allDetectedGrammarKnown: 'All detected grammar is marked known.',
-        grammarShown: 'shown',
-        grammarKnownHidden: 'known hidden',
-        grammarGenericShort: 'Grammar point: {name}',
-        grammarGenericDetail: 'Uses {name} in 「{match}」.',
-        grammarLevelCore: 'Core',
+        ...GRAMMAR_UI_COPY.en,
         // D43 interface-locale picker. Yomu is in scope for 33 interface
         // languages and ships two. The picker names the other 31 and says what
         // each is waiting on, because a language that is listed and then
@@ -1302,7 +1289,8 @@ function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
     return copy;
 }
 
-const JA_COPY: Partial<Record<UiCopyKey, string>> = parseUiCopyTable(String.raw`
+const JA_COPY: Partial<Record<UiCopyKey, string>> = {
+    ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中
 interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
@@ -1812,22 +1800,9 @@ readSentenceAloud	文を読み上げ
 openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
-findingGrammar	文法を検索中...
-grammarKnown	既知
-grammarReview	復習
-grammarDetails	詳細
-grammarFoundIn	検出箇所
-grammarExample	例
-grammarGuide	ガイド
-grammarHideKnown	既知を隠す
-grammarShowKnown	既知を表示
-allDetectedGrammarKnown	検出文法はすべて既知です。
-grammarShown	件表示
-grammarKnownHidden	件の既知を非表示
-grammarGenericShort	文法項目: {name}
-grammarGenericDetail	「{match}」に「{name}」。
-grammarLevelCore	基本
-`);
+`),
+    ...GRAMMAR_UI_COPY.ja,
+};
 
 const JA_SETTINGS_COPY: Partial<Record<UiCopyKey, string>> = parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定

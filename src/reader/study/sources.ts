@@ -16,6 +16,7 @@ import {
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 import { activeLearningTarget, outputLanguageOf } from '../languages';
+import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 
 const log = Logger.scope('StudySources');
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
@@ -68,7 +69,7 @@ export class StudySourceController {
         if (!sentence || !settings.studyGrammarEnabled) return '';
         const title = definitionSourceLabel(settings, STUDY_GRAMMAR_SOURCE_ID, uiText(settings.interfaceLanguage, 'grammar'));
         return `
-            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
+            <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar data-availability="pending" ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
                 <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
                 ${this.renderGrammarPanel()}
             </details>
@@ -90,12 +91,10 @@ export class StudySourceController {
         const settings = this.settings();
         const grammar = popover.querySelector<HTMLElement>('[data-study-grammar]');
         if (settings.studyGrammarEnabled && grammar) {
-            // The open-gated lazy loader only removes an empty grammar section
-            // once the user expands it; resolve the (cached, local) hints
-            // eagerly so a no-hint section never shows its header at all.
-            void this.cachedGrammarHints(sentence).then(hints => {
-                if (!hints.length && grammar.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) grammar.remove();
-            }).catch(() => undefined);
+            // Detection is local and cheap. Warm its target-scoped cache, but
+            // keep the row mounted: the loader replaces the pending copy with
+            // a visible match, no-match, or no-rules answer.
+            void this.cachedGrammarHints(sentence).catch(() => undefined);
             preloadGrammarResources(sentence, settings.interfaceLanguage);
         }
         const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
@@ -139,17 +138,25 @@ export class StudySourceController {
         try {
             const hints = await this.cachedGrammarHints(sentence);
             if (!this.canRenderGrammar(popover, container)) return;
+            const settings = this.settings();
             if (!hints.length) {
-                container.remove();
+                const availability = currentGrammarAvailability(settings.interfaceLanguage);
+                container.dataset.availability = availability.state;
+                setInnerHtml(panel, renderGrammarAvailability(availability, settings.interfaceLanguage));
                 return;
             }
-            const settings = this.settings();
+            container.dataset.availability = 'loaded';
             setInnerHtml(panel, await renderGrammarHints(hints, sentence, undefined, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled }));
             delete popover.dataset.jpdbReaderParseKey;
             delete popover.dataset.jpdbReaderParseLoadingKey;
             void this.dependencies.parsePopoverJapanese(popover);
         } catch (error) {
             log.warn('Automatic grammar lookup failed', { sentenceLength: sentence.length }, error);
+            if (!this.canRenderGrammar(popover, container)) return;
+            const language = this.settings().interfaceLanguage;
+            const availability = currentGrammarAvailability(language, true);
+            container.dataset.availability = availability.state;
+            setInnerHtml(panel, renderGrammarAvailability(availability, language));
         }
     }
 
