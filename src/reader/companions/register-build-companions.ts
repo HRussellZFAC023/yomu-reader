@@ -1,3 +1,4 @@
+import '../dom/register-decoration-policy-runtime';
 import './annotations';
 import './anki';
 import './audio';

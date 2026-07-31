@@ -168,6 +168,7 @@ function readerResolveConfig(command: string) {
         alias['../languages/target-runtime'] = targetRuntimeCompanion;
         alias['../../languages/target-runtime'] = targetRuntimeCompanion;
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
+        alias['./decoration-policy'] = path.join(configRoot, 'src', 'reader', 'dom', 'decoration-policy-companion.ts');
         // Companion-backed facades: core imports the ordinary module path and
         // the split build swaps in the delegating shell, so the implementation
         // ships in a @require'd library instead of the size-limited core.
