@@ -1595,6 +1595,15 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       concurrency budget an orchestrator can set; or simply treat "gate while N agents run" as unsupported
       and serialise. Until then the operational rule is: **gate on a quiet machine, and never conclude a red
       is real without re-running the named files in isolation first.**
+      **ESCALATED same day — it is not only per-test, it kills the whole runner.** A later gate with three
+      waves running failed `test:ci` with **exit 124** — the runner's own 25-minute wall clock — after
+      **2,582 s**, with **zero** test failures in the log. Individual files had stretched 3-6x
+      (`youtube-filter` 16,771 ms against ~4,900 ms quiet; `ocr-reader-raster-surfaces` 30,790 ms), and
+      `typecheck` alone took 488 s against its usual 33 s. So under enough contention the gate cannot report
+      anything at all, pass or fail, which is worse than a flake: it looks like a failure and carries no
+      information. `YOMU_CI_TEST_TIMEOUT_MS` exists and does let the run complete, but reaching for it is a
+      workaround, not the fix — the 25-minute default is correct for a quiet machine and the real problem is
+      that nothing reconciles the gate's 8 workers with N agent sessions on the same cores.
 
 - [ ] **A47 — STANDING OWNER RULE (2026-07-31): anything that exists for English or Japanese must be built
       out for every language.** Verbatim: *"remember full support for every language not just japanese —
