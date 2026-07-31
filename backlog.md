@@ -140,7 +140,11 @@ classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per 
       Gaming** (branch `gaming-remotion-video-20260727` exists, unmerged). No product page should show a
       capture of a docs page in place of the app — that was the Gaming page's defect.
 
-- [ ] **A15 — Finish "one navbar everywhere" (half done 2026-07-28).** DONE: the docs nav and the docs
+- [x] **A15 — CLOSED 2026-07-31: one nav definition, verified.** `docs/.vitepress/shared/nav.ts` exists and
+      is what both the docs nav and the docs overflow menu build from, so the two hand-synced copies (the
+      second of which had already drifted — Stats pointed at the retired `/newtab/`) are gone. The hosted
+      shells stamp from the same list, kept honest by the site-nav stamp assertion in
+      `tests/reader/docs-published-pages.test.ts`. ORIGINAL: Finish "one navbar everywhere" (half done 2026-07-28).** DONE: the docs nav and the docs
       overflow menu now build from one list, `docs/.vitepress/shared/nav.ts` (they were two hand-synced
       copies; the second had already drifted — Stats pointed at `/newtab/` when the route is `/study/`,
       and FAQ/Guides/Academy/Membership were missing). NOT DONE: the standalone shells. `docs/public/
@@ -324,13 +328,29 @@ numbers reproduced to the pixel:
 Provenance checked: `gpt-5.6-sol`, `model_reasoning_effort=ultra`, 23,419-byte critique. (A claim that
 the CLI exposes only one model was refuted — 8 are listed, and `gpt-5.6-terra` also supports `ultra`.)
 
-- [ ] **A24.1 — The pitch legend is not just useless standing alone, it is incomplete.** The fold lists
+- [x] **A24.1 — CLOSED 2026-07-31: the incomplete pitch legend is gone from the homepage.** The fold no
+      longer carries it at all — `grep` for 平板/頭高/中高/Heiban/Atamadaka/Nakadaka in `docs/index.md` returns
+      nothing — so the mismatch it described (three patterns listed against four shipped pitch classes) cannot
+      mislead anyone. The prose sentence that replaced it was then removed too, at the owner's instruction
+      ("remove this text completely — you dont need to explain everything"), along with its CSS rule and its
+      Japanese translation. Nothing on the page explains the underline colours now, by choice. ORIGINAL: The pitch legend is not just useless standing alone, it is incomplete.** The fold lists
       three patterns (`docs/index.md:48-52`) but the reader ships **four** pitch classes
       (`src/reader/lookup/pitch-accent.ts:6` — atamadaka/odaka/heiban/nakadaka, validated again at
       `controller.ts:3823`) and **five visible pitch states**. Either explain the colours through the
       feature that uses them, or delete the standalone legend. Do not ship a key that omits a colour the
       page can paint.
-- [ ] **A24.2 — "1 Install / 2 Read" adds no information.** GPT's phrase for the install band's numbered
+- [x] **A24.2 — CLOSED 2026-07-31: the numbered install chips are deleted, and their destinations kept.**
+      "1 Install / 2 Read" labelled a sequence stated twice already — by the lead sentence directly above them
+      ("Install Yomu, open something you wanted to read anyway, and press a word") and by the buttons directly
+      below ("Add よむ to Chrome"). Three statements of one idea, which is the "LESS IS MORE" complaint exactly.
+      The two `/learn/week-one` anchors were worth keeping, so they are now the sentence's own words rather
+      than separate chips. Removed 147 lines of orphaned CSS with them — 14 whole rule blocks whose every
+      selector referenced the deleted markup, plus one selector pruned from a shared touch-target rule that
+      still styles live elements.
+      **Caught in review before landing:** the inlined links inherited the paragraph's colour AND weight, so
+      they measured identical to the surrounding text — an invisible link is worse than the chips it replaced,
+      because the destination is simply gone. Given the underline affordance the rest of the band already
+      uses. ORIGINAL: "1 Install / 2 Read" adds no information.** GPT's phrase for the install band's numbered
       chips; they label a sequence that the button already implies.
 - [ ] **A24.3 — "Documentation theatre".** GPT's charge against docs that describe rather than teach —
       the same defect the owner reports as word salad. Feeds A3.

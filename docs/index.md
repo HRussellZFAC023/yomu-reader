@@ -165,11 +165,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
     <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
-    <p class="yomu-install-lead">Install Yomu, open something you wanted to read anyway, and press a word.</p>
-    <div class="yomu-install-steps" role="list" aria-label="Install steps">
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#install-yomu" aria-label="Add よむ to your browser"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Install</span></a></div>
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/learn/week-one#press-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Read</span></a></div>
-    </div>
+    <!-- The numbered "1 Install / 2 Read" chips were deleted (A24.2). They labelled a
+         sequence this sentence already states and that the buttons below it already
+         imply — three statements of one idea. Their two destinations were worth
+         keeping, so they are now the sentence's own words. -->
+    <p class="yomu-install-lead"><a href="/learn/week-one#install-yomu">Install Yomu</a>, open something you wanted to read anyway, and <a href="/learn/week-one#press-your-first-word">press a word</a>.</p>
     <div class="yomu-install-routes">
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>

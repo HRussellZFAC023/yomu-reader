@@ -670,8 +670,7 @@
   .yomu-language-toggle,
   .yomu-hosted-account-summary,
   .yomu-hosted-account-action,
-  .yomu-hosted-overflow-link,
-  .yomu-install-steps a {
+  .yomu-hosted-overflow-link {
     min-height: 44px;
   }
 }
@@ -825,88 +824,6 @@
   color: var(--vp-c-text-1);
   font-size: 14px;
   line-height: 1.45;
-}
-
-.yomu-install-steps {
-  display: grid;
-  grid-template-columns: repeat(3, max-content);
-  grid-area: steps;
-  gap: 8px;
-  justify-content: end;
-  margin: 0;
-  padding: 0;
-}
-
-.yomu-install-step {
-  display: flex;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-}
-
-.yomu-install-steps a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  min-width: 104px;
-  width: 100%;
-  height: 100%;
-  min-height: 44px;
-  padding: 7px 10px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--vp-c-bg) 72%, var(--vp-c-bg-soft));
-  color: var(--vp-c-text-2) !important;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none !important;
-}
-
-.yomu-install-step-link {
-  border-color: color-mix(
-    in srgb,
-    var(--vp-c-divider) 82%,
-    var(--vp-c-divider)
-  );
-  color: var(--vp-c-text-2) !important;
-  cursor: pointer;
-  transition:
-    border-color 0.16s ease,
-    background 0.16s ease,
-    color 0.16s ease;
-}
-
-.yomu-install-steps a:hover,
-.yomu-install-steps a:focus-visible {
-  border-color: color-mix(in srgb, var(--vp-c-brand-2) 42%, var(--vp-c-divider));
-  background: color-mix(in srgb, var(--vp-c-brand-2) 8%, var(--vp-c-bg-soft));
-  color: var(--vp-c-text-1) !important;
-  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 56%, #fff);
-  outline-offset: 2px;
-}
-
-.yomu-install-step-number {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  margin-top: 0;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--vp-c-brand-2) 38%, var(--vp-c-divider));
-  background: color-mix(in srgb, var(--vp-c-brand-2) 12%, var(--vp-c-bg-soft));
-  color: var(--vp-c-brand-1);
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.yomu-install-step-label {
-  min-width: 0;
-  overflow-wrap: normal;
-  white-space: nowrap;
-  word-break: normal;
 }
 
 .yomu-install-actions {
@@ -1406,11 +1323,6 @@
     grid-template-columns: 1fr;
   }
 
-  .yomu-install-steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    justify-content: stretch;
-  }
-
   .yomu-install-actions {
     padding-top: 0;
   }
@@ -1427,10 +1339,6 @@
   }
 
   .yomu-secondary-actions {
-    grid-template-columns: 1fr;
-  }
-
-  .yomu-install-steps {
     grid-template-columns: 1fr;
   }
 }
@@ -2456,60 +2364,20 @@ html.dark:has(.yomu-home) {
   line-height: 1.55;
 }
 
-.yomu-home .yomu-install-steps {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: var(--s-2);
-  grid-area: auto;
-  grid-template-columns: none;
-  margin: var(--s-4) 0 0;
-  padding: 0;
+/* The two links inlined into this sentence when the numbered install chips were
+   removed (A24.2). They inherit the paragraph's colour and weight, so without a
+   decoration they measured IDENTICAL to the surrounding text — an invisible link is
+   worse than the chips it replaced, because the destination is simply gone. Underline
+   is the affordance the rest of this band already uses for secondary routes. */
+.yomu-install-lead a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
-.yomu-home .yomu-install-step {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-
-.yomu-home .yomu-install-steps a {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  padding: 0 16px;
-  border: var(--rule-w) solid var(--on-plate);
-  border-radius: 3px;
-  background: transparent;
-  /* The shared docs rule sets --vp-c-text-2 !important, a mid grey chosen for
-     a light page; on this plate it left the step labels at ~2.6:1. */
-  color: var(--on-plate) !important;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-}
-
-.yomu-home .yomu-install-steps a:hover,
-.yomu-home .yomu-install-steps a:focus-visible {
-  background: color-mix(in srgb, var(--on-plate) 12%, transparent);
-  color: var(--on-plate) !important;
-}
-
-.yomu-home .yomu-install-step-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 0;
-  border-radius: 2px;
-  background: var(--accent-fill);
-  color: var(--on-accent);
-  font-size: 12px;
-  font-weight: 900;
+.yomu-install-lead a:hover,
+.yomu-install-lead a:focus-visible {
+  color: var(--on-plate);
 }
 
 .yomu-install .yomu-install-route {
