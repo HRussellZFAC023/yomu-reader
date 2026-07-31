@@ -64,11 +64,50 @@ export function contentAddressedRetentionManifest(root) {
     };
 }
 
-export function retentionManifestIsCurrent(root) {
-    if (isShallowRepository(root)) return true;
+/**
+ * Paths git history requires that the committed manifest does not list.
+ *
+ * This used to demand byte equality with a freshly computed manifest, which made
+ * the gate fail on ordinary release churn: the window is "the latest
+ * RELEASE_RETENTION_COUNT release tags", so every release shifts it, the committed
+ * file stops matching, and `check:release` went red at its second stage for
+ * everyone until somebody ran `npm run assets:prune`. It blocked two multilingual
+ * waves and was misdiagnosed once as missing pinned assets (A43).
+ *
+ * Equality was stricter than the safety property. The manifest exists only as the
+ * retention source for SHALLOW checkouts, where git history is unavailable
+ * (`retainedArtifactPaths`). So the two directions are not symmetric:
+ *
+ *   missing from the manifest -> a shallow CI could prune an artifact a published
+ *                                userscript still pins by hash. Dangerous, must fail.
+ *   extra in the manifest     -> a shallow CI retains a little longer than needed.
+ *                                Harmless, and it is what a release naturally leaves
+ *                                behind when a tag ages out of the window.
+ *
+ * So the gate now fails only on the dangerous direction. `assets:prune` remains how
+ * the extras get reclaimed, run when someone wants the space rather than as a
+ * mandatory step after every release.
+ */
+export function retentionManifestShortfall(root) {
+    if (isShallowRepository(root)) return { ok: true, missingFromManifest: [], extraInManifest: [] };
     const actual = readRetentionManifest(root);
     const expected = contentAddressedRetentionManifest(root);
-    return JSON.stringify(actual) === JSON.stringify(expected);
+    const schemaMatches = actual?.schemaVersion === expected.schemaVersion
+        && actual.releaseRetentionCount === expected.releaseRetentionCount
+        && JSON.stringify(actual.supportedReleaseRefs) === JSON.stringify(expected.supportedReleaseRefs)
+        && Array.isArray(actual.retainedPaths);
+    if (!schemaMatches) {
+        return { ok: false, schemaMismatch: true, missingFromManifest: [], extraInManifest: [] };
+    }
+    const listed = new Set(actual.retainedPaths);
+    const required = new Set(expected.retainedPaths);
+    const missingFromManifest = expected.retainedPaths.filter(path => !listed.has(path));
+    const extraInManifest = actual.retainedPaths.filter(path => !required.has(path));
+    return { ok: missingFromManifest.length === 0, missingFromManifest, extraInManifest };
+}
+
+export function retentionManifestIsCurrent(root) {
+    return retentionManifestShortfall(root).ok;
 }
 
 export function isShallowRepository(root) {

@@ -9,7 +9,7 @@ import {
     contentAddressedRetentionManifest,
     contentAddressedRetentionReport,
     isShallowRepository,
-    retentionManifestIsCurrent,
+    retentionManifestShortfall,
 } from './lib/content-addressed-retention.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -27,12 +27,29 @@ if (!shallow && write) {
         `${JSON.stringify(contentAddressedRetentionManifest(ROOT), null, 2)}\n`,
     );
 }
-if (!shallow && check && !retentionManifestIsCurrent(ROOT)) {
-    console.error(
-        `[content-retention] FAIL: ${RETENTION_MANIFEST_PATH} does not match the current retention history. `
-        + 'Run npm run assets:prune.',
-    );
-    process.exit(1);
+if (!shallow && check) {
+    const shortfall = retentionManifestShortfall(ROOT);
+    if (!shortfall.ok) {
+        // Only the dangerous direction fails: an artifact history says to keep that
+        // the manifest does not list could be pruned by a SHALLOW checkout, which
+        // breaks every published userscript pinning it by hash. See
+        // retentionManifestShortfall for why the other direction is safe.
+        console.error(
+            shortfall.schemaMismatch
+                ? `[content-retention] FAIL: ${RETENTION_MANIFEST_PATH} has a stale schema, retention count or supported-ref list. Run npm run assets:prune.`
+                : `[content-retention] FAIL: ${RETENTION_MANIFEST_PATH} is missing ${shortfall.missingFromManifest.length} artifact(s) that history still pins, so a shallow checkout could prune them. Run npm run assets:prune.`,
+        );
+        for (const path of shortfall.missingFromManifest.slice(0, 20)) console.error(`  ${path}`);
+        process.exit(1);
+    }
+    if (shortfall.extraInManifest.length > 0) {
+        // Reported, never failed on. This is what a release leaves behind when a tag
+        // ages out of the retention window, and it costs only disk.
+        console.log(
+            `[content-retention] ${RETENTION_MANIFEST_PATH} lists ${shortfall.extraInManifest.length} path(s) `
+            + 'history no longer pins. Harmless; run npm run assets:prune to reclaim them.',
+        );
+    }
 }
 
 const before = contentAddressedRetentionReport(ROOT);

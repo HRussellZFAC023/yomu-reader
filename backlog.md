@@ -959,7 +959,12 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       `npx vitest run tests/reader/onboarding.test.ts tests/reader/offline-dictionary-setup.test.ts`
       (14/14) plus `npm run typecheck` and `npm run locales:report` (English and Japanese human-critical
       coverage 387/387).
-- [ ] **A35.11 — HIGH: the lookup popover declares `aria-modal` with no focus trap, no background hiding
+- [x] **A35.11 — CLOSED 2026-07-31, verified on main: `src/reader/popup/modal-accessibility-impl.ts` is the shared
+      controller — Tab trap (`event.key !== 'Tab'` guard plus wrap), background `aria-hidden` with exact
+      restoration, and focus returned to the trigger. Crucially `aria-modal` is now set INSIDE that
+      controller (`:18`) rather than on every popover, so the claim is only made where it is honoured;
+      hover/passive popovers expose no modal role at all, which is the honest answer for something the user
+      did not open. Shipped as `2533ec984` with 184/184 focused assertions and check:release PASS. ORIGINAL: HIGH: the lookup popover declares `aria-modal` with no focus trap, no background hiding
       and no focus restore.** `src/reader/popup/shell.ts:83-86` sets `role="dialog"` and
       `aria-modal="true"` on every lookup popover, hover-triggered ones included (the `trigger` parameter
       only picks the sheet class). `src/reader/app/main.ts:10340` moves focus into it on mount, and
@@ -973,7 +978,11 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       the background and restore focus on dismiss, or drop `aria-modal` for non-modal triggers. Nothing in
       the backlog covers focus, ARIA or keyboard reachability for the popover — grep for "focus trap",
       "aria-modal", "accessibility" and "screen reader" returns zero hits.
-- [ ] **A35.12 — runtime error toasts are English whatever the interface language is set to.** There are
+- [x] **A35.12 — CLOSED 2026-07-31, verified on main: `src/reader/jpdb/jpdb-api.ts` now contains **zero**
+      `new Error('<English literal>')` sites and routes failures through ID-keyed messages
+      (`'missing-key': 'jpdbApiKeyMissingError'`, `'rate-limited': 'jpdbRateLimitedError'`), so a toast can be
+      localised while the log keeps its English. That is the seam the ticket asked for rather than 124
+      translated literals. Shipped as `ebab4625d fix(i18n): localize user-facing errors`. ORIGINAL: runtime error toasts are English whatever the interface language is set to.** There are
       124 `new Error('<English literal>')` sites under `src/reader`. The user-facing ones include
       `src/reader/jpdb/jpdb-api.ts:52-81`: 'JPDB API key is not set.', 'JPDB rejected the API key.', 'JPDB
       is rate limited. Try again in a moment.', `JPDB request failed (${status}).` Every consuming toast
@@ -1419,8 +1428,23 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       three hostile defaults), w11 (NFKC/case-folding/candidate ladder), w12 (target choice at onboarding
       + target-keyed dictionary routing + a readiness field the docs gate actually reads).
 
-- [ ] **A43 — the content-addressed retention manifest goes stale on every release, so it blocks the gate by
-      construction.** `config/ci/content-addressed-retention.json` records a window derived from git history
+- [x] **A43 — CLOSED 2026-07-31: the gate now fails only on the direction that is actually dangerous.**
+      The check demanded byte equality between the committed manifest and one computed fresh from git
+      history. The window is "the latest 40 release tags", so every release shifted it, the committed file
+      stopped matching, and `check:release` went red at its SECOND stage for everyone — it blocked two
+      multilingual waves and was misdiagnosed once as "316 supported pinned assets are missing".
+      Equality was stricter than the safety property. The manifest exists only as the retention source for
+      **shallow** checkouts, where git history is unavailable, so the two directions are not symmetric:
+      a path missing from the manifest could let a shallow CI prune an artifact a published userscript still
+      pins by hash (breaks its `@require` for everyone on that version), while an extra path merely retains a
+      little longer than needed — and that is exactly what a release leaves behind as a tag ages out.
+      `retentionManifestShortfall()` now reports both directions; the gate fails on the missing side and
+      merely notes the extra side, pointing at `npm run assets:prune` for whoever wants the disk back.
+      Mutation-checked in both directions against the real manifest: adding a path history no longer pins
+      exits 0 with "lists 1 path(s) history no longer pins", and removing one history still pins exits 1 with
+      "is missing 1 artifact(s) that history still pins, so a shallow checkout could prune them". Two tests
+      in `tests/reader/content-addressed-retention.test.ts` pin the asymmetry using a real fixture repo and a
+      real shallow clone. ORIGINAL: `config/ci/content-addressed-retention.json` records a window derived from git history
       (latest 40 release tags, 40 recent hosted headers, plus v1.8.2 for the frozen store builds). Every
       release moves that window, so the committed file stops matching and
       `node scripts/prune-content-addressed-assets.mjs --check` fails the SECOND stage of `check:release`

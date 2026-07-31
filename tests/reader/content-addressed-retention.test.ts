@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
-import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionManifest, contentAddressedRetentionReport, isShallowRepository, pinnedArtifactPaths, retentionManifestIsCurrent } from '../../scripts/lib/content-addressed-retention.mjs';
+import { RELEASE_RETENTION_COUNT, SUPPORTED_RELEASE_REFS, contentAddressedRetentionManifest, contentAddressedRetentionReport, isShallowRepository, pinnedArtifactPaths, retentionManifestIsCurrent, retentionManifestShortfall } from '../../scripts/lib/content-addressed-retention.mjs';
 
 const repositories: string[] = [];
 
@@ -96,6 +96,47 @@ describe('content-addressed artifact retention', () => {
     it('documents a week-sized release window and the frozen store version', () => {
         expect(RELEASE_RETENTION_COUNT).toBe(40);
         expect(SUPPORTED_RELEASE_REFS).toContain('v1.8.2');
+    });
+
+    // The gate used to demand byte equality with a freshly computed manifest, so every
+    // release shifted the tag window, the committed file stopped matching, and
+    // check:release went red at its second stage for everyone (A43). The two
+    // directions are not symmetric, and only one of them is dangerous.
+    it('tolerates a manifest that retains more than history still pins', () => {
+        const source = repository();
+        const manifest = contentAddressedRetentionManifest(source);
+        const generous = {
+            ...manifest,
+            retainedPaths: [...manifest.retainedPaths, 'docs/public/greasyfork/yomu-anki.deadbeef0000.user.js'].sort(),
+        };
+        write(source, 'config/ci/content-addressed-retention.json', `${JSON.stringify(generous, null, 2)}\n`);
+        git(source, 'add', '.');
+        git(source, 'commit', '--quiet', '-m', 'generous retention manifest');
+
+        // Harmless: a shallow checkout simply retains one path longer than needed,
+        // which is exactly what a release leaves behind as a tag ages out.
+        const shortfall = retentionManifestShortfall(source);
+        expect(shortfall.ok).toBe(true);
+        expect(shortfall.missingFromManifest).toEqual([]);
+        expect(shortfall.extraInManifest).toEqual(['docs/public/greasyfork/yomu-anki.deadbeef0000.user.js']);
+        expect(retentionManifestIsCurrent(source)).toBe(true);
+    });
+
+    it('fails when the manifest omits an artifact history still pins', () => {
+        const source = repository();
+        const manifest = contentAddressedRetentionManifest(source);
+        expect(manifest.retainedPaths.length).toBeGreaterThan(0);
+        const [dropped, ...kept] = manifest.retainedPaths;
+        write(source, 'config/ci/content-addressed-retention.json', `${JSON.stringify({ ...manifest, retainedPaths: kept }, null, 2)}\n`);
+        git(source, 'add', '.');
+        git(source, 'commit', '--quiet', '-m', 'short retention manifest');
+
+        // Dangerous: a shallow checkout would prune an artifact a published userscript
+        // still pins by hash, which 404s its @require for everyone on that version.
+        const shortfall = retentionManifestShortfall(source);
+        expect(shortfall.ok).toBe(false);
+        expect(shortfall.missingFromManifest).toEqual([dropped]);
+        expect(retentionManifestIsCurrent(source)).toBe(false);
     });
 
     it('uses the committed retention manifest when CI checks out one shallow commit', () => {
