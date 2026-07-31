@@ -260,11 +260,54 @@ export function validateMultilingualParityInputs(
     evidence: MultilingualParityEvidence,
     corpus: readonly MultilingualParityTargetCorpus[] = multilingualParityCorpus(),
 ): string[] {
+    // Split into a document pass and four per-target passes because the
+    // complexity ratchet was right that one 170-line validator is not
+    // reviewable: every check here is independent, so each group is now
+    // separately testable and the orchestration below reads as the order the
+    // failures are reported in.
+    const baselineResults = Array.isArray(baseline.results) ? baseline.results : [];
+    const evidenceTargets = Array.isArray(evidence.targets) ? evidence.targets : [];
+    const failures: string[] = [
+        ...parityDocumentFailures(baseline, evidence, corpus, baselineResults, evidenceTargets),
+    ];
+
+    for (const targetCorpus of corpus) {
+        const { language } = targetCorpus;
+        const baselineTarget = baselineResults.find(result => result.language === language);
+        const evidenceTarget = evidenceTargets.find(target => target.language === language);
+        if (!baselineTarget || !evidenceTarget) continue;
+
+        failures.push(...parityLookupContractFailures(language, baselineTarget, evidenceTarget));
+
+        const dictionaryId = expectedDictionaryId(language);
+        const catalogEntry = catalog.entries.find(entry => entry.id === dictionaryId);
+        if (!catalogEntry) {
+            failures.push(`${language}: frozen published catalog has no ${dictionaryId}`);
+            continue;
+        }
+        failures.push(
+            ...parityCatalogFailures(language, dictionaryId, catalogEntry),
+            ...parityProvenanceFailures(language, catalogEntry, baselineTarget, evidenceTarget),
+            ...parityCountFailures(language, targetCorpus, baselineTarget),
+        );
+        if (!Array.isArray(evidenceTarget.terms)) {
+            failures.push(`${language}: evidence terms are absent or not an array`);
+        }
+    }
+    return failures;
+}
+
+/** Checks that describe the run as a whole rather than any one target. */
+function parityDocumentFailures(
+    baseline: MultilingualParityBaseline,
+    evidence: MultilingualParityEvidence,
+    corpus: readonly MultilingualParityTargetCorpus[],
+    baselineResults: MultilingualParityBaseline['results'],
+    evidenceTargets: MultilingualParityEvidence['targets'],
+): string[] {
     const failures: string[] = [];
     const languages = corpus.map(target => target.language);
     const corpusSha256 = multilingualParityCorpusSha256(corpus);
-    const baselineResults = Array.isArray(baseline.results) ? baseline.results : [];
-    const evidenceTargets = Array.isArray(evidence.targets) ? evidence.targets : [];
     if (!Array.isArray(baseline.results)) failures.push('baseline results are absent or not an array');
     if (!Array.isArray(evidence.targets)) failures.push('evidence targets are absent or not an array');
     if (baseline.schemaVersion !== MULTILINGUAL_PARITY_SCHEMA_VERSION) {
@@ -299,6 +342,28 @@ export function validateMultilingualParityInputs(
     if (baseline.corpusRule !== MULTILINGUAL_PARITY_CORPUS_RULE) {
         failures.push('baseline corpus rule differs from the executable exact-span rule');
     }
+    failures.push(...parityProvenanceMetadataFailures(baseline, evidence));
+    if (!sameTargetSet(baselineResults.map(result => result.language), languages)) {
+        failures.push('baseline target set differs from the learning-target roster');
+    }
+    if (!sameTargetSet(evidenceTargets.map(target => target.language), languages)) {
+        failures.push('evidence target set differs from the learning-target roster');
+    }
+    if (new Set(baselineResults.map(result => result.language)).size !== baselineResults.length) {
+        failures.push('baseline contains a duplicate target');
+    }
+    if (new Set(evidenceTargets.map(target => target.language)).size !== evidenceTargets.length) {
+        failures.push('evidence contains a duplicate target');
+    }
+    return failures;
+}
+
+/** Where the numbers came from: clean worktree, known commit, matching runtime. */
+function parityProvenanceMetadataFailures(
+    baseline: MultilingualParityBaseline,
+    evidence: MultilingualParityEvidence,
+): string[] {
+    const failures: string[] = [];
     if (baseline.gitDirty !== false) {
         failures.push('baseline was not generated from a clean worktree');
     }
@@ -322,109 +387,107 @@ export function validateMultilingualParityInputs(
     if (baseline.icu !== currentIcu) {
         failures.push(`baseline ICU runtime is ${baseline.icu}, current runtime is ${currentIcu}`);
     }
-    if (!sameTargetSet(baselineResults.map(result => result.language), languages)) {
-        failures.push('baseline target set differs from the learning-target roster');
-    }
-    if (!sameTargetSet(evidenceTargets.map(target => target.language), languages)) {
-        failures.push('evidence target set differs from the learning-target roster');
-    }
-    if (new Set(baselineResults.map(result => result.language)).size !== baselineResults.length) {
-        failures.push('baseline contains a duplicate target');
-    }
-    if (new Set(evidenceTargets.map(target => target.language)).size !== evidenceTargets.length) {
-        failures.push('evidence contains a duplicate target');
-    }
+    return failures;
+}
 
-    for (const targetCorpus of corpus) {
-        const { language } = targetCorpus;
-        const baselineTarget = baselineResults.find(result => result.language === language);
-        const evidenceTarget = evidenceTargets.find(target => target.language === language);
-        if (!baselineTarget || !evidenceTarget) continue;
-        const expectedLookupContract = expectedLookupContracts.get(language);
-        if (!expectedLookupContract) {
-            failures.push(`${language}: lookup contract is absent`);
-        } else {
-            if (baselineTarget.lookupContractSha256 !== expectedLookupContract) {
-                failures.push(`${language}: baseline lookup contract SHA-256 is stale`);
-            }
-            if (evidenceTarget.lookupContractSha256 !== expectedLookupContract) {
-                failures.push(`${language}: evidence lookup contract SHA-256 is stale`);
-            }
-        }
+function parityLookupContractFailures(
+    language: string,
+    baselineTarget: MultilingualParityBaselineResult,
+    evidenceTarget: MultilingualParityEvidenceTarget,
+): string[] {
+    const expectedLookupContract = expectedLookupContracts.get(language);
+    if (!expectedLookupContract) return [`${language}: lookup contract is absent`];
+    const failures: string[] = [];
+    if (baselineTarget.lookupContractSha256 !== expectedLookupContract) {
+        failures.push(`${language}: baseline lookup contract SHA-256 is stale`);
+    }
+    if (evidenceTarget.lookupContractSha256 !== expectedLookupContract) {
+        failures.push(`${language}: evidence lookup contract SHA-256 is stale`);
+    }
+    return failures;
+}
 
-        const dictionaryId = expectedDictionaryId(language);
-        const catalogEntry = catalog.entries.find(entry => entry.id === dictionaryId);
-        if (!catalogEntry) {
-            failures.push(`${language}: frozen published catalog has no ${dictionaryId}`);
-            continue;
-        }
-        if (catalogEntry.distribution.state !== 'published' || !catalogEntry.categories.includes('terms')) {
-            failures.push(`${language}: ${dictionaryId} is not a published terms dictionary`);
-        }
-        if (
-            !catalogEntry.headwordLanguages.includes(language)
-            || !catalogEntry.definitionLanguages.includes('en')
-        ) {
-            failures.push(`${language}: ${dictionaryId} has the wrong headword or definition language`);
-        }
-        const expectedDictionary = expectedDictionaryEvidence(catalogEntry);
+function parityCatalogFailures(
+    language: string,
+    dictionaryId: string,
+    catalogEntry: typeof catalog.entries[number],
+): string[] {
+    const failures: string[] = [];
+    if (catalogEntry.distribution.state !== 'published' || !catalogEntry.categories.includes('terms')) {
+        failures.push(`${language}: ${dictionaryId} is not a published terms dictionary`);
+    }
+    if (
+        !catalogEntry.headwordLanguages.includes(language)
+        || !catalogEntry.definitionLanguages.includes('en')
+    ) {
+        failures.push(`${language}: ${dictionaryId} has the wrong headword or definition language`);
+    }
+    return failures;
+}
+
+function parityProvenanceFailures(
+    language: string,
+    catalogEntry: typeof catalog.entries[number],
+    baselineTarget: MultilingualParityBaselineResult,
+    evidenceTarget: MultilingualParityEvidenceTarget,
+): string[] {
+    const expectedDictionary = expectedDictionaryEvidence(catalogEntry);
+    const failures = [
+        ...dictionaryProvenanceFailures(`${language}: baseline`, baselineTarget.dictionary, expectedDictionary),
+        ...dictionaryProvenanceFailures(`${language}: evidence`, evidenceTarget.dictionary, expectedDictionary),
+        ...archiveScanFailures(`${language}: baseline`, language, baselineTarget.archiveScan),
+        ...archiveScanFailures(`${language}: evidence`, language, evidenceTarget.archiveScan),
+    ];
+    if (!isDeepStrictEqual(baselineTarget.archiveScan, evidenceTarget.archiveScan)) {
+        failures.push(`${language}: baseline and evidence archive scan provenance differ`);
+    }
+    return failures;
+}
+
+function parityCountFailures(
+    language: string,
+    targetCorpus: MultilingualParityTargetCorpus,
+    baselineTarget: MultilingualParityBaselineResult,
+): string[] {
+    const failures: string[] = [];
+    const expectedCounts = corpusCounts(targetCorpus);
+    if (!Number.isInteger(baselineTarget.sentences) || baselineTarget.sentences !== expectedCounts.sentences) {
         failures.push(
-            ...dictionaryProvenanceFailures(`${language}: baseline`, baselineTarget.dictionary, expectedDictionary),
-            ...dictionaryProvenanceFailures(`${language}: evidence`, evidenceTarget.dictionary, expectedDictionary),
-            ...archiveScanFailures(`${language}: baseline`, language, baselineTarget.archiveScan),
-            ...archiveScanFailures(`${language}: evidence`, language, evidenceTarget.archiveScan),
+            `${language}: baseline sentence count is ${baselineTarget.sentences}, expected ${expectedCounts.sentences}`,
         );
-        if (!isDeepStrictEqual(baselineTarget.archiveScan, evidenceTarget.archiveScan)) {
-            failures.push(`${language}: baseline and evidence archive scan provenance differ`);
-        }
-
-        const expectedCounts = corpusCounts(targetCorpus);
-        if (!Number.isInteger(baselineTarget.sentences) || baselineTarget.sentences !== expectedCounts.sentences) {
-            failures.push(
-                `${language}: baseline sentence count is ${baselineTarget.sentences}, expected ${expectedCounts.sentences}`,
-            );
-        }
-        if (
-            !Number.isInteger(baselineTarget.contentWords)
-            || baselineTarget.contentWords !== expectedCounts.contentWords
-        ) {
-            failures.push(
-                `${language}: baseline content-word total is ${baselineTarget.contentWords}, expected ${expectedCounts.contentWords}`,
-            );
-        }
-        const annotatedIsValid = Number.isInteger(baselineTarget.annotated)
-            && baselineTarget.annotated >= 0
-            && baselineTarget.annotated <= expectedCounts.contentWords;
-        if (!annotatedIsValid) {
-            failures.push(
-                `${language}: baseline annotated count ${baselineTarget.annotated} is outside 0..${expectedCounts.contentWords}`,
-            );
-        } else {
-            const expectedPercent = roundedPercent(baselineTarget.annotated, expectedCounts.contentWords);
-            if (!Number.isFinite(baselineTarget.percent) || baselineTarget.percent !== expectedPercent) {
-                failures.push(
-                    `${language}: baseline percent is ${baselineTarget.percent}, expected ${expectedPercent.toFixed(1)}`,
-                );
-            }
-            const expectedStatus = expectedPercent >= SUGGESTED_BENCHMARK_PERCENT ? 'MEETS' : 'BELOW';
-            if (baselineTarget.suggestedBar !== expectedStatus) {
-                failures.push(
-                    `${language}: baseline suggested status is ${baselineTarget.suggestedBar}, expected ${expectedStatus}`,
-                );
-            }
-            failures.push(
-                ...baselineMissFailures(
-                    language,
-                    baselineTarget.misses,
-                    targetCorpus,
-                    baselineTarget.annotated,
-                ),
-            );
-        }
-        if (!Array.isArray(evidenceTarget.terms)) {
-            failures.push(`${language}: evidence terms are absent or not an array`);
-        }
     }
+    if (
+        !Number.isInteger(baselineTarget.contentWords)
+        || baselineTarget.contentWords !== expectedCounts.contentWords
+    ) {
+        failures.push(
+            `${language}: baseline content-word total is ${baselineTarget.contentWords}, expected ${expectedCounts.contentWords}`,
+        );
+    }
+    const annotatedIsValid = Number.isInteger(baselineTarget.annotated)
+        && baselineTarget.annotated >= 0
+        && baselineTarget.annotated <= expectedCounts.contentWords;
+    if (!annotatedIsValid) {
+        failures.push(
+            `${language}: baseline annotated count ${baselineTarget.annotated} is outside 0..${expectedCounts.contentWords}`,
+        );
+        return failures;
+    }
+    const expectedPercent = roundedPercent(baselineTarget.annotated, expectedCounts.contentWords);
+    if (!Number.isFinite(baselineTarget.percent) || baselineTarget.percent !== expectedPercent) {
+        failures.push(
+            `${language}: baseline percent is ${baselineTarget.percent}, expected ${expectedPercent.toFixed(1)}`,
+        );
+    }
+    const expectedStatus = expectedPercent >= SUGGESTED_BENCHMARK_PERCENT ? 'MEETS' : 'BELOW';
+    if (baselineTarget.suggestedBar !== expectedStatus) {
+        failures.push(
+            `${language}: baseline suggested status is ${baselineTarget.suggestedBar}, expected ${expectedStatus}`,
+        );
+    }
+    failures.push(
+        ...baselineMissFailures(language, baselineTarget.misses, targetCorpus, baselineTarget.annotated),
+    );
     return failures;
 }
 

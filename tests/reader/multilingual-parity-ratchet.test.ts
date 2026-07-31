@@ -366,12 +366,17 @@ describe('multilingual parity ratchet input validation', () => {
 
     it('rejects evidence recorded by a different Node or ICU runtime', async () => {
         const { baseline, evidence } = await validInputs();
-        baseline.node = 'v22.22.3';
-        baseline.icu = '78.2';
+        // Deliberately impossible runtimes. This assertion first shipped pinning
+        // 'v22.22.3' / '78.2' as the SUPPOSEDLY-different baseline -- which is
+        // exactly what this repository requires and therefore exactly what the
+        // current runtime reports, so the validator was right to find no mismatch
+        // and the test could never exercise the path it names.
+        baseline.node = 'v0.0.0-not-a-runtime';
+        baseline.icu = '0.0';
 
         expect(validateMultilingualParityInputs(baseline, evidence)).toEqual(expect.arrayContaining([
-            `baseline Node runtime is v22.22.3, current runtime is ${process.version}`,
-            `baseline ICU runtime is 78.2, current runtime is ${process.versions.icu ?? 'unknown'}`,
+            `baseline Node runtime is v0.0.0-not-a-runtime, current runtime is ${process.version}`,
+            `baseline ICU runtime is 0.0, current runtime is ${process.versions.icu ?? 'unknown'}`,
         ]));
     });
 
