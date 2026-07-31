@@ -1007,7 +1007,10 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 **Defects a learner hits**
 
 - [x] **A35.9 — FIXED in v1.8.36: browser-extension installs reach onboarding on the first Japanese
-      page, and an empty dictionary store has an in-page setup path.** Previously, `src/reader/app/startup.ts:74` was
+      page and remember completion in shared extension storage.** The repeated per-lookup Finish setup
+      strip was removed on 2026-07-31: onboarding already offers the starter download, failures point to
+      Settings → Sources, and T3's owner-decided try-first flow requires deferred setup to be skippable
+      forever. Previously, `src/reader/app/startup.ts:74` was
       `if (runningAsBrowserExtension()) return isYomuNewTabUrl(href);`, gating onboarding to the
       extension's own new-tab/Study page, and `scripts/lib/extension-runtime-hardening.mjs:155-163`
       deliberately strips `chrome_url_overrides` and `chrome_settings_overrides` so nothing ever navigates

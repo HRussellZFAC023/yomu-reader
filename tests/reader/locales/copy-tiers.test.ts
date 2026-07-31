@@ -121,7 +121,7 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        expect(messages).toHaveLength(1250);
+        expect(messages).toHaveLength(1248);
         expect(humanCritical).toHaveLength(390);
 
         // Split by WHAT classified each one. 384 are human-critical from their ID

@@ -8273,8 +8273,6 @@ const COPY = {
   jpdbKanjiActionBlacklist: "Blacklist",
   jpdbKanjiActionReview: "Review",
   noDefinitions: "No enabled definition source returned results.",
-  finishSetup: "Finish setup",
-  finishSetupDictionaryHelp: "Add an offline dictionary for definitions on every page.",
   enabledHeader: "On",
   labelHeader: "Label",
   detailsHeader: "Details",
@@ -8472,8 +8470,6 @@ addBunproApiKeyReview	Bunproレビューにはfrontend_api_tokenが必要です�
 addWanikaniApiKeyReview	期限が来たWaniKaniの課題を復習するには、パーソナルアクセストークンを追加してください。
 actionFailed	操作に失敗しました。
 noDefinitions	有効な定義ソースから結果が返りませんでした。
-finishSetup	セットアップを完了
-finishSetupDictionaryHelp	どのページでも定義を表示できるように、オフライン辞書を追加しましょう。
 dictionary	辞書
 dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存

@@ -33,7 +33,9 @@ const settings = {
     apiKey: '',
     jitenApiKey: '',
     jpdbDefinitionsEnabled: false,
-    localDictionariesEnabled: false,
+    // Exercise the empty-local-store path from the reported iPad lookup. A
+    // working Jiten definition must not be interrupted by setup chrome.
+    localDictionariesEnabled: true,
     ankiEnabled: false,
     ankiSectionEnabled: false,
     newTabAnkiEnabled: false,
@@ -138,7 +140,7 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(ARTIFACTS, 'onboarding-welcome-panel-narrow.png') });
-    await page.setViewportSize({ width: 1200, height: 860 });
+    await page.setViewportSize({ width: 820, height: 1180 });
     await page.waitForTimeout(250);
 
     await word.click();
@@ -149,6 +151,10 @@ try {
 
     const popoverText = (await page.locator('.jpdb-reader-popover').innerText()).trim();
     assert(popoverText.includes('日本語'), 'Welcome word click opened a popover without the clicked word', { popoverText });
+    assert(popoverText.includes('JITEN') && popoverText.includes('smoke definition'), 'Welcome word click did not render the working Jiten definition', { popoverText });
+    assert(!await page.locator('[data-yomu-finish-setup]').count(), 'Working remote definition was interrupted by repeated dictionary setup chrome', { popoverText });
+    const lookupScreenshot = path.join(ARTIFACTS, 'onboarding-popover-empty-local-store-ipad.png');
+    await page.screenshot({ path: lookupScreenshot, fullPage: false });
 
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3_000 });
@@ -178,6 +184,7 @@ try {
         actionState,
         jitenParseRequests: requests.filter(request => request.kind === 'jiten-parse').length,
         jitenDetailRequests: requests.filter(request => request.kind === 'jiten-detail').length,
+        lookupScreenshot,
         screenshot: path.join(ARTIFACTS, 'onboarding-popover-smoke.png'),
     };
     await page.screenshot({ path: report.screenshot, fullPage: false });

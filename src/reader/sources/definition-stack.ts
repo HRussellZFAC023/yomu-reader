@@ -34,7 +34,6 @@ export interface DefinitionSourceStackOptions {
 interface DefinitionSourceStackContext {
     card: JPDBCard;
     sentence?: string;
-    setup: string;
     sourceIds: string[];
     grouped: Map<string, YomitanTermEntry[]>;
     dictionarySourceIds: string[];
@@ -63,7 +62,6 @@ export interface RenderDefinitionSourcesStackParams {
     extraSectionsOrOptions?: Record<string, string> | DefinitionSourceStackOptions;
     optionKeys?: DefinitionSourceStackOptionKey[];
     jpdbLanguage?: InterfaceLanguage;
-    setupSource?: (card: JPDBCard) => string;
     renderTranslationSource: (sentence: string | undefined) => string;
     renderGrammarSource: (sentence: string | undefined) => string;
     renderImmersionSource?: () => string;
@@ -92,13 +90,6 @@ export function renderDefinitionSourcesStack(params: RenderDefinitionSourcesStac
     return sections.length
         ? `<div class="jpdb-reader-definition-stack">${sections.join('')}</div>`
         : params.noDefinitionsHtml();
-}
-
-export function renderDictionarySetupNudge(language: InterfaceLanguage): string {
-    return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
-        <span><strong>${escapeHtml(uiText(language, 'finishSetup'))}</strong> ${escapeHtml(uiText(language, 'finishSetupDictionaryHelp'))}</span>
-        <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml(uiText(language, 'finishSetup'))}</button>
-    </aside>`;
 }
 
 export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
@@ -133,7 +124,6 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
     return {
         card: params.card,
         sentence: params.sentence,
-        setup: params.setupSource?.(params.card) ?? '',
         sourceIds,
         grouped,
         dictionarySourceIds,
@@ -178,7 +168,7 @@ function isDefinitionSourceStackOptions(
 
 function renderDefinitionSourceSections(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string[] {
     let renderedDictionaries = false;
-    const sections = context.setup ? [context.setup] : [];
+    const sections: string[] = [];
     for (const sourceId of context.sourceIds) {
         const rendered = renderDefinitionSourceSection(sourceId, context, params, renderedDictionaries);
         if (rendered.renderedDictionaries) renderedDictionaries = true;

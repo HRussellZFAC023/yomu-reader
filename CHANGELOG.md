@@ -8,6 +8,7 @@
 - A setting you put back to its default now stays there, instead of an older stored copy restoring it.
 - Word colour for ignored, suspended, and blacklisted words can now be turned off like every other state.
 - Settings that act on the language you are studying now name that language instead of always saying Japanese.
+- Lookup cards no longer repeat a Finish setup banner when the offline dictionary store is empty. First-run setup still offers the starter download, and offline dictionaries remain available in Settings → Sources.
 
 ## [1.8.58] - 2026-07-31
 

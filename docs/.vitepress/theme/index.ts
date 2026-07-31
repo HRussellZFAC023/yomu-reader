@@ -539,6 +539,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Grammar detection now follows the active learning target, with JLPT levels for Japanese and CEFR levels for other checked inventories.': '文法検出は選択中の学習対象に従うようになり、日本語にはJLPTレベル、その他の確認済み項目一覧にはCEFRレベルを表示します。',
     'Spanish, French, German, and Russian now include conservative starter rules, while every other target keeps a checked grammar reference visible.': 'スペイン語、フランス語、ドイツ語、ロシア語には慎重に範囲を限定した入門ルールを追加し、その他すべての学習対象でも確認済み文法リファレンスを引き続き表示します。',
     'Grammar checks now keep an honest result card visible when no local rule matches or local detection is unavailable.': '端末内ルールが一致しない場合や端末内検出を利用できない場合でも、実情を伝える結果カードを表示し続けます。',
+    'Lookup cards no longer repeat a Finish setup banner when the offline dictionary store is empty. First-run setup still offers the starter download, and offline dictionaries remain available in Settings → Sources.': 'オフライン辞書ストアが空でも、検索カードに「セットアップを完了」バナーを繰り返し表示しなくなりました。初回セットアップでは引き続きスターター辞書のダウンロードを案内し、オフライン辞書は［設定］→［ソース］からいつでも利用できます。',
     'Grammar coverage': '文法対応状況',
     'See which learning targets have local grammar detection and which open a checked grammar reference.': '学習対象ごとの端末内文法検出の有無と、確認済み文法リファレンスへのリンクを確認できます。',
     "Permalink to \"Grammar coverage\"": '「文法対応状況」への固定リンク',

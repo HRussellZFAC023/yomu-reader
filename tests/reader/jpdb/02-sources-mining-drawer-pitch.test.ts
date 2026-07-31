@@ -196,6 +196,42 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps working remote definitions free of repeated dictionary setup nags', () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: true,
+            jpdbDefinitionsEnabled: true,
+            jitenDefinitionsEnabled: false,
+            bunproDefinitionsEnabled: false,
+            wanikaniDefinitionsEnabled: false,
+            ankiSectionEnabled: false,
+            studyTranslationEnabled: false,
+            studyGrammarEnabled: false,
+            immersionKitEnabled: false,
+        };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            renderDefinitionSources(card: JPDBCard, entries: never[]): string;
+        };
+        internals.settings = settings;
+
+        try {
+            const html = internals.renderDefinitionSources({
+                ...card,
+                source: 'jpdb',
+                meanings: [{ glosses: ['to eat'], partOfSpeech: ['v1'] }],
+            }, []);
+
+            expect(html).toContain('data-source="jpdb"');
+            expect(html).not.toContain('data-yomu-finish-setup');
+            expect(html).not.toContain('Finish setup');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('renders the mining drawer affordance as a bar instead of text', () => {
         const settings = {
             apiKey: 'test-key',

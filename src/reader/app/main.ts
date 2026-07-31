@@ -72,7 +72,7 @@ import {
     kanjiSourceStateKey,
     renderKanjiDefinitions,
 } from '../sources/definition-render';
-import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, renderDictionarySetupNudge, type DefinitionSourceStackOptions } from '../sources/definition-stack';
+import { renderDefinitionSourceImmersionMount, renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
@@ -859,7 +859,6 @@ export class ReaderApp {
         this.rtkInstance = value;
     }
     private dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
-    private localDictionarySetupNeeded = false;
     private cardRenderData = new CardRenderDataLoader({
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
@@ -6875,11 +6874,7 @@ export class ReaderApp {
         const renderState = { fullRenderCompleted: false };
         this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
 
-        const [fullData, hasLocalTermDictionaries] = await Promise.all([
-            this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup),
-            this.parser.hasLocalTermDictionaries(true),
-        ]);
-        this.localDictionarySetupNeeded = this.settings.localDictionariesEnabled && !hasLocalTermDictionaries;
+        const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
         renderState.fullRenderCompleted = true;
         if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
         this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
@@ -7620,10 +7615,6 @@ export class ReaderApp {
     }
 
     private dispatchCardPopoverAction(button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
-        if (button.dataset.action === 'finish-dictionary-setup') {
-            this.showSettings('dictionaries');
-            return;
-        }
         if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
         if (this.handleCardPopoverMiningAction(button)) return;
         if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
@@ -8273,9 +8264,6 @@ export class ReaderApp {
             bunproDefinitionInfo,
             extraSectionsOrOptions,
             jpdbLanguage: this.settings.interfaceLanguage,
-            setupSource: () => this.localDictionarySetupNeeded
-                ? renderDictionarySetupNudge(this.settings.interfaceLanguage)
-                : '',
             renderTranslationSource: renderSentence => this.studySources.renderTranslationSource(renderSentence),
             renderGrammarSource: renderSentence => this.studySources.renderGrammarSource(renderSentence),
             renderImmersionSource: () => renderDefinitionSourceImmersionMount(

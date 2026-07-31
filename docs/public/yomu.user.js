@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.9d2e5215d501.user.js#sha256=nS5SFdUBqTUGJfTCbo7jfQY/KEgquYuBTgwFtlxAJpU=
-// @resource yomuCss  https://yomureader.com/yomu.25e8d11f407c.css#sha256=JejRH0B8pOC/+MjHcK1QcOn0/1uuMIrRHwshoj4sNto=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0effe7511409.user.js#sha256=Dv/nURQJtFYsXi46Um9MAlkTswysvIje+MD3B4ivDFo=
+// @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -27121,12 +27121,6 @@ function renderDefinitionSourcesStack(params) {
   const sections = renderDefinitionSourceSections(context, params);
   return sections.length ? `<div class="jpdb-reader-definition-stack">${sections.join("")}</div>` : params.noDefinitionsHtml();
 }
-function renderDictionarySetupNudge(language2) {
-  return `<aside class="jpdb-reader-dictionary-setup-nudge" data-yomu-finish-setup>
-    <span><strong>${escapeHtml$1(uiText(language2, "finishSetup"))}</strong> ${escapeHtml$1(uiText(language2, "finishSetupDictionaryHelp"))}</span>
-    <button class="jpdb-reader-btn add" type="button" data-action="finish-dictionary-setup">${escapeHtml$1(uiText(language2, "finishSetup"))}</button>
-  </aside>`;
-}
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
   if (!immersionKitCapabilitiesFor(targetLanguageOf(settings)).supported) {
   return renderTargetExampleSourceMounts(settings, sourceAttributes);
@@ -27148,7 +27142,6 @@ function definitionSourceStackContext(params) {
   return {
   card: params.card,
   sentence: params.sentence,
-  setup: params.setupSource?.(params.card) ?? "",
   sourceIds,
   grouped,
   dictionarySourceIds,
@@ -27180,7 +27173,7 @@ function isDefinitionSourceStackOptions(value, optionKeys) {
 }
 function renderDefinitionSourceSections(context, params) {
   let renderedDictionaries = false;
-  const sections = context.setup ? [context.setup] : [];
+  const sections = [];
   for (const sourceId of context.sourceIds) {
   const rendered = renderDefinitionSourceSection(sourceId, context, params, renderedDictionaries);
   if (rendered.renderedDictionaries) renderedDictionaries = true;
@@ -69927,7 +69920,6 @@ class ReaderApp {
   this.rtkInstance = value;
   }
   dictionaries = createLocalDictionaryStore(() => this.settings.corsProxyUrl, () => this.settings.interfaceLanguage);
-  localDictionarySetupNeeded = false;
   cardRenderData = new CardRenderDataLoader({
   getSettings: () => this.settings,
   dictionaries: this.dictionaries,
@@ -74479,11 +74471,7 @@ class ReaderApp {
   const renderData = context.loadRenderData();
   const renderState = { fullRenderCompleted: false };
   this.renderDeferredCardLocalEntries(popover, card, sentence, trigger, renderData, fallbackAnkiLookup, mounted, renderState, isCurrentHoverCard, anchor);
-  const [fullData, hasLocalTermDictionaries] = await Promise.all([
-    this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup),
-    this.parser.hasLocalTermDictionaries(true)
-  ]);
-  this.localDictionarySetupNeeded = this.settings.localDictionariesEnabled && !hasLocalTermDictionaries;
+  const fullData = await this.cardRenderDataOrFallback(card, renderData.all, fallbackAnkiLookup);
   renderState.fullRenderCompleted = true;
   if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
   this.renderCompletedCardPopover(popover, card, sentence, trigger, fullData, anchor);
@@ -75004,10 +74992,6 @@ class ReaderApp {
   void this.showKanjiCard(card, button.dataset.kanji ?? "", sentence, anchor, { preservePosition: true });
   }
   dispatchCardPopoverAction(button, card, sentence, anchor, trigger) {
-  if (button.dataset.action === "finish-dictionary-setup") {
-    this.showSettings("dictionaries");
-    return;
-  }
   if (this.handleCardPopoverNavigationAction(button, anchor, trigger)) return;
   if (this.handleCardPopoverMiningAction(button)) return;
   if (this.handleCardPopoverDeckPickerAction(button, card, sentence)) return;
@@ -75548,7 +75532,6 @@ class ReaderApp {
     bunproDefinitionInfo,
     extraSectionsOrOptions,
     jpdbLanguage: this.settings.interfaceLanguage,
-    setupSource: () => this.localDictionarySetupNeeded ? renderDictionarySetupNudge(this.settings.interfaceLanguage) : "",
     renderTranslationSource: (renderSentence) => this.studySources.renderTranslationSource(renderSentence),
     renderGrammarSource: (renderSentence) => this.studySources.renderGrammarSource(renderSentence),
     renderImmersionSource: () => renderDefinitionSourceImmersionMount(
