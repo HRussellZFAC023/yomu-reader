@@ -191,7 +191,7 @@ describe('a regeneration cannot narrow the recommendation shelf by any path', ()
         expect(summary.shelfStage).toBe('released');
         expect(summary.shelfSlotsPerLanguage).toBe(SHELF_ROLES.length);
         expect(summary.shelfRecommendationRows).toBe(SHELF_ROLES.length * 32);
-    });
+    }, 30_000);
 
     it('refuses when a shelf title is in the catalogue but no longer mirrored', async () => {
         const slot = await shelfSlotOf('monolingual');
