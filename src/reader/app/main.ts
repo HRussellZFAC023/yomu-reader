@@ -273,6 +273,7 @@ import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
 import { activeLearningTarget } from '../languages/target-runtime';
+import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { targetCanLookupCharacter, usesJapaneseProviders } from '../languages/character-lookup';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
@@ -1214,7 +1215,7 @@ export class ReaderApp {
             setSettings: settings => {
                 const previous = this.settings;
                 this.settings = settings;
-                this.cardLookup.syncTarget(settings);
+                this.syncCardLookupTarget(settings);
                 this.applyTheme();
                 this.stagePreferredJapaneseSiteLanguage(previous, settings);
             },
@@ -1351,7 +1352,7 @@ export class ReaderApp {
         if (this.isDestroyed) return null;
         this.factoryReset.bind();
         this.settings = startup.settings;
-        this.cardLookup.syncTarget(startup.settings);
+        this.syncCardLookupTarget(startup.settings);
         this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         this.pageHasJapaneseText = detectReaderStartupJapaneseText();
@@ -1527,7 +1528,7 @@ export class ReaderApp {
         const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
         this.pendingPreferredJapaneseSiteLanguage = undefined;
         this.settings = settings;
-        this.cardLookup.syncTarget(settings);
+        this.syncCardLookupTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
@@ -1541,6 +1542,11 @@ export class ReaderApp {
         this.scheduleDictionaryRescan();
         await this.refreshDictionaryStyles();
         dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings, remote: true }));
+    }
+
+    private syncCardLookupTarget(settings: ReaderSettings): void {
+        adoptLearningTargetFromSettings(settings);
+        this.cardLookup.syncTarget(settings);
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -3335,7 +3341,7 @@ export class ReaderApp {
         }, this.abortController.signal);
         addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
             if (!this.isDestroyed) {
-                this.cardLookup.syncTarget(this.settings);
+                this.syncCardLookupTarget(this.settings);
                 this.syncReaderRootLanguages();
             }
         }, { signal: abortSignal });
@@ -5572,8 +5578,9 @@ export class ReaderApp {
     private publicLookupFallbackCards(
         cards: readonly JPDBCard[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
+        scope = this.cardLookup.captureTarget(),
     ): Promise<Map<string, JPDBCard>> {
-        return this.cardLookup.publicLookupFallbackCards(cards, options);
+        return this.cardLookup.publicLookupFallbackCards(cards, options, scope);
     }
 
     private publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
@@ -5583,8 +5590,9 @@ export class ReaderApp {
     private lookupFallbackApiCard(
         card: JPDBCard,
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup'> = {},
+        scope = this.cardLookup.captureTarget(),
     ): Promise<JPDBCard | undefined> {
-        return this.cardLookup.lookupFallbackApiCard(card, options);
+        return this.cardLookup.lookupFallbackApiCard(card, options, scope);
     }
 
     private localLookupEntries(selected: string): Promise<YomitanTermEntry[]> {
@@ -8986,6 +8994,7 @@ export class ReaderApp {
         tokens: JPDBToken[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {},
     ): Promise<JPDBToken[]> {
+        const scope = this.cardLookup.captureTarget();
         const queuedTokens: JPDBToken[] = [];
         const fallbackGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
         const jitenGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
@@ -9006,22 +9015,21 @@ export class ReaderApp {
                 jitenGroups.set(key, group);
                 continue;
             }
-            {
-                queuedTokens.push(token);
-                continue;
-            }
+            queuedTokens.push(token);
+            continue;
         }
         if (!fallbackGroups.size && !jitenGroups.size) return queuedTokens;
 
         const resolved = new Map<string, JPDBCard>();
         const [fallbackCards, jitenCards] = await Promise.all([
             fallbackGroups.size
-                ? this.publicLookupFallbackCards([...fallbackGroups.values()].map(group => group.card), options)
+                ? this.publicLookupFallbackCards([...fallbackGroups.values()].map(group => group.card), options, scope)
                 : Promise.resolve(new Map<string, JPDBCard>()),
             jitenGroups.size
-                ? this.cardLookup.publicLookupHydratableJitenCards([...jitenGroups.values()].map(group => group.card))
+                ? this.cardLookup.publicLookupHydratableJitenCards([...jitenGroups.values()].map(group => group.card), scope)
                 : Promise.resolve(new Map<string, JPDBCard>()),
         ]);
+        if (!scope.isCurrent()) return [];
         fallbackCards.forEach((card, key) => resolved.set(key, card));
         // hydrateCards keys its results by its own vid:sid hydration key, NOT
         // by cardKey (vid:sid:spelling:reading) — re-key against each group's
@@ -9545,9 +9553,11 @@ export class ReaderApp {
 
     private async resolveRenderedFallbackVocabulary(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
         if (card.source !== 'fallback') return undefined;
+        const scope = this.cardLookup.captureTarget();
         const key = cardKey(card);
         if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) return undefined;
-        const publicCard = await this.lookupFallbackApiCard(card, options);
+        const publicCard = await this.lookupFallbackApiCard(card, options, scope);
+        if (!scope.isCurrent()) return undefined;
         if (!publicCard) {
             this.noteFallbackVocabularyMiss(key, []);
             return undefined;
@@ -9555,7 +9565,9 @@ export class ReaderApp {
         if (cardUsesPitchAccentPronunciation(publicCard)
             && !publicCard.pitchAccent.length
             && options.jpdbPublicLookup !== false) {
-            publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
+            const pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
+            if (!scope.isCurrent()) return undefined;
+            publicCard.pitchAccent = pitchAccent;
         }
         this.rememberResolvedFallbackVocabulary(card, publicCard);
         this.parser.cacheCards?.([publicCard]);
@@ -10270,8 +10282,8 @@ export class ReaderApp {
                 // would navigate away from a Japanese page the user chose.
                 const previous = this.settings;
                 this.settings = settings;
-                this.cardLookup.syncTarget(settings);
                 if (options?.transient) return;
+                this.syncCardLookupTarget(settings);
                 this.stagePreferredJapaneseSiteLanguage(previous, settings);
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
                 if (pauseChanged) this.applyAnnotationsPausedState();

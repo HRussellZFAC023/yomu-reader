@@ -146,7 +146,7 @@ export class ReaderCardLookupSession {
         const contextual = card.source === 'jpdb' && Boolean(card.sourceCardKey);
         if (card.source !== 'fallback' && !contextual) return card;
         const publicCard = card.source === 'fallback'
-            ? await this.lookupFallbackApiCard(card)
+            ? await this.lookupFallbackApiCard(card, {}, scope)
             : await this.publicLookupCard(card.spelling, true, contextual ? card.reading : '');
         if (!publicCard || !scope.isCurrent() || !usesJapaneseProviders()) return card;
         this.dependencies.parser().cacheCards([publicCard]);
@@ -170,14 +170,15 @@ export class ReaderCardLookupSession {
         readingOrOptions: string | { allowCandidateLookup?: boolean } = '',
         maybeOptions: { allowCandidateLookup?: boolean } = {},
     ): Promise<JPDBCard | undefined> {
-        if (!usesJapaneseProviders()) return undefined;
+        const scope = this.captureTarget();
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
         const request = publicLookupCardRequest(readingOrOptions, maybeOptions);
         if (!canSearchPublicLookupCard(this.dependencies.getSettings(), request.options)) return undefined;
         const cards = await this.dependencies.jpdbVocabulary().search(term, publicLookupSearchLimit(request.reading)).catch(error => {
             this.dependencies.log.warn('Public JPDB lookup failed', { term }, error);
             return [];
         });
-        return usesJapaneseProviders()
+        return scope.isCurrent() && usesJapaneseProviders()
             ? publicLookupCardFromResults(cards, term, exact, request.reading)
             : undefined;
     }
@@ -185,8 +186,9 @@ export class ReaderCardLookupSession {
     async publicLookupFallbackCards(
         cards: readonly JPDBCard[],
         options: PublicLookupOptions = {},
+        scope = this.captureTarget(),
     ): Promise<Map<string, JPDBCard>> {
-        if (!usesJapaneseProviders()) return new Map<string, JPDBCard>();
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return new Map<string, JPDBCard>();
         if (!canSearchPublicLookupCard(this.dependencies.getSettings(), {})) return new Map<string, JPDBCard>();
         // Keyed users resolve EVERY fallback term through one batched
         // reader/parse (full vocabulary in a single request, metered per-user) —
@@ -194,69 +196,89 @@ export class ReaderCardLookupSession {
         // Keyless keeps the public lookup (capped + cached) so it can no longer
         // fan out into the hundreds-of-requests storm.
         const resolved = await lookupPublicFallbackCards(cards, {
-            jitenApiActive: () => this.dependencies.isJitenApiActive(),
-            parse: terms => this.dependencies.jiten().parse(terms),
-            lookupMany: (terms, lookupOptions) => this.dependencies.jitenPublicVocabulary().lookupMany(
-                terms,
-                { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS },
-            ),
-            publicSpellingCard: term => this.publicLookupSpellingCard(term),
+            jitenApiActive: () => scope.isCurrent() && this.dependencies.isJitenApiActive(),
+            parse: terms => scope.isCurrent()
+                ? this.dependencies.jiten().parse(terms)
+                : Promise.resolve(terms.map(() => [])),
+            lookupMany: (terms, lookupOptions) => scope.isCurrent()
+                ? this.dependencies.jitenPublicVocabulary().lookupMany(
+                    terms,
+                    { ...lookupOptions, detailTimeoutMs: JITEN_BACKGROUND_DETAIL_TIMEOUT_MS },
+                )
+                : Promise.resolve(new Map()),
+            publicSpellingCard: term => scope.isCurrent()
+                ? this.publicLookupSpellingCard(term)
+                : Promise.resolve(undefined),
         }, {
             concurrency: BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
             termLimit: options.publicLookupTermLimit,
             jpdbPublicLookup: options.jpdbPublicLookup,
             detailLimit: publicJitenDetailLimit,
         });
-        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
+        return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
-    async publicLookupHydratableJitenCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
-        if (!usesJapaneseProviders() || !cards.length) return new Map<string, JPDBCard>();
+    async publicLookupHydratableJitenCards(
+        cards: readonly JPDBCard[],
+        scope = this.captureTarget(),
+    ): Promise<Map<string, JPDBCard>> {
+        if (!scope.isCurrent() || !usesJapaneseProviders() || !cards.length) return new Map<string, JPDBCard>();
         const resolved = await this.dependencies.jitenPublicVocabulary()
             .hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) })
             .catch(error => {
                 this.dependencies.log.warn('Jiten parsed-card hydration failed', { cards: cards.length }, error);
                 return new Map<string, JPDBCard>();
             });
-        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
+        return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     async publicJitenLookupCandidateCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
-        if (!usesJapaneseProviders()) return new Map<string, JPDBCard>();
+        const scope = this.captureTarget();
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return new Map<string, JPDBCard>();
         const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
         if (!uniqueTerms.length) return new Map<string, JPDBCard>();
         const resolved = await this.dependencies.jitenPublicVocabulary().lookupMany(uniqueTerms).catch(error => {
             this.dependencies.log.warn('Jiten candidate failed', { terms: uniqueTerms.length }, error);
             return new Map<string, JPDBCard>();
         });
-        return usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
+        return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
     async publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
-        if (!usesJapaneseProviders()) return undefined;
+        const scope = this.captureTarget();
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
         const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
         if (!uniqueTerms.length) return undefined;
         const jitenCards = await this.publicJitenLookupCandidateCards(uniqueTerms);
+        if (!scope.isCurrent()) return undefined;
         for (const term of uniqueTerms) {
             const card = jitenCards.get(normalizedJitenLookupKey(term));
             if (card && usesJapaneseProviders()) return card;
         }
         for (const term of uniqueTerms) {
             const card = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
+            if (!scope.isCurrent()) return undefined;
             if (card && usesJapaneseProviders()) return card;
         }
         return undefined;
     }
 
-    async lookupFallbackApiCard(card: JPDBCard, options: PublicLookupOptions = {}): Promise<JPDBCard | undefined> {
-        if (!this.dependencies.isJitenApiActive()) return this.publicLookupFallbackCard(card, options);
+    async lookupFallbackApiCard(
+        card: JPDBCard,
+        options: PublicLookupOptions = {},
+        scope = this.captureTarget(),
+    ): Promise<JPDBCard | undefined> {
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
+        if (!this.dependencies.isJitenApiActive()) return this.publicLookupFallbackCard(card, options, scope);
         try {
-            return await this.jitenLookupFallbackCard(card);
+            const resolved = await this.jitenLookupFallbackCard(card, scope);
+            return scope.isCurrent() ? resolved : undefined;
         } catch (error) {
             // Keyed Jiten transport is dead (hosted page: no GM bridge, no
             // configured proxy) — degrade to the keyless public lookup.
             if (!isMissingProxyTransportError(error)) throw error;
-            return this.publicLookupFallbackCard(card, options);
+            if (!scope.isCurrent()) return undefined;
+            return this.publicLookupFallbackCard(card, options, scope);
         }
     }
 
@@ -295,13 +317,22 @@ export class ReaderCardLookupSession {
         return cards.find(card => card.spelling === term);
     }
 
-    async publicLookupFallbackCard(card: JPDBCard, options: PublicLookupOptions = {}): Promise<JPDBCard | undefined> {
-        return (await this.publicLookupFallbackCards([card], options)).get(cardKey(card));
+    async publicLookupFallbackCard(
+        card: JPDBCard,
+        options: PublicLookupOptions = {},
+        scope = this.captureTarget(),
+    ): Promise<JPDBCard | undefined> {
+        return (await this.publicLookupFallbackCards([card], options, scope)).get(cardKey(card));
     }
 
-    async jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
+    async jitenLookupFallbackCard(
+        card: JPDBCard,
+        scope = this.captureTarget(),
+    ): Promise<JPDBCard | undefined> {
+        if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
         const terms = fallbackLookupTermsForCard(card);
         const cards = await batchJitenFallbackCards(terms, parseTerms => this.dependencies.jiten().parse(parseTerms));
+        if (!scope.isCurrent()) return undefined;
         for (const term of terms) {
             const candidate = cards.get(normalizedJitenLookupKey(term));
             if (candidate) return candidate;

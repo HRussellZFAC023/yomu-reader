@@ -26,7 +26,7 @@ import {
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { DictionarySourceStateController } from '../sources/state';
-import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
+import { escapeHtml, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { clearManagedBrowserCaches, ensureManagedWebStorageCurrent, unregisterManagedServiceWorkers } from '../app/storage';
@@ -77,6 +77,7 @@ import {
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import type { StudySessionClock } from './session-clock';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
@@ -95,11 +96,7 @@ import {
 } from '../popup/render';
 import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
-import {
-    targetCanLookupCharacter,
-    targetSupportsCharacterLookup,
-    usesJapaneseProviders,
-} from '../languages/character-lookup';
+import { targetCanLookupCharacter, targetSupportsCharacterLookup, usesJapaneseProviders } from '../languages/character-lookup';
 import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
@@ -984,7 +981,7 @@ export class NewTabRuntime {
 
     private async lookupText(text: string, reading = text, anchor?: HTMLElement, options: NewTabLookupDisplayOptions = {}): Promise<void> {
         const term = text.trim();
-        if (!HAS_JAPANESE.test(term)) return;
+        if (!isTargetLanguageText(term)) return;
         const lookupTarget = this.captureLookupTarget();
         const sentence = anchor?.dataset.sentence || term;
         const previousNavigationEntry = options.previousNavigationEntry
@@ -1896,7 +1893,7 @@ export class NewTabRuntime {
     }
 
     private lookupParsedWordWithoutCard(word: HTMLElement, expression: string): void {
-        if (!HAS_JAPANESE.test(expression)) return;
+        if (!isTargetLanguageText(expression)) return;
         void this.lookupText(expression, expression, word, {
             navigation: 'push-current',
             reuseActivePopover: true,
@@ -2245,6 +2242,7 @@ export class NewTabRuntime {
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
+        const target = this.captureLookupTarget();
         if (!usesJapaneseProviders() || !this.settings.showPitchAccent) return;
         // Public pitch enrichment is keyless — don't gate it on a JPDB API key, or
         // Jiten-only / no-key readers never get pitch underlines.
@@ -2257,9 +2255,9 @@ export class NewTabRuntime {
         );
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            if (!usesJapaneseProviders()) return;
+            if (!this.isCurrentLookupTarget(target) || !usesJapaneseProviders()) return;
             const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
-            if (!usesJapaneseProviders() || !pitchAccent.length) return;
+            if (!this.isCurrentLookupTarget(target) || !usesJapaneseProviders() || !pitchAccent.length) return;
             if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
             this.applyPitchAccentToRenderedWords(token.card);
         });
@@ -2270,6 +2268,7 @@ export class NewTabRuntime {
         limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT,
         options: { preserveMissingFallbacks?: boolean } = {},
     ): Promise<void> {
+        const target = this.captureLookupTarget();
         if (!usesJapaneseProviders() || (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent)) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
@@ -2277,7 +2276,7 @@ export class NewTabRuntime {
             limit,
         );
         const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map(token => token.card), { jpdbPublicLookup: false });
-        if (!usesJapaneseProviders()) return;
+        if (!this.isCurrentLookupTarget(target) || !usesJapaneseProviders()) return;
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
@@ -2561,6 +2560,7 @@ export class NewTabRuntime {
     }
 
     private async hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void> {
+        const target = this.captureLookupTarget();
         if (!usesJapaneseProviders()) return;
         const tokens = this.uniqueTokens(
             parsed.flat(),
@@ -2568,7 +2568,7 @@ export class NewTabRuntime {
             NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT,
         );
         const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card), { jpdbPublicLookup: false });
-        if (!usesJapaneseProviders()) return;
+        if (!this.isCurrentLookupTarget(target) || !usesJapaneseProviders()) return;
         await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) return;

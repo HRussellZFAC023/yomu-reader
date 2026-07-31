@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import {
+    activeLearningTargetGeneration,
     activeLearningTargetLanguage,
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
@@ -19,10 +20,11 @@ function settingsForTarget(targetLanguage: string): ReaderSettings {
     } as Partial<ReaderSettings>);
 }
 
-function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
+function deferred<T>(): { promise: Promise<T>; resolve(value: T): void; reject(error: unknown): void } {
     let resolve!: (value: T) => void;
-    const promise = new Promise<T>(done => { resolve = done; });
-    return { promise, resolve };
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+    return { promise, resolve, reject };
 }
 
 const CARD = { spelling: '猫', reading: 'ねこ', source: 'fallback' } as JPDBCard;
@@ -235,6 +237,212 @@ describe('lookup target generations', () => {
         app.destroy();
     });
 
+    it('drops fallback and background Jiten results after an away-and-back target switch', async () => {
+        const fallbackPending = deferred<JPDBToken[][]>();
+        const hydrationPending = deferred<Map<string, JPDBCard>>();
+        const resolved = { ...CARD, source: 'jiten' } as JPDBCard;
+        const app = new ReaderApp() as unknown as {
+            settings: ReaderSettings;
+            jiten: { parse(terms: string[]): Promise<JPDBToken[][]> };
+            jitenPublicVocabulary: {
+                lookupMany(): Promise<Map<string, JPDBCard>>;
+                hydrateCards(): Promise<Map<string, JPDBCard>>;
+            };
+            cardLookup: {
+                publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>>;
+                publicLookupHydratableJitenCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>>;
+            };
+            destroy(): void;
+        };
+        app.settings = { ...DEFAULT_SETTINGS, jitenApiKey: 'ak_test' };
+        const parse = vi.fn((_terms: string[]) => fallbackPending.promise);
+        app.jiten = { parse };
+        app.jitenPublicVocabulary = {
+            lookupMany: vi.fn(async () => new Map()),
+            hydrateCards: vi.fn(() => hydrationPending.promise),
+        };
+
+        const fallback = app.cardLookup.publicLookupFallbackCards([CARD]);
+        const hydration = app.cardLookup.publicLookupHydratableJitenCards([resolved]);
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        const terms = parse.mock.calls[0]?.[0] ?? [];
+        fallbackPending.resolve(terms.map(term => term === '猫' ? [{
+            card: resolved, start: 0, end: term.length, length: term.length,
+            rubies: [], pitchClass: 'unknown', sentence: term,
+        }] : []));
+        hydrationPending.resolve(new Map([['猫', resolved]]));
+
+        await expect(fallback).resolves.toEqual(new Map());
+        await expect(hydration).resolves.toEqual(new Map());
+        expect(parse).toHaveBeenCalledTimes(1);
+        app.destroy();
+    });
+
+    it('does not enter later fallback stages after the target generation becomes stale', async () => {
+        const candidatesPending = deferred<Map<string, JPDBCard>>();
+        const transportPending = deferred<JPDBToken[][]>();
+        const batchTransportPending = deferred<JPDBToken[][]>();
+        const app = new ReaderApp() as unknown as {
+            settings: ReaderSettings;
+            jiten: { parse(): Promise<JPDBToken[][]> };
+            jitenPublicVocabulary: { lookupMany(): Promise<Map<string, JPDBCard>> };
+            cardLookup: {
+                publicLookupCard(...args: unknown[]): Promise<JPDBCard | undefined>;
+                publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
+                lookupFallbackApiCard(card: JPDBCard): Promise<JPDBCard | undefined>;
+                publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>>;
+            };
+            destroy(): void;
+        };
+        app.settings = { ...DEFAULT_SETTINGS, jitenApiKey: 'ak_test' };
+        const lookupMany = vi.fn(() => candidatesPending.promise);
+        app.jitenPublicVocabulary = { lookupMany };
+        const publicLookupCard = vi.fn(async () => CARD);
+        app.cardLookup.publicLookupCard = publicLookupCard;
+
+        const candidate = app.cardLookup.publicLookupFirstCandidateTerm(['猫']);
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        candidatesPending.resolve(new Map());
+        await expect(candidate).resolves.toBeUndefined();
+        expect(publicLookupCard).not.toHaveBeenCalled();
+
+        const parse = vi.fn(() => transportPending.promise);
+        app.jiten = { parse };
+        const fallback = app.cardLookup.lookupFallbackApiCard(CARD);
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        transportPending.reject(new Error('No configured proxy.'));
+        await expect(fallback).resolves.toBeUndefined();
+        expect(lookupMany).toHaveBeenCalledTimes(1);
+
+        lookupMany.mockClear();
+        app.jiten = { parse: vi.fn(() => batchTransportPending.promise) };
+        const batch = app.cardLookup.publicLookupFallbackCards([CARD]);
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        batchTransportPending.reject(new Error('No configured proxy.'));
+        await expect(batch).resolves.toEqual(new Map());
+        expect(lookupMany).not.toHaveBeenCalled();
+        app.destroy();
+    });
+
+    it('does not record misses, cache cards, or mutate tokens from stale background resolution', async () => {
+        const pending = deferred<Map<string, JPDBCard>>();
+        const token = {
+            card: CARD, start: 0, end: 1, length: 1, rubies: [], pitchClass: 'unknown', sentence: '猫',
+        } as JPDBToken;
+        const noteFallbackVocabularyMiss = vi.fn();
+        const cacheCards = vi.fn();
+        const app = new ReaderApp() as unknown as {
+            publicLookupFallbackCards(): Promise<Map<string, JPDBCard>>;
+            resolvePublicFallbackPitchTokens(tokens: JPDBToken[], options: { urgent: boolean }): Promise<JPDBToken[]>;
+            noteFallbackVocabularyMiss(...args: unknown[]): void;
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            destroy(): void;
+        };
+        app.publicLookupFallbackCards = vi.fn(() => pending.promise);
+        app.noteFallbackVocabularyMiss = noteFallbackVocabularyMiss;
+        app.parser = { cacheCards };
+
+        const resolving = app.resolvePublicFallbackPitchTokens([token], { urgent: true });
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        pending.resolve(new Map());
+
+        await expect(resolving).resolves.toEqual([]);
+        expect(noteFallbackVocabularyMiss).not.toHaveBeenCalled();
+        expect(cacheCards).not.toHaveBeenCalled();
+        expect(token.card).toBe(CARD);
+        app.destroy();
+    });
+
+    it('does not remember a rendered fallback resolved under a stale target generation', async () => {
+        const pending = deferred<JPDBCard | undefined>();
+        const rememberResolvedFallbackVocabulary = vi.fn();
+        const cacheCards = vi.fn();
+        const app = new ReaderApp() as unknown as {
+            lookupFallbackApiCard(): Promise<JPDBCard | undefined>;
+            resolveRenderedFallbackVocabulary(card: JPDBCard, options: { urgent: boolean }): Promise<JPDBCard | undefined>;
+            rememberResolvedFallbackVocabulary(...args: unknown[]): void;
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            destroy(): void;
+        };
+        app.lookupFallbackApiCard = vi.fn(() => pending.promise);
+        app.rememberResolvedFallbackVocabulary = rememberResolvedFallbackVocabulary;
+        app.parser = { cacheCards };
+
+        const resolving = app.resolveRenderedFallbackVocabulary(CARD, { urgent: true });
+        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        pending.resolve({ ...CARD, source: 'jiten' } as JPDBCard);
+
+        await expect(resolving).resolves.toBeUndefined();
+        expect(rememberResolvedFallbackVocabulary).not.toHaveBeenCalled();
+        expect(cacheCards).not.toHaveBeenCalled();
+        app.destroy();
+    });
+
+    it('adopts remote target settings before synchronizing reader background work', async () => {
+        const styles = deferred<void>();
+        const observedTargets: string[] = [];
+        const app = new ReaderApp() as unknown as {
+            settings: ReaderSettings;
+            embeddedFrame: boolean;
+            cardLookup: { syncTarget(settings: ReaderSettings): void };
+            subtitles: { refresh(): void; destroy(): void };
+            ocr: { refresh(): void; destroy(): void };
+            youtube: { refresh(): void; destroy(): void };
+            applyPreferredJapaneseSiteLanguage(): void;
+            applyTheme(): void;
+            applyWordColors(): void;
+            clearBridgeBackedCaches(): void;
+            scheduleDictionaryRescan(): void;
+            refreshDictionaryStyles(): Promise<void>;
+            applyRemoteSettings(settings: ReaderSettings): Promise<void>;
+            destroy(): void;
+        };
+        app.settings = settingsForTarget('ja');
+        app.embeddedFrame = true;
+        app.cardLookup = { syncTarget: vi.fn(() => observedTargets.push(activeLearningTargetLanguage())) };
+        app.subtitles = { refresh: vi.fn(), destroy: vi.fn() };
+        app.ocr = { refresh: vi.fn(() => observedTargets.push(activeLearningTargetLanguage())), destroy: vi.fn() };
+        app.youtube = { refresh: vi.fn(), destroy: vi.fn() };
+        app.applyPreferredJapaneseSiteLanguage = vi.fn();
+        app.applyTheme = vi.fn();
+        app.applyWordColors = vi.fn();
+        app.clearBridgeBackedCaches = vi.fn();
+        app.scheduleDictionaryRescan = vi.fn();
+        app.refreshDictionaryStyles = vi.fn(() => styles.promise);
+
+        const applied = app.applyRemoteSettings(settingsForTarget('ko'));
+        expect(observedTargets).toEqual(['ko', 'ko']);
+        styles.resolve();
+        await applied;
+        app.destroy();
+    });
+
+    it('does not adopt a transient settings-dialog probe as the active target', () => {
+        const app = new ReaderApp() as unknown as {
+            settings: ReaderSettings;
+            getSettingsDialog(): { dependencies: {
+                setSettings(settings: ReaderSettings, options?: { transient?: boolean }): void;
+            } } | undefined;
+            destroy(): void;
+        };
+        app.settings = settingsForTarget('ja');
+        const dialog = app.getSettingsDialog();
+        expect(dialog).toBeDefined();
+        const generation = activeLearningTargetGeneration();
+
+        dialog!.dependencies.setSettings(settingsForTarget('ko'), { transient: true });
+
+        expect(activeLearningTargetLanguage()).toBe('ja');
+        expect(activeLearningTargetGeneration()).toBe(generation);
+        app.destroy();
+    });
+
     it('drops a New Tab text lookup resolved after the target changed away and back', async () => {
         const pending = deferred<JPDBCard>();
         const showLookupCard = vi.fn();
@@ -256,6 +464,34 @@ describe('lookup target generations', () => {
         await lookup;
 
         expect(showLookupCard).not.toHaveBeenCalled();
+        runtime.destroy();
+    });
+
+    it('resolves New Tab text lookups through the active non-Japanese target', async () => {
+        const koreanCard = { spelling: '한국어', reading: '한국어', source: 'local', language: 'ko' } as JPDBCard;
+        const showLookupCard = vi.fn();
+        const runtime = new NewTabRuntime() as unknown as {
+            settings: ReaderSettings;
+            lookupText(text: string): Promise<void>;
+            lookupCard(term: string, reading: string, target: unknown): Promise<JPDBCard>;
+            showLookupCard(...args: unknown[]): unknown;
+            syncLookupTarget(settings: ReaderSettings): void;
+            destroy(): void;
+        };
+        runtime.settings = settingsForTarget('ko');
+        runtime.syncLookupTarget(runtime.settings);
+        runtime.lookupCard = vi.fn(async () => koreanCard);
+        runtime.showLookupCard = showLookupCard;
+
+        await runtime.lookupText('한국어');
+
+        expect(runtime.lookupCard).toHaveBeenCalledWith('한국어', '한국어', expect.objectContaining({
+            language: 'ko',
+            target: expect.objectContaining({ language: 'ko' }),
+        }));
+        expect(showLookupCard).toHaveBeenCalledWith(koreanCard, '한국어', undefined, expect.objectContaining({
+            previousNavigationEntry: undefined,
+        }));
         runtime.destroy();
     });
 

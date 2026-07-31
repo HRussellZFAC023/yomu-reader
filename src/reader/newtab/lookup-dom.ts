@@ -1,8 +1,9 @@
 import type { AnkiLookupResult } from '../anki/index';
-import { escapeHtml, HAS_JAPANESE } from '../dom/index';
+import { escapeHtml } from '../dom/index';
 import { cardStateLabel } from '../app/i18n';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { ApiSrsProviderView } from '../cards/srs-providers';
+import { isTargetLanguageText } from '../lookup/target-text';
 import type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './controller';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 
@@ -98,7 +99,7 @@ export function lookupPopoverDictionaryLinkRequest(event: MouseEvent, popover: H
     const link = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a.gloss-link[data-dictionary-lookup]');
     if (!link || !popover.contains(link)) return undefined;
     const query = link.dataset.dictionaryLookup?.trim() ?? '';
-    if (!HAS_JAPANESE.test(query)) return undefined;
+    if (!isTargetLanguageText(query)) return undefined;
     consumeLookupPopoverButtonEvent(event);
     return {
         link,

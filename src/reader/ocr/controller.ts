@@ -1,5 +1,6 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
-import { captureOcrTargetContext, ocrFallbackCardFromText } from './target-context';
+import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetWork, ocrTargetWorkKey,
+    releaseOcrScan, type OcrTargetContext, type OcrTargetWork } from './target-context';
 import { ocrRuntimeActive } from './mode';
 import {
     DARK_REGION_TRIGGER,
@@ -117,11 +118,13 @@ interface ImageState {
     image: HTMLImageElement;
     overlay: HTMLElement;
     key: string;
+    target: OcrTargetContext;
     result?: OcrResult;
     loading: boolean;
     overlayRequested: boolean;
     manualRequested: boolean;
     autoSkipped: boolean;
+    scan?: symbol;
     /** The image's 'load' listener, removed when the state is torn down so a re-boot doesn't leak it. */
     loadListener?: () => void;
 }
@@ -304,6 +307,7 @@ function isOcrImageStateIdle(state: ImageState): boolean {
 interface OcrScanContext {
     provider: string;
     done: () => void;
+    token: symbol;
 }
 
 type OcrPositionPlan = [
@@ -327,17 +331,13 @@ function beginOcrScan(
     settings: ReaderSettings,
     manualRequested: boolean,
 ): OcrScanContext {
-    state.loading = true;
+    const token = claimOcrScan(state);
     const provider = inlineProviderLabel(settings);
     return {
         provider,
         done: log.time('scanImage', { provider, image: imageSummary(image), manualRequested }),
+        token,
     };
-}
-
-function finishOcrScan(state: ImageState): void {
-    state.loading = false;
-    state.manualRequested = false;
 }
 
 function renderNoOcrLines(state: ImageState): void {
@@ -745,6 +745,7 @@ export class ImageOcrController {
 
     private observeRefreshImage(image: HTMLImageElement, settings: ReaderSettings): void {
         const state = this.ensureState(image);
+        this.resetStateIfImageChanged(state);
         this.observer?.observe(image);
         if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
     }
@@ -886,7 +887,7 @@ export class ImageOcrController {
 
         this.mountOcrOverlayForImage(overlay, image);
 
-        const state: ImageState = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+        const state: ImageState = { image, overlay, key: imageCacheKey(image), target: captureOcrTargetContext(), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
         const loadListener = (): void => {
             this.resetStateIfImageChanged(state);
             this.schedulePosition();
@@ -911,6 +912,7 @@ export class ImageOcrController {
     private enqueue(image: HTMLImageElement, userRequested = false): void {
         if (isYouTubeThumbnailImage(image)) return;
         const state = this.states.get(image) ?? this.ensureState(image);
+        this.resetStateIfImageChanged(state);
         if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
         this.queueOcrRequest(image);
     }
@@ -930,7 +932,7 @@ export class ImageOcrController {
 
     private renderExistingOcrResult(state: ImageState, userRequested: boolean): boolean {
         if (!state.result) return false;
-        if (userRequested) void this.renderResult(state, state.result, true, state.key);
+        if (userRequested) void this.renderResult(state, state.result, true);
         return true;
     }
 
@@ -1025,13 +1027,11 @@ export class ImageOcrController {
         }
     }
 
-    // Pull the next queued image whose content is not already being scanned, so
-    // duplicate enqueues / re-snapshotted canvas frames don't fire redundant OCR
-    // calls (the cache fills them in once the in-flight scan resolves).
+    // Hold duplicate content until the in-flight scan fills its shared cache entry.
     private takeNextQueuedImage(): HTMLImageElement | undefined {
         for (let index = 0; index < this.queue.length; index++) {
             const candidate = this.queue[index];
-            if (this.inFlightJobs.has(imageCacheKey(candidate))) continue;
+            if (this.inFlightJobs.has(ocrTargetWorkKey(imageCacheKey(candidate)))) continue;
             this.queue.splice(index, 1);
             return candidate;
         }
@@ -1040,18 +1040,18 @@ export class ImageOcrController {
 
     private startScan(image: HTMLImageElement): void {
         if (this.destroyed) return;
-        const key = imageCacheKey(image);
+        const target = captureOcrTargetContext();
+        const work = ocrTargetWork(imageCacheKey(image), target);
+        const key = work.workKey;
         const job = Symbol(key);
         this.activeScans++;
         this.inFlightJobs.set(key, job);
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
-        // Canvas / background reader frames are dedicated manga pages where OCR is
-        // the entire point, so skip the 900ms batching idle that only earns its
-        // keep on incidental page images — the page is already on screen and waiting.
+        // Dedicated manga frames skip the idle used to batch incidental page images.
         const isReaderRasterFrame = this.isReaderRasterFrame(image);
-        const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
+        const delay = this.cache.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
         void waitForIdle(delay, delay)
-            .then(() => this.scanImage(image))
+            .then(() => this.scanImage(image, target))
             .catch(error => {
                 if (isStaleOcrState(error)) return;
                 log.warn('OCR scan task failed unexpectedly', {}, error);
@@ -1063,11 +1063,10 @@ export class ImageOcrController {
             });
     }
 
-    private async scanImage(image: HTMLImageElement): Promise<void> {
+    private async scanImage(image: HTMLImageElement, target = captureOcrTargetContext()): Promise<void> {
         if (this.destroyed) return;
-        // A pause landing during the batching idle must not resurrect the job:
-        // clear() already dropped its state, and ensureState below would
-        // otherwise re-create it and paint an overlay on a paused page.
+        target.requireCurrent(STALE_OCR_STATE);
+        // Do not let a job waiting in the batching idle resurrect state cleared by pause.
         if (!ocrRuntimeActive(this.options.getSettings())) return;
         const existingState = this.states.get(image);
         if (!image.isConnected) {
@@ -1078,54 +1077,55 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
-        const key = state.key;
-        if (await this.tryRenderCachedOcrResult(state, key)) return;
-        if (!this.isCurrentContentState(state, key)) return;
+        const work = ocrTargetWork(state.key, target);
+        if (await this.tryRenderCachedOcrResult(state, work)) return;
+        if (!this.isCurrentContentState(state, work.contentKey)) return;
 
         this.updateOcrStatus(image, 'loading');
         const scan = beginOcrScan(state, image, settings, manualRequested);
 
         try {
-            await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
+            await this.scanUncachedImage(state, image, work, settings, scan.provider, manualRequested);
         } catch (error) {
             if (isStaleOcrState(error)) return;
             try {
-                await this.renderOcrFailure(state, image, key, scan.provider, manualRequested, error);
+                await this.renderOcrFailure(state, image, work, scan.provider, manualRequested, error);
             } catch (renderError) {
                 if (isStaleOcrState(renderError)) return;
                 throw renderError;
             }
         } finally {
-            finishOcrScan(state);
+            releaseOcrScan(state, scan.token);
             scan.done();
         }
     }
 
-    private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
-        if (this.isReaderRasterFrame(state.image) && !state.manualRequested && this.readerRasterFailedScans.has(key)) {
-            this.requireCurrentContentState(state, key);
+    private async renderCachedOcrResult(state: ImageState, work: OcrTargetWork): Promise<boolean> {
+        work.target.requireCurrent(STALE_OCR_STATE);
+        if (this.isReaderRasterFrame(state.image) && !state.manualRequested && this.readerRasterFailedScans.has(work.workKey)) {
+            this.requireCurrentContentState(state, work.contentKey);
             this.renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'failed');
             state.manualRequested = false;
             return true;
         }
-        if (!this.cache.has(key)) return false;
+        if (!this.cache.has(work.cacheKey)) return false;
         if (this.shouldSuppressAutoRenderedResult(state, false)) {
             this.clearAutoScannedOverlays();
             return true;
         }
-        const cached = this.cache.get(key);
-        this.requireCurrentContentState(state, key);
+        const cached = this.cache.get(work.cacheKey);
+        this.requireCurrentContentState(state, work.contentKey);
         if (!cached) {
             if (this.isReaderRasterFrame(state.image)) {
-                const emptyScanKey = this.readerRasterEmptyScanKey(state, key);
+                const emptyScanKey = this.readerRasterEmptyScanKey(state, work);
                 if ((this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
                     this.renderNoOcrLines(state);
                     this.updateOcrStatus(state.image, 'empty');
                     state.manualRequested = false;
                     return true;
                 }
-                this.forget(key);
+                this.forget(work.cacheKey);
                 return false;
             }
             if (this.shouldPreserveReaderRasterResult(state)) return true;
@@ -1134,14 +1134,14 @@ export class ImageOcrController {
             state.manualRequested = false;
             return true;
         }
-        await this.renderResult(state, cached, false, key);
+        await this.renderResult(state, cached, false, work);
         state.manualRequested = false;
         return true;
     }
 
-    private async tryRenderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
+    private async tryRenderCachedOcrResult(state: ImageState, work: OcrTargetWork): Promise<boolean> {
         try {
-            return await this.renderCachedOcrResult(state, key);
+            return await this.renderCachedOcrResult(state, work);
         } catch (error) {
             if (isStaleOcrState(error)) return true;
             throw error;
@@ -1151,42 +1151,41 @@ export class ImageOcrController {
     private async scanUncachedImage(
         state: ImageState,
         image: HTMLImageElement,
-        key: string,
+        work: OcrTargetWork,
         settings: ReaderSettings,
         provider: string,
         manualRequested: boolean,
     ): Promise<void> {
         const inlineFallback = readFallbackOcrResult(image, false);
-        // Bound the whole provider attempt, including mobile canvas encoding and
-        // fallback transports. Individual HTTP timers do not cover a WebKit canvas
-        // encode whose callback never arrives, and the status must still converge.
+        // Bound canvas encoding plus fallback transports; an HTTP timer alone misses a hung WebKit encode.
         const providerResult = inlineFallback ? null : await promiseWithTimeout(
             this.recognizeImage(image, settings),
             ocrAttemptTimeoutMs(settings, this.options.ocrAttemptTimeoutFloorMs),
             'OCR timed out.',
         );
-        this.requireCurrentState(state);
+        work.target.requireCurrent(STALE_OCR_STATE);
+        this.requireCurrentContentState(state, work.contentKey);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
-            this.readerRasterFailedScans.delete(key);
-            this.clearReaderRasterProviderRetry(key);
+            this.readerRasterFailedScans.delete(work.workKey);
+            this.clearReaderRasterProviderRetry(work.workKey);
             if (this.shouldPreserveReaderRasterResult(state)) {
                 this.updateOcrStatus(image, 'ready');
                 return;
             }
             const readerRasterEmptyAttempts = this.isReaderRasterFrame(image)
-                ? this.recordReaderRasterEmptyScan(state, key, manualRequested)
+                ? this.recordReaderRasterEmptyScan(state, work, manualRequested)
                 : 0;
             if (this.isReaderRasterFrame(image)) {
                 if (!manualRequested && readerRasterEmptyAttempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) {
-                    this.remember(key, null);
+                    this.remember(work.cacheKey, null);
                 } else {
-                    this.forget(key);
+                    this.forget(work.cacheKey);
                 }
             } else {
-                this.remember(key, null);
+                this.remember(work.cacheKey, null);
             }
-            this.requireCurrentContentState(state, key);
+            this.requireCurrentContentState(state, work.contentKey);
             this.renderNoOcrLines(state);
             this.updateOcrStatus(
                 image,
@@ -1197,21 +1196,17 @@ export class ImageOcrController {
             return;
         }
 
-        this.remember(key, result);
-        this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state, key));
-        this.readerRasterFailedScans.delete(key);
-        this.clearReaderRasterProviderRetry(key);
-        this.requireCurrentContentState(state, key);
-        state.key = key;
-        // The page may have started providing its own native text layer while
-        // this auto scan was in flight (e.g. mokuro OCR toggled on). Keep the
-        // cached result but don't paint — the reader now defers to that layer.
-        // Manual scans and page-baked inline fallbacks always render regardless.
+        this.remember(work.cacheKey, result);
+        this.readerRasterEmptyScans.delete(this.readerRasterEmptyScanKey(state, work));
+        this.readerRasterFailedScans.delete(work.workKey);
+        this.clearReaderRasterProviderRetry(work.workKey);
+        this.requireCurrentContentState(state, work.contentKey);
+        // If a native text layer appeared mid-scan, cache the result without competing onscreen.
         if (this.shouldSuppressAutoRenderedResult(state, Boolean(inlineFallback), manualRequested)) {
             this.clearAutoScannedOverlays();
             return;
         }
-        await this.renderResult(state, result, false, key);
+        await this.renderResult(state, result, false, work);
         log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
     }
 
@@ -1231,27 +1226,28 @@ export class ImageOcrController {
     private async renderOcrFailure(
         state: ImageState,
         image: HTMLImageElement,
-        key: string,
+        work: OcrTargetWork,
         provider: string,
         manualRequested: boolean,
         error: unknown,
     ): Promise<void> {
-        this.requireCurrentContentState(state, key);
+        work.target.requireCurrent(STALE_OCR_STATE);
+        this.requireCurrentContentState(state, work.contentKey);
         const fallback = readFallbackOcrResult(image, false);
         if (fallback?.lines.length) {
             log.warn('OCR provider failed', { provider }, error);
-            this.readerRasterFailedScans.delete(key);
-            this.clearReaderRasterProviderRetry(key);
-            await this.renderResult(state, fallback, false, key);
+            this.readerRasterFailedScans.delete(work.workKey);
+            this.clearReaderRasterProviderRetry(work.workKey);
+            await this.renderResult(state, fallback, false, work);
             return;
         }
-        if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state, key, manualRequested, error)) {
+        if (this.isReaderRasterFrame(image) && this.scheduleReaderRasterProviderRetry(state, work, manualRequested, error)) {
             this.updateOcrStatus(image, 'loading');
             return;
         }
         if (this.isReaderRasterFrame(image)) {
-            this.clearReaderRasterProviderRetry(key);
-            this.rememberReaderRasterFailure(key);
+            this.clearReaderRasterProviderRetry(work.workKey);
+            this.rememberReaderRasterFailure(work.workKey);
         }
         logOcrFailure(state, provider, manualRequested, error);
         this.updateOcrStatus(image, 'failed');
@@ -1353,10 +1349,14 @@ export class ImageOcrController {
         if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = undefined;
     }
 
-    private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false, expectedKey = state.key): Promise<void> {
-        const target = captureOcrTargetContext();
-        this.requireCurrentContentState(state, expectedKey);
-        target.requireCurrent(STALE_OCR_STATE);
+    private async renderResult(
+        state: ImageState,
+        result: OcrResult,
+        forceOverlay = false,
+        work = ocrTargetWork(state.key),
+    ): Promise<void> {
+        this.requireCurrentContentState(state, work.contentKey);
+        work.target.requireCurrent(STALE_OCR_STATE);
         if (
             this.shouldPreserveReaderRasterResult(state)
             && state.overlay.querySelector('.jpdb-ocr-line')
@@ -1371,8 +1371,8 @@ export class ImageOcrController {
         const showText = this.shouldShowOcrTextOverlay(state, settings, forceOverlay);
 
         const initialParsed = await this.parseOcrLines(result.lines);
-        this.requireCurrentContentState(state, expectedKey);
-        target.requireCurrent(STALE_OCR_STATE);
+        this.requireCurrentContentState(state, work.contentKey);
+        work.target.requireCurrent(STALE_OCR_STATE);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         if (!lines.length) {
             if (this.shouldPreserveReaderRasterResult(state)) {
@@ -1386,8 +1386,8 @@ export class ImageOcrController {
         const parsed = ocrLinesChanged(result.lines, lines)
             ? await this.parseOcrLines(lines)
             : initialParsed;
-        this.requireCurrentContentState(state, expectedKey);
-        target.requireCurrent(STALE_OCR_STATE);
+        this.requireCurrentContentState(state, work.contentKey);
+        work.target.requireCurrent(STALE_OCR_STATE);
         const sentence = lines.map(line => line.text).join('\n');
         const vocabulary = ocrVocabularyCards(state.image);
         const fallbackCardFromText = ocrFallbackCardFromImage(
@@ -1401,8 +1401,8 @@ export class ImageOcrController {
         ));
         const flatTokens = renderedTokens.flat();
         await this.options.enrichTokensBeforeRender?.(flatTokens);
-        this.requireCurrentContentState(state, expectedKey);
-        target.requireCurrent(STALE_OCR_STATE);
+        this.requireCurrentContentState(state, work.contentKey);
+        work.target.requireCurrent(STALE_OCR_STATE);
         applyOcrOverlayStyle(state.overlay, settings);
 
         const lineElements = lines.map((line, index) => (
@@ -1650,9 +1650,11 @@ export class ImageOcrController {
 
     private resetStateIfImageChanged(state: ImageState): void {
         const key = imageCacheKey(state.image);
-        if (key === state.key) return;
-        const preserveReaderRasterResult = this.shouldPreserveReaderRasterResult(state);
+        const targetChanged = !state.target.isCurrent();
+        if (key === state.key && !targetChanged) return;
+        const preserveReaderRasterResult = !targetChanged && this.shouldPreserveReaderRasterResult(state);
         state.key = key;
+        state.target = captureOcrTargetContext();
         if (!preserveReaderRasterResult) state.result = undefined;
         state.loading = false;
         state.overlayRequested = false;
@@ -1673,62 +1675,60 @@ export class ImageOcrController {
         return this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
     }
 
-    private recordReaderRasterEmptyScan(state: ImageState, key: string, userRequested: boolean): number {
+    private recordReaderRasterEmptyScan(
+        state: ImageState,
+        work: OcrTargetWork,
+        userRequested: boolean,
+    ): number {
         if (!this.isReaderRasterFrame(state.image)) return 0;
-        const emptyScanKey = this.readerRasterEmptyScanKey(state, key);
+        const emptyScanKey = this.readerRasterEmptyScanKey(state, work);
         const attempts = (this.readerRasterEmptyScans.get(emptyScanKey) ?? 0) + 1;
         this.readerRasterEmptyScans.set(emptyScanKey, attempts);
         if (attempts >= READER_RASTER_MAX_EMPTY_SCAN_ATTEMPTS) return attempts;
         window.setTimeout(() => {
-            if (!this.isCurrentContentState(state, key)) return;
+            if (!work.target.isCurrent() || !this.isCurrentContentState(state, work.contentKey)) return;
             const canvas = this.canvasFrameSources.get(state.image);
             if (canvas && this.canvasFrameNeedsResnapshot(canvas)) {
                 this.releaseCanvasFrameForResnapshot(canvas);
                 this.scheduleReaderRasterRefresh(0);
                 return;
             }
-            // The captured page is already stable and decoded. Rebuilding that
-            // same frame here repeats mirror work and restarts the status cycle.
-            // A genuine repaint is still detected by the surface identity poll;
-            // an empty provider response should retry OCR on the current frame.
+            // Retry OCR on the stable frame; the surface poll separately detects real repaints.
             state.autoSkipped = false;
             this.enqueue(state.image, userRequested);
         }, READER_RASTER_EMPTY_RETRY_MS);
         return attempts;
     }
 
-    private readerRasterEmptyScanKey(state: ImageState, fallbackKey: string): string {
-        return state.image.dataset.ocrAttemptKey || fallbackKey;
+    private readerRasterEmptyScanKey(state: ImageState, work: OcrTargetWork): string {
+        const attemptKey = state.image.dataset.ocrAttemptKey;
+        return attemptKey ? work.target.workKey(attemptKey) : work.workKey;
     }
 
     private scheduleReaderRasterProviderRetry(
         state: ImageState,
-        key: string,
+        work: OcrTargetWork,
         userRequested: boolean,
         error: unknown,
     ): boolean {
-        // A timeout consumed the whole (30s-floor) attempt budget, so it signals a
-        // genuinely hung transport rather than a slow-but-working one. Give it one
-        // further attempt — a userscript-manager hiccup on iPad often clears on the
-        // next request — by charging it two attempt slots instead of one; sustained
-        // hangs still converge to the tappable failure state within a bounded time.
+        // A full-budget timeout gets one retry; charging two slots still converges quickly to failure.
         const attemptCost = isOcrRequestTimeout(error) ? 2 : 1;
-        const attempts = (this.readerRasterProviderFailures.get(key) ?? 0) + attemptCost;
-        this.readerRasterProviderFailures.set(key, attempts);
+        const attempts = (this.readerRasterProviderFailures.get(work.workKey) ?? 0) + attemptCost;
+        this.readerRasterProviderFailures.set(work.workKey, attempts);
         if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
 
         const delay = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
         log.warn('OCR provider failed transiently; retrying reader page', { attempt: attempts, delay }, error);
-        const previousTimer = this.readerRasterProviderRetryTimers.get(key);
+        const previousTimer = this.readerRasterProviderRetryTimers.get(work.workKey);
         if (previousTimer) window.clearTimeout(previousTimer);
         const timer = window.setTimeout(() => {
-            if (this.readerRasterProviderRetryTimers.get(key) !== timer) return;
-            this.readerRasterProviderRetryTimers.delete(key);
-            if (!this.isCurrentContentState(state, key)) return;
+            if (this.readerRasterProviderRetryTimers.get(work.workKey) !== timer) return;
+            this.readerRasterProviderRetryTimers.delete(work.workKey);
+            if (!work.target.isCurrent() || !this.isCurrentContentState(state, work.contentKey)) return;
             state.autoSkipped = false;
             this.enqueue(state.image, userRequested);
         }, delay);
-        this.readerRasterProviderRetryTimers.set(key, timer);
+        this.readerRasterProviderRetryTimers.set(work.workKey, timer);
         return true;
     }
 
@@ -3199,18 +3199,20 @@ export class ImageOcrController {
     }
 
     private retryReaderRasterImage(image: HTMLImageElement): void {
-        const key = imageCacheKey(image);
+        const target = captureOcrTargetContext();
+        const work = ocrTargetWork(imageCacheKey(image), target);
         const state = this.states.get(image);
-        const emptyScanKey = state ? this.readerRasterEmptyScanKey(state, state.key) : image.dataset.ocrAttemptKey;
-        if (state) this.forget(state.key);
-        this.forget(key);
-        this.readerRasterEmptyScans.delete(key);
-        if (state) this.readerRasterEmptyScans.delete(state.key);
+        const attemptKey = image.dataset.ocrAttemptKey;
+        const emptyScanKey = state ? this.readerRasterEmptyScanKey(state, work) : attemptKey && target.workKey(attemptKey);
+        if (state) this.forget(state.target.cacheKey(state.key));
+        this.forget(work.cacheKey);
+        this.readerRasterEmptyScans.delete(work.workKey);
+        if (state) this.readerRasterEmptyScans.delete(state.target.workKey(state.key));
         if (emptyScanKey) this.readerRasterEmptyScans.delete(emptyScanKey);
-        this.readerRasterFailedScans.delete(key);
-        if (state) this.readerRasterFailedScans.delete(state.key);
-        this.clearReaderRasterProviderRetry(key);
-        if (state && state.key !== key) this.clearReaderRasterProviderRetry(state.key);
+        this.readerRasterFailedScans.delete(work.workKey);
+        if (state) this.readerRasterFailedScans.delete(state.target.workKey(state.key));
+        this.clearReaderRasterProviderRetry(work.workKey);
+        if (state) this.clearReaderRasterProviderRetry(state.target.workKey(state.key));
         this.queue = this.queue.filter(queued => queued !== image);
         const settings = this.options.getSettings();
         const canvas = this.canvasFrameSources.get(image);
@@ -3522,17 +3524,13 @@ export class ImageOcrController {
 
     private forgetImageWork(image: HTMLImageElement, state?: ImageState): void {
         this.queue = this.queue.filter(queued => queued !== image);
-        this.cancelReaderRasterProviderRetryTimer(imageCacheKey(image));
-        if (state) this.cancelReaderRasterProviderRetryTimer(state.key);
+        this.cancelReaderRasterProviderRetryTimer(ocrTargetWorkKey(imageCacheKey(image)));
+        if (state) this.cancelReaderRasterProviderRetryTimer(state.target.workKey(state.key));
         this.removeImageStatusCard(image);
     }
 
     private isCurrentState(state: ImageState): boolean {
         return !this.destroyed && this.states.get(state.image) === state;
-    }
-
-    private requireCurrentState(state: ImageState): void {
-        if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
     }
 
     private isCurrentContentState(state: ImageState, key: string): boolean {

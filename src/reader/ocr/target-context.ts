@@ -8,18 +8,76 @@ import {
 import { normalizeFallbackTerm } from '../lookup/japanese-segments';
 
 export interface OcrTargetContext {
+    readonly generation: number;
+    cacheKey(contentKey: string): string;
+    workKey(contentKey: string): string;
+    isCurrent(): boolean;
     requireCurrent(staleState: unknown): void;
+}
+
+export interface OcrTargetWork {
+    readonly target: OcrTargetContext;
+    readonly contentKey: string;
+    readonly cacheKey: string;
+    readonly workKey: string;
+}
+
+interface OcrScanOwner {
+    scan?: symbol;
+    loading: boolean;
+    manualRequested: boolean;
+}
+
+export function claimOcrScan(owner: OcrScanOwner): symbol {
+    const token = Symbol('ocr-scan');
+    owner.scan = token;
+    owner.loading = true;
+    return token;
+}
+
+export function releaseOcrScan(owner: OcrScanOwner, token: symbol): void {
+    if (owner.scan !== token) return;
+    owner.scan = undefined;
+    owner.loading = false;
+    owner.manualRequested = false;
 }
 
 /** Captures the target identity shared by every async stage of one OCR render. */
 export function captureOcrTargetContext(): OcrTargetContext {
     const target = activeLearningTarget();
     const generation = activeLearningTargetGeneration();
+    const isCurrent = () => activeLearningTarget() === target
+        && activeLearningTargetGeneration() === generation;
     return {
+        generation,
+        cacheKey: contentKey => `${contentKey}\n@yomu-target:${target.language}`,
+        workKey: contentKey => `${contentKey}\n@yomu-target:${target.language}:${generation}`,
+        isCurrent,
         requireCurrent(staleState: unknown): void {
-            if (activeLearningTarget() !== target
-                || activeLearningTargetGeneration() !== generation) throw staleState;
+            if (!isCurrent()) throw staleState;
         },
+    };
+}
+
+/** Namespaces reusable OCR work by the target whose provider hint produced it. */
+export function ocrTargetCacheKey(contentKey: string): string {
+    return captureOcrTargetContext().cacheKey(contentKey);
+}
+
+export function ocrTargetWorkKey(contentKey: string): string {
+    return captureOcrTargetContext().workKey(contentKey);
+}
+
+/** Separates reusable per-language OCR results from one selection epoch's live work. */
+export function ocrTargetWork(
+    contentKey: string,
+    target = captureOcrTargetContext(),
+): OcrTargetWork {
+    return {
+        target,
+        contentKey,
+        cacheKey: target.cacheKey(contentKey),
+        workKey: target.workKey(contentKey),
     };
 }
 

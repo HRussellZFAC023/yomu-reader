@@ -66,19 +66,21 @@ export class NewTabTargetLookupResolver {
         cards: readonly JPDBCard[],
         options: { jpdbPublicLookup?: boolean } = {},
     ): Promise<Map<string, JPDBCard>> {
+        const target = this.dependencies.targetScope.capture();
+        const current = () => this.dependencies.targetScope.isCurrent(target) && usesJapaneseProviders();
         const settings = this.dependencies.getSettings();
-        if (!usesJapaneseProviders() || (!settings.jpdbDefinitionsEnabled && !settings.showPitchAccent)) return new Map();
+        if (!current() || (!settings.jpdbDefinitionsEnabled && !settings.showPitchAccent)) return new Map();
         const resolved = await publicLookupFallbackCards(cards, {
-            jitenApiActive: () => usesJapaneseProviders() && this.dependencies.isJitenApiActive(),
-            parse: terms => usesJapaneseProviders() ? this.dependencies.getJiten().parse(terms) : Promise.resolve(terms.map(() => [])),
-            lookupMany: terms => usesJapaneseProviders() ? this.dependencies.getJitenPublicVocabulary().lookupMany(terms) : Promise.resolve(new Map()),
+            jitenApiActive: () => current() && this.dependencies.isJitenApiActive(),
+            parse: terms => current() ? this.dependencies.getJiten().parse(terms) : Promise.resolve(terms.map(() => [])),
+            lookupMany: terms => current() ? this.dependencies.getJitenPublicVocabulary().lookupMany(terms) : Promise.resolve(new Map()),
             publicSpellingCard: async term => {
-                if (!usesJapaneseProviders()) return undefined;
+                if (!current()) return undefined;
                 const found = await this.dependencies.getJpdbVocabulary().search(term, 1).catch(error => {
                     this.dependencies.warnPublicSearch(term, error);
                     return [];
                 });
-                return usesJapaneseProviders()
+                return current()
                     ? found.find(candidate => candidate.spelling === term)
                     : undefined;
             },
@@ -86,7 +88,7 @@ export class NewTabTargetLookupResolver {
             concurrency: this.dependencies.publicFallbackConcurrency,
             jpdbPublicLookup: options.jpdbPublicLookup,
         });
-        return usesJapaneseProviders() ? resolved : new Map();
+        return current() ? resolved : new Map();
     }
 
     private publicFallbackCard(card: JPDBCard, options: { jpdbPublicLookup?: boolean }): Promise<JPDBCard | undefined> {

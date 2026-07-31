@@ -7,6 +7,7 @@ import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canva
 import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
+import { ocrTargetCacheKey } from '../../src/reader/ocr/target-context';
 import { waitForExpect } from './test-utils';
 
 const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
@@ -512,7 +513,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
             const contentKey = frame!.dataset.ocrContentKey!;
             const internals = controller as unknown as { cache: Map<string, OcrResult | null> };
             expect(contentKey).toMatch(/^cv:/);
-            expect(internals.cache.get(contentKey)).toBeNull();
+            expect(internals.cache.get(ocrTargetCacheKey(contentKey))).toBeNull();
         } finally {
             window.clearInterval(decodeFrames);
             controller.destroy();
@@ -1165,7 +1166,7 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             const contentKey = frame!.dataset.ocrContentKey!;
             expect(recognizeImage).toHaveBeenCalledTimes(3);
-            expect(internals.cache.get(contentKey)).toBeNull();
+            expect(internals.cache.get(ocrTargetCacheKey(contentKey))).toBeNull();
 
             await scanImage(frame!);
             expect(recognizeImage).toHaveBeenCalledTimes(3);
