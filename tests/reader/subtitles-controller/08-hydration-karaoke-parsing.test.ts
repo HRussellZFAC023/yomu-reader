@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { SubtitleParseOptions } from '../../../src/reader/subtitles/subtitle-parse-policy';
 import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
@@ -199,6 +200,89 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         }
     });
 
+    it('returns canonical enriched html to a late transcript warmup instead of repainting partial furigana', async () => {
+        const cue = { start: 0, end: 2, text: '悪口', transcriptEligible: true };
+        const cheapParse = deferred<JPDBToken[]>();
+        const enrichedParse = deferred<JPDBToken[]>();
+        const parseJapanese = vi.fn<[string, SubtitleParseOptions?], Promise<JPDBToken[]>>()
+            .mockImplementationOnce(() => cheapParse.promise)
+            .mockImplementationOnce(() => enrichedParse.promise);
+        const { settings, internals } = setupTranscriptCueController<typeof cue, {
+            parseProvisionalCueHtml: (
+                text: string,
+                settings: ReaderSettings,
+                key: string,
+                options: {
+                    authoritativeUpgrade?: boolean;
+                    enrichBeforeRender?: boolean;
+                    refreshProvisional?: boolean;
+                    requireEnrichedProvisional?: boolean;
+                },
+            ) => Promise<string>;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            hydrateTranscriptRows: (preferredIndex: number) => Promise<void>;
+            scheduleTranscriptCacheWarmup: () => void;
+            transcriptPanel: HTMLElement;
+            updateTranscriptRowsForParseKey: (
+                key: string,
+                html: string,
+                options: { provisional?: boolean; refreshProvisional?: boolean },
+            ) => void;
+        }>([cue], {
+            hooks: { parseJapanese },
+            selectedTrackId: 'youtube-0',
+            settings: {
+                subtitleTranscriptAutoScroll: false,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+                furiganaMode: 'all',
+            },
+        });
+        internals.hydrateTranscriptRows = async () => undefined;
+        internals.scheduleTranscriptCacheWarmup = () => undefined;
+        internals.openLinesPanel();
+        const key = internals.parseCacheKey(cue.text, settings);
+        const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text')!;
+
+        const cheapResult = internals.parseProvisionalCueHtml(cue.text, settings, key, {
+            authoritativeUpgrade: false,
+            enrichBeforeRender: false,
+        });
+        await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+        const enrichedResult = internals.parseProvisionalCueHtml(cue.text, settings, key, {
+            authoritativeUpgrade: false,
+            enrichBeforeRender: true,
+            refreshProvisional: true,
+            requireEnrichedProvisional: true,
+        });
+        await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+
+        enrichedParse.resolve([
+            makeSubtitleToken('悪口', {
+                reading: 'わるぐち',
+                rubies: [{ start: 0, end: 2, length: 2, text: 'わるぐち' }],
+            }),
+        ]);
+        const enriched = await enrichedResult;
+        internals.updateTranscriptRowsForParseKey(key, enriched, {
+            provisional: true,
+            refreshProvisional: true,
+        });
+        expect(row.querySelector('.jpdb-reader-furi')?.textContent).toBe('わるぐち');
+
+        cheapParse.resolve([makeSubtitleToken('悪口')]);
+        const late = await cheapResult;
+        expect(late).toBe(enriched);
+        internals.updateTranscriptRowsForParseKey(key, late, {
+            provisional: true,
+            refreshProvisional: true,
+        });
+
+        expect(row.dataset.parsedKey).toBe(key);
+        expect(row.querySelector('.jpdb-reader-furi')?.textContent).toBe('わるぐち');
+    });
+
     it('leaves a keyless cue re-hydratable while a fallback kanji word still lacks furigana, then marks it enriched once the reading resolves', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
@@ -343,6 +427,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             }
             await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
             expect(internals.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(true);
+            expect(Object.keys(sessionStorage).some(storageKey => storageKey.startsWith('yomu:subtitle-parse:v4:'))).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
@@ -1006,6 +1092,118 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(parsed[0]?.html).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.parsedHtmlCache.get(firstKey)).toContain('jpdb-known jpdb-pitch-heiban');
             expect(internals.htmlCache.provisionalParsedHtmlCache.has(firstKey)).toBe(false);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('returns the latest keyed cache winner when another authoritative batch item resolves later', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const secondParse = deferred<JPDBToken[][]>();
+        const parseJapaneseBatch = vi.fn((_texts: string[]) => secondParse.promise);
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: async () => [],
+            parseJapaneseBatch,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parseCueHtmlBatch: (
+                texts: string[],
+                settings: ReaderSettings,
+                options: { enrichBeforeRender: boolean; requireEnrichedProvisional: boolean },
+            ) => Promise<Array<{ key: string; html: string; provisional?: boolean }>>;
+            htmlCache: SubtitleParsedHtmlCache;
+        };
+        const firstKey = internals.parseCacheKey('一番', settings);
+        const oldFirstHtml = '<span class="jpdb-reader-word">old first</span>';
+        const latestFirstHtml = '<span class="jpdb-reader-word">latest first</span>';
+        internals.htmlCache.parsedHtmlCache.set(firstKey, oldFirstHtml);
+
+        const pending = internals.parseCueHtmlBatch(['一番', '二番'], settings, {
+            enrichBeforeRender: true,
+            requireEnrichedProvisional: true,
+        });
+        await vi.waitFor(() => expect(parseJapaneseBatch).toHaveBeenCalledTimes(1));
+        expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['二番']);
+        await Promise.resolve();
+        internals.htmlCache.parsedHtmlCache.set(firstKey, latestFirstHtml);
+        secondParse.resolve([[makeSubtitleToken('二番', { cardState: ['known'] })]]);
+
+        const parsed = await pending;
+
+        expect(parsed[0]).toEqual({ key: firstKey, html: latestFirstHtml });
+        expect(parsed[1]?.html).toContain('jpdb-reader-word');
+    });
+
+    it('keeps an enriched provisional transcript row retryable when the authoritative batch is empty', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=authoritative-empty-provisional') as unknown as Location,
+        });
+
+        try {
+            const cue = { start: 0, end: 2, text: '悪口', transcriptEligible: true };
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(() => [] as JPDBToken[]));
+            const { settings, internals } = setupTranscriptCueController<typeof cue, {
+                htmlCache: SubtitleParsedHtmlCache;
+                hydrateTranscriptRows: (preferredIndex: number) => Promise<void>;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                scheduleTranscriptCacheWarmup: () => void;
+                scheduleTranscriptHydration: () => void;
+            }>([cue], {
+                hooks: { parseJapaneseBatch },
+                selectedTrackId: 'youtube-0',
+                settings: {
+                    apiKey: 'test-key',
+                    furiganaMode: 'all',
+                    localDictionariesEnabled: false,
+                    subtitleTranscriptAutoScroll: false,
+                },
+            });
+            const key = internals.parseCacheKey(cue.text, settings);
+            const provisionalHtml = [
+                '<span class="jpdb-reader-word jpdb-reader-has-furi">',
+                '<ruby><span class="jpdb-reader-ruby-base">悪口</span><rt class="jpdb-reader-furi">わるぐち</rt></ruby>',
+                '</span>',
+            ].join('');
+            const provisionalToken = makeSubtitleToken(cue.text, {
+                reading: 'わるぐち',
+                rubies: [{ start: 0, end: 2, length: 2, text: 'わるぐち' }],
+            });
+            internals.htmlCache.rememberParsedCueHtml(key, provisionalHtml, [provisionalToken], {
+                provisional: true,
+                enriched: true,
+            });
+            // Drive hydration explicitly so transcript warmup cannot mask
+            // whether the authoritative-empty result leaves this row retryable.
+            internals.scheduleTranscriptHydration = () => undefined;
+            internals.scheduleTranscriptCacheWarmup = () => undefined;
+            internals.openLinesPanel();
+            const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text')!;
+            expect(row.dataset.parsedProvisional).toBe('true');
+            expect(row.querySelector('.jpdb-reader-furi')?.textContent).toBe('わるぐち');
+
+            await internals.hydrateTranscriptRows(0);
+
+            expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
+            expect(row.dataset.parsedProvisional).toBe('true');
+            expect(row.querySelector('.jpdb-reader-furi')?.textContent).toBe('わるぐち');
+
+            // No authoritative HTML won, so the provisional marker must make
+            // the next hydration retry instead of treating the row as final.
+            await internals.hydrateTranscriptRows(0);
+            expect(parseJapaneseBatch).toHaveBeenCalledTimes(2);
+            expect(row.dataset.parsedProvisional).toBe('true');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

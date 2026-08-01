@@ -49,17 +49,23 @@ const DIAGNOSTIC_CUES = [
         text: '先生は東京大学で日本語を勉強します。',
     },
     {
-        id: 'compound',
+        id: 'advance-readings',
         at: 5,
-        text: '申し訳ありませんが、仕事をしなければなりません。',
+        text: '私も彼らの悪口を言いたくない',
+        expectedRubyPairs: [
+            { surface: '私', reading: 'わたし' },
+            { surface: '彼', reading: 'かれ' },
+            { surface: '悪口', reading: 'わるぐち' },
+            { surface: '言', reading: 'い' },
+        ],
     },
     {
-        id: 'next-compound',
+        id: 'component-compound',
         at: 9,
-        text: '高速道路から国際空港へ向かいます。',
+        text: '申し訳ありませんが、仕事をしなければなりません。',
     },
 ];
-const RECORDED_DIAGNOSTIC_CUES = DIAGNOSTIC_CUES.slice(0, 2);
+const RECORDED_DIAGNOSTIC_CUES = NATURAL_PLAYBACK ? DIAGNOSTIC_CUES.slice(0, 2) : DIAGNOSTIC_CUES;
 const SMOKE_VTT = `WEBVTT
 
 00:00:00.000 --> 00:00:04.000
@@ -328,6 +334,18 @@ async function runViewport(viewport) {
         const returnedPath = join(ARTIFACT_DIR, `${viewport.name}-returned.png`);
         await page.screenshot({ path: returnedPath, fullPage: false });
         const returned = await collectEvidence(page, 'returned');
+
+        if (!NATURAL_PLAYBACK) {
+            // Keep the pre-existing inferred-component coverage without making
+            // the heavier compound the cold-start cue. The reported sentence
+            // remains the first prewarmed successor exercised through the
+            // fullscreen round trip above.
+            await markAnnotationPhase(page, 'post-return-compound');
+            await seekDiagnosticCue(page, DIAGNOSTIC_CUES[2]);
+            await waitForYomuSubtitle(page, errors, DIAGNOSTIC_CUES[2].text);
+            await waitForAnnotationReady(page, DIAGNOSTIC_CUES[2].text);
+            await page.waitForTimeout(500);
+        }
 
         const annotationTimeline = await finishAnnotationStabilityRecorder(page);
         if (NATURAL_PLAYBACK) await pauseDiagnosticPlayback(page);
@@ -745,18 +763,61 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
         );
         const paintedElement = element => {
             if (!(element instanceof HTMLElement) || !element.isConnected || element.hidden) return false;
-            const style = getComputedStyle(element);
-            if (style.display === 'none'
-                || style.visibility === 'hidden'
-                || style.visibility === 'collapse'
-                || Number.parseFloat(style.opacity || '1') <= 0) return false;
             const rect = element.getBoundingClientRect();
-            return rect.width > 0
-                && rect.height > 0
-                && rect.right > 0
-                && rect.bottom > 0
-                && rect.left < window.innerWidth
-                && rect.top < window.innerHeight;
+            let left = Math.max(0, rect.left);
+            let top = Math.max(0, rect.top);
+            let right = Math.min(window.innerWidth, rect.right);
+            let bottom = Math.min(window.innerHeight, rect.bottom);
+            for (let current = element; current; current = current.parentElement) {
+                const style = getComputedStyle(current);
+                if (style.display === 'none'
+                    || style.visibility === 'hidden'
+                    || style.visibility === 'collapse'
+                    || style.contentVisibility === 'hidden'
+                    || Number.parseFloat(style.opacity || '1') <= 0) return false;
+                if (current === element) {
+                    const fill = style.webkitTextFillColor || style.color;
+                    if (fill === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/u.test(fill)) return false;
+                }
+                if (current === element) continue;
+                const clipX = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowX);
+                const clipY = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowY);
+                if (!clipX && !clipY) continue;
+                const clip = current.getBoundingClientRect();
+                if (clipX) {
+                    left = Math.max(left, clip.left);
+                    right = Math.min(right, clip.right);
+                }
+                if (clipY) {
+                    top = Math.max(top, clip.top);
+                    bottom = Math.min(bottom, clip.bottom);
+                }
+            }
+            return right - left > 0.5 && bottom - top > 0.5;
+        };
+        const projectedReadingPainted = (reading, word) => {
+            if (!reading.classList.contains('jpdb-reader-detached-furi')) return false;
+            const expression = word.dataset.expression || word.dataset.surface || surfaceText(word);
+            const text = reading.textContent?.replace(/\s+/gu, '') ?? '';
+            return [...document.querySelectorAll('[data-yomu-projected-reading="true"]')].some(projected => (
+                projected instanceof HTMLElement
+                && projected.dataset.yomuExpression === expression
+                && (projected.textContent?.replace(/\s+/gu, '') ?? '') === text
+                && paintedElement(projected)
+            ));
+        };
+        const readingPainted = (reading, word) => paintedElement(reading) || projectedReadingPainted(reading, word);
+        const rubyReadingPairs = element => {
+            if (!(element instanceof HTMLElement)) return [];
+            return [...element.querySelectorAll('ruby, .jpdb-reader-detached-ruby')].flatMap(wrapper => {
+                const children = [...wrapper.children];
+                const base = children.find(child => child.classList.contains('jpdb-reader-ruby-base'));
+                const readings = children.filter(child => child.matches('rt.jpdb-reader-furi, .jpdb-reader-furi'));
+                if (!paintedElement(base) || !readings.length || readings.some(reading => !readingPainted(reading, element))) return [];
+                const surface = surfaceText(base);
+                const reading = readings.map(child => child.textContent?.replace(/\s+/gu, '') ?? '').join('');
+                return surface && reading ? [{ surface, reading }] : [];
+            });
         };
         const snapshot = timestamp => {
             const root = document.querySelector('.jpdb-subtitle-player');
@@ -780,11 +841,15 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
                     const componentGradient = getComputedStyle(word)
                         .getPropertyValue('--jpdb-reader-inline-pitch-gradient')
                         .trim();
+                    const readingNodes = [...word.querySelectorAll('rt.jpdb-reader-furi, .jpdb-reader-furi')];
+                    const paintedReadings = readingNodes.filter(reading => readingPainted(reading, word));
                     return {
                         surface: surfaceText(word),
-                        furi: [...word.querySelectorAll('rt.jpdb-reader-furi, .jpdb-reader-furi')]
+                        furi: paintedReadings
                             .map(node => node.textContent?.trim() ?? '')
                             .filter(Boolean),
+                        unpaintedFuriCount: readingNodes.length - paintedReadings.length,
+                        rubyPairs: rubyReadingPairs(word),
                         pitch: pitchClass(word),
                         pitchComponents: word.dataset.pitchComponents === 'true',
                         componentGradient,
@@ -792,7 +857,9 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
                     };
                 })
                 : [];
+            const rubyPairs = words.flatMap(word => word.rubyPairs);
             const furiCount = words.reduce((sum, word) => sum + word.furi.length, 0);
+            const unpaintedFuriCount = words.reduce((sum, word) => sum + word.unpaintedFuriCount, 0);
             const pitchKnownCount = words.filter(word => (
                 word.pitch || (word.pitchComponents && word.componentPaint && word.componentPaint !== 'none')
             )).length;
@@ -831,18 +898,21 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
                 loadingCount: primary?.querySelectorAll('.jpdb-subtitle-primary-loading').length ?? 0,
                 wordCount: words.length,
                 furiCount,
+                unpaintedFuriCount,
                 pitchKnownCount,
                 componentCount: words.filter(word => word.pitchComponents).length,
                 unpaintedComponentCount,
                 signature: JSON.stringify(words.map(word => [
                     word.surface,
                     word.furi,
+                    word.rubyPairs,
                     word.pitch,
                     word.pitchComponents,
                     word.componentGradient,
                     word.componentPaint,
                 ])),
                 words,
+                rubyPairs,
             };
         };
         const sample = timestamp => {
@@ -885,6 +955,7 @@ async function finishAnnotationStabilityRecorder(page) {
             || frame.loadingCount > 0
             || frame.wordCount === 0
             || frame.furiCount === 0
+            || frame.unpaintedFuriCount > 0
             || frame.pitchKnownCount === 0
             || frame.unpaintedComponentCount > 0
         ));
@@ -905,22 +976,60 @@ async function finishAnnotationStabilityRecorder(page) {
                     lastTime: times.at(-1) ?? null,
                 }];
             }));
+        const coversExpectedRubyPair = (pairs, expectedPair) => {
+            const wholeWordCoversExpectedPair = pair => {
+                if (pair.surface === expectedPair.surface && pair.reading === expectedPair.reading) return true;
+                if (!pair.surface.startsWith(expectedPair.surface)
+                    || !pair.reading.startsWith(expectedPair.reading)) return false;
+                const surfaceSuffix = pair.surface.slice(expectedPair.surface.length);
+                const readingSuffix = pair.reading.slice(expectedPair.reading.length);
+                return surfaceSuffix.length > 0
+                    && surfaceSuffix === readingSuffix
+                    && /^[ぁ-ゖァ-ヺー]+$/u.test(surfaceSuffix);
+            };
+            if (pairs.some(wholeWordCoversExpectedPair)) return true;
+            for (let start = 0; start < pairs.length; start++) {
+                let surface = '';
+                let reading = '';
+                for (let index = start; index < pairs.length; index++) {
+                    surface += pairs[index].surface;
+                    reading += pairs[index].reading;
+                    if (surface === expectedPair.surface && reading === expectedPair.reading) return true;
+                    if (surface.length >= expectedPair.surface.length || reading.length >= expectedPair.reading.length) break;
+                }
+            }
+            return false;
+        };
         const cueSummaries = cues.map(cue => {
             const cueFrames = stableFrames.filter(frame => compact(frame.surface) === compact(cue.text));
+            const expectedRubyPairs = Array.isArray(cue.expectedRubyPairs) ? cue.expectedRubyPairs : [];
+            const rubyPairMismatches = expectedRubyPairs.length
+                ? cueFrames.filter(frame => expectedRubyPairs.some(pair => !coversExpectedRubyPair(frame.rubyPairs, pair)))
+                : [];
             return {
                 id: cue.id,
                 text: cue.text,
+                expectedRubyPairs,
                 frameCount: cueFrames.length,
                 loadingFrames: cueFrames.filter(frame => frame.loadingCount > 0).length,
                 plainFrames: cueFrames.filter(frame => frame.wordCount === 0).length,
                 hiddenFrames: cueFrames.filter(frame => !frame.rootPainted || !frame.primaryPainted || frame.rootHidden || frame.rootOutOfView).length,
                 minWordCount: cueFrames.length ? Math.min(...cueFrames.map(frame => frame.wordCount)) : 0,
                 minFuriCount: cueFrames.length ? Math.min(...cueFrames.map(frame => frame.furiCount)) : 0,
+                unpaintedFuriFrames: cueFrames.filter(frame => frame.unpaintedFuriCount > 0).length,
                 minPitchKnownCount: cueFrames.length ? Math.min(...cueFrames.map(frame => frame.pitchKnownCount)) : 0,
                 maxComponentCount: cueFrames.length ? Math.max(...cueFrames.map(frame => frame.componentCount)) : 0,
                 unpaintedComponentFrames: cueFrames.filter(frame => frame.unpaintedComponentCount > 0).length,
                 signatures: [...new Set(cueFrames.map(frame => frame.signature))],
                 lastWords: cueFrames.at(-1)?.words ?? [],
+                lastRubyPairs: cueFrames.at(-1)?.rubyPairs ?? [],
+                rubyPairMismatchCount: rubyPairMismatches.length,
+                rubyPairMismatches: rubyPairMismatches.slice(0, 8).map(frame => ({
+                    frame: frame.frame,
+                    timestamp: frame.timestamp,
+                    phase: frame.phase,
+                    rubyPairs: frame.rubyPairs,
+                })),
             };
         });
         const changes = frames.filter((frame, index) => {
@@ -1410,8 +1519,16 @@ function assertAnnotationCueSummaries(result, timeline) {
         assert(cue.loadingFrames === 0, `${result.name}: ${cue.id} flashed a loading/plain subtitle`, cue);
         assert(cue.plainFrames === 0, `${result.name}: ${cue.id} appeared without reader-word annotation`, cue);
         assert(cue.hiddenFrames === 0, `${result.name}: ${cue.id} stayed in the DOM but was not visibly painted`, cue);
+        assert(cue.unpaintedFuriFrames === 0, `${result.name}: ${cue.id} kept furigana text in the DOM without painting it`, cue);
         assert(cue.unpaintedComponentFrames === 0, `${result.name}: ${cue.id} kept component metadata but lost its pitch paint`, cue);
         assert(cue.minWordCount > 0 && cue.minFuriCount > 0 && cue.minPitchKnownCount > 0, `${result.name}: ${cue.id} lost furigana or pitch annotation`, cue);
+        if (cue.expectedRubyPairs?.length) {
+            assert(cue.rubyPairMismatchCount === 0, `${result.name}: ${cue.id} did not preserve every expected reading`, {
+                expectedRubyPairs: cue.expectedRubyPairs,
+                lastRubyPairs: cue.lastRubyPairs,
+                mismatches: cue.rubyPairMismatches,
+            });
+        }
         assert(cue.signatures.length === 1, `${result.name}: ${cue.id} annotations changed after first paint`, {
             cue: cue.id,
             signatures: cue.signatures,
@@ -1422,18 +1539,14 @@ function assertAnnotationCueSummaries(result, timeline) {
 
 function assertStableModeAnnotations(result) {
     const stableModes = [result.normal, result.fullscreen, result.returned];
-    const expectedCompoundText = DIAGNOSTIC_CUES[1].text.replace(/\s+/gu, '');
+    const expectedSuccessorText = DIAGNOSTIC_CUES[1].text.replace(/\s+/gu, '');
     for (const evidence of stableModes) {
         if (NATURAL_PLAYBACK) {
             assert(evidence.videoPaused === false, `${result.name}: video was paused in ${evidence.mode} evidence`, evidence);
         }
-        assert(evidence.annotation?.surface === expectedCompoundText, `${result.name}: ${evidence.mode} did not preserve the compound cue`, evidence.annotation ?? {});
+        assert(evidence.annotation?.surface === expectedSuccessorText, `${result.name}: ${evidence.mode} did not preserve the successor cue`, evidence.annotation ?? {});
         assert(evidence.annotation?.loadingCount === 0, `${result.name}: ${evidence.mode} regressed to a loading subtitle`, evidence.annotation ?? {});
         assert(evidence.annotation?.wordCount > 0 && evidence.annotation?.furiCount > 0, `${result.name}: ${evidence.mode} lost word or furigana markup`, evidence.annotation ?? {});
-        const compound = evidence.annotation?.words?.find(word => word.surface.includes('申し訳'));
-        assert(compound?.pitchComponents, `${result.name}: ${evidence.mode} lost inferred compound metadata`, compound ?? {});
-        assert(compound?.componentGradient, `${result.name}: ${evidence.mode} lost the component gradient`, compound ?? {});
-        assert(compound?.componentPaint && compound.componentPaint !== 'none', `${result.name}: ${evidence.mode} did not paint the component gradient`, compound ?? {});
     }
 }
 
@@ -1450,9 +1563,10 @@ function assertNaturalPlaybackAdvance(result) {
 }
 
 function assertDiagnosticCompoundAnnotation(result) {
-    const normalWords = result.normal.annotation?.words ?? [];
-    const compound = normalWords.find(word => word.surface.includes('申し訳'));
-    assert(compound, `${result.name}: the diagnostic compound was not represented by a reader word`, { words: normalWords });
+    if (NATURAL_PLAYBACK) return;
+    const summary = result.annotationTimeline?.cueSummaries?.find(cue => cue.id === 'component-compound');
+    const compound = summary?.lastWords?.find(word => word.surface.includes('申し訳'));
+    assert(compound, `${result.name}: the diagnostic compound was not represented by a reader word`, { cue: summary });
     assert(compound.pitch || compound.pitchComponents, `${result.name}: 申し訳ありません had no pitch annotation`, compound);
     assert(compound.pitchComponents, `${result.name}: 申し訳ありません did not expose component pitch evidence`, compound);
     assert(compound.componentGradient, `${result.name}: component pitch had no inline gradient`, compound);

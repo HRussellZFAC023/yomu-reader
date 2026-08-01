@@ -10,6 +10,7 @@ const log = Logger.scope('PublicLookupFallback');
 interface FallbackLookupEntry {
     key: string;
     terms: string[];
+    validationTerms: string[];
 }
 
 export interface PublicLookupFallbackDeps {
@@ -44,6 +45,10 @@ function jitenFallbackCardMatchesTerm(term: string, card: JPDBCard): boolean {
         || normalizedJitenLookupKey(card.reading) === normalizedTerm;
 }
 
+function jitenFallbackCardMatchesEntry(entry: FallbackLookupEntry, card: JPDBCard): boolean {
+    return entry.validationTerms.some(term => jitenFallbackCardMatchesTerm(term, card));
+}
+
 function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
     const seen = new Set<string>();
     const entries: FallbackLookupEntry[] = [];
@@ -55,9 +60,24 @@ function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: num
         const terms = typeof termLimit === 'number'
             ? allTerms.slice(0, Math.max(card.spelling.endsWith('ながら') ? 2 : 1, Math.floor(termLimit)))
             : allTerms;
-        if (terms.length) entries.push({ key, terms });
+        if (terms.length) entries.push({ key, terms, validationTerms: allTerms });
     }
     return entries;
+}
+
+function fairFallbackLookupTerms(entries: readonly FallbackLookupEntry[]): string[] {
+    const terms: string[] = [];
+    const seen = new Set<string>();
+    const rounds = entries.reduce((maximum, entry) => Math.max(maximum, entry.terms.length), 0);
+    for (let candidateIndex = 0; candidateIndex < rounds; candidateIndex++) {
+        for (const entry of entries) {
+            const term = entry.terms[candidateIndex];
+            if (!term || seen.has(term)) continue;
+            seen.add(term);
+            terms.push(term);
+        }
+    }
+    return terms;
 }
 
 // Resolve fallback terms through Jiten with ZERO per-word requests: ALL terms
@@ -114,13 +134,7 @@ async function jitenFallbackCards(
     // lookupMany keys by its own whitespace-stripped normalization; re-key
     // here so a drift there can never silently miss.
     const cards = new Map<string, JPDBCard>();
-    // lookupMany intentionally supports partial suggestions for search UI,
-    // but fallback resolution needs an exact candidate. Otherwise a malformed
-    // candidate such as 訪る is keyed to the partial surname 訪 and wins before
-    // the real dictionary form 訪れる is considered.
-    loaded.forEach((card, term) => {
-        if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
-    });
+    loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
     return cards;
 }
 
@@ -138,12 +152,34 @@ export async function publicLookupFallbackCards(
     const entries = uniqueFallbackLookupEntries(cards, options.termLimit);
     if (!entries.length) return result;
 
-    const terms = [...new Set(entries.flatMap(entry => entry.terms))];
+    // Keyless Jiten hydrates only `detailLimit(entryCount)` terms. Interleave
+    // candidate ranks so every visible entry gets its first choice before an
+    // inflected entry can spend a second slot. Later rounds retain each entry's
+    // candidate order and global dedup keeps the request no larger than before.
+    const terms = fairFallbackLookupTerms(entries);
     const jitenCards = await jitenFallbackCards(terms, entries.length, deps, options);
     for (const entry of entries) {
+        let exactCard: JPDBCard | undefined;
         for (const term of entry.terms) {
             const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (!card) continue;
+            if (!card || !jitenFallbackCardMatchesTerm(term, card)) continue;
+            exactCard = card;
+            break;
+        }
+        if (exactCard) {
+            result.set(entry.key, exactCard);
+            continue;
+        }
+        // Keyless Jiten parses an inflected surface before hydrating it, so the
+        // returned card is its dictionary lemma rather than the lookup term
+        // (言いたくない -> 言う). Only after checking the whole bounded window
+        // for an exact hit, accept a lemma from this entry's full deinflection
+        // candidates. That keeps an early ambiguous parse from leapfrogging a
+        // later exact candidate. Unrelated partial parses still fail the entry
+        // check (訪る -> surname 訪).
+        for (const term of entry.terms) {
+            const card = jitenCards.get(normalizedJitenLookupKey(term));
+            if (!card || !jitenFallbackCardMatchesEntry(entry, card)) continue;
             result.set(entry.key, card);
             break;
         }

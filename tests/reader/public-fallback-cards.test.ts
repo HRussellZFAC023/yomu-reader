@@ -118,6 +118,95 @@ describe('publicLookupFallbackCards', () => {
         }
     });
 
+    it('gives every visible entry a first candidate before spending slots on later inflection candidates', async () => {
+        const inflected = fallbackCard({
+            vid: -1,
+            sid: -1,
+            spelling: '食べました',
+            fallbackLookupTerms: ['食べる', '食う'],
+        });
+        const sky = fallbackCard({ vid: -2, sid: -2, spelling: '青空' });
+        const badmouth = fallbackCard({ vid: -3, sid: -3, spelling: '悪口' });
+        const inflectedTerms = fallbackLookupTermsForCard(inflected);
+        expect(inflectedTerms).toHaveLength(3);
+        const resolved = new Map<string, JPDBCard>([
+            [inflectedTerms[0], jitenCard({ vid: 100, spelling: inflectedTerms[0], reading: 'たべる' })],
+            ['青空', jitenCard({ vid: 101, spelling: '青空', reading: 'あおぞら' })],
+            ['悪口', jitenCard({ vid: 102, spelling: '悪口', reading: 'わるぐち' })],
+        ]);
+        const lookupMany = vi.fn(async (terms: string[], options?: { detailLimit?: number }) => new Map(
+            terms.slice(0, options?.detailLimit).flatMap(term => {
+                const card = resolved.get(term);
+                return card ? [[term, card] as const] : [];
+            }),
+        ));
+
+        const result = await publicLookupFallbackCards(
+            [inflected, sky, badmouth],
+            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
+            { concurrency: 2, detailLimit: count => count, jpdbPublicLookup: false },
+        );
+
+        expect(lookupMany).toHaveBeenCalledWith([
+            inflectedTerms[0],
+            '青空',
+            '悪口',
+            inflectedTerms[1],
+            inflectedTerms[2],
+        ], { detailLimit: 3 });
+        expect(result.get(cardKey(inflected))).toBe(resolved.get(inflectedTerms[0]));
+        expect(result.get(cardKey(sky))).toBe(resolved.get('青空'));
+        expect(result.get(cardKey(badmouth))).toBe(resolved.get('悪口'));
+    });
+
+    it('uses later validated lemmas without spending the next visible word\'s detail slot', async () => {
+        const reported = [
+            fallbackCard({ vid: -1, sid: -1, spelling: '私' }),
+            fallbackCard({ vid: -2, sid: -2, spelling: '彼ら' }),
+            fallbackCard({ vid: -3, sid: -3, spelling: '悪口' }),
+            fallbackCard({
+                vid: -4,
+                sid: -4,
+                spelling: '言いたくない',
+                fallbackLookupTerms: ['言いたくなう', '言いたくる', '言いる', '言う', '言いたう', '言いたい'],
+            }),
+        ];
+        const resolved = new Map<string, JPDBCard>([
+            ['私', jitenCard({ vid: 1311110, spelling: '私', reading: 'わたし' })],
+            ['彼ら', jitenCard({ vid: 1483090, spelling: '彼ら', reading: 'かれら' })],
+            ['悪口', jitenCard({ vid: 1575730, spelling: '悪口', reading: 'わるぐち' })],
+            // Jiten parses the whole inflected surface, then its detail endpoint
+            // returns the dictionary card. The lemma is a validated fallback
+            // candidate, but is later than the three-term subtitle lookup cap.
+            ['言いたくない', jitenCard({ vid: 1587040, spelling: '言う', reading: 'いう' })],
+        ]);
+        const lookupMany = vi.fn(async (terms: string[], options?: { detailLimit?: number }) => new Map(
+            terms.slice(0, options?.detailLimit).flatMap(term => {
+                const card = resolved.get(term);
+                return card ? [[term, card] as const] : [];
+            }),
+        ));
+
+        const result = await publicLookupFallbackCards(
+            reported,
+            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
+            { concurrency: 2, termLimit: 3, detailLimit: count => count, jpdbPublicLookup: false },
+        );
+
+        expect(lookupMany).toHaveBeenCalledWith([
+            '私',
+            '彼ら',
+            '悪口',
+            '言いたくない',
+            '言いたくなう',
+            '言いたくる',
+        ], { detailLimit: 4 });
+        expect(result.get(cardKey(reported[0]))?.reading).toBe('わたし');
+        expect(result.get(cardKey(reported[1]))?.reading).toBe('かれら');
+        expect(result.get(cardKey(reported[2]))?.reading).toBe('わるぐち');
+        expect(result.get(cardKey(reported[3]))?.spelling).toBe('言う');
+    });
+
     it('keeps exact nouns ahead of ambiguous continuative-stem verbs', async () => {
         const movement = fallbackCard({ vid: -1, sid: -1, spelling: '動き', fallbackLookupTerms: ['動く'] });
         const listening = fallbackCard({ vid: -2, sid: -2, spelling: '聞き', fallbackLookupTerms: ['聞く'] });
@@ -137,9 +226,43 @@ describe('publicLookupFallbackCards', () => {
             { concurrency: 2, jpdbPublicLookup: false },
         );
 
-        expect(lookupMany).toHaveBeenCalledWith(['動き', '動く', '聞き', '聞く'], undefined);
+        expect(lookupMany).toHaveBeenCalledWith(['動き', '聞き', '動く', '聞く'], undefined);
         expect(result.get(cardKey(movement))).toBe(movementNoun);
         expect(result.get(cardKey(listening))).toBe(listeningVerb);
+    });
+
+    it('prefers a later exact candidate over an earlier entry-wide lemma match', async () => {
+        const card = fallbackCard({
+            vid: -1,
+            sid: -1,
+            spelling: '対象',
+            fallbackLookupTerms: ['先候補', '本命'],
+        });
+        const inferredFromEarlierCandidate = jitenCard({
+            vid: 10,
+            spelling: '本命',
+            reading: 'ほんめい',
+            meanings: [{ glosses: ['inferred'], partOfSpeech: [] }],
+        });
+        const exactLaterCandidate = jitenCard({
+            vid: 11,
+            spelling: '本命',
+            reading: 'ほんめい',
+            meanings: [{ glosses: ['exact'], partOfSpeech: [] }],
+        });
+        const lookupMany = vi.fn(async () => new Map<string, JPDBCard>([
+            ['先候補', inferredFromEarlierCandidate],
+            ['本命', exactLaterCandidate],
+        ]));
+
+        const result = await publicLookupFallbackCards(
+            [card],
+            keylessDeps({ lookupMany, publicSpellingCard: noPublicSweep() }),
+            { concurrency: 2, termLimit: 3, jpdbPublicLookup: false },
+        );
+
+        expect(lookupMany).toHaveBeenCalledWith(['先候補', '本命', '対象'], undefined);
+        expect(result.get(cardKey(card))).toBe(exactLaterCandidate);
     });
 
     it('rejects a partial surname hit and continues to the real inflected lemma', async () => {

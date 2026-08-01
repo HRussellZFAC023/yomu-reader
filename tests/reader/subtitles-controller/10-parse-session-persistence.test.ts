@@ -34,7 +34,8 @@ describe('subtitle parse session persistence (UT-48)', () => {
         };
         const html = await firstInternals.parseCueHtml('読む', settings, { allowProvisional: false });
         expect(html).toContain('jpdb-reader-word');
-        expect(Object.keys(sessionStorage).some(key => key.startsWith('yomu:subtitle-parse:'))).toBe(true);
+        const storedKey = Object.keys(sessionStorage).find(key => key.startsWith('yomu:subtitle-parse:v4:'));
+        expect(storedKey).toBeDefined();
 
         const secondParse = vi.fn(async () => [token]);
         const second = new SubtitlePlayerController({
@@ -48,6 +49,24 @@ describe('subtitle parse session persistence (UT-48)', () => {
         const restored = await secondInternals.parseCueHtml('読む', settings, { allowProvisional: false });
         expect(restored).toBe(html);
         expect(secondParse).not.toHaveBeenCalled();
+
+        // v3 could contain HTML cached before provisional parse quality became
+        // monotonic. Moving the same payload under that legacy prefix must not
+        // restore it and mask the fixed parser for the remainder of the TTL.
+        const storedValue = sessionStorage.getItem(storedKey!);
+        sessionStorage.removeItem(storedKey!);
+        sessionStorage.setItem(storedKey!.replace('subtitle-parse:v4:', 'subtitle-parse:v3:'), storedValue!);
+        const thirdParse = vi.fn(async () => [token]);
+        const third = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese: thirdParse,
+            onSettingsChange: () => undefined,
+        });
+        const thirdInternals = third as unknown as {
+            parseCueHtml(text: string, settings?: unknown, options?: { allowProvisional?: boolean }): Promise<string>;
+        };
+        await expect(thirdInternals.parseCueHtml('読む', settings, { allowProvisional: false })).resolves.toBe(html);
+        expect(thirdParse).toHaveBeenCalledTimes(1);
         sessionStorage.clear();
     });
 });

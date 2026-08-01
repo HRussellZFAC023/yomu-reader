@@ -9,7 +9,7 @@ import {
 // Session-storage persistence for parsed cue html: parsed ruby survives a
 // reload of the same video/session. Keys are hashed so the raw parse key (which
 // embeds the full cue text) never lands verbatim in storage.
-const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v3:';
+const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v4:';
 const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function subtitleSessionParseHash(key: string): string {
@@ -43,6 +43,11 @@ export interface SubtitleParsedHtmlCacheDeps {
     shouldParseSubtitles(): boolean;
     hasAuthoritativeParseTier(settings?: ReaderSettings): boolean;
     transcriptRowCount(): number;
+}
+
+export interface SubtitleParsedCueHtmlWriteResult {
+    html: string;
+    provisional: boolean;
 }
 
 // Parsed subtitle/transcript HTML caching extracted from the controller: owns
@@ -131,9 +136,26 @@ export class SubtitleParsedHtmlCache {
         return false;
     }
 
-    rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): void {
-        if (!this.deps.shouldParseSubtitles()) return;
-        if (parsedSubtitleHtmlHasReaderWords(html)) {
+    rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): SubtitleParsedCueHtmlWriteResult {
+        const provisional = options.provisional === true;
+        if (!this.deps.shouldParseSubtitles()) return { html, provisional };
+        const existingAuthoritative = this.parsedHtmlCache.get(key);
+        const existingProvisional = this.provisionalParsedHtmlCache.get(key);
+        const incomingHasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
+
+        // Every parse consumer receives the cache's canonical HTML, not
+        // necessarily the result of the promise it happened to await. This is
+        // what makes overlap-safe storage useful to the live overlay and
+        // transcript too: a late cheap/empty parse cannot be returned and
+        // painted after richer work already won the key.
+        if ((provisional || !incomingHasReaderWords) && existingAuthoritative) {
+            return { html: existingAuthoritative, provisional: false };
+        }
+        if (existingProvisional && (!incomingHasReaderWords
+            || (provisional && !options.enriched && this.enrichedProvisionalParsedHtmlKeys.has(key)))) {
+            return { html: existingProvisional, provisional: true };
+        }
+        if (incomingHasReaderWords) {
             if (options.provisional) {
                 this.provisionalParsedHtmlCache.set(key, html);
                 if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
@@ -147,10 +169,14 @@ export class SubtitleParsedHtmlCache {
             // UT-48: refreshing the page must keep parsed ruby. Keyless cheap
             // warmup is provisional-only; persist it only after visible
             // enrichment has rebaked furigana/pitch into the HTML.
-            if (!options.provisional || (!this.deps.hasAuthoritativeParseTier() && options.enriched)) this.persistSessionParsedCueHtml(key, html);
+            if (this.tokensFullyEnriched(tokens)
+                && (!options.provisional || (!this.deps.hasAuthoritativeParseTier() && options.enriched))) {
+                this.persistSessionParsedCueHtml(key, html);
+            }
             this.emptyParsedHtmlCache.delete(key);
             if (tokens.length) this.parsedTokenCache.set(key, tokens);
             this.pruneParsedSubtitleCaches();
+            return { html, provisional };
         } else {
             // Provisional empties are cached too: keyless they ARE the final
             // tier (re-parsing every tick rendered word-less cues as a
@@ -158,6 +184,7 @@ export class SubtitleParsedHtmlCache {
             // already in flight and overwrites this entry when it lands.
             this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
             this.pruneParsedSubtitleCaches();
+            return { html, provisional };
         }
     }
 
