@@ -1284,11 +1284,17 @@ export class YomitanDictionaryStore {
             : storeName === 'termMeta'
                 ? entries.map(entry => normalizeImportedLookupMeta(entry as YomitanMetaEntry) as T)
             : entries;
+        // The factory-reset epoch fence belongs at the IMPORT ENTRY POINTS, which
+        // already carry it (importFile / importFromUrl / importZip / importJson). It
+        // was also re-checked here, first thing inside the batch loop, so a reset
+        // landing mid-import threw between two IndexedDB writes and left a
+        // half-written dictionary with no rollback -- worse than either finishing or
+        // refusing. Checked once before the first write instead.
+        await assertManagedStateMutationAllowed();
         const db = await this.db();
         if (storeName === 'terms' && clearTermIndexes) await this.clearDerivedTermIndexes(db);
         let written = 0;
         for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
-            await assertManagedStateMutationAllowed();
             const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
             await this.addStoreChunk(db, storeName, chunk, put);
             written += chunk.length;

@@ -81,7 +81,7 @@ import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
-import { userFacingError, userFacingErrorText } from '../app/user-facing-errors';
+import { isUserFacingError, userFacingCopyKeyOf, userFacingError, userFacingErrorText } from '../app/user-facing-errors';
 import {
     isLearningTargetRosterId,
     learningTargetRosterEntry,
@@ -2672,6 +2672,12 @@ export class SettingsDialogController {
     ): null {
         control?.removeAttribute('disabled');
         if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
+            // Re-throw an error that already knows what it is. Wrapping it in
+            // `dictionaryDownloadFailed` collapsed at least six distinct failures --
+            // a non-2xx, a non-ZIP payload, a timeout, a blocked cross-origin
+            // request, an integrity mismatch and an IndexedDB fault -- into one
+            // sentence, which is why GitHub #39 arrived with nothing to act on.
+            if (isUserFacingError(error)) throw error;
             throw userFacingError('dictionaryDownloadFailed', {
                 cause: error,
                 diagnostic: error instanceof Error ? error.message : String(error),
@@ -2685,26 +2691,24 @@ export class SettingsDialogController {
         return null;
     }
 
+    /**
+     * Whether to offer "import the ZIP by hand" instead of failing outright.
+     *
+     * This used to substring-match `error.message` against fifteen hints such as
+     * 'blocked in this browser' and 'request bridge'. Not one of the five real
+     * strings contains any of them -- the copy says 'Download blocked.' and
+     * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
+     * false and the manual-import recovery, written for exactly the case where a
+     * userscript manager refuses the request, could never reach anyone (GitHub #39).
+     *
+     * Matching rendered COPY is the defect: it is localized, it gets shortened for
+     * width, and neither change touches this file. The copy KEY is stable, so that
+     * is what this reads.
+     */
     private shouldPromptManualDictionaryDownload(error: unknown, downloadUrl: string): boolean {
-        const message = String((error as Error | undefined)?.message ?? '').toLowerCase();
-        const manualDownloadHints = [
-            'blocked in this browser',
-            'cross-site',
-            'request bridge',
-            'request bridge is unavailable',
-            'userscript bridge',
-            'needs the yomu userscript',
-            'needs yomu userscript',
-            'need the yomu userscript',
-            'needs the userscript',
-            'user script request',
-            'userscript request',
-            'ブロック',
-            'リクエストブリッジ',
-            'ユーザースクリプト',
-        ];
-        return Boolean(downloadUrl.startsWith('http://') || downloadUrl.startsWith('https://'))
-            && manualDownloadHints.some(hint => message.includes(hint));
+        if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) return false;
+        const copyKey = userFacingCopyKeyOf(error);
+        return copyKey === 'dictionaryDownloadBlocked' || copyKey === 'dictionaryDownloadNeedsBridge';
     }
 
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {

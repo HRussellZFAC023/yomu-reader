@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.2986e157651b.user.js#sha256=KYbhV2UbZAbO9flHkCYfuMKeXR92FZZg4MTXtNoeQEQ=
+// @require https://yomureader.com/greasyfork/yomu-runtime.90c7fcd4d653.user.js#sha256=kMf81NZTQZTKv/aihSzSBUwoq5Q9JovxJXKUEljAPL8=
 // @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -15068,10 +15068,13 @@ function userFacingErrorText(language, fallbackKey, error) {
   const message = uiText(language, copyKey);
   return typeof message === "string" ? message : uiText(language, fallbackKey);
 }
-function userFacingCopyKey(error) {
+function userFacingCopyKeyOf(error) {
   if (!error || typeof error !== "object") return void 0;
   const copyKey = error.yomuUiCopyKey;
   return typeof copyKey === "string" ? copyKey : void 0;
+}
+function userFacingCopyKey(error) {
+  return userFacingCopyKeyOf(error);
 }
 function renderDeckChoiceOptions(settings, jpdbDecks, ankiDecks, optionsOrIncludeJpdb = {}) {
   const renderOptions = normalizeDeckChoiceRenderOptions(optionsOrIncludeJpdb);

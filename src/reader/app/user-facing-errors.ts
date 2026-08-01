@@ -29,8 +29,25 @@ export function userFacingErrorText(
     return typeof message === 'string' ? message : uiText(language, fallbackKey);
 }
 
-function userFacingCopyKey(error: unknown): UiCopyKey | undefined {
+/**
+ * The stable copy key an error carries, if any.
+ *
+ * Exported because callers need to BRANCH on which failure happened, not just
+ * render it. The alternative -- substring-matching the rendered message -- silently
+ * dies the moment copy is translated or shortened, which is exactly how the
+ * dictionary manual-import recovery became unreachable dead code (GitHub #39).
+ */
+export function userFacingCopyKeyOf(error: unknown): UiCopyKey | undefined {
     if (!error || typeof error !== 'object') return undefined;
     const copyKey = (error as { yomuUiCopyKey?: unknown }).yomuUiCopyKey;
     return typeof copyKey === 'string' ? copyKey as UiCopyKey : undefined;
+}
+
+/** Whether this error already knows which user-facing failure it represents. */
+export function isUserFacingError(error: unknown): error is UserFacingError {
+    return userFacingCopyKeyOf(error) !== undefined;
+}
+
+function userFacingCopyKey(error: unknown): UiCopyKey | undefined {
+    return userFacingCopyKeyOf(error);
 }

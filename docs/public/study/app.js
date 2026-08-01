@@ -23856,6 +23856,28 @@ ${item.sequence ?? ""}`;
     }
     return -1;
   }
+  function userFacingError(copyKey, options = {}) {
+    return Object.assign(
+      new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+      { name: "UserFacingError", yomuUiCopyKey: copyKey }
+    );
+  }
+  function userFacingErrorText(language2, fallbackKey, error) {
+    const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+    const message = uiText(language2, copyKey);
+    return typeof message === "string" ? message : uiText(language2, fallbackKey);
+  }
+  function userFacingCopyKeyOf(error) {
+    if (!error || typeof error !== "object") return void 0;
+    const copyKey = error.yomuUiCopyKey;
+    return typeof copyKey === "string" ? copyKey : void 0;
+  }
+  function isUserFacingError(error) {
+    return userFacingCopyKeyOf(error) !== void 0;
+  }
+  function userFacingCopyKey(error) {
+    return userFacingCopyKeyOf(error);
+  }
   const log$I = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
@@ -23932,21 +23954,21 @@ ${item.sequence ?? ""}`;
         if (response.status < 200 || response.status >= 300) {
           log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status: response.status });
           done();
-          throw new Error(formatDictionaryDownloadFailed(language2, response.status));
+          throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, response.status) });
         }
         log$I.warn("Dictionary download payload failed", { host: safeHost$2(url), status: response.status });
         done();
-        throw new Error(uiText(language2, "dictionaryDownloadNotZip"));
+        throw userFacingError("dictionaryDownloadNotZip", { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
       },
       onError: () => {
         log$I.warn("Dictionary download failed", { host: safeHost$2(url) });
         done();
-        return new Error(uiText(language2, "dictionaryDownloadFailed"));
+        return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
       },
       onTimeout: () => {
         log$I.warn("Dictionary download timed out", { host: safeHost$2(url) });
         done();
-        return new Error(uiText(language2, "dictionaryDownloadTimedOut"));
+        return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
       }
     });
   }
@@ -23956,7 +23978,7 @@ ${item.sequence ?? ""}`;
     try {
       return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language2);
     } catch (error) {
-      return handleDictionaryFetchError(url, downloadUrl, error, done, language2);
+      return handleDictionaryFetchError(url, downloadUrl, error, done);
     }
   }
   function throwMissingDictionaryDownloadBridge(done, language2) {
@@ -24000,18 +24022,18 @@ ${item.sequence ?? ""}`;
   }
   function throwDictionaryHttpError(url, status, language2) {
     log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status });
-    throw new Error(formatDictionaryDownloadFailed(language2, status));
+    throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, status) });
   }
-  function handleDictionaryFetchError(url, downloadUrl, error, done, language2) {
+  function handleDictionaryFetchError(url, downloadUrl, error, done) {
     const host = safeHost$2(url);
     if (isDictionaryCorsError(error)) {
       log$I.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
-      throw new Error(uiText(language2, "dictionaryDownloadBlocked"));
+      throw userFacingError("dictionaryDownloadBlocked", { diagnostic: `Cross-origin dictionary download was blocked for ${host}.` });
     }
     log$I.warn("Dictionary download fetch failed", { host, error });
     done();
-    throw language2 === "ja" ? new Error(uiText(language2, "dictionaryDownloadFailed")) : error;
+    throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
   }
   function formatDictionaryDownloadFailed(language2, status) {
     return language2 === "ja" ? `${uiText(language2, "dictionaryDownloadFailed")}（${status}）` : `Dictionary download failed (${status}).`;
@@ -26798,11 +26820,11 @@ ${entry.reading}`;
     async addToStore(storeName, entries2, put = false, clearTermIndexes = true, onChunk) {
       if (!entries2.length) return;
       const normalizedEntries = storeName === "terms" ? entries2.map((entry) => normalizeImportedLookupTerm(entry)) : storeName === "termMeta" ? entries2.map((entry) => normalizeImportedLookupMeta(entry)) : entries2;
+      await assertManagedStateMutationAllowed();
       const db = await this.db();
       if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
       let written = 0;
       for (let start = 0; start < normalizedEntries.length; start += STORE_WRITE_BATCH_SIZE) {
-        await assertManagedStateMutationAllowed();
         const chunk = normalizedEntries.slice(start, start + STORE_WRITE_BATCH_SIZE);
         await this.addStoreChunk(db, storeName, chunk, put);
         written += chunk.length;
@@ -33832,22 +33854,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
-  function userFacingError(copyKey, options = {}) {
-    return Object.assign(
-      new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
-      { name: "UserFacingError", yomuUiCopyKey: copyKey }
-    );
-  }
-  function userFacingErrorText(language2, fallbackKey, error) {
-    const copyKey = userFacingCopyKey(error) ?? fallbackKey;
-    const message = uiText(language2, copyKey);
-    return typeof message === "string" ? message : uiText(language2, fallbackKey);
-  }
-  function userFacingCopyKey(error) {
-    if (!error || typeof error !== "object") return void 0;
-    const copyKey = error.yomuUiCopyKey;
-    return typeof copyKey === "string" ? copyKey : void 0;
-  }
   const log$C = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
@@ -104008,6 +104014,7 @@ ${reading}`);
     handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
       control?.removeAttribute("disabled");
       if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) {
+        if (isUserFacingError(error)) throw error;
         throw userFacingError("dictionaryDownloadFailed", {
           cause: error,
           diagnostic: error instanceof Error ? error.message : String(error)
@@ -104020,25 +104027,24 @@ ${reading}`);
       log$f.warn("Dictionary auto-download unavailable", { dictionary: dictionary.name, message });
       return null;
     }
+    /**
+     * Whether to offer "import the ZIP by hand" instead of failing outright.
+     *
+     * This used to substring-match `error.message` against fifteen hints such as
+     * 'blocked in this browser' and 'request bridge'. Not one of the five real
+     * strings contains any of them -- the copy says 'Download blocked.' and
+     * 'Download needs bridge; else import ZIP.' -- so the matcher always returned
+     * false and the manual-import recovery, written for exactly the case where a
+     * userscript manager refuses the request, could never reach anyone (GitHub #39).
+     *
+     * Matching rendered COPY is the defect: it is localized, it gets shortened for
+     * width, and neither change touches this file. The copy KEY is stable, so that
+     * is what this reads.
+     */
     shouldPromptManualDictionaryDownload(error, downloadUrl) {
-      const message = String(error?.message ?? "").toLowerCase();
-      const manualDownloadHints = [
-        "blocked in this browser",
-        "cross-site",
-        "request bridge",
-        "request bridge is unavailable",
-        "userscript bridge",
-        "needs the yomu userscript",
-        "needs yomu userscript",
-        "need the yomu userscript",
-        "needs the userscript",
-        "user script request",
-        "userscript request",
-        "ブロック",
-        "リクエストブリッジ",
-        "ユーザースクリプト"
-      ];
-      return Boolean(downloadUrl.startsWith("http://") || downloadUrl.startsWith("https://")) && manualDownloadHints.some((hint) => message.includes(hint));
+      if (!downloadUrl.startsWith("http://") && !downloadUrl.startsWith("https://")) return false;
+      const copyKey = userFacingCopyKeyOf(error);
+      return copyKey === "dictionaryDownloadBlocked" || copyKey === "dictionaryDownloadNeedsBridge";
     }
     async importReaderSettingsFromFile(form, setStatus) {
       const file = await pickFile(form, "settings");

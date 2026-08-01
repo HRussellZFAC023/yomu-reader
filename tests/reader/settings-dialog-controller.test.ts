@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
@@ -2076,8 +2077,13 @@ describe('settings dialog dictionary imports', () => {
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });
 
+    // GitHub #39. This test used to reject with `new Error('Dictionary download is
+    // blocked in this browser.')` -- a sentence no production code has ever produced.
+    // The matcher it exercised substring-matched exactly that fiction, so the test
+    // passed while the real recovery path was unreachable for every user. It now
+    // rejects with the error the download layer actually throws.
     it('shows a toast with the manual download hint when automatic dictionary download is blocked', async () => {
-        const importFromUrl = vi.fn().mockRejectedValue(new Error('Dictionary download is blocked in this browser.'));
+        const importFromUrl = vi.fn().mockRejectedValue(userFacingError('dictionaryDownloadBlocked'));
         const { dependencies, form } = createSettingsDialog({
             dictionaries: {
                 summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),

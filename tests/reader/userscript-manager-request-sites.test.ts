@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userFacingCopyKeyOf } from '../../src/reader/app/user-facing-errors';
 
 import { requestPrivateApi } from '../../src/reader/network/private-request';
 import { requestBlob as requestOcrBlob } from '../../src/reader/ocr/ocr-providers';
@@ -52,11 +53,19 @@ describe('userscript request sites survive a hostile manager', () => {
 
     // Settlement is invisible from outside once a promise settles, so track it as
     // data: awaiting alone cannot tell "never called back" from "answered late".
-    function trackSettlement(request: Promise<unknown>): { outcome: string } {
-        const settlement = { outcome: 'pending' };
+    // `outcome` keeps Error.message for the plain-Error paths below. `copyKey` is the
+    // durable identity for anything that throws a UserFacingError: since #39, those
+    // carry an English DIAGNOSTIC on `message` (for logs) and the user-facing string
+    // behind `yomuUiCopyKey`, because matching rendered copy is what left the
+    // dictionary manual-import recovery unreachable.
+    function trackSettlement(request: Promise<unknown>): { outcome: string; copyKey: string } {
+        const settlement = { outcome: 'pending', copyKey: '' };
         request.then(
             () => { settlement.outcome = 'resolved'; },
-            error => { settlement.outcome = error instanceof Error ? error.message : String(error); },
+            error => {
+                settlement.outcome = error instanceof Error ? error.message : String(error);
+                settlement.copyKey = userFacingCopyKeyOf(error) ?? '';
+            },
         );
         return settlement;
     }
@@ -254,20 +263,23 @@ describe('userscript request sites survive a hostile manager', () => {
             await vi.advanceTimersByTimeAsync(119_000);
             expect(settlement.outcome).toBe('pending');
             await vi.advanceTimersByTimeAsync(1_100);
-            expect(settlement.outcome).toBe('Dictionary download timed out.');
+            expect(settlement.copyKey).toBe('dictionaryDownloadTimedOut');
             expect(abort).toHaveBeenCalledTimes(1);
         });
 
         it('(b) cancels a thenable-with-abort manager at the deadline', async () => {
             const { abort } = stubThenableWithAbortManager();
-            expect(await settle(requestDictionaryBlob('https://cdn.example/dict.zip', ''), 120_001))
-                .toBe('Dictionary download timed out.');
+            const settlement = trackSettlement(requestDictionaryBlob('https://cdn.example/dict.zip', ''));
+            await vi.advanceTimersByTimeAsync(120_001);
+            expect(settlement.copyKey).toBe('dictionaryDownloadTimedOut');
             expect(abort).toHaveBeenCalledTimes(1);
         });
 
         it('(c) reports a synchronous refusal instead of leaking a timer', async () => {
             stubSynchronousRefusalManager();
-            await expect(requestDictionaryBlob('https://cdn.example/dict.zip', '')).rejects.toThrow(/Dictionary download failed/i);
+            const settlement = trackSettlement(requestDictionaryBlob('https://cdn.example/dict.zip', ''));
+            await vi.advanceTimersByTimeAsync(0);
+            expect(settlement.copyKey).toBe('dictionaryDownloadFailed');
             expect(vi.getTimerCount()).toBe(0);
         });
     });

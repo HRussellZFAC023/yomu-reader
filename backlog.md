@@ -1767,6 +1767,82 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
         gigabytes, so it needs a migration, not a rename. Do it as its own change: landing a settings-key
         migration beside the reset fixes would make diagnosing either one much harder.
 
+- [ ] **A53 — BLOCKING: `npm run check` is red for EVERY session. The multilingual parity baseline was
+      recorded on the wrong Node, and all 33 contract hashes are stale.** Wave 13 shipped
+      `config/quality/multilingual-lookup-baseline.json` with `"node": "v24.16.0"`, `"icu": "78.3"` — its
+      own measurement note says the authoritative run used Node 24.16.0. **This repository requires Node
+      22.22.3** (22.14 fails three WebCrypto tests), so the new `multilingual-parity-ratchet` gate stage
+      fails on the required runtime, 1.6s into every `npm run check`. Same shape as the hygiene-gate trap:
+      one tracked file hard-fails the gate for everyone.
+      `npm run quality:multilingual-parity` emits **68 signals**: 2 runtime mismatches plus
+      **33 targets × 2 (baseline + evidence) stale `lookup contract SHA-256`** — i.e. every single target.
+      The contract changed after the baseline was recorded, almost certainly by 1.8.62's own lookup
+      refactor, so the wave invalidated its own hashes mid-stream.
+      **Do NOT just refresh the hashes.** The contract changing is precisely the reason the coverage
+      numbers may no longer hold; rewriting the hashes without re-measuring would assert coverage nobody
+      verified — the provenance-is-not-quality trap. The remedy is a real re-record on Node 22.22.3 via
+      `scripts/manual/multilingual-parity.ts --write-baseline … --write-evidence …`, which downloads the
+      real archives for all 33 targets. Deterministic algorithm, so the coverage percentages should
+      reproduce exactly; if any of them MOVE, that is a finding about the 1.8.62 refactor and more
+      important than the gate.
+      **Worth keeping:** the baseline itself is the per-target annotation scoreboard the audit asked for
+      and A42 recorded as missing. It covers all 33 targets — ja 96.3%, en/ru/de/es/da/nl/la/pl/sv 100%,
+      down to yue 0%, mn 51.6%, grc 54%, lo 59.7%, km 60%, vi 64%. That is the number that has to go up.
+      Also still red and unrelated: `tests/reader/yomu-support-worker.test.ts` "quarantines historical test
+      Checkout rows from donation progress" fails on origin/main without any local change (verified by
+      stashing), so it came in with the donation work.
+
+- [ ] **A52 — GitHub #39, mirrormc: recommended dictionaries fail to install (Firefox + Tampermonkey
+      1.8.58). PARTIALLY FIXED; the root cause needs ONE answer from the reporter.**
+      **What is proven and now fixed:**
+      - **The manual-ZIP-import recovery was unreachable dead code.**
+        `shouldPromptManualDictionaryDownload` substring-matched `error.message` against 15 hints
+        ('blocked in this browser', 'request bridge', 'ブロック', …). None of the five production strings
+        contains any of them — the copy reads 'Download blocked. Import the ZIP.' and 'Download needs
+        bridge; else import ZIP.'. The matcher therefore ALWAYS returned false, so
+        `dictionaryDownloadBlocked` + `dictionaryManualDownloadHint` — the copy written precisely to tell
+        a learner "your manager refused this, import the ZIP by hand" — could never reach anyone. It now
+        branches on the stable `yomuUiCopyKey`. **Same bug class as A51/#36 and A48**: matching rendered,
+        localizable, width-shortened COPY as a proxy for a stable identity.
+        Its test was complicit: it rejected with `new Error('Dictionary download is blocked in this
+        browser.')`, a sentence no production code has ever produced, so it passed against a fiction. It
+        now rejects with the real error, and fails if the matcher goes back to prose.
+      - **The settings funnel destroyed the diagnosis.** Every failure was re-wrapped as
+        `dictionaryDownloadFailed`, collapsing a non-2xx, a non-ZIP payload, a timeout, a blocked
+        cross-origin request, an integrity mismatch and an IndexedDB fault into one sentence — which is
+        why #39 arrived with nothing to act on. Every download exit now throws `userFacingError(<key>)`
+        with an English diagnostic, and the funnel re-throws an error that already knows what it is.
+      **TWO REGRESSIONS WE SHIPPED 2026-07-31, both verified on the shipped artifacts:**
+      - **1.8.61 put the factory-reset epoch fence INSIDE the IndexedDB batch-write loop**
+        (`yomitan/index.ts`, first statement of the `for` over `STORE_WRITE_BATCH_SIZE`). A reset landing
+        mid-import threw between two writes and left a half-written dictionary with no rollback. **Fixed:**
+        checked once before the first write; the import entry points already carry it.
+      - **1.8.62's runtime companion contains NO storage implementation and fails closed.** Measured on
+        `docs/public/greasyfork/yomu-runtime.user.js`: `GM_getValue` and `GM_setValue` both 4 → **0**,
+        replaced by a lazy delegate on `Symbol.for('yomu.storage-runtime-api.v1')` that throws "The
+        authoritative Yomu storage runtime is not installed." The whole dictionary subsystem lives in that
+        companion. Nominal boot is fine (core registers the slot), but any boot-order or realm mishap is
+        now TOTAL loss of dictionary install — on the exact platform this reporter uses. **NOT fixed
+        here**: it needs a real two-realm registration test, because the current jsdom single-realm test
+        plus source greps cannot fail when this breaks.
+      **What is NOT established, and the one question that settles it:** two adjacent sections render the
+      identical heading "Recommended Japanese dictionaries" — 8 catalogue-seed cards (mirror-hosted, all
+      integrity-checked) and 11 CURATED cards under a hard-coded English literal
+      (`settings/form.ts`) pulling from github.com, raw.githubusercontent.com, huggingface.co and
+      api.jiten.moe with **no integrity check at all**. The verbatim heading in the report belongs to the
+      curated shelf. My earlier "the hosting is healthy, so it is client-side" covered 5 of those 19
+      buttons — an overreach. **Ask: "which rows failed — paste the names or a screenshot?"** The row
+      names are unmistakable between the two shelves, and a free second signal comes from the same
+      screenshot: does the row ever show a download percentage before failing? No percentage = failure at
+      or before the first byte; percentage then failure only on large rows = transport/timeout, which
+      cannot explain the 0.4 MB grammar row.
+      Also confirmed: **updating 1.8.58 → 1.8.62 does NOT fix it.** `git diff` over
+      `yomitan/file-utils.ts`, `dictionaries/recommended.ts` and `settings/file-io.ts` between the two is
+      EMPTY, and zero of 1,637 catalogue entries changed distribution. Do not close #39 as fixed by an
+      update. First suspect on the curated shelf:
+      `raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip` — an archived
+      repository.
+
 - [ ] **A49 — Anki auto-mapping corrupts a non-Japanese learner's own deck, and the fix needs the NAME
       signal, not just the script one.** Measured on main 2026-07-31 in `src/reader/anki/field-mapping.ts`.
       `ANKI_TEXT_ROLE_SCORERS` (`:349-368`) keys every text role on `hasJapanese`:

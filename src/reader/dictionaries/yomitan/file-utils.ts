@@ -1,4 +1,5 @@
 import { uiText } from '../../app/i18n';
+import { userFacingError } from '../../app/user-facing-errors';
 import { Logger } from '../../app/logger';
 import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
 import type { InterfaceLanguage } from '../../app/types';
@@ -98,21 +99,21 @@ function requestBlobViaUserscript(
             if (response.status < 200 || response.status >= 300) {
                 log.warn('Dictionary download HTTP error', { host: safeHost(url), status: response.status });
                 done();
-                throw new Error(formatDictionaryDownloadFailed(language, response.status));
+                throw userFacingError('dictionaryDownloadFailed', { diagnostic: formatDictionaryDownloadFailed(language, response.status) });
             }
             log.warn('Dictionary download payload failed', { host: safeHost(url), status: response.status });
             done();
-            throw new Error(uiText(language, 'dictionaryDownloadNotZip'));
+            throw userFacingError('dictionaryDownloadNotZip', { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
         },
         onError: () => {
             log.warn('Dictionary download failed', { host: safeHost(url) });
             done();
-            return new Error(uiText(language, 'dictionaryDownloadFailed'));
+            return userFacingError('dictionaryDownloadFailed', { diagnostic: 'The userscript manager reported a request error.' });
         },
         onTimeout: () => {
             log.warn('Dictionary download timed out', { host: safeHost(url) });
             done();
-            return new Error(uiText(language, 'dictionaryDownloadTimedOut'));
+            return userFacingError('dictionaryDownloadTimedOut', { diagnostic: 'The dictionary download exceeded its 120s budget.' });
         },
     });
 }
@@ -129,7 +130,7 @@ async function requestBlobViaFetch(
     try {
         return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
     } catch (error) {
-        return handleDictionaryFetchError(url, downloadUrl, error, done, language);
+        return handleDictionaryFetchError(url, downloadUrl, error, done);
     }
 }
 
@@ -185,19 +186,19 @@ function formatDictionaryDownloadProgress(language: InterfaceLanguage, loaded: n
 
 function throwDictionaryHttpError(url: string, status: number, language: InterfaceLanguage): never {
     log.warn('Dictionary download HTTP error', { host: safeHost(url), status });
-    throw new Error(formatDictionaryDownloadFailed(language, status));
+    throw userFacingError('dictionaryDownloadFailed', { diagnostic: formatDictionaryDownloadFailed(language, status) });
 }
 
-function handleDictionaryFetchError(url: string, downloadUrl: string, error: unknown, done: () => void, language: InterfaceLanguage): never {
+function handleDictionaryFetchError(url: string, downloadUrl: string, error: unknown, done: () => void): never {
     const host = safeHost(url);
     if (isDictionaryCorsError(error)) {
         log.warn('Dictionary download CORS failed', { host, downloadUrl });
         done();
-        throw new Error(uiText(language, 'dictionaryDownloadBlocked'));
+        throw userFacingError('dictionaryDownloadBlocked', { diagnostic: `Cross-origin dictionary download was blocked for ${host}.` });
     }
     log.warn('Dictionary download fetch failed', { host, error });
     done();
-    throw language === 'ja' ? new Error(uiText(language, 'dictionaryDownloadFailed')) : error;
+    throw userFacingError('dictionaryDownloadFailed', { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
 }
 
 function formatDictionaryDownloadFailed(language: InterfaceLanguage, status: number): string {
