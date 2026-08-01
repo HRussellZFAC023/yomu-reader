@@ -294905,9 +294905,7 @@ ${entry2.reading}`;
       const done = log$m.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
         log$m.info("Dictionary file import started", fileSummary(file, sourceUrl));
-        if (options.integrity && !/\.zip$/i.test(file.name)) {
-          await assertDictionaryObjectIntegrity(file, options.integrity);
-        }
+        if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
         log$m.info("Dictionary file import completed", summary);
@@ -294932,7 +294930,6 @@ ${entry2.reading}`;
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
       await assertManagedStateMutationAllowed();
       const language2 = this.getInterfaceLanguage();
-      const integrity = options.integrity;
       onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
       const zip = await readZipArchive(file, (progress2) => {
         if (progress2.phase === "read") {
@@ -294940,7 +294937,7 @@ ${entry2.reading}`;
           return;
         }
         onProgress?.(`${this.text("dictionaryReadingZip")} ${progress2.entries?.toLocaleString() ?? "0"} files found. ${uiText(language2, "dictionaryCheckingIndex")}`);
-      }, integrity ? (bytes) => assertDictionaryObjectIntegrity(bytes, integrity) : void 0);
+      }, options.integrity ? (bytes) => assertDictionaryObjectIntegrity(bytes, options.integrity) : void 0);
       const zipEntries = zip.entries();
       onProgress?.(`${this.text("dictionaryReadingZip")} ${zipEntries.length.toLocaleString()} files found. ${uiText(language2, "dictionaryCheckingIndex")}`);
       const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
