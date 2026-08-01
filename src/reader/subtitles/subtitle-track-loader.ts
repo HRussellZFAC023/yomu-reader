@@ -1,5 +1,5 @@
 import { targetSubtitleLanguageTag } from '../languages/resolve';
-import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
+import { normalizeSubtitleCues, parseSubtitleText, stripWebVttCueMarkup, type SubtitleCue } from './subtitle-cues';
 import { translateSubtitleCues } from './subtitle-translate';
 import {
     loadFirstUsableYouTubeSibling,
@@ -166,8 +166,12 @@ export function waitForTextTrackCues(track: TextTrack, timeoutMs = 900): Promise
 }
 
 export function getTextTrackCueText(cue: VTTCue | TextTrackCue): string {
-    if ('text' in cue && typeof cue.text === 'string') return cue.text;
-    return '';
+    if (!('text' in cue) || typeof cue.text !== 'string') return '';
+    // Preserve the raw text for ordinary cues so normalizeCaptionText remains
+    // the only entity-decoding boundary. getCueAsHTML() would decode once here
+    // and make escaped literal entities decode a second time downstream.
+    if (!/<\/?x-word-ms(?:\s|>)/i.test(cue.text)) return cue.text;
+    return stripWebVttCueMarkup(cue.text);
 }
 
 async function loadRemoteTrackCues<T extends SubtitleTrackLoadable>(

@@ -350,13 +350,13 @@ function appendVttTimestampMarker(markers: Array<{ time: number; index: number; 
 }
 
 function vttCueTextWithoutMarkers(raw: string, timestampPattern: RegExp): string {
-    return raw.replace(timestampPattern, '').replace(/<[^>]+>/g, '').trim();
+    return stripWebVttCueMarkup(raw.replace(timestampPattern, '')).trim();
 }
 
 function vttMarkerWord(raw: string, timestampPattern: RegExp, markers: Array<{ time: number; index: number; endIndex: number }>, index: number): { text: string; start: number; end: number } | null {
     const marker = markers[index];
     const next = markers[index + 1];
-    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, '').replace(/<[^>]+>/g, '');
+    const segmentRaw = stripWebVttCueMarkup(raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, ''));
     const segmentText = segmentRaw.trim();
     return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
 }
@@ -1113,6 +1113,13 @@ export function normalizeCaptionText(value: string): string {
         .map(line => line.replace(/\s+/g, ' ').trim())
         .filter(Boolean)
         .join(' ');
+}
+
+// X/Twitter wraps each WebVTT cue in a custom `<X-word-ms ...>` element whose
+// attributes carry word durations and character ranges. Keep the raw-markup
+// stripping used for downloaded VTT shared with native X cue ingestion.
+export function stripWebVttCueMarkup(value: string): string {
+    return value.replace(/<[^>]+>/g, '');
 }
 
 // UT-67: auto-translated YouTube tracks ship literal HTML entities \u2014 a

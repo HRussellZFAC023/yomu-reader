@@ -59,6 +59,24 @@ ${shortPrimaryCue}
 ${longPrimaryCue}
 `;
 
+const twitterXSourceCues = [
+    'Build things that solve your problems.',
+    'The best projects start with something useful.',
+];
+const twitterXTranslatedCues = [
+    '自分の問題を解決するものを作ってください。',
+    '最高のプロジェクトは役に立つものから始まります。',
+];
+const twitterXVtt = `WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+<X-word-ms ms=240,320,180,360,420,300 index=1 character_ranges=0-4,5-10,11-14,15-19,20-24,25-33>${twitterXSourceCues[0]}</X-word-ms>
+
+00:00:04.000 --> 00:00:08.000
+<X-word-ms ms=220,280,340,190,260,440,320,200 index=2 character_ranges=0-2,3-6,7-14,15-20,21-24,25-33,34-40,41-47>${twitterXSourceCues[1]}</X-word-ms>
+`;
+const twitterTranslationRequests = [];
+
 const nativeSrt = `1
 00:00:00,000 --> 00:00:04,000
 This little person is standing.
@@ -81,6 +99,7 @@ const youtubeTimedTextFixture = youtubeTimedText([
 
 const FIXTURE_ROUTES = new Map([
     ['/generic', origin => ({ body: genericHtml(origin), contentType: 'text/html' })],
+    ['/twitter-x', origin => ({ body: twitterXHtml(origin), contentType: 'text/html' })],
     ['/bbc', origin => ({ body: playerEngineHtml(origin, {
         title: 'BBC article player fixture',
         className: 'bbc-media-player',
@@ -145,6 +164,7 @@ const FIXTURE_ROUTES = new Map([
         aside: 'The player shell resizes while captions auto-detect from the track.',
     }), contentType: 'text/html' })],
     ['/primary.vtt', () => ({ body: primaryVtt, contentType: 'text/vtt' })],
+    ['/twitter-x.vtt', () => ({ body: twitterXVtt, contentType: 'text/vtt' })],
     ['/native.srt', () => ({ body: nativeSrt, contentType: 'text/plain' })],
 ]);
 
@@ -205,6 +225,43 @@ function genericHtml(origin) {
       <h2>Ordinary Video Page</h2>
       <a href="${origin}/native.srt" download="native.srt">SRT</a>
     </aside>
+  </main>
+</body>
+</html>`;
+}
+
+function twitterXHtml(origin) {
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X video caption fixture</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #000; color: #e7e9ea; font-family: system-ui, sans-serif; }
+    main { width: min(620px, 100vw); margin: 0 auto; padding: 24px; box-sizing: border-box; }
+    article { border: 1px solid #2f3336; border-radius: 16px; padding: 16px; }
+    .player { position: relative; overflow: hidden; border-radius: 14px; background: #050505; }
+    video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #050505; }
+    .caption-window { position: absolute; left: 12%; right: 12%; bottom: 54px; text-align: center; font-weight: 700; color: white; text-shadow: 0 1px 4px black; }
+    @media (max-width: 700px) {
+      main { padding: 0; }
+      article { border: 0; border-radius: 0; padding: 0; }
+      .player { border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <p>Build cool things that solve your problems.</p>
+      <section class="player">
+        <video controls muted preload="metadata" ${fixtureVideoUrl ? `src="${fixtureVideoUrl}"` : ''}>
+          <track kind="subtitles" srclang="en" label="English" src="${origin}/twitter-x.vtt" default>
+        </video>
+        <div class="caption-window">${twitterXSourceCues[0]}</div>
+      </section>
+    </article>
   </main>
 </body>
 </html>`;
@@ -406,10 +463,13 @@ async function installUserscriptStyleResource(page) {
                     signal: controller.signal,
                 }).then(async response => {
                     const responseText = await response.text();
+                    const responseValue = options.responseType === 'json'
+                        ? JSON.parse(responseText)
+                        : response;
                     options.onload?.({
                         status: response.status,
                         statusText: response.statusText,
-                        response,
+                        response: responseValue,
                         responseText,
                         finalUrl: response.url,
                         responseHeaders: '',
@@ -478,6 +538,23 @@ async function installMobileYouTubeFixtureRoutes(page) {
         contentType: 'text/html',
     }));
     await page.route('https://m.youtube.com/api/timedtext**', route => route.fulfill({ body: youtubeTimedTextFixture, contentType: 'text/xml' }));
+}
+
+async function installTwitterXFixtureRoutes(page) {
+    twitterTranslationRequests.length = 0;
+    await page.route('https://translate.googleapis.com/translate_a/single**', route => {
+        const source = new URL(route.request().url()).searchParams.get('q') ?? '';
+        twitterTranslationRequests.push(source);
+        const translated = source
+            .split('\n')
+            .map((_, index) => twitterXTranslatedCues[index] ?? twitterXTranslatedCues.at(-1))
+            .join('\n');
+        return route.fulfill({
+            body: JSON.stringify({ sentences: [{ trans: translated }] }),
+            contentType: 'application/json',
+            headers: { 'access-control-allow-origin': '*' },
+        });
+    });
 }
 
 async function openAndReady(page, site) {
@@ -1189,11 +1266,73 @@ async function collectSiteResult(page, site) {
 
 async function exerciseOptionalSiteFlows(page, site) {
     const evidence = {};
+    if (site.exerciseTwitterCueSanitization) evidence.twitterCueSanitization = await assertTwitterCueMetadataSanitized(page, site);
     if (site.exercisePaintedFontSize) evidence.paintedFontSize = await assertPaintedSubtitleFontSize(page, site);
     if (site.exerciseFontPersistence) evidence.fontPersistence = await assertSubtitleFontPersistence(page, site);
     if (site.exerciseSubtitleDrag) await assertSubtitleMoveHandle(page, site);
     if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
     return evidence;
+}
+
+async function assertTwitterCueMetadataSanitized(page, site) {
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        video.currentTime = 1;
+        video.dispatchEvent(new Event('seeking'));
+        video.dispatchEvent(new Event('timeupdate'));
+    });
+    try {
+        await page.waitForFunction(({ primary, secondary }) => {
+            const primaryText = document.querySelector('.jpdb-subtitle-primary')?.textContent ?? '';
+            const secondaryText = document.querySelector('.jpdb-subtitle-secondary')?.textContent ?? '';
+            return primaryText.includes(primary) && secondaryText.includes(secondary);
+        }, {
+            primary: twitterXTranslatedCues[0],
+            secondary: twitterXSourceCues[0],
+        }, { timeout: subtitleReadyTimeout(site) });
+    } catch (error) {
+        const diagnostics = await page.evaluate(() => ({
+            primaryText: document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim() ?? '',
+            secondaryText: document.querySelector('.jpdb-subtitle-secondary')?.textContent?.trim() ?? '',
+            trackRows: [...document.querySelectorAll('.jpdb-subtitle-track-row')].map(row => ({
+                text: row.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                primaryPressed: row.querySelector('[data-action="primary-track"]')?.getAttribute('aria-pressed') ?? '',
+                secondaryPressed: row.querySelector('[data-action="secondary-track"]')?.getAttribute('aria-pressed') ?? '',
+            })),
+        }));
+        throw new Error(`${errorMessage(error)}\n${JSON.stringify({ diagnostics, twitterTranslationRequests }, null, 2)}`);
+    }
+
+    const state = await page.evaluate(() => {
+        const cue = document.querySelector('video')?.textTracks?.[0]?.cues?.[0];
+        return {
+            rawBrowserCue: cue?.text ?? '',
+            parsedBrowserCue: cue?.getCueAsHTML?.().textContent ?? '',
+            primaryText: document.querySelector('.jpdb-subtitle-primary')?.textContent?.trim() ?? '',
+            secondaryText: document.querySelector('.jpdb-subtitle-secondary')?.textContent?.trim() ?? '',
+            transcriptText: [...document.querySelectorAll('.jpdb-subtitle-row-text')]
+                .map(row => row.textContent?.trim() ?? '')
+                .join(' '),
+        };
+    });
+    const yomuText = `${state.primaryText} ${state.secondaryText} ${state.transcriptText}`;
+    const metadataPattern = /X-word-ms|character_ranges|\bms=|\bindex=/i;
+
+    assert(metadataPattern.test(state.rawBrowserCue), `${site.name}: browser did not expose the raw X cue metadata`, state);
+    assert(state.parsedBrowserCue === twitterXSourceCues[0], `${site.name}: browser parsed X cue text unexpectedly`, state);
+    assert(!metadataPattern.test(yomuText), `${site.name}: X cue metadata leaked into Yomu subtitle surfaces`, state);
+    assert(twitterTranslationRequests.length > 0, `${site.name}: synthetic Japanese track did not request translation`, {
+        ...state,
+        twitterTranslationRequests,
+    });
+    assert(
+        twitterTranslationRequests.every(text => !metadataPattern.test(text)),
+        `${site.name}: X cue metadata reached subtitle translation`,
+        { ...state, twitterTranslationRequests },
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 3_000 });
+    return { ...state, translationRequests: [...twitterTranslationRequests] };
 }
 
 function errorMessage(error) {
@@ -1714,6 +1853,25 @@ try {
             exercisePaintedFontSize: true,
             exerciseFontPersistence: browserName === 'chromium',
             settings: { subtitleTranscriptPlacement: 'right', subtitleFontSize: 60 },
+            anchorSelector: '.player',
+        },
+        {
+            name: 'twitter-x-mobile',
+            url: `${fixture.origin}/twitter-x`,
+            viewport: { width: 390, height: 844 },
+            contextOptions: { deviceScaleFactor: 2, hasTouch: true, isMobile: true },
+            route: installTwitterXFixtureRoutes,
+            expectPlacement: 'bottom',
+            expectEdgeToEdgePanel: true,
+            expectNativeCaptions: true,
+            minRows: 2,
+            exerciseTwitterCueSanitization: true,
+            settings: {
+                lookupOnHover: false,
+                subtitleTranscriptPlacement: 'right',
+                subtitleSecondaryVisible: true,
+                subtitleSecondaryVisibleChosen: true,
+            },
             anchorSelector: '.player',
         },
         {
