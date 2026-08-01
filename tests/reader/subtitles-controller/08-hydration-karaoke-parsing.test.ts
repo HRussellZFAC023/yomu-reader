@@ -626,6 +626,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(primary.textContent).toBe('読む');
             expect(primary.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             expect(primary.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('.jpdb-subtitle-player')?.classList.contains('jpdb-subtitle-annotations-paused')).toBe(true);
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-annotations-paused')).toBe(true);
 
             parsed.resolve([makeSubtitleToken('読む', { reading: 'よむ' })]);
             await Promise.resolve();
@@ -639,6 +641,11 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             controller.refresh();
             expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('見る');
             expect(parseJapanese).not.toHaveBeenCalled();
+
+            settings.annotationsPaused = false;
+            controller.refresh();
+            expect(document.querySelector('.jpdb-subtitle-player')?.classList.contains('jpdb-subtitle-annotations-paused')).toBe(false);
+            expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-annotations-paused')).toBe(false);
         } finally {
             controller.destroy();
         }

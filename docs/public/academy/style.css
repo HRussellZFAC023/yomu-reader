@@ -19300,6 +19300,23 @@ html.jpdb-reader-doodle-active * {
   pointer-events: auto;
 }
 
+/* Pausing annotations deliberately removes the parsed word spans that normally
+   provide the overlay's interactive hit targets. Keep the resulting plain
+   caption text selectable (and hover-pausable) without making the transparent
+   full-player overlay capture input. The transcript panel lives outside the
+   player root, so it receives the same state class independently. */
+
+.jpdb-subtitle-player.jpdb-subtitle-annotations-paused .jpdb-subtitle-primary {
+  pointer-events: auto;
+}
+
+:is(.jpdb-subtitle-player, .jpdb-subtitle-list).jpdb-subtitle-annotations-paused
+  :is(.jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary) {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
 /* Subtitle content normally opts back into hit testing — parsed words for
    dictionary lookup, the native line because it is a toggle. If a moved or long
    subtitle crosses a native player action, however, that overlap must remain

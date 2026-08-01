@@ -31,8 +31,39 @@ export function isOcrLineFrameWord(word: HTMLElement): boolean {
 
 export function ocrLineWordAtPoint(line: HTMLElement, x: number, y: number): HTMLElement | null {
     const words = Array.from(line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]'));
-    if (!words.length) return null;
-    return words.find(word => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
+    const hits = words
+        .map(word => ocrPointerWordHit(word, x, y))
+        .filter((hit): hit is OcrPointerWordHit => hit !== null);
+    // OCR glyph boxes sit tightly beside each other, so their 8px usability
+    // halos overlap. DOM order is not pointer identity: an exact hit on the
+    // following word must beat the preceding word's expanded halo; only a real
+    // inter-word gap falls back to the nearest edge.
+    return closestOcrPointerWord(hits, true)
+        ?? closestOcrPointerWord(hits, false)
+        ?? null;
+}
+
+interface OcrPointerWordHit {
+    word: HTMLElement;
+    exact: boolean;
+    score: number;
+}
+
+function ocrPointerWordHit(word: HTMLElement, x: number, y: number): OcrPointerWordHit | null {
+    const rect = word.getBoundingClientRect();
+    const exact = pointInsideExpandedRect(rect, x, y, 0);
+    if (!exact && !pointInsideExpandedRect(rect, x, y, 8)) return null;
+    return {
+        word,
+        exact,
+        score: exact ? rectCenterDistance(rect, x, y) : rectEdgeDistance(rect, x, y),
+    };
+}
+
+function closestOcrPointerWord(hits: OcrPointerWordHit[], exact: boolean): HTMLElement | undefined {
+    return hits
+        .filter(hit => hit.exact === exact)
+        .sort((left, right) => left.score - right.score)[0]?.word;
 }
 
 export function singleKanjiOcrLookupCharacter(word: HTMLElement): string {
@@ -293,8 +324,24 @@ function shouldApplyPublicVocabularyFurigana(
 }
 
 function pointInsideExpandedRect(rect: DOMRect, x: number, y: number, pad: number): boolean {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
     return x >= rect.left - pad
-        && x <= rect.right + pad
+        && x <= right + pad
         && y >= rect.top - pad
-        && y <= rect.bottom + pad;
+        && y <= bottom + pad;
+}
+
+function rectCenterDistance(rect: DOMRect, x: number, y: number): number {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
+    return Math.hypot(x - (rect.left + right) / 2, y - (rect.top + bottom) / 2);
+}
+
+function rectEdgeDistance(rect: DOMRect, x: number, y: number): number {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
+    const dx = Math.max(rect.left - x, 0, x - right);
+    const dy = Math.max(rect.top - y, 0, y - bottom);
+    return Math.hypot(dx, dy);
 }

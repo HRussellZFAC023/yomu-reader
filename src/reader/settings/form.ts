@@ -1319,6 +1319,13 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalo
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
+                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
+                    ${checkbox('localDictionariesEnabled', text('localDictionariesEnabled'), settings.localDictionariesEnabled)}
+                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapedUiText(language, 'localDictionarySiteStorageHelp')}</div>
+                    <div class="jpdb-reader-help-actions">
+                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapedUiText(language, 'clearLocalDictionarySiteStorage')}</button>
+                    </div>
+                </div>
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
@@ -1359,7 +1366,7 @@ function renderBackupSettingsPanel(settings: ReaderSettings): string {
                     <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">${escapedUiText(language, 'exportDictionaries')}</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
-                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
+                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip" multiple>
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
     `;
@@ -1698,6 +1705,7 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="export-reader-settings"]', 'exportSettings'],
     ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
     ['[data-action="export-yomitan-dictionary"]', 'exportDictionaries'],
+    ['[data-action="clear-local-dictionary-site-storage"]', 'clearLocalDictionarySiteStorage'],
     ['[data-action="connect-academy-account"]', 'academyAccountConnect'],
     ['[data-action="sync-academy-account"]', 'academyAccountSyncNow'],
     ['[data-action="create-academy-recovery-code"]', 'academyRecoveryCodeCreate'],
@@ -2416,7 +2424,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
     'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabShortcutHintsEnabled', 'newTabUrl',
     'wordColorNew', 'wordColorLearning', 'wordColorKnown', 'wordColorDue', 'wordColorFailed',
-    'wordColorIgnored', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
+    'wordColorIgnored', 'localDictionariesEnabled', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
     'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',

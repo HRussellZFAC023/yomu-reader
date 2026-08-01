@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.69
+// @version 1.8.70
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.eba1222f2e11.user.js#sha256=66EiLy4RkNFsj+fh/Cqkq6EchJBFDWFAflqiS2jzYIc=
-// @resource yomuCss  https://yomureader.com/yomu.9643433aba2a.css#sha256=lkNDOroq1R6ncRhPAfKkWLQ19gqyRa4w9rfiFjmMwZM=
+// @require https://yomureader.com/greasyfork/yomu-runtime.7cce787b7f4c.user.js#sha256=fM54e39MYzJLtPQGCAipC05f33hN/DXOV9bA9VuF8YA=
+// @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -4753,6 +4753,7 @@ const READABLE_IGNORED_TAGS = new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 function unwrapReaderWords(root = document, options = {}) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$3)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR$3)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
   const parents = new Set();
   words.forEach(clearProjectedReadingsWithin);
   for (const word of words) {
@@ -4760,6 +4761,13 @@ function unwrapReaderWords(root = document, options = {}) {
   if (!parent) continue;
   parents.add(parent);
   word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  }
+  for (const bind of numberBinds) {
+  if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+  const parent = bind.parentNode;
+  if (!parent) continue;
+  parents.add(parent);
+  bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;
@@ -19635,7 +19643,7 @@ class CardPopoverRenderer {
   const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes("jpdb-reader-anki-existing") ? ankiSourceSection : "";
   return `
         <div class="jpdb-reader-sheet-handle"></div>
-        <div class="jpdb-reader-popover-body"${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
+        <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
             ${this.dependencies.renderWordHistory(view.language, trigger)}
             ${this.renderHeader(card, data, view, trigger)}
             ${this.renderPartOfSpeech(view)}
@@ -28258,12 +28266,132 @@ function pointerTextCharacterOffset(node, caretOffset, x, y) {
   const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
   return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
 }
+function pointerTextLookupFromRenderedWord(word, x, y) {
+  const context = renderedWordLookupContext(word);
+  if (!context) return null;
+  const surfaceOffset = renderedWordSurfaceOffsetAtPoint(word, context.surface, x, y);
+  if (surfaceOffset === null) return null;
+  const offset = context.tokenStart + surfaceOffset;
+  const run = pointerTextRunAt(context.sentence, offset);
+  if (!run) return null;
+  return {
+  text: context.sentence,
+  offset: run.offset,
+  start: run.start,
+  end: run.end,
+  anchor: word
+  };
+}
+function renderedWordLookupContext(word) {
+  const sentence = word.dataset.sentence ?? "";
+  const surface = readerWordSurfaceText(word);
+  if (!sentence || !surface) return null;
+  const range = renderedWordTokenRange(word);
+  if (!range || sentence.slice(range.start, range.end) !== surface) return null;
+  return { sentence, surface, tokenStart: range.start };
+}
+function renderedWordTokenRange(word) {
+  const start = Number.parseInt(word.dataset.tokenStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.tokenEnd ?? "", 10);
+  if (![start, end].every(Number.isFinite)) return null;
+  if (start < 0) return null;
+  if (end <= start) return null;
+  return { start, end };
+}
 function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
   const parent = node.parentElement;
   if (!parent || !isPointerTextParentEligible(parent, options)) return null;
   const local = pointerTextLookupForText(parent, node.data, characterOffset);
   const contextual = pointerTextLookupContext(node, characterOffset, parent);
   return contextual ?? local;
+}
+function renderedWordSurfaceOffsetAtPoint(word, surface, x, y) {
+  const nodes = renderedWordSurfaceTextNodes(word);
+  const caretOffset = renderedWordCaretOffset(nodes, surface.length, x, y);
+  if (caretOffset !== null) return caretOffset;
+  const rangeOffset = renderedWordRangeOffsetAtPoint(nodes, x, y);
+  if (rangeOffset !== null && rangeOffset < surface.length) return rangeOffset;
+  return proportionalRenderedWordOffset(word, surface.length, x, y);
+}
+function renderedWordCaretOffset(nodes, surfaceLength, x, y) {
+  const caret = caretTextPositionFromPoint(x, y);
+  if (!caret) return null;
+  let preceding = 0;
+  for (const node of nodes) {
+  if (node === caret.node && node.data.length) {
+    const nodeOffset = Math.min(Math.max(caret.offset, 0), node.data.length - 1);
+    return Math.min(surfaceLength - 1, preceding + nodeOffset);
+  }
+  preceding += node.data.length;
+  }
+  return null;
+}
+function renderedWordSurfaceTextNodes(word) {
+  const nodes = [];
+  const visit = (node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    nodes.push(node);
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const element = node;
+  if (element !== word && element.matches("rt,rp,script,style,[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi")) return;
+  element.childNodes.forEach(visit);
+  };
+  visit(word);
+  return nodes;
+}
+function renderedWordRangeOffsetAtPoint(nodes, x, y) {
+  const hits = [];
+  let surfaceOffset = 0;
+  for (const node of nodes) {
+  for (let offset = 0; offset < node.data.length; offset++) {
+    const hit = renderedWordCharacterHit(node, offset, surfaceOffset + offset, x, y);
+    if (hit) hits.push(hit);
+  }
+  surfaceOffset += node.data.length;
+  }
+  return hits.sort((left, right) => left.score - right.score)[0]?.offset ?? null;
+}
+function renderedWordCharacterHit(node, nodeOffset, surfaceOffset, x, y) {
+  const range = document.createRange();
+  try {
+  range.setStart(node, nodeOffset);
+  range.setEnd(node, nodeOffset + 1);
+  const scores = Array.from(range.getClientRects()).map((rect) => pointerRectScore(rect, x, y)).filter((score) => score !== null);
+  return scores.length ? { offset: surfaceOffset, score: Math.min(...scores) } : null;
+  } catch {
+  return null;
+  } finally {
+  range.detach?.();
+  }
+}
+function pointerRectScore(rect, x, y) {
+  const bounds = pointerRectBoundsAtPoint(rect, x, y);
+  if (!bounds) return null;
+  return Math.hypot(x - (rect.left + bounds.right) / 2, y - (rect.top + bounds.bottom) / 2);
+}
+function proportionalRenderedWordOffset(word, surfaceLength, x, y) {
+  if (surfaceLength <= 0) return null;
+  const rect = word.getBoundingClientRect();
+  const bounds = pointerRectBoundsAtPoint(rect, x, y);
+  if (!bounds) return null;
+  const vertical = getComputedStyle(word).writingMode.startsWith("vertical");
+  const span = vertical ? bounds.bottom - rect.top : bounds.right - rect.left;
+  const position = vertical ? y - rect.top : x - rect.left;
+  return proportionalSurfaceOffset(surfaceLength, position, span);
+}
+function pointerRectBoundsAtPoint(rect, x, y) {
+  const right = rect.right || rect.left + rect.width;
+  const bottom = rect.bottom || rect.top + rect.height;
+  if (!hasPositiveRectArea(rect, right, bottom)) return null;
+  if (!coordinateInRange(x, rect.left, right, 1)) return null;
+  if (!coordinateInRange(y, rect.top, bottom, 1)) return null;
+  return { right, bottom };
+}
+function proportionalSurfaceOffset(surfaceLength, position, span) {
+  const progress = span > 0 ? Math.min(0.999999, Math.max(0, position / span)) : 0;
+  return Math.min(surfaceLength - 1, Math.floor(progress * surfaceLength));
 }
 function isLowValuePointerText(text2, parent) {
   const compact2 = text2.replace(/\s+/g, "");
@@ -28510,8 +28638,21 @@ function isOcrLineFrameWord(word) {
 }
 function ocrLineWordAtPoint(line, x, y) {
   const words = Array.from(line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]"));
-  if (!words.length) return null;
-  return words.find((word) => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
+  const hits = words.map((word) => ocrPointerWordHit(word, x, y)).filter((hit) => hit !== null);
+  return closestOcrPointerWord(hits, true) ?? closestOcrPointerWord(hits, false) ?? null;
+}
+function ocrPointerWordHit(word, x, y) {
+  const rect = word.getBoundingClientRect();
+  const exact = pointInsideExpandedRect(rect, x, y, 0);
+  if (!exact && !pointInsideExpandedRect(rect, x, y, 8)) return null;
+  return {
+  word,
+  exact,
+  score: exact ? rectCenterDistance(rect, x, y) : rectEdgeDistance(rect, x, y)
+  };
+}
+function closestOcrPointerWord(hits, exact) {
+  return hits.filter((hit) => hit.exact === exact).sort((left, right) => left.score - right.score)[0]?.word;
 }
 function singleKanjiOcrLookupCharacter(word) {
   if (!word.closest(".jpdb-ocr-line")) return "";
@@ -28692,7 +28833,21 @@ function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rub
   return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter);
 }
 function pointInsideExpandedRect(rect, x, y, pad) {
-  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+  const right = rect.right || rect.left + rect.width;
+  const bottom = rect.bottom || rect.top + rect.height;
+  return x >= rect.left - pad && x <= right + pad && y >= rect.top - pad && y <= bottom + pad;
+}
+function rectCenterDistance(rect, x, y) {
+  const right = rect.right || rect.left + rect.width;
+  const bottom = rect.bottom || rect.top + rect.height;
+  return Math.hypot(x - (rect.left + right) / 2, y - (rect.top + bottom) / 2);
+}
+function rectEdgeDistance(rect, x, y) {
+  const right = rect.right || rect.left + rect.width;
+  const bottom = rect.bottom || rect.top + rect.height;
+  const dx = Math.max(rect.left - x, 0, x - right);
+  const dy = Math.max(rect.top - y, 0, y - bottom);
+  return Math.hypot(dx, dy);
 }
 const TERM_AUDIO_PRELOAD_LIMIT = 4;
 const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
@@ -32370,6 +32525,35 @@ function applyOcrInteractionMode(settings, mode) {
   settings.ocrEnabled = mode !== "off";
   settings.ocrAutoScanImages = mode === "auto";
 }
+const HOVER_POPOVER_TRANSIT_RADIUS_PX = 12;
+const HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS = 160;
+function isActiveHoverPopoverPointerContext(state) {
+  const { mode, popover, point } = state;
+  if (mode !== "hover" || !popover || !point) return false;
+  const target = document.elementFromPoint(point.x, point.y);
+  return Boolean(target && (target === popover || popover.contains(target))) || isHoverPopoverTransitActive(state);
+}
+function isHoverPopoverTransitActive(state) {
+  const { mode, popover, point, origin } = state;
+  if (mode !== "hover" || !popover || !point || !origin) return false;
+  return pointInsideHoverPopoverTransit(point, origin, popover.getBoundingClientRect());
+}
+function pointInsideHoverPopoverTransit(point, origin, popoverRect) {
+  if (popoverRect.width <= 0 || popoverRect.height <= 0) return false;
+  const destination = {
+  x: Math.max(popoverRect.left, Math.min(origin.x, popoverRect.right)),
+  y: Math.max(popoverRect.top, Math.min(origin.y, popoverRect.bottom))
+  };
+  const segmentX = destination.x - origin.x;
+  const segmentY = destination.y - origin.y;
+  const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
+  if (segmentLengthSquared <= 0) return false;
+  const projection = ((point.x - origin.x) * segmentX + (point.y - origin.y) * segmentY) / segmentLengthSquared;
+  if (projection <= 0 || projection >= 1) return false;
+  const nearestX = origin.x + segmentX * projection;
+  const nearestY = origin.y + segmentY * projection;
+  return Math.hypot(point.x - nearestX, point.y - nearestY) <= HOVER_POPOVER_TRANSIT_RADIUS_PX;
+}
 class DisabledReaderAudioActions {
   playTermAudio() {
   return Promise.resolve();
@@ -33293,8 +33477,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.69"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.69"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.70"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.70"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33437,7 +33621,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.69"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.70"}`;
   } catch {
   return null;
   }
@@ -33679,6 +33863,14 @@ class VisiblePageScanner {
   }
   async scanVisiblePage(options = {}) {
   const silent = Boolean(options.silent);
+  const settings = this.dependencies.getSettings();
+  if (!pageScanHasVisibleAnnotations(settings)) {
+    this.cancelVisiblePageScan();
+    this.syncPageFuriganaMode();
+    removeNonDestructiveScanMirrors(document);
+    unwrapReaderWords(document);
+    return;
+  }
   if (!this.beginScan(silent)) return;
   this.scanGeneration++;
   const generation = this.scanGeneration;
@@ -34101,6 +34293,10 @@ class VisiblePageScanner {
     document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
   }
   }
+}
+function pageScanHasVisibleAnnotations(settings) {
+  if (effectiveFuriganaMode(settings) !== "off") return true;
+  return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, "jpdb") !== "off" || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, "pitch") !== "off" || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, "anki") !== "off";
 }
 function waitForVisibleScanTurn() {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -34848,6 +35044,15 @@ const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
   SUBTITLE_SURFACE_SELECTOR,
   NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
 ].join(", ");
+const PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR = [
+  ".jpdb-subtitle-primary",
+  ".jpdb-subtitle-secondary",
+  ".jpdb-subtitle-row-text",
+  ".jpdb-subtitle-row-secondary",
+  ".asbplayer-subtitles-container-bottom",
+  ".jpdb-reader-subtitle-surface",
+  NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
+].join(", ");
 function createNoopImageOcrController() {
   const noop2 = () => void 0;
   return {
@@ -34909,6 +35114,32 @@ function pageAddonKeysMatch(expected, mounted) {
   if (expectedParts.length < 3) return true;
   const [, spelling, expectedReading] = expectedParts;
   return expectedReading === spelling;
+}
+function renderedWordSubwordRange(word, candidate) {
+  const token = renderedWordTokenRange(word);
+  if (!token || !pointerCandidateBelongsToRenderedWord(word, token, candidate)) return null;
+  if (!renderedWordNeedsSubwordRecovery(word, candidate.text.slice(token.start, token.end))) return null;
+  const subword = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
+  if (!subword) return null;
+  return isProperRenderedWordSubword(token, subword) ? subword : null;
+}
+function renderedWordNeedsSubwordRecovery(word, surface) {
+  if (word.dataset.cardSource === "fallback") return true;
+  const normalizedSurface = normalizedLookupText(surface);
+  if (!normalizedSurface) return false;
+  return [word.dataset.expression, word.dataset.reading].some((value) => {
+  const identity = normalizedLookupText(value ?? "");
+  return identity.length > 0 && identity.length < normalizedSurface.length && normalizedSurface.includes(identity);
+  });
+}
+function pointerCandidateBelongsToRenderedWord(word, token, candidate) {
+  if (candidate.text !== word.dataset.sentence) return false;
+  return candidate.offset >= token.start && candidate.offset < token.end;
+}
+function isProperRenderedWordSubword(token, subword) {
+  if (subword.start < token.start) return false;
+  if (subword.end > token.end) return false;
+  return subword.start !== token.start || subword.end !== token.end;
 }
 class ReaderApp {
   abortController = new AbortController();
@@ -35213,6 +35444,7 @@ class ReaderApp {
   suppressedHoverLookupKey = "";
   activePopoverMode;
   subtitleMiningPausedVideo;
+  activePlainSubtitleHoverSurface;
   miningPauseReassert;
   subtitleHoverMiningResumeTimer;
   activePopoverAnchor;
@@ -35313,6 +35545,7 @@ class ReaderApp {
   suppressWordClickUntil = 0;
   suppressPenHoverUntil = 0;
   pageHasJapaneseText = false;
+  localDictionaryReplicationScheduled = false;
   embeddedFrame = false;
   pressLookup;
   tapLookup;
@@ -35522,22 +35755,53 @@ class ReaderApp {
   scheduleLocalDictionaryReplication() {
   if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
   const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
-  if (!replicate) return;
+  if (!replicate || this.localDictionaryReplicationScheduled) return;
+  this.localDictionaryReplicationScheduled = true;
   const run = () => {
-    if (this.isDestroyed) return;
+    if (this.isDestroyed) {
+      this.localDictionaryReplicationScheduled = false;
+      return;
+    }
     void replicate({
       dictionaries: this.dictionaries,
       getSettings: () => this.settings,
       onReplicated: () => {
         if (this.isDestroyed) return;
         this.parser.clearLocalCache();
+        this.cardRenderData.clear();
         unwrapReaderWords(document);
+        void this.refreshActiveCardAfterLocalDictionaryReplication().catch((error) => log.debug("Active card refresh after dictionary replication failed", error));
         this.scheduleDictionaryRescan();
       }
+    }).catch((error) => log.warn("Scheduled dictionary replication failed", error)).finally(() => {
+      this.localDictionaryReplicationScheduled = false;
     });
   };
   if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 15e3 });
   else window.setTimeout(run, 3e3);
+  }
+  async refreshActiveCardAfterLocalDictionaryReplication() {
+  if (!this.settings.localDictionariesEnabled) return;
+  const popover = this.activePopover;
+  const card = this.lastCard;
+  if (!popover?.isConnected || !card || !popover.querySelector("[data-card-popover]")) return;
+  const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
+  const hoverLookupGeneration = trigger === "hover" ? this.hoverLookupGeneration : void 0;
+  const hoverLookupKey = trigger === "hover" ? this.activeHoverLookupKey : void 0;
+  const load = this.cardRenderData.load(card);
+  const initialEntries = await load.localEntries;
+  const entries2 = initialEntries.length ? initialEntries : await load.hydrateLocalEntries?.() ?? initialEntries;
+  const stillCurrent = this.activePopover === popover && popover.isConnected && this.settings.localDictionariesEnabled && (trigger !== "hover" || this.hoverLookupGeneration === hoverLookupGeneration && this.activeHoverLookupKey === hoverLookupKey && this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey ?? ""));
+  if (!entries2.length || !stillCurrent) return;
+  await this.showCard(card, this.lastCardSentence, this.connectedActivePopoverAnchor(), {
+    autoPlay: false,
+    trigger,
+    navigation: "preserve",
+    preservePosition: true,
+    hoverLookupGeneration,
+    hoverLookupKey,
+    skipInitialCardResolution: true
+  });
   }
   async installBunproTokenImporter() {
   await this.bunproCompanion?.installBunproFrontendTokenImporter({
@@ -35998,6 +36262,7 @@ class ReaderApp {
     this.dictionaryRescanPending = true;
     return;
   }
+  this.scheduleLocalDictionaryReplication();
   this.pitchEnrichmentLocalCache.clear();
   this.localPitchDictionaryAvailability = void 0;
   this.jitenPublicVocabulary.clear();
@@ -36579,14 +36844,18 @@ class ReaderApp {
   clearProjectedReadingsWithin(document);
   removeNonDestructiveScanMirrors(document);
   releaseRubyRoomGrowth(document);
-  document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
-    if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
+  const changedParents = new Set();
+  document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-reader-number-bind").forEach((el) => {
+    const parent = el.parentNode;
+    if (parent) changedParents.add(parent);
+    if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby") || el.classList.contains("jpdb-reader-number-bind")) {
       const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
       el.replaceWith(text2);
     } else {
       el.remove();
     }
   });
+  changedParents.forEach((parent) => parent.normalize());
   }
   destroy(options = {}) {
   this.isDestroyed = true;
@@ -36618,6 +36887,7 @@ class ReaderApp {
   this.documentBodyRecoveryPending = false;
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
+  this.activePlainSubtitleHoverSurface = void 0;
   this.ocr.destroy();
   this.subtitles.destroy();
   this.youtube.destroy();
@@ -36718,7 +36988,9 @@ class ReaderApp {
     if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
     else if (mutationsOnlyInsideReaderRoot) return;
     else if (mutationHasJapaneseText) {
+      const firstJapaneseContent = !this.pageHasJapaneseText;
       this.pageHasJapaneseText = true;
+      if (firstJapaneseContent) this.scheduleLocalDictionaryReplication();
       this.noteVisibleAutoScanWorkObserved();
       this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
         force: true,
@@ -37955,15 +38227,39 @@ class ReaderApp {
   handleHoverPointer(event) {
   if (this.shouldIgnoreHoverPointer(event)) return;
   this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+  this.keepPlainSubtitleHoverPause(event.target);
   const insideActivePopover = this.handleActivePopoverHover(event);
   if (insideActivePopover) return;
   const word = this.hoverReaderWordForEvent(event);
+  const subword = this.renderedWordSubwordCandidateAtPointer(word, event);
+  if (isHoverPopoverTransitActive(this.activeHoverPopoverPointerState())) {
+    this.handleHoverPopoverTransit(word, subword, event);
+    return;
+  }
   if (!word) {
-    if (insideActivePopover) return;
     this.handlePointerTextHover(event);
     return;
   }
+  if (subword) {
+    this.handlePointerTextHoverCandidate(event, subword);
+    return;
+  }
   this.handleReaderWordHover(word, event);
+  }
+  renderedWordSubwordCandidateAtPointer(word, event) {
+  if (!word) return null;
+  return this.renderedWordSubwordHoverCandidate(word, event.clientX, event.clientY, event.target);
+  }
+  handleHoverPopoverTransit(word, subword, event) {
+  this.cancelHoverClose();
+  this.cancelPendingHoverLookup();
+  if (subword) {
+    this.handlePointerTextHoverCandidate(event, subword, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+    return;
+  }
+  if (word) {
+    this.scheduleHoverLookup(word, event, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+  }
   }
   shouldIgnoreHoverPointer(event) {
   if (this.isDestroyed || this.pressLookup?.source === "middle" || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
@@ -38102,12 +38398,30 @@ class ReaderApp {
   handlePointerTextHover(event) {
   const hoverEnabled = this.shouldLookupOnHover(event);
   const candidate = hoverEnabled ? this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS) : null;
-  if (candidate && this.refreshActivePointerTextHover(candidate, event)) return;
-  this.cancelMissingPointerTextCandidate(candidate);
+  this.handlePointerTextHoverCandidate(event, candidate, { hoverEnabled });
+  }
+  handlePointerTextHoverCandidate(event, candidate, options = {}) {
+  const hoverEnabled = this.pointerTextHoverEnabled(event, options.hoverEnabled);
+  const activeCandidate = hoverEnabled ? candidate : null;
+  if (activeCandidate && this.refreshActivePointerTextHover(activeCandidate, event)) return;
+  this.cancelMissingPointerTextCandidate(activeCandidate);
   this.scheduleInactiveHoverClose();
-  if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
-  this.rememberHoverPopoverPointer(event);
-  this.schedulePointerTextLookup(candidate, event);
+  if (!canSchedulePointerTextHoverLookup(hoverEnabled, activeCandidate)) return;
+  this.rememberPointerTextHoverOrigin(event, options.minimumDelayMs);
+  this.schedulePointerTextLookup(activeCandidate, event, { minimumDelayMs: options.minimumDelayMs });
+  }
+  pointerTextHoverEnabled(event, configured) {
+  return configured === void 0 ? this.shouldLookupOnHover(event) : configured;
+  }
+  rememberPointerTextHoverOrigin(event, minimumDelayMs) {
+  if (minimumDelayMs === void 0) this.rememberHoverPopoverPointer(event);
+  }
+  renderedWordSubwordHoverCandidate(word, x, y, eventTarget) {
+  const candidate = this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS) ?? pointerTextLookupFromRenderedWord(word, x, y);
+  if (!candidate) return null;
+  const subword = renderedWordSubwordRange(word, candidate);
+  if (!subword) return null;
+  return { ...candidate, start: subword.start, end: subword.end };
   }
   refreshActivePointerTextHover(candidate, event) {
   if (!this.isActivePointerTextLookup(candidate)) return false;
@@ -38124,7 +38438,6 @@ class ReaderApp {
   }
   }
   handleReaderWordHover(word, event) {
-  this.rememberHoverPopoverPointer(event);
   const hoverLookupKey = this.hoverLookupKeyForWord(word);
   if (this.isActiveHoverLookup(hoverLookupKey)) {
     this.cancelHoverClose();
@@ -38137,6 +38450,7 @@ class ReaderApp {
     return;
   }
   if (!this.shouldLookupOnHover(event)) return;
+  this.rememberHoverPopoverPointer(event);
   this.keepSubtitleMiningPauseForPendingHover(word);
   this.preloadHoverWordAudio(word);
   this.scheduleHoverLookup(word, event);
@@ -38145,6 +38459,17 @@ class ReaderApp {
   if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return;
   if (!word.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return;
   this.pauseVideoForSubtitleMining();
+  }
+  keepPlainSubtitleHoverPause(target) {
+  const surface = this.plainSubtitleHoverPauseSurface(target);
+  if (!surface) return;
+  this.activePlainSubtitleHoverSurface = surface;
+  this.pauseVideoForSubtitleMining();
+  }
+  plainSubtitleHoverPauseSurface(target) {
+  if (!this.settings.annotationsPaused || !this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause || !(target instanceof Element)) return null;
+  if (target.closest(".jpdb-reader-popover")) return null;
+  return target.closest(PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR);
   }
   shouldRetryHoverAudio(word, event) {
   if (event.type !== "pointerover" || !this.shouldPrepareHoverWordAudio(word)) return false;
@@ -38164,8 +38489,30 @@ class ReaderApp {
   if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
   this.lastPointerPosition = { x: event.clientX, y: event.clientY };
   const related = event.relatedTarget;
+  if (this.handlePlainSubtitleHoverPointerOut(event.target, related)) return;
   if (this.handleActivePopoverPointerOut(event, related)) return;
   this.handleReaderWordPointerOut(event, related);
+  }
+  handlePlainSubtitleHoverPointerOut(target, related) {
+  const active = this.activePlainSubtitleHoverSurface;
+  if (!active || !(target instanceof Node) || !active.contains(target)) return false;
+  const next = this.plainSubtitleHoverPauseSurface(related);
+  if (next) {
+    this.activePlainSubtitleHoverSurface = next;
+    this.clearSubtitleHoverMiningResumeTimer();
+    return true;
+  }
+  this.activePlainSubtitleHoverSurface = void 0;
+  if (this.isInsideActivePopover(related)) {
+    this.cancelHoverClose();
+    return false;
+  }
+  if (this.activePopoverMode === "hover") {
+    this.scheduleHoverClose(void 0, { ignoreCssHover: true });
+  } else {
+    this.scheduleSubtitleMiningVideoResume(this.settings.hoverCloseDelayMs);
+  }
+  return false;
   }
   handleActivePopoverPointerOut(event, related) {
   if (this.isInsideActivePopover(event.target)) {
@@ -38319,23 +38666,43 @@ class ReaderApp {
   this.repositionActivePopover();
   if (relock && popover.isConnected) this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
   }
-  scheduleHoverLookup(word, event) {
+  scheduleHoverLookup(word, event, options = {}) {
   const hoverLookupKey = this.hoverLookupKeyForWord(word);
   if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
   this.cancelHoverClose();
-  if (this.hoverLookupTimer && this.hoverPendingWord) {
-    this.hoverPendingWord = word;
-    this.hoverPendingLookupKey = hoverLookupKey;
-    return;
-  }
+  if (this.retargetPendingHoverLookup(word, hoverLookupKey, options.minimumDelayMs)) return;
   window.clearTimeout(this.hoverLookupTimer);
   const hoverLookupGeneration = this.nextHoverLookupGeneration();
   this.hoverPendingWord = word;
   this.hoverPendingLookupKey = hoverLookupKey;
-  const runLookup = () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
-  const delay2 = this.activePopoverMode === "hover" && this.activeHoverWord && this.activeHoverWord !== word ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
-  if (delay2 === 0) runLookup();
-  else this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
+  const runLookup = () => {
+    this.rememberSettledHoverPopoverPointer(options.minimumDelayMs);
+    this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
+  };
+  this.startHoverLookupAfterDelay(runLookup, this.hoverLookupDelay(word, options.minimumDelayMs));
+  }
+  retargetPendingHoverLookup(word, hoverLookupKey, minimumDelayMs) {
+  if (minimumDelayMs !== void 0) return false;
+  if (!this.hoverLookupTimer || !this.hoverPendingWord) return false;
+  this.hoverPendingWord = word;
+  this.hoverPendingLookupKey = hoverLookupKey;
+  return true;
+  }
+  rememberSettledHoverPopoverPointer(minimumDelayMs) {
+  if (minimumDelayMs === void 0 || !this.lastPointerPosition) return;
+  this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
+  }
+  hoverLookupDelay(word, minimumDelayMs) {
+  const switchesActiveWord = this.activePopoverMode === "hover" && Boolean(this.activeHoverWord) && this.activeHoverWord !== word;
+  const normalDelay = switchesActiveWord ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
+  return Math.max(normalDelay, minimumDelayMs ?? 0);
+  }
+  startHoverLookupAfterDelay(runLookup, delay2) {
+  if (delay2 === 0) {
+    runLookup();
+    return;
+  }
+  this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
   }
   shouldSkipHoverLookupSchedule(word, hoverLookupKey) {
   if (this.isSuppressedHoverLookup(word, hoverLookupKey)) return true;
@@ -38356,9 +38723,19 @@ class ReaderApp {
   this.hoverLookupTimer = void 0;
   this.hoverPendingWord = void 0;
   this.hoverPendingLookupKey = "";
-  const pointer = this.lastPointerPosition;
-  const activeWord = (pointer ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y)) : null) ?? (word.isConnected ? word : null);
+  const activeWord = this.scheduledHoverWord(word);
   if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
+  this.startScheduledHoverWordLookup(activeWord, hoverLookupGeneration);
+  }
+  scheduledHoverWord(fallbackWord) {
+  const pointer = this.lastPointerPosition;
+  if (pointer) {
+    const liveWord = this.liveReaderWordAtPointer(pointer.x, pointer.y);
+    if (liveWord) return liveWord;
+  }
+  return fallbackWord.isConnected ? fallbackWord : null;
+  }
+  startScheduledHoverWordLookup(activeWord, hoverLookupGeneration) {
   const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
   if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
   void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => {
@@ -38381,7 +38758,7 @@ class ReaderApp {
   canOpenHoverLookupForWord(activeWord, event) {
   return this.isWordHoverActive(activeWord) && this.canUseHoverLookupPointer(event) && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
   }
-  schedulePointerTextLookup(candidate, event) {
+  schedulePointerTextLookup(candidate, event, options = {}) {
   if (this.isActivePointerTextLookup(candidate)) {
     this.refreshActiveHoverAnchor(candidate.anchor);
     return;
@@ -38395,6 +38772,9 @@ class ReaderApp {
   this.hoverPendingLookupKey = hoverLookupKey;
   const runLookup = () => {
     if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
+    if (options.minimumDelayMs !== void 0 && this.lastPointerPosition) {
+      this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
+    }
     this.hoverLookupTimer = void 0;
     this.hoverPendingLookupKey = "";
     if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
@@ -38405,12 +38785,9 @@ class ReaderApp {
       if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
     });
   };
-  const delay2 = Math.max(0, this.settings.hoverOpenDelayMs);
-  if (delay2 === 0) {
-    runLookup();
-    return;
-  }
-  this.hoverLookupTimer = window.setTimeout(runLookup, delay2);
+  const normalDelay = this.activePopoverMode === "hover" ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
+  const delay2 = Math.max(normalDelay, options.minimumDelayMs ?? 0);
+  this.startHoverLookupAfterDelay(runLookup, delay2);
   }
   isPointerTextLookupAlreadyQueued(hoverLookupKey) {
   return Boolean(hoverLookupKey && (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer || this.hoverLookupInFlightKey === hoverLookupKey));
@@ -38464,13 +38841,29 @@ class ReaderApp {
   return Boolean(liveWord?.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
   }
   isHoverContextActive(options = {}) {
-  if (this.isHoverPopoverResizeStickyActive()) return true;
-  if (this.isMiddlePressHoverContextActive()) return true;
+  if (this.hasDirectHoverContext()) return true;
+  if (this.hasActiveLookupHoverContext(options)) return true;
+  return this.hasPopoverHoverContext(options);
+  }
+  hasActiveLookupHoverContext(options) {
   if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
-  if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
+  return Boolean(this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options));
+  }
+  hasPopoverHoverContext(options) {
   if (this.isPopoverCssHoverActive(options)) return true;
   const target = this.currentHoverPointerTarget(options);
-  return target ? this.isInsideActiveHoverContext(target) : false;
+  return Boolean(target && this.isInsideActiveHoverContext(target));
+  }
+  hasDirectHoverContext() {
+  return this.isHoverPopoverResizeStickyActive() || this.isMiddlePressHoverContextActive() || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
+  }
+  activeHoverPopoverPointerState() {
+  return {
+    mode: this.activePopoverMode,
+    popover: this.activePopover,
+    point: this.lastPointerPosition,
+    origin: this.hoverPopoverPointerPosition
+  };
   }
   isMiddlePressHoverContextActive() {
   const pressLookup = this.pressLookup;
@@ -38483,7 +38876,11 @@ class ReaderApp {
   if (this.isPopoverCssHoverActive(options)) return true;
   if (!this.lastPointerPosition) return false;
   const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-  const current = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+  const current = this.currentPointerTextHoverCandidateAtPoint(
+    this.lastPointerPosition.x,
+    this.lastPointerPosition.y,
+    target
+  );
   const active = this.activePointerTextLookup;
   if (!active || !current) return false;
   if (!active.anchor.isConnected) return this.reanchorDisconnectedPointerText(active, current);
@@ -38571,13 +38968,17 @@ class ReaderApp {
   }
   isCurrentPointerTextHoverCandidate(candidate) {
   if (!this.lastPointerPosition) return false;
-  const current = this.lookupCandidateFromPoint(
+  const current = this.currentPointerTextHoverCandidateAtPoint(
     this.lastPointerPosition.x,
     this.lastPointerPosition.y,
-    document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y),
-    HOVER_POINTER_TEXT_LOOKUP_OPTIONS
+    document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y)
   );
   return Boolean(current && samePointerTextLookupTarget({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current) && pointerOffsetInsideLiveLookup({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current.offset));
+  }
+  currentPointerTextHoverCandidateAtPoint(x, y, target) {
+  const word = this.liveReaderWordAtPointer(x, y);
+  const subword = word ? this.renderedWordSubwordHoverCandidate(word, x, y, target) : null;
+  return subword ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
   }
   hasActiveHoverPopover() {
   return this.activePopoverMode === "hover" && Boolean(this.activePopover);
@@ -38800,6 +39201,7 @@ class ReaderApp {
   });
   }
   shouldSkipPointerTextToken(candidate, token) {
+  if (token.start < candidate.start || token.end > candidate.end) return true;
   const tokenLength = token.end - token.start;
   const run = pointerTextRunAt(candidate.text, candidate.offset);
   const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
@@ -38845,7 +39247,7 @@ class ReaderApp {
   return false;
   }
   publicJpdbPointerLookupCandidates(candidate) {
-  const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+  const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset).filter((span) => span.start >= candidate.start && span.end <= candidate.end);
   const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
   if (!fallbackRange) return spans;
   const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
@@ -38872,7 +39274,7 @@ class ReaderApp {
   }
   async showLocalPointerTextCandidate(candidate, sentence, trigger, options, scope) {
   const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
-  if (!scope.isCurrent() || !localMatch || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
+  if (!scope.isCurrent() || !localMatch || localMatch.start < candidate.start || localMatch.end > candidate.end || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
   const card = this.parser.localCardFromEntry(localMatch.entry, scope.target);
   if (!scope.isCurrent()) return true;
   await this.showPointerTextCard(card, sentence, candidate, localMatch, trigger, options);

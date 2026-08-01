@@ -263,9 +263,10 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
 const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
+const SUBTITLE_ANNOTATIONS_PAUSED_CLASS = 'jpdb-subtitle-annotations-paused';
 // Everything inside the click-through overlay that opts back into pointer
 // events, and so has to stand down over a native player control.
-const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
+const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
 const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
 // A drawer control under a finger must survive until its tap is delivered, but
@@ -1351,6 +1352,7 @@ export class SubtitlePlayerController {
         setClassState(this.root, 'jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
         setClassState(this.root, 'jpdb-subtitle-controls-always', settings.subtitleControlsMode === 'always');
         setClassState(this.root, 'jpdb-subtitle-controls-idle', shouldKeepIdleControlClass(this.root, settings));
+        setClassState(this.root, SUBTITLE_ANNOTATIONS_PAUSED_CLASS, settings.annotationsPaused);
         // Leaving auto mode (pinned or hidden) must drop any committed OR
         // pending fully-hidden state so a pin can never inherit a stale hide.
         if (settings.subtitleControlsMode !== 'auto') this.setControlsAway(false);
@@ -1361,6 +1363,7 @@ export class SubtitlePlayerController {
         }
         if (this.transcriptPanel) {
             setClassState(this.transcriptPanel, 'jpdb-subtitle-controls-hidden', settings.subtitleControlsMode === 'hidden');
+            setClassState(this.transcriptPanel, SUBTITLE_ANNOTATIONS_PAUSED_CLASS, settings.annotationsPaused);
         }
     }
 
@@ -3580,6 +3583,15 @@ export class SubtitlePlayerController {
 
     private handleClick(event: MouseEvent): void {
         const eventTarget = event.target as HTMLElement;
+        if (this.shouldPreservePlainSubtitleSelection(eventTarget)) {
+            // A drag selection ends with a click. Plain transcript rows are
+            // themselves cue actions, and the native subtitle line is a blur
+            // toggle, so letting that click through would seek/toggle and can
+            // destroy the text selection the learner just made.
+            event.preventDefault();
+            event.stopPropagation();
+            return;
+        }
         if (eventTarget.closest?.('.jpdb-reader-word')) return;
         if (this.panelOptionsMenuOpen && !eventTarget.closest?.('[data-panel-options]')) this.closePanelOptionsMenu();
         const insideStylePopover = Boolean(eventTarget.closest?.('[data-subtitle-style-popover]'));
@@ -3604,6 +3616,26 @@ export class SubtitlePlayerController {
         handler(target);
         if (event.detail > 0) target.closest<HTMLButtonElement>('button')?.blur();
         if (action !== 'menu') this.syncControls();
+    }
+
+    private shouldPreservePlainSubtitleSelection(eventTarget: HTMLElement): boolean {
+        if (!this.options.getSettings().annotationsPaused) return false;
+        const surface = eventTarget.closest?.<HTMLElement>(
+            '.jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary',
+        );
+        if (!surface) return false;
+        const selection = window.getSelection?.();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
+        for (let index = 0; index < selection.rangeCount; index += 1) {
+            try {
+                if (selection.getRangeAt(index).intersectsNode(surface)) return true;
+            } catch {
+                // A live subtitle render can detach the selected node between
+                // mouseup and click. The containment fallback below remains
+                // safe for a selection whose endpoints are still connected.
+            }
+        }
+        return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
     }
 
     private handleSubtitleStyleInput(event: Event): void {

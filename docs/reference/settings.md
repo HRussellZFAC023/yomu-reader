@@ -191,6 +191,7 @@ Set a hover key. Blank means plain hover.
 | Immersion Kit: display name | Example sentences, images, and audio. | empty | `immersionKitAlias` |
 | Immersion Kit: order in the popup | Example sentences, images, and audio. | `80` | `immersionKitPriority` |
 | Show site frequency in pills | — | on | `showLookupPillFrequency` |
+| Show imported dictionary definitions | — | on | `localDictionariesEnabled` |
 | Parsing source | — | Local dictionaries (offline) (`local`) | `parserProvider` |
 | Anki: shown in the popup | Matching Anki card content and status. | off | `ankiSectionEnabled` |
 | Anki: display name | Matching Anki card content and status. | empty | `ankiSectionAlias` |
@@ -386,7 +387,6 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Enable furigana annotations | — | on | `showFurigana` |
 | Not yet described | — | empty | `puckFuriganaModeBeforeHide` |
 | Read text in images | — | on | `ocrEnabled` |
-| Show imported dictionary definitions | — | on | `localDictionariesEnabled` |
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Open sources by default | — | on | `dictionarySourcesInitiallyExpanded` |
 | Not yet described | — | empty list | `dictionaryPreferences` |

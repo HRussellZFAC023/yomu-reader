@@ -362,7 +362,7 @@ describe('settings form localization', () => {
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (Jiten / JPDB)');
         expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
-        expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('');
+        expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('Show imported dictionary definitions');
         expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
         expect(labelForControl(jitenForm, 'localDictionaryMaxResults')).toBe('');
 

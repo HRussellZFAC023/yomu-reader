@@ -105,7 +105,7 @@ export class CardPopoverRenderer {
 
         return `
             <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body"${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
+            <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}

@@ -350,6 +350,77 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         expect(normalizedCss).toMatch(/\.jpdb-subtitle-primary \.jpdb-reader-furi \{[^}]*font-size: \.58em !important;/);
     });
 
+    it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toMatch(
+            /\.jpdb-subtitle-player\.jpdb-subtitle-annotations-paused \.jpdb-subtitle-primary \{[^}]*pointer-events: auto;/,
+        );
+        const selectableRule = normalizedCss.match(
+            /:is\(\.jpdb-subtitle-player, \.jpdb-subtitle-list\)\.jpdb-subtitle-annotations-paused :is\(\.jpdb-subtitle-primary, \.jpdb-subtitle-secondary, \.jpdb-subtitle-row-text, \.jpdb-subtitle-row-secondary\) \{[^}]*\}/,
+        )?.[0] ?? '';
+        expect(selectableRule).toContain('-webkit-user-select: text');
+        expect(selectableRule).toContain('user-select: text');
+        expect(selectableRule).toContain('cursor: text');
+    });
+
+    it('preserves selected plain caption text without seeking or toggling the native line', () => {
+        const cue = { start: 4, end: 6, text: '今日は読む。', transcriptEligible: true };
+        const { controller, settings } = createInstalledSubtitleController({
+            annotationsPaused: true,
+            subtitleOverlayVisible: true,
+            subtitleSecondaryVisible: true,
+            subtitleTranscriptVisible: false,
+        });
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            secondaryCue: typeof cue;
+            render: () => void;
+            openLinesPanel: () => void;
+        }>(controller);
+        internals.cues = [cue];
+        internals.currentCue = cue;
+        internals.secondaryCue = { ...cue, text: 'Read today.' };
+
+        const selectText = (element: HTMLElement): void => {
+            const text = element.firstChild;
+            if (!text) throw new Error('Expected selectable caption text.');
+            const range = document.createRange();
+            range.setStart(text, 0);
+            range.setEnd(text, Math.min(4, text.textContent?.length ?? 0));
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+        };
+
+        try {
+            internals.render();
+            const secondary = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-secondary')!;
+            const blurBefore = settings.subtitleNativeBlurred;
+            selectText(secondary);
+            const secondaryClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            secondary.dispatchEvent(secondaryClick);
+
+            expect(secondaryClick.defaultPrevented).toBe(true);
+            expect(settings.subtitleNativeBlurred).toBe(blurBefore);
+            expect(window.getSelection()?.toString()).toBe('Read');
+
+            internals.openLinesPanel();
+            const rowText = document.querySelector<HTMLElement>('.jpdb-subtitle-list-row .jpdb-subtitle-row-text')!;
+            selectText(rowText);
+            const rowClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            rowText.dispatchEvent(rowClick);
+
+            expect(rowClick.defaultPrevented).toBe(true);
+            expect(video.currentTime).toBe(0.5);
+            expect(window.getSelection()?.toString()).toBe('今日は読');
+        } finally {
+            window.getSelection()?.removeAllRanges();
+            controller.destroy();
+        }
+    });
+
     it('gates compound pitch gradients on the subtitle underline setting independently of page words', () => {
         const reset = SUBTITLES_YOUTUBE_CSS.match(
             /:is\(\.jpdb-subtitle-primary,[^}]+data-pitch-components="true"]::after\s*\{[^}]*\}/,

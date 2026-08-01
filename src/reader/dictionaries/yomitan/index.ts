@@ -798,10 +798,11 @@ export class YomitanDictionaryStore {
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
             if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
-            // UT-72: imports live in IndexedDB, which Safari evicts after ~7
-            // days of inactivity for non-persisted origins. Ask for durable
-            // storage up front.
-            requestPersistentDictionaryStorage();
+            // Only a learner-initiated import may ask the current origin for
+            // durable storage. Cross-origin replication passes
+            // persistArchive:false; prompting from that background path made
+            // Firefox ask for persistent-storage permission on every site.
+            if (options.persistArchive !== false) requestPersistentDictionaryStorage();
             const summary = /\.zip$/i.test(file.name)
                 ? await this.importZip(file, onProgress, sourceUrl, options)
                 : await this.importJson(file, onProgress);

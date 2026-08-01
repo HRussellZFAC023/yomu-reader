@@ -70,18 +70,22 @@ function arrayHasItems(value: unknown): value is unknown[] {
     return Array.isArray(value) && value.length > 0;
 }
 
-export function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File | null> {
+export async function pickFile(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File | null> {
+    return (await pickFiles(root, type))[0] ?? null;
+}
+
+export function pickFiles(root: HTMLElement, type: 'settings' | 'dictionary'): Promise<File[]> {
     const inputEl = root.querySelector<HTMLInputElement>(`input[data-file="${type}"]`);
     if (!inputEl) {
         log.warn('File picker input missing', { type });
-        return Promise.resolve(null);
+        return Promise.resolve([]);
     }
 
     return new Promise(resolve => {
         inputEl.onchange = () => {
-            const file = inputEl.files?.[0] ?? null;
+            const files = Array.from(inputEl.files ?? []);
             inputEl.value = '';
-            resolve(file);
+            resolve(files);
         };
         inputEl.click();
     });

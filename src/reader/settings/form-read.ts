@@ -548,7 +548,7 @@ function readReadingDisplayFormSettings(
 function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: ReaderSettings, kanjiPreferences: DictionaryPreference[]): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     return {
-        localDictionariesEnabled: true,
+        localDictionariesEnabled: has('localDictionariesEnabled'),
         parserProvider: readOption(get('parserProvider'), ['local', 'jiten', 'jpdb', 'auto'] as const, current.parserProvider),
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
         kanjiDictionariesAlias: readSourceAlias(reader, 'kanjiDictionaries', current.kanjiDictionariesAlias),

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.8.70] - 2026-08-01
+
+### Added
+
+- Dictionary import now accepts several Yomitan ZIP or JSON files in one file selection. Yomu imports them one at a time, keeps successful imports if another file fails, and reports one combined result (GitHub #41).
+
+### Fixed
+
+- Recommended JMdict installation now completes in Firefox 153 with Tampermonkey, survives a full browser restart, and answers from the exact 525,069-entry local store instead of failing at Firefox's userscript/page binary boundary (GitHub #39).
+- A new site now retries dictionary replication that an older Firefox import failure had permanently suppressed. If the first lookup opened before replication finished, that same card re-reads the completed local store instead of caching an empty result for 30 seconds (GitHub #43).
+- Pausing annotations no longer disables subtitle hover-pause or text selection. Plain overlay and transcript captions remain selectable, pause the intended video while hovered, and do not turn the transparent player overlay into a click target (GitHub #42).
+- With furigana, highlights, underlines, and text colours all off, automatic scanning leaves the page's native CJK text run intact. Turning those channels off also removes earlier word wrappers and number-counter binders so line breaks return to the site's own layout (GitHub #45).
+- Hover popups stay open when Firefox briefly drops CSS hover during scrolling, keep their opening position while definitions hydrate, and give the cursor-to-popup gap a narrow travel corridor that prevents accidental word switches while crossing it (GitHub #44, #46, #47).
+- Hover lookup now resolves the glyph under the pointer when the lookup actually runs, including reader-owned OCR text and over-broad rendered tokens. In the reported NHK sentence, ニュース, full ことば including its final ば, and the separate やさしい span can no longer reuse a stale or neighbouring card (GitHub #48).
+- Background dictionary replication no longer asks Firefox for persistent-storage permission on every site. Sources can disable imported dictionaries globally, and a confirmed action disables them and removes only the current site's local database while preserving the shared archive for a later re-enable (GitHub #49).
+
 ## [1.8.69] - 2026-08-01
 
 ### Fixed

@@ -7339,6 +7339,7 @@ dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
 dictionaryImportComplete	{sources}から{records}件インポートしました。
+dictionaryImportResultWithFailures	{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。
 dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
@@ -8204,6 +8205,11 @@ ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
+localDictionarySiteStorageHelp	インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。
+clearLocalDictionarySiteStorage	すべてで無効にし、このサイトのコピーを削除
+clearLocalDictionarySiteStorageConfirm	インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。
+clearLocalDictionarySiteStorageClearing	インポート済み辞書を無効にし、このサイトのコピーを削除中...
+clearLocalDictionarySiteStorageDone	インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期

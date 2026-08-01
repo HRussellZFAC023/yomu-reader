@@ -4923,6 +4923,7 @@ function clearProjectedReadingsWithin(root) {
 const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 function unwrapReaderWords(root = document, options = {}) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
   const parents = /* @__PURE__ */ new Set();
   words.forEach(clearProjectedReadingsWithin);
   for (const word of words) {
@@ -4930,6 +4931,13 @@ function unwrapReaderWords(root = document, options = {}) {
   if (!parent) continue;
   parents.add(parent);
   word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  }
+  for (const bind of numberBinds) {
+  if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+  const parent = bind.parentNode;
+  if (!parent) continue;
+  parents.add(parent);
+  bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;
@@ -8371,6 +8379,11 @@ const COPY = {
   ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
   jpdbDefinitionsEnabled: "Show JPDB definitions",
   localDictionariesEnabled: "Show imported dictionary definitions",
+  localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
+  clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
+  clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+  clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
+  clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept.",
   dictionarySourcesInitiallyExpanded: "Open sources by default",
   localDictionaryMaxResults: "Dictionary result limit",
   cloudSettingsSync: "Google Drive settings sync",
@@ -8484,6 +8497,7 @@ const COPY = {
   dictionaryRemoving: "Removing {dictionary}...",
   dictionaryRemoved: "Removed {dictionary}.",
   dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+  dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}.",
   dictionaryRecordsImported: "{dictionary}: {records} records.",
   settingsImported: "Settings imported.",
   settingsImportedWithDetails: "Settings imported; {details}.",
@@ -9195,6 +9209,7 @@ dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
 dictionaryImportComplete	{sources}から{records}件インポートしました。
+dictionaryImportResultWithFailures	{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。
 dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
@@ -10061,6 +10076,11 @@ ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
+localDictionarySiteStorageHelp	インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。
+clearLocalDictionarySiteStorage	すべてで無効にし、このサイトのコピーを削除
+clearLocalDictionarySiteStorageConfirm	インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。
+clearLocalDictionarySiteStorageClearing	インポート済み辞書を無効にし、このサイトのコピーを削除中...
+clearLocalDictionarySiteStorageDone	インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
@@ -18938,7 +18958,8 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
 const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
-const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
+const SUBTITLE_ANNOTATIONS_PAUSED_CLASS = "jpdb-subtitle-annotations-paused";
+const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary,.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
 const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
 const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
@@ -19773,6 +19794,7 @@ class SubtitlePlayerController {
   setClassState(this.root, "jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
   setClassState(this.root, "jpdb-subtitle-controls-always", settings.subtitleControlsMode === "always");
   setClassState(this.root, "jpdb-subtitle-controls-idle", shouldKeepIdleControlClass(this.root, settings));
+  setClassState(this.root, SUBTITLE_ANNOTATIONS_PAUSED_CLASS, settings.annotationsPaused);
   if (settings.subtitleControlsMode !== "auto") this.setControlsAway(false);
   if (!this.video) {
     setClassState(this.root, "jpdb-subtitle-has-video-frame", false);
@@ -19781,6 +19803,7 @@ class SubtitlePlayerController {
   }
   if (this.transcriptPanel) {
     setClassState(this.transcriptPanel, "jpdb-subtitle-controls-hidden", settings.subtitleControlsMode === "hidden");
+    setClassState(this.transcriptPanel, SUBTITLE_ANNOTATIONS_PAUSED_CLASS, settings.annotationsPaused);
   }
   }
   syncRootStyleSettings(settings) {
@@ -21530,6 +21553,11 @@ class SubtitlePlayerController {
   }
   handleClick(event) {
   const eventTarget = event.target;
+  if (this.shouldPreservePlainSubtitleSelection(eventTarget)) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   if (eventTarget.closest?.(".jpdb-reader-word")) return;
   if (this.panelOptionsMenuOpen && !eventTarget.closest?.("[data-panel-options]")) this.closePanelOptionsMenu();
   const insideStylePopover = Boolean(eventTarget.closest?.("[data-subtitle-style-popover]"));
@@ -21550,6 +21578,22 @@ class SubtitlePlayerController {
   handler(target);
   if (event.detail > 0) target.closest("button")?.blur();
   if (action !== "menu") this.syncControls();
+  }
+  shouldPreservePlainSubtitleSelection(eventTarget) {
+  if (!this.options.getSettings().annotationsPaused) return false;
+  const surface = eventTarget.closest?.(
+    ".jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary"
+  );
+  if (!surface) return false;
+  const selection = window.getSelection?.();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    try {
+      if (selection.getRangeAt(index).intersectsNode(surface)) return true;
+    } catch {
+    }
+  }
+  return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
   }
   handleSubtitleStyleInput(event) {
   const target = event.target instanceof HTMLElement ? event.target.closest("[data-subtitle-style-setting]") : null;

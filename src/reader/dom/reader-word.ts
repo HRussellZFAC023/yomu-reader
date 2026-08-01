@@ -12,6 +12,14 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
         .filter(word => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR))
         .filter(word => !word.closest('[data-jpdb-reader-surface-ignore]'))
         .filter(word => !options.excludeSelector || !word.matches(options.excludeSelector));
+    // A scan can wrap a bare numeric prefix separately from its following word
+    // (7 + 件) so generated WORD JOINER content keeps the counter together.
+    // That binder is not itself a reader word; leaving it behind after an
+    // annotation clear keeps changing native line-break opportunities even
+    // though every visible word wrapper is gone.
+    const numberBinds = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-number-bind'))
+        .filter(bind => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR))
+        .filter(bind => !bind.closest('[data-jpdb-reader-surface-ignore]'));
     const parents = new Set<Node>();
     words.forEach(clearProjectedReadingsWithin);
 
@@ -20,6 +28,17 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
         if (!parent) continue;
         parents.add(parent);
         word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+    }
+
+    for (const bind of numberBinds) {
+        // A selective unwrap may deliberately leave the following word in
+        // place (settings previews use excludeSelector). Keep its matching
+        // binder; bulk page clears replace the word first and reach this path.
+        if (bind.nextElementSibling?.classList.contains('jpdb-reader-word')) continue;
+        const parent = bind.parentNode;
+        if (!parent) continue;
+        parents.add(parent);
+        bind.replaceWith(document.createTextNode(bind.textContent ?? ''));
     }
 
     parents.forEach(parent => parent.normalize());

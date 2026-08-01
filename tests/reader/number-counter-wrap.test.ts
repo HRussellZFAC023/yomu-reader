@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderTokensToHtml } from '../../src/reader/dom/index';
+import { renderTokensToHtml, unwrapReaderWords } from '../../src/reader/dom/index';
+import { ReaderApp } from '../../src/reader/app/main';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -41,6 +42,38 @@ describe('number/counter line breaking', () => {
     it('does not bind a trailing number when no token follows it', () => {
         // "件7": 件 is the token, the digit is trailing gap text with nothing after it.
         expect(renderWithToken('件7', 0, 1)).not.toContain('jpdb-reader-number-bind');
+    });
+
+    it('restores the native number-counter text run when annotations are cleared', () => {
+        document.body.innerHTML = renderWithToken('7件', 1, 2);
+        expect(document.body.querySelector('.jpdb-reader-number-bind')).toBeTruthy();
+
+        expect(unwrapReaderWords(document)).toBe(1);
+
+        expect(document.body.textContent).toBe('7件');
+        expect(document.body.childNodes).toHaveLength(1);
+        expect(document.body.querySelector('.jpdb-reader-number-bind')).toBeNull();
+    });
+
+    it('removes number binders on the immediate annotations-off path', () => {
+        const app = new ReaderApp() as unknown as {
+            clearAllAnnotations: () => void;
+            destroy: () => void;
+        };
+        document.body.innerHTML = renderWithToken('7件', 1, 2);
+
+        try {
+            expect(document.body.querySelector('.jpdb-reader-number-bind')).toBeTruthy();
+
+            app.clearAllAnnotations();
+
+            expect(document.body.textContent).toBe('7件');
+            expect(document.body.childNodes).toHaveLength(1);
+            expect(document.body.querySelector('.jpdb-reader-number-bind')).toBeNull();
+            expect(document.body.querySelector('.jpdb-reader-word')).toBeNull();
+        } finally {
+            app.destroy();
+        }
     });
 });
 

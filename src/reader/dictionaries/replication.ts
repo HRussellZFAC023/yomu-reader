@@ -13,7 +13,7 @@ const log = Logger.scope('DictionaryReplication');
 // the missing ones from the cross-origin archive cache — the same path also
 // heals a store the browser evicted (Safari/Firefox storage pressure).
 const REPLICATION_STATE_KEY = 'yomu-dictionary-replication-state';
-const MAX_ATTEMPTS = 3;
+const REPLICATION_STATE_VERSION = 2;
 const RETRY_BACKOFF_MS = 6 * 60 * 60 * 1000;
 
 export interface DictionaryReplicationStore {
@@ -34,11 +34,23 @@ interface ReplicationAttemptState {
     lastAt: number;
 }
 
+interface PersistedReplicationAttemptState {
+    version: number;
+    archives: Record<string, ReplicationAttemptState>;
+}
+
 let replicationInFlight = false;
+let replicationIdle: Promise<void> = Promise.resolve();
+let resolveReplicationIdle: (() => void) | undefined;
+
+export async function waitForLocalDictionaryReplicationIdle(): Promise<void> {
+    await replicationIdle;
+}
 
 export async function ensureLocalDictionariesReplicated(options: DictionaryReplicationOptions): Promise<string[]> {
     if (replicationInFlight) return [];
     replicationInFlight = true;
+    replicationIdle = new Promise(resolve => { resolveReplicationIdle = resolve; });
     try {
         await ensureManagedWebStorageCurrent();
         return await replicateMissingDictionaries(options);
@@ -47,6 +59,9 @@ export async function ensureLocalDictionariesReplicated(options: DictionaryRepli
         return [];
     } finally {
         replicationInFlight = false;
+        const resolve = resolveReplicationIdle;
+        resolveReplicationIdle = undefined;
+        resolve?.();
     }
 }
 
@@ -62,6 +77,13 @@ async function replicateMissingDictionaries(options: DictionaryReplicationOption
     const state = readAttemptState();
     const imported: string[] = [];
     for (const [identity, meta] of missing) {
+        // Settings can change while a large archive is importing. In
+        // particular, the confirmed current-site cleanup disables local
+        // dictionaries and deletes this origin's DB; never start the next
+        // archive afterward and recreate data the learner just cleared.
+        const currentSettings = options.getSettings();
+        if (!currentSettings.localDictionariesEnabled) break;
+        if (!enabledPreferenceIdentities(currentSettings).has(identity)) continue;
         if (!shouldAttempt(state[identity], now())) continue;
         try {
             const summary = await importArchive(options.dictionaries, identity, meta);
@@ -123,7 +145,6 @@ function replicationImportOptions(meta: DictionaryArchiveMeta): DictionaryImport
 
 function shouldAttempt(state: ReplicationAttemptState | undefined, now: number): boolean {
     if (!state) return true;
-    if (state.attempts >= MAX_ATTEMPTS) return false;
     return now - state.lastAt >= RETRY_BACKOFF_MS;
 }
 
@@ -132,8 +153,15 @@ function shouldAttempt(state: ReplicationAttemptState | undefined, now: number):
 function readAttemptState(): Record<string, ReplicationAttemptState> {
     try {
         const raw = managedLocalStorage.getItem(REPLICATION_STATE_KEY);
-        const parsed = raw ? JSON.parse(raw) as Record<string, ReplicationAttemptState> : null;
-        return parsed && typeof parsed === 'object' ? parsed : {};
+        const parsed = raw ? JSON.parse(raw) as PersistedReplicationAttemptState : null;
+        // Pre-v2 state could permanently suppress an archive after three
+        // failures. Invalidate it so origins hit by the Firefox Xray importer
+        // bug retry immediately after updating to the repaired runtime.
+        return parsed?.version === REPLICATION_STATE_VERSION
+            && parsed.archives
+            && typeof parsed.archives === 'object'
+            ? parsed.archives
+            : {};
     } catch {
         return {};
     }
@@ -141,7 +169,11 @@ function readAttemptState(): Record<string, ReplicationAttemptState> {
 
 function writeAttemptState(state: Record<string, ReplicationAttemptState>): void {
     try {
-        managedLocalStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(state));
+        const persisted: PersistedReplicationAttemptState = {
+            version: REPLICATION_STATE_VERSION,
+            archives: state,
+        };
+        managedLocalStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(persisted));
     } catch {
         // Origins without persistent storage simply retry next visit.
     }

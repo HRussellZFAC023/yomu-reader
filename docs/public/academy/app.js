@@ -37224,6 +37224,7 @@ ${spelling}`);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   function unwrapReaderWords(root = document, options = {}) {
     const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+    const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
     const parents = /* @__PURE__ */ new Set();
     words.forEach(clearProjectedReadingsWithin);
     for (const word of words) {
@@ -37231,6 +37232,13 @@ ${spelling}`);
       if (!parent) continue;
       parents.add(parent);
       word.replaceWith(document.createTextNode(readerWordSurfaceText$1(word)));
+    }
+    for (const bind of numberBinds) {
+      if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+      const parent = bind.parentNode;
+      if (!parent) continue;
+      parents.add(parent);
+      bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
     }
     parents.forEach((parent) => parent.normalize());
     return words.length;
@@ -39737,6 +39745,11 @@ ${spelling}`);
       ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
+      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
+      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+      clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
+      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept.",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
@@ -39850,6 +39863,7 @@ ${spelling}`);
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
       dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+      dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}.",
       dictionaryRecordsImported: "{dictionary}: {records} records.",
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
@@ -40561,6 +40575,7 @@ dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
 dictionaryImportComplete	{sources}から{records}件インポートしました。
+dictionaryImportResultWithFailures	{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。
 dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
@@ -41427,6 +41442,11 @@ ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
+localDictionarySiteStorageHelp	インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。
+clearLocalDictionarySiteStorage	すべてで無効にし、このサイトのコピーを削除
+clearLocalDictionarySiteStorageConfirm	インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。
+clearLocalDictionarySiteStorageClearing	インポート済み辞書を無効にし、このサイトのコピーを削除中...
+clearLocalDictionarySiteStorageDone	インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
@@ -294906,7 +294926,7 @@ ${entry2.reading}`;
       try {
         log$m.info("Dictionary file import started", fileSummary(file, sourceUrl));
         if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
-        requestPersistentDictionaryStorage();
+        if (options.persistArchive !== false) requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
         log$m.info("Dictionary file import completed", summary);
         return summary;
@@ -299319,7 +299339,7 @@ ${entry2.reading || ""}`;
       const fallbackAnkiSection = ankiSourceSection && !definitionSources.includes("jpdb-reader-anki-existing") ? ankiSourceSection : "";
       return `
             <div class="jpdb-reader-sheet-handle"></div>
-            <div class="jpdb-reader-popover-body"${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
+            <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
                 ${this.renderHeader(card, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
@@ -364099,7 +364119,7 @@ ${options.version}`;
   function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
     const { get, has, clamped } = reader;
     return {
-      localDictionariesEnabled: true,
+      localDictionariesEnabled: has("localDictionariesEnabled"),
       parserProvider: readOption(get("parserProvider"), ["local", "jiten", "jpdb", "auto"], current.parserProvider),
       localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
       kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
@@ -367372,6 +367392,13 @@ ${options.version}`;
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language2, "checkingDictionaries")}</div>
+                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
+                    ${checkbox("localDictionariesEnabled", text2("localDictionariesEnabled"), settings.localDictionariesEnabled)}
+                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapedUiText(language2, "localDictionarySiteStorageHelp")}</div>
+                    <div class="jpdb-reader-help-actions">
+                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapedUiText(language2, "clearLocalDictionarySiteStorage")}</button>
+                    </div>
+                </div>
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language2, "parserProviderHelp")}</div>
                     ${select("parserProvider", text2("parserProvider"), settings.parserProvider, localizedOptions(text2, PARSER_PROVIDER_OPTIONS))}
@@ -367411,7 +367438,7 @@ ${options.version}`;
                     <button class="jpdb-reader-btn" type="button" data-action="export-yomitan-dictionary">${escapedUiText(language2, "exportDictionaries")}</button>
                 </div>
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
-                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
+                <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip" multiple>
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
     `;
@@ -367724,6 +367751,7 @@ ${options.version}`;
     ['[data-action="export-reader-settings"]', "exportSettings"],
     ['[data-action="import-yomitan-dictionary"]', "importDictionaries"],
     ['[data-action="export-yomitan-dictionary"]', "exportDictionaries"],
+    ['[data-action="clear-local-dictionary-site-storage"]', "clearLocalDictionarySiteStorage"],
     ['[data-action="connect-academy-account"]', "academyAccountConnect"],
     ['[data-action="sync-academy-account"]', "academyAccountSyncNow"],
     ['[data-action="create-academy-recovery-code"]', "academyRecoveryCodeCreate"],
@@ -368382,6 +368410,7 @@ ${options.version}`;
     "wordColorDue",
     "wordColorFailed",
     "wordColorIgnored",
+    "localDictionariesEnabled",
     "parserProvider",
     "pitchColorHeiban",
     "pitchColorAtamadaka",
@@ -369219,17 +369248,20 @@ ${options.version}`;
   function arrayHasItems(value) {
     return Array.isArray(value) && value.length > 0;
   }
-  function pickFile(root, type) {
+  async function pickFile(root, type) {
+    return (await pickFiles(root, type))[0] ?? null;
+  }
+  function pickFiles(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
       log$5.warn("File picker input missing", { type });
-      return Promise.resolve(null);
+      return Promise.resolve([]);
     }
     return new Promise((resolve) => {
       inputEl.onchange = () => {
-        const file = inputEl.files?.[0] ?? null;
+        const files = Array.from(inputEl.files ?? []);
         inputEl.value = "";
-        resolve(file);
+        resolve(files);
       };
       inputEl.click();
     });
@@ -369310,6 +369342,11 @@ ${options.version}`;
       preferFetch: true,
       timeoutMs: 15e3
     });
+  }
+  Logger.scope("DictionaryReplication");
+  let replicationIdle = Promise.resolve();
+  async function waitForLocalDictionaryReplicationIdle() {
+    await replicationIdle;
   }
   async function requestPrivateApi(url, init = {}) {
     let userscriptRequest = getUserscriptHttpRequest();
@@ -370281,6 +370318,7 @@ ${options.version}`;
     }
     dictionaryOperationQueue = Promise.resolve();
     pendingDictionaryOperations = 0;
+    dictionarySiteStorageClearPending = false;
     recommendedDictionaryOperations = /* @__PURE__ */ new Map();
     currentForm;
     modal = new LookupModalAccessibility();
@@ -371535,6 +371573,14 @@ ${options.version}`;
       setInnerHtml(list2, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
     }
     async handleSettingsDictionaryAction(form2, action2, control2, setStatus) {
+      if (this.dictionarySiteStorageClearPending && (action2 === "import-yomitan-dictionary" || action2 === "download-recommended-dictionary")) {
+        setStatus(uiText(getFormInterfaceLanguage(form2, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
+        return true;
+      }
+      if (action2 === "clear-local-dictionary-site-storage") {
+        await this.disableAndClearLocalDictionarySiteStorage(form2, control2, setStatus);
+        return true;
+      }
       if (action2 === "delete-yomitan-dictionary") {
         await this.deleteDictionaryFromSettings(form2, control2, setStatus);
         return true;
@@ -371966,6 +372012,64 @@ ${options.version}`;
       setStatus("");
       return false;
     }
+    async disableAndClearLocalDictionarySiteStorage(form2, control2, setStatus) {
+      if (this.dictionarySiteStorageClearPending) return;
+      const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
+      if (!window.confirm(uiText(language2, "clearLocalDictionarySiteStorageConfirm"))) return;
+      const button2 = settingsActionButton(control2);
+      const enabled = namedSettingsControl(form2, "localDictionariesEnabled");
+      this.dictionarySiteStorageClearPending = true;
+      button2?.setAttribute("disabled", "true");
+      this.setDictionaryImportsDisabledForSiteClear(form2, true);
+      setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
+      try {
+        await this.enqueueDictionaryOperation(form2, async () => {
+          const previousSettings = this.settings;
+          let settingsSaved = false;
+          setStatus(uiText(language2, "clearLocalDictionarySiteStorageClearing"));
+          try {
+            this.settings = { ...previousSettings, localDictionariesEnabled: false };
+            await this.saveCurrentSettings(previousSettings);
+            settingsSaved = true;
+            if (enabled) enabled.checked = false;
+            await waitForLocalDictionaryReplicationIdle();
+            await this.dependencies.dictionaries.deleteDatabase();
+            await this.dependencies.refreshDictionaryStyles();
+            const dictionaryStatus = form2.querySelector("[data-dictionary-status]");
+            if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
+            this.dependencies.scheduleDictionaryRescan();
+            this.dependencies.refreshNewTabIfCurrent();
+            const message = uiText(language2, "clearLocalDictionarySiteStorageDone");
+            setStatus(message);
+            this.dependencies.toast(message);
+          } catch (error) {
+            if (!settingsSaved) {
+              this.settings = previousSettings;
+              if (enabled) enabled.checked = previousSettings.localDictionariesEnabled;
+            }
+            throw error;
+          }
+        });
+      } finally {
+        this.dictionarySiteStorageClearPending = false;
+        this.setDictionaryImportsDisabledForSiteClear(form2, false);
+        button2?.removeAttribute("disabled");
+      }
+    }
+    setDictionaryImportsDisabledForSiteClear(form2, disabled) {
+      form2.querySelectorAll(
+        '[data-action="import-yomitan-dictionary"], [data-action="download-recommended-dictionary"]'
+      ).forEach((importButton) => {
+        if (disabled) {
+          importButton.dataset.disabledForSiteClear = "true";
+          importButton.disabled = true;
+          return;
+        }
+        if (importButton.dataset.disabledForSiteClear !== "true") return;
+        delete importButton.dataset.disabledForSiteClear;
+        importButton.disabled = false;
+      });
+    }
     async deleteDictionaryFromSettings(form2, control2, setStatus) {
       const dictionary = control2?.dataset.dictionaryName;
       if (!dictionary) throw new Error("Dictionary not found.");
@@ -371983,19 +372087,38 @@ ${options.version}`;
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
     }
     async importDictionaryFromSettings(form2, setStatus) {
-      const file = await pickFile(form2, "dictionary");
-      if (!file) return;
-      await this.enqueueDictionaryOperation(form2, async () => {
+      const files = await pickFiles(form2, "dictionary");
+      if (!files.length) return;
+      const results = await Promise.allSettled(files.map((file) => this.enqueueDictionaryOperation(form2, async () => {
         const summary = await this.dependencies.dictionaries.importFile(file, (message) => setStatus(message));
         await this.persistDictionaryImport(summary);
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
-          records: summary.entries.toLocaleString(),
-          sources: summary.dictionaries.length.toLocaleString(),
-          plural: summary.dictionaries.length === 1 ? "" : "s"
-        }));
+        return summary;
+      })));
+      const summaries = results.flatMap((result2) => result2.status === "fulfilled" ? [result2.value] : []);
+      if (summaries.length) {
         await this.refreshDictionaryStatus(form2);
         this.dependencies.refreshNewTabIfCurrent();
-      });
+      }
+      const records2 = summaries.reduce((total, summary) => total + summary.entries, 0);
+      const sources = new Set(summaries.flatMap((summary) => summary.dictionaries)).size;
+      const failures = results.flatMap((result2, index) => result2.status === "rejected" ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result2.reason }] : []);
+      if (failures.length) {
+        failures.forEach((failure) => log$3.warn("Dictionary file import failed", failure));
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportResultWithFailures"), {
+          records: records2.toLocaleString(),
+          sources: sources.toLocaleString(),
+          plural: sources === 1 ? "" : "s",
+          failed: failures.length.toLocaleString(),
+          failedPlural: failures.length === 1 ? "" : "s",
+          files: failures.map((failure) => failure.filename).join(", ")
+        }));
+        return;
+      }
+      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryImportComplete"), {
+        records: records2.toLocaleString(),
+        sources: sources.toLocaleString(),
+        plural: sources === 1 ? "" : "s"
+      }));
     }
     queueRecommendedDictionaryDownloadFromSettings(form2, control2, setStatus) {
       void this.downloadRecommendedDictionaryFromSettings(form2, control2, setStatus).catch((error) => {

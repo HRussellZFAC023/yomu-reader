@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
+import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS } from '../../src/reader/popup/hover-transit';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { noteScannedShadowRoot } from '../../src/reader/dom/shadow-scan-registry';
@@ -31,6 +32,7 @@ interface HoverLookupInternals {
         destroy(): void;
     };
     lastPointerPosition?: { x: number; y: number };
+    hoverPopoverPointerPosition?: { x: number; y: number };
     parser: { cacheCards(cards: JPDBCard[]): void };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
@@ -49,7 +51,8 @@ interface HoverLookupInternals {
     handleHoverPointerOut(event: PointerEvent): void;
     handleDocumentClick(event: MouseEvent): void;
     pauseForSubtitleSurfaceTap(event: MouseEvent): boolean;
-    scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
+    scheduleHoverLookup(word: HTMLElement, event: PointerEvent, options?: { minimumDelayMs?: number }): void;
+    schedulePointerTextLookup(candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement }, event: PointerEvent, options?: { minimumDelayMs?: number }): void;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     pinHoverPopoverForInsidePointer(event: PointerEvent): void;
@@ -136,6 +139,7 @@ const HOVER_LOOKUP_CARD: JPDBCard = {
     pitchAccent: ['HL'],
     wordWithReading: null,
 };
+const NHK_ISSUE_48_SENTENCE = '「NHKやさしいことばニュース」は、日本に住んでいる外国人の皆さんや、子どもたちに、できるだけやさしい日本語でニュースを伝えるサイトです。';
 
 function hoverPointerEvent(
     target: HTMLElement,
@@ -143,13 +147,14 @@ function hoverPointerEvent(
     type = 'pointerover',
     modifiers: Partial<Pick<PointerEvent, 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'buttons'>> = {},
     relatedTarget: Node | null = null,
+    point: { x: number; y: number } = { x: 40, y: 24 },
 ): PointerEvent {
     const event = new Event(type, { bubbles: true, cancelable: true }) as PointerEvent;
     Object.defineProperties(event, {
         target: { value: target },
         relatedTarget: { value: relatedTarget },
-        clientX: { value: 40 },
-        clientY: { value: 24 },
+        clientX: { value: point.x },
+        clientY: { value: point.y },
         button: { value: 0 },
         buttons: { value: modifiers.buttons ?? 0 },
         pointerType: { value: pointerType },
@@ -383,6 +388,24 @@ function stubElementsFromPoint(elements: Element[]): () => void {
             configurable: true,
             value: originalElementsFromPoint,
         });
+    };
+}
+
+function stubCaretPositionFromPoint(node: Text, offset: number): () => void {
+    const documentWithCaret = document as Document & {
+        caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    };
+    const original = documentWithCaret.caretPositionFromPoint;
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+        configurable: true,
+        value: vi.fn(() => ({ offsetNode: node, offset })),
+    });
+    return () => {
+        if (original) {
+            Object.defineProperty(document, 'caretPositionFromPoint', { configurable: true, value: original });
+        } else {
+            Reflect.deleteProperty(document, 'caretPositionFromPoint');
+        }
     };
 }
 
@@ -786,6 +809,101 @@ describe('hover lookup', () => {
             expect(pause).not.toHaveBeenCalled();
 
             internals.dismiss();
+            expect(play).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('pauses on plain subtitle text while annotations are off and resumes after leaving it', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            annotationsPaused: true,
+            lookupOnHover: false,
+            subtitleMiningPause: true,
+            subtitleHoverPause: true,
+            hoverCloseDelayMs: 0,
+        };
+        const { pause, play } = appendPlayingVideo();
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player jpdb-subtitle-annotations-paused';
+        overlay.innerHTML = `
+            <div class="jpdb-subtitle-primary">読む</div>
+            <button class="jpdb-subtitle-secondary">読みます</button>
+        `;
+        document.body.append(overlay);
+        const primary = overlay.querySelector<HTMLElement>('.jpdb-subtitle-primary')!;
+        const secondary = overlay.querySelector<HTMLElement>('.jpdb-subtitle-secondary')!;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(primary));
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            internals.handleHoverPointerOut(hoverPointerEvent(primary, 'mouse', 'pointerout', {}, secondary));
+            internals.handleHoverPointer(hoverPointerEvent(secondary));
+            expect(play).not.toHaveBeenCalled();
+
+            internals.handleHoverPointerOut(hoverPointerEvent(secondary, 'mouse', 'pointerout', {}, document.body));
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('does not force-play a user-paused video after plain subtitle hover', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            annotationsPaused: true,
+            lookupOnHover: false,
+            subtitleMiningPause: true,
+            subtitleHoverPause: true,
+            hoverCloseDelayMs: 0,
+        };
+        const { video, pause, play } = appendPlayingVideo();
+        video.pause();
+        pause.mockClear();
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player jpdb-subtitle-annotations-paused';
+        overlay.innerHTML = '<div class="jpdb-subtitle-primary">読む</div>';
+        document.body.append(overlay);
+        const primary = overlay.querySelector<HTMLElement>('.jpdb-subtitle-primary')!;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(primary));
+            internals.handleHoverPointerOut(hoverPointerEvent(primary, 'mouse', 'pointerout', {}, document.body));
+            expect(pause).not.toHaveBeenCalled();
+            expect(play).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('leaves plain annotations-off captions playing when hover pause is disabled', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            annotationsPaused: true,
+            lookupOnHover: false,
+            subtitleMiningPause: true,
+            subtitleHoverPause: false,
+            hoverCloseDelayMs: 0,
+        };
+        const { pause, play } = appendPlayingVideo();
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player jpdb-subtitle-annotations-paused';
+        overlay.innerHTML = '<div class="jpdb-subtitle-primary">読む</div>';
+        document.body.append(overlay);
+        const primary = overlay.querySelector<HTMLElement>('.jpdb-subtitle-primary')!;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(primary));
+            internals.handleHoverPointerOut(hoverPointerEvent(primary, 'mouse', 'pointerout', {}, document.body));
+            expect(pause).not.toHaveBeenCalled();
             expect(play).not.toHaveBeenCalled();
         } finally {
             cleanupReaderApp(app);
@@ -1694,6 +1812,307 @@ describe('hover lookup', () => {
             restorePoint();
             restoreStack();
             vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it.each([
+        { staleSurface: 'を', liveSurface: 'です' },
+        { staleSurface: 'ば', liveSurface: 'ニュース' },
+    ])('re-resolves normal mirrored NHK text at execution so $liveSurface never shows the stale $staleSurface card', async ({ staleSurface, liveSurface }) => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const source = document.createElement('p');
+        source.textContent = NHK_ISSUE_48_SENTENCE;
+        const staleWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, staleSurface);
+        const liveWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, liveSurface);
+        liveWord.dataset.vid = '9';
+        liveWord.dataset.sid = '9';
+        document.body.append(source);
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        let wordAtPoint = staleWord;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            hoverOpenDelayMs: 80,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+        internals.readerWordFromRenderedGeometry = vi.fn(() => wordAtPoint);
+        const restorePoint = stubElementFromPoint(source);
+        const restoreStack = stubElementsFromPoint([source]);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(source, 'mouse', 'pointermove', {}, null, { x: 20, y: 24 }));
+            await vi.advanceTimersByTimeAsync(30);
+            wordAtPoint = liveWord;
+            internals.handleHoverPointer(hoverPointerEvent(source, 'mouse', 'pointermove', {}, null, { x: 180, y: 24 }));
+            await vi.advanceTimersByTimeAsync(50);
+
+            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showWord).toHaveBeenCalledWith(
+                liveWord,
+                expect.objectContaining({ trigger: 'hover' }),
+            );
+            expect(showWord).not.toHaveBeenCalledWith(staleWord, expect.anything());
+        } finally {
+            restoreStack();
+            restorePoint();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('selects やさしい and full ことば independently inside an overbroad OCR token', () => {
+        const app = new ReaderApp();
+        const layer = document.createElement('div');
+        layer.className = 'jpdb-ocr-layer';
+        layer.dataset.jpdbReaderRoot = 'true';
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        const broadWord = document.createElement('span');
+        broadWord.className = 'jpdb-reader-word';
+        broadWord.dataset.vid = '1';
+        broadWord.dataset.sid = '2';
+        broadWord.dataset.sentence = NHK_ISSUE_48_SENTENCE;
+        broadWord.dataset.tokenStart = '4';
+        broadWord.dataset.tokenEnd = '11';
+        broadWord.dataset.cardSource = 'jiten';
+        broadWord.dataset.expression = 'やさしい';
+        broadWord.dataset.reading = 'やさしい';
+        broadWord.textContent = 'やさしいことば';
+        broadWord.getBoundingClientRect = () => new DOMRect(20, 20, 140, 24);
+        const news = document.createElement('span');
+        news.className = 'jpdb-reader-word';
+        news.dataset.vid = '3';
+        news.dataset.sid = '4';
+        news.dataset.sentence = NHK_ISSUE_48_SENTENCE;
+        news.dataset.tokenStart = '11';
+        news.dataset.tokenEnd = '15';
+        news.textContent = 'ニュース';
+        news.getBoundingClientRect = () => new DOMRect(162, 20, 80, 24);
+        line.append(broadWord, news);
+        layer.append(line);
+        document.body.append(layer);
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const schedulePointerTextLookup = vi.fn();
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.schedulePointerTextLookup = schedulePointerTextLookup;
+        const restorePoint = stubElementFromPoint(line);
+        const restoreStack = stubElementsFromPoint([line]);
+        const broadText = broadWord.firstChild as Text;
+        let restoreCaret = (): void => undefined;
+
+        try {
+            restoreCaret = stubCaretPositionFromPoint(broadText, 1);
+            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 40, y: 32 }));
+            expect(schedulePointerTextLookup).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    text: NHK_ISSUE_48_SENTENCE,
+                    offset: 5,
+                    start: 4,
+                    end: 8,
+                    anchor: broadWord,
+                }),
+                expect.any(Event),
+                expect.any(Object),
+            );
+
+            restoreCaret();
+            restoreCaret = stubCaretPositionFromPoint(broadText, 6);
+            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 150, y: 32 }));
+            expect(schedulePointerTextLookup).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    text: NHK_ISSUE_48_SENTENCE,
+                    offset: 10,
+                    start: 8,
+                    end: 11,
+                    anchor: broadWord,
+                }),
+                expect.any(Event),
+                expect.any(Object),
+            );
+
+            restoreCaret();
+            restoreCaret = stubCaretPositionFromPoint(news.firstChild as Text, 2);
+            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 200, y: 32 }));
+            expect(scheduleHoverLookup).toHaveBeenLastCalledWith(news, expect.any(Event));
+        } finally {
+            restoreCaret();
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it.each([
+        { name: 'やさしい', characterOffset: 1, expectedStart: 4, expectedEnd: 8 },
+        { name: 'ことば middle', characterOffset: 5, expectedStart: 8, expectedEnd: 11 },
+        { name: 'ことば final ば', characterOffset: 6, expectedStart: 8, expectedEnd: 11 },
+        { name: 'ニュース', characterOffset: 9, expectedStart: 11, expectedEnd: 15 },
+    ])('uses the exact subtitle glyph for $name inside an overbroad rendered token', ({ characterOffset, expectedStart, expectedEnd }) => {
+        const app = new ReaderApp();
+        const subtitleRoot = document.createElement('div');
+        subtitleRoot.className = 'jpdb-subtitle-player';
+        subtitleRoot.dataset.jpdbReaderRoot = 'true';
+        const line = document.createElement('div');
+        line.className = 'jpdb-subtitle-primary';
+        const broadWord = document.createElement('span');
+        broadWord.className = 'jpdb-reader-word';
+        broadWord.dataset.vid = '48001';
+        broadWord.dataset.sid = '48002';
+        broadWord.dataset.sentence = NHK_ISSUE_48_SENTENCE;
+        broadWord.dataset.tokenStart = '4';
+        broadWord.dataset.tokenEnd = '15';
+        broadWord.dataset.cardSource = 'jiten';
+        broadWord.dataset.expression = 'やさしい';
+        broadWord.dataset.reading = 'やさしい';
+        broadWord.textContent = 'やさしいことばニュース';
+        broadWord.getBoundingClientRect = () => new DOMRect(20, 20, 220, 32);
+        line.append(broadWord);
+        subtitleRoot.append(line);
+        document.body.append(subtitleRoot);
+        const internals = app as unknown as HoverLookupInternals;
+        const schedulePointerTextLookup = vi.fn();
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.schedulePointerTextLookup = schedulePointerTextLookup;
+        const restorePoint = stubElementFromPoint(broadWord);
+        const restoreStack = stubElementsFromPoint([broadWord]);
+        const restoreCaret = stubCaretPositionFromPoint(broadWord.firstChild as Text, characterOffset);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(
+                broadWord,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 40 + characterOffset * 18, y: 32 },
+            ));
+
+            expect(schedulePointerTextLookup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: NHK_ISSUE_48_SENTENCE,
+                    offset: 4 + characterOffset,
+                    start: expectedStart,
+                    end: expectedEnd,
+                    anchor: broadWord,
+                }),
+                expect.any(Event),
+                expect.any(Object),
+            );
+        } finally {
+            restoreCaret();
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('uses the exact normal-text point to split an overbroad やさしいことば mirror', () => {
+        const app = new ReaderApp();
+        const source = document.createElement('p');
+        source.textContent = NHK_ISSUE_48_SENTENCE;
+        const broadWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, 'やさしいことば');
+        broadWord.dataset.tokenStart = '4';
+        broadWord.dataset.tokenEnd = '11';
+        broadWord.dataset.cardSource = 'jiten';
+        broadWord.dataset.expression = 'やさしい';
+        broadWord.dataset.reading = 'やさしい';
+        document.body.append(source);
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const schedulePointerTextLookup = vi.fn();
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.readerWordFromRenderedGeometry = vi.fn(() => broadWord);
+        internals.lookupCandidateFromPoint = vi.fn(() => ({
+            text: NHK_ISSUE_48_SENTENCE,
+            offset: 10,
+            start: 4,
+            end: 15,
+            anchor: source,
+        }));
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.schedulePointerTextLookup = schedulePointerTextLookup;
+        const restorePoint = stubElementFromPoint(source);
+        const restoreStack = stubElementsFromPoint([source]);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(source, 'mouse', 'pointermove', {}, null, { x: 160, y: 24 }));
+
+            expect(schedulePointerTextLookup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: NHK_ISSUE_48_SENTENCE,
+                    offset: 10,
+                    start: 8,
+                    end: 11,
+                    anchor: source,
+                }),
+                expect.any(Event),
+                expect.any(Object),
+            );
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
+        } finally {
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps a trusted compound card whole when display segmentation finds smaller words', () => {
+        const app = new ReaderApp();
+        const compound = readerWordFixture('東京都立大学');
+        compound.dataset.tokenStart = '0';
+        compound.dataset.tokenEnd = '6';
+        compound.dataset.cardSource = 'local';
+        compound.dataset.expression = '東京都立大学';
+        compound.dataset.reading = 'とうきょうとりつだいがく';
+        compound.getBoundingClientRect = () => new DOMRect(20, 20, 120, 24);
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverLookup = vi.fn();
+        const schedulePointerTextLookup = vi.fn();
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.scheduleHoverLookup = scheduleHoverLookup;
+        internals.schedulePointerTextLookup = schedulePointerTextLookup;
+        const restorePoint = stubElementFromPoint(compound);
+        const restoreStack = stubElementsFromPoint([compound]);
+        const restoreCaret = stubCaretPositionFromPoint(compound.firstChild as Text, 4);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(
+                compound,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 110, y: 32 },
+            ));
+
+            expect(scheduleHoverLookup).toHaveBeenCalledWith(compound, expect.any(Event));
+            expect(schedulePointerTextLookup).not.toHaveBeenCalled();
+        } finally {
+            restoreCaret();
+            restoreStack();
+            restorePoint();
             cleanupReaderApp(app);
         }
     });
@@ -2687,6 +3106,230 @@ describe('hover lookup', () => {
             expect(words[0].classList.contains('jpdb-reader-keyboard-active')).toBe(false);
         } finally {
             selection.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps the opening point fixed while an active hover hydrates', () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const popover = appendActivePopoverBody().popover;
+        const internals = app as unknown as HoverLookupInternals;
+        const restorePoint = stubElementFromPoint(word);
+        const restoreStack = stubElementsFromPoint([word]);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = word;
+        internals.activePopoverAnchor = word;
+        internals.activeHoverLookupKey = 'word:1:2:今日は読む';
+        internals.hoverPopoverPointerPosition = { x: 40, y: 24 };
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(
+                word,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 72, y: 30 },
+            ));
+
+            expect(internals.lastPointerPosition).toEqual({ x: 72, y: 30 });
+            expect(internals.hoverPopoverPointerPosition).toEqual({ x: 40, y: 24 });
+        } finally {
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('keeps a scrolled hover popover open when Firefox transiently drops CSS hover', () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const { popover, body } = appendActivePopoverBody();
+        const outside = document.createElement('div');
+        document.body.append(outside);
+        const internals = app as unknown as HoverLookupInternals;
+        popover.getBoundingClientRect = () => new DOMRect(20, 20, 520, 300);
+        internals.settings = { ...DEFAULT_SETTINGS, hoverCloseDelayMs: 0 };
+        internals.lastPointerPosition = { x: 120, y: 360 };
+        internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+        popover.dispatchEvent(hoverPointerEvent(
+            popover,
+            'mouse',
+            'pointerenter',
+            {},
+            null,
+            { x: 120, y: 120 },
+        ));
+        let restorePoint = stubElementFromPoint(body);
+        let restoreStack = stubElementsFromPoint([body]);
+
+        try {
+            body.dispatchEvent(new Event('scroll'));
+            vi.advanceTimersByTime(300);
+
+            expect(internals.activePopover).toBe(popover);
+            expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
+
+            restoreStack();
+            restorePoint();
+            restorePoint = stubElementFromPoint(outside);
+            restoreStack = stubElementsFromPoint([outside]);
+            internals.lastPointerPosition = { x: 700, y: 500 };
+            vi.advanceTimersByTime(100);
+            expect(internals.activePopover).toBeUndefined();
+        } finally {
+            restoreStack();
+            restorePoint();
+            cleanupReaderApp(app);
+            vi.useRealTimers();
+        }
+    });
+
+    it('treats only the cursor-to-popover gap as hover-owned transit', () => {
+        const app = new ReaderApp();
+        const activeWord = readerWordFixture('今日は読む', '読む');
+        const nextWord = readerWordFixture('別の語', '別');
+        nextWord.dataset.vid = '9';
+        nextWord.dataset.sid = '9';
+        const popover = appendActivePopoverBody().popover;
+        popover.getBoundingClientRect = () => new DOMRect(50, 50, 200, 126);
+        const hoverLookup = setupHoverLookupSpies(app, {
+            activePopover: popover,
+            activePopoverMode: 'hover',
+        });
+        const { internals } = hoverLookup;
+        internals.activeHoverWord = activeWord;
+        internals.activePopoverAnchor = activeWord;
+        internals.hoverPopoverPointerPosition = { x: 100, y: 200 };
+
+        try {
+            // The 24px layout gap is backed by another parsed word. Crossing the
+            // direct path to the popup keeps the current card and gives the
+            // pointer a deliberate settle delay before retargeting that word.
+            internals.handleHoverPointer(hoverPointerEvent(
+                nextWord,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 100, y: 188 },
+            ));
+            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(
+                nextWord,
+                expect.objectContaining({ clientX: 100, clientY: 188 }),
+                { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS },
+            );
+            expect(hoverLookup.handlePointerTextHover).not.toHaveBeenCalled();
+            expect(internals.isHoverContextActive({ ignoreCssHover: true, ignorePointerPosition: true })).toBe(true);
+
+            // The bridge is a narrow route, not the whole bounding box between
+            // word and popup; moving sideways still permits a genuine next lookup.
+            internals.handleHoverPointer(hoverPointerEvent(
+                nextWord,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 140, y: 188 },
+            ));
+            expect(hoverLookup.scheduleHoverLookup).toHaveBeenCalledWith(
+                nextWord,
+                expect.objectContaining({ clientX: 140, clientY: 188 }),
+            );
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('cancels a gap-backed word switch when the pointer reaches the popover before settling', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const activeWord = readerWordFixture('今日は読む', '読む');
+        const nextWord = readerWordFixture('別の語', '別');
+        nextWord.dataset.vid = '9';
+        nextWord.dataset.sid = '9';
+        const { popover, body } = appendActivePopoverBody();
+        popover.getBoundingClientRect = () => new DOMRect(50, 50, 200, 126);
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = activeWord;
+        internals.activePopoverAnchor = activeWord;
+        internals.hoverPopoverPointerPosition = { x: 100, y: 200 };
+        internals.showWord = showWord;
+        let restorePoint = stubElementFromPoint(nextWord);
+        let restoreStack = stubElementsFromPoint([nextWord]);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(nextWord, 'mouse', 'pointermove', {}, null, { x: 100, y: 188 }));
+            await vi.advanceTimersByTimeAsync(HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS - 1);
+            expect(showWord).not.toHaveBeenCalled();
+
+            restoreStack();
+            restorePoint();
+            restorePoint = stubElementFromPoint(body);
+            restoreStack = stubElementsFromPoint([body]);
+            internals.handleHoverPointer(hoverPointerEvent(body, 'mouse', 'pointermove', {}, null, { x: 100, y: 170 }));
+            await vi.advanceTimersByTimeAsync(1);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            restoreStack();
+            restorePoint();
+            vi.useRealTimers();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('retargets a genuine word when the pointer settles on it inside the popover gap', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const activeWord = readerWordFixture('今日は読む', '読む');
+        const nextWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, 'ニュース');
+        nextWord.dataset.vid = '9';
+        nextWord.dataset.sid = '9';
+        const popover = appendActivePopoverBody().popover;
+        popover.getBoundingClientRect = () => new DOMRect(50, 50, 200, 126);
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = activeWord;
+        internals.activePopoverAnchor = activeWord;
+        internals.hoverPopoverPointerPosition = { x: 100, y: 200 };
+        internals.showWord = showWord;
+        const restorePoint = stubElementFromPoint(nextWord);
+        const restoreStack = stubElementsFromPoint([nextWord]);
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(nextWord, 'mouse', 'pointermove', {}, null, { x: 100, y: 188 }));
+            await vi.advanceTimersByTimeAsync(HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS - 1);
+            expect(showWord).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(1);
+            expect(showWord).toHaveBeenCalledWith(nextWord, expect.objectContaining({ trigger: 'hover' }));
+        } finally {
+            restoreStack();
+            restorePoint();
+            vi.useRealTimers();
             cleanupReaderApp(app);
         }
     });

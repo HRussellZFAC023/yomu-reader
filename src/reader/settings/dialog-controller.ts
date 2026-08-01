@@ -76,7 +76,7 @@ import { installCatalogBrowseFilter } from './catalog-browse-filter';
 import { ankiModelUpdatePromptTarget, applyAnkiModelUpdatePrompt } from './anki-mining-panel';
 import { updateAnkiTagsEditor } from './form-tags';
 import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
-import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
+import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
@@ -93,6 +93,7 @@ import { bindLiveSettingsSync } from './live-settings-sync';
 import { syncYoutubeImmersionTarget } from './youtube-panel';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
+import { waitForLocalDictionaryReplicationIdle } from '../dictionaries/replication';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import {
@@ -609,6 +610,7 @@ function isAnkiConnectSetupError(error: unknown): boolean {
 export class SettingsDialogController {
     private dictionaryOperationQueue: Promise<void> = Promise.resolve();
     private pendingDictionaryOperations = 0;
+    private dictionarySiteStorageClearPending = false;
     private recommendedDictionaryOperations = new Map<string, RecommendedDictionaryOperationState>();
     private currentForm?: HTMLFormElement;
     private readonly modal = new LookupModalAccessibility();
@@ -2044,6 +2046,15 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsDictionaryAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (this.dictionarySiteStorageClearPending
+            && (action === 'import-yomitan-dictionary' || action === 'download-recommended-dictionary')) {
+            setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'clearLocalDictionarySiteStorageClearing'));
+            return true;
+        }
+        if (action === 'clear-local-dictionary-site-storage') {
+            await this.disableAndClearLocalDictionarySiteStorage(form, control, setStatus);
+            return true;
+        }
         if (action === 'delete-yomitan-dictionary') {
             await this.deleteDictionaryFromSettings(form, control, setStatus);
             return true;
@@ -2550,6 +2561,85 @@ export class SettingsDialogController {
         return false;
     }
 
+    private async disableAndClearLocalDictionarySiteStorage(
+        form: HTMLFormElement,
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+    ): Promise<void> {
+        if (this.dictionarySiteStorageClearPending) return;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        if (!window.confirm(uiText(language, 'clearLocalDictionarySiteStorageConfirm'))) return;
+
+        const button = settingsActionButton(control);
+        const enabled = namedSettingsControl<HTMLInputElement>(form, 'localDictionariesEnabled');
+        this.dictionarySiteStorageClearPending = true;
+        button?.setAttribute('disabled', 'true');
+        this.setDictionaryImportsDisabledForSiteClear(form, true);
+        setStatus(uiText(language, 'clearLocalDictionarySiteStorageClearing'));
+        try {
+            // Imports and recommended downloads use this same queue. Waiting
+            // behind them prevents a late persistDictionaryImport from
+            // recreating the DB and turning the global setting back on after
+            // the learner confirmed cleanup.
+            await this.enqueueDictionaryOperation(form, async () => {
+                const previousSettings = this.settings;
+                let settingsSaved = false;
+                setStatus(uiText(language, 'clearLocalDictionarySiteStorageClearing'));
+                try {
+                    this.settings = { ...previousSettings, localDictionariesEnabled: false };
+                    await this.saveCurrentSettings(previousSettings);
+                    settingsSaved = true;
+                    if (enabled) enabled.checked = false;
+
+                    // Background archive replication does not use the Settings
+                    // import queue. Disabling first prevents another pass;
+                    // waiting here lets an already-open import transaction
+                    // finish before deleteDatabase closes and removes the DB,
+                    // so no later batch can recreate the copy after success.
+                    await waitForLocalDictionaryReplicationIdle();
+
+                    // deleteDatabase only removes this origin's IndexedDB. The shared
+                    // GM archive is deliberately untouched, so enabling dictionaries
+                    // later can replicate them back without another import.
+                    await this.dependencies.dictionaries.deleteDatabase();
+                    await this.dependencies.refreshDictionaryStyles();
+                    const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
+                    if (dictionaryStatus) dictionaryStatus.textContent = uiText(language, 'noLocalDictionariesImported');
+                    this.dependencies.scheduleDictionaryRescan();
+                    this.dependencies.refreshNewTabIfCurrent();
+                    const message = uiText(language, 'clearLocalDictionarySiteStorageDone');
+                    setStatus(message);
+                    this.dependencies.toast(message);
+                } catch (error) {
+                    if (!settingsSaved) {
+                        this.settings = previousSettings;
+                        if (enabled) enabled.checked = previousSettings.localDictionariesEnabled;
+                    }
+                    throw error;
+                }
+            });
+        } finally {
+            this.dictionarySiteStorageClearPending = false;
+            this.setDictionaryImportsDisabledForSiteClear(form, false);
+            button?.removeAttribute('disabled');
+        }
+    }
+
+    private setDictionaryImportsDisabledForSiteClear(form: HTMLFormElement, disabled: boolean): void {
+        form.querySelectorAll<HTMLButtonElement>(
+            '[data-action="import-yomitan-dictionary"], [data-action="download-recommended-dictionary"]',
+        ).forEach(importButton => {
+            if (disabled) {
+                importButton.dataset.disabledForSiteClear = 'true';
+                importButton.disabled = true;
+                return;
+            }
+            if (importButton.dataset.disabledForSiteClear !== 'true') return;
+            delete importButton.dataset.disabledForSiteClear;
+            importButton.disabled = false;
+        });
+    }
+
     private async deleteDictionaryFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<void> {
         const dictionary = control?.dataset.dictionaryName;
         if (!dictionary) throw new Error('Dictionary not found.');
@@ -2568,19 +2658,40 @@ export class SettingsDialogController {
     }
 
     private async importDictionaryFromSettings(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
-        const file = await pickFile(form, 'dictionary');
-        if (!file) return;
-        await this.enqueueDictionaryOperation(form, async () => {
+        const files = await pickFiles(form, 'dictionary');
+        if (!files.length) return;
+        const results = await Promise.allSettled(files.map(file => this.enqueueDictionaryOperation(form, async () => {
             const summary = await this.dependencies.dictionaries.importFile(file, message => setStatus(message));
             await this.persistDictionaryImport(summary);
-            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
-                records: summary.entries.toLocaleString(),
-                sources: summary.dictionaries.length.toLocaleString(),
-                plural: summary.dictionaries.length === 1 ? '' : 's',
-            }));
+            return summary;
+        })));
+        const summaries = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+        if (summaries.length) {
             await this.refreshDictionaryStatus(form);
             this.dependencies.refreshNewTabIfCurrent();
-        });
+        }
+        const records = summaries.reduce((total, summary) => total + summary.entries, 0);
+        const sources = new Set(summaries.flatMap(summary => summary.dictionaries)).size;
+        const failures = results.flatMap((result, index) => result.status === 'rejected'
+            ? [{ filename: files[index]?.name || `file ${index + 1}`, error: result.reason }]
+            : []);
+        if (failures.length) {
+            failures.forEach(failure => log.warn('Dictionary file import failed', failure));
+            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportResultWithFailures'), {
+                records: records.toLocaleString(),
+                sources: sources.toLocaleString(),
+                plural: sources === 1 ? '' : 's',
+                failed: failures.length.toLocaleString(),
+                failedPlural: failures.length === 1 ? '' : 's',
+                files: failures.map(failure => failure.filename).join(', '),
+            }));
+            return;
+        }
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryImportComplete'), {
+            records: records.toLocaleString(),
+            sources: sources.toLocaleString(),
+            plural: sources === 1 ? '' : 's',
+        }));
     }
 
     private queueRecommendedDictionaryDownloadFromSettings(form: HTMLFormElement, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): void {

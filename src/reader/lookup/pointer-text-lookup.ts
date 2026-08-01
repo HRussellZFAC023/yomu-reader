@@ -1,4 +1,5 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
+import { readerWordSurfaceText } from '../dom/reader-word';
 import { isUnifiedIdeograph } from '../languages/han';
 import { lookupSpansContainingOffset } from '../languages/lookup-spans';
 import { activeLearningTarget } from '../languages/target-runtime';
@@ -280,12 +281,175 @@ export interface PointerTextLookupNodeOptions {
     allowInteractiveText?: boolean;
 }
 
+export interface RenderedWordTokenRange {
+    start: number;
+    end: number;
+}
+
+interface RenderedWordLookupContext {
+    sentence: string;
+    surface: string;
+    tokenStart: number;
+}
+
+/**
+ * Recover the exact sentence offset underneath a rendered reader word.
+ *
+ * Normal page text can use caretPositionFromPoint directly, but OCR and other
+ * reader-owned surfaces put the caret inside `.jpdb-reader-word`, which the
+ * generic native-text path deliberately excludes. Keeping this conversion at
+ * the pointer-text boundary lets an overbroad rendered token expose a smaller
+ * valid dictionary word without changing parser output or DOM token identity.
+ */
+export function pointerTextLookupFromRenderedWord(word: HTMLElement, x: number, y: number): PointerTextLookup | null {
+    const context = renderedWordLookupContext(word);
+    if (!context) return null;
+    const surfaceOffset = renderedWordSurfaceOffsetAtPoint(word, context.surface, x, y);
+    if (surfaceOffset === null) return null;
+    const offset = context.tokenStart + surfaceOffset;
+    const run = pointerTextRunAt(context.sentence, offset);
+    if (!run) return null;
+    return {
+        text: context.sentence,
+        offset: run.offset,
+        start: run.start,
+        end: run.end,
+        anchor: word,
+    };
+}
+
+function renderedWordLookupContext(word: HTMLElement): RenderedWordLookupContext | null {
+    const sentence = word.dataset.sentence ?? '';
+    const surface = readerWordSurfaceText(word);
+    if (!sentence || !surface) return null;
+    const range = renderedWordTokenRange(word);
+    if (!range || sentence.slice(range.start, range.end) !== surface) return null;
+    return { sentence, surface, tokenStart: range.start };
+}
+
+export function renderedWordTokenRange(word: HTMLElement): RenderedWordTokenRange | null {
+    const start = Number.parseInt(word.dataset.tokenStart ?? '', 10);
+    const end = Number.parseInt(word.dataset.tokenEnd ?? '', 10);
+    if (![start, end].every(Number.isFinite)) return null;
+    if (start < 0) return null;
+    if (end <= start) return null;
+    return { start, end };
+}
+
 export function pointerTextLookupFromTextNode(node: Text, characterOffset: number, options: PointerTextLookupNodeOptions = {}): PointerTextLookup | null {
     const parent = node.parentElement;
     if (!parent || !isPointerTextParentEligible(parent, options)) return null;
     const local = pointerTextLookupForText(parent, node.data, characterOffset);
     const contextual = pointerTextLookupContext(node, characterOffset, parent);
     return contextual ?? local;
+}
+
+function renderedWordSurfaceOffsetAtPoint(word: HTMLElement, surface: string, x: number, y: number): number | null {
+    const nodes = renderedWordSurfaceTextNodes(word);
+    const caretOffset = renderedWordCaretOffset(nodes, surface.length, x, y);
+    if (caretOffset !== null) return caretOffset;
+    const rangeOffset = renderedWordRangeOffsetAtPoint(nodes, x, y);
+    if (rangeOffset !== null && rangeOffset < surface.length) return rangeOffset;
+    return proportionalRenderedWordOffset(word, surface.length, x, y);
+}
+
+function renderedWordCaretOffset(nodes: Text[], surfaceLength: number, x: number, y: number): number | null {
+    const caret = caretTextPositionFromPoint(x, y);
+    if (!caret) return null;
+    let preceding = 0;
+    for (const node of nodes) {
+        if (node === caret.node && node.data.length) {
+            const nodeOffset = Math.min(Math.max(caret.offset, 0), node.data.length - 1);
+            return Math.min(surfaceLength - 1, preceding + nodeOffset);
+        }
+        preceding += node.data.length;
+    }
+    return null;
+}
+
+function renderedWordSurfaceTextNodes(word: HTMLElement): Text[] {
+    const nodes: Text[] = [];
+    const visit = (node: Node): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            nodes.push(node as Text);
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const element = node as Element;
+        if (element !== word && element.matches('rt,rp,script,style,[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi')) return;
+        element.childNodes.forEach(visit);
+    };
+    visit(word);
+    return nodes;
+}
+
+function renderedWordRangeOffsetAtPoint(nodes: Text[], x: number, y: number): number | null {
+    const hits: Array<{ offset: number; score: number }> = [];
+    let surfaceOffset = 0;
+    for (const node of nodes) {
+        for (let offset = 0; offset < node.data.length; offset++) {
+            const hit = renderedWordCharacterHit(node, offset, surfaceOffset + offset, x, y);
+            if (hit) hits.push(hit);
+        }
+        surfaceOffset += node.data.length;
+    }
+    return hits.sort((left, right) => left.score - right.score)[0]?.offset ?? null;
+}
+
+function renderedWordCharacterHit(
+    node: Text,
+    nodeOffset: number,
+    surfaceOffset: number,
+    x: number,
+    y: number,
+): { offset: number; score: number } | null {
+    const range = document.createRange();
+    try {
+        range.setStart(node, nodeOffset);
+        range.setEnd(node, nodeOffset + 1);
+        const scores = Array.from(range.getClientRects())
+            .map(rect => pointerRectScore(rect, x, y))
+            .filter((score): score is number => score !== null);
+        return scores.length ? { offset: surfaceOffset, score: Math.min(...scores) } : null;
+    } catch {
+        // Detached/reconciled text can become invalid between pointer
+        // resolution and this range read; proportional geometry below remains
+        // a safe bounded fallback.
+        return null;
+    } finally {
+        range.detach?.();
+    }
+}
+
+function pointerRectScore(rect: DOMRect, x: number, y: number): number | null {
+    const bounds = pointerRectBoundsAtPoint(rect, x, y);
+    if (!bounds) return null;
+    return Math.hypot(x - (rect.left + bounds.right) / 2, y - (rect.top + bounds.bottom) / 2);
+}
+
+function proportionalRenderedWordOffset(word: HTMLElement, surfaceLength: number, x: number, y: number): number | null {
+    if (surfaceLength <= 0) return null;
+    const rect = word.getBoundingClientRect();
+    const bounds = pointerRectBoundsAtPoint(rect, x, y);
+    if (!bounds) return null;
+    const vertical = getComputedStyle(word).writingMode.startsWith('vertical');
+    const span = vertical ? bounds.bottom - rect.top : bounds.right - rect.left;
+    const position = vertical ? y - rect.top : x - rect.left;
+    return proportionalSurfaceOffset(surfaceLength, position, span);
+}
+
+function pointerRectBoundsAtPoint(rect: DOMRect, x: number, y: number): { right: number; bottom: number } | null {
+    const right = rect.right || rect.left + rect.width;
+    const bottom = rect.bottom || rect.top + rect.height;
+    if (!hasPositiveRectArea(rect, right, bottom)) return null;
+    if (!coordinateInRange(x, rect.left, right, 1)) return null;
+    if (!coordinateInRange(y, rect.top, bottom, 1)) return null;
+    return { right, bottom };
+}
+
+function proportionalSurfaceOffset(surfaceLength: number, position: number, span: number): number {
+    const progress = span > 0 ? Math.min(0.999999, Math.max(0, position / span)) : 0;
+    return Math.min(surfaceLength - 1, Math.floor(progress * surfaceLength));
 }
 
 function isLowValuePointerText(text: string, parent?: HTMLElement | null): boolean {

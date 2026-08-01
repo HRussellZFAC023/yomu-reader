@@ -4,6 +4,7 @@ import { userFacingError } from '../../src/reader/app/user-facing-errors';
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { recommendedDictionariesForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
+import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     normalizeReaderSettings,
@@ -51,6 +52,7 @@ vi.mock('../../src/reader/settings/form', async importOriginal => {
 // before this file's mocks. Reload it here so the form seams above are active.
 vi.resetModules();
 const { SettingsDialogController } = await import('../../src/reader/settings/dialog-controller');
+const { ensureLocalDictionariesReplicated } = await import('../../src/reader/dictionaries/replication');
 // Same module instance the controller above resolved: opening a dialog probes
 // each aggregator audio URL once and memoizes it, so every test must start
 // without another test's cached (or still in-flight) probe.
@@ -1835,6 +1837,180 @@ describe('settings dialog dictionary imports', () => {
         vi.restoreAllMocks();
     });
 
+    it('disables imported dictionaries globally and clears only this site after confirmation', async () => {
+        const archiveTitle = 'Archive sentinel [2026-08-01]';
+        await persistDictionaryArchive({
+            title: archiveTitle,
+            filename: 'archive-sentinel.zip',
+            file: new File(['archive bytes'], 'archive-sentinel.zip', { type: 'application/zip' }),
+        });
+        const archivesBefore = await listDictionaryArchives();
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        const summary = vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 });
+        const deleteDatabase = vi.fn().mockResolvedValue(undefined);
+        const deleteDictionary = vi.fn().mockResolvedValue(undefined);
+        const clear = vi.fn().mockResolvedValue(undefined);
+        const onSettingsPersisted = vi.fn();
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true);
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            onSettingsPersisted,
+            dictionaries: { summary, deleteDatabase, deleteDictionary, clear },
+        });
+        const button = form.querySelector<HTMLButtonElement>('[data-action="clear-local-dictionary-site-storage"]')!;
+        const toggle = form.querySelector<HTMLInputElement>('input[name="localDictionariesEnabled"]')!;
+        const summaryCallsBefore = summary.mock.calls.length;
+
+        button.click();
+        await flushPromises();
+        expect(deleteDatabase).not.toHaveBeenCalled();
+        expect(settings.localDictionariesEnabled).toBe(true);
+        expect(toggle.checked).toBe(true);
+
+        // Changing or saving the checkbox is independent from the explicitly
+        // destructive action; the change event itself must never delete data.
+        toggle.checked = false;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        await flushPromises();
+        expect(deleteDatabase).not.toHaveBeenCalled();
+
+        button.click();
+        await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
+
+        expect(confirm.mock.calls[1]?.[0]).toContain('everywhere');
+        expect(confirm.mock.calls[1]?.[0]).toContain("only this site's dictionary copy");
+        expect(confirm.mock.calls[1]?.[0]).toContain('shared archive is kept');
+        expect(settings.localDictionariesEnabled).toBe(false);
+        expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({ localDictionariesEnabled: false }));
+        expect(toggle.checked).toBe(false);
+        expect(deleteDatabase).toHaveBeenCalledOnce();
+        expect(deleteDictionary).not.toHaveBeenCalled();
+        expect(clear).not.toHaveBeenCalled();
+        expect(summary).toHaveBeenCalledTimes(summaryCallsBefore);
+        expect(dependencies.refreshDictionaryStyles).toHaveBeenCalledOnce();
+        expect(dependencies.scheduleDictionaryRescan).toHaveBeenCalledOnce();
+        expect(dependencies.refreshNewTabIfCurrent).toHaveBeenCalledOnce();
+        expect(form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('No dictionaries imported yet.');
+        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries [data-import-status]')?.textContent)
+            .toContain("This site's copy was deleted; the shared archive was kept.");
+        expect(await listDictionaryArchives()).toEqual(archivesBefore);
+    });
+
+    it('waits for an in-flight import before disabling and deleting this site copy', async () => {
+        const imported = deferred<ImportSummary>();
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        const importFile = vi.fn(() => imported.promise);
+        const deleteDatabase = vi.fn().mockResolvedValue(undefined);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 }),
+                importFile,
+                deleteDatabase,
+            },
+        });
+        const importButton = form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-dictionary"]')!;
+        const input = form.querySelector<HTMLInputElement>('input[data-file="dictionary"]')!;
+        Object.defineProperty(input, 'files', {
+            configurable: true,
+            value: [new File(['dictionary'], 'dictionary.zip', { type: 'application/zip' })],
+        });
+
+        importButton.click();
+        await waitForCondition(() => typeof input.onchange === 'function');
+        input.dispatchEvent(new Event('change'));
+        await waitForCondition(() => importFile.mock.calls.length === 1);
+
+        const clearButton = form.querySelector<HTMLButtonElement>('[data-action="clear-local-dictionary-site-storage"]')!;
+        clearButton.click();
+        await flushPromises();
+
+        expect(deleteDatabase).not.toHaveBeenCalled();
+        expect(clearButton.disabled).toBe(true);
+        expect(importButton.disabled).toBe(true);
+        expect(dependencies.toast).not.toHaveBeenCalledWith(expect.stringContaining('shared archive was kept'));
+
+        imported.resolve(importSummary('Imported before cleanup'));
+        await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
+
+        expect(importFile).toHaveBeenCalledOnce();
+        expect(deleteDatabase).toHaveBeenCalledOnce();
+        expect(settings.localDictionariesEnabled).toBe(false);
+        expect(form.querySelector<HTMLInputElement>('input[name="localDictionariesEnabled"]')?.checked).toBe(false);
+        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries [data-import-status]')?.textContent)
+            .toContain("This site's copy was deleted; the shared archive was kept.");
+    });
+
+    it('waits for active background replication before deleting the current site database', async () => {
+        const archiveTitle = 'Background archive [2026-08-01]';
+        await persistDictionaryArchive({
+            title: archiveTitle,
+            filename: 'background.zip',
+            file: new File(['background archive'], 'background.zip', { type: 'application/zip' }),
+        });
+        const importStarted = deferred<void>();
+        const finishImport = deferred<ImportSummary>();
+        const events: string[] = [];
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            localDictionariesEnabled: true,
+            dictionaryPreferences: [{
+                name: archiveTitle,
+                alias: archiveTitle,
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+            }],
+        };
+        const replication = ensureLocalDictionariesReplicated({
+            dictionaries: {
+                summary: vi.fn(async () => ({ dictionaries: [] })),
+                importFile: vi.fn(async () => {
+                    events.push('replication:start');
+                    importStarted.resolve(undefined);
+                    const summary = await finishImport.promise;
+                    events.push('replication:finish');
+                    return summary;
+                }),
+                importFromUrl: vi.fn(async () => importSummary('unused')),
+            },
+            getSettings: () => settings,
+            onReplicated: () => { events.push('replication:callback'); },
+        });
+        await importStarted.promise;
+
+        const deleteDatabase = vi.fn(async () => { events.push('database:delete'); });
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 }),
+                deleteDatabase,
+            },
+        });
+
+        form.querySelector<HTMLButtonElement>('[data-action="clear-local-dictionary-site-storage"]')!.click();
+        await waitForCondition(() => settings.localDictionariesEnabled === false);
+        await flushPromises();
+
+        expect(deleteDatabase).not.toHaveBeenCalled();
+        finishImport.resolve(importSummary(archiveTitle));
+        await replication;
+        await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
+
+        expect(events).toEqual([
+            'replication:start',
+            'replication:finish',
+            'replication:callback',
+            'database:delete',
+        ]);
+        expect(settings.localDictionariesEnabled).toBe(false);
+    });
+
     it('uses the origin-local dictionary summary for the installed button state', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
@@ -2001,6 +2177,84 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
     }, 30_000);
+
+    it('bulk imports every selected dictionary ZIP through the serialized queue', async () => {
+        const firstImport = deferred<ImportSummary>();
+        const secondImport = deferred<ImportSummary>();
+        const importFile = vi.fn()
+            .mockImplementationOnce(() => firstImport.promise)
+            .mockImplementationOnce(() => secondImport.promise);
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFile,
+            },
+        });
+        const input = form.querySelector<HTMLInputElement>('input[data-file="dictionary"]')!;
+        const files = [
+            new File(['first'], 'first.zip', { type: 'application/zip' }),
+            new File(['second'], 'second.zip', { type: 'application/zip' }),
+        ];
+        Object.defineProperty(input, 'files', { configurable: true, value: files });
+
+        expect(input.multiple).toBe(true);
+        form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-dictionary"]')!.click();
+        await waitForCondition(() => typeof input.onchange === 'function');
+        input.dispatchEvent(new Event('change'));
+
+        await waitForCondition(() => importFile.mock.calls.length === 1);
+        expect(importFile.mock.calls[0]?.[0]).toBe(files[0]);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+        expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.textContent).toContain('2 installs running');
+
+        firstImport.resolve(importSummary('First dictionary'));
+        await waitForCondition(() => importFile.mock.calls.length === 2);
+        expect(importFile.mock.calls[1]?.[0]).toBe(files[1]);
+        expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+
+        secondImport.resolve(importSummary('Second dictionary'));
+        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled === false);
+
+        expect(dependencies.refreshDictionaryStyles).toHaveBeenCalledTimes(2);
+        expect(dependencies.scheduleDictionaryRescan).toHaveBeenCalledTimes(2);
+        expect(dependencies.refreshNewTabIfCurrent).toHaveBeenCalledOnce();
+        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]')?.textContent)
+            .toBe('Imported 2 from 2 sources.');
+    });
+
+    it('reports one truthful combined result when a bulk import only partly succeeds', async () => {
+        const failure = new Error('broken archive');
+        const importFile = vi.fn()
+            .mockResolvedValueOnce(importSummary('First dictionary'))
+            .mockRejectedValueOnce(failure)
+            .mockResolvedValueOnce(importSummary('Third dictionary'));
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFile,
+            },
+        });
+        const input = form.querySelector<HTMLInputElement>('input[data-file="dictionary"]')!;
+        const files = [
+            new File(['first'], 'first.zip', { type: 'application/zip' }),
+            new File(['broken'], 'broken.zip', { type: 'application/zip' }),
+            new File(['third'], 'third.zip', { type: 'application/zip' }),
+        ];
+        Object.defineProperty(input, 'files', { configurable: true, value: files });
+
+        form.querySelector<HTMLButtonElement>('[data-action="import-yomitan-dictionary"]')!.click();
+        await waitForCondition(() => typeof input.onchange === 'function');
+        input.dispatchEvent(new Event('change'));
+        await waitForCondition(() => importFile.mock.calls.length === 3);
+        await waitForCondition(() => form.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled === false);
+
+        expect(importFile.mock.calls.map(call => call[0])).toEqual(files);
+        expect(dependencies.refreshDictionaryStyles).toHaveBeenCalledTimes(2);
+        expect(dependencies.scheduleDictionaryRescan).toHaveBeenCalledTimes(2);
+        expect(dependencies.refreshNewTabIfCurrent).toHaveBeenCalledOnce();
+        expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-backup [data-import-status]')?.textContent)
+            .toBe('Imported 2 from 2 sources. 1 file failed: broken.zip.');
+    });
 
     it('verifies a catalogue download and atomically enables it in the active profile', async () => {
         const recommendation = recommendedDictionariesForLearnerLanguage('ko')[0]!;

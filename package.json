@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.8.69",
+  "version": "1.8.70",
   "private": true,
   "type": "module",
   "description": "よむ: a Jiten/Bunpro/JPDB/WaniKani/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -226,7 +226,8 @@
     "smoke:release": "npm run smoke:userscript-boot && npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
+    "smoke:layout-neutral-scan": "node scripts/layout-neutral-page-scan-smoke.mjs",
+    "smoke:layout-regressions": "npm run smoke:layout-neutral-scan && npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour && npm run smoke:ocr-line-register && npm run smoke:ocr-transform-register && npm run smoke:ocr-scroll-perf && npm run smoke:youtube-paused-frame-register",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",

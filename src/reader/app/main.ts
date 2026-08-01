@@ -294,12 +294,16 @@ import {
     jpdbPointerLookupCandidates,
     pointerTextCharacterOffset,
     pointerTextLookupFromTextNode,
+    pointerTextLookupFromRenderedWord,
+    renderedWordTokenRange,
     type ActivePointerTextLookup,
     type PointerTextSpanCandidate,
     type PointerTextLookup,
+    type RenderedWordTokenRange,
 } from '../lookup/pointer-text-lookup';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
 import { addViewportChangeListeners } from '../popup/handle-drag';
+import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS, isActiveHoverPopoverPointerContext, isHoverPopoverTransitActive, type HoverPopoverPointerState } from '../popup/hover-transit';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import type { RtkInfo } from '../kanji/rtk';
 import { ReaderAudioActions } from '../audio/actions';
@@ -629,6 +633,20 @@ const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
     SUBTITLE_SURFACE_SELECTOR,
     NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR,
 ].join(', ');
+// Plain caption text has no .jpdb-reader-word descendants while annotations
+// are paused, so it needs an explicit hover surface for video pause/resume.
+// Keep this glyph-scoped: SUBTITLE_SURFACE_SELECTOR includes the full-screen
+// click-through player root, which must never pause just because the pointer is
+// somewhere over the video.
+const PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR = [
+    '.jpdb-subtitle-primary',
+    '.jpdb-subtitle-secondary',
+    '.jpdb-subtitle-row-text',
+    '.jpdb-subtitle-row-secondary',
+    '.asbplayer-subtitles-container-bottom',
+    '.jpdb-reader-subtitle-surface',
+    NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR,
+].join(', ');
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -738,6 +756,50 @@ function pageAddonKeysMatch(expected: string, mounted: string): boolean {
     if (expectedParts.length < 3) return true;
     const [, spelling, expectedReading] = expectedParts;
     return expectedReading === spelling;
+}
+
+function renderedWordSubwordRange(
+    word: HTMLElement,
+    candidate: PointerTextLookup,
+): RenderedWordTokenRange | null {
+    const token = renderedWordTokenRange(word);
+    if (!token || !pointerCandidateBelongsToRenderedWord(word, token, candidate)) return null;
+    if (!renderedWordNeedsSubwordRecovery(word, candidate.text.slice(token.start, token.end))) return null;
+    const subword = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
+    if (!subword) return null;
+    return isProperRenderedWordSubword(token, subword) ? subword : null;
+}
+
+function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: string): boolean {
+    // ICU segmentation is useful for recovering from an over-broad rendered
+    // card, but it is not dictionary evidence. A trusted compound such as
+    // 東京都立大学 must keep its whole-card lookup even if Segmenter can
+    // divide it. Narrow only fallback cards or a card whose own expression /
+    // reading is visibly a strict component of the rendered surface.
+    if (word.dataset.cardSource === 'fallback') return true;
+    const normalizedSurface = normalizedLookupText(surface);
+    if (!normalizedSurface) return false;
+    return [word.dataset.expression, word.dataset.reading].some(value => {
+        const identity = normalizedLookupText(value ?? '');
+        return identity.length > 0
+            && identity.length < normalizedSurface.length
+            && normalizedSurface.includes(identity);
+    });
+}
+
+function pointerCandidateBelongsToRenderedWord(
+    word: HTMLElement,
+    token: RenderedWordTokenRange,
+    candidate: PointerTextLookup,
+): boolean {
+    if (candidate.text !== word.dataset.sentence) return false;
+    return candidate.offset >= token.start && candidate.offset < token.end;
+}
+
+function isProperRenderedWordSubword(token: RenderedWordTokenRange, subword: RenderedWordTokenRange): boolean {
+    if (subword.start < token.start) return false;
+    if (subword.end > token.end) return false;
+    return subword.start !== token.start || subword.end !== token.end;
 }
 
 export class ReaderApp {
@@ -1082,6 +1144,7 @@ export class ReaderApp {
     // The video we paused when a subtitle word was clicked, so closing the
     // lookup popover resumes exactly that video (and only if it is still paused).
     private subtitleMiningPausedVideo?: HTMLVideoElement;
+    private activePlainSubtitleHoverSurface?: Element;
     // One-shot guard that re-pauses the mined video if the page re-plays it right
     // after our pause (YouTube player quirks or a competing extension/userscript).
     private miningPauseReassert?: { video: HTMLVideoElement; off: () => void };
@@ -1196,6 +1259,7 @@ export class ReaderApp {
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
+    private localDictionaryReplicationScheduled = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
     private tapLookup?: { id: number; x: number; y: number; word?: HTMLElement };
@@ -1452,26 +1516,74 @@ export class ReaderApp {
     private scheduleLocalDictionaryReplication(): void {
         if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
         const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
-        if (!replicate) return;
+        if (!replicate || this.localDictionaryReplicationScheduled) return;
+        this.localDictionaryReplicationScheduled = true;
         const run = () => {
-            if (this.isDestroyed) return;
+            if (this.isDestroyed) {
+                this.localDictionaryReplicationScheduled = false;
+                return;
+            }
             void replicate({
                 dictionaries: this.dictionaries,
                 getSettings: () => this.settings,
                 onReplicated: () => {
                     if (this.isDestroyed) return;
                     this.parser.clearLocalCache();
+                    // A popover can finish its empty local lookup while a
+                    // large archive is still importing. Clear the settled
+                    // render load only when replication actually completes,
+                    // then refresh the still-open card from the populated DB.
+                    this.cardRenderData.clear();
                     // The initial scan may have annotated with a remote tier or
                     // segmenter fallback before replication landed. Scans skip
                     // already-wrapped text, so unwrap the page annotations and
                     // let the rescan prefer the newly restored local store.
                     unwrapReaderWords(document);
+                    void this.refreshActiveCardAfterLocalDictionaryReplication()
+                        .catch(error => log.debug('Active card refresh after dictionary replication failed', error));
                     this.scheduleDictionaryRescan();
                 },
-            });
+            })
+                .catch(error => log.warn('Scheduled dictionary replication failed', error))
+                .finally(() => { this.localDictionaryReplicationScheduled = false; });
         };
         if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 15_000 });
         else window.setTimeout(run, 3_000);
+    }
+
+    private async refreshActiveCardAfterLocalDictionaryReplication(): Promise<void> {
+        if (!this.settings.localDictionariesEnabled) return;
+        const popover = this.activePopover;
+        const card = this.lastCard;
+        if (!popover?.isConnected || !card || !popover.querySelector('[data-card-popover]')) return;
+        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
+        const hoverLookupGeneration = trigger === 'hover' ? this.hoverLookupGeneration : undefined;
+        const hoverLookupKey = trigger === 'hover' ? this.activeHoverLookupKey : undefined;
+        const load = this.cardRenderData.load(card);
+        const initialEntries = await load.localEntries;
+        const entries = initialEntries.length
+            ? initialEntries
+            : await load.hydrateLocalEntries?.() ?? initialEntries;
+        const stillCurrent = this.activePopover === popover
+            && popover.isConnected
+            && this.settings.localDictionariesEnabled
+            && (trigger !== 'hover'
+                || (this.hoverLookupGeneration === hoverLookupGeneration
+                    && this.activeHoverLookupKey === hoverLookupKey
+                    && this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey ?? '')));
+        if (!entries.length || !stillCurrent) return;
+        await this.showCard(card, this.lastCardSentence, this.connectedActivePopoverAnchor(), {
+            autoPlay: false,
+            trigger,
+            navigation: 'preserve',
+            preservePosition: true,
+            hoverLookupGeneration,
+            hoverLookupKey,
+            // This card is the already-resolved identity shown in the active
+            // popover. Skipping another initial provider resolution keeps the
+            // identity/generation check above adjacent to the replacement.
+            skipInitialCardResolution: true,
+        });
     }
 
     private async installBunproTokenImporter(): Promise<void> {
@@ -2032,6 +2144,9 @@ export class ReaderApp {
             this.dictionaryRescanPending = true;
             return;
         }
+        // Re-enabling imported dictionaries from Settings should restore the
+        // preserved archive on this origin immediately, not only after reload.
+        this.scheduleLocalDictionaryReplication();
         this.pitchEnrichmentLocalCache.clear();
         this.localPitchDictionaryAvailability = undefined;
         this.jitenPublicVocabulary.clear();
@@ -2814,8 +2929,13 @@ export class ReaderApp {
         clearProjectedReadingsWithin(document);
         removeNonDestructiveScanMirrors(document);
         releaseRubyRoomGrowth(document);
-        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
-            if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
+        const changedParents = new Set<Node>();
+        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-reader-number-bind').forEach(el => {
+            const parent = el.parentNode;
+            if (parent) changedParents.add(parent);
+            if (el.classList.contains('jpdb-reader-word')
+                || el.classList.contains('jpdb-reader-ruby')
+                || el.classList.contains('jpdb-reader-number-bind')) {
                 const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
                     ? readerWordSurfaceText(el)
                     : el.textContent || '');
@@ -2824,6 +2944,7 @@ export class ReaderApp {
                 el.remove();
             }
         });
+        changedParents.forEach(parent => parent.normalize());
     }
 
     destroy(options: ReaderAppDestroyOptions = {}): void {
@@ -2859,6 +2980,7 @@ export class ReaderApp {
         this.documentBodyRecoveryPending = false;
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
+        this.activePlainSubtitleHoverSurface = undefined;
         this.ocr.destroy();
         this.subtitles.destroy();
         this.youtube.destroy();
@@ -2978,7 +3100,12 @@ export class ReaderApp {
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutationsOnlyInsideReaderRoot) return;
             else if (mutationHasJapaneseText) {
+                const firstJapaneseContent = !this.pageHasJapaneseText;
                 this.pageHasJapaneseText = true;
+                // A Latin-first SPA skipped the boot-time replication gate.
+                // Arm it exactly on the first later Japanese mutation so the
+                // newly visible content can use the learner's imported sources.
+                if (firstJapaneseContent) this.scheduleLocalDictionaryReplication();
                 this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
                     // The observer has just proved fresh Japanese exists,
@@ -4686,15 +4813,44 @@ export class ReaderApp {
     private handleHoverPointer(event: PointerEvent): void {
         if (this.shouldIgnoreHoverPointer(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+        this.keepPlainSubtitleHoverPause(event.target);
         const insideActivePopover = this.handleActivePopoverHover(event);
         if (insideActivePopover) return;
         const word = this.hoverReaderWordForEvent(event);
+        const subword = this.renderedWordSubwordCandidateAtPointer(word, event);
+        if (isHoverPopoverTransitActive(this.activeHoverPopoverPointerState())) {
+            this.handleHoverPopoverTransit(word, subword, event);
+            return;
+        }
         if (!word) {
-            if (insideActivePopover) return;
             this.handlePointerTextHover(event);
             return;
         }
+        if (subword) {
+            this.handlePointerTextHoverCandidate(event, subword);
+            return;
+        }
         this.handleReaderWordHover(word, event);
+    }
+
+    private renderedWordSubwordCandidateAtPointer(word: HTMLElement | null, event: PointerEvent): PointerTextLookup | null {
+        if (!word) return null;
+        return this.renderedWordSubwordHoverCandidate(word, event.clientX, event.clientY, event.target);
+    }
+
+    private handleHoverPopoverTransit(word: HTMLElement | null, subword: PointerTextLookup | null, event: PointerEvent): void {
+        this.cancelHoverClose();
+        // Transit is movement, not dwell. Re-arm the settle delay from the
+        // latest pointer sample so a slow trip to the frame cannot accidentally
+        // switch to page text underneath the deliberate layout gap.
+        this.cancelPendingHoverLookup();
+        if (subword) {
+            this.handlePointerTextHoverCandidate(event, subword, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+            return;
+        }
+        if (word) {
+            this.scheduleHoverLookup(word, event, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+        }
     }
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
@@ -4889,12 +5045,44 @@ export class ReaderApp {
     private handlePointerTextHover(event: PointerEvent): void {
         const hoverEnabled = this.shouldLookupOnHover(event);
         const candidate = hoverEnabled ? this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS) : null;
-        if (candidate && this.refreshActivePointerTextHover(candidate, event)) return;
-        this.cancelMissingPointerTextCandidate(candidate);
+        this.handlePointerTextHoverCandidate(event, candidate, { hoverEnabled });
+    }
+
+    private handlePointerTextHoverCandidate(
+        event: PointerEvent,
+        candidate: PointerTextLookup | null,
+        options: { hoverEnabled?: boolean; minimumDelayMs?: number } = {},
+    ): void {
+        const hoverEnabled = this.pointerTextHoverEnabled(event, options.hoverEnabled);
+        const activeCandidate = hoverEnabled ? candidate : null;
+        if (activeCandidate && this.refreshActivePointerTextHover(activeCandidate, event)) return;
+        this.cancelMissingPointerTextCandidate(activeCandidate);
         this.scheduleInactiveHoverClose();
-        if (!canSchedulePointerTextHoverLookup(hoverEnabled, candidate)) return;
-        this.rememberHoverPopoverPointer(event);
-        this.schedulePointerTextLookup(candidate, event);
+        if (!canSchedulePointerTextHoverLookup(hoverEnabled, activeCandidate)) return;
+        this.rememberPointerTextHoverOrigin(event, options.minimumDelayMs);
+        this.schedulePointerTextLookup(activeCandidate, event, { minimumDelayMs: options.minimumDelayMs });
+    }
+
+    private pointerTextHoverEnabled(event: PointerEvent, configured?: boolean): boolean {
+        return configured === undefined ? this.shouldLookupOnHover(event) : configured;
+    }
+
+    private rememberPointerTextHoverOrigin(event: PointerEvent, minimumDelayMs?: number): void {
+        if (minimumDelayMs === undefined) this.rememberHoverPopoverPointer(event);
+    }
+
+    private renderedWordSubwordHoverCandidate(
+        word: HTMLElement,
+        x: number,
+        y: number,
+        eventTarget: EventTarget | null,
+    ): PointerTextLookup | null {
+        const candidate = this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS)
+            ?? pointerTextLookupFromRenderedWord(word, x, y);
+        if (!candidate) return null;
+        const subword = renderedWordSubwordRange(word, candidate);
+        if (!subword) return null;
+        return { ...candidate, start: subword.start, end: subword.end };
     }
 
     private refreshActivePointerTextHover(candidate: PointerTextLookup, event: PointerEvent): boolean {
@@ -4916,7 +5104,6 @@ export class ReaderApp {
     }
 
     private handleReaderWordHover(word: HTMLElement, event: PointerEvent): void {
-        this.rememberHoverPopoverPointer(event);
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
         if (this.isActiveHoverLookup(hoverLookupKey)) {
             this.cancelHoverClose();
@@ -4929,6 +5116,10 @@ export class ReaderApp {
             return;
         }
         if (!this.shouldLookupOnHover(event)) return;
+        // Capture the placement point only for a NEW hover. Once mounted,
+        // hydration may resize/reposition the frame several times; updating this
+        // point on every move over the same word made each resize chase the cursor.
+        this.rememberHoverPopoverPointer(event);
         this.keepSubtitleMiningPauseForPendingHover(word);
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
@@ -4938,6 +5129,22 @@ export class ReaderApp {
         if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return;
         if (!word.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return;
         this.pauseVideoForSubtitleMining();
+    }
+
+    private keepPlainSubtitleHoverPause(target: EventTarget | null): void {
+        const surface = this.plainSubtitleHoverPauseSurface(target);
+        if (!surface) return;
+        this.activePlainSubtitleHoverSurface = surface;
+        this.pauseVideoForSubtitleMining();
+    }
+
+    private plainSubtitleHoverPauseSurface(target: EventTarget | null): Element | null {
+        if (!this.settings.annotationsPaused
+            || !this.settings.subtitleMiningPause
+            || !this.settings.subtitleHoverPause
+            || !(target instanceof Element)) return null;
+        if (target.closest('.jpdb-reader-popover')) return null;
+        return target.closest(PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR);
     }
 
     private shouldRetryHoverAudio(word: HTMLElement, event: PointerEvent): boolean {
@@ -4960,8 +5167,31 @@ export class ReaderApp {
         if (this.isDestroyed || this.hasStickyModalPopover() || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return;
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         const related = event.relatedTarget as Node | null;
+        if (this.handlePlainSubtitleHoverPointerOut(event.target, related)) return;
         if (this.handleActivePopoverPointerOut(event, related)) return;
         this.handleReaderWordPointerOut(event, related);
+    }
+
+    private handlePlainSubtitleHoverPointerOut(target: EventTarget | null, related: Node | null): boolean {
+        const active = this.activePlainSubtitleHoverSurface;
+        if (!active || !(target instanceof Node) || !active.contains(target)) return false;
+        const next = this.plainSubtitleHoverPauseSurface(related);
+        if (next) {
+            this.activePlainSubtitleHoverSurface = next;
+            this.clearSubtitleHoverMiningResumeTimer();
+            return true;
+        }
+        this.activePlainSubtitleHoverSurface = undefined;
+        if (this.isInsideActivePopover(related)) {
+            this.cancelHoverClose();
+            return false;
+        }
+        if (this.activePopoverMode === 'hover') {
+            this.scheduleHoverClose(undefined, { ignoreCssHover: true });
+        } else {
+            this.scheduleSubtitleMiningVideoResume(this.settings.hoverCloseDelayMs);
+        }
+        return false;
     }
 
     private handleActivePopoverPointerOut(event: PointerEvent, related: Node | null): boolean {
@@ -5154,26 +5384,54 @@ export class ReaderApp {
         if (relock && popover.isConnected) this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
     }
 
-    private scheduleHoverLookup(word: HTMLElement, event: MouseEvent | KeyboardEvent): void {
+    private scheduleHoverLookup(
+        word: HTMLElement,
+        event: MouseEvent | KeyboardEvent,
+        options: { minimumDelayMs?: number } = {},
+    ): void {
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
         if (this.shouldSkipHoverLookupSchedule(word, hoverLookupKey)) return;
 
         this.cancelHoverClose();
-        if (this.hoverLookupTimer && this.hoverPendingWord) {
-            this.hoverPendingWord = word;
-            this.hoverPendingLookupKey = hoverLookupKey;
-            return;
-        }
+        if (this.retargetPendingHoverLookup(word, hoverLookupKey, options.minimumDelayMs)) return;
         window.clearTimeout(this.hoverLookupTimer);
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         this.hoverPendingWord = word;
         this.hoverPendingLookupKey = hoverLookupKey;
-        const runLookup = () => this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
-        const delay = this.activePopoverMode === 'hover' && this.activeHoverWord && this.activeHoverWord !== word
-            ? 0
-            : Math.max(0, this.settings.hoverOpenDelayMs);
-        if (delay === 0) runLookup();
-        else this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+        const runLookup = () => {
+            this.rememberSettledHoverPopoverPointer(options.minimumDelayMs);
+            this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
+        };
+        this.startHoverLookupAfterDelay(runLookup, this.hoverLookupDelay(word, options.minimumDelayMs));
+    }
+
+    private retargetPendingHoverLookup(word: HTMLElement, hoverLookupKey: string, minimumDelayMs?: number): boolean {
+        if (minimumDelayMs !== undefined) return false;
+        if (!this.hoverLookupTimer || !this.hoverPendingWord) return false;
+        this.hoverPendingWord = word;
+        this.hoverPendingLookupKey = hoverLookupKey;
+        return true;
+    }
+
+    private rememberSettledHoverPopoverPointer(minimumDelayMs?: number): void {
+        if (minimumDelayMs === undefined || !this.lastPointerPosition) return;
+        this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
+    }
+
+    private hoverLookupDelay(word: HTMLElement, minimumDelayMs?: number): number {
+        const switchesActiveWord = this.activePopoverMode === 'hover'
+            && Boolean(this.activeHoverWord)
+            && this.activeHoverWord !== word;
+        const normalDelay = switchesActiveWord ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
+        return Math.max(normalDelay, minimumDelayMs ?? 0);
+    }
+
+    private startHoverLookupAfterDelay(runLookup: () => void, delay: number): void {
+        if (delay === 0) {
+            runLookup();
+            return;
+        }
+        this.hoverLookupTimer = window.setTimeout(runLookup, delay);
     }
 
     private shouldSkipHoverLookupSchedule(word: HTMLElement, hoverLookupKey: string): boolean {
@@ -5200,11 +5458,21 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
-        const pointer = this.lastPointerPosition;
-        const activeWord = (pointer
-            ? this.hoverReaderWordFromElement(document.elementFromPoint(pointer.x, pointer.y) as HTMLElement | null)
-            : null) ?? (word.isConnected ? word : null);
+        const activeWord = this.scheduledHoverWord(word);
         if (!activeWord || !this.canRunScheduledHoverLookup(activeWord, event)) return;
+        this.startScheduledHoverWordLookup(activeWord, hoverLookupGeneration);
+    }
+
+    private scheduledHoverWord(fallbackWord: HTMLElement): HTMLElement | null {
+        const pointer = this.lastPointerPosition;
+        if (pointer) {
+            const liveWord = this.liveReaderWordAtPointer(pointer.x, pointer.y);
+            if (liveWord) return liveWord;
+        }
+        return fallbackWord.isConnected ? fallbackWord : null;
+    }
+
+    private startScheduledHoverWordLookup(activeWord: HTMLElement, hoverLookupGeneration: number): void {
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
         void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
@@ -5234,7 +5502,11 @@ export class ReaderApp {
             && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }
 
-    private schedulePointerTextLookup(candidate: PointerTextLookup, event: MouseEvent | KeyboardEvent): void {
+    private schedulePointerTextLookup(
+        candidate: PointerTextLookup,
+        event: MouseEvent | KeyboardEvent,
+        options: { minimumDelayMs?: number } = {},
+    ): void {
         if (this.isActivePointerTextLookup(candidate)) {
             this.refreshActiveHoverAnchor(candidate.anchor);
             return;
@@ -5248,6 +5520,9 @@ export class ReaderApp {
         this.hoverPendingLookupKey = hoverLookupKey;
         const runLookup = () => {
             if (this.hoverLookupGeneration !== hoverLookupGeneration) return;
+            if (options.minimumDelayMs !== undefined && this.lastPointerPosition) {
+                this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
+            }
             this.hoverLookupTimer = undefined;
             this.hoverPendingLookupKey = '';
             if (!candidate.anchor.isConnected || !this.settings.lookupOnHover) return;
@@ -5258,12 +5533,9 @@ export class ReaderApp {
                 if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
-        const delay = Math.max(0, this.settings.hoverOpenDelayMs);
-        if (delay === 0) {
-            runLookup();
-            return;
-        }
-        this.hoverLookupTimer = window.setTimeout(runLookup, delay);
+        const normalDelay = this.activePopoverMode === 'hover' ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
+        const delay = Math.max(normalDelay, options.minimumDelayMs ?? 0);
+        this.startHoverLookupAfterDelay(runLookup, delay);
     }
 
     private isPointerTextLookupAlreadyQueued(hoverLookupKey: string): boolean {
@@ -5337,13 +5609,38 @@ export class ReaderApp {
     }
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
-        if (this.isHoverPopoverResizeStickyActive()) return true;
-        if (this.isMiddlePressHoverContextActive()) return true;
+        if (this.hasDirectHoverContext()) return true;
+        if (this.hasActiveLookupHoverContext(options)) return true;
+        return this.hasPopoverHoverContext(options);
+    }
+
+    private hasActiveLookupHoverContext(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean {
         if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
-        if (this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options)) return true;
+        return Boolean(this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options));
+    }
+
+    private hasPopoverHoverContext(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean {
         if (this.isPopoverCssHoverActive(options)) return true;
         const target = this.currentHoverPointerTarget(options);
-        return target ? this.isInsideActiveHoverContext(target) : false;
+        return Boolean(target && this.isInsideActiveHoverContext(target));
+    }
+
+    private hasDirectHoverContext(): boolean {
+        // Firefox can transiently clear CSS :hover while a scroll changes the
+        // descendant under a stationary cursor. Exact hit-testing remains
+        // trustworthy both for the frame itself and for its narrow travel path.
+        return this.isHoverPopoverResizeStickyActive()
+            || this.isMiddlePressHoverContextActive()
+            || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
+    }
+
+    private activeHoverPopoverPointerState(): HoverPopoverPointerState {
+        return {
+            mode: this.activePopoverMode,
+            popover: this.activePopover,
+            point: this.lastPointerPosition,
+            origin: this.hoverPopoverPointerPosition,
+        };
     }
 
     private isMiddlePressHoverContextActive(): boolean {
@@ -5361,7 +5658,11 @@ export class ReaderApp {
         if (this.isPopoverCssHoverActive(options)) return true;
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-        const current = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+        const current = this.currentPointerTextHoverCandidateAtPoint(
+            this.lastPointerPosition.x,
+            this.lastPointerPosition.y,
+            target,
+        );
         const active = this.activePointerTextLookup;
         if (!active || !current) return false;
         // Mirror rebuild on reactive SPAs replaces the text anchor, breaking the node-identity
@@ -5489,15 +5790,20 @@ export class ReaderApp {
 
     private isCurrentPointerTextHoverCandidate(candidate: PointerTextLookup): boolean {
         if (!this.lastPointerPosition) return false;
-        const current = this.lookupCandidateFromPoint(
+        const current = this.currentPointerTextHoverCandidateAtPoint(
             this.lastPointerPosition.x,
             this.lastPointerPosition.y,
             document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y),
-            HOVER_POINTER_TEXT_LOOKUP_OPTIONS,
         );
         return Boolean(current
             && samePointerTextLookupTarget({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current)
             && pointerOffsetInsideLiveLookup({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current.offset));
+    }
+
+    private currentPointerTextHoverCandidateAtPoint(x: number, y: number, target: EventTarget | null): PointerTextLookup | null {
+        const word = this.liveReaderWordAtPointer(x, y);
+        const subword = word ? this.renderedWordSubwordHoverCandidate(word, x, y, target) : null;
+        return subword ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
     }
 
     private hasActiveHoverPopover(): boolean {
@@ -5819,6 +6125,11 @@ export class ReaderApp {
     }
 
     private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
+        // Rendered-word sublookups intentionally narrow candidate.start/end to
+        // the segment under the pointer. A parser response spanning outside
+        // that boundary is the larger token the learner is trying to look
+        // inside, not a valid result for this exact-point request.
+        if (token.start < candidate.start || token.end > candidate.end) return true;
         const tokenLength = token.end - token.start;
         const run = pointerTextRunAt(candidate.text, candidate.offset);
         const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
@@ -5873,7 +6184,8 @@ export class ReaderApp {
     }
 
     private publicJpdbPointerLookupCandidates(candidate: PointerTextLookup): PointerTextSpanCandidate[] {
-        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset);
+        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset)
+            .filter(span => span.start >= candidate.start && span.end <= candidate.end);
         const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
         if (!fallbackRange) return spans;
         const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
@@ -5917,6 +6229,8 @@ export class ReaderApp {
         const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
         if (!scope.isCurrent()
             || !localMatch
+            || localMatch.start < candidate.start
+            || localMatch.end > candidate.end
             || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
         const card = this.parser.localCardFromEntry(localMatch.entry, scope.target);
         if (!scope.isCurrent()) return true;

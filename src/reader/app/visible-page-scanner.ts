@@ -9,7 +9,9 @@ import {
     projectAdditiveTextMirrors,
     refreshWrappedScanWordUnderlines,
     removeStaleControlTextMirrors,
+    removeNonDestructiveScanMirrors,
     scanTargetRequiresWholeSourceMirror,
+    unwrapReaderWords,
     withMirrorTokenApply,
     type FragmentTextTarget,
     type ScanTextTarget,
@@ -21,7 +23,13 @@ import { activeTargetLanguageDisplayName } from './target-language-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
-import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
+import {
+    effectiveFuriganaMode,
+    effectiveReaderColorSource,
+    effectiveReaderTextColorSource,
+    shouldLookupAnkiStatus,
+    shouldLookupBunproWordStates,
+} from '../settings/index';
 import { applyAuthoredVocabularyOverrides } from '../lookup/authored-vocabulary';
 import { ParkableObserver } from '../platform/page-activity';
 import type { JPDBToken, ReaderSettings } from './types';
@@ -208,6 +216,21 @@ export class VisiblePageScanner {
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
+        const settings = this.dependencies.getSettings();
+        // Inline wrappers are not layout-neutral in Firefox/WebKit: even with
+        // every decoration transparent, splitting one native CJK text run into
+        // token spans changes punctuation and line-break opportunities. When
+        // the learner has disabled every visible page-annotation channel, keep
+        // the native run intact and let the existing caret/Range pointer lookup
+        // serve hover/click dictionaries instead. Cancel first so a parse that
+        // started under the previous settings cannot put the wrappers back.
+        if (!pageScanHasVisibleAnnotations(settings)) {
+            this.cancelVisiblePageScan();
+            this.syncPageFuriganaMode();
+            removeNonDestructiveScanMirrors(document);
+            unwrapReaderWords(document);
+            return;
+        }
         if (!this.beginScan(silent)) return;
         this.scanGeneration++;
         const generation = this.scanGeneration;
@@ -863,6 +886,13 @@ export class VisiblePageScanner {
             document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
         }
     }
+}
+
+export function pageScanHasVisibleAnnotations(settings: ReaderSettings): boolean {
+    if (effectiveFuriganaMode(settings) !== 'off') return true;
+    return effectiveReaderColorSource(settings, settings.wordHighlightColorSource, 'jpdb') !== 'off'
+        || effectiveReaderColorSource(settings, settings.wordUnderlineColorSource, 'pitch') !== 'off'
+        || effectiveReaderTextColorSource(settings, settings.wordTextColorSource, 'anki') !== 'off';
 }
 
 function waitForVisibleScanTurn(): Promise<void> {
