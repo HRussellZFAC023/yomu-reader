@@ -418,53 +418,66 @@ function fail(engine, message, result) {
     throw new Error(`${engine}: ${message}\n${JSON.stringify(result, null, 2)}`);
 }
 
-function verifyScrollResult(engine, scenario, result, expectedLayerHost) {
-    console.log(`${engine} ${scenario} scroll: ${JSON.stringify(result)}`);
-    if (Math.abs(result.inFrameSourceDelta + 32) > 1) {
-        fail(`${engine} ${scenario}`, 'source did not move in the compositor scroll turn', result);
-    }
-    if (Math.abs(result.inFrameCloneDelta - result.inFrameSourceDelta) > 1) {
-        fail(`${engine} ${scenario}`, 'projected reading lagged behind its source during the scrolled frame', result);
-    }
-    if (Math.abs(result.inFrame.alignment) > 1 || result.inFrame.display === 'none') {
-        fail(`${engine} ${scenario}`, 'projected reading was visibly detached during the scrolled frame', result);
-    }
-    if (Math.abs(result.sourceDelta + 32) > 1) {
-        fail(`${engine} ${scenario}`, 'source did not move with its scroller', result);
-    }
-    if (Math.abs(result.cloneDelta - result.sourceDelta) > 1) {
-        fail(`${engine} ${scenario}`, 'projected reading moved with the viewport instead of its source', result);
-    }
-    if (Math.abs(result.stampedSourceDelta - result.sourceDelta) > 1) {
-        fail(`${engine} ${scenario}`, 'projected reading retained stale source geometry', result);
-    }
-    if (Math.abs(result.after.alignment) > 1 || result.after.display === 'none') {
-        fail(`${engine} ${scenario}`, 'projected reading was not visibly anchored after scroll', result);
-    }
+function failWhen(condition, engine, message, result) {
+    if (condition) fail(engine, message, result);
+}
+
+function verifyScrollMotion(engine, result) {
+    failWhen(Math.abs(result.inFrameSourceDelta + 32) > 1,
+        engine, 'source did not move in the compositor scroll turn', result);
+    failWhen(Math.abs(result.inFrameCloneDelta - result.inFrameSourceDelta) > 1,
+        engine, 'projected reading lagged behind its source during the scrolled frame', result);
+    failWhen(Math.abs(result.inFrame.alignment) > 1 || result.inFrame.display === 'none',
+        engine, 'projected reading was visibly detached during the scrolled frame', result);
+    failWhen(Math.abs(result.sourceDelta + 32) > 1,
+        engine, 'source did not move with its scroller', result);
+    failWhen(Math.abs(result.cloneDelta - result.sourceDelta) > 1,
+        engine, 'projected reading moved with the viewport instead of its source', result);
+    failWhen(Math.abs(result.stampedSourceDelta - result.sourceDelta) > 1,
+        engine, 'projected reading retained stale source geometry', result);
+    failWhen(Math.abs(result.after.alignment) > 1 || result.after.display === 'none',
+        engine, 'projected reading was not visibly anchored after scroll', result);
     // Every scenario here sits inside an inner scroller, whose offset the
     // document layer knows nothing about. It must use the scroll-native layer,
     // not the document layer or the old frame-delayed viewport fallback.
-    if (result.after.documentSpace || !result.after.scrollSpace) {
-        fail(`${engine} ${scenario}`, 'reading inside an inner scroller missed scroll-native anchoring', result);
+    failWhen(result.after.documentSpace || !result.after.scrollSpace,
+        engine, 'reading inside an inner scroller missed scroll-native anchoring', result);
+}
+
+function verifyLayerHost(engine, result, expectedLayerHost) {
+    failWhen(expectedLayerHost && result.after.layerHost !== expectedLayerHost,
+        engine, `reading used unsafe layer host ${result.after.layerHost}`, result);
+}
+
+function verifyScrollerDimensions(engine, result, extents) {
+    const { extentBefore, extentProjected, extentCleared } = extents;
+    for (const key of ['scrollWidth', 'scrollHeight', 'clientWidth', 'clientHeight']) {
+        failWhen(extentProjected[key] !== extentBefore[key] || extentCleared[key] !== extentBefore[key],
+            engine, `projection changed the scroller ${key}`, result);
     }
-    if (expectedLayerHost && result.after.layerHost !== expectedLayerHost) {
-        fail(`${engine} ${scenario}`, `reading used unsafe layer host ${result.after.layerHost}`, result);
-    }
-    if (result.scrollerGuard) {
-        const { extentBefore, extentProjected, extentCleared } = result.scrollerGuard;
-        for (const key of ['scrollWidth', 'scrollHeight', 'clientWidth', 'clientHeight']) {
-            if (extentProjected[key] !== extentBefore[key] || extentCleared[key] !== extentBefore[key]) {
-                fail(`${engine} ${scenario}`, `projection changed the scroller ${key}`, result);
-            }
-        }
-        if (extentProjected.layerCount !== 1 || extentCleared.layerCount !== 0) {
-            fail(`${engine} ${scenario}`, 'scroll projection layer was not created and cleaned up exactly once', result);
-        }
-        if (extentCleared.inlinePosition !== extentBefore.inlinePosition
-            || extentCleared.inlinePositionPriority !== extentBefore.inlinePositionPriority) {
-            fail(`${engine} ${scenario}`, 'scroller position ownership was not restored after cleanup', result);
-        }
-    }
+}
+
+function verifyScrollerLifecycle(engine, result, extents) {
+    const { extentBefore, extentProjected, extentCleared } = extents;
+    failWhen(extentProjected.layerCount !== 1 || extentCleared.layerCount !== 0,
+        engine, 'scroll projection layer was not created and cleaned up exactly once', result);
+    failWhen(extentCleared.inlinePosition !== extentBefore.inlinePosition
+        || extentCleared.inlinePositionPriority !== extentBefore.inlinePositionPriority,
+    engine, 'scroller position ownership was not restored after cleanup', result);
+}
+
+function verifyScrollerGuard(engine, result) {
+    if (!result.scrollerGuard) return;
+    verifyScrollerDimensions(engine, result, result.scrollerGuard);
+    verifyScrollerLifecycle(engine, result, result.scrollerGuard);
+}
+
+function verifyScrollResult(engine, scenario, result, expectedLayerHost) {
+    console.log(`${engine} ${scenario} scroll: ${JSON.stringify(result)}`);
+    const scenarioName = `${engine} ${scenario}`;
+    verifyScrollMotion(scenarioName, result);
+    verifyLayerHost(scenarioName, result, expectedLayerHost);
+    verifyScrollerGuard(scenarioName, result);
 }
 
 function verifyFlingFrames(engine, phase, frames) {
@@ -484,14 +497,46 @@ function verifyFlingFrames(engine, phase, frames) {
     }
 }
 
+async function applyEngineThrottling(name, page) {
+    if (name !== 'chromium') return;
+    const client = await page.context().newCDPSession(page);
+    await client.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+}
+
+function verifyMidScrollSnapshots(name, snapshots) {
+    for (const [index, snapshot] of snapshots.entries()) {
+        failWhen(snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2,
+            name, `mid-scroll frame ${index + 1} drifted or blanked`, snapshot);
+    }
+}
+
+function verifyPinnedReading(name, pinned) {
+    console.log(`${name} pinned masthead: ${JSON.stringify(pinned)}`);
+    failWhen(pinned.inFrame.documentSpace || pinned.settled.documentSpace,
+        name, 'reading under a fixed masthead claimed document-space anchoring', pinned);
+    for (const [phase, snapshot] of Object.entries(pinned)) {
+        failWhen(snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2,
+            name, `pinned masthead reading drifted or blanked (${phase})`, snapshot);
+    }
+}
+
+function verifyRootFling(name, fling) {
+    console.log(`${name} root fling modes: ${fling.documentSpaceCount}/${fling.readingCount} document-space, `
+        + `page extent ${JSON.stringify(fling.extentBefore)} -> ${JSON.stringify(fling.extentAfter)}`);
+    failWhen(fling.documentSpaceCount !== fling.readingCount,
+        name, 'plain document text did not use document-space anchoring', fling.documentSpaceCount);
+    failWhen(fling.extentAfter.width > fling.extentBefore.width
+        || fling.extentAfter.height > fling.extentBefore.height,
+    name, 'projected readings grew the page scroll area', fling);
+    verifyFlingFrames(name, 'sustained', fling.sustained);
+    verifyFlingFrames(name, 'in-frame', fling.inFrame);
+}
+
 async function verifyEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
         const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
-        if (name === 'chromium') {
-            const client = await page.context().newCDPSession(page);
-            await client.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-        }
+        await applyEngineThrottling(name, page);
         await page.route('https://www.youtube.com/**', route => route.fulfill({
             status: 200,
             contentType: 'text/html',
@@ -505,33 +550,11 @@ async function verifyEngine(name, browserType) {
         const moved = await page.evaluate(() => window.runMovedReadingScrollProbe());
         verifyScrollResult(name, 'moved-root', moved);
         const midScrollSnapshots = await page.evaluate(() => window.runMidScrollThrottledProbe());
-        for (const [index, snapshot] of midScrollSnapshots.entries()) {
-            if (snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2) {
-                fail(name, `mid-scroll frame ${index + 1} drifted or blanked`, snapshot);
-            }
-        }
+        verifyMidScrollSnapshots(name, midScrollSnapshots);
         const pinned = await page.evaluate(() => window.runPinnedReadingProbe());
-        console.log(`${name} pinned masthead: ${JSON.stringify(pinned)}`);
-        if (pinned.inFrame.documentSpace || pinned.settled.documentSpace) {
-            fail(name, 'reading under a fixed masthead claimed document-space anchoring', pinned);
-        }
-        for (const [phase, snapshot] of Object.entries(pinned)) {
-            if (snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2) {
-                fail(name, `pinned masthead reading drifted or blanked (${phase})`, snapshot);
-            }
-        }
+        verifyPinnedReading(name, pinned);
         const fling = await page.evaluate(() => window.runRootFlingProbe());
-        console.log(`${name} root fling modes: ${fling.documentSpaceCount}/${fling.readingCount} document-space, `
-            + `page extent ${JSON.stringify(fling.extentBefore)} -> ${JSON.stringify(fling.extentAfter)}`);
-        if (fling.documentSpaceCount !== fling.readingCount) {
-            fail(name, 'plain document text did not use document-space anchoring', fling.documentSpaceCount);
-        }
-        if (fling.extentAfter.width > fling.extentBefore.width
-            || fling.extentAfter.height > fling.extentBefore.height) {
-            fail(name, 'projected readings grew the page scroll area', fling);
-        }
-        verifyFlingFrames(name, 'sustained', fling.sustained);
-        verifyFlingFrames(name, 'in-frame', fling.inFrame);
+        verifyRootFling(name, fling);
     } finally {
         await browser.close();
     }

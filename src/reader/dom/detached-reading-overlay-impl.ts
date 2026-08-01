@@ -839,10 +839,10 @@ function projectionLayerTarget(element: Element, context: ProjectionReadContext)
     if (!view) return { mode: 'viewport' };
 
     let current: Element | null = element;
-    // Prefer the outermost existing containing block within the nearest
-    // scroller. On YouTube live chat this is #contents: it already moves with
-    // #item-scroller, so Yomu neither changes the panel's positioning nor adds
-    // an in-flow child that could alter its flex/grid geometry.
+    // Prefer the outermost safe containing block within the nearest scroller.
+    // If clipping rules out every candidate (as in YouTube live chat), the
+    // layout-neutral flow layer on the scroller keeps clear of its #items
+    // recycler while sharing the same compositor movement.
     let positionedHost: HTMLElement | null = null;
     let target: ProjectionLayerTarget = { mode: 'viewport' };
     while (current) {
