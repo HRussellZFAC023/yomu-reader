@@ -69,6 +69,7 @@ writeFileSync(entryPath, `
         inlinePosition: scroller.style.getPropertyValue('position'),
         inlinePositionPriority: scroller.style.getPropertyPriority('position'),
         layerCount: scroller.querySelectorAll('.jpdb-reader-detached-reading-scroll-layer').length,
+        contentIsLast: scroller.querySelector('#content') === scroller.lastElementChild,
     });
     const readingSnapshot = (anchor: HTMLElement) => {
         const clone = projectedReadingFor(anchor);
@@ -115,7 +116,8 @@ writeFileSync(entryPath, `
                     background: white;
                 }
                 #scroller > * { margin:13px!important;min-height:17px!important;padding:5px!important;border:2px solid red!important; }
-                #content { box-sizing: border-box; height: 360px; padding-top: 52px; }
+                #content { box-sizing: border-box; height: 200px; padding-top: 52px; }
+                #scroller > #content:last-child { height: 360px; }
             </style>
             <div id="scroller"><div id="content"></div></div>
         \`;
@@ -152,10 +154,22 @@ writeFileSync(entryPath, `
         const inFrame = readingSnapshot(anchor);
         await nextPaint();
         const after = readingSnapshot(anchor);
+        const scrollLayer = projectedReadingFor(anchor)?.parentElement;
+        scrollLayer?.remove();
+        await settleProjection();
+        const recoveredClone = projectedReadingFor(anchor);
+        const recovery = {
+            sameLayer: recoveredClone?.parentElement === scrollLayer,
+            cloneConnected: recoveredClone?.isConnected === true,
+            layerCount: scroller.querySelectorAll('.jpdb-reader-detached-reading-scroll-layer').length,
+        };
         clearProjectedReadings(owner);
         const extentCleared = scrollerSnapshot(scroller);
         platform.remove();
-        return scrollResult(before, inFrame, after, { extentBefore, extentProjected, extentCleared });
+        return {
+            ...scrollResult(before, inFrame, after, { extentBefore, extentProjected, extentCleared }),
+            recovery,
+        };
     };
 
     window.runSlottedReadingScrollProbe = async () => {
@@ -455,6 +469,8 @@ function verifyScrollerDimensions(engine, result, extents) {
         failWhen(extentProjected[key] !== extentBefore[key] || extentCleared[key] !== extentBefore[key],
             engine, `projection changed the scroller ${key}`, result);
     }
+    failWhen(!extentBefore.contentIsLast || !extentProjected.contentIsLast || !extentCleared.contentIsLast,
+        engine, 'projection displaced the panel content from :last-child', result);
 }
 
 function verifyScrollerLifecycle(engine, result, extents) {
@@ -470,6 +486,10 @@ function verifyScrollerGuard(engine, result) {
     if (!result.scrollerGuard) return;
     verifyScrollerDimensions(engine, result, result.scrollerGuard);
     verifyScrollerLifecycle(engine, result, result.scrollerGuard);
+    if (result.recovery) {
+        failWhen(!result.recovery.sameLayer || !result.recovery.cloneConnected || result.recovery.layerCount !== 1,
+            engine, 'panel renderer removal did not reconnect the registered scroll layer', result);
+    }
 }
 
 function verifyScrollResult(engine, scenario, result, expectedLayerHost) {

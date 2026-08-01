@@ -1338,6 +1338,64 @@ describe('detached reading scroll context', () => {
         expect(scroller.style.getPropertyValue('position')).toBe('');
     });
 
+    it('keeps the page content as the scroll panel tail while a flow layer is active', () => {
+        const scroller = makeScroller();
+        const content = document.createElement('div');
+        scroller.append(content);
+        document.body.append(scroller);
+        const target = projectTargetInto(content, 'しっぽ');
+        const layer = target.reading.parentElement;
+
+        expect(layer?.classList.contains('jpdb-reader-detached-reading-scroll-layer')).toBe(true);
+        expect(scroller.lastElementChild).toBe(content);
+        expect(layer?.nextElementSibling).toBe(content);
+
+        clearProjectedReadings(target.owner);
+        expect(scroller.lastElementChild).toBe(content);
+    });
+
+    it('reattaches the same native layer when a panel renderer removes it', async () => {
+        const scroller = makeScroller();
+        let content = document.createElement('div');
+        scroller.append(content);
+        for (let depth = 0; depth < 5; depth += 1) {
+            const child = document.createElement('div');
+            content.append(child);
+            content = child;
+        }
+        document.body.append(scroller);
+        const target = projectTargetInto(content, 'もどる');
+        const layer = target.reading.parentElement!;
+        await nextProjectionFrame();
+
+        layer.remove();
+        expect(layer.isConnected).toBe(false);
+        await nextProjectionFrame();
+
+        expect(layer.parentElement).toBe(scroller);
+        expect(scroller.querySelectorAll('.jpdb-reader-detached-reading-scroll-layer')).toHaveLength(1);
+        expect(target.reading.parentElement).toBe(layer);
+        clearProjectedReadings(target.owner);
+    });
+
+    it('moves the flow layer ahead when the page removes its unrelated tail', async () => {
+        const scroller = makeScroller();
+        const content = document.createElement('div');
+        const tail = document.createElement('div');
+        scroller.append(content, tail);
+        document.body.append(scroller);
+        const target = projectTargetInto(content, 'まもる');
+        const layer = target.reading.parentElement!;
+
+        expect(scroller.lastElementChild).toBe(tail);
+        tail.remove();
+        await nextProjectionFrame();
+
+        expect(scroller.lastElementChild).toBe(content);
+        expect(layer.nextElementSibling).toBe(content);
+        clearProjectedReadings(target.owner);
+    });
+
     it('does not overwrite a scroller position changed by the host while active', async () => {
         const scroller = makeScroller();
         const target = projectTargetInto(scroller, 'うわがき');
@@ -1532,6 +1590,38 @@ describe('detached reading scroll context', () => {
             .toBe(false);
         expect(projectedReading('いどう')?.classList.contains('jpdb-reader-projected-furi-scroll'))
             .toBe(true);
+        clearProjectedReadings(target.owner);
+    });
+
+    it('re-decides the layer synchronously when the same source gets a new anchor', () => {
+        const target = readingOwner('つけかえ');
+        mockElementsFromPoint([target.anchor]);
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+        expect(projectedReading('つけかえ')?.classList.contains('jpdb-reader-projected-furi-document'))
+            .toBe(true);
+
+        const scroller = makeScroller();
+        const replacement = document.createElement('div');
+        replacement.append(target.owner);
+        scroller.append(replacement);
+        document.body.append(scroller);
+        mockElementsFromPoint([replacement]);
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: replacement,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        const reading = projectedReading('つけかえ');
+        expect(reading?.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+        expect(reading?.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(reading?.parentElement?.parentElement).toBe(scroller);
         clearProjectedReadings(target.owner);
     });
 

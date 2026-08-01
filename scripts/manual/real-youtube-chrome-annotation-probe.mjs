@@ -107,7 +107,11 @@ async function waitForLiveChatFrame(page) {
 
 function liveChatAnnotationsReady() {
     const scroller = document.querySelector('#item-scroller');
-    return Boolean(scroller?.querySelector('.jpdb-reader-word')
+    const annotatedMessage = scroller?.querySelector(
+        'yt-live-chat-text-message-renderer .jpdb-reader-word, '
+        + 'yt-live-chat-paid-message-renderer .jpdb-reader-word',
+    );
+    return Boolean(annotatedMessage
         && document.querySelector('[data-yomu-projected-reading="true"]'));
 }
 
@@ -198,8 +202,7 @@ async function evaluateLiveChatAlignment() {
             .filter(source => source instanceof HTMLElement
                 && !source.closest('.jpdb-reader-detached-reading-overlay') && paints(source))
             .filter(source => sourceIsWithinScrollMargin(source, scrollerRect, requestedScrollDelta));
-        const liveMessageSources = candidates.filter(source => source.closest(MESSAGE_SELECTOR));
-        return liveMessageSources.length ? liveMessageSources : candidates;
+        return candidates.filter(source => source.closest(MESSAGE_SELECTOR));
     }
 
     function sourcePairScore(clone, source) {
@@ -335,11 +338,32 @@ async function evaluateLiveChatAlignment() {
         if (sameTurn.mode !== 'scroll') failures.push('projected-reading-not-in-scroll-mode');
         if (!sameTurn.layerHostInsideScroller) failures.push('scroll-layer-host-outside-item-scroller');
         if (sameTurn.extents.nativeLayerCount !== 1) failures.push('native-scroll-layer-count-not-one');
-        if (afterActivity.extents.nativeLayerCount !== 1 || !layer?.isConnected) {
+        if (afterActivity?.extents.nativeLayerCount !== 1 || !layer?.isConnected) {
             failures.push('native-scroll-layer-not-stable-during-live-activity');
         }
         if (layer?.closest('#items') || layer?.matches(MESSAGE_SELECTOR)) {
             failures.push('native-scroll-layer-entered-message-recycler');
+        }
+        return failures;
+    }
+
+    function liveActivityFailures(mutations, afterPair, afterActivity) {
+        const failures = [];
+        if (mutations.addedMessages === 0 && mutations.removedMessages === 0) {
+            failures.push('live-chat-message-activity-not-observed');
+        }
+        if (!afterPair || !afterActivity) {
+            failures.push('post-activity-message-projection-not-found');
+            return failures;
+        }
+        if (!afterPair.source.closest(MESSAGE_SELECTOR)) failures.push('post-activity-source-not-message-owned');
+        if (!afterPair.source.isConnected || !afterPair.clone.isConnected) {
+            failures.push('post-activity-projection-disconnected');
+        }
+        if (afterPair.score > 12) failures.push('post-activity-projected-source-match-not-exact');
+        if (Math.abs(afterActivity.alignment) > 2) failures.push('post-activity-projection-misaligned');
+        if (afterActivity.mode !== 'scroll' || !afterActivity.layerHostInsideScroller) {
+            failures.push('post-activity-projection-left-scroll-layer');
         }
         return failures;
     }
@@ -389,19 +413,30 @@ async function evaluateLiveChatAlignment() {
     const settledFrame = await nextFrame(() => takeSnapshot('settled-frame'));
     scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
     await nextFrame(() => undefined);
-    await new Promise(resolve => setTimeout(resolve, 4_000));
-    const afterActivity = takeSnapshot('after-live-activity');
+    const activityDeadline = Date.now() + 15_000;
+    while (mutations.addedMessages === 0 && mutations.removedMessages === 0
+        && Date.now() < activityDeadline) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    await nextFrame(() => undefined);
+    const afterPair = closestProjectionPair(scroller, -1);
+    const afterActivity = afterPair ? snapshot('after-live-activity', {
+        scroller,
+        source: afterPair.source,
+        clone: afterPair.clone,
+        layerHost: afterPair.clone.parentElement?.parentElement ?? null,
+    }) : null;
     messageObserver.disconnect();
     const frames = framesWithDeltas([before, sameTurn, nextFrameSnapshot, settledFrame], before);
     const appliedScrollDelta = round(sameTurn.extents.scrollTop - before.extents.scrollTop);
     const expectedVisualDelta = -appliedScrollDelta;
     const beforeBottomGap = before.extents.scrollHeight - before.extents.clientHeight - before.extents.scrollTop;
-    const afterBottomGap = afterActivity.extents.scrollHeight
-        - afterActivity.extents.clientHeight - afterActivity.extents.scrollTop;
+    const afterBottomGap = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
     const failures = [
         ...layerFailures({ appliedScrollDelta, pair, sameTurn, afterActivity, layer }),
         ...alignmentFailures(before, frames, expectedVisualDelta),
         ...frameIntegrityFailures(before, sameTurn, frames),
+        ...liveActivityFailures(mutations, afterPair, afterActivity),
     ];
     if (beforeBottomGap <= 2 && afterBottomGap > 2) failures.push('live-chat-auto-scroll-did-not-recover');
     return {
@@ -448,15 +483,22 @@ async function probeLiveChatAlignment(page) {
     }
 }
 
-const browser = await chromium.launch({ headless: true });
+// YouTube deliberately serves HeadlessChrome an "outdated browser" placeholder
+// instead of live chat. Use the installed, headed Chrome channel so this probe
+// exercises the same chat implementation a user sees.
+const browser = await chromium.launch({ headless: false, channel: 'chrome' });
 try {
     const context = await browser.newContext({
         viewport: { width: 1280, height: 900 },
         locale: 'ja-JP',
         extraHTTPHeaders: { 'Accept-Language': 'ja,en;q=0.8' },
         bypassCSP: true,
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
     });
+    // Keep the signed-out probe deterministic: YouTube otherwise interposes a
+    // regional consent sheet and never instantiates the live-chat contents.
+    await context.addCookies([{
+        name: 'SOCS', value: 'CAI', domain: '.youtube.com', path: '/', secure: true,
+    }]);
     // Playwright does not guarantee ordering across multiple addInitScript
     // registrations. A userscript manager does guarantee GM shim -> @require
     // companions -> core, so inject that exact sequence as one program.
@@ -466,9 +508,17 @@ try {
     const errors = [];
     page.on('pageerror', e => errors.push(String(e).slice(0, 160)));
     await page.goto(`https://www.youtube.com/watch?v=${VIDEO_ID}&hl=ja`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    const rejectConsent = page.getByRole('button', { name: /^(?:Reject all|すべてを拒否)$/u }).last();
+    // The reader may annotate the consent button before Playwright resolves its
+    // accessible name. Match the visible source text instead of requiring the
+    // name to remain byte-for-byte unchanged after furigana is attached.
+    const rejectConsent = page.locator('button')
+        .filter({ hasText: /(?:Reject all|すべてを拒否)/u })
+        .last();
     if (await rejectConsent.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await rejectConsent.click();
+        await page.locator('[aria-modal="true"]')
+            .waitFor({ state: 'hidden', timeout: 10_000 })
+            .catch(() => {});
     }
     // Give the reader time to boot, scan, and run its settle sweep.
     await page.waitForTimeout(15_000);
