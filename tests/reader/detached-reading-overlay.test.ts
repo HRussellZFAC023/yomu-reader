@@ -1253,6 +1253,8 @@ describe('detached reading grace termination', () => {
 });
 
 describe('detached reading scroll context', () => {
+    type ProjectedTarget = ReturnType<typeof readingOwner> & { reading: HTMLElement };
+
     function makeScroller(overflow = 'auto'): HTMLElement {
         const scroller = document.createElement('div');
         // jsdom does not expand the overflow shorthand into longhands, so set
@@ -1263,10 +1265,10 @@ describe('detached reading scroll context', () => {
         return scroller;
     }
 
-    function projectInto(host: HTMLElement | null, text: string): HTMLElement {
+    function projectTargetInto(host: HTMLElement | null, text: string): ProjectedTarget {
         const target = readingOwner(text);
         if (host) {
-            document.body.append(host);
+            if (!host.isConnected) document.body.append(host);
             host.append(target.anchor);
         }
         mockElementsFromPoint([target.anchor]);
@@ -1276,7 +1278,11 @@ describe('detached reading scroll context', () => {
             rect: rect(),
             measure: () => rect(),
         }]);
-        return projectedReading(text)!;
+        return { ...target, reading: projectedReading(text)! };
+    }
+
+    function projectInto(host: HTMLElement | null, text: string): HTMLElement {
+        return projectTargetInto(host, text).reading;
     }
 
     // A word on the ordinary page rides the document scroller, so its reading
@@ -1289,11 +1295,168 @@ describe('detached reading scroll context', () => {
             .toBe(true);
     });
 
-    it('keeps a reading inside an inner scroller on the viewport layer', () => {
-        const reading = projectInto(makeScroller(), 'なか');
+    it('anchors a reading inside an inner scroller on its native scroll layer', () => {
+        const scroller = makeScroller();
+        const reading = projectInto(scroller, 'なか');
         expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
-        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
-            .toBe(false);
+        expect(reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-scroll-layer'))
+            .toBe(true);
+        expect(reading.parentElement?.parentElement).toBe(scroller);
+        expect(reading.style.getPropertyValue('position')).toBe('absolute');
+    });
+
+    it('shares one native layer until the last reading in a scroller clears', () => {
+        const scroller = makeScroller();
+        const first = projectTargetInto(scroller, 'ひとつ');
+        const second = projectTargetInto(scroller, 'ふたつ');
+        const layer = scroller.querySelector<HTMLElement>('.jpdb-reader-detached-reading-scroll-layer');
+
+        expect(layer).not.toBeNull();
+        expect(scroller.querySelectorAll('.jpdb-reader-detached-reading-scroll-layer')).toHaveLength(1);
+        expect(first.reading.parentElement).toBe(layer);
+        expect(second.reading.parentElement).toBe(layer);
+
+        clearProjectedReadings(first.owner);
+        expect(layer?.isConnected).toBe(true);
+        expect(second.reading.parentElement).toBe(layer);
+
+        clearProjectedReadings(second.owner);
+        expect(layer?.isConnected).toBe(false);
+        expect(scroller.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+    });
+
+    it('uses a layout-neutral flow layer without positioning a static scroller', () => {
+        const scroller = makeScroller();
+        const target = projectTargetInto(scroller, 'もちもの');
+
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+        expect(target.reading.parentElement?.style.getPropertyValue('position')).toBe('relative');
+        expect(target.reading.parentElement?.style.getPropertyValue('float')).toBe('left');
+
+        clearProjectedReadings(target.owner);
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+    });
+
+    it('does not overwrite a scroller position changed by the host while active', async () => {
+        const scroller = makeScroller();
+        const target = projectTargetInto(scroller, 'うわがき');
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+
+        scroller.style.setProperty('position', 'absolute', 'important');
+        expect(getComputedStyle(scroller).position).toBe('absolute');
+        await nextProjectionFrame();
+        clearProjectedReadings(target.owner);
+
+        expect(scroller.style.getPropertyValue('position')).toBe('absolute');
+        expect(scroller.style.getPropertyPriority('position')).toBe('important');
+    });
+
+    it('preserves a page-owned static position while using its own flow containing block', () => {
+        const scroller = makeScroller();
+        scroller.style.setProperty('position', 'static', 'important');
+        const target = projectTargetInto(scroller, 'ゆずる');
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(target.reading.parentElement?.style.getPropertyValue('position')).toBe('relative');
+        expect(scroller.style.getPropertyValue('position')).toBe('static');
+        expect(scroller.style.getPropertyPriority('position')).toBe('important');
+
+        clearProjectedReadings(target.owner);
+    });
+
+    it.each(['flex', 'grid'])('does not add a flow item to a static %s scroller', display => {
+        const scroller = makeScroller();
+        scroller.style.display = display;
+        scroller.style.gap = '12px';
+        const target = projectTargetInto(scroller, `れいあうと${display}`);
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(false);
+        expect(target.reading.style.getPropertyValue('position')).toBe('fixed');
+        expect(scroller.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+        clearProjectedReadings(target.owner);
+    });
+
+    it('leaves a page-positioned scroller unchanged', () => {
+        const scroller = makeScroller();
+        scroller.style.setProperty('position', 'relative');
+        const target = projectTargetInto(scroller, 'そのまま');
+
+        expect(scroller.style.getPropertyValue('position')).toBe('relative');
+        expect(scroller.style.getPropertyPriority('position')).toBe('');
+
+        clearProjectedReadings(target.owner);
+        expect(scroller.style.getPropertyValue('position')).toBe('relative');
+        expect(scroller.style.getPropertyPriority('position')).toBe('');
+    });
+
+    it('reuses an existing positioned content host without changing its scroller', () => {
+        const scroller = makeScroller();
+        const content = document.createElement('div');
+        content.style.position = 'absolute';
+        scroller.append(content);
+        document.body.append(scroller);
+        const target = projectTargetInto(content, 'ないよう');
+
+        expect(target.reading.parentElement?.classList.contains('jpdb-reader-detached-reading-scroll-layer'))
+            .toBe(true);
+        expect(target.reading.parentElement?.parentElement).toBe(content);
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+
+        clearProjectedReadings(target.owner);
+        expect(content.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+    });
+
+    it('does not re-anchor a page-owned absolute descendant of a static scroller', () => {
+        const scroller = makeScroller();
+        const absolute = document.createElement('span');
+        absolute.style.position = 'absolute';
+        scroller.append(absolute);
+        const target = projectTargetInto(scroller, 'あんぜん');
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(target.reading.parentElement?.style.getPropertyValue('position')).toBe('relative');
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+        expect(absolute.style.getPropertyValue('position')).toBe('absolute');
+
+        clearProjectedReadings(target.owner);
+    });
+
+    it('does not re-anchor an absolute child added after the flow layer', async () => {
+        const scroller = makeScroller();
+        const target = projectTargetInto(scroller, 'あとから');
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+
+        const absolute = document.createElement('span');
+        absolute.style.position = 'absolute';
+        scroller.append(absolute);
+        await nextProjectionFrame();
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(scroller.style.getPropertyValue('position')).toBe('');
+        expect(absolute.style.getPropertyValue('position')).toBe('absolute');
+        clearProjectedReadings(target.owner);
+    });
+
+    it('lets a later page class reposition the scroller while the flow layer is active', async () => {
+        const style = document.createElement('style');
+        style.textContent = '.page-fixed-panel { position: fixed !important; top: 7px; }';
+        document.head.append(style);
+        const scroller = makeScroller();
+        const target = projectTargetInto(scroller, 'へんこう');
+        expect(getComputedStyle(scroller).position).not.toBe('fixed');
+
+        scroller.classList.add('page-fixed-panel');
+        expect(getComputedStyle(scroller).position).toBe('fixed');
+        await nextProjectionFrame();
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(target.reading.parentElement?.style.getPropertyValue('position')).toBe('absolute');
+        expect(target.reading.parentElement?.style.getPropertyValue('float')).toBe('none');
+
+        clearProjectedReadings(target.owner);
+        expect(getComputedStyle(scroller).position).toBe('fixed');
+        style.remove();
     });
 
     // A line-clamped title or ellipsised byline is overflow:hidden with content
@@ -1303,16 +1466,35 @@ describe('detached reading scroll context', () => {
     it('anchors a reading inside an unscrolled clipping box in document space', () => {
         const reading = projectInto(makeScroller('hidden'), 'きりとり');
         expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(true);
+        expect(reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(false);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
+            .toBe(true);
+    });
+
+    it('reclassifies a clipping box on its first scripted scroll before the next paint', async () => {
+        const scroller = makeScroller('hidden');
+        const target = projectTargetInto(scroller, 'はじめて');
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(true);
+
+        scroller.scrollTop = 24;
+        scroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        clearProjectedReadings(target.owner);
     });
 
     // Once something has actually scrolled that box — only script can, on a
     // clipping box — its offset is real and document space would strand the
-    // reading, so it falls back to the follow path.
-    it('keeps a reading inside a scrolled clipping box on the viewport layer', () => {
+    // reading, so it needs the same native layer as an interactive scroller.
+    it('anchors a reading inside a scrolled clipping box on its native scroll layer', () => {
         const scroller = makeScroller('hidden');
         Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 24 });
         const reading = projectInto(scroller, 'かくれ');
         expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+        expect(reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(reading.parentElement?.parentElement).toBe(scroller);
     });
 
     it.each(['fixed', 'sticky'])('keeps a reading under a %s ancestor on the viewport layer', position => {
@@ -1320,6 +1502,13 @@ describe('detached reading scroll context', () => {
         pinned.style.position = position;
         const reading = projectInto(pinned, `ぴん${position}`);
         expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+        expect(reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(false);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-overlay')).toBe(true);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
+            .toBe(false);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-scroll-layer'))
+            .toBe(false);
+        expect(reading.style.getPropertyValue('position')).toBe('fixed');
     });
 
     it('re-decides the layer when the word gains a scrolling ancestor', async () => {
@@ -1341,7 +1530,34 @@ describe('detached reading scroll context', () => {
 
         expect(projectedReading('いどう')?.classList.contains('jpdb-reader-projected-furi-document'))
             .toBe(false);
+        expect(projectedReading('いどう')?.classList.contains('jpdb-reader-projected-furi-scroll'))
+            .toBe(true);
         clearProjectedReadings(target.owner);
+    });
+
+    it('releases the old native layer when a reading moves between scrollers', async () => {
+        const firstScroller = makeScroller();
+        const secondScroller = makeScroller();
+        document.body.append(firstScroller, secondScroller);
+        const target = projectTargetInto(firstScroller, 'のりかえ');
+        const firstLayer = target.reading.parentElement;
+
+        expect(firstLayer?.classList.contains('jpdb-reader-detached-reading-scroll-layer')).toBe(true);
+        expect(firstLayer?.parentElement).toBe(firstScroller);
+
+        secondScroller.append(target.anchor);
+        await nextProjectionFrame();
+
+        const reading = projectedReading('のりかえ');
+        const secondLayer = reading?.parentElement;
+        expect(reading?.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(true);
+        expect(secondLayer?.classList.contains('jpdb-reader-detached-reading-scroll-layer')).toBe(true);
+        expect(secondLayer?.parentElement).toBe(secondScroller);
+        expect(firstLayer?.isConnected).toBe(false);
+        expect(firstScroller.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+
+        clearProjectedReadings(target.owner);
+        expect(secondLayer?.isConnected).toBe(false);
     });
 
     // Document-space readings are absolutely positioned, so the layer holding

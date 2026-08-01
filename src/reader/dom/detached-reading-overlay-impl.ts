@@ -23,13 +23,33 @@ interface ProjectionRecord {
     lastGoodAt?: number;
     lastGoodOrigin?: { x: number; y: number } | null;
     graceFramesRemaining?: number;
-    documentSpace?: boolean;
+    layerMode?: ProjectionLayerMode;
+    scrollContainer?: HTMLElement | null;
+    scrollLayerHost?: HTMLElement | null;
+    scrollLayerFlow?: boolean;
     scrollContextEpoch?: number;
     // Painted width of the reading is natural width * readingScaleX, so the
     // natural width can always be recovered from a live measurement.
     readingScaleX?: number;
     naturalReadingWidth?: number;
     naturalReadingKey?: string;
+}
+
+type ProjectionLayerMode = 'viewport' | 'document' | 'scroll';
+
+interface ProjectionLayerTarget {
+    mode: ProjectionLayerMode;
+    scrollContainer?: HTMLElement;
+    scrollLayerHost?: HTMLElement;
+    flowScrollContainer?: boolean;
+}
+
+interface ScrollProjectionLayer {
+    layer: HTMLElement;
+    records: Set<ProjectionRecord>;
+    scrollContainer: HTMLElement;
+    host: HTMLElement;
+    flowAnchored: boolean;
 }
 
 /** Where a reading lands after crowding is resolved: viewport-space centre and
@@ -57,6 +77,8 @@ interface DocumentOverlay {
     layer: HTMLElement;
     documentLayer: HTMLElement;
     documentLayerOrigin: { x: number; y: number } | null;
+    scrollLayers: Map<HTMLElement, ScrollProjectionLayer>;
+    scrolledClippingContainers: WeakSet<Element>;
     records: Set<ProjectionRecord>;
     anchorRecords: Map<HTMLElement, Set<ProjectionRecord>>;
     anchorRoots: Map<HTMLElement, readonly ShadowRoot[]>;
@@ -99,7 +121,9 @@ interface ProjectionReadContext {
     anchorPaint: Map<HTMLElement, boolean>;
     elementPaint: Map<Element, boolean>;
     occludingPaint: Map<Element, boolean>;
-    documentScroll: Map<Element, boolean>;
+    projectionLayers: Map<Element, ProjectionLayerTarget>;
+    scrollLayerOrigins: Map<HTMLElement, { x: number; y: number }>;
+    viewportCoordinateSafety: Map<Element, boolean>;
     // Paint visibility and scroll context both walk the composed ancestry and
     // both want the same computed style. Reading it once per element per pass
     // keeps a dense page from paying for the same style resolution twice.
@@ -120,9 +144,10 @@ const PROJECTED_READING_MIN_SCALE_X = 0.55;
 // further events coalesce into it exactly as they would into a frame.
 
 /**
- * Paint detached readings in a reader-owned viewport layer. The source
- * reading remains in its word as annotation data, but never participates in
- * the page's clipping, scroll width, line height, or text-overflow geometry.
+ * Paint detached readings in reader-owned layers that share their source's
+ * compositor movement. The source reading remains in its word as annotation
+ * data, while the zero-sized layers stay neutral to scroll width, line height,
+ * and text-overflow geometry.
  */
 export function syncProjectedReadings(
     owner: HTMLElement,
@@ -137,7 +162,9 @@ export function syncProjectedReadings(
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
-        documentScroll: new Map(),
+        projectionLayers: new Map(),
+        scrollLayerOrigins: new Map(),
+        viewportCoordinateSafety: new Map(),
         styleReads: new Map(),
     };
     overlay.documentLayerOrigin = null;
@@ -152,28 +179,14 @@ export function syncProjectedReadings(
     for (const projection of projections) {
         let record = records.get(projection.source);
         if (!record) {
-            // Decide the scroll context before the clone exists so a new
-            // reading is born in its final layer instead of being appended
-            // once and moved again on its first paint.
-            const documentSpace = elementScrollsWithDocument(
-                projection.anchor,
-                context.documentScroll,
-                context.styleReads,
-            );
             record = {
                 owner,
                 source: projection.source,
                 anchor: projection.anchor,
-                clone: createProjectedReading(
-                    projection.source,
-                    documentSpace ? overlay.documentLayer : overlay.layer,
-                    documentSpace,
-                ),
+                clone: createProjectedReading(projection.source, overlay.layer),
                 measure: projection.measure,
                 footprintWidth: 0,
                 footprintHeight: 0,
-                documentSpace,
-                scrollContextEpoch: overlay.scrollContextEpoch,
             };
             records.set(projection.source, record);
             overlay.records.add(record);
@@ -186,6 +199,7 @@ export function syncProjectedReadings(
         record.measure = projection.measure;
         refreshProjectionAnchorRoot(record.anchor, overlay);
         syncProjectedReadingStyle(record);
+        adoptProjectionLayer(record, context);
         paints.push(readProjectedReadingPaint(record, projection.rect, context));
     }
     // Crowding is a property of the WHOLE batch, so no clone may be written
@@ -253,6 +267,8 @@ function documentOverlay(document: Document): DocumentOverlay {
         layer,
         documentLayer,
         documentLayerOrigin: null,
+        scrollLayers: new Map(),
+        scrolledClippingContainers: new WeakSet(),
         records: new Set(),
         anchorRecords: new Map(),
         anchorRoots: new Map(),
@@ -271,6 +287,10 @@ function documentOverlay(document: Document): DocumentOverlay {
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleScrollRefresh: (event: Event) => {
             if (scrollMovedNoProjectedReading(event, overlay)) return;
+            if (firstClippingContainerScroll(event, overlay)) {
+                overlay.scheduleTopologyRefresh();
+                return;
+            }
             scheduleProjectionRefresh(document, overlay);
         },
         scheduleTopologyRefresh: () => {
@@ -302,26 +322,121 @@ function documentOverlay(document: Document): DocumentOverlay {
     return overlay;
 }
 
-function createProjectionLayer(document: Document, className: string): HTMLElement {
+function createProjectionLayer(
+    document: Document,
+    className: string,
+    parent: ParentNode = document.documentElement ?? document.body,
+): HTMLElement {
     const layer = document.createElement('div');
     layer.className = className;
     layer.setAttribute('aria-hidden', 'true');
     layer.setAttribute('data-jpdb-reader-surface-ignore', 'true');
-    (document.documentElement ?? document.body).append(layer);
+    parent.append(layer);
     return layer;
+}
+
+function ensureScrollProjectionLayer(
+    target: ProjectionLayerTarget,
+    overlay: DocumentOverlay,
+): ScrollProjectionLayer {
+    const scroller = target.scrollContainer;
+    const host = target.scrollLayerHost;
+    if (!scroller || !host) {
+        throw new Error('A scroll projection layer requires a scroll container and host');
+    }
+    const existing = overlay.scrollLayers.get(host);
+    if (existing) {
+        // Framework renderers can delete unknown children while retaining the
+        // host itself. Reattach the same layer so its clones and registry
+        // remain one object rather than leaking a detached replacement.
+        if (existing.layer.parentNode !== host) host.append(existing.layer);
+        configureScrollProjectionLayer(existing.layer, Boolean(target.flowScrollContainer));
+        existing.flowAnchored = Boolean(target.flowScrollContainer);
+        return existing;
+    }
+
+    const layer = createProjectionLayer(
+        host.ownerDocument,
+        'jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-scroll-layer',
+        host,
+    );
+    // A document stylesheet cannot cross into an open shadow root. These are
+    // the geometry-critical rules that make the layer layout-neutral there;
+    // the ordinary stylesheet carries the same contract for light DOM.
+    layer.style.setProperty('all', 'initial', 'important');
+    const flowAnchored = Boolean(target.flowScrollContainer);
+    // A zero-sized float participates in a block formatting context without
+    // taking line/flex/grid space. Unlike changing the scroller's position, it
+    // provides its own containing block and cannot re-anchor page descendants.
+    // Positioned panels/content hosts keep the simpler absolute layer.
+    configureScrollProjectionLayer(layer, flowAnchored);
+    layer.style.setProperty('width', '0', 'important');
+    layer.style.setProperty('height', '0', 'important');
+    layer.style.setProperty('overflow', 'visible', 'important');
+    layer.style.setProperty('pointer-events', 'none', 'important');
+    layer.style.setProperty('z-index', '2147482000', 'important');
+    layer.style.setProperty('contain', 'layout style', 'important');
+    const created: ScrollProjectionLayer = {
+        layer,
+        records: new Set<ProjectionRecord>(),
+        scrollContainer: scroller,
+        host,
+        flowAnchored,
+    };
+    overlay.scrollLayers.set(host, created);
+    return created;
+}
+
+function configureScrollProjectionLayer(layer: HTMLElement, flowAnchored: boolean): void {
+    layer.style.setProperty('position', flowAnchored ? 'relative' : 'absolute', 'important');
+    layer.style.setProperty('inset', 'auto', 'important');
+    layer.style.setProperty('top', flowAnchored ? 'auto' : '0', 'important');
+    layer.style.setProperty('left', flowAnchored ? 'auto' : '0', 'important');
+    layer.style.setProperty('float', flowAnchored ? 'left' : 'none', 'important');
+}
+
+function releaseScrollProjectionRecord(record: ProjectionRecord, overlay: DocumentOverlay): void {
+    const host = record.layerMode === 'scroll' ? record.scrollLayerHost : null;
+    if (!host) return;
+    const scrollLayer = overlay.scrollLayers.get(host);
+    scrollLayer?.records.delete(record);
+    if (scrollLayer && scrollLayer.records.size === 0) {
+        scrollLayer.layer.remove();
+        overlay.scrollLayers.delete(host);
+    }
+    record.scrollContainer = null;
+    record.scrollLayerHost = null;
+    record.scrollLayerFlow = false;
 }
 
 function createProjectedReading(
     source: HTMLElement,
     layer: HTMLElement,
-    documentSpace = false,
 ): HTMLElement {
     const clone = source.ownerDocument.createElement('span');
     clone.className = 'jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projected-furi';
-    if (documentSpace) clone.classList.add('jpdb-reader-projected-furi-document');
     clone.setAttribute('aria-hidden', 'true');
     clone.setAttribute(PROJECTED_READING_ATTRIBUTE, 'true');
     clone.textContent = source.textContent ?? '';
+    // Keep the projection paint contract intact when the clone is adopted by
+    // a scroller inside a shadow root, beyond document stylesheet reach.
+    clone.style.setProperty('all', 'initial', 'important');
+    clone.style.setProperty('display', 'block', 'important');
+    clone.style.setProperty('width', 'max-content', 'important');
+    clone.style.setProperty('max-width', 'none', 'important');
+    clone.style.setProperty('margin', '0', 'important');
+    clone.style.setProperty('padding', '0', 'important');
+    clone.style.setProperty('border', '0', 'important');
+    clone.style.setProperty('line-height', '1', 'important');
+    clone.style.setProperty('white-space', 'nowrap', 'important');
+    clone.style.setProperty('word-break', 'keep-all', 'important');
+    clone.style.setProperty('overflow-wrap', 'normal', 'important');
+    clone.style.setProperty('-webkit-text-fill-color', 'currentColor', 'important');
+    clone.style.setProperty('text-decoration', 'none', 'important');
+    clone.style.setProperty('pointer-events', 'none', 'important');
+    clone.style.setProperty('user-select', 'none', 'important');
+    clone.style.setProperty('-webkit-user-select', 'none', 'important');
+    clone.style.setProperty('visibility', 'visible', 'important');
     layer.append(clone);
     return clone;
 }
@@ -342,7 +457,7 @@ function syncProjectedReadingStyle(record: ProjectionRecord): void {
     clone.style.setProperty('text-shadow', baseStyle.textShadow || 'none', 'important');
     // Only the kana and their size decide how wide the reading wants to be, so
     // the measured natural width survives every other repaint.
-    const key = `${clone.textContent ?? ''} ${clone.style.getPropertyValue('font-size')}`;
+    const key = `${clone.textContent ?? ''}\u0000${clone.style.getPropertyValue('font-size')}`;
     if (record.naturalReadingKey !== key) {
         record.naturalReadingKey = key;
         record.naturalReadingWidth = undefined;
@@ -433,10 +548,7 @@ function positionProjectedReading(
     layout?: ProjectionLayout,
 ): void {
     const { clone } = record;
-    const documentSpace = context ? adoptProjectionLayer(record, context) : false;
-    const origin = documentSpace && context
-        ? documentLayerOrigin(context.overlay)
-        : { x: 0, y: 0 };
+    const origin = context ? projectionPaintOrigin(record, context) : { x: 0, y: 0 };
     const centre = layout?.centre ?? rect.left + rect.width / 2;
     const scaleX = layout?.scaleX ?? 1;
     record.readingScaleX = scaleX;
@@ -560,18 +672,16 @@ function naturalReadingWidth(record: ProjectionRecord): number {
     return Number.isFinite(fontSize) ? fontSize * (record.clone.textContent ?? '').length : 0;
 }
 
-/**
- * The offset the pass that paints this record adds to a measured rect: a
- * document-space clone is stamped through the document layer's current viewport
- * box, a viewport clone straight off the rect.
- */
+/** The offset between viewport geometry and the compositor-owned layer. */
 function projectionPaintOrigin(
     record: ProjectionRecord,
     context: ProjectionReadContext,
 ): { x: number; y: number } {
-    return projectionUsesDocumentSpace(record, context)
-        ? documentLayerOrigin(context.overlay)
-        : { x: 0, y: 0 };
+    if (record.layerMode === 'document') return documentLayerOrigin(context.overlay);
+    if (record.layerMode === 'scroll' && record.scrollLayerHost) {
+        return scrollLayerOrigin(record.scrollLayerHost, context);
+    }
+    return { x: 0, y: 0 };
 }
 
 /**
@@ -603,34 +713,90 @@ function graceProjectionRect(
 }
 
 /**
- * Move a clone into the layer its word's scroll context calls for, and report
- * whether that layer is document-space. Words that ride the document scroller
- * are stamped once in page coordinates and then need no per-frame work at all;
- * words inside an inner scroller, or under a fixed or sticky ancestor, keep the
- * viewport layer and its refresh-frame follow.
+ * Put every reading in a layer that shares the source word's compositor
+ * movement. Ordinary page text uses the document layer; text in an independent
+ * panel uses a layer inside its nearest scroller; fixed/sticky text keeps the
+ * viewport layer because it does not follow either content coordinate space.
  */
-function adoptProjectionLayer(record: ProjectionRecord, context: ProjectionReadContext): boolean {
+function adoptProjectionLayer(record: ProjectionRecord, context: ProjectionReadContext): void {
     const { overlay } = context;
-    const documentSpace = projectionUsesDocumentSpace(record, context);
-    const layer = documentSpace ? overlay.documentLayer : overlay.layer;
+    let target = projectionLayerTargetForRecord(record, context);
+    const sameScrollTarget = target.mode !== 'scroll'
+        || (target.scrollContainer === record.scrollContainer
+            && target.scrollLayerHost === record.scrollLayerHost
+            && Boolean(target.flowScrollContainer) === Boolean(record.scrollLayerFlow));
+    const sameTarget = target.mode === record.layerMode && sameScrollTarget;
+
+    // The steady-state refresh is deliberately read-before-write across the
+    // whole batch. Do not restamp an unchanged clone merely to prove that its
+    // layer is still right; besides forcing style invalidation, that would put
+    // a clone write ahead of another record's geometry read.
+    if (sameTarget && projectionLayerIsIntact(record, target, overlay)) return;
+
+    if (!sameTarget) releaseScrollProjectionRecord(record, overlay);
+
+    let layer = overlay.layer;
+    if (target.mode === 'document') {
+        layer = overlay.documentLayer;
+    } else if (target.mode === 'scroll' && target.scrollContainer && target.scrollLayerHost) {
+        const scrollLayer = ensureScrollProjectionLayer(target, overlay);
+        if (scrollLayer) {
+            scrollLayer.records.add(record);
+            layer = scrollLayer.layer;
+        } else {
+            target = { mode: 'viewport' };
+        }
+    }
     if (record.clone.parentElement !== layer) layer.append(record.clone);
-    record.clone.classList.toggle('jpdb-reader-projected-furi-document', documentSpace);
-    return documentSpace;
+
+    record.layerMode = target.mode;
+    record.scrollContainer = target.scrollContainer ?? null;
+    record.scrollLayerHost = target.scrollLayerHost ?? null;
+    record.scrollLayerFlow = Boolean(target.flowScrollContainer);
+    record.clone.style.setProperty('position', target.mode === 'viewport' ? 'fixed' : 'absolute', 'important');
+    record.clone.classList.toggle('jpdb-reader-projected-furi-document', target.mode === 'document');
+    record.clone.classList.toggle('jpdb-reader-projected-furi-scroll', target.mode === 'scroll');
 }
 
-function projectionUsesDocumentSpace(record: ProjectionRecord, context: ProjectionReadContext): boolean {
+function projectionLayerIsIntact(
+    record: ProjectionRecord,
+    target: ProjectionLayerTarget,
+    overlay: DocumentOverlay,
+): boolean {
+    const { clone } = record;
+    const hasExpectedModeClass = clone.classList.contains('jpdb-reader-projected-furi-document')
+        === (target.mode === 'document')
+        && clone.classList.contains('jpdb-reader-projected-furi-scroll') === (target.mode === 'scroll');
+    const hasExpectedPosition = clone.style.getPropertyValue('position')
+        === (target.mode === 'viewport' ? 'fixed' : 'absolute');
+    if (!hasExpectedModeClass || !hasExpectedPosition) return false;
+    if (target.mode === 'viewport') return clone.parentElement === overlay.layer;
+    if (target.mode === 'document') return clone.parentElement === overlay.documentLayer;
+    const host = target.scrollLayerHost;
+    const scrollLayer = host ? overlay.scrollLayers.get(host) : undefined;
+    return Boolean(scrollLayer
+        && scrollLayer.layer.parentNode === host
+        && scrollLayer.flowAnchored === Boolean(target.flowScrollContainer)
+        && clone.parentElement === scrollLayer.layer
+        && scrollLayer.records.has(record));
+}
+
+function projectionLayerTargetForRecord(
+    record: ProjectionRecord,
+    context: ProjectionReadContext,
+): ProjectionLayerTarget {
     const { overlay } = context;
-    if (record.scrollContextEpoch === overlay.scrollContextEpoch && record.documentSpace !== undefined) {
-        return record.documentSpace;
+    if (record.scrollContextEpoch === overlay.scrollContextEpoch && record.layerMode) {
+        return {
+            mode: record.layerMode,
+            scrollContainer: record.scrollContainer ?? undefined,
+            scrollLayerHost: record.scrollLayerHost ?? undefined,
+            flowScrollContainer: record.scrollLayerFlow,
+        };
     }
-    const documentSpace = elementScrollsWithDocument(
-        record.anchor,
-        context.documentScroll,
-        context.styleReads,
-    );
+    const target = projectionLayerTarget(record.anchor, context);
     record.scrollContextEpoch = overlay.scrollContextEpoch;
-    record.documentSpace = documentSpace;
-    return documentSpace;
+    return target;
 }
 
 /**
@@ -649,31 +815,175 @@ function documentLayerOrigin(overlay: DocumentOverlay): { x: number; y: number }
     return origin;
 }
 
-function elementScrollsWithDocument(
-    element: Element,
-    cache: Map<Element, boolean>,
-    styles?: Map<Element, CSSStyleDeclaration>,
-): boolean {
+function scrollLayerOrigin(
+    host: HTMLElement,
+    context: ProjectionReadContext,
+): { x: number; y: number } {
+    const cached = context.scrollLayerOrigins.get(host);
+    if (cached) return cached;
+    const scrollLayer = context.overlay.scrollLayers.get(host);
+    if (!scrollLayer) return { x: 0, y: 0 };
+    const { layer } = scrollLayer;
+    const rect = layer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    context.scrollLayerOrigins.set(host, origin);
+    return origin;
+}
+
+function projectionLayerTarget(element: Element, context: ProjectionReadContext): ProjectionLayerTarget {
+    const { projectionLayers: cache, styleReads: styles } = context;
     const cached = cache.get(element);
-    if (cached !== undefined) return cached;
+    if (cached) return cached;
     const document = element.ownerDocument;
     const view = document.defaultView;
-    let scrolls: boolean;
-    if (!view) {
-        scrolls = false;
-    } else if (element === document.documentElement || element === document.body) {
-        scrolls = true;
-    } else {
-        const style = memoizedComputedStyle(element, styles);
-        const parent = composedParentElement(element);
-        scrolls = style.position !== 'fixed'
-            && style.position !== 'sticky'
-            && !elementScrollsIndependently(element, style)
-            && Boolean(parent)
-            && elementScrollsWithDocument(parent as Element, cache, styles);
+    if (!view) return { mode: 'viewport' };
+
+    let current: Element | null = element;
+    // Prefer the outermost existing containing block within the nearest
+    // scroller. On YouTube live chat this is #contents: it already moves with
+    // #item-scroller, so Yomu neither changes the panel's positioning nor adds
+    // an in-flow child that could alter its flex/grid geometry.
+    let positionedHost: HTMLElement | null = null;
+    let target: ProjectionLayerTarget = { mode: 'viewport' };
+    while (current) {
+        if (current === document.documentElement || current === document.body) {
+            target = { mode: 'document' };
+            break;
+        }
+        const style = memoizedComputedStyle(current, styles);
+        // A local layer below a clip would lose the detached reading, and a
+        // layer whose own coordinate space is scaled/rotated cannot consume
+        // viewport CSS pixels directly. A positioned ancestor above the
+        // boundary can become the next candidate and escape it safely.
+        const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
+        const clipsReading = elementClipsDetachedReading(style);
+        const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
+        if (!coordinateSpaceIsSafe || (clipsReading && !scrollsIndependently)) positionedHost = null;
+        if (scrollsIndependently) {
+            if (!(current instanceof HTMLElement)) break;
+            if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
+            if (elementCanMountProjectionLayer(current, style)
+                && elementCreatesAbsoluteContainingBlock(style)) {
+                target = {
+                    mode: 'scroll',
+                    scrollContainer: current,
+                    scrollLayerHost: current,
+                };
+            } else if (positionedHost) {
+                target = {
+                    mode: 'scroll',
+                    scrollContainer: current,
+                    scrollLayerHost: positionedHost,
+                };
+            } else if (elementCanMountProjectionLayer(current, style)
+                && scrollContainerSupportsFlowLayer(style)) {
+                target = {
+                    mode: 'scroll',
+                    scrollContainer: current,
+                    scrollLayerHost: current,
+                    flowScrollContainer: true,
+                };
+            }
+            break;
+        }
+        if (style.position === 'fixed' || style.position === 'sticky') break;
+        if (coordinateSpaceIsSafe
+            && !clipsReading
+            && current instanceof HTMLElement
+            && elementCanMountProjectionLayer(current, style)
+            && elementCreatesAbsoluteContainingBlock(style)) {
+            positionedHost = current;
+        }
+        current = composedParentElement(current);
     }
-    cache.set(element, scrolls);
-    return scrolls;
+    cache.set(element, target);
+    return target;
+}
+
+function elementCreatesAbsoluteContainingBlock(style: CSSStyleDeclaration): boolean {
+    // jsdom and a few synthetic style shims expose the initial value as an
+    // empty string; CSS computes that to static in a real renderer.
+    return Boolean(style.position && style.position !== 'static');
+}
+
+function elementCanMountProjectionLayer(element: HTMLElement, style: CSSStyleDeclaration): boolean {
+    if (style.display === 'contents' || element.localName === 'slot') return false;
+    // A child appended to a component's light DOM can be undistributed and
+    // therefore unpainted. A regular element inside that component's open
+    // shadow root is safe and will be selected instead when positioned.
+    return !element.shadowRoot && !element.localName.includes('-');
+}
+
+function scrollContainerSupportsFlowLayer(style: CSSStyleDeclaration): boolean {
+    if (style.display !== 'block' && style.display !== 'flow-root' && style.display !== 'inline-block') {
+        return false;
+    }
+    const columns = style.columnCount;
+    const columnWidth = style.columnWidth;
+    const singleColumn = !columns || columns === 'auto' || columns === '1';
+    const automaticWidth = !columnWidth || columnWidth === 'auto';
+    return singleColumn && automaticWidth;
+}
+
+function elementClipsDetachedReading(style: CSSStyleDeclaration): boolean {
+    const clipsOverflow = (value: string): boolean => Boolean(value && value !== 'visible');
+    if (clipsOverflow(style.overflowX) || clipsOverflow(style.overflowY)) return true;
+    if (style.clipPath && style.clipPath !== 'none') return true;
+    const containment = style.contain ?? '';
+    return /\b(?:paint|strict|content)\b/.test(containment);
+}
+
+function scrollLayerCoordinatesPreserveCssPixels(
+    element: Element,
+    context: ProjectionReadContext,
+): boolean {
+    const cached = context.viewportCoordinateSafety.get(element);
+    if (cached !== undefined) return cached;
+    const style = memoizedComputedStyle(element, context.styleReads);
+    const parent = composedParentElement(element);
+    const safe = elementCoordinateSpacePreservesCssPixels(style)
+        && (!parent || scrollLayerCoordinatesPreserveCssPixels(parent, context));
+    context.viewportCoordinateSafety.set(element, safe);
+    return safe;
+}
+
+function elementCoordinateSpacePreservesCssPixels(style: CSSStyleDeclaration): boolean {
+    const zoom = style.getPropertyValue('zoom');
+    if (zoom && zoom !== 'normal' && Math.abs(Number.parseFloat(zoom) - 1) > 0.000_001) return false;
+    const scale = style.getPropertyValue('scale');
+    if (scale && scale !== 'none') {
+        const factors = scale.split(/\s+/u).map(Number.parseFloat);
+        if (!factors.length || factors.some(factor => !Number.isFinite(factor) || Math.abs(factor - 1) > 0.000_001)) {
+            return false;
+        }
+    }
+    const rotate = style.getPropertyValue('rotate');
+    if (rotate && rotate !== 'none' && !/^0(?:deg|grad|rad|turn)?$/u.test(rotate.trim())) return false;
+    if (style.perspective && style.perspective !== 'none') return false;
+    return transformPreservesCssPixels(style.transform);
+}
+
+function transformPreservesCssPixels(transform: string): boolean {
+    if (!transform || transform === 'none') return true;
+    if (/^(?:translate(?:X|Y|Z|3d)?\([^)]*\)\s*)+$/iu.test(transform)) return true;
+    const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/u);
+    if (!match) return false;
+    const values = match[2].split(',').map(value => Number.parseFloat(value.trim()));
+    const near = (value: number, expected: number): boolean => Number.isFinite(value)
+        && Math.abs(value - expected) <= 0.000_001;
+    if (!match[1]) {
+        return values.length === 6
+            && near(values[0], 1) && near(values[1], 0)
+            && near(values[2], 0) && near(values[3], 1);
+    }
+    const identitySlots = new Map<number, number>([
+        [0, 1], [1, 0], [2, 0], [3, 0],
+        [4, 0], [5, 1], [6, 0], [7, 0],
+        [8, 0], [9, 0], [10, 1], [11, 0],
+        [15, 1],
+    ]);
+    return values.length === 16
+        && [...identitySlots].every(([index, expected]) => near(values[index], expected));
 }
 
 /**
@@ -682,9 +992,14 @@ function elementScrollsWithDocument(
  * script sets scrollTop, and guessing wrong here detaches the reading, while
  * guessing conservatively only keeps today's follow behaviour.
  */
-function elementScrollsIndependently(element: Element, style: CSSStyleDeclaration): boolean {
-    // auto/scroll/overlay advertise a scroll offset, so overflowing content in
-    // one is enough to disqualify document space.
+function elementScrollsIndependently(
+    element: Element,
+    style: CSSStyleDeclaration,
+    overlay: DocumentOverlay,
+): boolean {
+    // auto/scroll/overlay advertise a scroll offset even before async content
+    // makes them overflow. Classify them up front so the first compositor
+    // scroll cannot outrun a topology refresh.
     const advertisesScroll = (overflow: string): boolean => overflow === 'auto'
         || overflow === 'scroll'
         || overflow === 'overlay';
@@ -696,11 +1011,12 @@ function elementScrollsIndependently(element: Element, style: CSSStyleDeclaratio
     // clipping box only matters once something has actually scrolled it, which
     // only script can do, and that shows up as a non-zero offset.
     const clipsContent = (overflow: string): boolean => overflow === 'hidden' || overflow === 'clip';
-    const scrolled = element.scrollTop !== 0 || element.scrollLeft !== 0;
-    const holdsScroll = (overflow: string): boolean => advertisesScroll(overflow)
-        || (clipsContent(overflow) && scrolled);
-    if (holdsScroll(style.overflowY) && element.scrollHeight > element.clientHeight + 1) return true;
-    return holdsScroll(style.overflowX) && element.scrollWidth > element.clientWidth + 1;
+    const scrolled = overlay.scrolledClippingContainers.has(element)
+        || element.scrollTop !== 0
+        || element.scrollLeft !== 0;
+    if (advertisesScroll(style.overflowY) || advertisesScroll(style.overflowX)) return true;
+    if (clipsContent(style.overflowY) && scrolled && element.scrollHeight > element.clientHeight + 1) return true;
+    return clipsContent(style.overflowX) && scrolled && element.scrollWidth > element.clientWidth + 1;
 }
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
@@ -792,10 +1108,16 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
-        documentScroll: new Map(),
+        projectionLayers: new Map(),
+        scrollLayerOrigins: new Map(),
+        viewportCoordinateSafety: new Map(),
         styleReads: new Map(),
     };
-    const paints = refreshableRecords(overlay).map(record => {
+    const records = refreshableRecords(overlay);
+    // Layer migration/repair is a write phase. Finish it for the whole batch
+    // before measuring any source or clone geometry below.
+    records.forEach(record => adoptProjectionLayer(record, context));
+    const paints = records.map(record => {
         if (!visibleAnchor(record.anchor, context)) {
             return { record, rect: null, visible: false };
         }
@@ -831,6 +1153,7 @@ function unlinkRecord(record: ProjectionRecord, overlay: DocumentOverlay): void 
 }
 
 function removeRecord(record: ProjectionRecord, overlay: DocumentOverlay): void {
+    releaseScrollProjectionRecord(record, overlay);
     record.clone.remove();
     overlay.records.delete(record);
     untrackProjectionAnchor(record, overlay);
@@ -1418,6 +1741,24 @@ function composedParentElement(element: Element): Element | null {
     let parent = composedParentNode(element);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+}
+
+function firstClippingContainerScroll(event: Event, overlay: DocumentOverlay): boolean {
+    const target = event.target;
+    if (!(target instanceof Element)
+        || overlay.scrolledClippingContainers.has(target)
+        || (target.scrollTop === 0 && target.scrollLeft === 0)) {
+        return false;
+    }
+    const style = safeComputedStyle(target);
+    const clips = (value: string): boolean => value === 'hidden' || value === 'clip';
+    if (!clips(style.overflowX) && !clips(style.overflowY)) return false;
+    overlay.scrolledClippingContainers.add(target);
+    // An unscrolled overflow:hidden title deliberately starts in document
+    // space so its reading can escape the clip. The first real offset proves
+    // it is a script-driven scroller; reclassify before the browser paints
+    // that scroll rather than waiting a frame with the old document layer.
+    return true;
 }
 
 /**

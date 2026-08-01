@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Real-engine regression for viewport-projected readings inside nested dynamic
-// components. Shadow-tree scroll events are not composed, so a document-only
-// listener leaves fixed clones behind while their source text moves.
+// Real-engine regression for detached readings inside nested dynamic
+// components. Inner-panel content and its clone must share a compositor-owned
+// scroll layer; waiting for a JavaScript refresh leaves a visibly stale frame.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -45,8 +45,33 @@ writeFileSync(entryPath, `
         anchor.append(owner);
         return { owner, source };
     };
+    const projectedReadingFor = (anchor: HTMLElement) => {
+        const roots: ParentNode[] = [];
+        const seen = new Set<ParentNode>();
+        let node: Node | null = anchor;
+        while (node) {
+            const root = node.getRootNode();
+            if ((root instanceof Document || root instanceof ShadowRoot) && !seen.has(root)) {
+                seen.add(root);
+                roots.push(root);
+            }
+            if (node instanceof Element && node.assignedSlot) node = node.assignedSlot;
+            else if (root instanceof ShadowRoot) node = root.host;
+            else node = null;
+        }
+        return roots.map(root => root.querySelector('[data-yomu-projected-reading="true"]')).find(Boolean);
+    };
+    const scrollerSnapshot = (scroller: HTMLElement) => ({
+        scrollWidth: scroller.scrollWidth,
+        scrollHeight: scroller.scrollHeight,
+        clientWidth: scroller.clientWidth,
+        clientHeight: scroller.clientHeight,
+        inlinePosition: scroller.style.getPropertyValue('position'),
+        inlinePositionPriority: scroller.style.getPropertyPriority('position'),
+        layerCount: scroller.querySelectorAll('.jpdb-reader-detached-reading-scroll-layer').length,
+    });
     const readingSnapshot = (anchor: HTMLElement) => {
-        const clone = document.querySelector('[data-yomu-projected-reading="true"]');
+        const clone = projectedReadingFor(anchor);
         if (!(clone instanceof HTMLElement)) throw new Error('projected reading was not painted');
         const sourceRect = anchor.getBoundingClientRect();
         const cloneRect = clone.getBoundingClientRect();
@@ -57,14 +82,23 @@ writeFileSync(entryPath, `
             alignment: cloneRect.bottom - sourceRect.top,
             display: getComputedStyle(clone).display,
             documentSpace: clone.classList.contains('jpdb-reader-projected-furi-document'),
+            scrollSpace: clone.classList.contains('jpdb-reader-projected-furi-scroll'),
+            layerHost: clone.parentElement?.parentElement?.id
+                || clone.parentElement?.parentElement?.localName
+                || null,
         };
     };
-    const scrollResult = (before, after) => ({
+    const scrollResult = (before, inFrame, after, scrollerGuard) => ({
         before,
+        inFrame,
         after,
+        scrollerGuard,
         sourceDelta: after.sourceTop - before.sourceTop,
         cloneDelta: after.cloneBottom - before.cloneBottom,
         stampedSourceDelta: after.stampedSourceTop - before.stampedSourceTop,
+        inFrameSourceDelta: inFrame.sourceTop - before.sourceTop,
+        inFrameCloneDelta: inFrame.cloneBottom - before.cloneBottom,
+        inFrameStampedSourceDelta: inFrame.stampedSourceTop - before.stampedSourceTop,
     });
 
     window.runDetachedReadingScrollProbe = async () => {
@@ -80,6 +114,7 @@ writeFileSync(entryPath, `
                     border: 1px solid #999;
                     background: white;
                 }
+                #scroller > * { margin:13px!important;min-height:17px!important;padding:5px!important;border:2px solid red!important; }
                 #content { box-sizing: border-box; height: 360px; padding-top: 52px; }
             </style>
             <div id="scroller"><div id="content"></div></div>
@@ -91,13 +126,17 @@ writeFileSync(entryPath, `
         }
 
         const component = document.createElement('dynamic-label');
-        component.style.display = 'block';
+        // A positioned/scaled/clipped shadow host is not a viable mount: its
+        // light-DOM children may be undistributed, and its coordinate space is
+        // not 1:1. The projection must skip it and use the safe scroller.
+        component.style.cssText = 'display:block;position:relative;overflow:hidden;height:24px;transform:scale(1.1);transform-origin:top left;';
         const componentRoot = component.attachShadow({ mode: 'open' });
         const anchor = document.createElement('span');
         const { owner, source } = makeReading(anchor);
         componentRoot.append(anchor);
         content.append(component);
         document.body.append(platform);
+        const extentBefore = scrollerSnapshot(scroller);
 
         const measure = () => anchor.getBoundingClientRect();
         syncProjectedReadings(owner, [{
@@ -107,13 +146,16 @@ writeFileSync(entryPath, `
             measure,
         }]);
         await settleProjection();
+        const extentProjected = scrollerSnapshot(scroller);
         const before = readingSnapshot(anchor);
         scroller.scrollTop = 32;
+        const inFrame = readingSnapshot(anchor);
         await nextPaint();
         const after = readingSnapshot(anchor);
         clearProjectedReadings(owner);
+        const extentCleared = scrollerSnapshot(scroller);
         platform.remove();
-        return scrollResult(before, after);
+        return scrollResult(before, inFrame, after, { extentBefore, extentProjected, extentCleared });
     };
 
     window.runSlottedReadingScrollProbe = async () => {
@@ -123,7 +165,8 @@ writeFileSync(entryPath, `
         root.innerHTML = \`
             <style>
                 #scroller { height:120px;overflow:auto;border:1px solid #999;background:white; }
-                #content { box-sizing:border-box;height:360px;padding-top:52px; }
+                #content { position:relative;box-sizing:border-box;height:360px;padding-top:52px; }
+                slot { position:relative; }
             </style>
             <div id="scroller"><div id="content"><slot name="label"></slot></div></div>
         \`;
@@ -137,17 +180,21 @@ writeFileSync(entryPath, `
         const { owner, source } = makeReading(anchor, '投影', 'とうえい');
         platform.append(anchor);
         document.body.append(platform);
+        const extentBefore = scrollerSnapshot(scroller);
         if (anchor.assignedSlot !== slot) throw new Error('light-DOM reading was not assigned to its slot');
         const measure = () => anchor.getBoundingClientRect();
         syncProjectedReadings(owner, [{ source, anchor, rect: measure(), measure }]);
         await settleProjection();
+        const extentProjected = scrollerSnapshot(scroller);
         const before = readingSnapshot(anchor);
         scroller.scrollTop = 32;
+        const inFrame = readingSnapshot(anchor);
         await nextPaint();
         const after = readingSnapshot(anchor);
         clearProjectedReadings(owner);
+        const extentCleared = scrollerSnapshot(scroller);
         platform.remove();
-        return scrollResult(before, after);
+        return scrollResult(before, inFrame, after, { extentBefore, extentProjected, extentCleared });
     };
 
     window.runMovedReadingScrollProbe = async () => {
@@ -186,12 +233,13 @@ writeFileSync(entryPath, `
         await nextPaint();
         const before = readingSnapshot(anchor);
         second.scroller.scrollTop = 32;
+        const inFrame = readingSnapshot(anchor);
         await nextPaint();
         const after = readingSnapshot(anchor);
         clearProjectedReadings(owner);
         first.platform.remove();
         second.platform.remove();
-        return scrollResult(before, after);
+        return scrollResult(before, inFrame, after);
     };
 
     window.runMidScrollThrottledProbe = async () => {
@@ -370,8 +418,17 @@ function fail(engine, message, result) {
     throw new Error(`${engine}: ${message}\n${JSON.stringify(result, null, 2)}`);
 }
 
-function verifyScrollResult(engine, scenario, result) {
+function verifyScrollResult(engine, scenario, result, expectedLayerHost) {
     console.log(`${engine} ${scenario} scroll: ${JSON.stringify(result)}`);
+    if (Math.abs(result.inFrameSourceDelta + 32) > 1) {
+        fail(`${engine} ${scenario}`, 'source did not move in the compositor scroll turn', result);
+    }
+    if (Math.abs(result.inFrameCloneDelta - result.inFrameSourceDelta) > 1) {
+        fail(`${engine} ${scenario}`, 'projected reading lagged behind its source during the scrolled frame', result);
+    }
+    if (Math.abs(result.inFrame.alignment) > 1 || result.inFrame.display === 'none') {
+        fail(`${engine} ${scenario}`, 'projected reading was visibly detached during the scrolled frame', result);
+    }
     if (Math.abs(result.sourceDelta + 32) > 1) {
         fail(`${engine} ${scenario}`, 'source did not move with its scroller', result);
     }
@@ -385,10 +442,28 @@ function verifyScrollResult(engine, scenario, result) {
         fail(`${engine} ${scenario}`, 'projected reading was not visibly anchored after scroll', result);
     }
     // Every scenario here sits inside an inner scroller, whose offset the
-    // document layer knows nothing about. Document-space anchoring would leave
-    // these readings behind mid-scroll, so they must keep the follow path.
-    if (result.after.documentSpace) {
-        fail(`${engine} ${scenario}`, 'reading inside an inner scroller claimed document-space anchoring', result);
+    // document layer knows nothing about. It must use the scroll-native layer,
+    // not the document layer or the old frame-delayed viewport fallback.
+    if (result.after.documentSpace || !result.after.scrollSpace) {
+        fail(`${engine} ${scenario}`, 'reading inside an inner scroller missed scroll-native anchoring', result);
+    }
+    if (expectedLayerHost && result.after.layerHost !== expectedLayerHost) {
+        fail(`${engine} ${scenario}`, `reading used unsafe layer host ${result.after.layerHost}`, result);
+    }
+    if (result.scrollerGuard) {
+        const { extentBefore, extentProjected, extentCleared } = result.scrollerGuard;
+        for (const key of ['scrollWidth', 'scrollHeight', 'clientWidth', 'clientHeight']) {
+            if (extentProjected[key] !== extentBefore[key] || extentCleared[key] !== extentBefore[key]) {
+                fail(`${engine} ${scenario}`, `projection changed the scroller ${key}`, result);
+            }
+        }
+        if (extentProjected.layerCount !== 1 || extentCleared.layerCount !== 0) {
+            fail(`${engine} ${scenario}`, 'scroll projection layer was not created and cleaned up exactly once', result);
+        }
+        if (extentCleared.inlinePosition !== extentBefore.inlinePosition
+            || extentCleared.inlinePositionPriority !== extentBefore.inlinePositionPriority) {
+            fail(`${engine} ${scenario}`, 'scroller position ownership was not restored after cleanup', result);
+        }
     }
 }
 
@@ -424,9 +499,9 @@ async function verifyEngine(name, browserType) {
         }));
         await page.goto('https://www.youtube.com/detached-reading-scroll-smoke');
         const nested = await page.evaluate(() => window.runDetachedReadingScrollProbe());
-        verifyScrollResult(name, 'nested-shadow', nested);
+        verifyScrollResult(name, 'nested-shadow', nested, 'scroller');
         const slotted = await page.evaluate(() => window.runSlottedReadingScrollProbe());
-        verifyScrollResult(name, 'slotted', slotted);
+        verifyScrollResult(name, 'slotted', slotted, 'content');
         const moved = await page.evaluate(() => window.runMovedReadingScrollProbe());
         verifyScrollResult(name, 'moved-root', moved);
         const midScrollSnapshots = await page.evaluate(() => window.runMidScrollThrottledProbe());
