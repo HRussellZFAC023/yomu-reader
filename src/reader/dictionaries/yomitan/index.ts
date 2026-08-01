@@ -797,9 +797,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
-            if (options.integrity && !/\.zip$/i.test(file.name)) {
-                await assertDictionaryObjectIntegrity(file, options.integrity);
-            }
+            if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
             // UT-72: imports live in IndexedDB, which Safari evicts after ~7
             // days of inactivity for non-persisted origins. Ask for durable
             // storage up front.
@@ -831,7 +829,6 @@ export class YomitanDictionaryStore {
     async importZip(file: File, onProgress?: (message: string) => void, sourceUrl = '', options: DictionaryImportOptions = {}): Promise<ImportSummary> {
         await assertManagedStateMutationAllowed();
         const language = this.getInterfaceLanguage();
-        const integrity = options.integrity;
         onProgress?.(`${this.text('dictionaryReadingZip')} ${formatBytes(file.size)}...`);
         const zip = await readZipArchive(file, progress => {
             if (progress.phase === 'read') {
@@ -839,9 +836,7 @@ export class YomitanDictionaryStore {
                 return;
             }
             onProgress?.(`${this.text('dictionaryReadingZip')} ${progress.entries?.toLocaleString() ?? '0'} files found. ${uiText(language, 'dictionaryCheckingIndex')}`);
-        }, integrity
-            ? bytes => assertDictionaryObjectIntegrity(bytes, integrity)
-            : undefined);
+        }, options.integrity ? bytes => assertDictionaryObjectIntegrity(bytes, options.integrity!) : undefined);
         const zipEntries = zip.entries();
         onProgress?.(`${this.text('dictionaryReadingZip')} ${zipEntries.length.toLocaleString()} files found. ${uiText(language, 'dictionaryCheckingIndex')}`);
         const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
