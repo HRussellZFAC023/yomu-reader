@@ -3176,29 +3176,18 @@ export class SubtitlePlayerController {
             key => this.pendingParsedCueHtml(key, 'authoritative'),
         );
         if (!batch.length) {
-            const results = await Promise.all(ready);
-            return results.map(result => this.canonicalParsedHtmlResult(
-                result.key,
-                result.html,
-                'provisional' in result && result.provisional === true,
-            ));
+            return this.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         if (!this.options.parseJapaneseBatch) {
-            const results = await Promise.all([...ready, ...batch.map(async item => ({
+            return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...batch.map(async item => ({
                 key: item.key,
                 html: await this.parseCueHtml(item.text, settings, options),
-            }))]);
-            return results.map(result => this.canonicalParsedHtmlResult(
-                result.key,
-                result.html,
-                'provisional' in result && result.provisional === true,
-            ));
+            }))]));
         }
 
         const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), this.finalSubtitleParseOptions(settings));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
-        const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
-        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
     }
 
     private async parseAuthoritativeCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
@@ -3214,7 +3203,7 @@ export class SubtitlePlayerController {
         // One item may be ready while another is still parsing. Canonicalize
         // only after the whole keyed batch settles so a cache upgrade that
         // lands during that wait is reflected in every returned item.
-        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html));
+        return this.canonicalParsedHtmlResults(results);
     }
 
     private async parseCueHtmlBatchWithProvisionalFallback(
@@ -3235,8 +3224,7 @@ export class SubtitlePlayerController {
             this.ensureAuthoritativeParsedCueHtmlBatch(items.filter(item => !batchedItems.has(item)), settings);
         }
         if (!batch.length) {
-            const results = await Promise.all(ready);
-            return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
+            return this.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.text), provisionalSubtitleParseOptions())
@@ -3244,7 +3232,7 @@ export class SubtitlePlayerController {
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
         const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
-        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
+        return results;
     }
 
     private renderParsedHtmlBatch(
@@ -3315,8 +3303,7 @@ export class SubtitlePlayerController {
         }
 
         if (!batch.length) {
-            const results = await Promise.all(ready);
-            return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
+            return this.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.context.text), parseOptions)
@@ -3333,8 +3320,7 @@ export class SubtitlePlayerController {
                 ? { key: item.key, html: remembered.html, provisional: true }
                 : { key: item.key, html: remembered.html };
         }));
-        const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache);
-        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
+        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache);
     }
 
     private cachedTranscriptContextHtml(
@@ -3363,6 +3349,10 @@ export class SubtitlePlayerController {
         const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
         if (provisional !== undefined) return { key, html: provisional, provisional: true };
         return fallbackProvisional ? { key, html, provisional: true } : { key, html };
+    }
+
+    private canonicalParsedHtmlResults(results: ParsedSubtitleHtmlResult[]): ParsedSubtitleHtmlResult[] {
+        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
     }
 
     private projectTranscriptContextTokens(tokens: JPDBToken[], context: TranscriptContextWindow): JPDBToken[] {
@@ -3416,7 +3406,7 @@ export class SubtitlePlayerController {
         const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
         batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
         try {
-            return await Promise.all([...ready, ...parsedHtml]);
+            return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...parsedHtml]));
         } finally {
             batch.forEach((item, index) => {
                 if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);

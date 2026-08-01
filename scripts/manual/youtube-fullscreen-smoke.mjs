@@ -778,20 +778,26 @@ function annotationStabilityRecorderInstaller({ initialPhase }) {
                 if (current === element) {
                     const fill = style.webkitTextFillColor || style.color;
                     if (fill === 'transparent' || /rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/u.test(fill)) return false;
+                } else {
+                    const clipX = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowX);
+                    const clipY = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowY);
+                    if (clipX || clipY) {
+                        const clip = current.getBoundingClientRect();
+                        if (clipX) {
+                            left = Math.max(left, clip.left);
+                            right = Math.min(right, clip.right);
+                        }
+                        if (clipY) {
+                            top = Math.max(top, clip.top);
+                            bottom = Math.min(bottom, clip.bottom);
+                        }
+                    }
                 }
-                if (current === element) continue;
-                const clipX = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowX);
-                const clipY = /^(?:auto|clip|hidden|scroll)$/u.test(style.overflowY);
-                if (!clipX && !clipY) continue;
-                const clip = current.getBoundingClientRect();
-                if (clipX) {
-                    left = Math.max(left, clip.left);
-                    right = Math.min(right, clip.right);
-                }
-                if (clipY) {
-                    top = Math.max(top, clip.top);
-                    bottom = Math.min(bottom, clip.bottom);
-                }
+                // A fixed subtitle root escapes overflow clipping on page-shell
+                // ancestors (for example YouTube's normal-size #player). The
+                // browser screenshot paints that root in the viewport; applying
+                // the stale ancestor box here would report visible ruby as lost.
+                if (style.position === 'fixed') break;
             }
             return right - left > 0.5 && bottom - top > 0.5;
         };

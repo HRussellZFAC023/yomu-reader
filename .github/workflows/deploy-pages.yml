@@ -110,7 +110,7 @@ jobs:
           set -e
           printf '%s\n' "$verify_output"
           [ "$verify_status" -eq 1 ]
-          grep -Fq 'userscript plus unconditional @requires total 5,956,496 bytes, over the 5,874,598-byte injected-weight ratchet.' <<< "$verify_output"
+          grep -Fq 'userscript plus unconditional @requires total 5,944,558 bytes, over the 5,874,598-byte injected-weight ratchet.' <<< "$verify_output"
           npm run check:repository
           npm run check:artifacts
       - name: Upload Pages artifact

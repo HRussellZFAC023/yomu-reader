@@ -21,6 +21,7 @@ import {
     defaultLearningTargetModule as defaultLearningTargetModuleFacade,
     learningTargetModuleFor as learningTargetModuleForFacade,
 } from '../../src/reader/languages/target-runtime-companion';
+import { renderStructuredGlossaryHtml as renderStructuredGlossaryHtmlFacade } from '../../src/reader/dictionaries/yomitan/structured-content-companion';
 
 import { JpdbClient } from '../../src/reader/jpdb/jpdb';
 import { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
@@ -238,6 +239,31 @@ describe('learning-target companion facade', () => {
     });
 });
 
+describe('structured glossary companion facade', () => {
+    it('delegates rich glossary rendering to the local-dictionary companion', () => {
+        const renderStructuredGlossaryHtml = vi.fn(() => '<ruby>読<rt>よ</rt></ruby>');
+        setCompanions({
+            localDictionaries: { renderStructuredGlossaryHtml },
+        });
+
+        const value = { type: 'structured-content', content: '読む' };
+        expect(renderStructuredGlossaryHtmlFacade(value, 'Jitendex', { internalSearchLinks: true }))
+            .toBe('<ruby>読<rt>よ</rt></ruby>');
+        expect(renderStructuredGlossaryHtml).toHaveBeenCalledWith(
+            value,
+            'Jitendex',
+            { internalSearchLinks: true },
+        );
+    });
+
+    it('renders escaped plain text when the local-dictionary companion is unavailable', () => {
+        setCompanions({});
+
+        expect(renderStructuredGlossaryHtmlFacade('<script>&"'))
+            .toBe('&lt;script&gt;&amp;&quot;');
+    });
+});
+
 // ---------------------------------------------------------------------------
 // The split only holds if the three moving parts agree: a companion library in
 // the manifest, an entry that registers it, and a build alias that swaps each
@@ -303,6 +329,29 @@ describe('Greasy Fork split manifest', () => {
         expect(viteConfigSource).toContain("alias['./target-runtime'] = targetRuntimeCompanion;");
         expect(viteConfigSource).toContain("alias['../languages/target-runtime'] = targetRuntimeCompanion;");
         expect(viteConfigSource).toContain("alias['../../languages/target-runtime'] = targetRuntimeCompanion;");
+    });
+
+    it('keeps structured glossary rendering real in companions and self-contained builds', () => {
+        const facade = 'src/reader/dictionaries/yomitan/structured-content-companion.ts';
+        expect(existsSync(path.join(repoRoot, facade))).toBe(true);
+        expect(viteConfigSource).toContain(
+            "alias['./structured-content'] = path.join(configRoot, 'src', 'reader', 'dictionaries', 'yomitan', 'structured-content-companion.ts');",
+        );
+        const settingsSurface = readFileSync(
+            path.join(repoRoot, 'src/reader/companions/settings-surface.ts'),
+            'utf8',
+        );
+        expect(settingsSurface).toContain("from '../dictionaries/yomitan/structured-content';");
+        expect(settingsSurface).toContain('renderStructuredGlossaryHtml,');
+        const splitBlockStart = viteConfigSource.indexOf('if (shouldUseGreasyForkCompanions(command))');
+        const splitBlockEnd = viteConfigSource.indexOf('\n    return Object.keys(alias).length', splitBlockStart);
+        const aliasIndex = viteConfigSource.indexOf("alias['./structured-content']", splitBlockStart);
+        expect(aliasIndex).toBeGreaterThan(splitBlockStart);
+        expect(aliasIndex).toBeLessThan(splitBlockEnd);
+        expect(readFileSync(
+            path.join(repoRoot, 'config/vite/greasyfork-library.config.ts'),
+            'utf8',
+        )).not.toContain('structured-content-companion');
     });
 
     it('keeps target-language labels on the canonical i18n companion alias', () => {

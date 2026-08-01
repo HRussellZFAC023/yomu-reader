@@ -45,10 +45,6 @@ function jitenFallbackCardMatchesTerm(term: string, card: JPDBCard): boolean {
         || normalizedJitenLookupKey(card.reading) === normalizedTerm;
 }
 
-function jitenFallbackCardMatchesEntry(entry: FallbackLookupEntry, card: JPDBCard): boolean {
-    return entry.validationTerms.some(term => jitenFallbackCardMatchesTerm(term, card));
-}
-
 function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
     const seen = new Set<string>();
     const entries: FallbackLookupEntry[] = [];
@@ -159,30 +155,21 @@ export async function publicLookupFallbackCards(
     const terms = fairFallbackLookupTerms(entries);
     const jitenCards = await jitenFallbackCards(terms, entries.length, deps, options);
     for (const entry of entries) {
-        let exactCard: JPDBCard | undefined;
+        let resolved: JPDBCard | undefined;
         for (const term of entry.terms) {
             const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (!card || !jitenFallbackCardMatchesTerm(term, card)) continue;
-            exactCard = card;
-            break;
+            if (!card) continue;
+            if (jitenFallbackCardMatchesTerm(term, card)) {
+                resolved = card;
+                break;
+            }
+            // Keyless Jiten parses an inflected surface before hydrating it,
+            // so keep a validated lemma as a fallback while still allowing a
+            // later exact candidate to win (言いたくない -> 言う). Unrelated
+            // partial parses still fail this entry check (訪る -> surname 訪).
+            if (!resolved && entry.validationTerms.some(candidate => jitenFallbackCardMatchesTerm(candidate, card))) resolved = card;
         }
-        if (exactCard) {
-            result.set(entry.key, exactCard);
-            continue;
-        }
-        // Keyless Jiten parses an inflected surface before hydrating it, so the
-        // returned card is its dictionary lemma rather than the lookup term
-        // (言いたくない -> 言う). Only after checking the whole bounded window
-        // for an exact hit, accept a lemma from this entry's full deinflection
-        // candidates. That keeps an early ambiguous parse from leapfrogging a
-        // later exact candidate. Unrelated partial parses still fail the entry
-        // check (訪る -> surname 訪).
-        for (const term of entry.terms) {
-            const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (!card || !jitenFallbackCardMatchesEntry(entry, card)) continue;
-            result.set(entry.key, card);
-            break;
-        }
+        if (resolved) result.set(entry.key, resolved);
     }
 
     if (options.jpdbPublicLookup === false) return result;
