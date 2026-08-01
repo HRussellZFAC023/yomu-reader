@@ -93,10 +93,12 @@ function trimmedGeneratedLine(line, inTemplate, compactRuntimeIndent) {
   let trimmed = line.startsWith('  ') ? line.slice(2) : line;
   if (trimmed.startsWith('    ')) trimmed = trimmed.slice(2);
   // The aggregate runtime is the only unconditional companion, so compact
-  // one generated leading space there without touching template-literal
-  // content. Indentation remains readable while avoiding ~94 KB of bytes
-  // that every installed page would otherwise parse.
-  if (compactRuntimeIndent && trimmed.startsWith(' ')) trimmed = trimmed.slice(1);
+  // one generated leading space at the first level and two at deeper levels,
+  // without touching template-literal content. Nested code stays visibly
+  // indented while avoiding bytes that every installed page would parse.
+  if (compactRuntimeIndent && trimmed.startsWith(' ')) {
+    trimmed = trimmed.slice(trimmed.startsWith('   ') ? 2 : 1);
+  }
   return trimmed;
 }
 
