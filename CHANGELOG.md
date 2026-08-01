@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.69] - 2026-08-01
+
+### Fixed
+
+- Recommended dictionary installation now completes in Firefox 153 with Tampermonkey instead of failing after download on Firefox's cross-realm TypedArray restriction (GitHub #39). Download, integrity, ZIP streaming, decompression, and archive persistence all copy foreign binary results into Yomu's sandbox, while integrity and ZIP parsing reuse the same archive bytes.
+- Browsers without an automatic dictionary-download bridge now reliably offer the manual ZIP recovery instead of losing the stable recovery error behind a plain exception.
+- Core releases no longer hang indefinitely while installing Playwright browsers: the browser bootstrap uses the CI-proven Node patch with a bounded timeout, then restores the audited release runtime before checks and builds.
+
 ## [1.8.68] - 2026-08-01
 
 ### Fixed
