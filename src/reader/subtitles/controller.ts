@@ -1505,11 +1505,13 @@ export class SubtitlePlayerController {
         this.root = root;
         this.subtitleControlRail = bindSubtitleControlRail(
             root,
-            () => {
-                this.showControlsTemporarily({ independentOfPlayerChrome: true });
-                if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
+            () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+            {
+                getReservedRects: () => this.nativePlayerControlSafeZones(),
+                onPositionChange: () => {
+                    if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
+                },
             },
-            { getReservedRects: () => this.nativePlayerControlSafeZones() },
         ) ?? undefined;
         this.bindSubtitleDragHandle();
         this.restoreSubtitleDragOffset();

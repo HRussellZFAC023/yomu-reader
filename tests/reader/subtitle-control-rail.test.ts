@@ -55,7 +55,10 @@ describe('movable subtitle control rail', () => {
         const rail = root.querySelector<HTMLElement>('.jpdb-subtitle-rail')!;
         const handle = rail.querySelector<HTMLElement>('[data-subtitle-rail-drag-handle]')!;
         const activity = vi.fn();
-        const binding = bindSubtitleControlRail(root, activity)!;
+        const positioned: string[] = [];
+        const binding = bindSubtitleControlRail(root, activity, {
+            onPositionChange: () => positioned.push(`${rail.style.left},${rail.style.top}`),
+        })!;
 
         handle.dispatchEvent(pointerEvent('pointerdown', { pointerId: 7, clientX: 20, clientY: 30 }));
         window.dispatchEvent(pointerEvent('pointermove', { pointerId: 7, clientX: 140, clientY: 120 }));
@@ -63,6 +66,7 @@ describe('movable subtitle control rail', () => {
 
         expect(rail.style.left).toBe('128px');
         expect(rail.style.top).toBe('98px');
+        expect(positioned).toContain('128px,98px');
         expect(loadSubtitleControlRailPosition()).toEqual(expect.objectContaining({
             x: expect.any(Number),
             y: expect.any(Number),
@@ -72,6 +76,7 @@ describe('movable subtitle control rail', () => {
         handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
         expect(rail.style.left).toBe('8px');
         expect(rail.style.top).toBe('8px');
+        expect(positioned.at(-1)).toBe('8px,8px');
         expect(loadSubtitleControlRailPosition()).toEqual({ x: 0, y: 0 });
 
         binding.destroy();

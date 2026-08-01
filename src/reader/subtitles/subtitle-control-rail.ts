@@ -21,6 +21,9 @@ export interface SubtitleControlRailOptions {
     // fullscreen, settings, etc.). The rail may be dragged anywhere else in
     // the video frame, but must never settle on top of these controls.
     getReservedRects?: () => DOMRect[];
+    // Runs after the rail has moved, so anchored surfaces can recompute their
+    // viewport-facing edge from the new rectangle rather than pointerdown's.
+    onPositionChange?: () => void;
 }
 
 // Owns the rail's one interaction: moving it within the current video frame.
@@ -76,6 +79,7 @@ export function bindSubtitleControlRail(
             x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
             y: fractionWithinRailAxis(safePosition.top, bounds.maxTop),
         };
+        options.onPositionChange?.();
         if (persist) saveSubtitleControlRailPosition(position);
     };
 

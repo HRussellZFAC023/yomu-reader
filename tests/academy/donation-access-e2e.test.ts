@@ -143,7 +143,7 @@ function supportDonationDb() {
                     values = bound;
                     return this;
                 },
-                async first<T>() {
+                async first<T = unknown>(): Promise<T | null> {
                     if (!isReadback) return null;
                     const [sessionId, id] = values;
                     return (rows.find(row => row.stripe_session_id === sessionId || row.id === id) ?? null) as T | null;
