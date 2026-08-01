@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.65] - 2026-08-01
+
+### Fixed
+
+- X/Twitter video subtitles no longer show internal word-timing tags, character ranges, or their translated metadata alongside the dialogue.
+
 ## [1.8.64] - 2026-08-01
 
 ### Added

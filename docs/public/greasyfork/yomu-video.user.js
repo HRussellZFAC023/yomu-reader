@@ -12681,12 +12681,12 @@ function appendVttTimestampMarker(markers, match, rawTime, index) {
   if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
 }
 function vttCueTextWithoutMarkers(raw, timestampPattern) {
-  return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+  return stripWebVttCueMarkup(raw.replace(timestampPattern, "")).trim();
 }
 function vttMarkerWord(raw, timestampPattern, markers, index) {
   const marker = markers[index];
   const next = markers[index + 1];
-  const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
+  const segmentRaw = stripWebVttCueMarkup(raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, ""));
   const segmentText = segmentRaw.trim();
   return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
 }
@@ -13250,6 +13250,9 @@ function cueHasExactWordTimings(cue) {
 }
 function normalizeCaptionText(value) {
   return decodeCaptionEntities(value).replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+}
+function stripWebVttCueMarkup(value) {
+  return value.replace(/<[^>]+>/g, "");
 }
 const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
 const NAMED_CAPTION_ENTITIES = {
@@ -16191,8 +16194,9 @@ function waitForTextTrackCues(track, timeoutMs = 900) {
   });
 }
 function getTextTrackCueText(cue) {
-  if ("text" in cue && typeof cue.text === "string") return cue.text;
-  return "";
+  if (!("text" in cue) || typeof cue.text !== "string") return "";
+  if (!/<\/?x-word-ms(?:\s|>)/i.test(cue.text)) return cue.text;
+  return stripWebVttCueMarkup(cue.text);
 }
 async function loadRemoteTrackCues(track, options) {
   try {

@@ -58957,7 +58957,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.64".trim() ? "1.8.64".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.65".trim() ? "1.8.65".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -105972,12 +105972,12 @@ ${reading}`);
     if (Number.isFinite(time)) markers.push({ time, index, endIndex: index + match.length });
   }
   function vttCueTextWithoutMarkers(raw, timestampPattern) {
-    return raw.replace(timestampPattern, "").replace(/<[^>]+>/g, "").trim();
+    return stripWebVttCueMarkup(raw.replace(timestampPattern, "")).trim();
   }
   function vttMarkerWord(raw, timestampPattern, markers, index) {
     const marker = markers[index];
     const next = markers[index + 1];
-    const segmentRaw = raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, "").replace(/<[^>]+>/g, "");
+    const segmentRaw = stripWebVttCueMarkup(raw.slice(marker.endIndex, next?.index ?? raw.length).replace(timestampPattern, ""));
     const segmentText = segmentRaw.trim();
     return segmentText ? { text: segmentText, start: marker.time, end: next?.time ?? Number.POSITIVE_INFINITY } : null;
   }
@@ -106541,6 +106541,9 @@ ${reading}`);
   }
   function normalizeCaptionText(value) {
     return decodeCaptionEntities(value).replace(/\u00a0/g, " ").split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join(" ");
+  }
+  function stripWebVttCueMarkup(value) {
+    return value.replace(/<[^>]+>/g, "");
   }
   const CAPTION_ENTITY_RE = /&(nbsp|amp|lt|gt|quot|apos|#x[0-9a-f]+|#\d+);/gi;
   const NAMED_CAPTION_ENTITIES = {
@@ -109333,8 +109336,9 @@ ${reading}`);
     });
   }
   function getTextTrackCueText(cue) {
-    if ("text" in cue && typeof cue.text === "string") return cue.text;
-    return "";
+    if (!("text" in cue) || typeof cue.text !== "string") return "";
+    if (!/<\/?x-word-ms(?:\s|>)/i.test(cue.text)) return cue.text;
+    return stripWebVttCueMarkup(cue.text);
   }
   async function loadRemoteTrackCues(track, options) {
     try {
