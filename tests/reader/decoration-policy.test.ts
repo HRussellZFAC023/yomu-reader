@@ -9,13 +9,19 @@ import {
     collectFragmentTextTargetsIn,
     isCurrentScanTarget,
     makeRoomForRubyInCroppedRows,
+    projectAdditiveTextMirrors,
     resetDecorationPolicyCachesForTest,
     setRubyDistortsConstrainedRowsForTest,
     removeNonDestructiveScanMirrors,
     withMirrorTokenApply,
     type FragmentTextTarget,
 } from '../../src/reader/dom';
-import { closestRubyFragileConstrainedRow, isClipConstrainedRow, noteConstrainedRowLayoutSettled } from '../../src/reader/dom/decoration-policy';
+import {
+    closestRubyFragileConstrainedRow,
+    isClipConstrainedRow,
+    noteConstrainedRowLayoutSettled,
+    youtubeEllipsisChromeMustRemainPageOwned,
+} from '../../src/reader/dom/decoration-policy';
 import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -206,6 +212,93 @@ describe('classifyDecoration acceptance matrix', () => {
             </ytm-bottom-sheet-renderer>
         `;
         expect(classifyText('#label')).toBe('interactive-passive');
+    });
+
+    it('leaves YouTube ellipsis-constrained action and mini-guide labels page-owned', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-mini-guide-renderer role="navigation">
+                <ytd-mini-guide-entry-renderer>
+                    <a href="/" aria-label="ホーム">
+                        <span id="home" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ホーム</span>
+                    </a>
+                </ytd-mini-guide-entry-renderer>
+            </ytd-mini-guide-renderer>
+            <ytd-reel-player-overlay-renderer>
+                <button aria-label="共有">
+                    <span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span>
+                </button>
+            </ytd-reel-player-overlay-renderer>
+        `;
+
+        expect(classifyText('#home')).toBe('skip');
+        expect(classifyText('#share')).toBe('skip');
+    });
+
+    it('keeps a realistically bounded YouTube video-title link and unclipped controls annotatable', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-reel-player-overlay-renderer>
+                <h2><a id="title-link" href="/watch?v=jp" style="display:flex;max-width:240px">
+                    <span id="title" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">日本語のニュース</span>
+                </a></h2>
+            </ytd-reel-player-overlay-renderer>
+            <ytd-masthead><button><span id="create">作成</span></button></ytd-masthead>
+        `;
+        mockRect(document.querySelector<HTMLElement>('#title-link')!, { width: 240, height: 40 });
+
+        expect(classifyText('#title')).toBe('content-ruby');
+        expect(classifyText('#create')).toBe('interactive-passive');
+    });
+
+    it('recognizes YouTube native ellipsis chrome across an open shadow root', () => {
+        stubYouTube();
+        const entry = document.createElement('ytd-mini-guide-entry-renderer');
+        const shadow = entry.attachShadow({ mode: 'open' });
+        shadow.innerHTML = `
+            <a href="/" aria-label="ホーム">
+                <span id="shadow-home" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">ホーム</span>
+            </a>
+        `;
+        document.body.append(entry);
+
+        const label = shadow.querySelector<HTMLElement>('#shadow-home')!;
+        expect(classifyDecoration(label)).toBe('skip');
+        expect(classifyDecoration(label)).toBe('skip');
+    });
+
+    it('keeps ellipsis-constrained controls on other sites annotatable', () => {
+        document.body.innerHTML = `
+            <nav><button><span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></button></nav>
+        `;
+
+        expect(classifyText('#share')).toBe('interactive-passive');
+    });
+
+    it('keeps ellipsis-constrained YouTube controls outside mini-guide and Shorts chrome annotatable', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytm-bottom-sheet-renderer>
+                <button><span id="speed" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">再生速度</span></button>
+            </ytm-bottom-sheet-renderer>
+            <ytd-reel-player-overlay-renderer>
+                <button><span id="unclipped-share">共有</span></button>
+            </ytd-reel-player-overlay-renderer>
+        `;
+
+        expect(classifyText('#speed')).toBe('interactive-passive');
+        expect(classifyText('#unclipped-share')).toBe('interactive-passive');
+    });
+
+    it('rejects ordinary YouTube feed text before reading computed styles', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <yt-lockup-view-model><h3><a href="/watch?v=jp"><span id="feed-title">日本語のニュース</span></a></h3></yt-lockup-view-model>
+        `;
+        const getComputedStyle = vi.spyOn(window, 'getComputedStyle');
+
+        expect(youtubeEllipsisChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#feed-title')!)).toBe(false);
+        expect(getComputedStyle).not.toHaveBeenCalled();
     });
 
     it('classifies a player settings row (menuitem) as interactive-passive', () => {
@@ -566,6 +659,41 @@ describe('classifyDecoration acceptance matrix', () => {
     it('classifies plain non-prose text as content-ruby by default', () => {
         document.body.innerHTML = '<div id="row">昨日の出来事について</div>';
         expect(classifyText('#row')).toBe('content-ruby');
+    });
+});
+
+describe('late YouTube native-chrome hydration', () => {
+    it('removes an existing Share mirror when an ancestor becomes ellipsis-constrained', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytd-reel-player-overlay-renderer>
+                <button aria-label="共有"><span id="clip-row"><span id="share">共有</span></span></button>
+            </ytd-reel-player-overlay-renderer>
+        `;
+        const button = document.querySelector<HTMLElement>('button')!;
+        const clipRow = document.querySelector<HTMLElement>('#clip-row')!;
+        const target = collectTargets(button).find(candidate => candidate.text === '共有')!;
+        expect(target).toBeTruthy();
+        expect(target.decoration).toBe('interactive-passive');
+
+        applyTokensToScanTarget(
+            { ...target, nonDestructive: true, passiveInteraction: true },
+            [token('共有', 0, '共有', 'きょうゆう')],
+            FURIGANA_SETTINGS,
+        );
+        const host = target.parent;
+        expect(host.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
+
+        clipRow.style.overflow = 'hidden';
+        clipRow.style.textOverflow = 'ellipsis';
+        clipRow.style.whiteSpace = 'nowrap';
+        noteConstrainedRowLayoutSettled();
+        projectAdditiveTextMirrors(document);
+
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(baseText(button)).toBe('共有');
+        expect(host.style.getPropertyValue('visibility')).toBe('');
+        expect(host.style.getPropertyValue('position')).toBe('');
     });
 });
 

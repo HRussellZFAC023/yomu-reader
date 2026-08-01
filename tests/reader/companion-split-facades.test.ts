@@ -34,6 +34,9 @@ import type { JPDBCard } from '../../src/reader/app/types';
 
 const require = createRequire(import.meta.url);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const { trimCommonWrapperIndent } = require('../../scripts/trim-userscript-indent.cjs') as {
+    trimCommonWrapperIndent: (source: string, compactRuntimeIndent?: boolean) => string;
+};
 
 type CompanionHost = typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
 
@@ -344,7 +347,36 @@ describe('Greasy Fork split manifest', () => {
         }
     });
 
-    it('removes only the generated IIFE wrapper indent from the injected runtime', () => {
+    it('preserves multiline template content while compacting runtime code indentation', () => {
+        const source = [
+            '(function() {',
+            '  "use strict";',
+            '  function example() {',
+            '    const value = `',
+            '      preserved',
+            '    `;',
+            '    return value;',
+            '  }',
+            '})();',
+        ].join('\n');
+        const compacted = trimCommonWrapperIndent(source, true);
+
+        expect(compacted).toBe([
+            '(function() {',
+            '"use strict";',
+            'function example() {',
+            ' const value = `',
+            '      preserved',
+            '    `;',
+            ' return value;',
+            '}',
+            '})();',
+        ].join('\n'));
+        expect(() => new Function(compacted)).not.toThrow();
+        expect(trimCommonWrapperIndent(compacted, true)).toBe(compacted);
+    });
+
+    it('keeps the injected runtime readable after compacting generated indentation', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();
         const hostedHeader = readFileSync(path.join(repoRoot, 'docs', 'public', 'yomu.user.js'), 'utf8');
@@ -354,7 +386,8 @@ describe('Greasy Fork split manifest', () => {
         expect(hostedRuntime, 'the hosted userscript does not pin a hashed runtime').toBeDefined();
         const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'greasyfork', hostedRuntime!), 'utf8');
         expect(built).toMatch(/^\(function\(\) \{\n"use strict";\nfunction /);
-        expect(built).toContain('\n  return ');
+        expect(built).toContain('\n return ');
+        expect(() => new Function(built)).not.toThrow();
     });
 
     it.each([

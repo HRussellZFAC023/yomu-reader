@@ -1,3 +1,5 @@
+// fallow-ignore-file unused-file
+// The split Vite build loads this facade through an alias rather than a static import.
 import { decorationPolicyRuntimeApi } from './decoration-policy-runtime-bridge';
 
 // The runtime @require executes before the split core. Capture its stable
@@ -55,6 +57,7 @@ export const {
     selectorPairs,
     setReviewCardFrontPredicate,
     stampDecorationState,
+    youtubeEllipsisChromeMustRemainPageOwned,
 } = policy;
 
 export type DecorationState = ReturnType<typeof classifyDecoration>;

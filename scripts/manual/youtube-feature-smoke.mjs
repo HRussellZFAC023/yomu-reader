@@ -9,7 +9,10 @@ import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fi
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
 const DEFAULT_COMPANION_DIR = existsSync(resolve('dist/greasyfork')) ? 'dist/greasyfork' : 'docs/public/greasyfork';
-const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-ui-copy.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
+// Production installs one @require: the complete runtime companion. Inject the
+// same boundary here so browser proof cannot pass against an incomplete mix of
+// legacy split companions.
+const COMPANION_PATHS = ['yomu-runtime.user.js']
     .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? DEFAULT_COMPANION_DIR, name));
 const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 
@@ -272,6 +275,7 @@ function youtubeShortsWatchHtml() {
     #movie_player { position: absolute; inset: 16px 15px; overflow: hidden; border-radius: 18px; background: #151515; }
     #movie_player video { display: block; width: 100%; height: 100%; background: #151515; }
     .shorts-native-action { position: absolute; right: 12px; z-index: 5; width: 48px; height: 48px; border: 0; border-radius: 50%; color: white; background: #333; font-size: 20px; }
+    .shorts-native-action-label { display: block; max-width: 28px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 12px; }
     #shorts-share { bottom: 104px; }
     #shorts-fullscreen { bottom: 42px; }
     #video-title { position: absolute; left: 18px; right: 76px; bottom: 24px; z-index: 4; display: block; color: white; }
@@ -283,7 +287,7 @@ function youtubeShortsWatchHtml() {
     <ytd-reel-video-renderer data-case="shorts-watch-current" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
       <div id="movie_player" class="html5-video-player ytp-autohide">
         <video class="html5-main-video" controls muted></video>
-        <button id="shorts-share" class="shorts-native-action" type="button" aria-label="Share"><span id="shorts-share-label">共有</span></button>
+        <button id="shorts-share" class="shorts-native-action" type="button" aria-label="共有"><span id="shorts-share-label" class="shorts-native-action-label">共有</span></button>
         <button id="shorts-fullscreen" class="shorts-native-action" type="button" aria-label="Fullscreen">⛶</button>
       </div>
       <a id="video-title" href="/shorts/watch-en">English short in snap feed</a>
@@ -616,6 +620,8 @@ async function installUserscriptContext(context) {
                     .filter(language => language && language !== 'jp').length,
             };
         };
+        // One browser snapshot owns the whole Shorts watch acceptance surface.
+        // fallow-ignore-next-line complexity
         window.__yomuFeatureReadShortsWatchState = function yomuFeatureReadShortsWatchState() {
             const subtitleRoot = element('.jpdb-subtitle-player');
             const rail = element('.jpdb-subtitle-rail');
@@ -638,6 +644,11 @@ async function installUserscriptContext(context) {
                 nativeClicks: { ...(window.__shortsNativeClicks || {}) },
                 shareLabelSourceText: document.querySelector('#shorts-share-label')?.firstChild?.textContent || '',
                 shareLabelAnnotationWords: queryCount('#shorts-share-label .jpdb-reader-text-mirror .jpdb-reader-word'),
+                shareLabelMirrors: queryCount('#shorts-share-label .jpdb-reader-text-mirror'),
+                shareLabelOverflows: (() => {
+                    const label = document.querySelector('#shorts-share-label');
+                    return label instanceof HTMLElement && label.scrollWidth > label.clientWidth + 1;
+                })(),
                 nativeControlRects: {
                     share: elementRectJson('#shorts-share'),
                     fullscreen: elementRectJson('#shorts-fullscreen'),
@@ -991,6 +1002,9 @@ async function runShortsGalleryCheck(page) {
     return shortsGallery;
 }
 
+// One end-to-end interaction deliberately owns the Shorts filter, subtitle
+// rail drag, native-control hit testing, and clipped-label assertions.
+// fallow-ignore-next-line complexity
 async function runShortsWatchCheck(page) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(SHORTS_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -1082,11 +1096,16 @@ async function runShortsWatchCheck(page) {
     assert(includesText(shortsWatch.visibleCases.join(','), 'shorts-watch-next-jp'), 'Shorts watch next Japanese item was not left available', shortsWatch);
     assert(shortsWatch.visibleJapanese >= 1, 'Shorts watch feed did not leave a Japanese next item visible', shortsWatch);
     assert(shortsWatch.visibleNonCurrentEnglish === 0, 'Shorts watch feed still shows a non-current English item', shortsWatch);
-    assert(shortsWatch.shareLabelSourceText === '共有', 'Annotating Shorts Share changed its page-owned source label', shortsWatch);
-    assert(shortsWatch.shareLabelAnnotationWords > 0, 'Shorts Share label was left without an annotation layer', shortsWatch);
+    assert(shortsWatch.shareLabelSourceText === '共有', 'Shorts Share native label changed', shortsWatch);
+    assert(shortsShareIsPageOwned(shortsWatch), 'Ellipsis-constrained Shorts Share received an annotation mirror', shortsWatch);
+    assert(shortsWatch.shareLabelOverflows === false, 'Shorts Share still overflows into an ellipsis', shortsWatch);
     assert(shortsWatch.nativeClicks.share === 1, 'Subtitle overlay prevented a native Shorts Share click', shortsWatch);
     assert(shortsWatch.nativeClicks.fullscreen === 1, 'Subtitle overlay prevented a native Shorts fullscreen click', shortsWatch);
     return shortsWatch;
+}
+
+function shortsShareIsPageOwned(state) {
+    return [state.shareLabelAnnotationWords, state.shareLabelMirrors].every(count => count === 0);
 }
 
 async function runWatchCheck(page) {

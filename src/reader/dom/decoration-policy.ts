@@ -12,7 +12,8 @@
 //   interactive-passive interactive controls: every enabled annotation remains
 //                       visible at rest, but readings use an out-of-flow lane so
 //                       controls keep their authored line height and hit target
-//   skip                editable/composing contexts: never decorated
+//   skip                editable/composing contexts and truncation-sensitive
+//                       native chrome: never decorated
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
 import { READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText } from '../lookup/target-text';
@@ -1047,16 +1048,14 @@ export function setReviewCardFrontPredicate(predicate: ((element: Element) => bo
     reviewCardFrontPredicate = predicate;
 }
 
+// The policy is an explicit, ordered acceptance matrix: folding its mutually
+// exclusive facts into opaque predicates would make precedence harder to audit.
+// fallow-ignore-next-line complexity
 export function classifyDecoration(element: Element): DecorationState {
     // Reader-owned surfaces (lookup panel, drawers, previews) manage their own
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';
-    if (isEditableComposingContext(element)) return 'skip';
-    // A review-card FRONT (question side) is a plain prompt: never decorate it so
-    // furigana/pitch cannot spoil the reading the learner must recall. Every scan
-    // pass funnels through here, so one 'skip' covers the profile scan, the
-    // residual-visible pass, and shadow rounds alike.
-    if (reviewCardFrontPredicate?.(element)) return 'skip';
+    if (decorationMustBeSkipped(element)) return 'skip';
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
@@ -1066,6 +1065,93 @@ export function classifyDecoration(element: Element): DecorationState {
     if (element.closest(NAMED_CONTENT_ROOT_SELECTOR)) return 'content-ruby';
     if (element instanceof HTMLElement && compactScanRubySuppression(element).suppress) return 'interactive-passive';
     return element instanceof HTMLElement && isProseFullContext(element) ? 'prose-full' : 'content-ruby';
+}
+
+// Keep the three safety owners visible and ordered at this single scan gate.
+// fallow-ignore-next-line complexity
+function decorationMustBeSkipped(element: Element): boolean {
+    if (isEditableComposingContext(element)) return true;
+    // A review-card FRONT (question side) is a plain prompt: never decorate it
+    // so furigana/pitch cannot spoil the reading the learner must recall.
+    if (reviewCardFrontPredicate?.(element)) return true;
+    // YouTube's ellipsis-constrained native labels are layout-fragile. Every
+    // scan pass funnels through this helper, so one 'skip' covers the profile
+    // scan, residual-visible pass, and shadow rounds alike.
+    // YouTube's mini-guide and Shorts action rail deliberately fit their
+    // painted labels into single-line text-overflow boxes. Even an additive,
+    // absolutely-positioned annotation mirror becomes part of WebKit's
+    // scrollable-overflow calculation; on iPad that makes the native label
+    // ellipsize (共有 -> 共…, and even the otherwise-fitting mini-guide labels
+    // acquire …). Keep those authored labels page-owned. Scope this to a
+    // native mini-guide link or Shorts action button on a YouTube app host so
+    // clipped video titles and visible controls on other sites retain their
+    // annotation contract. Establish that structural ownership before the
+    // computed-style walk: ordinary feed text pays no clip-probing cost.
+    return element instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element);
+}
+
+const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
+    'ytd-mini-guide-entry-renderer',
+    'yt-mini-guide-entry-renderer',
+    'ytm-mini-guide-entry-renderer',
+].join(',');
+const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
+    'ytd-reel-player-overlay-renderer',
+    'yt-reel-player-overlay-renderer',
+    'ytm-reel-player-overlay-renderer',
+    'ytd-shorts',
+    'ytm-shorts',
+].join(',');
+const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
+const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+
+export function youtubeEllipsisChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    if (!isYouTubeAppHostname()) return false;
+    const chrome = youtubeNativeChromeControl(element);
+    if (!chrome) return false;
+    const clipRow = youtubeEllipsisRow(element);
+    if (!clipRow) return false;
+    return elementsShareComposedBranch(chrome, clipRow);
+}
+
+function youtubeNativeChromeControl(element: HTMLElement): HTMLElement | null {
+    const miniGuide = composedClosestMatching(element, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
+    if (miniGuide) return composedControlInside(element, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
+    const shorts = composedClosestMatching(element, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
+    return shorts ? composedControlInside(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+}
+
+function youtubeEllipsisRow(element: HTMLElement): HTMLElement | null {
+    const clipRow = closestRubyFragileConstrainedRow(element);
+    if (!clipRow) return null;
+    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+}
+
+function composedClosestMatching(element: HTMLElement, selector: string): HTMLElement | null {
+    let current: HTMLElement | null = element;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+        if (safeElementMatches(current, selector)) return current;
+        current = composedAncestorElement(current);
+    }
+    return null;
+}
+
+function composedControlInside(element: HTMLElement, selector: string, boundary: HTMLElement): HTMLElement | null {
+    const control = composedClosestMatching(element, selector);
+    return control && isComposedAncestor(boundary, control) ? control : null;
+}
+
+function elementsShareComposedBranch(first: HTMLElement, second: HTMLElement): boolean {
+    return isComposedAncestor(first, second) || isComposedAncestor(second, first);
+}
+
+function isComposedAncestor(ancestor: HTMLElement, descendant: HTMLElement): boolean {
+    let current: HTMLElement | null = descendant;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+        if (current === ancestor) return true;
+        current = composedAncestorElement(current);
+    }
+    return false;
 }
 
 export function decorationSuppressesRuby(state: DecorationState | undefined): boolean {

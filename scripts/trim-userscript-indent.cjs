@@ -2,11 +2,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DIST_USERSCRIPT_PATH, ROOT, fileExists, readText, writeText } = require('./lib/userscript-build-utils.cjs');
 
-for (const filePath of generatedScriptPaths()) {
-  const code = readText(filePath);
-  const trimmed = trimGeneratedEmptyCopyRows(filePath.endsWith('.user.js') ? trimCommonWrapperIndent(code) : code);
+if (require.main === module) {
+  for (const filePath of generatedScriptPaths()) {
+    const code = readText(filePath);
+    const trimmed = trimGeneratedEmptyCopyRows(
+      filePath.endsWith('.user.js')
+        ? trimCommonWrapperIndent(code, path.basename(filePath) === 'yomu-runtime.user.js')
+        : code,
+    );
 
-  if (trimmed !== code) writeText(filePath, trimmed);
+    if (trimmed !== code) writeText(filePath, trimmed);
+  }
 }
 
 function generatedScriptPaths() {
@@ -28,14 +34,14 @@ function trimGeneratedEmptyCopyRows(source) {
   return source.replace(/^([A-Za-z][A-Za-z0-9_]*)\t[ \t]*$/gm, '$1');
 }
 
-function trimCommonWrapperIndent(source) {
+function trimCommonWrapperIndent(source, compactRuntimeIndent = false) {
+  if (compactRuntimeIndent && /^\(function\(\) \{\n"use strict";\n/.test(source)) return source;
   let state = 'code';
   let escaped = false;
   let blockComment = false;
   return source.split('\n').map(line => {
     const inTemplateAtLineStart = state === 'template';
-    const wrapperTrimmed = !inTemplateAtLineStart && line.startsWith('  ') ? line.slice(2) : line;
-    const nextLine = !inTemplateAtLineStart && wrapperTrimmed.startsWith('    ') ? wrapperTrimmed.slice(2) : wrapperTrimmed;
+    const nextLine = trimmedGeneratedLine(line, inTemplateAtLineStart, compactRuntimeIndent);
     scanLine(nextLine);
     return nextLine;
   }).join('\n');
@@ -78,3 +84,20 @@ function trimCommonWrapperIndent(source) {
     }
   }
 }
+
+// This generated-code transform keeps each indentation case explicit; source
+// templates deliberately bypass every rewrite.
+// fallow-ignore-next-line complexity
+function trimmedGeneratedLine(line, inTemplate, compactRuntimeIndent) {
+  if (inTemplate) return line;
+  let trimmed = line.startsWith('  ') ? line.slice(2) : line;
+  if (trimmed.startsWith('    ')) trimmed = trimmed.slice(2);
+  // The aggregate runtime is the only unconditional companion, so compact
+  // one generated leading space there without touching template-literal
+  // content. Indentation remains readable while avoiding ~94 KB of bytes
+  // that every installed page would otherwise parse.
+  if (compactRuntimeIndent && trimmed.startsWith(' ')) trimmed = trimmed.slice(1);
+  return trimmed;
+}
+
+module.exports = { trimCommonWrapperIndent };

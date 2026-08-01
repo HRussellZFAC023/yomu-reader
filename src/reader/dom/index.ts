@@ -50,8 +50,10 @@ import {
     safeComputedStyle,
     safeElementMatches,
     selectorPairs,
+    youtubeEllipsisChromeMustRemainPageOwned,
     composedAncestorElement as composedParentElement,
 } from './decoration-policy';
+import { detachedReadingLaneLineHeight, rubyFriendlyMirrorLineHeight } from './text-mirror-line-height';
 import {
     KANJI_RE,
     READING_KANA_CHAR_RE as KANA_CHAR_RE,
@@ -3470,11 +3472,16 @@ function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
 
 // Re-project every additive mirror after a settle signal (fonts, resize,
 // virtualized reflow). Reads always come from the live source ranges.
+// fallow-ignore-next-line complexity
 export function projectAdditiveTextMirrors(root: ParentNode = document): void {
     const entries: Array<{ mirror: HTMLElement; host: HTMLElement }> = [];
     for (const mirror of queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror')) {
         const host = registeredTextMirrorHostFor(mirror);
         if (!host?.isConnected) continue;
+        if (youtubeEllipsisChromeMustRemainPageOwned(host)) {
+            removeTextMirror(host);
+            continue;
+        }
         entries.push({ mirror, host });
     }
     // Read every prose range before writing any line-height. A changed line
@@ -4657,25 +4664,6 @@ function hostCentersTextVertically(host: HTMLElement, style: CSSStyleDeclaration
     return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
 }
 
-function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    // 1.62 fit the ruby glyphs but parked the reading strip against the
-    // previous line's baseline on tight hosts (YouTube's ~1.3 titles);
-    // 1.78 leaves an actual gap between lines of annotated text.
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
-}
-
-function detachedReadingLaneLineHeight(style: CSSStyleDeclaration, alreadyReserved: boolean): string {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    // One device pixel beyond 2em keeps the reading lane visibly separate
-    // across engines whose glyph boxes land on different subpixel boundaries.
-    const minimum = Math.ceil(fontSize * 2) + 1;
-    const current = cssPixels(style.lineHeight);
-    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-    return current >= minimum ? '' : `${minimum}px`;
-}
-
 function observeTextMirrorHost(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     if (!state) return;
@@ -4698,6 +4686,7 @@ function observeTextMirrorHost(host: HTMLElement): void {
     // The callback closes over only a WeakRef and looks state back up through
     // the host-keyed WeakMap, so a framework detach can collect the host.
     const hostRef = new WeakRef(host);
+    // fallow-ignore-next-line complexity
     const observer: MutationObserver = new MutationObserver(mutations => {
         const liveHost = hostRef.deref();
         const liveState = liveHost ? textMirrorHosts.get(liveHost) : undefined;
@@ -4749,6 +4738,7 @@ function observeTextMirrorHost(host: HTMLElement): void {
         );
         if (hostAttributeMutations.length) {
             noteConstrainedRowLayoutSettled();
+            if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
             // A class change may replace the page's authored line-height while
             // our important inline reservation masks it. Release first, then
             // let the batched projection pass assess the new computed style.
