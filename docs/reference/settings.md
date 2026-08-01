@@ -269,10 +269,10 @@ Reads nearby images. Google Lens needs no setup.
 | Enable video subtitle player | — | on | `subtitlePlayerEnabled` |
 | Auto-detect page subtitles | — | on | `subtitleAutoDetect` |
 | Show subtitle overlay | — | off | `subtitleOverlayVisible` |
-| Show native subtitles | — | off | `subtitleSecondaryVisible` |
 | Not yet described | — | off | `subtitleOverlayVisibleChosen` |
 | Not yet described | — | off | `subtitleSecondaryVisibleChosen` |
 | Blur native subtitles until hover | — | on | `subtitleNativeBlurred` |
+| Blur strength | — | `12` | `subtitleNativeBlurStrength` |
 | Karaoke word timing | — | on | `subtitleKaraokeMode` |
 | Open transcript panel by default | — | off | `subtitleTranscriptVisible` |
 | Open side panel when paused | — | off | `subtitlePausePanel` |
@@ -390,6 +390,7 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Dictionary result limit | — | `12` | `localDictionaryMaxResults` |
 | Open sources by default | — | on | `dictionarySourcesInitiallyExpanded` |
 | Not yet described | — | empty list | `dictionaryPreferences` |
+| Show native subtitles | — | off | `subtitleSecondaryVisible` |
 | Transcript panel position | — | `right` | `subtitleTranscriptPlacement` |
 | Not yet described | — | on | `youtubeFilterNoticeRestored20260711` |
 | Not yet described | — | on | `themeAutoRestored20260730` |

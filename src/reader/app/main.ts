@@ -1245,7 +1245,7 @@ export class ReaderApp {
             mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
             gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
             toast: message => this.toast(message),
-            onSettingsChange: () => void saveSettings(this.settings),
+            onSettingsChange: explicitUserChoiceKeys => void saveSettings(this.settings, { explicitUserChoiceKeys }),
         });
     }
 

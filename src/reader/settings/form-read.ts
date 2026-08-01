@@ -6,6 +6,11 @@ import { FURIGANA_HIDE_STATE_GROUPS, WORD_COLOR_HIDE_STATE_GROUPS } from '../app
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
+    applyNativeSubtitleDisplayMode,
+    nativeSubtitleDisplayMode,
+    NATIVE_SUBTITLE_DISPLAY_MODES,
+} from '../subtitles/native-subtitle-display';
+import {
     activateLanguageProfileForOutputLanguage,
     activeLanguageProfile,
     canonicalTagForLearningTarget,
@@ -707,18 +712,25 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
 function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
     const overlayVisible = has('subtitleOverlayVisible');
-    const secondaryVisible = has('subtitleSecondaryVisible');
+    const currentNativeDisplay = nativeSubtitleDisplayMode(current);
+    const nativeDisplay = readOption(get('subtitleNativeDisplay'), NATIVE_SUBTITLE_DISPLAY_MODES, currentNativeDisplay);
+    const nativeDisplaySettings = {
+        subtitleSecondaryVisible: current.subtitleSecondaryVisible,
+        subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
+        subtitleNativeBlurred: current.subtitleNativeBlurred,
+    };
+    applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay, {
+        markVisibilityChosen: nativeDisplay !== currentNativeDisplay,
+    });
     return {
         subtitlePlayerEnabled: has('subtitlePlayerEnabled'),
         subtitleAutoDetect: has('subtitleAutoDetect'),
         subtitleOverlayVisible: overlayVisible,
-        subtitleSecondaryVisible: secondaryVisible,
+        ...nativeDisplaySettings,
         // Only a flip is a deliberate choice: saving the dialog after editing
         // something unrelated must not freeze an overlay the user never touched
         // out of the automatic reveal that first shows it.
         subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
-        subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen || secondaryVisible !== current.subtitleSecondaryVisible,
-        subtitleNativeBlurred: has('subtitleNativeBlurred'),
         subtitleKaraokeMode: has('subtitleKaraokeMode'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),
         subtitlePausePanel: has('subtitlePausePanel'),
@@ -738,6 +750,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleOutlineColor: sanitizeAccentColor(get('subtitleOutlineColor'), current.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(get('subtitleBackgroundColor'), current.subtitleBackgroundColor),
         subtitleBackgroundOpacity: clamped('subtitleBackgroundOpacity', 0, 1, current.subtitleBackgroundOpacity),
+        subtitleNativeBlurStrength: clamped('subtitleNativeBlurStrength', 4, 20, current.subtitleNativeBlurStrength),
         subtitleFontFamily: readFontFamilySetting(reader, 'subtitleFontFamily', current.subtitleFontFamily),
         subtitleFontWeight: clamped('subtitleFontWeight', 100, 900, current.subtitleFontWeight),
         subtitleMiningPause: has('subtitleMiningPause'),

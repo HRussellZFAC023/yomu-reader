@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { positionSubtitleStylePopover } from '../../../src/reader/subtitles/subtitle-style-popover';
 import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
@@ -57,6 +58,30 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         document.body.innerHTML = '';
     });
 
+    it('flips and horizontally clamps the style popover when the rail sits near the viewport edge', () => {
+        const rail = document.createElement('div');
+        const popover = document.createElement('div');
+        vi.spyOn(rail, 'getBoundingClientRect').mockReturnValue({
+            x: 330,
+            y: 720,
+            top: 720,
+            right: 374,
+            bottom: 764,
+            left: 330,
+            width: 44,
+            height: 44,
+            toJSON: () => ({}),
+        });
+        Object.defineProperty(popover, 'scrollHeight', { configurable: true, value: 460 });
+
+        positionSubtitleStylePopover(popover, rail, { left: 0, top: 0, width: 390, height: 800 });
+
+        expect(popover.style.top).toBe('auto');
+        expect(popover.style.bottom).toBe('calc(100% + 8px)');
+        expect(popover.style.maxHeight).toBe('520px');
+        expect(popover.style.left).toBe('-231px');
+    });
+
     it('updates subtitle style settings from the compact rail controls', () => {
         const onSettingsChange = vi.fn();
         const { settings, controller } = createInstalledSubtitleController({
@@ -64,9 +89,11 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             subtitleFontSize: 28,
             subtitleBottomOffset: 16,
             subtitleBackgroundOpacity: 0,
+            subtitleNativeBlurStrength: 12,
             subtitleHoverPause: true,
         }, { onSettingsChange });
         const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const transcriptPanel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
         const toggle = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="style"]')!;
 
         try {
@@ -78,12 +105,16 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
             expect(popover.textContent).toContain('Subtitle font size');
             expect(popover.textContent).toContain('Subtitle font weight');
+            expect(popover.textContent).toContain('Translation');
+            expect(popover.textContent).toContain('Blur until reveal (recommended)');
+            expect(popover.textContent).toContain('Blur strength');
             expect(popover.textContent).toContain('Pause video on subtitle hover');
             expect(popover.textContent).toContain('Reset defaults');
 
             setSubtitleStyleControlValue(popover, 'subtitleFontSize', '36');
             setSubtitleStyleControlValue(popover, 'subtitleFontWeight', '620');
             setSubtitleStyleControlValue(popover, 'subtitleBackgroundOpacity', '0.35');
+            setSubtitleStyleControlValue(popover, 'subtitleNativeBlurStrength', '18');
             setSubtitleStyleSelectValue(popover);
             popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleHoverPause"]')!.click();
 
@@ -92,6 +123,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             // The bottom offset is repositioned by dragging the line, not a slider.
             expect(popover.querySelector('[data-subtitle-style-setting="subtitleBottomOffset"]')).toBeNull();
             expect(settings.subtitleBackgroundOpacity).toBe(0.35);
+            expect(settings.subtitleNativeBlurStrength).toBe(18);
             expect(settings.subtitleHoverPause).toBe(false);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('36px');
             expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('36px');
@@ -99,10 +131,15 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe('620');
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
             expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0.35)');
+            expect(root.style.getPropertyValue('--subtitle-native-blur-radius')).toBe('18px');
+            expect(root.style.getPropertyValue('--subtitle-native-blur-outer-radius')).toBe('22px');
+            expect(transcriptPanel.style.getPropertyValue('--subtitle-native-blur-radius')).toBe('18px');
+            expect(transcriptPanel.style.getPropertyValue('--subtitle-native-blur-outer-radius')).toBe('22px');
             expect(root.style.getPropertyValue('--subtitle-family')).toContain('Noto Serif JP');
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleFontWeight"]')?.textContent).toBe('620');
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('35%');
             expect(onSettingsChange).toHaveBeenCalled();
+            expect(onSettingsChange).toHaveBeenCalledWith(['subtitleNativeBlurStrength']);
 
             popover.querySelector<HTMLButtonElement>('[data-action="style-reset"]')!.click();
 
@@ -110,6 +147,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(settings.subtitleFontWeight).toBe(BASE_DEFAULT_SETTINGS.subtitleFontWeight);
             expect(settings.subtitleBottomOffset).toBe(BASE_DEFAULT_SETTINGS.subtitleBottomOffset);
             expect(settings.subtitleBackgroundOpacity).toBe(BASE_DEFAULT_SETTINGS.subtitleBackgroundOpacity);
+            expect(settings.subtitleNativeBlurStrength).toBe(BASE_DEFAULT_SETTINGS.subtitleNativeBlurStrength);
             expect(settings.subtitleFontFamily).toBe(BASE_DEFAULT_SETTINGS.subtitleFontFamily);
             expect(settings.subtitleHoverPause).toBe(BASE_DEFAULT_SETTINGS.subtitleHoverPause);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
@@ -117,12 +155,72 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe(String(BASE_DEFAULT_SETTINGS.subtitleFontWeight));
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleBottomOffset}%`);
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('0%');
+            expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleNativeBlurStrength"]')?.textContent).toBe(`${BASE_DEFAULT_SETTINGS.subtitleNativeBlurStrength}px`);
 
             toggle.click();
 
             expect(popover.hidden).toBe(true);
             expect(toggle.getAttribute('aria-expanded')).toBe('false');
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('offers blurred, shown, and fully hidden native translations in the player controls', () => {
+        const onSettingsChange = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleSecondaryVisible: true,
+            subtitleSecondaryVisibleChosen: false,
+            subtitleNativeBlurred: true,
+        }, { onSettingsChange });
+        const internals = controllerInternals<{
+            render: () => void;
+            secondaryCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+        }>(controller);
+
+        try {
+            internals.secondaryCue = { start: 0, end: 2, text: 'Read only when needed.', transcriptEligible: true };
+            internals.render();
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            root.querySelector<HTMLButtonElement>('[data-action="style"]')!.click();
+            const popover = root.querySelector<HTMLElement>('[data-subtitle-style-popover]')!;
+            const mode = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleNativeDisplay"]')!;
+            const strength = popover.querySelector<HTMLElement>('[data-subtitle-style-field="subtitleNativeBlurStrength"]')!;
+            const originalNativeLine = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-secondary')!;
+
+            expect(mode.value).toBe('blurred');
+            expect(strength.hidden).toBe(false);
+
+            mode.value = 'shown';
+            mode.dispatchEvent(new Event('change', { bubbles: true }));
+
+            expect(settings.subtitleSecondaryVisible).toBe(true);
+            expect(settings.subtitleSecondaryVisibleChosen).toBe(true);
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            expect(strength.hidden).toBe(true);
+            expect(root.querySelector('.jpdb-subtitle-secondary')).toBe(originalNativeLine);
+            expect(onSettingsChange).toHaveBeenLastCalledWith([
+                'subtitleSecondaryVisible',
+                'subtitleSecondaryVisibleChosen',
+                'subtitleNativeBlurred',
+            ]);
+
+            mode.value = 'hidden';
+            mode.dispatchEvent(new Event('change', { bubbles: true }));
+
+            expect(settings.subtitleSecondaryVisible).toBe(false);
+            expect(root.querySelector('.jpdb-subtitle-secondary')).toBeNull();
+
+            popover.querySelector<HTMLButtonElement>('[data-action="style-reset"]')!.click();
+
+            expect(mode.value).toBe('blurred');
+            expect(settings.subtitleSecondaryVisible).toBe(true);
+            expect(settings.subtitleSecondaryVisibleChosen).toBe(true);
+            expect(settings.subtitleNativeBlurred).toBe(true);
+
+            expect(strength.hidden).toBe(false);
+            expect(root.querySelector('.jpdb-subtitle-secondary-blurred')).not.toBeNull();
         } finally {
             controller.destroy();
         }

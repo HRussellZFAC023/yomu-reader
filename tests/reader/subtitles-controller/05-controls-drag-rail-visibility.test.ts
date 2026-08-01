@@ -341,6 +341,11 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         );
         // Keyboard users keep the peek on every device.
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary-blurred:focus-visible \{/);
+        // The detached shadowing panel shares the blur rule, so it must define
+        // the colour variable outside the live subtitle line's DOM subtree.
+        expect(SUBTITLES_YOUTUBE_CSS).toMatch(
+            /\.jpdb-subtitle-shadow-secondary \{[^}]*--jpdb-subtitle-secondary-color:/,
+        );
         // No double-tap-zoom hold-back on a control that is only ever a toggle.
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary \{[^}]*touch-action: manipulation/);
         // On touch the ~24px line gets a 42px box of its own, with the padding

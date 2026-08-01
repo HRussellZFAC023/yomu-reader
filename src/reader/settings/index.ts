@@ -488,6 +488,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleOverlayVisibleChosen: false,
     subtitleSecondaryVisibleChosen: false,
     subtitleNativeBlurred: true,
+    subtitleNativeBlurStrength: 12,
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
     subtitlePausePanel: false,
@@ -1332,6 +1333,7 @@ function normalizeSubtitleSettings(value: Partial<ReaderSettings> | null): Parti
         subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
         subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
         subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+        subtitleNativeBlurStrength: clampNumber(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
         subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
         subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight),
     };

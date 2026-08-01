@@ -4,6 +4,7 @@ import { clampNumber } from '../core/number-utils';
 import { FONT_FAMILY_PRESETS } from '../settings/font-presets';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { subtitleText } from './i18n';
+import { nativeSubtitleDisplayMode } from './native-subtitle-display';
 
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
@@ -149,9 +150,19 @@ function renderPanelOptionsPlacementItem(
 
 export function renderSubtitleStyleControls(settings: ReaderSettings, language: InterfaceLanguage): string {
     const label = uiText(language, 'subtitleStyle');
+    const nativeDisplay = nativeSubtitleDisplayMode(settings);
     return `
         <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon('style')}</button>
         <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
+            <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
+                <span>${escapeHtml(uiText(language, 'subtitleNativeDisplay'))}</span>
+                <select data-subtitle-style-setting="subtitleNativeDisplay">
+                    <option value="blurred" ${nativeDisplay === 'blurred' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayBlurred'))}</option>
+                    <option value="shown" ${nativeDisplay === 'shown' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayShown'))}</option>
+                    <option value="hidden" ${nativeDisplay === 'hidden' ? 'selected' : ''}>${escapeHtml(uiText(language, 'subtitleNativeDisplayHidden'))}</option>
+                </select>
+            </label>
+            ${renderSubtitleStyleRange('subtitleNativeBlurStrength', uiText(language, 'subtitleNativeBlurStrength'), settings.subtitleNativeBlurStrength, 4, 20, 1, 'px', nativeDisplay !== 'blurred')}
             ${renderSubtitleStyleRange('subtitleFontSize', uiText(language, 'subtitleFontSize'), settings.subtitleFontSize, 16, 64, 2, 'px')}
             ${renderSubtitleStyleRange('subtitleFontWeight', uiText(language, 'subtitleFontWeight'), settings.subtitleFontWeight, 300, 900, 20, 'weight')}
             ${renderSubtitleStyleRange('subtitleBackgroundOpacity', uiText(language, 'subtitleBackgroundOpacity'), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, '')}
@@ -175,16 +186,17 @@ export function renderSubtitleStyleControls(settings: ReaderSettings, language: 
 }
 
 function renderSubtitleStyleRange(
-    setting: 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBackgroundOpacity',
+    setting: 'subtitleNativeBlurStrength' | 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBackgroundOpacity',
     label: string,
     value: number,
     min: number,
     max: number,
     step: number,
     suffix: string,
+    hidden = false,
 ): string {
     return `
-        <label class="jpdb-subtitle-style-field">
+        <label class="jpdb-subtitle-style-field" data-subtitle-style-field="${setting}" ${hidden ? 'hidden' : ''}>
             <span>${escapeHtml(label)}</span>
             <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
             <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">

@@ -531,6 +531,7 @@ export interface ReaderSettings {
     subtitleOverlayVisibleChosen: boolean;
     subtitleSecondaryVisibleChosen: boolean;
     subtitleNativeBlurred: boolean;
+    subtitleNativeBlurStrength: number;
     subtitleKaraokeMode: boolean;
     subtitleTranscriptVisible: boolean;
     subtitlePausePanel: boolean;

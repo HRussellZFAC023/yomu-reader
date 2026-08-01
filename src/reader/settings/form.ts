@@ -9,7 +9,7 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_SETTINGS, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -64,6 +64,7 @@ import {
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
 import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
+import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
@@ -888,6 +889,12 @@ const SUBTITLE_CONTROLS_MODE_OPTIONS = [
     ['always', 'alwaysVisible'],
 ] as const satisfies SettingsOptionTable;
 
+const NATIVE_SUBTITLE_DISPLAY_OPTIONS = [
+    ['blurred', 'subtitleNativeDisplayBlurred'],
+    ['shown', 'subtitleNativeDisplayShown'],
+    ['hidden', 'subtitleNativeDisplayHidden'],
+] as const satisfies SettingsOptionTable<NativeSubtitleDisplayMode>;
+
 const OCR_PROVIDER_OPTIONS = [
     ['google-lens', 'googleLens'],
     ['cloud-vision', 'cloudVision'],
@@ -1251,8 +1258,6 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitlePlayerEnabled', text('subtitlePlayerEnabled'), settings.subtitlePlayerEnabled)}
                     ${checkbox('subtitleAutoDetect', text('subtitleAutoDetect'), settings.subtitleAutoDetect)}
                     ${checkbox('subtitleOverlayVisible', text('subtitleOverlayVisible'), settings.subtitleOverlayVisible)}
-                    ${checkbox('subtitleSecondaryVisible', text('subtitleSecondaryVisible'), settings.subtitleSecondaryVisible)}
-                    ${checkbox('subtitleNativeBlurred', text('subtitleNativeBlurred'), settings.subtitleNativeBlurred)}
                     ${checkbox('subtitleKaraokeMode', text('subtitleKaraokeMode'), settings.subtitleKaraokeMode)}
                     ${checkbox('subtitleTranscriptVisible', text('subtitleTranscriptVisible'), settings.subtitleTranscriptVisible)}
                     ${checkbox('subtitlePausePanel', text('subtitlePausePanel'), settings.subtitlePausePanel)}
@@ -1264,6 +1269,8 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleHoverPause', text('subtitleHoverPause'), settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
+                    ${select('subtitleNativeDisplay', text('subtitleNativeDisplay'), nativeSubtitleDisplayMode(settings), localizedOptions(text, NATIVE_SUBTITLE_DISPLAY_OPTIONS))}
+                    ${input('subtitleNativeBlurStrength', text('subtitleNativeBlurStrength'), String(settings.subtitleNativeBlurStrength), 'number')}
                     ${input('subtitleTranscriptAutoScrollResumeSeconds', text('subtitleTranscriptAutoScrollResumeSeconds'), String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
                     ${select('subtitleControlsMode', text('subtitleControlsMode'), settings.subtitleControlsMode, localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS))}
                     ${input('subtitleFontSize', text('subtitleFontSize'), String(settings.subtitleFontSize), 'number')}
@@ -1926,6 +1933,7 @@ function localizeMediaSettingsSelects(form: HTMLFormElement, text: SettingsText)
     setSelectOptionLabels(form, 'immersionKitSort', localizedOptions(text, IMMERSION_KIT_SORT_OPTIONS));
     localizeOcrSettingsSelects(form, text);
     setSelectOptionLabels(form, 'subtitleControlsMode', localizedOptions(text, SUBTITLE_CONTROLS_MODE_OPTIONS));
+    setSelectOptionLabels(form, 'subtitleNativeDisplay', localizedOptions(text, NATIVE_SUBTITLE_DISPLAY_OPTIONS));
     setSelectOptionLabels(form, 'subtitleTranscriptPlacement', [
         ['right', text('right')],
         ['left', text('left')],
@@ -2420,7 +2428,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrOverlayTheme', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
-    'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
+    'subtitleOverlayVisible', 'subtitleNativeDisplay', 'subtitleNativeBlurStrength', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
     'subtitlePausePanel', 'subtitleShadowAutoPause', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
     'subtitleHoverPause', 'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
@@ -2881,7 +2889,7 @@ export function syncFontFamilyControls(form: HTMLFormElement): void {
 export function syncSubtitlePreview(form: HTMLFormElement): void {
     const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]');
     if (!preview) return;
-    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement>(form, name)?.value || fallback;
+    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement | HTMLSelectElement>(form, name)?.value || fallback;
     const numberValue = (name: string, fallback: number) => {
         const number = Number(value(name, String(fallback)));
         return Number.isFinite(number) ? number : fallback;
@@ -2898,6 +2906,19 @@ export function syncSubtitlePreview(form: HTMLFormElement): void {
     );
     preview.style.setProperty('--subtitle-family', formFontFamilyValue(form, 'subtitleFontFamily', 'system-ui'));
     preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 760)))));
+    const nativeDisplay = value('subtitleNativeDisplay', 'blurred');
+    const nativeBlurStrength = Math.max(4, Math.min(20, numberValue('subtitleNativeBlurStrength', DEFAULT_SETTINGS.subtitleNativeBlurStrength)));
+    preview.style.setProperty('--subtitle-native-blur-radius', `${nativeBlurStrength}px`);
+    preview.style.setProperty('--subtitle-native-blur-outer-radius', `${nativeBlurStrength + 4}px`);
+    const nativePreview = preview.querySelector<HTMLElement>('.jpdb-subtitle-secondary');
+    if (nativePreview) {
+        nativePreview.hidden = nativeDisplay === 'hidden';
+        nativePreview.classList.toggle('jpdb-subtitle-secondary-blurred', nativeDisplay === 'blurred');
+        nativePreview.classList.toggle('jpdb-subtitle-secondary-clear', nativeDisplay === 'shown');
+    }
+    const nativeBlurStrengthInput = getNamedControl<HTMLInputElement>(form, 'subtitleNativeBlurStrength');
+    const nativeBlurStrengthField = nativeBlurStrengthInput?.closest<HTMLElement>('label');
+    if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== 'blurred';
     syncSubtitlePreviewColorClasses(form, preview);
 }
 

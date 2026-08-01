@@ -17,6 +17,8 @@ export const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
     'subtitleSecondaryVisible',
     'subtitleOverlayVisibleChosen',
     'subtitleSecondaryVisibleChosen',
+    'subtitleNativeBlurred',
+    'subtitleNativeBlurStrength',
 ] as const satisfies readonly (keyof ReaderSettings)[];
 
 export type AutomationProtectedSettingsKey = typeof AUTOMATION_PROTECTED_SETTINGS_KEYS[number];

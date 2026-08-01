@@ -89,6 +89,12 @@ import {
 } from './subtitle-panel-actions';
 import { applySubtitleNativeTrackModes } from './subtitle-native-track-modes';
 import {
+    applyNativeSubtitleDisplayMode,
+    isNativeSubtitleDisplayMode,
+    nativeSubtitleDisplayMode,
+} from './native-subtitle-display';
+import { positionSubtitleStylePopover } from './subtitle-style-popover';
+import {
     canUseDomCaptionFallback as canUseSubtitleDomCaptionFallback,
     mutationCouldAffectVideoDiscovery,
     mutationInsideReaderRoot,
@@ -274,7 +280,7 @@ interface SubtitlePlayerOptions {
     mineBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[]) => Promise<number>;
     gradeBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[], grade: JPDBGrade) => Promise<number>;
     toast?: (message: string) => void;
-    onSettingsChange: () => void;
+    onSettingsChange: (explicitUserChoiceKeys?: readonly (keyof ReaderSettings)[]) => void;
 }
 
 interface TranscriptPanelOptions {
@@ -813,7 +819,7 @@ function normalizeHostedSubtitleOpenPanel(value: unknown): HostedSubtitleFileLoa
     return value === 'lines' || value === 'tracks' || value === 'auto' || value === false ? value : 'auto';
 }
 
-type SubtitleStyleNumberSetting = 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity';
+type SubtitleStyleNumberSetting = 'subtitleNativeBlurStrength' | 'subtitleFontSize' | 'subtitleFontWeight' | 'subtitleBottomOffset' | 'subtitleBackgroundOpacity';
 
 function updateNumberSetting(
     settings: ReaderSettings,
@@ -1397,6 +1403,7 @@ export class SubtitlePlayerController {
     private syncRootStyleSettings(settings: ReaderSettings): void {
         if (!this.root) return;
         this.syncRootFontSize(settings);
+        this.syncNativeSubtitleBlurStrength(settings);
         this.applyEffectiveSubtitleBottom();
         this.syncSubtitleDragOffsetStyle();
         this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
@@ -1404,6 +1411,16 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-background-rgba', accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
         this.root.style.setProperty('--subtitle-family', settings.subtitleFontFamily);
         this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
+    }
+
+    private syncNativeSubtitleBlurStrength(settings: ReaderSettings): void {
+        const radius = settings.subtitleNativeBlurStrength;
+        const outerRadius = radius + 4;
+        for (const surface of [this.root, this.transcriptPanel]) {
+            if (!surface) continue;
+            setStylePropertyIfChanged(surface, '--subtitle-native-blur-radius', `${radius}px`);
+            setStylePropertyIfChanged(surface, '--subtitle-native-blur-outer-radius', `${outerRadius}px`);
+        }
     }
 
     private syncRootFontSize(settings: ReaderSettings): void {
@@ -1488,7 +1505,10 @@ export class SubtitlePlayerController {
         this.root = root;
         this.subtitleControlRail = bindSubtitleControlRail(
             root,
-            () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
+            () => {
+                this.showControlsTemporarily({ independentOfPlayerChrome: true });
+                if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
+            },
             { getReservedRects: () => this.nativePlayerControlSafeZones() },
         ) ?? undefined;
         this.bindSubtitleDragHandle();
@@ -3638,7 +3658,7 @@ export class SubtitlePlayerController {
         this.syncRootStyleSettings(this.options.getSettings());
         this.syncSubtitleStyleControls();
         this.render();
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(this.subtitleStyleExplicitChoiceKeys(target));
         this.showControlsTemporarily();
     }
 
@@ -3775,6 +3795,10 @@ export class SubtitlePlayerController {
     private applySubtitleStyleControlValue(control: HTMLInputElement | HTMLSelectElement): boolean {
         const settings = this.options.getSettings();
         const setting = control.dataset.subtitleStyleSetting;
+        if (setting === 'subtitleNativeDisplay' && isNativeSubtitleDisplayMode(control.value)) {
+            return applyNativeSubtitleDisplayMode(settings, control.value);
+        }
+        if (setting === 'subtitleNativeBlurStrength') return updateNumberSetting(settings, 'subtitleNativeBlurStrength', control.value, 4, 20);
         if (setting === 'subtitleFontSize') return updateNumberSetting(settings, 'subtitleFontSize', control.value, 16, 64);
         if (setting === 'subtitleFontWeight') return updateNumberSetting(settings, 'subtitleFontWeight', control.value, 300, 900);
         if (setting === 'subtitleBackgroundOpacity') return updateNumberSetting(settings, 'subtitleBackgroundOpacity', control.value, 0, 0.7);
@@ -3799,6 +3823,23 @@ export class SubtitlePlayerController {
         return false;
     }
 
+    private subtitleStyleExplicitChoiceKeys(control: HTMLInputElement | HTMLSelectElement): readonly (keyof ReaderSettings)[] {
+        switch (control.dataset.subtitleStyleSetting) {
+            case 'subtitleNativeDisplay':
+                return ['subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen', 'subtitleNativeBlurred'];
+            case 'subtitleNativeBlurStrength':
+            case 'subtitleFontSize':
+            case 'subtitleFontWeight':
+            case 'subtitleBackgroundOpacity':
+            case 'subtitleFontFamily':
+            case 'subtitleHoverPause':
+            case 'subtitleMiningPause':
+                return [control.dataset.subtitleStyleSetting];
+            default:
+                return [];
+        }
+    }
+
     private resetSubtitleStyleDefaults(): void {
         const settings = this.options.getSettings();
         let changed = false;
@@ -3809,6 +3850,8 @@ export class SubtitlePlayerController {
         };
         reset('subtitleFontSize');
         reset('subtitleFontWeight');
+        if (applyNativeSubtitleDisplayMode(settings, 'blurred')) changed = true;
+        reset('subtitleNativeBlurStrength');
         reset('subtitleBottomOffset');
         reset('subtitleBackgroundOpacity');
         reset('subtitleFontFamily');
@@ -3818,7 +3861,19 @@ export class SubtitlePlayerController {
         this.syncRootStyleSettings(settings);
         this.syncSubtitleStyleControls();
         this.render();
-        if (changed) this.options.onSettingsChange();
+        if (changed) this.options.onSettingsChange([
+            'subtitleSecondaryVisible',
+            'subtitleSecondaryVisibleChosen',
+            'subtitleNativeBlurred',
+            'subtitleNativeBlurStrength',
+            'subtitleFontSize',
+            'subtitleFontWeight',
+            'subtitleBottomOffset',
+            'subtitleBackgroundOpacity',
+            'subtitleFontFamily',
+            'subtitleMiningPause',
+            'subtitleHoverPause',
+        ]);
         this.showControlsTemporarily();
     }
 
@@ -5968,7 +6023,8 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
         const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
-        this.options.onSettingsChange();
+        this.syncSubtitleStyleControls();
+        this.options.onSettingsChange(['subtitleNativeBlurred']);
         if (!appliedInline) this.render();
     }
 
@@ -6133,6 +6189,12 @@ export class SubtitlePlayerController {
         const popover = this.root.querySelector<HTMLElement>('[data-subtitle-style-popover]');
         if (!popover) return;
         popover.hidden = !open;
+        const nativeDisplay = nativeSubtitleDisplayMode(settings);
+        const nativeDisplaySelect = popover.querySelector<HTMLSelectElement>('[data-subtitle-style-setting="subtitleNativeDisplay"]');
+        if (nativeDisplaySelect && nativeDisplaySelect.value !== nativeDisplay) nativeDisplaySelect.value = nativeDisplay;
+        const nativeBlurStrengthField = popover.querySelector<HTMLElement>('[data-subtitle-style-field="subtitleNativeBlurStrength"]');
+        if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== 'blurred';
+        syncSubtitleStyleRangeControl(popover, 'subtitleNativeBlurStrength', settings.subtitleNativeBlurStrength, 'px');
         syncSubtitleStyleRangeControl(popover, 'subtitleFontSize', settings.subtitleFontSize, 'px');
         syncSubtitleStyleRangeControl(popover, 'subtitleFontWeight', settings.subtitleFontWeight, 'weight');
         syncSubtitleStyleRangeControl(popover, 'subtitleBackgroundOpacity', settings.subtitleBackgroundOpacity, '');
@@ -6142,6 +6204,8 @@ export class SubtitlePlayerController {
         if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
         const miningPause = popover.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleMiningPause"]');
         if (miningPause) miningPause.checked = settings.subtitleMiningPause;
+        const rail = this.root.querySelector<HTMLElement>('.jpdb-subtitle-rail');
+        if (open && rail) positionSubtitleStylePopover(popover, rail);
     }
 
     private schedulePauseTranscriptPanelSync(): void {

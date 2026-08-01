@@ -432,6 +432,33 @@ describe('settings form localization', () => {
         expect(dictionaryStatus.getAttribute('aria-live')).toBe('polite');
     });
 
+    it('previews native translation display mode and concealment strength', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            subtitleSecondaryVisible: true,
+            subtitleNativeBlurred: true,
+            subtitleNativeBlurStrength: 17,
+        }, 'https://jpdb.io/settings');
+
+        syncSubtitlePreview(form);
+
+        const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]')!;
+        const native = preview.querySelector<HTMLElement>('.jpdb-subtitle-secondary')!;
+        const mode = form.querySelector<HTMLSelectElement>('select[name="subtitleNativeDisplay"]')!;
+        const strength = form.querySelector<HTMLInputElement>('input[name="subtitleNativeBlurStrength"]')!;
+        expect(mode.value).toBe('blurred');
+        expect(native.classList.contains('jpdb-subtitle-secondary-blurred')).toBe(true);
+        expect(preview.style.getPropertyValue('--subtitle-native-blur-radius')).toBe('17px');
+        expect(strength.closest<HTMLElement>('label')?.hidden).toBe(false);
+
+        mode.value = 'hidden';
+        syncSubtitlePreview(form);
+
+        expect(native.hidden).toBe(true);
+        expect(strength.closest<HTMLElement>('label')?.hidden).toBe(true);
+    });
+
     it('exposes video-safe autoplay and popover dimming settings', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');

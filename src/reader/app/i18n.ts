@@ -470,6 +470,11 @@ const COPY = {
         subtitleOverlayVisible: 'Show subtitle overlay',
         subtitleSecondaryVisible: 'Show native subtitles',
         subtitleNativeBlurred: 'Blur native subtitles until hover',
+        subtitleNativeDisplay: 'Translation',
+        subtitleNativeDisplayBlurred: 'Blur until reveal (recommended)',
+        subtitleNativeDisplayShown: 'Always show',
+        subtitleNativeDisplayHidden: 'Hide completely',
+        subtitleNativeBlurStrength: 'Blur strength',
         subtitleKaraokeMode: 'Karaoke word timing',
         subtitleTranscriptVisible: 'Open transcript panel by default',
         subtitlePausePanel: 'Open side panel when paused',
@@ -2189,6 +2194,11 @@ subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
 subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
 subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
+subtitleNativeDisplay	母語訳
+subtitleNativeDisplayBlurred	表示するまでぼかす（おすすめ）
+subtitleNativeDisplayShown	常に表示
+subtitleNativeDisplayHidden	完全に隠す
+subtitleNativeBlurStrength	ぼかしの強さ
 subtitleKaraokeMode	カラオケ風の単語タイミング
 subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く

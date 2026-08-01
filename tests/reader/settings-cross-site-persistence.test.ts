@@ -166,6 +166,37 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).annotationsPaused).toBe(false);
     });
 
+    it('does not let a stale tab overwrite an explicit native-translation mode or blur strength', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings({
+            ...staleSettings,
+            subtitleSecondaryVisible: true,
+            subtitleSecondaryVisibleChosen: true,
+            subtitleNativeBlurred: false,
+            subtitleNativeBlurStrength: 18,
+        }, {
+            explicitUserChoiceKeys: [
+                'subtitleSecondaryVisible',
+                'subtitleSecondaryVisibleChosen',
+                'subtitleNativeBlurred',
+                'subtitleNativeBlurStrength',
+            ],
+        });
+
+        await saveSettings({ ...staleSettings, theme: 'dark' });
+
+        expect(await loadSettings()).toMatchObject({
+            subtitleSecondaryVisible: true,
+            subtitleSecondaryVisibleChosen: true,
+            subtitleNativeBlurred: false,
+            subtitleNativeBlurStrength: 18,
+            theme: 'dark',
+        });
+    });
+
     it('keeps a YouTube opt-in value coupled to its explicit-choice flag', async () => {
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);

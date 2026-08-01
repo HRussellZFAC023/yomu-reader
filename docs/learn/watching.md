@@ -13,6 +13,8 @@ Choose a video where you can follow the scene before you understand every line. 
 
 Yomu draws a Japanese subtitle line over the site's own player. Every word can open the same popup you use on a page. A second subtitle track can sit underneath when you need support.
 
+Choose how much help that native translation gives you: **Blur until reveal** keeps it available on hover, keyboard focus or tap; **Always show** keeps it readable; **Hide completely** removes it and its space. Blur until reveal is the recommended starting point. Its concealment-strength slider sits in the subtitle-style control beside subtitle size, and Yomu remembers the choice across videos and sites.
+
 Open the transcript to see the active line in context and jump back to something you missed. The panel can sit beside or below the player, follows the current cue and becomes a bottom sheet on a phone. Locate returns it to the current line after you scroll away.
 
 The Shadow tab holds one line. Replay it, loop it, hide the text, say it aloud and reveal it again. Previous-line, next-line, copy and mine shortcuts keep your hands off the mouse.

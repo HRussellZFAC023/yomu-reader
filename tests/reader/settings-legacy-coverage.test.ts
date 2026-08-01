@@ -21,4 +21,11 @@ describe('legacy settings migration coverage', () => {
     it('passes valid subtitleControlsMode values through', () => {
         expect(normalizeReaderSettings({ subtitleControlsMode: 'hidden' }).subtitleControlsMode).toBe('hidden');
     });
+
+    it('defaults and clamps native subtitle concealment strength', () => {
+        expect(normalizeReaderSettings({}).subtitleNativeBlurStrength).toBe(12);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 2 }).subtitleNativeBlurStrength).toBe(4);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 99 }).subtitleNativeBlurStrength).toBe(20);
+        expect(normalizeReaderSettings({ subtitleNativeBlurStrength: 17 }).subtitleNativeBlurStrength).toBe(17);
+    });
 });
