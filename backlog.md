@@ -1843,7 +1843,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       `raw.githubusercontent.com/FooSoft/yomichan/dictionaries/kanjium_pitch_accents.zip` — an archived
       repository.
 
-- [ ] **A49 — Anki auto-mapping corrupts a non-Japanese learner's own deck, and the fix needs the NAME
+- [x] **A49 — Anki auto-mapping corrupts a non-Japanese learner's own deck, and the fix needs the NAME
       signal, not just the script one.** Measured on main 2026-07-31 in `src/reader/anki/field-mapping.ts`.
       `ANKI_TEXT_ROLE_SCORERS` (`:349-368`) keys every text role on `hasJapanese`:
       - `expression` and `sentence` return **0 unless `hasJapanese`**, and `reading` does too, so for any
@@ -1865,7 +1865,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Verify against a real generic deck per script class: same-script (es→en), different-script (ru→en),
       and Japanese unchanged.
 
-- [ ] **A50 — every mined card for a space-separated language carries a fragment, and Latin sentences are
+- [x] **A50 — every mined card for a space-separated language carries a fragment, and Latin sentences are
       never split on a full stop.** Measured on main 2026-07-31 in `src/reader/dom/reader-word.ts`. Two
       defects compound, and the audit (b11) only names the first:
       1. **Every space is treated as a sentence boundary.** `isStrongWhitespaceBoundary` (`:403-409`) returns

@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.90c7fcd4d653.user.js#sha256=kMf81NZTQZTKv/aihSzSBUwoq5Q9JovxJXKUEljAPL8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c58517618c5d.user.js#sha256=xYUXYYxddfKlrwR2viyT3UNLE41JrtQaZOF7PFxzf5w=
 // @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -5001,14 +5001,16 @@ function hardBoundedSentenceRange(text2, start, end) {
   };
 }
 function sentenceStartIndex(text2, index) {
+  const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
   for (let i = index - 1; i >= 0; i--) {
-  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+  if (terminators.has(text2[i] ?? "")) return i + 1;
   }
   return 0;
 }
 function sentenceEndIndex(text2, index) {
+  const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
   for (let i = index; i < text2.length; i++) {
-  if (/[。！？!?]/u.test(text2[i] ?? "")) return i + 1;
+  if (terminators.has(text2[i] ?? "")) return i + 1;
   }
   return text2.length;
 }
@@ -5037,7 +5039,7 @@ function trimSoftSentenceBoundaryAroundRange(sentence, start, end) {
 }
 function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
   if (!trimmed || trimmed === clean) return false;
-  return clean.length > 48 || /[。！？!?]/u.test(omitted);
+  return clean.length > 48 || activeLearningTarget().sentenceBoundaries.terminators.some((mark) => omitted.includes(mark));
 }
 function softBoundaryStart(text2, index) {
   for (let i = index - 1; i >= 0; i--) {
@@ -5052,6 +5054,7 @@ function softBoundaryEnd(text2, index) {
   return text2.length;
 }
 function isStrongWhitespaceBoundary(text2, index) {
+  if (!activeLearningTarget().sentenceBoundaries.whitespaceIsBoundary) return false;
   const char = text2[index] ?? "";
   if (!/\s/u.test(char)) return false;
   const before = text2.slice(Math.max(0, index - 24), index);
@@ -5359,212 +5362,6 @@ function redactString(value) {
 if (typeof window !== "undefined") {
   window.__YOMU_LOGGER__ = Logger;
   window.YomuLogger = Logger;
-}
-const ankiFieldNames = (names) => names.split("|");
-const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-  "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-);
-const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-  "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-);
-ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-[
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  "Expression Reading",
-  "Japanese Expression",
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-[
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-ankiFieldNames(
-  "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-);
-ankiFieldNames(
-  "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-);
-ankiFieldNames(
-  "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-);
-ankiFieldNames(
-  "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-);
-const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-  "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-);
-ankiFieldNames(
-  "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-);
-function normalizeAnkiFieldName(value) {
-  return value.replace(/[_\s-]+/g, "").toLowerCase();
-}
-const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
-function isSentenceAudioFieldName(fieldName) {
-  return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
-}
-const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
-function normalizeAnkiFieldMappings(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const out = {};
-  Object.entries(value).forEach(([modelName, mapping]) => {
-  const normalizedModelName = modelName.trim();
-  if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-  const normalizedMapping = {};
-  for (const role of ANKI_FIELD_MAPPING_ROLES) {
-    const fieldName = mapping[role];
-    if (typeof fieldName !== "string") continue;
-    const normalizedFieldName = fieldName.trim();
-    if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-  }
-  if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-  });
-  return out;
-}
-function migrateAnkiSentenceAudioMappings(mappings) {
-  const out = {};
-  const movedModels = [];
-  for (const [modelName, mapping] of Object.entries(mappings)) {
-  const audioField = mapping.audio?.trim() ?? "";
-  if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
-    out[modelName] = mapping;
-    continue;
-  }
-  const { audio: _audio, ...rest } = mapping;
-  out[modelName] = { ...rest, sentenceAudio: audioField };
-  movedModels.push(modelName);
-  }
-  return { mappings: out, movedModels };
-}
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
-  ];
-}
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accentToRgba(color, alpha) {
-  const safe = sanitizeAccentColor(color);
-  const red = parseInt(safe.slice(1, 3), 16);
-  const green = parseInt(safe.slice(3, 5), 16);
-  const blue = parseInt(safe.slice(5, 7), 16);
-  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  const numericOpacity = Number(opacity);
-  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
-  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-}
-const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
-  DEFAULT_ACCENT_COLOR,
-  DEFAULT_OCR_BACKGROUND_OPACITY
-);
-function hasOwn(value, key) {
-  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
-}
-function objectRecord$2(value) {
-  return value && typeof value === "object" ? value : null;
-}
-function trimmedText(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-function stringValue(value) {
-  return typeof value === "string" ? value : "";
-}
-function finiteNumber$1(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-function booleanValue(value, fallback) {
-  return typeof value === "boolean" ? value : fallback;
-}
-const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
-function isSupportedLanguageProfileSchemaVersion(value) {
-  return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
-}
-function canonicalLanguageTag(value) {
-  if (typeof value !== "string") return null;
-  const candidate = value.trim().replace(/_/g, "-");
-  if (!candidate || candidate.length > 255) return null;
-  try {
-  return Intl.getCanonicalLocales(candidate)[0] ?? null;
-  } catch {
-  return null;
-  }
-}
-function languageSubtag(value) {
-  const canonical = canonicalLanguageTag(value);
-  if (!canonical) return null;
-  try {
-  return new Intl.Locale(canonical).language;
-  } catch {
-  return canonical.split("-")[0]?.toLowerCase() ?? null;
-  }
-}
-function languageDisplayName(language, locale = "en") {
-  try {
-  return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
-  } catch {
-  return language;
-  }
 }
 const languages = [
   {
@@ -5980,6 +5777,32 @@ function learnerLanguageById(id) {
 function isLearnerLanguageId(value) {
   return LEARNER_LANGUAGE_IDS.includes(value);
 }
+function canonicalLanguageTag(value) {
+  if (typeof value !== "string") return null;
+  const candidate = value.trim().replace(/_/g, "-");
+  if (!candidate || candidate.length > 255) return null;
+  try {
+  return Intl.getCanonicalLocales(candidate)[0] ?? null;
+  } catch {
+  return null;
+  }
+}
+function languageSubtag(value) {
+  const canonical = canonicalLanguageTag(value);
+  if (!canonical) return null;
+  try {
+  return new Intl.Locale(canonical).language;
+  } catch {
+  return canonical.split("-")[0]?.toLowerCase() ?? null;
+  }
+}
+function languageDisplayName(language, locale = "en") {
+  try {
+  return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
+  } catch {
+  return language;
+  }
+}
 const SLICE1_TARGET_LANGUAGE = "ja";
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
@@ -6039,6 +5862,186 @@ function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER
   }
   const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
   return canonicalTagForSlice1Language(fallbackId);
+}
+const ankiFieldNames = (names) => names.split("|");
+const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+  "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+);
+const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+  "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+);
+ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+[
+  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+  "Expression Reading",
+  "Japanese Expression",
+  ...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+[
+  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+  ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+  ...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+ankiFieldNames(
+  "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+);
+ankiFieldNames(
+  "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+);
+ankiFieldNames(
+  "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+);
+ankiFieldNames(
+  "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+);
+const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+  "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+);
+ankiFieldNames(
+  "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+);
+function normalizeAnkiFieldName(value) {
+  return value.replace(/[_\s-]+/g, "").toLowerCase();
+}
+const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+function isSentenceAudioFieldName(fieldName) {
+  return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
+}
+const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+function normalizeAnkiFieldMappings(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  Object.entries(value).forEach(([modelName, mapping]) => {
+  const normalizedModelName = modelName.trim();
+  if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
+  const normalizedMapping = {};
+  for (const role of ANKI_FIELD_MAPPING_ROLES) {
+    const fieldName = mapping[role];
+    if (typeof fieldName !== "string") continue;
+    const normalizedFieldName = fieldName.trim();
+    if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+  }
+  if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+  });
+  return out;
+}
+function migrateAnkiSentenceAudioMappings(mappings) {
+  const out = {};
+  const movedModels = [];
+  for (const [modelName, mapping] of Object.entries(mappings)) {
+  const audioField = mapping.audio?.trim() ?? "";
+  if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
+    out[modelName] = mapping;
+    continue;
+  }
+  const { audio: _audio, ...rest } = mapping;
+  out[modelName] = { ...rest, sentenceAudio: audioField };
+  movedModels.push(modelName);
+  }
+  return { mappings: out, movedModels };
+}
+const FALLBACK_HEX_COLOR = "#000000";
+function normalizeHexColor(color) {
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+}
+function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+  const l1 = relativeLuminance(a, normalizeColor);
+  const l2 = relativeLuminance(b, normalizeColor);
+  const light = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (light + 0.05) / (dark + 0.05);
+}
+function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+  const channel = value / 255;
+  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+  const a = sharedHexToRgb(from, normalizeColor);
+  const b = sharedHexToRgb(to, normalizeColor);
+  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+  const safe = normalizeHexColor(normalizeColor(color));
+  return [
+  parseInt(safe.slice(1, 3), 16),
+  parseInt(safe.slice(3, 5), 16),
+  parseInt(safe.slice(5, 7), 16)
+  ];
+}
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+  if (!shortHex) return fallback;
+  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+function accentToRgba(color, alpha) {
+  const safe = sanitizeAccentColor(color);
+  const red = parseInt(safe.slice(1, 3), 16);
+  const green = parseInt(safe.slice(3, 5), 16);
+  const blue = parseInt(safe.slice(5, 7), 16);
+  return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+function accessibleOcrBackgroundOpacity(opacity) {
+  const numericOpacity = Number(opacity);
+  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+}
+function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+  const accent = sanitizeAccentColor(accentColor);
+  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+  return accent;
+  }
+  for (let amount = 0.08; amount <= 1; amount += 0.04) {
+  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+    return candidate;
+  }
+  }
+  return "#000000";
+}
+function ocrRenderedBackgroundContrast(color, opacity) {
+  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+}
+const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
+  DEFAULT_ACCENT_COLOR,
+  DEFAULT_OCR_BACKGROUND_OPACITY
+);
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$2(value) {
+  return value && typeof value === "object" ? value : null;
+}
+function trimmedText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function stringValue(value) {
+  return typeof value === "string" ? value : "";
+}
+function finiteNumber$1(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+function booleanValue(value, fallback) {
+  return typeof value === "boolean" ? value : fallback;
+}
+const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+function isSupportedLanguageProfileSchemaVersion(value) {
+  return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;

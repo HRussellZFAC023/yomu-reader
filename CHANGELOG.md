@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Anki field suggestions and mined sentence context now follow the selected reading language. Space-separated targets keep complete sentences at their own punctuation, language-named fields map safely, and targets without a separate reading form no longer receive an empty reading suggestion. Japanese mining remains unchanged.
+
 ## [1.8.62] - 2026-07-31
 
 ### Fixed

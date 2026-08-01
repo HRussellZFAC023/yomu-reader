@@ -61,6 +61,10 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
         readingAnnotation: 'furigana',
     },
     grammar: JAPANESE_GRAMMAR,
+    sentenceBoundaries: {
+        terminators: ['。', '！', '？', '!', '?'],
+        whitespaceIsBoundary: true,
+    },
     typography: {
         contentLocale: 'ja',
         readingAnnotationMode: 'ruby',

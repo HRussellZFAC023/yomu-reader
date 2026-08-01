@@ -12,6 +12,7 @@ and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 - Annotation Pass: One lossless, coalescing scan of a Reader Surface. Ordinary page mutations and lookups may queue another pass but never discard the active pass; only an explicit reader shutdown or annotations-off transition cancels it. Each parse batch preserves one result per input and isolates fallback from later batches.
 - Lookup: Turning Japanese text at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
 - Mining Context: The sentence, source title, source URL, and optional image captured with a card for JPDB or Anki.
+- Target Sentence Boundary: The active learning target's terminator set and whitespace policy used to isolate Mining Context. A written word separator is never a sentence boundary; Japanese preserves its established punctuation and section-whitespace behaviour.
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.
 - Study Card Identity: The canonical local and synced vocabulary identity `[expression, reading, partOfSpeech, language]`. Empty trailing fields are elided and Japanese is the default language, so legacy Japanese keys remain byte-identical while non-Japanese cards retain an explicit language slot.
 - Target-scoped Study Queue: A Study queue filtered to the active learning target before provider caps, reading normalization, deduplication, or fallback selection. Card-owned morphology still resolves from each card's identity rather than ambient UI state.

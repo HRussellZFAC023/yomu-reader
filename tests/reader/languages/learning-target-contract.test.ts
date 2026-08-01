@@ -98,6 +98,7 @@ describe('LearningTargetModule contract revision', () => {
             'ocr',
             'pointerWordSegments',
             'segment',
+            'sentenceBoundaries',
             'subtitles',
             'typing',
             'typography',

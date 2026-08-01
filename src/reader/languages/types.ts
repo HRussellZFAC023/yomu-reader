@@ -313,6 +313,12 @@ export interface LearningTargetModule {
     readonly ocr: LearningTargetOcr;
     readonly subtitles: LearningTargetSubtitles;
     readonly grammar: LearningTargetGrammar;
+    /** Target-owned sentence extraction rules used by mining context. */
+    readonly sentenceBoundaries: {
+        readonly terminators: readonly string[];
+        /** True when whitespace inside target text is a section break, not a word separator. */
+        readonly whitespaceIsBoundary: boolean;
+    };
 
     /**
      * Whether this target's own segmentation is where a dictionary lookup may

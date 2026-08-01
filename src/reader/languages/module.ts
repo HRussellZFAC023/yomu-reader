@@ -45,6 +45,7 @@ export interface LearningTargetSpec {
     audio?: Partial<LearningTargetAudio>;
     ocr?: Partial<LearningTargetOcr>;
     subtitles?: Partial<LearningTargetSubtitles>;
+    sentenceBoundaries?: Partial<LearningTargetModule['sentenceBoundaries']>;
     /**
      * Defaults to true — a target's segments are its words, so a dictionary
      * lookup starts where one starts. Declare false only for a target whose
@@ -136,6 +137,10 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
             languageAliases: Object.freeze([...(spec.subtitles?.languageAliases ?? [])]),
         }),
         grammar,
+        sentenceBoundaries: Object.freeze({
+            terminators: Object.freeze([...(spec.sentenceBoundaries?.terminators ?? ['.', '!', '?'])]),
+            whitespaceIsBoundary: spec.sentenceBoundaries?.whitespaceIsBoundary ?? false,
+        }),
 
         lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
         ...(spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {}),

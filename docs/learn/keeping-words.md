@@ -15,7 +15,7 @@ A saved word can carry the word, reading, meaning and source sentence. Video and
 
 Send the card to Yomu's local deck, Anki, Jiten, Bunpro or JPDB. WaniKani can supply its kanji and vocabulary state. The popup shows what each connected source already knows so you do not start a duplicate pile by accident.
 
-Anki note fields are yours. Yomu can fill the expression, reading, definition, sentence, audio and image fields you map. Mobile handoff can open a new card in AnkiMobile or AnkiDroid; full deck scanning and updates use desktop AnkiConnect.
+Anki note fields are yours. Yomu can fill the expression, reading (when the selected language has one), definition, sentence, audio and image fields you map. Automatic suggestions recognise the selected language's English name and endonym, and mined context uses that language's sentence punctuation. Mobile handoff can open a new card in AnkiMobile or AnkiDroid; full deck scanning and updates use desktop AnkiConnect.
 
 ## Open Study
 

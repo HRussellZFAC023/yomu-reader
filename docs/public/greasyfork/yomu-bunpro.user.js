@@ -7998,6 +7998,10 @@ function createLearningTargetModule(spec) {
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
   grammar,
+  sentenceBoundaries: Object.freeze({
+    terminators: Object.freeze([...spec.sentenceBoundaries?.terminators ?? [".", "!", "?"]]),
+    whitespaceIsBoundary: spec.sentenceBoundaries?.whitespaceIsBoundary ?? false
+  }),
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
   ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
@@ -8549,6 +8553,10 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   readingAnnotation: "furigana"
   },
   grammar: JAPANESE_GRAMMAR,
+  sentenceBoundaries: {
+  terminators: ["。", "！", "？", "!", "?"],
+  whitespaceIsBoundary: true
+  },
   typography: {
   contentLocale: "ja",
   readingAnnotationMode: "ruby",
@@ -9805,6 +9813,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     grammar: grammarForRosterTarget(language.id),
+    sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
@@ -9821,6 +9830,12 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   });
   })
 );
+function sentenceBoundariesForScripts(scripts) {
+  const has = (script) => scripts.includes(script);
+  const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+  const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+  return { terminators, whitespaceIsBoundary };
+}
 function ocrHintFor(runtimeLocale) {
   const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
   return hint ? { languageHint: hint } : void 0;
@@ -10052,6 +10067,60 @@ if (typeof window !== "undefined") {
   window.__YOMU_LOGGER__ = Logger;
   window.YomuLogger = Logger;
 }
+const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
+const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
+  id: "ja",
+  runtimeLocale: "ja",
+  englishName: "Japanese",
+  nativeName: "日本語",
+  defaultScript: "Jpan",
+  scripts: Object.freeze(["Jpan"]),
+  direction: "ltr",
+  studyTargetReadiness: "full"
+});
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
+Object.freeze([
+  JAPANESE_TARGET_ROSTER_ENTRY,
+  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+  ...language,
+  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+  }))
+]);
+Object.freeze(
+  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+);
+function canonicalTagForSlice1Language(id) {
+  const runtimeLocale = learnerLanguageById(id).runtimeLocale;
+  return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
+}
+function slice1LanguageIdForTag(value) {
+  if (typeof value !== "string") return null;
+  const input = value.trim().toLowerCase().replace(/_/g, "-");
+  const inputBase = input.split("-")[0] ?? "";
+  if (isLearnerLanguageId(inputBase)) return inputBase;
+  const canonical = canonicalLanguageTag(value);
+  if (!canonical) return null;
+  const base = languageSubtag(canonical);
+  if (!base) return null;
+  if (base === "sr" || base === "hr" || base === "bs") return "sh";
+  if (base === "fil") return "tl";
+  return isLearnerLanguageId(base) ? base : null;
+}
+function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
+  if (typeof value === "string") {
+  const input = value.trim().toLowerCase().replace(/_/g, "-");
+  if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
+  }
+  const canonical = canonicalLanguageTag(value);
+  const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
+  if (canonical && canonicalId) {
+  if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
+  return canonical;
+  }
+  const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+  return canonicalTagForSlice1Language(fallbackId);
+}
 const ankiFieldNames = (names) => names.split("|");
 const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
   "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -10164,60 +10233,6 @@ accessibleOcrBackgroundColor(
   DEFAULT_ACCENT_COLOR,
   DEFAULT_OCR_BACKGROUND_OPACITY
 );
-const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-  id: "ja",
-  runtimeLocale: "ja",
-  englishName: "Japanese",
-  nativeName: "日本語",
-  defaultScript: "Jpan",
-  scripts: Object.freeze(["Jpan"]),
-  direction: "ltr",
-  studyTargetReadiness: "full"
-});
-const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
-const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
-Object.freeze([
-  JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
-  ...language,
-  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
-  }))
-]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
-function canonicalTagForSlice1Language(id) {
-  const runtimeLocale = learnerLanguageById(id).runtimeLocale;
-  return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-}
-function slice1LanguageIdForTag(value) {
-  if (typeof value !== "string") return null;
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  const inputBase = input.split("-")[0] ?? "";
-  if (isLearnerLanguageId(inputBase)) return inputBase;
-  const canonical = canonicalLanguageTag(value);
-  if (!canonical) return null;
-  const base = languageSubtag(canonical);
-  if (!base) return null;
-  if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  if (base === "fil") return "tl";
-  return isLearnerLanguageId(base) ? base : null;
-}
-function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
-  if (typeof value === "string") {
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
-  }
-  const canonical = canonicalLanguageTag(value);
-  const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
-  if (canonical && canonicalId) {
-  if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
-  return canonical;
-  }
-  const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-  return canonicalTagForSlice1Language(fallbackId);
-}
 const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
 const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
 function readOutputLanguageField(source) {
