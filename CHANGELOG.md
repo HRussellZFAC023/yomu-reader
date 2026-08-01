@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.68] - 2026-08-01
+
+### Fixed
+
+- Furigana in scrolling panels such as YouTube live chat now moves in the same frame as the underlying text instead of visibly catching up after the scroll.
+
 ## [1.8.67] - 2026-08-01
 
 ### Fixed

@@ -1309,7 +1309,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    leave the reading behind. The box is zero-sized and layout-contained: it is
    only a containing block for the readings inside it, and must not add to the
    page's scrollable area. */
-.jpdb-reader-detached-reading-overlay.jpdb-reader-detached-reading-document-layer {
+.jpdb-reader-detached-reading-overlay:is(
+  .jpdb-reader-detached-reading-document-layer,
+  .jpdb-reader-detached-reading-scroll-layer
+) {
   position: absolute !important;
   inset: auto !important;
   top: 0 !important;
@@ -1317,7 +1320,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   width: 0 !important;
   height: 0 !important;
 }
-.jpdb-reader-projected-furi.jpdb-reader-projected-furi-document {
+.jpdb-reader-projected-furi:is(
+  .jpdb-reader-projected-furi-document,
+  .jpdb-reader-projected-furi-scroll
+) {
   position: absolute !important;
 }
 .jpdb-reader-projected-furi {

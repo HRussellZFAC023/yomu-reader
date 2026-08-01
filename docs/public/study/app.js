@@ -109,7 +109,9 @@
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
-      documentScroll: /* @__PURE__ */ new Map(),
+      projectionLayers: /* @__PURE__ */ new Map(),
+      scrollLayerOrigins: /* @__PURE__ */ new Map(),
+      viewportCoordinateSafety: /* @__PURE__ */ new Map(),
       styleReads: /* @__PURE__ */ new Map()
     };
     overlay.documentLayerOrigin = null;
@@ -122,25 +124,14 @@
     for (const projection of projections) {
       let record2 = records.get(projection.source);
       if (!record2) {
-        const documentSpace = elementScrollsWithDocument(
-          projection.anchor,
-          context.documentScroll,
-          context.styleReads
-        );
         record2 = {
           owner,
           source: projection.source,
           anchor: projection.anchor,
-          clone: createProjectedReading(
-            projection.source,
-            documentSpace ? overlay.documentLayer : overlay.layer,
-            documentSpace
-          ),
+          clone: createProjectedReading(projection.source, overlay.layer),
           measure: projection.measure,
           footprintWidth: 0,
-          footprintHeight: 0,
-          documentSpace,
-          scrollContextEpoch: overlay.scrollContextEpoch
+          footprintHeight: 0
         };
         records.set(projection.source, record2);
         overlay.records.add(record2);
@@ -148,11 +139,13 @@
       } else if (record2.anchor !== projection.anchor) {
         untrackProjectionAnchor(record2, overlay);
         record2.anchor = projection.anchor;
+        record2.scrollContextEpoch = void 0;
         trackProjectionAnchor(record2, overlay);
       }
       record2.measure = projection.measure;
       refreshProjectionAnchorRoot(record2.anchor, overlay);
       syncProjectedReadingStyle(record2);
+      adoptProjectionLayer(record2, context);
       paints.push(readProjectedReadingPaint(record2, projection.rect, context));
     }
     applyProjectionPaints(paints, context);
@@ -205,6 +198,8 @@
       layer,
       documentLayer,
       documentLayerOrigin: null,
+      scrollLayers: /* @__PURE__ */ new Map(),
+      scrolledClippingContainers: /* @__PURE__ */ new WeakSet(),
       records: /* @__PURE__ */ new Set(),
       anchorRecords: /* @__PURE__ */ new Map(),
       anchorRoots: /* @__PURE__ */ new Map(),
@@ -223,6 +218,10 @@
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleScrollRefresh: (event) => {
         if (scrollMovedNoProjectedReading(event, overlay)) return;
+        if (firstClippingContainerScroll(event, overlay)) {
+          overlay.scheduleTopologyRefresh();
+          return;
+        }
         scheduleProjectionRefresh(document2, overlay);
       },
       scheduleTopologyRefresh: () => {
@@ -248,21 +247,71 @@
     overlay.observer = observeProjectionEnvironment(document2, overlay);
     return overlay;
   }
-  function createProjectionLayer(document2, className) {
+  function createProjectionLayer(document2, className, parent = document2.documentElement ?? document2.body, before = null) {
     const layer = document2.createElement("div");
     layer.className = className;
     layer.setAttribute("aria-hidden", "true");
     layer.setAttribute("data-jpdb-reader-surface-ignore", "true");
-    (document2.documentElement ?? document2.body).append(layer);
+    parent.insertBefore(layer, before);
     return layer;
   }
-  function createProjectedReading(source, layer, documentSpace = false) {
+  function ensureScrollProjectionLayer(host, flowAnchored, overlay) {
+    const existing = overlay.scrollLayers.get(host);
+    if (existing) {
+      if (existing.layer.parentNode !== host) {
+        host.insertBefore(existing.layer, host.lastElementChild);
+      } else if (existing.layer === host.lastElementChild && existing.layer.previousElementSibling) {
+        host.insertBefore(existing.layer, existing.layer.previousElementSibling);
+      }
+      configureScrollProjectionLayer(existing.layer, flowAnchored);
+      existing.flowAnchored = flowAnchored;
+      return existing;
+    }
+    const layer = createProjectionLayer(
+      host.ownerDocument,
+      "jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-scroll-layer",
+      host,
+      host.lastElementChild
+    );
+    layer.style.cssText = "all:initial!important;width:0!important;height:0!important;pointer-events:none!important;z-index:2147482000!important;contain:layout style!important";
+    configureScrollProjectionLayer(layer, flowAnchored);
+    const created = {
+      layer,
+      records: /* @__PURE__ */ new Set(),
+      flowAnchored
+    };
+    overlay.scrollLayers.set(host, created);
+    return created;
+  }
+  function configureScrollProjectionLayer(layer, flowAnchored) {
+    const values = {
+      position: flowAnchored ? "relative" : "absolute",
+      inset: "auto",
+      top: flowAnchored ? "auto" : "0",
+      left: flowAnchored ? "auto" : "0",
+      float: flowAnchored ? "left" : "none"
+    };
+    for (const [property, value] of Object.entries(values)) {
+      layer.style.setProperty(property, value, "important");
+    }
+  }
+  function releaseScrollProjectionRecord(record2, overlay) {
+    const host = record2.layerTarget?.mode === "scroll" ? record2.layerTarget.scrollLayerHost : null;
+    if (!host) return;
+    const scrollLayer = overlay.scrollLayers.get(host);
+    scrollLayer?.records.delete(record2);
+    if (scrollLayer && scrollLayer.records.size === 0) {
+      scrollLayer.layer.remove();
+      overlay.scrollLayers.delete(host);
+    }
+  }
+  function createProjectedReading(source, layer) {
     const clone = source.ownerDocument.createElement("span");
     clone.className = "jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projected-furi";
-    if (documentSpace) clone.classList.add("jpdb-reader-projected-furi-document");
     clone.setAttribute("aria-hidden", "true");
     clone.setAttribute(PROJECTED_READING_ATTRIBUTE, "true");
     clone.textContent = source.textContent ?? "";
+    clone.style.cssText = "all:initial!important;display:block!important;width:max-content!important;line-height:1!important;white-space:nowrap!important;word-break:keep-all!important;-webkit-text-fill-color:currentColor!important;pointer-events:none!important;user-select:none!important;-webkit-user-select:none!important";
     layer.append(clone);
     return clone;
   }
@@ -337,8 +386,7 @@
   }
   function positionProjectedReading(record2, rect, context, layout) {
     const { clone } = record2;
-    const documentSpace = context ? adoptProjectionLayer(record2, context) : false;
-    const origin = documentSpace && context ? documentLayerOrigin(context.overlay) : { x: 0, y: 0 };
+    const origin = context ? projectionPaintOrigin(record2, context) : { x: 0, y: 0 };
     const centre = layout?.centre ?? rect.left + rect.width / 2;
     const scaleX = layout?.scaleX ?? 1;
     record2.readingScaleX = scaleX;
@@ -420,7 +468,12 @@
     return Number.isFinite(fontSize) ? fontSize * (record2.clone.textContent ?? "").length : 0;
   }
   function projectionPaintOrigin(record2, context) {
-    return projectionUsesDocumentSpace(record2, context) ? documentLayerOrigin(context.overlay) : { x: 0, y: 0 };
+    const target = record2.layerTarget;
+    if (target?.mode === "document") return documentLayerOrigin(context.overlay);
+    if (target?.mode === "scroll" && target.scrollLayerHost) {
+      return scrollLayerOrigin(target.scrollLayerHost, context);
+    }
+    return { x: 0, y: 0 };
   }
   function graceProjectionRect(record2, context) {
     const stored = record2.lastGoodRect ?? null;
@@ -439,25 +492,43 @@
   }
   function adoptProjectionLayer(record2, context) {
     const { overlay } = context;
-    const documentSpace = projectionUsesDocumentSpace(record2, context);
-    const layer = documentSpace ? overlay.documentLayer : overlay.layer;
-    if (record2.clone.parentElement !== layer) layer.append(record2.clone);
-    record2.clone.classList.toggle("jpdb-reader-projected-furi-document", documentSpace);
-    return documentSpace;
-  }
-  function projectionUsesDocumentSpace(record2, context) {
-    const { overlay } = context;
-    if (record2.scrollContextEpoch === overlay.scrollContextEpoch && record2.documentSpace !== void 0) {
-      return record2.documentSpace;
-    }
-    const documentSpace = elementScrollsWithDocument(
-      record2.anchor,
-      context.documentScroll,
-      context.styleReads
-    );
+    const target = projectionLayerTargetForRecord(record2, context);
+    const previous = record2.layerTarget;
+    const sameScrollTarget = target.mode !== "scroll" || target.scrollLayerHost === previous?.scrollLayerHost && Boolean(target.flowScrollContainer) === Boolean(previous?.flowScrollContainer);
+    const sameTarget = target.mode === previous?.mode && sameScrollTarget;
     record2.scrollContextEpoch = overlay.scrollContextEpoch;
-    record2.documentSpace = documentSpace;
-    return documentSpace;
+    if (sameTarget && projectionLayerIsIntact(record2, target, overlay)) return;
+    if (!sameTarget) releaseScrollProjectionRecord(record2, overlay);
+    let layer = overlay.layer;
+    if (target.mode === "document") {
+      layer = overlay.documentLayer;
+    } else if (target.mode === "scroll" && target.scrollLayerHost) {
+      const scrollLayer = ensureScrollProjectionLayer(
+        target.scrollLayerHost,
+        Boolean(target.flowScrollContainer),
+        overlay
+      );
+      scrollLayer.records.add(record2);
+      layer = scrollLayer.layer;
+    }
+    if (record2.clone.parentElement !== layer) layer.append(record2.clone);
+    record2.layerTarget = target;
+    record2.clone.style.setProperty("position", target.mode === "viewport" ? "fixed" : "absolute", "important");
+    record2.clone.classList.toggle("jpdb-reader-projected-furi-document", target.mode === "document");
+    record2.clone.classList.toggle("jpdb-reader-projected-furi-scroll", target.mode === "scroll");
+  }
+  function projectionLayerIsIntact(record2, target, overlay) {
+    const { clone } = record2;
+    if (target.mode === "viewport") return clone.parentElement === overlay.layer;
+    if (target.mode === "document") return clone.parentElement === overlay.documentLayer;
+    const host = target.scrollLayerHost;
+    const scrollLayer = host ? overlay.scrollLayers.get(host) : void 0;
+    return Boolean(scrollLayer && scrollLayer.layer.parentNode === host && (scrollLayer.layer !== host?.lastElementChild || !scrollLayer.layer.previousElementSibling) && scrollLayer.flowAnchored === Boolean(target.flowScrollContainer) && clone.parentElement === scrollLayer.layer && scrollLayer.records.has(record2));
+  }
+  function projectionLayerTargetForRecord(record2, context) {
+    const { overlay } = context;
+    if (record2.scrollContextEpoch === overlay.scrollContextEpoch && record2.layerTarget) return record2.layerTarget;
+    return projectionLayerTarget(record2.anchor, context);
   }
   function documentLayerOrigin(overlay) {
     if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
@@ -466,31 +537,131 @@
     overlay.documentLayerOrigin = origin;
     return origin;
   }
-  function elementScrollsWithDocument(element2, cache2, styles) {
+  function scrollLayerOrigin(host, context) {
+    const cached = context.scrollLayerOrigins.get(host);
+    if (cached) return cached;
+    const scrollLayer = context.overlay.scrollLayers.get(host);
+    if (!scrollLayer) return { x: 0, y: 0 };
+    const { layer } = scrollLayer;
+    const rect = layer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    context.scrollLayerOrigins.set(host, origin);
+    return origin;
+  }
+  function projectionLayerTarget(element2, context) {
+    const { projectionLayers: cache2, styleReads: styles } = context;
     const cached = cache2.get(element2);
-    if (cached !== void 0) return cached;
+    if (cached) return cached;
     const document2 = element2.ownerDocument;
     const view = document2.defaultView;
-    let scrolls;
-    if (!view) {
-      scrolls = false;
-    } else if (element2 === document2.documentElement || element2 === document2.body) {
-      scrolls = true;
-    } else {
-      const style = memoizedComputedStyle(element2, styles);
-      const parent = composedParentElement$1(element2);
-      scrolls = style.position !== "fixed" && style.position !== "sticky" && !elementScrollsIndependently(element2, style) && Boolean(parent) && elementScrollsWithDocument(parent, cache2, styles);
+    if (!view) return { mode: "viewport" };
+    let current = element2;
+    let positionedHost = null;
+    let target = { mode: "viewport" };
+    while (current) {
+      if (current === document2.documentElement || current === document2.body) {
+        target = { mode: "document" };
+        break;
+      }
+      const style = memoizedComputedStyle(current, styles);
+      const coordinateSpaceIsSafe = elementCoordinateSpacePreservesCssPixels(style);
+      const clipsReading = elementClipsDetachedReading(style);
+      const scrollsIndependently = elementScrollsIndependently(current, style, context.overlay);
+      if (!coordinateSpaceIsSafe || clipsReading && !scrollsIndependently) positionedHost = null;
+      if (scrollsIndependently) {
+        if (!(current instanceof HTMLElement)) break;
+        if (!scrollLayerCoordinatesPreserveCssPixels(current, context)) break;
+        if (elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
+          target = {
+            mode: "scroll",
+            scrollLayerHost: current
+          };
+        } else if (positionedHost) {
+          target = {
+            mode: "scroll",
+            scrollLayerHost: positionedHost
+          };
+        } else if (elementCanMountProjectionLayer(current, style) && scrollContainerSupportsFlowLayer(style)) {
+          target = {
+            mode: "scroll",
+            scrollLayerHost: current,
+            flowScrollContainer: true
+          };
+        }
+        break;
+      }
+      if (style.position === "fixed" || style.position === "sticky") break;
+      if (coordinateSpaceIsSafe && !clipsReading && current instanceof HTMLElement && elementCanMountProjectionLayer(current, style) && elementCreatesAbsoluteContainingBlock(style)) {
+        positionedHost = current;
+      }
+      current = composedParentElement$1(current);
     }
-    cache2.set(element2, scrolls);
-    return scrolls;
+    cache2.set(element2, target);
+    return target;
   }
-  function elementScrollsIndependently(element2, style) {
+  function elementCreatesAbsoluteContainingBlock(style) {
+    return Boolean(style.position && style.position !== "static");
+  }
+  function elementCanMountProjectionLayer(element2, style) {
+    if (style.display === "contents" || element2.localName === "slot") return false;
+    return !element2.shadowRoot && !element2.localName.includes("-");
+  }
+  function scrollContainerSupportsFlowLayer(style) {
+    if (style.display !== "block" && style.display !== "flow-root" && style.display !== "inline-block") {
+      return false;
+    }
+    const columns = style.columnCount;
+    const columnWidth = style.columnWidth;
+    const singleColumn = !columns || columns === "auto" || columns === "1";
+    const automaticWidth = !columnWidth || columnWidth === "auto";
+    return singleColumn && automaticWidth;
+  }
+  function elementClipsDetachedReading(style) {
+    return Boolean(style.overflowX && style.overflowX !== "visible" || style.overflowY && style.overflowY !== "visible" || style.clipPath && style.clipPath !== "none" || /\b(?:paint|strict|content)\b/.test(style.contain ?? ""));
+  }
+  function scrollLayerCoordinatesPreserveCssPixels(element2, context) {
+    const cached = context.viewportCoordinateSafety.get(element2);
+    if (cached !== void 0) return cached;
+    const style = memoizedComputedStyle(element2, context.styleReads);
+    const parent = composedParentElement$1(element2);
+    const safe = elementCoordinateSpacePreservesCssPixels(style) && (!parent || scrollLayerCoordinatesPreserveCssPixels(parent, context));
+    context.viewportCoordinateSafety.set(element2, safe);
+    return safe;
+  }
+  function elementCoordinateSpacePreservesCssPixels(style) {
+    const zoom = style.getPropertyValue("zoom");
+    if (zoom && zoom !== "normal" && Math.abs(Number.parseFloat(zoom) - 1) > 1e-6) return false;
+    const scale = style.getPropertyValue("scale");
+    if (scale && scale !== "none") {
+      const factors = scale.split(/\s+/u).map(Number.parseFloat);
+      if (!factors.length || factors.some((factor) => !Number.isFinite(factor) || Math.abs(factor - 1) > 1e-6)) {
+        return false;
+      }
+    }
+    const rotate = style.getPropertyValue("rotate");
+    if (rotate && rotate !== "none" && !/^0(?:deg|grad|rad|turn)?$/u.test(rotate.trim())) return false;
+    if (style.perspective && style.perspective !== "none") return false;
+    return transformPreservesCssPixels(style.transform);
+  }
+  function transformPreservesCssPixels(transform) {
+    if (!transform || transform === "none") return true;
+    if (/^(?:translate(?:X|Y|Z|3d)?\([^)]*\)\s*)+$/iu.test(transform)) return true;
+    const match = transform.match(/^matrix(3d)?\(([^)]+)\)$/u);
+    if (!match) return false;
+    const values = match[2].split(",").map((value) => Number.parseFloat(value.trim()));
+    const near = (value, expected) => Number.isFinite(value) && Math.abs(value - expected) <= 1e-6;
+    if (!match[1]) {
+      return values.length === 6 && near(values[0], 1) && near(values[1], 0) && near(values[2], 0) && near(values[3], 1);
+    }
+    return values.length === 16 && values.every((value, index) => index >= 12 && index <= 14 || near(value, index % 5 === 0 ? 1 : 0));
+  }
+  function elementScrollsIndependently(element2, style, overlay) {
     const advertisesScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay";
     const clipsContent = (overflow) => overflow === "hidden" || overflow === "clip";
-    const scrolled = element2.scrollTop !== 0 || element2.scrollLeft !== 0;
-    const holdsScroll = (overflow) => advertisesScroll(overflow) || clipsContent(overflow) && scrolled;
-    if (holdsScroll(style.overflowY) && element2.scrollHeight > element2.clientHeight + 1) return true;
-    return holdsScroll(style.overflowX) && element2.scrollWidth > element2.clientWidth + 1;
+    const scrolled = overlay.scrolledClippingContainers.has(element2) || element2.scrollTop !== 0 || element2.scrollLeft !== 0;
+    if (advertisesScroll(style.overflowY) || advertisesScroll(style.overflowX)) return true;
+    if (clipsContent(style.overflowY) && scrolled && element2.scrollHeight > element2.clientHeight + 1) return true;
+    return clipsContent(style.overflowX) && scrolled && element2.scrollWidth > element2.clientWidth + 1;
   }
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.framelessRefreshPending) return;
@@ -547,10 +718,14 @@
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
-      documentScroll: /* @__PURE__ */ new Map(),
+      projectionLayers: /* @__PURE__ */ new Map(),
+      scrollLayerOrigins: /* @__PURE__ */ new Map(),
+      viewportCoordinateSafety: /* @__PURE__ */ new Map(),
       styleReads: /* @__PURE__ */ new Map()
     };
-    const paints = refreshableRecords(overlay).map((record2) => {
+    const records = refreshableRecords(overlay);
+    records.forEach((record2) => adoptProjectionLayer(record2, context));
+    const paints = records.map((record2) => {
       if (!visibleAnchor(record2.anchor, context)) {
         return { record: record2, rect: null, visible: false };
       }
@@ -580,6 +755,7 @@
     if (!records?.size) ownerRecords.delete(record2.owner);
   }
   function removeRecord(record2, overlay) {
+    releaseScrollProjectionRecord(record2, overlay);
     record2.clone.remove();
     overlay.records.delete(record2);
     untrackProjectionAnchor(record2, overlay);
@@ -735,6 +911,8 @@
   }
   function mutationAffectsProjection(mutation, overlay) {
     const target = mutation.target;
+    const registeredLayer = target instanceof HTMLElement ? overlay.scrollLayers.get(target)?.layer : null;
+    if (registeredLayer && [...mutation.removedNodes].includes(registeredLayer)) return true;
     if (isYomuOwnedNode(target, overlay)) return false;
     const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
     if (affectedNodes.length > 0 && affectedNodes.every((node) => isYomuOwnedNode(node, overlay))) {
@@ -984,6 +1162,17 @@
     let parent = composedParentNode(element2);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+  }
+  function firstClippingContainerScroll(event, overlay) {
+    const target = event.target;
+    if (!(target instanceof Element) || overlay.scrolledClippingContainers.has(target) || target.scrollTop === 0 && target.scrollLeft === 0) {
+      return false;
+    }
+    const style = safeComputedStyle$1(target);
+    const clips = (value) => value === "hidden" || value === "clip";
+    if (!clips(style.overflowX) && !clips(style.overflowY)) return false;
+    overlay.scrolledClippingContainers.add(target);
+    return true;
   }
   function scrollMovedNoProjectedReading(event, overlay) {
     const target = event.target;
@@ -59023,7 +59212,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.67".trim() ? "1.8.67".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.68".trim() ? "1.8.68".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

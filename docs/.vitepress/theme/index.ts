@@ -195,6 +195,7 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Furigana in scrolling panels such as YouTube live chat now moves in the same frame as the underlying text instead of visibly catching up after the scroll.': 'YouTubeのライブチャットなどのスクロールパネルで、ふりがなが元のテキストと同じフレームで移動するようになり、スクロール後に遅れて追いつく見た目のずれを解消しました。',
     'YouTube subtitle readings now stay complete when playback advances to the next line. The visible cue finishes enrichment before successor prefetch, and late lookup results can no longer replace richer cached annotations with a partial parse.': 'YouTube字幕は、再生が次の行へ進んでも読みが欠けず、すべて表示されるようになりました。後続行の先読みを始める前に、現在表示中の行の注釈付けを完了し、遅れて届いた検索結果が、より充実したキャッシュ済み注釈を不完全な解析結果で上書きすることもなくなりました。',
     'On iPad YouTube, Shorts action labels and the left mini-guide stay fully readable instead of gaining an ellipsis when Yomu annotates the page; video titles and reading content remain annotated.': 'iPad版YouTubeで、よむがページに注釈を付けても、Shortsの操作ラベルと左側のミニガイドが「…」で省略されず、最後まで読めるようになりました。動画タイトルと読解対象の本文には、引き続き注釈が付きます。',
     'X/Twitter video subtitles no longer show internal word-timing tags, character ranges, or their translated metadata alongside the dialogue.': 'X/Twitterの動画字幕では、内部の単語タイミングタグ、文字範囲、またはそれらを翻訳したメタデータが台詞と一緒に表示されなくなりました。',
