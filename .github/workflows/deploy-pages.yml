@@ -2,11 +2,6 @@ name: Deploy Docs
 
 on:
   workflow_dispatch:
-    inputs:
-      allow_known_weight_overage:
-        description: Deploy only when verify fails with the exact known userscript-weight overage
-        type: boolean
-        default: false
   push:
     branches:
       - main
@@ -96,23 +91,7 @@ jobs:
           YOMU_PATREON_URL: ${{ vars.YOMU_PATREON_URL }}
           YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}
       - name: Verify published artifacts
-        if: github.event_name != 'workflow_dispatch' || inputs.allow_known_weight_overage != true
         run: npm run verify
-      # Emergency publication remains fail-closed: this path accepts only the
-      # exact inherited weight failure on the current release bytes. Any drift
-      # or any earlier verifier failure leaves the required grep unmatched.
-      - name: Verify published artifacts with known weight overage
-        if: github.event_name == 'workflow_dispatch' && inputs.allow_known_weight_overage == true
-        run: |
-          set +e
-          verify_output="$(npm run verify 2>&1)"
-          verify_status=$?
-          set -e
-          printf '%s\n' "$verify_output"
-          [ "$verify_status" -eq 1 ]
-          grep -Fq 'userscript plus unconditional @requires total 5,944,558 bytes, over the 5,874,598-byte injected-weight ratchet.' <<< "$verify_output"
-          npm run check:repository
-          npm run check:artifacts
       - name: Upload Pages artifact
         id: pages_artifact
         uses: actions/upload-pages-artifact@v5

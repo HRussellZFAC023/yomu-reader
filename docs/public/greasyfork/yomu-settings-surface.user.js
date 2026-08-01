@@ -99,6 +99,10 @@ const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`
 const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
 const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
+const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, "u");
+function isJapaneseKanjiCharacter(value) {
+  return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
+}
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const GODAN_ROWS = [
   { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
@@ -6272,7 +6276,7 @@ function contextualSanitizerSource(element2, html) {
     return { source: html, rootSelector: "" };
   }
 }
-function escapeHtml(value) {
+function escapeHtml$1(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function sanitizeChildren(parent, ownerDocument) {
@@ -6608,7 +6612,7 @@ const MANAGED_STATE_MANIFEST = [
   // YouTube subscription snapshot + oembed title cache.
   { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -16057,7 +16061,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.66".trim() ? "1.8.66".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.67".trim() ? "1.8.67".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -53069,26 +53073,26 @@ const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
 function input(name, label, value, type = "text", attributes = {}) {
   const fieldClass = ["jpdb-reader-settings-field"];
   if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
-  return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
+  return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$1(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
 }
 function shortcutInput(name, label, value, placeholder = "Press keys") {
-  return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml(label)}"></label>`;
+  return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$1(value)}" placeholder="${escapeHtml$1(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$1(label)}"></label>`;
 }
 function checkbox(name, label, checked, attributes = {}) {
   return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
 }
 function select(name, label, value, options) {
   return `<label>${label}<select name="${name}">${options.map(
-      ([optionValue, text2, className]) => `<option value="${escapeHtml(optionValue)}"${className ? ` class="${escapeHtml(className)}"` : ""} ${optionValue === value ? "selected" : ""}>${escapeHtml(text2)}</option>`
+      ([optionValue, text2, className]) => `<option value="${escapeHtml$1(optionValue)}"${className ? ` class="${escapeHtml$1(className)}"` : ""} ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
     ).join("")}</select></label>`;
 }
 function radioGroup(name, label, value, options) {
   return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
-      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml(text2)}</label>`
+      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$1(text2)}</label>`
     ).join("")}</fieldset>`;
 }
 function settingsTabButton(panel, label, active = false) {
-  return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml(label)}</button>`;
+  return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$1(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$1(label)}</button>`;
 }
 function miniIcon(name) {
   const paths = {
@@ -53114,7 +53118,7 @@ function settingsTabControls(panel) {
   }[panel] ?? "jpdb-reader-settings-panel-api";
 }
 function attributeHtml(attributes) {
-  return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml(String(attributeValue))}"`).join("");
+  return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$1(String(attributeValue))}"`).join("");
 }
 function booleanAttributeHtml(attributes) {
   return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
@@ -53147,7 +53151,7 @@ const HIDE_STATE_GROUP_CONTROL_LABELS = [
   ["colorHide-ignored", "wordColorIgnored"]
 ];
 function escapedUiText$4(language2, key) {
-  return escapeHtml(uiText(language2, key));
+  return escapeHtml$1(uiText(language2, key));
 }
 function activeTargetLanguageDisplayName(interfaceLanguage) {
   return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
@@ -53325,10 +53329,10 @@ const SOURCE_ROW_COPY_KEYS_BY_ID = {
 const SOURCE_ROW_ORDER_LABELS = { drag: "Drag to reorder", up: "Move up", down: "Move down" };
 function miniIconButton(icon, label, attributes) {
   const dragClass = icon === "drag" ? " jpdb-reader-drag-handle" : "";
-  return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${miniIcon(icon)}</button>`;
+  return `<button type="button" class="jpdb-reader-icon-mini${dragClass}" ${attributes} title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${miniIcon(icon)}</button>`;
 }
 function renderRowOrderTools(options) {
-  const ariaLabel = options.label ? ` aria-label="${escapeHtml(options.label)}"` : "";
+  const ariaLabel = options.label ? ` aria-label="${escapeHtml$1(options.label)}"` : "";
   return `<div class="jpdb-reader-row-tools jpdb-reader-row-order-tools"${ariaLabel}>
                     ${options.leading ?? ""}
                     ${miniIconButton("drag", options.labels.drag, 'data-source-drag-handle tabindex="-1"')}
@@ -53352,7 +53356,7 @@ function renderSourceRowsList(rows, options) {
   return `
         <div class="jpdb-reader-dictionary-head jpdb-reader-order-head ${context.layoutClass}">
             <span>On</span>
-            <span>${escapeHtml(options.sourceLabel)}</span>
+            <span>${escapeHtml$1(options.sourceLabel)}</span>
             ${options.showAlias ? "<span>Display name</span>" : ""}
             <span>Order</span>
             ${showRemove ? "<span>Remove</span>" : ""}
@@ -53369,12 +53373,12 @@ function sourceRowsLayoutClass(showAlias, showRemove) {
 }
 function renderSourceRowsCountInput(options, removableCount) {
   if (!options.countName) return "";
-  return `<input type="hidden" name="${escapeHtml(options.countName)}" value="${options.countValue ?? removableCount}">`;
+  return `<input type="hidden" name="${escapeHtml$1(options.countName)}" value="${options.countValue ?? removableCount}">`;
 }
 function renderSourceRow(row, index, context) {
   const keys = sourceRowCopyKeys(row);
   return `
-            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml(row.id)}">
+            <div class="jpdb-reader-dictionary-row jpdb-reader-order-row ${context.layoutClass}" data-source-row data-dictionary-source-row data-source-id="${escapeHtml$1(row.id)}">
                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
                     <input name="${row.prefix}.enabled" type="checkbox" data-source-enable-toggle ${row.enabled ? "checked" : ""}>
                     <span>${index + 1}</span>
@@ -53395,8 +53399,8 @@ function renderSourceRow(row, index, context) {
 }
 function renderSourceAliasControl(row, showAlias, keys) {
   if (!showAlias) return "";
-  const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml(keys.nameKey)}"` : "";
-  return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml(row.name)}"${keyAttribute}>`;
+  const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml$1(keys.nameKey)}"` : "";
+  return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml$1(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml$1(row.name)}"${keyAttribute}>`;
 }
 function renderSourceRemoveCell(row, showRemove) {
   if (!showRemove) return "";
@@ -53404,24 +53408,24 @@ function renderSourceRemoveCell(row, showRemove) {
 }
 function renderSourceRemoveButton(row) {
   if (!row.removable) return "";
-  return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml(row.name)}"`);
+  return miniIconButton("remove", "Remove imported dictionary", `data-action="delete-yomitan-dictionary" data-dictionary-name="${escapeHtml$1(row.name)}"`);
 }
 function renderSourceTypeInput(row) {
   if (!row.removable) return "";
-  return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml(row.dictionaryType ?? "terms")}">`;
+  return `<input name="${row.prefix}.type" type="hidden" value="${escapeHtml$1(row.dictionaryType ?? "terms")}">`;
 }
 function renderSourceRowHelp(row, keys) {
   if (!row.help) return "";
-  const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml(keys.helpKey)}"` : "";
-  return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml(row.help)}</div>`;
+  const keyAttribute = keys?.helpKey ? `data-source-help-key="${escapeHtml$1(keys.helpKey)}"` : "";
+  return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml$1(row.help)}</div>`;
 }
 function sourceRowDisplayName(row, showAlias) {
   return !showAlias && row.alias ? row.alias : row.name;
 }
 function sourceField(displayValue, formValue, prefix, field, label, nameKey) {
   return `
-        <span class="jpdb-reader-field-display" aria-label="${escapeHtml(label)}" ${nameKey ? `data-source-name-key="${escapeHtml(nameKey)}"` : ""}>${escapeHtml(displayValue)}</span>
-        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml(formValue)}">
+        <span class="jpdb-reader-field-display" aria-label="${escapeHtml$1(label)}" ${nameKey ? `data-source-name-key="${escapeHtml$1(nameKey)}"` : ""}>${escapeHtml$1(displayValue)}</span>
+        <input name="${prefix}.${field}" type="hidden" value="${escapeHtml$1(formValue)}">
     `;
 }
 function sourceRowCopyKeys(row) {
@@ -53450,7 +53454,7 @@ const JPDB_TTS_VOICE_OPTIONS = [
   ["m2", "Male 2"]
 ];
 function escapedUiText$3(language2, key) {
-  return escapeHtml(uiText(language2, key));
+  return escapeHtml$1(uiText(language2, key));
 }
 function renderAudioSourceEditor(sources, language2 = "en") {
   return `
@@ -53483,20 +53487,20 @@ function renderAudioSourceRows(rows, language2) {
         ${rows.map((source, index) => `
         <div class="jpdb-reader-audio-source-row jpdb-reader-order-row" data-source-row data-audio-source-row data-source-id="audio-${index}">
             <label class="inline jpdb-reader-audio-index jpdb-reader-order-toggle">
-                <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml(uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
+                <input name="audioSources.${index}.enabled" type="checkbox" aria-label="${escapeHtml$1(uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)))}" ${source.enabled ? "checked" : ""}>
                 <span>${index + 1}</span>
             </label>
             <div class="jpdb-reader-audio-source-choice">
-                <select name="audioSources.${index}.type" aria-label="${escapeHtml(uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)))}">
+                <select name="audioSources.${index}.type" aria-label="${escapeHtml$1(uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)))}">
                     ${audioSourceSelectOptions(source.type, language2).map(
-  ([optionValue, text2]) => `<option value="${escapeHtml(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml(text2)}</option>`
+  ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === source.type ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
   ).join("")}
                 </select>
                 <button type="button" class="jpdb-reader-icon-mini" data-action="preview-audio" title="${escapedUiText$3(language2, "previewAudio")}" aria-label="${escapedUiText$3(language2, "previewAudio")}">${speakerIcon()}</button>
             </div>
             <div class="jpdb-reader-audio-source-fields">
-                <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml(source.url)}" placeholder="${escapeHtml(audioUrlPlaceholder(source.type, language2))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
-                <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml(uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
+                <input data-audio-url-field name="audioSources.${index}.url" type="text" value="${escapeHtml$1(source.url)}" placeholder="${escapeHtml$1(audioUrlPlaceholder(source.type, language2))}" ${audioSourceUsesUrl(source.type) ? "" : "hidden"}>
+                <select data-audio-voice-field data-audio-voice-kind="${audioSourceVoiceKind(source.type)}" name="audioSources.${index}.voice" aria-label="${escapeHtml$1(uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)))}" data-selected-voice="${escapeHtml$1(source.voice)}" ${audioSourceUsesVoice(source.type) ? "" : "hidden"}>
                     ${audioVoiceSelectOptions(source, language2)}
                 </select>
             </div>
@@ -53534,11 +53538,11 @@ function renderAudioSubSourceRow(index, subIndex, subSource, rows, language2) {
   const toggleLabel = uiText(language2, "enableSourceName").replace("{name}", subSource.name);
   return `
         <label class="inline jpdb-reader-audio-subsource">
-            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
-            <span>${escapeHtml(subSource.name)}</span>
+            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml$1(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
+            <span>${escapeHtml$1(subSource.name)}</span>
             ${overlap}
         </label>
-        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml(subSource.name)}">
+        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml$1(subSource.name)}">
     `;
 }
 const AUDIO_SUB_SOURCE_OVERLAP_TYPES = {
@@ -53605,25 +53609,25 @@ function audioVoiceSelectOptions(source, language2) {
   if (audioSourceVoiceKind(source.type) === "jiten") return jitenTtsVoiceSelectOptions(source.voice);
   if (audioSourceVoiceKind(source.type) === "jpdb") return jpdbTtsVoiceSelectOptions(source.voice);
   const label = source.voice || uiText(language2, "automaticBrowserVoice");
-  return `<option value="${escapeHtml(source.voice)}">${escapeHtml(label)}</option>`;
+  return `<option value="${escapeHtml$1(source.voice)}">${escapeHtml$1(label)}</option>`;
 }
 function jitenTtsVoiceSelectOptions(selectedVoice) {
   const selected = selectedVoice.trim();
   const options = JITEN_TTS_VOICE_OPTIONS.map(
-  ([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`
+  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
   );
   if (selected && !JITEN_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-  options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
   }
   return options.join("");
 }
 function jpdbTtsVoiceSelectOptions(selectedVoice) {
   const selected = selectedVoice.trim();
   const options = JPDB_TTS_VOICE_OPTIONS.map(
-  ([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`
+  ([value, label]) => `<option value="${escapeHtml$1(value)}" ${value === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`
   );
   if (selected && !JPDB_TTS_VOICE_OPTIONS.some(([value]) => value === selected)) {
-  options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`);
+  options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(selected)}</option>`);
   }
   return options.join("");
 }
@@ -53661,14 +53665,14 @@ function syncBrowserTtsVoiceOptions(form) {
   form.querySelectorAll('select[data-audio-voice-field][data-audio-voice-kind="browser"]').forEach((select2) => {
   const selected = select2.value || select2.dataset.selectedVoice || "";
   const options = [
-    `<option value="" ${selected ? "" : "selected"}>${escapeHtml(text2("automaticBrowserVoice"))}</option>`,
+    `<option value="" ${selected ? "" : "selected"}>${escapeHtml$1(text2("automaticBrowserVoice"))}</option>`,
     ...sortedVoices.map((voice) => {
       const label = `${voice.name}${voice.lang ? ` (${voice.lang})` : ""}${voice.default ? ` - ${text2("defaultVoiceSuffix")}` : ""}`;
-      return `<option value="${escapeHtml(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml(label)}</option>`;
+      return `<option value="${escapeHtml$1(voice.name)}" ${voice.name === selected ? "selected" : ""}>${escapeHtml$1(label)}</option>`;
     })
   ];
   if (selected && !sortedVoices.some((voice) => voice.name === selected)) {
-    options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
+    options.push(`<option value="${escapeHtml$1(selected)}" selected>${escapeHtml$1(text2("savedVoiceLabel").replace("{voice}", selected))}</option>`);
   }
   setInnerHtml(select2, options.join(""));
   });
@@ -53736,13 +53740,13 @@ function renderLookupLinkNotes(targetLanguage2, link) {
   const note = components.map((component) => LOOKUP_COMPONENT_LABELS[component]).join(" · ");
   const separator = components.length && opensOverPlaintextHttp ? " · " : "";
   const transport = opensOverPlaintextHttp ? `<span data-lookup-link-transport>${escapedUiText$3("en", "plaintextHttpLink")}</span>` : "";
-  return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? "components" : "transport"}"${components.length ? ` data-lookup-link-components="${escapeHtml(components.join(" "))}"` : ""}>${escapeHtml(note)}${separator}${transport}</span>`;
+  return `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="${components.length ? "components" : "transport"}"${components.length ? ` data-lookup-link-components="${escapeHtml$1(components.join(" "))}"` : ""}>${escapeHtml$1(note)}${separator}${transport}</span>`;
 }
 function renderLookupLinkComponentGaps(targetLanguage2) {
   const missing = missingLookupComponents(targetLanguage2);
   if (!missing.length) return "";
   const names = missing.map((component) => LOOKUP_COMPONENT_LABELS[component].toLowerCase()).join(", ");
-  return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml(missing.join(" "))}">No verified site for this language offers ${escapeHtml(names)}. Add your own above if you know one.</p>`;
+  return `<p class="jpdb-reader-help" data-lookup-link-gap="${escapeHtml$1(missing.join(" "))}">No verified site for this language offers ${escapeHtml$1(names)}. Add your own above if you know one.</p>`;
 }
 function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
   const orderTools = renderRowOrderTools({
@@ -53756,7 +53760,7 @@ function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
         ${rows.map((link, index) => {
       const isCopyAction = link.action === "copy";
       const isFrequencyAction = link.action === "frequency-live" || link.action === "frequency-local";
-      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage2, link)}`;
+      const urlControl = isCopyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="copy">Copies the current word</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : isFrequencyAction ? `<span class="jpdb-reader-lookup-link-note" data-lookup-link-note="frequency">${escapeHtml$1(frequencyLookupPillNote(link))}</span><input name="dictionaryLookupLinks.${index}.urlTemplate" type="hidden" value="">` : `<input name="dictionaryLookupLinks.${index}.urlTemplate" type="text" value="${escapeHtml$1(link.urlTemplate)}" placeholder="https://takoboto.jp/?q={query}" aria-label="Lookup URL template">${renderLookupLinkNotes(targetLanguage2, link)}`;
       const removeControl = isCopyAction || isFrequencyAction ? '<span class="jpdb-reader-lookup-link-fixed" aria-label="Built-in action"></span>' : miniIconButton("remove", "Remove", 'data-action="lookup-link-remove"');
       return `
             <div class="jpdb-reader-lookup-link-row jpdb-reader-order-row" data-source-row data-lookup-link-row data-source-id="lookup-link-${index}" data-index="${index}">
@@ -53764,11 +53768,11 @@ function renderDictionaryLookupLinkRows(rows, targetLanguage2) {
                     <input name="dictionaryLookupLinks.${index}.enabled" type="checkbox" data-lookup-link-enable-toggle ${link.enabled ? "checked" : ""}>
                     <span>${index + 1}</span>
                 </label>
-                <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml(link.label)}" aria-label="Lookup pill label">
+                <input name="dictionaryLookupLinks.${index}.label" type="text" value="${escapeHtml$1(link.label)}" aria-label="Lookup pill label">
                 ${urlControl}
-                <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml(link.id)}">
-                <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml(link.action ?? "open")}">
-                <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml(String(link.priority ?? index))}">
+                <input name="dictionaryLookupLinks.${index}.id" type="hidden" value="${escapeHtml$1(link.id)}">
+                <input name="dictionaryLookupLinks.${index}.action" type="hidden" value="${escapeHtml$1(link.action ?? "open")}">
+                <input name="dictionaryLookupLinks.${index}.priority" type="hidden" value="${escapeHtml$1(String(link.priority ?? index))}">
                 ${orderTools}
                 ${renderRowRemoveTools(removeControl)}
             </div>
@@ -54167,12 +54171,12 @@ function renderAnkiTagsEditor(value, language2) {
   const tags = ankiTagList(value);
   return `
         <div class="jpdb-reader-tag-editor" data-anki-tags-editor>
-            <input type="hidden" name="ankiTags" value="${escapeHtml(tags.join(" "))}">
-            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml(uiText(language2, "ankiTags"))}</label>
+            <input type="hidden" name="ankiTags" value="${escapeHtml$1(tags.join(" "))}">
+            <label class="jpdb-reader-settings-label-text" for="jpdb-reader-anki-tag-input">${escapeHtml$1(uiText(language2, "ankiTags"))}</label>
             <div class="jpdb-reader-tag-chip-list" data-anki-tag-chips>${renderAnkiTagChipHtml(tags, language2)}</div>
             <div class="jpdb-reader-tag-add-row">
-                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml(language2 === "ja" ? "タグを追加" : "Add tag")}">
-                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml(language2 === "ja" ? "追加" : "Add")}</button>
+                <input id="jpdb-reader-anki-tag-input" type="text" data-anki-tag-input autocomplete="off" placeholder="${escapeHtml$1(language2 === "ja" ? "タグを追加" : "Add tag")}">
+                <button class="jpdb-reader-btn secondary" type="button" data-action="anki-tag-add">${escapeHtml$1(language2 === "ja" ? "追加" : "Add")}</button>
             </div>
         </div>
     `;
@@ -54205,8 +54209,8 @@ function ankiTagList(value) {
 }
 function renderAnkiTagChipHtml(tags, language2) {
   return tags.map((tag) => `
-        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml(tag)}" aria-label="${escapeHtml(tagRemoveLabel(tag, language2))}">
-            <span>${escapeHtml(tag)}</span>
+        <button class="jpdb-reader-tag-chip" type="button" data-action="anki-tag-remove" data-tag="${escapeHtml$1(tag)}" aria-label="${escapeHtml$1(tagRemoveLabel(tag, language2))}">
+            <span>${escapeHtml$1(tag)}</span>
             <span aria-hidden="true">×</span>
         </button>
     `).join("");
@@ -54227,13 +54231,13 @@ function formInterfaceLanguage(form) {
 const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
 const ANKI_MOBILE_FALLBACK_DECK = "Default";
 function escapedUiText$2(language2, key) {
-  return escapeHtml(uiText(language2, key));
+  return escapeHtml$1(uiText(language2, key));
 }
 function renderAnkiMiningSettingsPanel(settings, ankiStatus) {
   return `
             <fieldset id="jpdb-reader-settings-panel-mining" role="tabpanel" data-settings-panel="mining" data-legend-key="anki" aria-describedby="settings-help-anki" hidden>
                 <legend>Anki</legend>
-                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml(JSON.stringify(settings.ankiFieldMappings))}">
+                <input type="hidden" name="ankiFieldMappings" value="${escapeHtml$1(JSON.stringify(settings.ankiFieldMappings))}">
                 <input type="hidden" data-anki-scan-fields value="{}">
                 <input type="hidden" data-anki-scan-confidence value="{}">
                 <div class="jpdb-reader-anki-layout">
@@ -54313,7 +54317,7 @@ function ankiModelUpdatePromptTarget(form) {
 }
 function renderAnkiLibraryOptions(options, value, language2 = "en") {
   const values = uniqueStrings([value, ...options].filter(Boolean));
-  const rows = values.map((option) => `<option value="${escapeHtml(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`);
+  const rows = values.map((option) => `<option value="${escapeHtml$1(option)}" ${option === value ? "selected" : ""}>${escapeHtml$1(option)}</option>`);
   return rows.length ? rows.join("") : `<option value="" selected>${escapedUiText$2(language2, "scanAnkiFirst")}</option>`;
 }
 function renderAnkiDeckLibraryOptions(options, value, language2 = "en") {
@@ -54325,7 +54329,7 @@ function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, 
   const fields = uniqueStrings([...scannedFields, ...Object.values(mapping).filter(Boolean)]);
   const options = (selected = "") => [
   `<option value="" ${selected ? "" : "selected"}>${escapedUiText$2(language2, "notMapped")}</option>`,
-  ...fields.map((field) => `<option value="${escapeHtml(field)}" ${field === selected ? "selected" : ""}>${escapeHtml(field)}</option>`)
+  ...fields.map((field) => `<option value="${escapeHtml$1(field)}" ${field === selected ? "selected" : ""}>${escapeHtml$1(field)}</option>`)
   ].join("");
   const rows = ANKI_FIELD_MAPPING_ROLES$1.map((role) => {
   const value = mapping[role] ?? "";
@@ -54334,10 +54338,10 @@ function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, 
   return `
                 <label>
                     <span class="jpdb-reader-anki-field-role-row">
-                        <span>${escapeHtml(roleLabel)}</span>
+                        <span>${escapeHtml$1(roleLabel)}</span>
                         ${confidence ? renderAnkiMappingConfidence(confidence, language2) : ""}
                     </span>
-                    <select data-anki-field-role="${escapeHtml(role)}" aria-label="${escapeHtml(uiText(language2, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
+                    <select data-anki-field-role="${escapeHtml$1(role)}" aria-label="${escapeHtml$1(uiText(language2, "ankiFieldMappingSelect").replace("{role}", roleLabel))}">
                         ${options(value)}
                     </select>
                 </label>
@@ -54345,8 +54349,8 @@ function renderAnkiFieldMappingEditor(settings, modelName = settings.ankiModel, 
   }).join("");
   const emptyState = fields.length ? "" : `<div class="jpdb-reader-help">${escapedUiText$2(language2, "noScannedFields")}</div>`;
   return `
-            <div data-anki-field-mapping-model="${escapeHtml(model)}">
-                <div class="jpdb-reader-help">${escapeHtml(uiText(language2, "mappingForNoteType").replace("{model}", model || uiText(language2, "currentNoteType")))}</div>
+            <div data-anki-field-mapping-model="${escapeHtml$1(model)}">
+                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language2, "mappingForNoteType").replace("{model}", model || uiText(language2, "currentNoteType")))}</div>
                 <div class="grid">
                     ${rows}
                 </div>
@@ -54392,9 +54396,9 @@ function deckSelect(name, label, value, options, disabled, language2) {
   const merged = hasValue || !value ? options : [[value, savedLabel], ...options];
   return `<label>${label}
         <select name="${name}" ${disabled ? "disabled" : ""}>
-            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml(text2)}</option>`).join("")}
+            ${merged.map(([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`).join("")}
         </select>
-        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml(value)}">` : ""}
+        ${disabled ? `<input type="hidden" name="${name}" value="${escapeHtml$1(value)}">` : ""}
     </label>`;
 }
 function renderAnkiTemplatePreview(settings) {
@@ -54427,7 +54431,7 @@ function renderAnkiTemplatePreview(settings) {
 }
 const MOBILE_ANKI_SETUP_DOCS_URL = `${DOCS_BASE_URL}learn/your-own-setup#use-desktop-anki-from-a-phone-ipad-or-android`;
 function escapedUiText$1(language2, key) {
-  return escapeHtml(uiText(language2, key));
+  return escapeHtml$1(uiText(language2, key));
 }
 function renderJpdbStatusLine(settings) {
   const { message, tone } = jpdbStatusLineForSettings(settings, settings.interfaceLanguage);
@@ -54506,10 +54510,10 @@ function ankiStatusLineForSettings(settings, language2) {
   return ankiStatusLineFromValues(settings.ankiEnabled, settings.ankiConnectUrl, language2);
 }
 function formatSettingsStatusLine(line, language2) {
-  return `${escapedUiText$1(language2, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml(line.message)}`;
+  return `${escapedUiText$1(language2, settingsStatusToneLabelKey(line.tone))}: ${escapeHtml$1(line.message)}`;
 }
 function renderAnkiStatusHtml(line, language2) {
-  const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml(line.state)}">${escapedUiText$1(language2, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
+  const chip = line.state ? `<span class="jpdb-reader-adapter-state-chip" data-adapter-state="${escapeHtml$1(line.state)}">${escapedUiText$1(language2, ankiAdapterStateLabelKey(line.state))}</span> ` : "";
   const summary = `<div class="jpdb-reader-status-main">${chip}${formatSettingsStatusLine(line, language2)}</div>`;
   const actions = [...line.details ?? [], ...ankiStatusActions(line.action, language2)];
   if (!actions.length) return summary;
@@ -54529,8 +54533,8 @@ function ankiAdapterStateLabelKey(state) {
   return keys[state];
 }
 function renderStatusAction(action) {
-  const label = action.href ? `<a href="${escapeHtml(action.href)}" target="_blank" rel="noopener">${escapeHtml(action.label)}</a>` : escapeHtml(action.label);
-  return `<li>${label}${action.suffix ? ` <span>${escapeHtml(action.suffix)}</span>` : ""}</li>`;
+  const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
+  return `<li>${label}${action.suffix ? ` <span>${escapeHtml$1(action.suffix)}</span>` : ""}</li>`;
 }
 function ankiStatusActions(action, language2) {
   if (action === "anki-unreachable") {
@@ -55239,7 +55243,7 @@ function renderYoutubeSettingsPanel(settings) {
   );
   return `
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
-                <legend>${escapeHtml(uiText(language2, "youTube"))}</legend>
+                <legend>${escapeHtml$1(uiText(language2, "youTube"))}</legend>
                 <div class="grid jpdb-reader-settings-tgrid">
                     <div data-language-family="youtube-immersion">
                         <input type="hidden" name="youtubeImmersionSettingsPresent" value="on">
@@ -55449,12 +55453,12 @@ function languageOptionLabel(language2) {
 }
 function renderLanguageOptions(languages2, selected) {
   return languages2.map((item) => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? "selected" : ""}>${escapeHtml(languageOptionLabel(item))}</option>
+        <option value="${escapeHtml$1(item.id)}" lang="${escapeHtml$1(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? "selected" : ""}>${escapeHtml$1(languageOptionLabel(item))}</option>
     `).join("");
 }
 function renderStudyTargetOptions(language2, selected) {
   return studyTargetOptions(language2).map((item) => `
-        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ""} ${item.id === selected ? "selected" : ""}>${escapeHtml(item.label)}</option>
+        <option value="${escapeHtml$1(item.id)}" lang="${escapeHtml$1(item.runtimeLocale)}" dir="${item.direction}" title="${escapeHtml$1(item.reason)}" ${STUDY_TARGET_READINESS_ATTRIBUTE}="${item.readiness}" ${item.disabled ? 'disabled aria-disabled="true"' : ""} ${item.id === selected ? "selected" : ""}>${escapeHtml$1(item.label)}</option>
     `).join("");
 }
 const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = "data-interface-locale-blocked";
@@ -55463,14 +55467,14 @@ function renderInterfaceLocaleSelect(settings) {
   const label = uiText(language2, "settingsLanguage");
   const ready = INTERFACE_LOCALES.filter((locale) => locale.available);
   const blocked = INTERFACE_LOCALES.filter((locale) => !locale.available);
-  const automatic = `<option value="auto" ${settings.interfaceLanguage === "auto" ? "selected" : ""}>${escapeHtml(uiText(language2, "automatic"))}</option>`;
+  const automatic = `<option value="auto" ${settings.interfaceLanguage === "auto" ? "selected" : ""}>${escapeHtml$1(uiText(language2, "automatic"))}</option>`;
   const readyOptions = ready.map((locale) => `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? "selected" : ""}>${escapeHtml(interfaceLocaleOptionLabel(locale))}</option>`).join("");
+                            <option value="${escapeHtml$1(locale.tag)}" lang="${escapeHtml$1(locale.tag)}" dir="${locale.direction}" ${settings.interfaceLanguage === locale.tag ? "selected" : ""}>${escapeHtml$1(interfaceLocaleOptionLabel(locale))}</option>`).join("");
   const blockedOptions = blocked.map((locale) => renderBlockedInterfaceLocaleOption(locale, language2)).join("");
-  return `<label>${escapeHtml(label)}<select name="interfaceLanguage">
-                            <optgroup label="${escapeHtml(uiText(language2, "interfaceLocalesReady"))}" data-interface-locale-group="ready">${automatic}${readyOptions}
+  return `<label>${escapeHtml$1(label)}<select name="interfaceLanguage">
+                            <optgroup label="${escapeHtml$1(uiText(language2, "interfaceLocalesReady"))}" data-interface-locale-group="ready">${automatic}${readyOptions}
                             </optgroup>
-                            <optgroup label="${escapeHtml(uiText(language2, "interfaceLocalesInProgress"))}" data-interface-locale-group="in-progress">${blockedOptions}
+                            <optgroup label="${escapeHtml$1(uiText(language2, "interfaceLocalesInProgress"))}" data-interface-locale-group="in-progress">${blockedOptions}
                             </optgroup>
                         </select></label>`;
 }
@@ -55481,7 +55485,7 @@ function renderBlockedInterfaceLocaleOption(locale, language2) {
   const reason = uiText(language2, interfaceLocaleBlockerCopyKey(locale));
   const nativeReason = blockedReasonInLocale(locale);
   return `
-                            <option value="${escapeHtml(locale.tag)}" lang="${escapeHtml(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml(locale.blockers[0] ?? "translation-incomplete")}">${escapeHtml(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
+                            <option value="${escapeHtml$1(locale.tag)}" lang="${escapeHtml$1(locale.tag)}" dir="${locale.direction}" disabled aria-disabled="true" title="${escapeHtml$1(nativeReason)}" ${INTERFACE_LOCALE_BLOCKED_ATTRIBUTE}="${escapeHtml$1(locale.blockers[0] ?? "translation-incomplete")}">${escapeHtml$1(`${interfaceLocaleOptionLabel(locale)} · ${isolate(reason)}`)}</option>`;
 }
 function interfaceLocaleBlockerCopyKey(locale) {
   return locale.blockers[0] === "rtl-verification-pending" ? "interfaceLocaleRtlPending" : "interfaceLocaleTranslationPending";
@@ -55498,7 +55502,7 @@ function renderInterfaceLocaleAvailabilityNote(language2) {
   ready,
   total: INTERFACE_LOCALES.length
   });
-  return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml(count)} ${escapeHtml(uiText(language2, "interfaceLocaleBlockedNote"))}</div>`;
+  return `<div class="jpdb-reader-help" data-interface-locale-note>${escapeHtml$1(count)} ${escapeHtml$1(uiText(language2, "interfaceLocaleBlockedNote"))}</div>`;
 }
 function renderLanguageProfileControls(settings) {
   const copy = multilingualSettingsCopy(settings.interfaceLanguage);
@@ -55506,23 +55510,23 @@ function renderLanguageProfileControls(settings) {
   const targetLanguage2 = activeTargetLanguageId(settings);
   return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-language-profile" data-language-profile-controls>
-                    <div class="jpdb-reader-local-title" data-multilingual-copy="languageProfileTitle">${escapeHtml(copy.languageProfileTitle)}</div>
+                    <div class="jpdb-reader-local-title" data-multilingual-copy="languageProfileTitle">${escapeHtml$1(copy.languageProfileTitle)}</div>
                     <div class="grid">
                         <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml(copy.learnerLanguage)}</span>
+                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml$1(copy.learnerLanguage)}</span>
                             <select name="learnerLanguage" autocomplete="language">
                                 ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage2)}
                             </select>
                         </label>
                         <label>
-                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
+                            <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml$1(copy.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
                                 ${renderStudyTargetOptions(settings.interfaceLanguage, targetLanguage2)}
                             </select>
                         </label>
                         ${renderInterfaceLocaleSelect(settings)}
                     </div>
-                    <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml(copy.languageProfileHelp)}</div>
+                    <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml$1(copy.languageProfileHelp)}</div>
                     ${renderInterfaceLocaleAvailabilityNote(settings.interfaceLanguage)}
                     <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
                 </div>
@@ -55630,7 +55634,7 @@ const COLOR_CHANNEL_FIELDS = [
   ["subtitleTextColorSource", "subtitleTextColorSource"]
 ];
 function escapedUiText(language2, key) {
-  return escapeHtml(uiText(language2, key));
+  return escapeHtml$1(uiText(language2, key));
 }
 function renderHelpLinksPanel(language2 = "en") {
   return `
@@ -55639,15 +55643,15 @@ function renderHelpLinksPanel(language2 = "en") {
                 <div class="jpdb-reader-help-version-row">
                     <div class="jpdb-reader-help-version-copy">
                         <div class="jpdb-reader-local-title" data-help-update-title>Version</div>
-                        <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml(CURRENT_YOMU_VERSION)}</span></div>
+                        <div class="jpdb-reader-help-version-current" data-help-update-current>Yomu <span data-yomu-current-version>${escapeHtml$1(CURRENT_YOMU_VERSION)}</span></div>
                     </div>
-                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
+                    <a class="jpdb-reader-btn jpdb-reader-help-update-link" href="${escapeHtml$1(detectYomuUpdateFlow().url)}" target="_blank" rel="noopener" data-action="open-yomu-update" data-help-link="update-userscript">${externalButtonLabel("Update")}</a>
                 </div>
                 <div class="jpdb-reader-help-update-meta">
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
-                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml(duplicateRuntimeStatusText("en"))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-update-status data-status-tone="pending" role="status" aria-live="polite" data-help-update-status>${escapeHtml$1(formatUiText("en", "updateStatusIdle", { current: CURRENT_YOMU_VERSION }))}</div>
+                    <div class="jpdb-reader-help jpdb-reader-help-update-status" data-yomu-duplicate-status data-status-tone="success" role="status" data-help-duplicate-status>${escapeHtml$1(duplicateRuntimeStatusText("en"))}</div>
                 </div>
-                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml(uiText(language2, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
+                <div class="jpdb-reader-help jpdb-reader-help-update-note" data-help-update-notes>${escapeHtml$1(uiText(language2, updateFlowNoteKey(detectYomuUpdateFlow().kind)))}</div>
             </div>
             <details class="jpdb-reader-settings-subsection jpdb-reader-help-disclosure" data-help-anki-disclosure>
                 <summary class="jpdb-reader-local-title" data-help-anki-title>AnkiConnect setup</summary>
@@ -55680,8 +55684,8 @@ function renderHelpLinksPanel(language2 = "en") {
             </div>
             <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-support-title>Support よむ</div>
-                <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml(SUPPORT_COPY)}</div>
-                <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml(SUPPORT_COPY_EXTRA)}</div>
+                <div class="jpdb-reader-help" data-help-support-copy>${escapeHtml$1(SUPPORT_COPY)}</div>
+                <div class="jpdb-reader-help" data-help-support-copy-extra>${escapeHtml$1(SUPPORT_COPY_EXTRA)}</div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn jpdb-reader-help-donate" href="${DONATE_URL}" target="_blank" rel="noopener" data-help-link="donate">${externalButtonLabel("Donate")}</a>
                     <a class="jpdb-reader-btn" href="${GITHUB_REPOSITORY_URL}/issues" target="_blank" rel="noopener" data-help-link="issues">${externalButtonLabel("Issues")}</a>
@@ -55761,7 +55765,7 @@ function renderApiSettingsPanel(settings, jpdbSettingsUrl, jitenSettingsUrl) {
                         ${input("apiCredentialJiten", `${escapedUiText(language2, "apiCredentialJiten")} <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jitenSettings")}</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJpdb", `${escapedUiText(language2, "apiCredentialJpdb")} <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">${escapedUiText(language2, "jpdbSettings")}</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialBunpro", `${escapedUiText(language2, "apiCredentialBunpro")} <a href="${DEFAULT_BUNPRO_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "bunproSettings")}</a>`, settings.bunproFrontendApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "frontend_api_token" })}
-                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml(settings.bunproFrontendApiTokenExpiresAt)}">
+                        <input type="hidden" name="bunproFrontendApiTokenExpiresAt" value="${escapeHtml$1(settings.bunproFrontendApiTokenExpiresAt)}">
                         ${input("apiCredentialWanikani", `${escapedUiText(language2, "apiCredentialWanikani")} <a href="${WANIKANI_TOKEN_SETTINGS_URL}" target="_blank" rel="noopener">${escapedUiText(language2, "wanikaniSettings")}</a>`, settings.wanikaniApiToken, "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input", placeholder: "wanikani personal access token" })}
                     </div>
                     <div class="jpdb-reader-help" data-jpdb-api-key-help>${escapedUiText(language2, "apiAccessHelp")}</div>
@@ -55866,7 +55870,7 @@ function renderNewTabSettingsSubsection(settings) {
                     <div class="grid jpdb-reader-settings-cgrid jpdb-reader-settings-study-options">
                         ${input("newTabOfflineLimit", text2("newTabOfflineLimit"), String(settings.newTabOfflineLimit), "number", { min: 0, max: 500, step: 10 })}
                         ${input("newTabDailyGoalMinutes", text2("newTabDailyGoalMinutes"), String(settings.newTabDailyGoalMinutes), "number", { min: 0, max: 1440, step: 5 })}
-                        <label>${escapedUiText(language2, "newTabUrl")}<input name="newTabUrl" type="text" value="${escapeHtml(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
+                        <label>${escapedUiText(language2, "newTabUrl")}<input name="newTabUrl" type="text" value="${escapeHtml$1(NEW_TAB_PAGE_URL)}" readonly autocomplete="off"></label>
                     </div>
                     <div class="jpdb-reader-settings-actions">
                         <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-newtab-url-link>${escapedUiText(language2, "openNewTabPage")}</a>
@@ -55897,13 +55901,13 @@ function renderNewTabStudyStepOrderEditor(settings) {
 }
 function renderNewTabStudyStepRow(step, index, enabled, language2) {
   return `
-                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml(step)}">
+                            <div class="jpdb-reader-order-row jpdb-reader-study-step-row" data-source-row data-study-step-row data-source-id="study-step-${escapeHtml$1(step)}">
                                 <label class="inline jpdb-reader-dictionary-toggle jpdb-reader-order-toggle">
-                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml(step)}" ${enabled ? "checked" : ""}>
+                                    <input name="newTabStudyEnabledStep" type="checkbox" value="${escapeHtml$1(step)}" ${enabled ? "checked" : ""}>
                                     <span>${index + 1}</span>
                                 </label>
-                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language2, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
-                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml(settingsText(language2)(NEW_TAB_STUDY_STEP_HELP_KEYS[step]))}</div>
+                                <span class="jpdb-reader-field-display" data-study-step-label-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}">${escapedUiText(language2, NEW_TAB_STUDY_STEP_LABEL_KEYS[step])}</span>
+                                <div class="jpdb-reader-dictionary-row-help" data-study-step-help-key="${escapeHtml$1(NEW_TAB_STUDY_STEP_HELP_KEYS[step])}">${escapeHtml$1(settingsText(language2)(NEW_TAB_STUDY_STEP_HELP_KEYS[step]))}</div>
                                 ${renderRowOrderTools({
       upAction: "dictionary-source-up",
       downAction: "dictionary-source-down",
@@ -55912,7 +55916,7 @@ function renderNewTabStudyStepRow(step, index, enabled, language2) {
         up: uiText(language2, "moveUp"),
         down: uiText(language2, "moveDown")
       },
-      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml(step)}">`
+      leading: `<input name="newTabStudyStepOrder" type="hidden" value="${escapeHtml$1(step)}">`
     })}
                             </div>
     `;
@@ -55938,7 +55942,7 @@ function renderNewTabAnkiDeckControls(settings) {
                         </div>`;
 }
 function renderNewTabAnkiDisabledDecksInput(disabled) {
-  return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml(disabled.join(", "))}">`;
+  return `<input type="hidden" name="newTabAnkiDisabledDecks" value="${escapeHtml$1(disabled.join(", "))}">`;
 }
 function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language2) {
   const disabled = canonicalNewTabAnkiDisabledDecks(disabledDecks);
@@ -55956,8 +55960,8 @@ function renderNewTabAnkiDeckSelector(disabledDecks, deckNames, language2) {
 function renderNewTabAnkiDeckToggle(deck, checked) {
   return `
                                 <label class="jpdb-reader-newtab-anki-deck-toggle" data-newtab-anki-deck-row data-active="${checked ? "true" : "false"}">
-                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml(deck)}" ${checked ? "checked" : ""}>
-                                    <span>${escapeHtml(deck)}</span>
+                                    <input type="checkbox" data-newtab-anki-deck-toggle data-newtab-anki-deck="${escapeHtml$1(deck)}" ${checked ? "checked" : ""}>
+                                    <span>${escapeHtml$1(deck)}</span>
                                 </label>`;
 }
 function isNewTabAnkiDeckDisabled(deck, disabledDecks) {
@@ -56108,11 +56112,11 @@ function renderColorChannelSettingsSubsection(settings) {
   const noSourceHidden = hasStatusColorSource(settings) ? " hidden" : "";
   return `
                 <div class="jpdb-reader-settings-subsection">
-                    <div class="jpdb-reader-local-title">${escapeHtml(text2("colorChannels"))}</div>
+                    <div class="jpdb-reader-local-title">${escapeHtml$1(text2("colorChannels"))}</div>
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, key]) => select(name, text2(key), settingsColorSourceValue(settings, name), options)).join("")}
                     </div>
-                    <div class="jpdb-reader-help" data-status-color-no-source data-help-key="statusColorNoSourceHelp"${noSourceHidden}>${escapeHtml(text2("statusColorNoSourceHelp"))}</div>
+                    <div class="jpdb-reader-help" data-status-color-no-source data-help-key="statusColorNoSourceHelp"${noSourceHidden}>${escapeHtml$1(text2("statusColorNoSourceHelp"))}</div>
                 </div>
     `;
 }
@@ -56162,8 +56166,8 @@ function renderAudioSettingsPanel(settings) {
 function audioAutoPlayModeSelect(language2, value, disabled) {
   const options = localizedOptions(settingsText(language2), AUDIO_AUTO_PLAY_MODE_OPTIONS);
   return `<label>${escapedUiText(language2, "audioAutoPlayMode")}<select name="audioAutoPlayMode" ${disabled ? "disabled" : ""}>${options.map(
-      ([optionValue, text2]) => `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml(text2)}</option>`
-    ).join("")}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml(value)}">` : ""}</label>`;
+      ([optionValue, text2]) => `<option value="${escapeHtml$1(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$1(text2)}</option>`
+    ).join("")}</select>${disabled ? `<input type="hidden" name="audioAutoPlayMode" value="${escapeHtml$1(value)}">` : ""}</label>`;
 }
 function renderProxySetupGuide(language2) {
   return `
@@ -56359,10 +56363,10 @@ function renderImageSettingsPanel(settings) {
                     ${input("ocrFontScale", text2("ocrFontScale"), String(settings.ocrFontScale), "number")}
                     <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">${escapedUiText(language2, "ocrLocalHelp")}</div>
                     <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", text2("ocrEngine"), settings.ocrEngine, ocrEngineOptions(text2))}</div>
-                    <label data-local-ocr ${localOcrHidden}>${escapedUiText(language2, "ocrEndpointUrl")}<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    <label data-local-ocr ${localOcrHidden}>${escapedUiText(language2, "ocrEndpointUrl")}<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">${escapedUiText(language2, "ocrCloudHelp")}</div>
-                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language2, "cloudVisionApiKey")}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
-                    <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
+                    <label data-cloud-ocr ${cloudOcrHidden}>${escapedUiText(language2, "cloudVisionApiKey")}<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                     <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
                     <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
@@ -56579,7 +56583,7 @@ function renderSettingsFooter(language2) {
   return `
             <div class="footer">
                 <div class="jpdb-reader-settings-save-status" data-settings-save-status role="status" aria-live="polite" hidden></div>
-                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml(CURRENT_YOMU_VERSION)}</div>
+                <div class="jpdb-reader-settings-footer-version" data-yomu-settings-version>Yomu ${escapeHtml$1(CURRENT_YOMU_VERSION)}</div>
                 <button class="jpdb-reader-btn" type="button" data-action="cancel">${escapedUiText(language2, "cancel")}</button>
                 <button class="jpdb-reader-btn add" type="submit">${escapedUiText(language2, "save")}</button>
             </div>
@@ -56591,8 +56595,8 @@ function fontFamilyControl(name, label, value, text2) {
         <div class="jpdb-reader-font-family-control" data-font-family-control="${name}">
             ${select(name, label, selectedValue, fontFamilyOptions(text2))}
             <label class="jpdb-reader-font-family-custom" data-font-family-custom ${selectedValue === CUSTOM_FONT_FAMILY_VALUE ? "" : "hidden"}>
-                ${escapeHtml(text2 ? text2("customFontFamily") : "Custom font stack")}
-                <input name="${name}Custom" type="text" value="${escapeHtml(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
+                ${escapeHtml$1(text2 ? text2("customFontFamily") : "Custom font stack")}
+                <input name="${name}Custom" type="text" value="${escapeHtml$1(value)}" placeholder="&quot;Noto Sans JP&quot;, sans-serif" autocomplete="off">
             </label>
         </div>
     `;
@@ -56611,11 +56615,11 @@ function fontFamilyOptions(text2) {
 }
 function themeSegmentedControl(value, text2) {
   const isDark = value === "dark";
-  const switchLabel = escapeHtml(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
+  const switchLabel = escapeHtml$1(isDark ? text2("switchToLightTheme") : text2("switchToDarkTheme"));
   return `
         <div class="jpdb-reader-theme-field" data-theme-field>
-            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml(text2("theme"))}</span>
-            <input type="hidden" name="theme" value="${escapeHtml(value)}" data-theme-value>
+            <span class="jpdb-reader-theme-title" id="jpdb-reader-theme-label" data-theme-title>${escapeHtml$1(text2("theme"))}</span>
+            <input type="hidden" name="theme" value="${escapeHtml$1(value)}" data-theme-value>
             <div class="VPNavBarAppearance appearance jpdb-reader-theme-appearance">
                 <button class="VPSwitch VPSwitchAppearance jpdb-reader-theme-switch" type="button" role="switch" data-theme-switch data-newtab-action="theme" aria-label="${switchLabel}" aria-labelledby="jpdb-reader-theme-label" aria-describedby="jpdb-reader-theme-label" aria-checked="${isDark}" title="${switchLabel}">
                     <span class="check">
@@ -57782,7 +57786,7 @@ function currentYomuRuntimeKind() {
   return marker?.dataset.yomuRuntimeKind || "";
 }
 function externalButtonLabel(label) {
-  return `<span>${escapeHtml(label)}</span>${externalLinkIcon()}`;
+  return `<span>${escapeHtml$1(label)}</span>${externalLinkIcon()}`;
 }
 function setExternalButtonLabel(element2, label) {
   if (!element2) return;
@@ -57862,13 +57866,13 @@ function audioHelpHtml(language2) {
   const copy = uiText(language2, "audioHelp");
   const linkLabel = uiText(language2, "audioGuideLinkLabel");
   const [before, after = ""] = copy.split(linkLabel);
-  return `${escapeHtml(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml(linkLabel)}</a>${escapeHtml(after)}`;
+  return `${escapeHtml$1(before)}<a href="${AUDIO_GUIDE_URL}" target="_blank" rel="noopener">${escapeHtml$1(linkLabel)}</a>${escapeHtml$1(after)}`;
 }
 function ankiSetupHelpHtml(language2) {
   const copy = uiText(language2, "ankiHelp");
   const addOnLabel = language2 === "ja" ? "AnkiConnectアドオンを開く" : "Open AnkiConnect add-on";
   const docsLabel = language2 === "ja" ? "モバイルAnki設定ドキュメント" : "Mobile Anki setup docs";
-  return `${escapeHtml(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
+  return `${escapeHtml$1(copy)} <a href="${ANKI_CONNECT_ADDON_URL}" target="_blank" rel="noopener">${externalButtonLabel(addOnLabel)}</a> <a href="${MOBILE_ANKI_SETUP_DOCS_URL}" target="_blank" rel="noopener">${externalButtonLabel(docsLabel)}</a>`;
 }
 function installShortcutCapture(root) {
   root.querySelectorAll("[data-shortcut-input]").forEach((inputEl) => {
@@ -57947,11 +57951,11 @@ function renderDictionarySourceRows(settings) {
   const hidden = hiddenPreferences.map((preference) => {
   const index = settings.dictionaryPreferences.indexOf(preference);
   return `
-            <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml(preference.name)}">
-            <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml(preference.alias)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$1(preference.name)}">
+            <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$1(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml(String(preference.priority))}">
-            <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? "terms")}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$1(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
         `;
   }).join("");
   const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
@@ -57975,27 +57979,27 @@ function renderDefinitionTranslationControls(settings) {
   const visibleCount = translationAvailable ? sources.filter((source) => !source.definitionLanguages.includes(learnerLanguageId)).length : 0;
   return `
         <div class="jpdb-reader-settings-subsection jpdb-reader-definition-translation" data-definition-translation-controls>
-            <div class="jpdb-reader-local-title" data-multilingual-copy="translationTitle">${escapeHtml(copy.translationTitle)}</div>
-            <div class="jpdb-reader-help" data-multilingual-copy="translationHelp">${escapeHtml(copy.translationHelp)}</div>
+            <div class="jpdb-reader-local-title" data-multilingual-copy="translationTitle">${escapeHtml$1(copy.translationTitle)}</div>
+            <div class="jpdb-reader-help" data-multilingual-copy="translationHelp">${escapeHtml$1(copy.translationHelp)}</div>
             <input type="hidden" name="definitionTranslationControlsPresent" value="1">
             <div class="jpdb-reader-definition-translation-list">
                 ${sources.map((source) => {
       const isNative = source.definitionLanguages.includes(learnerLanguageId);
       const disabled = isNative || !translationAvailable;
       return `
-                    <label class="inline" data-definition-translation-row data-definition-languages="${escapeHtml(source.definitionLanguages.join(" "))}" ${disabled ? "hidden" : ""}>
-                        <input name="definitionTranslationProviderIds" type="checkbox" value="${escapeHtml(source.id)}" ${enabled.has(source.id) ? "checked" : ""} ${disabled ? "disabled" : ""}>
+                    <label class="inline" data-definition-translation-row data-definition-languages="${escapeHtml$1(source.definitionLanguages.join(" "))}" ${disabled ? "hidden" : ""}>
+                        <input name="definitionTranslationProviderIds" type="checkbox" value="${escapeHtml$1(source.id)}" ${enabled.has(source.id) ? "checked" : ""} ${disabled ? "disabled" : ""}>
                         <span>
-                            <strong>${escapeHtml(source.name)}</strong>
+                            <strong>${escapeHtml$1(source.name)}</strong>
                             <span aria-hidden="true"> — </span>
-                            <span data-definition-translation-label>${escapeHtml(copy.translateAutomatically(learnerLanguage2.nativeName))}</span>
+                            <span data-definition-translation-label>${escapeHtml$1(copy.translateAutomatically(learnerLanguage2.nativeName))}</span>
                         </span>
                     </label>
                 `;
     }).join("")}
             </div>
-            <div class="jpdb-reader-help" data-definition-translation-empty ${!translationAvailable || visibleCount ? "hidden" : ""}>${escapeHtml(copy.translationEmpty)}</div>
-            <div class="jpdb-reader-help" data-definition-translation-unavailable ${translationAvailable ? "hidden" : ""}>${escapeHtml(copy.translationUnavailable)}</div>
+            <div class="jpdb-reader-help" data-definition-translation-empty ${!translationAvailable || visibleCount ? "hidden" : ""}>${escapeHtml$1(copy.translationEmpty)}</div>
+            <div class="jpdb-reader-help" data-definition-translation-unavailable ${translationAvailable ? "hidden" : ""}>${escapeHtml$1(copy.translationUnavailable)}</div>
         </div>
     `;
 }
@@ -58054,7 +58058,7 @@ function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", inclu
   if (!dictionaries2.length) return "";
   return `
                 <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml(label)}</div>
+                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml$1(label)}</div>
                     ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
                 </div>
             `;
@@ -58074,31 +58078,31 @@ function renderCatalogBrowseSection(sections, installed, learnerLanguageId) {
   const copy = catalogBrowseCopy(learnerLanguageId);
   const locale = learnerLanguage2.runtimeLocale;
   return `
-        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml(learnerLanguageId)}" lang="${escapeHtml(locale)}" dir="${learnerLanguage2.direction}">
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml(copy.title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml(catalogBrowseSummaryText(copy.summary, locale, count, catalogBrowseTotalBytes(groups)))}</div>
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml$1(learnerLanguageId)}" lang="${escapeHtml$1(locale)}" dir="${learnerLanguage2.direction}">
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml$1(copy.title)}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$1(catalogBrowseSummaryText(copy.summary, locale, count, catalogBrowseTotalBytes(groups)))}</div>
             <div class="jpdb-reader-catalog-browse-search">
                 <label>
-                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml(copy.searchLabel)}</span>
+                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml$1(copy.searchLabel)}</span>
                     <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
                 </label>
             </div>
             <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
                 ${sections.map((section) => renderCatalogBrowseLanguage(section, copy, locale, installed)).join("")}
             </div>
-            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml(copy.noResults)}</div>
+            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml$1(copy.noResults)}</div>
         </section>
     `;
 }
 function renderCatalogBrowseLanguage(section, copy, locale, installed) {
   const language2 = section.headwordLanguage;
   return `
-        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language2)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language2))}"${section.isTargetLanguage ? " data-catalog-browse-language-target" : ""}>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language2, locale))}</div>
-            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language2, locale)))}</div>
+        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml$1(language2)}" data-catalog-browse-language-endonym="${escapeHtml$1(headwordLanguageEndonym(language2))}"${section.isTargetLanguage ? " data-catalog-browse-language-target" : ""}>
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml$1(headwordLanguageName(language2, locale))}</div>
+            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml$1(catalogBrowseLanguageNote(copy, headwordLanguageName(language2, locale)))}</div>
             ${section.groups.map((group) => `
-                <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
-                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
+                <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml$1(group.category)}">
+                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$1(group.category)}">${escapeHtml$1(copy.categories[group.category])}</div>
                     ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
                 </div>
             `).join("")}
@@ -58128,27 +58132,27 @@ function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLangua
   const size = completeDictionarySeedSize(dictionaries2, learnerLanguage2.runtimeLocale);
   const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries2.length, size, learnerLanguage2.runtimeLocale);
   return `
-        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml(targetLanguage2)}" lang="${escapeHtml(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
-            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml(countAndSize)}</div>
+        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml$1(targetLanguage2)}" lang="${escapeHtml$1(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
+            <div class="jpdb-reader-catalog-seed-title">${escapeHtml$1(title)}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml$1(countAndSize)}</div>
             ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
         </section>
     `;
 }
 function renderRecommendedDictionary(dictionary, installed) {
   const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
-  const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
+  const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? "Update" : "Install"}
-            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
+            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml$1(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
   const description = dictionary.description ?? (dictionary.descriptionKey ? uiText("en", dictionary.descriptionKey) : "");
-  const catalogAttributes = dictionary.origin === "catalog" ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? "")}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? "")}" data-target-language="${escapeHtml(dictionary.targetLanguage ?? "")}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? "")}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? "")}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? "")}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ""}` : "";
+  const catalogAttributes = dictionary.origin === "catalog" ? ` data-catalog-recommendation="${escapeHtml$1(dictionary.catalogDictionaryId ?? "")}" data-learner-language="${escapeHtml$1(dictionary.learnerLanguage ?? "")}" data-target-language="${escapeHtml$1(dictionary.targetLanguage ?? "")}" data-headword-language="${escapeHtml$1(dictionary.headwordLanguage ?? "")}" data-definition-language="${escapeHtml$1(dictionary.definitionLanguage ?? "")}" data-translation-mode="${escapeHtml$1(dictionary.translationMode ?? "")}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ""}` : "";
   return `
         <div class="jpdb-reader-recommended-item"${catalogAttributes}>
             <div>
                 <div class="jpdb-reader-recommended-name">
-                    <span>${escapeHtml(dictionary.name)}</span>
+                    <span>${escapeHtml$1(dictionary.name)}</span>
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(description)}</div>
+                <div class="jpdb-reader-help">${escapeHtml$1(description)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
             </div>
             ${action}
@@ -59198,7 +59202,14 @@ function dictionaryDownloadUrl(url) {
   return url;
   }
 }
+const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
 const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
+function glossaryValueToText(value) {
+  return glossaryValueToProfileText(value, {
+  includeDirectDataAttributes: true,
+  fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
+  });
+}
 function glossaryValueToSearchText(value) {
   return glossaryValueToProfileText(value, {
   includeDirectDataAttributes: false,
@@ -59244,6 +59255,368 @@ function glossaryRecordTextValues(record2, options) {
 }
 function shouldReadRecordTextKey(key, options) {
   return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
+}
+const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
+  "br",
+  "ruby",
+  "rt",
+  "rp",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "th",
+  "td",
+  "div",
+  "span",
+  "ol",
+  "ul",
+  "li",
+  "details",
+  "summary"
+]);
+const STRUCTURED_STYLE_PROPERTIES = {
+  fontStyle: "font-style",
+  fontWeight: "font-weight",
+  fontSize: "font-size",
+  color: "color",
+  background: "background",
+  backgroundColor: "background-color",
+  textDecorationStyle: "text-decoration-style",
+  textDecorationColor: "text-decoration-color",
+  borderColor: "border-color",
+  borderStyle: "border-style",
+  borderRadius: "border-radius",
+  borderWidth: "border-width",
+  clipPath: "clip-path",
+  verticalAlign: "vertical-align",
+  textAlign: "text-align",
+  textEmphasis: "text-emphasis",
+  textShadow: "text-shadow",
+  margin: "margin",
+  marginTop: "margin-top",
+  marginLeft: "margin-left",
+  marginRight: "margin-right",
+  marginBottom: "margin-bottom",
+  padding: "padding",
+  paddingTop: "padding-top",
+  paddingLeft: "padding-left",
+  paddingRight: "padding-right",
+  paddingBottom: "padding-bottom",
+  wordBreak: "word-break",
+  whiteSpace: "white-space",
+  cursor: "cursor",
+  listStyleType: "list-style-type"
+};
+const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
+function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
+  return renderGlossaryValue(value, {
+  dictionary,
+  internalSearchLinks: options.internalSearchLinks ?? false
+  });
+}
+function renderGlossaryValue(value, context) {
+  if (value == null) return "";
+  if (isStructuredPrimitive(value)) return escapeHtml(String(value));
+  if (Array.isArray(value)) return renderGlossaryArray(value, context);
+  if (!isRecord$1(value)) return "";
+  return renderGlossaryRecord(value, context);
+}
+function isStructuredPrimitive(value) {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+function renderGlossaryArray(value, context) {
+  return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+}
+function renderGlossaryRecord(record2, context) {
+  return renderDirectGlossaryRecord(record2, context) ?? renderTaggedGlossaryRecord(record2, context);
+}
+const DIRECT_GLOSSARY_RECORD_RENDERERS = [
+  renderTextGlossaryRecord,
+  renderStructuredContentGlossaryRecord,
+  renderImageGlossaryRecord,
+  renderTextContentGlossaryRecord
+];
+function renderDirectGlossaryRecord(record2, context) {
+  for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
+  const html = render(record2, context);
+  if (html !== null) return html;
+  }
+  return null;
+}
+function renderTextGlossaryRecord(record2) {
+  return typeof record2.text === "string" ? escapeHtml(record2.text) : null;
+}
+function renderStructuredContentGlossaryRecord(record2, context) {
+  return record2.type === "structured-content" ? renderStructuredContent(record2, context) : null;
+}
+function renderImageGlossaryRecord(record2, context) {
+  return isStructuredImageRecord(record2) ? renderStructuredImage(record2, context.dictionary) : null;
+}
+function renderTextContentGlossaryRecord(record2, context) {
+  return record2.type === "text" && "content" in record2 ? renderGlossaryValue(record2.content, context) : null;
+}
+function renderStructuredContent(record2, context) {
+  const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
+  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record2.content, context)}</span>`;
+}
+function renderTaggedGlossaryRecord(record2, context) {
+  const tag = structuredRecordTag(record2);
+  if (!tag) return renderRecordValues(record2, context);
+  return renderKnownTaggedGlossaryRecord(record2, tag, context) ?? structuredFallbackContent(record2, taggedRecordContent(record2, tag, context));
+}
+function renderKnownTaggedGlossaryRecord(record2, tag, context) {
+  if (tag === "a") return renderStructuredLink(record2, context);
+  if (tag === "img") return renderStructuredImage(record2, context.dictionary);
+  const content = taggedRecordContent(record2, tag, context);
+  if (tag === "table") return renderStructuredTable(record2, content, context.dictionary);
+  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record2, tag, content, context.dictionary);
+  return null;
+}
+function taggedRecordContent(record2, tag, context) {
+  return tag === "br" ? "" : renderGlossaryValue(record2.content, context);
+}
+function structuredFallbackContent(record2, content) {
+  return content || escapeHtml(glossaryValueToText(record2));
+}
+function structuredRecordTag(record2) {
+  if (typeof record2.tag === "string") return record2.tag.toLowerCase();
+  return "content" in record2 ? "span" : "";
+}
+function renderRecordValues(record2, context) {
+  return Object.values(record2).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+}
+function renderStructuredTable(record2, content, dictionary) {
+  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record2, "table", dictionary)}>${content}</table></div>`;
+}
+function renderStructuredElement(record2, tag, content, dictionary) {
+  const attrs = renderStructuredElementAttributes(record2, tag, dictionary);
+  return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
+}
+function renderStructuredElementAttributes(record2, tag, dictionary) {
+  return [
+  ` class="gloss-sc-${escapeHtml(tag)}"`,
+  dictionaryDataAttribute(dictionary),
+  renderStructuredDataAttributes(record2.data),
+  renderDirectDataAttributes(record2),
+  structuredStyleAttribute(record2.style),
+  structuredStringAttribute("title", record2.title),
+  structuredStringAttribute("lang", record2.lang),
+  ...structuredStateAttributes(record2, tag)
+  ].filter(Boolean).join("");
+}
+function dictionaryDataAttribute(dictionary) {
+  return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+}
+function structuredStyleAttribute(value) {
+  const style = renderStructuredStyle(value);
+  return style ? ` style="${escapeHtml(style)}"` : "";
+}
+function structuredStringAttribute(name, value) {
+  return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
+}
+function structuredStateAttributes(record2, tag) {
+  return [
+  tag === "details" && record2.open === true ? " open" : "",
+  tableCellSpanAttribute(record2, tag, "colSpan", "colspan"),
+  tableCellSpanAttribute(record2, tag, "rowSpan", "rowspan")
+  ];
+}
+function tableCellSpanAttribute(record2, tag, key, attr) {
+  const value = Number(record2[key]);
+  return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
+}
+function isTableCellTag(tag) {
+  return tag === "td" || tag === "th";
+}
+function renderStructuredDataAttributes(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
+}
+function renderStructuredDataAttribute(key, rawValue) {
+  return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
+}
+function isStructuredAttributeValue(value) {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+function renderDirectDataAttributes(record2) {
+  return Object.entries(record2).map(renderDirectDataAttribute).filter(Boolean).join("");
+}
+function renderDirectDataAttribute([key, value]) {
+  return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
+}
+function isDirectDataAttribute(key, value) {
+  return key.startsWith("data-") && isStructuredAttributeValue(value);
+}
+function renderStructuredStyle(value) {
+  const style = structuredStyleRecord(value);
+  if (!style) return "";
+  const declarations = [];
+  const decoration = structuredTextDecoration(style.textDecorationLine);
+  if (decoration) declarations.push(decoration);
+  for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
+  const declaration = structuredStyleDeclaration(key, property, style[key]);
+  if (declaration) declarations.push(declaration);
+  }
+  return declarations.join("");
+}
+function structuredStyleRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function structuredTextDecoration(value) {
+  if (typeof value === "string") return `text-decoration:${value};`;
+  if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
+  return "";
+}
+function structuredStyleDeclaration(key, property, rawValue) {
+  if (typeof rawValue === "string") return `${property}:${rawValue};`;
+  if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
+  return "";
+}
+function renderStructuredLink(record2, context) {
+  const content = renderGlossaryValue(record2.content, context) || escapeHtml(glossaryValueToText(record2));
+  const link = structuredLinkModel(record2, context);
+  const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
+  return `<a${structuredLinkAttrs(link, context.dictionary, record2.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+}
+function structuredLinkModel(record2, context) {
+  const rawHref = typeof record2.href === "string" ? record2.href : "";
+  const searchReference = structuredLinkSearchReference(rawHref, context);
+  const kanjiReference = structuredLinkKanjiReference(rawHref, context);
+  const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
+  return {
+  href,
+  external: isExternalStructuredHref(href),
+  searchReference,
+  kanjiReference
+  };
+}
+function structuredLinkSearchReference(rawHref, context) {
+  return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
+}
+function structuredLinkKanjiReference(rawHref, context) {
+  return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
+}
+function structuredLinkHref(rawHref, searchReference, kanjiReference) {
+  if (searchReference) return "#jpdb-reader-dictionary-lookup";
+  if (kanjiReference) return "#jpdb-reader-kanji-lookup";
+  return normalizeStructuredHref(rawHref);
+}
+function isExternalStructuredHref(href) {
+  return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
+}
+function structuredLinkAttrs(link, dictionary, lang) {
+  return [
+  ' class="gloss-link"',
+  ` data-external="${link.external}"`,
+  dictionaryAttribute(dictionary),
+  kanjiReferenceActionAttribute(link),
+  searchReferenceQueryAttribute(link),
+  searchReferenceReadingAttribute(link),
+  hrefAttribute(link.href),
+  externalLinkAttributes(link.external),
+  langAttribute(lang)
+  ].join("");
+}
+function kanjiReferenceActionAttribute(link) {
+  return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+}
+function dictionaryAttribute(dictionary) {
+  return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+}
+function searchReferenceQueryAttribute(link) {
+  return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
+}
+function searchReferenceReadingAttribute(link) {
+  return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
+}
+function hrefAttribute(href) {
+  return href ? ` href="${escapeHtml(href)}"` : "";
+}
+function externalLinkAttributes(external) {
+  return external ? ' target="_blank" rel="noopener noreferrer"' : "";
+}
+function langAttribute(lang) {
+  return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
+}
+function renderStructuredImage(record2, dictionary) {
+  const path = typeof record2.path === "string" ? record2.path : "";
+  const title = typeof record2.title === "string" ? record2.title : "";
+  const description = structuredImageDescription(record2);
+  const src = structuredImageSrc(path);
+  const alt = escapeHtml(description || title || "Dictionary image");
+  const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
+  return `<span${renderStructuredImageAttributes(record2, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+}
+function renderStructuredImageAttributes(record2, dictionary) {
+  return [
+  ` class="gloss-image-link"`,
+  dictionaryAttribute(dictionary),
+  structuredImageStateAttribute(record2)
+  ].join("");
+}
+function structuredImageStateAttribute(record2) {
+  const path = typeof record2.path === "string" ? record2.path : "";
+  return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
+}
+function structuredImageSrc(path) {
+  return /^data:image\//i.test(path) ? path : "";
+}
+function structuredImageDescription(record2) {
+  if (typeof record2.description === "string") return record2.description;
+  return typeof record2.alt === "string" ? record2.alt : "";
+}
+function isStructuredImageRecord(record2) {
+  return record2.type === "image" || "path" in record2;
+}
+function normalizeStructuredHref(href) {
+  if (!href) return "";
+  if (/^https?:\/\//i.test(href) || href.startsWith("#")) return href;
+  if (href.startsWith("?")) return `https://jpdb.io/search${href}`;
+  return "";
+}
+function parseStructuredSearchReference(href) {
+  if (!href.startsWith("?")) return null;
+  const params = structuredSearchParams(href);
+  return params ? structuredSearchReferenceFromParams(params) : null;
+}
+function parseStructuredKanjiReference(href) {
+  const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
+  if (!match) return null;
+  const value = decodeStructuredPathSegment(match[1]);
+  const kanji = Array.from(value).find(isJapaneseKanjiCharacter) ?? "";
+  return kanji ? { kanji } : null;
+}
+function decodeStructuredPathSegment(value) {
+  try {
+  return decodeURIComponent(value);
+  } catch {
+  return value;
+  }
+}
+function structuredSearchParams(href) {
+  try {
+  return new URLSearchParams(href.slice(1));
+  } catch {
+  return null;
+  }
+}
+function structuredSearchReferenceFromParams(params) {
+  const query = (params.get("query") ?? "").trim();
+  return query ? { query, reading: (params.get("primary_reading") ?? "").trim() } : null;
+}
+function locationOrigin() {
+  try {
+  return location.origin;
+  } catch {
+  return "";
+  }
+}
+function camelToKebabCase(value) {
+  return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function renderDictionaryScopedStyles(dictionaries2, preferences = []) {
   const rank = dictionaryRank(preferences);
@@ -67621,7 +67994,7 @@ ${reading}`);
     translation.lang = outputLanguage;
     translation.dir = definitionTextDirection(outputLanguage);
     translation.dataset.definitionTranslation = source.sourceId;
-    setInnerHtml(translation, escapeHtml(translated).replaceAll("\n", "<br>"));
+    setInnerHtml(translation, escapeHtml$1(translated).replaceAll("\n", "<br>"));
     const original = document2.createElement("details");
     original.className = "jpdb-reader-definition-original";
     const summary = document2.createElement("summary");
@@ -67693,6 +68066,7 @@ ${reading}`);
   });
   registerYomuCompanion("localDictionaries", {
     YomitanDictionaryStore,
+    renderStructuredGlossaryHtml,
     ensureLocalDictionariesReplicated,
     enumerateDictionaryArchiveStorageKeys
   });

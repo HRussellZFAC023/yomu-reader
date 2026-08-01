@@ -6576,7 +6576,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     // YouTube subscription snapshot + oembed title cache.
     { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
     { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-    { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+    { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
     // New Tab study surface stores.
     { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
     { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -59023,7 +59023,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.66".trim() ? "1.8.66".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.67".trim() ? "1.8.67".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -105776,6 +105776,7 @@ ${reading}`);
   });
   registerYomuCompanion("localDictionaries", {
     YomitanDictionaryStore,
+    renderStructuredGlossaryHtml,
     ensureLocalDictionariesReplicated,
     enumerateDictionaryArchiveStorageKeys
   });
@@ -111966,7 +111967,7 @@ ${reading}`);
     if (placement === "bottom") return "ArrowDown";
     return placement === "left" ? "ArrowLeft" : "ArrowRight";
   }
-  const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = "yomu:subtitle-parse:v3:";
+  const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = "yomu:subtitle-parse:v4:";
   const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1e3;
   function subtitleSessionParseHash(key) {
     let h1 = 2166136261;
@@ -112060,8 +112061,18 @@ ${reading}`);
       return false;
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
-      if (!this.deps.shouldParseSubtitles()) return;
-      if (parsedSubtitleHtmlHasReaderWords(html)) {
+      const provisional = options.provisional === true;
+      if (!this.deps.shouldParseSubtitles()) return { html, provisional };
+      const existingAuthoritative = this.parsedHtmlCache.get(key);
+      const existingProvisional = this.provisionalParsedHtmlCache.get(key);
+      const incomingHasReaderWords = parsedSubtitleHtmlHasReaderWords(html);
+      if ((provisional || !incomingHasReaderWords) && existingAuthoritative) {
+        return { html: existingAuthoritative, provisional: false };
+      }
+      if (existingProvisional && (!incomingHasReaderWords || provisional && !options.enriched && this.enrichedProvisionalParsedHtmlKeys.has(key))) {
+        return { html: existingProvisional, provisional: true };
+      }
+      if (incomingHasReaderWords) {
         if (options.provisional) {
           this.provisionalParsedHtmlCache.set(key, html);
           if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
@@ -112071,13 +112082,37 @@ ${reading}`);
           this.provisionalParsedHtmlCache.delete(key);
           this.enrichedProvisionalParsedHtmlKeys.delete(key);
         }
-        if (!options.provisional || !this.deps.hasAuthoritativeParseTier() && options.enriched) this.persistSessionParsedCueHtml(key, html);
+        if (this.tokensFullyEnriched(tokens) && (!options.provisional || !this.deps.hasAuthoritativeParseTier() && options.enriched)) {
+          this.persistSessionParsedCueHtml(key, html);
+        }
         this.emptyParsedHtmlCache.delete(key);
         if (tokens.length) this.parsedTokenCache.set(key, tokens);
         this.pruneParsedSubtitleCaches();
+        return { html, provisional };
       } else {
         this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
         this.pruneParsedSubtitleCaches();
+        return { html, provisional };
+      }
+    }
+    canonicalParsedHtmlResults(results) {
+      return results.map((result) => {
+        const authoritative = this.parsedHtmlCache.get(result.key);
+        if (authoritative !== void 0) return { key: result.key, html: authoritative };
+        const provisional = this.provisionalParsedHtmlCache.get(result.key);
+        if (provisional !== void 0) return { key: result.key, html: provisional, provisional: true };
+        return result.provisional ? { ...result, provisional: true } : { key: result.key, html: result.html };
+      });
+    }
+    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2) {
+      const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
+      batch.forEach((item, index) => pendingCache2.set(item.key, pendingHtml[index]));
+      try {
+        return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...parsedHtml]));
+      } finally {
+        batch.forEach((item, index) => {
+          if (pendingCache2.get(item.key) === pendingHtml[index]) pendingCache2.delete(item.key);
+        });
       }
     }
     pruneParsedSubtitleCaches() {
@@ -112346,6 +112381,23 @@ ${reading}`);
       return words.length && wordElements.length ? { words, wordElements } : null;
     }
   }
+  const FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
+  async function prewarmSubtitleFirstPaint(options) {
+    const activeCue = findActiveSubtitleCue(options.cues, options.currentTime) ?? findInitialLeadInCue(options.cues, options.currentTime);
+    let activeIndex = activeCue ? options.cues.indexOf(activeCue) : -1;
+    if (activeIndex < 0) activeIndex = options.cues.findIndex((cue) => cue.end >= options.currentTime);
+    const activeText = options.cues[activeIndex]?.text.trim();
+    if (!activeText) return options.isCurrent();
+    await promiseWithTimeout(
+      options.parse(activeText),
+      FIRST_PAINT_PREWARM_BUDGET_MS,
+      "Subtitle first-paint prewarm timed out."
+    ).catch(() => void 0);
+    if (!options.isCurrent()) return false;
+    const nextText = options.cues[activeIndex + 1]?.text.trim();
+    if (nextText) void options.parse(nextText).catch(() => void 0);
+    return true;
+  }
   const YOUTUBE_FULLSCREEN_HOST_SELECTOR = [
     '[data-yomu-inline-fullscreen="true"]',
     ".html5-video-player.ytp-fullscreen",
@@ -112595,7 +112647,6 @@ ${reading}`);
   }
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
-  const SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
   const SUBTITLE_CONTROLS_AWAY_COMMIT_DELAY_MS = 320;
   const SUBTITLE_TIMING_OFFSET_STEP_SECONDS = 0.1;
@@ -114625,8 +114676,7 @@ ${reading}`);
         const tokens = await this.options.parseJapanese(text2, this.finalSubtitleParseOptions(settings));
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key, html, tokens);
-        return html;
+        return this.rememberParsedCueHtml(key, html, tokens).html;
       })();
       this.htmlCache.pendingParsedHtml.set(key, promise);
       try {
@@ -114645,9 +114695,9 @@ ${reading}`);
         const tokens = await this.options.parseJapanese(text2, authoritativeSubtitleParseOptions());
         await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
-        this.applyAuthoritativeParsedCueHtml(key, text2, html);
-        return html;
+        const remembered = this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, text2, remembered.html);
+        return remembered.html;
       })();
       this.htmlCache.pendingParsedHtml.set(key, promise);
       try {
@@ -114676,8 +114726,10 @@ ${reading}`);
         const tokens = await this.options.parseJapanese(text2, provisionalSubtitleParseOptions());
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
-        return html;
+        return this.rememberParsedCueHtml(key, html, tokens, {
+          provisional: true,
+          enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true)
+        }).html;
       })();
       if (options.enrichBeforeRender) promise.yomuEnriched = true;
       this.htmlCache.pendingProvisionalParsedHtml.set(key, promise);
@@ -114718,9 +114770,9 @@ ${reading}`);
       const parsedHtml = missing.map((item, index) => enriched.then((tokens) => {
         const tokenList = tokens[index] ?? [];
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
-        this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
-        return html;
+        const remembered = this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
+        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(item.key, item.text, remembered.html);
+        return remembered.html;
       }));
       missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
       void Promise.allSettled(parsedHtml).finally(() => {
@@ -114761,10 +114813,10 @@ ${reading}`);
       if (previous === void 0) return;
       const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
       if (html === previous) return;
-      this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true, enriched: true } : {});
-      this.updateTranscriptRowsForParseKey(key, html, { provisional, force: true });
+      const remembered = this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true, enriched: true } : {});
+      this.updateTranscriptRowsForParseKey(key, remembered.html, { provisional: remembered.provisional, force: true });
       if (this.currentPrimaryParseCacheKey() !== key) return;
-      this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
+      this.applyParsedPrimaryHtml(key, text2, remembered.html, ++this.renderSerial);
     }
     applyParsedPrimaryHtml(key, text2, html, serial) {
       if (!this.shouldParseSubtitles()) return;
@@ -114793,26 +114845,30 @@ ${reading}`);
         (key) => this.cachedParsedCueHtml(key, settings) ?? this.freshEmptyParsedHtml(key) ?? (this.hasAuthoritativeParseTier(settings) ? void 0 : this.htmlCache.provisionalParsedHtmlCache.get(key)),
         (key) => this.pendingParsedCueHtml(key, "authoritative")
       );
-      if (!batch.length) return Promise.all(ready);
+      if (!batch.length) {
+        return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
+      }
       if (!this.options.parseJapaneseBatch) {
-        return Promise.all([...ready, ...batch.map(async (item) => ({
+        return this.htmlCache.canonicalParsedHtmlResults(await Promise.all([...ready, ...batch.map(async (item) => ({
           key: item.key,
           html: await this.parseCueHtml(item.text, settings, options)
-        }))]);
+        }))]));
       }
       const parsed = this.options.parseJapaneseBatch(batch.map((item) => item.text), this.finalSubtitleParseOptions(settings));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
-      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
+      return await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
     }
     async parseAuthoritativeCueHtmlBatch(items, settings) {
       if (!items.length) return [];
       this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
-      return await Promise.all(items.map(async (item) => {
+      const results = await Promise.all(items.map(async (item) => {
         const cached = this.cachedParsedCueHtml(item.key, settings);
         if (cached) return { key: item.key, html: cached };
         const pending2 = this.htmlCache.pendingParsedHtml.get(item.key);
-        return { key: item.key, html: pending2 ? await pending2 : await this.parseAuthoritativeCueHtml(item.text, settings, item.key) };
+        const html = pending2 ? await pending2 : await this.parseAuthoritativeCueHtml(item.text, settings, item.key);
+        return { key: item.key, html };
       }));
+      return this.htmlCache.canonicalParsedHtmlResults(results);
     }
     async parseCueHtmlBatchWithProvisionalFallback(items, settings, options = {}) {
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
@@ -114827,10 +114883,12 @@ ${reading}`);
         const batchedItems = new Set(batch);
         this.ensureAuthoritativeParsedCueHtmlBatch(items.filter((item) => !batchedItems.has(item)), settings);
       }
-      if (!batch.length) return Promise.all(ready);
+      if (!batch.length) {
+        return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
+      }
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.text), provisionalSubtitleParseOptions()) : Promise.all(batch.map((item) => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
       const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
-      const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
+      const results = await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
       if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
       return results;
     }
@@ -114839,8 +114897,11 @@ ${reading}`);
       return batch.map((item, index) => prepared.then((tokens) => {
         const tokenList = tokens[index] ?? [];
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
-        return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
+        const remembered = this.rememberParsedCueHtml(item.key, html, tokenList, {
+          ...options,
+          enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true)
+        });
+        return remembered.provisional ? { key: item.key, html: remembered.html, provisional: true } : { key: item.key, html: remembered.html };
       }));
     }
     async parseTranscriptRowHtmlBatch(items, rows, settings, options = {}) {
@@ -114875,19 +114936,21 @@ ${reading}`);
         }
         batch.push({ ...item, context: this.transcriptContextWindow(rows, item.rowIndex) });
       }
-      if (!batch.length) return Promise.all(ready);
+      if (!batch.length) {
+        return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
+      }
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(batch.map((item) => item.context.text), parseOptions) : Promise.all(batch.map((item) => this.options.parseJapanese(item.context.text, parseOptions)));
       const prepared = options.enrichBeforeRender ? this.enrichParsedTokenBatchBeforeRender(parsed) : parsed;
       const parsedHtml = batch.map((item, index) => prepared.then((tokenRows) => {
         const rowTokens = this.projectTranscriptContextTokens(tokenRows[index] ?? [], item.context);
         const html = withBreaks(renderTokensToHtml(item.text, rowTokens, settings));
-        this.rememberParsedCueHtml(item.key, html, rowTokens, {
+        const remembered = this.rememberParsedCueHtml(item.key, html, rowTokens, {
           provisional,
           enriched: this.shouldMarkCueEnriched(item.key, rowTokens, options.enrichBeforeRender === true)
         });
-        return provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
+        return remembered.provisional ? { key: item.key, html: remembered.html, provisional: true } : { key: item.key, html: remembered.html };
       }));
-      return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2);
+      return await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2);
     }
     cachedTranscriptContextHtml(key, settings, options, provisional) {
       const authoritative = this.cachedParsedCueHtml(key, settings);
@@ -114940,17 +115003,6 @@ ${reading}`);
       if (!this.shouldParseSubtitles() || !tokens.length || !this.options.beforeRenderTokens) return;
       await this.options.beforeRenderTokens(tokens);
     }
-    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2) {
-      const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
-      batch.forEach((item, index) => pendingCache2.set(item.key, pendingHtml[index]));
-      try {
-        return await Promise.all([...ready, ...parsedHtml]);
-      } finally {
-        batch.forEach((item, index) => {
-          if (pendingCache2.get(item.key) === pendingHtml[index]) pendingCache2.delete(item.key);
-        });
-      }
-    }
     usableProvisionalParsedHtml(key, options) {
       return this.htmlCache.usableProvisionalParsedHtml(key, options);
     }
@@ -114958,7 +115010,7 @@ ${reading}`);
       return this.htmlCache.shouldMarkCueEnriched(key, tokens, enrichRequested);
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
-      this.htmlCache.rememberParsedCueHtml(key, html, tokens, options);
+      return this.htmlCache.rememberParsedCueHtml(key, html, tokens, options);
     }
     hasAuthoritativeParseTier(settings = this.options.getSettings()) {
       return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings);
@@ -116171,25 +116223,17 @@ ${reading}`);
       }
       const cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
       const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
-      let activeIndex = cues.findIndex((cue) => time >= cue.start && time <= cue.end);
-      if (activeIndex < 0) activeIndex = cues.findIndex((cue) => cue.end >= time);
-      const activeText = cues[activeIndex]?.text.trim();
-      if (!activeText) return this.isTrackSelectionCurrent("primary", requestId, selection.trackId);
       const settings = this.options.getSettings();
-      const parse = (text2) => this.parseCueHtml(text2, settings, {
-        enrichBeforeRender: true,
-        requireEnrichedProvisional: true,
-        refreshProvisional: true
+      return prewarmSubtitleFirstPaint({
+        cues,
+        currentTime: time,
+        isCurrent: () => this.isTrackSelectionCurrent("primary", requestId, selection.trackId),
+        parse: (text2) => this.parseCueHtml(text2, settings, {
+          enrichBeforeRender: true,
+          requireEnrichedProvisional: true,
+          refreshProvisional: true
+        })
       });
-      const active = parse(activeText);
-      const nextText = cues[activeIndex + 1]?.text.trim();
-      if (nextText) void parse(nextText).catch(() => void 0);
-      await promiseWithTimeout(
-        active,
-        SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS,
-        "Subtitle first-paint prewarm timed out."
-      ).catch(() => void 0);
-      return this.isTrackSelectionCurrent("primary", requestId, selection.trackId);
     }
     // A track whose entire payload is a single usable line (a one-cue credit,
     // or a metadata-only track whose cues the normalizer dropped) isn't worth
@@ -145995,9 +146039,23 @@ ${rank.detail}` : baseTitle;
       seen.add(key);
       const allTerms = fallbackLookupTermsForCard(card);
       const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
-      if (terms.length) entries2.push({ key, terms });
+      if (terms.length) entries2.push({ key, terms, validationTerms: allTerms });
     }
     return entries2;
+  }
+  function fairFallbackLookupTerms(entries2) {
+    const terms = [];
+    const seen = /* @__PURE__ */ new Set();
+    const rounds = entries2.reduce((maximum, entry) => Math.max(maximum, entry.terms.length), 0);
+    for (let candidateIndex = 0; candidateIndex < rounds; candidateIndex++) {
+      for (const entry of entries2) {
+        const term = entry.terms[candidateIndex];
+        if (!term || seen.has(term)) continue;
+        seen.add(term);
+        terms.push(term);
+      }
+    }
+    return terms;
   }
   async function batchJitenFallbackCards(terms, parse) {
     const cards = /* @__PURE__ */ new Map();
@@ -146028,24 +146086,27 @@ ${rank.detail}` : baseTitle;
       return /* @__PURE__ */ new Map();
     });
     const cards = /* @__PURE__ */ new Map();
-    loaded.forEach((card, term) => {
-      if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
-    });
+    loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
     return cards;
   }
   async function publicLookupFallbackCards(cards, deps, options) {
     const result = /* @__PURE__ */ new Map();
     const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
     if (!entries2.length) return result;
-    const terms = [...new Set(entries2.flatMap((entry) => entry.terms))];
+    const terms = fairFallbackLookupTerms(entries2);
     const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
     for (const entry of entries2) {
+      let resolved;
       for (const term of entry.terms) {
         const card = jitenCards.get(normalizedJitenLookupKey(term));
         if (!card) continue;
-        result.set(entry.key, card);
-        break;
+        if (jitenFallbackCardMatchesTerm(term, card)) {
+          resolved = card;
+          break;
+        }
+        if (!resolved && entry.validationTerms.some((candidate) => jitenFallbackCardMatchesTerm(candidate, card))) resolved = card;
       }
+      if (resolved) result.set(entry.key, resolved);
     }
     if (options.jpdbPublicLookup === false) return result;
     const unresolved = entries2.filter((entry) => !result.has(entry.key));

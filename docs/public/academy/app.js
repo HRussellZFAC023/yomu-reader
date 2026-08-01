@@ -27956,7 +27956,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     // YouTube subscription snapshot + oembed title cache.
     { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
     { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-    { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+    { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
     // New Tab study surface stores.
     { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
     { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
@@ -373703,9 +373703,23 @@ ${rank2.detail}` : baseTitle;
       seen.add(key2);
       const allTerms = fallbackLookupTermsForCard(card);
       const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
-      if (terms.length) entries2.push({ key: key2, terms });
+      if (terms.length) entries2.push({ key: key2, terms, validationTerms: allTerms });
     }
     return entries2;
+  }
+  function fairFallbackLookupTerms(entries2) {
+    const terms = [];
+    const seen = /* @__PURE__ */ new Set();
+    const rounds = entries2.reduce((maximum, entry2) => Math.max(maximum, entry2.terms.length), 0);
+    for (let candidateIndex = 0; candidateIndex < rounds; candidateIndex++) {
+      for (const entry2 of entries2) {
+        const term = entry2.terms[candidateIndex];
+        if (!term || seen.has(term)) continue;
+        seen.add(term);
+        terms.push(term);
+      }
+    }
+    return terms;
   }
   async function batchJitenFallbackCards(terms, parse) {
     const cards = /* @__PURE__ */ new Map();
@@ -373736,24 +373750,27 @@ ${rank2.detail}` : baseTitle;
       return /* @__PURE__ */ new Map();
     });
     const cards = /* @__PURE__ */ new Map();
-    loaded.forEach((card, term) => {
-      if (jitenFallbackCardMatchesTerm(term, card)) cards.set(normalizedJitenLookupKey(term), card);
-    });
+    loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
     return cards;
   }
   async function publicLookupFallbackCards(cards, deps, options) {
     const result2 = /* @__PURE__ */ new Map();
     const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
     if (!entries2.length) return result2;
-    const terms = [...new Set(entries2.flatMap((entry2) => entry2.terms))];
+    const terms = fairFallbackLookupTerms(entries2);
     const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
     for (const entry2 of entries2) {
+      let resolved;
       for (const term of entry2.terms) {
         const card = jitenCards.get(normalizedJitenLookupKey(term));
         if (!card) continue;
-        result2.set(entry2.key, card);
-        break;
+        if (jitenFallbackCardMatchesTerm(term, card)) {
+          resolved = card;
+          break;
+        }
+        if (!resolved && entry2.validationTerms.some((candidate2) => jitenFallbackCardMatchesTerm(candidate2, card))) resolved = card;
       }
+      if (resolved) result2.set(entry2.key, resolved);
     }
     if (options.jpdbPublicLookup === false) return result2;
     const unresolved = entries2.filter((entry2) => !result2.has(entry2.key));

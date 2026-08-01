@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.67] - 2026-08-01
+
+### Fixed
+
+- YouTube subtitle readings now stay complete when playback advances to the next line. The visible cue finishes enrichment before successor prefetch, and late lookup results can no longer replace richer cached annotations with a partial parse.
+
 ## [1.8.66] - 2026-08-01
 
 ### Fixed

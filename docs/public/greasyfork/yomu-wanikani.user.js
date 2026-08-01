@@ -6192,7 +6192,7 @@ const MANAGED_STATE_MANIFEST = [
   // YouTube subscription snapshot + oembed title cache.
   { owner: "subtitles/youtube", kind: "gm", key: "yomu:youtube-all-subscribed:v1" },
   { owner: "subtitles/youtube", kind: "session", prefix: "yomu:youtube-oembed-title:v1:" },
-  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v3:" },
+  { owner: "subtitles/controller", kind: "session", prefix: "yomu:subtitle-parse:v" },
   // New Tab study surface stores.
   { owner: "newtab/state", kind: "gm", key: "jpdb-reader-newtab-ui" },
   { owner: "newtab/cache", kind: "gm", key: "jpdb-reader-newtab-card-cache" },
