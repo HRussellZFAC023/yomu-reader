@@ -1,5 +1,4 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
-import { promiseWithTimeout } from '../core/async-utils';
 import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -204,6 +203,7 @@ import {
     type TranscriptRow,
 } from './transcript-panel';
 import { SubtitleKaraokeSampler } from './karaoke-sampler';
+import { prewarmSubtitleFirstPaint } from './subtitle-first-paint-prewarm';
 import {
     SubtitleFullscreenHost,
     isMobileYouTubePage,
@@ -463,11 +463,6 @@ function frameHasPlayerControls(frame: HTMLElement): boolean {
 // that stepping back always hits the cache.
 const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
 const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
-// Track selection knows the cue list before it commits the first visible row.
-// Spend a short, bounded budget preparing that active cue so normal startup
-// does not advertise a partially annotated loading mutation. Slow/offline
-// providers still yield to correct subtitle timing after the budget.
-const SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS = 1200;
 const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
 // Delay before a request to fully hide the rail is committed. A genuine idle
 // or chrome-fade persists well past this; a strobing hover-autoplay signal
@@ -3176,10 +3171,10 @@ export class SubtitlePlayerController {
             key => this.pendingParsedCueHtml(key, 'authoritative'),
         );
         if (!batch.length) {
-            return this.canonicalParsedHtmlResults(await Promise.all(ready));
+            return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         if (!this.options.parseJapaneseBatch) {
-            return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...batch.map(async item => ({
+            return this.htmlCache.canonicalParsedHtmlResults(await Promise.all([...ready, ...batch.map(async item => ({
                 key: item.key,
                 html: await this.parseCueHtml(item.text, settings, options),
             }))]));
@@ -3187,7 +3182,7 @@ export class SubtitlePlayerController {
 
         const parsed = this.options.parseJapaneseBatch(batch.map(item => item.text), this.finalSubtitleParseOptions(settings));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { enrichBeforeRender: options.enrichBeforeRender });
-        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
+        return await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingParsedHtml);
     }
 
     private async parseAuthoritativeCueHtmlBatch(items: SubtitleParseBatchItem[], settings: ReaderSettings): Promise<ParsedSubtitleHtmlResult[]> {
@@ -3203,7 +3198,7 @@ export class SubtitlePlayerController {
         // One item may be ready while another is still parsing. Canonicalize
         // only after the whole keyed batch settles so a cache upgrade that
         // lands during that wait is reflected in every returned item.
-        return this.canonicalParsedHtmlResults(results);
+        return this.htmlCache.canonicalParsedHtmlResults(results);
     }
 
     private async parseCueHtmlBatchWithProvisionalFallback(
@@ -3224,13 +3219,13 @@ export class SubtitlePlayerController {
             this.ensureAuthoritativeParsedCueHtmlBatch(items.filter(item => !batchedItems.has(item)), settings);
         }
         if (!batch.length) {
-            return this.canonicalParsedHtmlResults(await Promise.all(ready));
+            return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.text), provisionalSubtitleParseOptions())
             : Promise.all(batch.map(item => this.options.parseJapanese(item.text, provisionalSubtitleParseOptions())));
         const parsedHtml = this.renderParsedHtmlBatch(batch, parsed, settings, { provisional: true, enrichBeforeRender: options.enrichBeforeRender });
-        const results = await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
+        const results = await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, this.htmlCache.pendingProvisionalParsedHtml);
         if (shouldUpgradeAuthoritative) this.ensureAuthoritativeParsedCueHtmlBatch(batch, settings);
         return results;
     }
@@ -3303,7 +3298,7 @@ export class SubtitlePlayerController {
         }
 
         if (!batch.length) {
-            return this.canonicalParsedHtmlResults(await Promise.all(ready));
+            return this.htmlCache.canonicalParsedHtmlResults(await Promise.all(ready));
         }
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(batch.map(item => item.context.text), parseOptions)
@@ -3320,7 +3315,7 @@ export class SubtitlePlayerController {
                 ? { key: item.key, html: remembered.html, provisional: true }
                 : { key: item.key, html: remembered.html };
         }));
-        return await this.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache);
+        return await this.htmlCache.resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache);
     }
 
     private cachedTranscriptContextHtml(
@@ -3341,18 +3336,6 @@ export class SubtitlePlayerController {
             if (html) return { key, html, provisional: true };
         }
         return undefined;
-    }
-
-    private canonicalParsedHtmlResult(key: string, html: string, fallbackProvisional = false): ParsedSubtitleHtmlResult {
-        const authoritative = this.htmlCache.parsedHtmlCache.get(key);
-        if (authoritative !== undefined) return { key, html: authoritative };
-        const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
-        if (provisional !== undefined) return { key, html: provisional, provisional: true };
-        return fallbackProvisional ? { key, html, provisional: true } : { key, html };
-    }
-
-    private canonicalParsedHtmlResults(results: ParsedSubtitleHtmlResult[]): ParsedSubtitleHtmlResult[] {
-        return results.map(result => this.canonicalParsedHtmlResult(result.key, result.html, result.provisional === true));
     }
 
     private projectTranscriptContextTokens(tokens: JPDBToken[], context: TranscriptContextWindow): JPDBToken[] {
@@ -3395,23 +3378,6 @@ export class SubtitlePlayerController {
     private async beforeRenderParsedTokens(tokens: JPDBToken[]): Promise<void> {
         if (!this.shouldParseSubtitles() || !tokens.length || !this.options.beforeRenderTokens) return;
         await this.options.beforeRenderTokens(tokens);
-    }
-
-    private async resolveParsedHtmlBatch(
-        ready: Promise<ParsedSubtitleHtmlResult>[],
-        batch: SubtitleParseBatchItem[],
-        parsedHtml: Promise<ParsedSubtitleHtmlResult>[],
-        pendingCache: Map<string, Promise<string>>,
-    ): Promise<ParsedSubtitleHtmlResult[]> {
-        const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
-        batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
-        try {
-            return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...parsedHtml]));
-        } finally {
-            batch.forEach((item, index) => {
-                if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
-            });
-        }
     }
 
     private usableProvisionalParsedHtml(key: string, options: Pick<ParseCueHtmlOptions, 'refreshProvisional' | 'requireEnrichedProvisional'>): string | undefined {
@@ -4991,33 +4957,17 @@ export class SubtitlePlayerController {
         }
         const cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
         const time = this.video ? this.subtitlePlaybackTime(this.video) : 0;
-        const activeCue = findActiveSubtitleCue(cues, time) ?? findInitialLeadInCue(cues, time);
-        let activeIndex = activeCue ? cues.indexOf(activeCue) : -1;
-        if (activeIndex < 0) activeIndex = cues.findIndex(cue => cue.end >= time);
-        const activeText = cues[activeIndex]?.text.trim();
-        if (!activeText) return this.isTrackSelectionCurrent('primary', requestId, selection.trackId);
-
         const settings = this.options.getSettings();
-        const parse = (text: string): Promise<string> => this.parseCueHtml(text, settings, {
-            enrichBeforeRender: true,
-            requireEnrichedProvisional: true,
-            refreshProvisional: true,
+        return prewarmSubtitleFirstPaint({
+            cues,
+            currentTime: time,
+            isCurrent: () => this.isTrackSelectionCurrent('primary', requestId, selection.trackId),
+            parse: text => this.parseCueHtml(text, settings, {
+                enrichBeforeRender: true,
+                requireEnrichedProvisional: true,
+                refreshProvisional: true,
+            }),
         });
-        const active = parse(activeText);
-        // Keep enrichment in playback order. Starting the successor alongside
-        // the active cue lets both consume the shared public lookup queue, so
-        // later words can be cached before their readings arrive. The bounded
-        // first-paint wait is also the handoff: a rejected or stalled active
-        // parse must not starve its successor forever.
-        await promiseWithTimeout(
-            active,
-            SUBTITLE_FIRST_PAINT_PREWARM_BUDGET_MS,
-            'Subtitle first-paint prewarm timed out.',
-        ).catch(() => undefined);
-        if (!this.isTrackSelectionCurrent('primary', requestId, selection.trackId)) return false;
-        const nextText = cues[activeIndex + 1]?.text.trim();
-        if (nextText) void parse(nextText).catch(() => undefined);
-        return true;
     }
 
     // A track whose entire payload is a single usable line (a one-cue credit,

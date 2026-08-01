@@ -5,6 +5,7 @@ import {
     subtitleParseSourceSignature,
     SUBTITLE_EMPTY_PARSE_RETRY_MS,
 } from './subtitle-parse-policy';
+import type { ParsedSubtitleHtmlResult, SubtitleParseBatchItem } from './subtitle-parse-batch';
 
 // Session-storage persistence for parsed cue html: parsed ruby survives a
 // reload of the same video/session. Keys are hashed so the raw parse key (which
@@ -185,6 +186,33 @@ export class SubtitleParsedHtmlCache {
             this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
             this.pruneParsedSubtitleCaches();
             return { html, provisional };
+        }
+    }
+
+    canonicalParsedHtmlResults(results: ParsedSubtitleHtmlResult[]): ParsedSubtitleHtmlResult[] {
+        return results.map(result => {
+            const authoritative = this.parsedHtmlCache.get(result.key);
+            if (authoritative !== undefined) return { key: result.key, html: authoritative };
+            const provisional = this.provisionalParsedHtmlCache.get(result.key);
+            if (provisional !== undefined) return { key: result.key, html: provisional, provisional: true };
+            return result.provisional ? { ...result, provisional: true } : { key: result.key, html: result.html };
+        });
+    }
+
+    async resolveParsedHtmlBatch(
+        ready: Promise<ParsedSubtitleHtmlResult>[],
+        batch: SubtitleParseBatchItem[],
+        parsedHtml: Promise<ParsedSubtitleHtmlResult>[],
+        pendingCache: Map<string, Promise<string>>,
+    ): Promise<ParsedSubtitleHtmlResult[]> {
+        const pendingHtml = parsedHtml.map(promise => promise.then(result => result.html));
+        batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
+        try {
+            return this.canonicalParsedHtmlResults(await Promise.all([...ready, ...parsedHtml]));
+        } finally {
+            batch.forEach((item, index) => {
+                if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
+            });
         }
     }
 
