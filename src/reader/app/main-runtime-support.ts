@@ -106,7 +106,7 @@ export function readerScrollBodyForEvent(event: Event): HTMLElement | null {
 // behaviour (text caret + selection, a textarea's own scroll, native option lists) —
 // the uchisen image-generation panel renders multi-line <textarea>s into the popover
 // body — so the manual scroll driver leaves those alone.
-export const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
 
 export function eventTargetsInteractiveControl(event: Event): boolean {
     return Boolean((event.target as Element | null)?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
@@ -234,7 +234,7 @@ export const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
     '.jpdb-reader-popover a.jpdb-reader-pill',
     '.jpdb-reader-popover .jpdb-reader-action-pill',
 ].join(',');
-export const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
+const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
     '.ytp-caption-segment',
     '.caption-window',
     '.caption-visual-line',
@@ -382,7 +382,7 @@ export function renderedWordSubwordRange(
     return isProperRenderedWordSubword(token, subword) ? subword : null;
 }
 
-export function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: string): boolean {
+function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: string): boolean {
     // ICU segmentation is useful for recovering from an over-broad rendered
     // card, but it is not dictionary evidence. A trusted compound such as
     // 東京都立大学 must keep its whole-card lookup even if Segmenter can
@@ -399,7 +399,7 @@ export function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: str
     });
 }
 
-export function pointerCandidateBelongsToRenderedWord(
+function pointerCandidateBelongsToRenderedWord(
     word: HTMLElement,
     token: RenderedWordTokenRange,
     candidate: PointerTextLookup,
@@ -408,7 +408,7 @@ export function pointerCandidateBelongsToRenderedWord(
     return candidate.offset >= token.start && candidate.offset < token.end;
 }
 
-export function isProperRenderedWordSubword(token: RenderedWordTokenRange, subword: RenderedWordTokenRange): boolean {
+function isProperRenderedWordSubword(token: RenderedWordTokenRange, subword: RenderedWordTokenRange): boolean {
     if (subword.start < token.start) return false;
     if (subword.end > token.end) return false;
     return subword.start !== token.start || subword.end !== token.end;

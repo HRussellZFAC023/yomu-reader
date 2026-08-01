@@ -129,7 +129,7 @@ describe('release workflow safety', () => {
     });
 
     it('runs the cross-browser layout release boundary before PRs can merge', () => {
-        expect(ciWorkflow).toContain('npx playwright install --with-deps chromium webkit');
+        expect(ciWorkflow).toContain('npx playwright install --with-deps chromium firefox webkit');
         expect(ciWorkflow).toContain('npm run smoke:layout-regressions');
         expect(ciWorkflow).toMatch(/needs: \[[^\]\n]*layout-smoke[^\]\n]*\]/);
     });
@@ -147,7 +147,7 @@ describe('release workflow safety', () => {
 
     it('bounds Playwright installation on the proven bootstrap Node, then restores the audited runtime', () => {
         const bootstrap = releaseWorkflow.indexOf("node-version: '24.18.0'");
-        const browserInstall = releaseWorkflow.indexOf('npx playwright install --with-deps chromium webkit');
+        const browserInstall = releaseWorkflow.indexOf('npx playwright install --with-deps chromium firefox webkit');
         const restore = releaseWorkflow.indexOf('name: Restore audited release Node');
         const releaseGate = releaseWorkflow.indexOf('npm run check:release');
 

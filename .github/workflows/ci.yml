@@ -163,7 +163,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install layout smoke browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run smoke:layout-regressions
         env:
           YOMU_PLAYWRIGHT_CHANNEL: chrome

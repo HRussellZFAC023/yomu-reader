@@ -99,7 +99,7 @@ jobs:
           node-version: '24.18.0'
       - name: Install layout smoke browsers
         timeout-minutes: 15
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Restore audited release Node
         uses: actions/setup-node@v6
         with:
