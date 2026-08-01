@@ -31,6 +31,7 @@ const COMMON_LOOKUP_FILES = [
     'src/reader/languages/morphology.ts',
     'src/reader/languages/registry.ts',
     'src/reader/languages/types.ts',
+    'src/reader/platform/binary-realm.ts',
 ] as const;
 
 // The authoritative archive run depends on the pinned Node and package tree as

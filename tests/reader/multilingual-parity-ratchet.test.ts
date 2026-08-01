@@ -447,6 +447,7 @@ describe('multilingual parity measurement contract', () => {
             'scripts/lib/multilingual-parity-archive.ts',
             'scripts/manual/multilingual-parity.ts',
             'src/reader/dictionaries/catalog/integrity.ts',
+            'src/reader/platform/binary-realm.ts',
             'src/reader/locales/roster.ts',
             'src/reader/locales/types.ts',
             'config/multilingual/languages.json',
