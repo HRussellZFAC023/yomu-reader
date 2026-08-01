@@ -39192,6 +39192,32 @@ ${spelling}`);
     en: EN_SUBTITLE_SETTINGS_COPY,
     ja: JA_SUBTITLE_SETTINGS_COPY
   };
+  const LOCAL_DICTIONARY_STORAGE_COPY = {
+    enSettings: {
+      localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
+      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
+      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+      clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
+      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept."
+    },
+    enImport: {
+      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+      dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}."
+    },
+    jaImport: {
+      dictionaryImportComplete: "{sources}から{records}件インポートしました。",
+      dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
+    },
+    jaSettings: {
+      localDictionariesEnabled: "インポート済み辞書の定義を表示",
+      localDictionarySiteStorageHelp: "インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。",
+      clearLocalDictionarySiteStorage: "すべてで無効にし、このサイトのコピーを削除",
+      clearLocalDictionarySiteStorageConfirm: "インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。",
+      clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
+      clearLocalDictionarySiteStorageDone: "インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。"
+    }
+  };
   const COPY$c = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -39744,12 +39770,7 @@ ${spelling}`);
       ankiMappingLowConfidence: "Low",
       ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
-      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
-      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
-      clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
-      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept.",
+      ...LOCAL_DICTIONARY_STORAGE_COPY.enSettings,
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
@@ -39862,8 +39883,7 @@ ${spelling}`);
       dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
-      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
-      dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}.",
+      ...LOCAL_DICTIONARY_STORAGE_COPY.enImport,
       dictionaryRecordsImported: "{dictionary}: {records} records.",
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
@@ -40574,8 +40594,7 @@ dictionaryImportQueueStatus	{count}件インストール中。完了後に保存
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
-dictionaryImportComplete	{sources}から{records}件インポートしました。
-dictionaryImportResultWithFailures	{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。
+${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaImport).map(([key2, value]) => `${key2}	${value}`).join("\n")}
 dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
@@ -41441,12 +41460,7 @@ ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
-localDictionariesEnabled	インポート済み辞書の定義を表示
-localDictionarySiteStorageHelp	インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。
-clearLocalDictionarySiteStorage	すべてで無効にし、このサイトのコピーを削除
-clearLocalDictionarySiteStorageConfirm	インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。
-clearLocalDictionarySiteStorageClearing	インポート済み辞書を無効にし、このサイトのコピーを削除中...
-clearLocalDictionarySiteStorageDone	インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。
+${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key2, value]) => `${key2}	${value}`).join("\n")}
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
@@ -366303,6 +366317,18 @@ ${options.version}`;
       };
     });
   }
+  function renderLocalDictionaryStorageControls(settings) {
+    const language2 = settings.interfaceLanguage;
+    const text2 = settingsText(language2);
+    return `
+                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
+                    ${checkbox("localDictionariesEnabled", text2("localDictionariesEnabled"), settings.localDictionariesEnabled)}
+                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapeHtml$2(uiText(language2, "localDictionarySiteStorageHelp"))}</div>
+                    <div class="jpdb-reader-help-actions">
+                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapeHtml$2(uiText(language2, "clearLocalDictionarySiteStorage"))}</button>
+                    </div>
+                </div>`;
+  }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   function syncSubtitlePreview(form2) {
     const preview = form2.querySelector("[data-subtitle-preview]");
@@ -367392,13 +367418,7 @@ ${options.version}`;
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language2, "checkingDictionaries")}</div>
-                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
-                    ${checkbox("localDictionariesEnabled", text2("localDictionariesEnabled"), settings.localDictionariesEnabled)}
-                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapedUiText(language2, "localDictionarySiteStorageHelp")}</div>
-                    <div class="jpdb-reader-help-actions">
-                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapedUiText(language2, "clearLocalDictionarySiteStorage")}</button>
-                    </div>
-                </div>
+                ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language2, "parserProviderHelp")}</div>
                     ${select("parserProvider", text2("parserProvider"), settings.parserProvider, localizedOptions(text2, PARSER_PROVIDER_OPTIONS))}
@@ -369919,6 +369939,88 @@ ${options.version}`;
   function isAcademyReaderAccountAction(action2) {
     return action2 === "connect-academy-account" || action2 === "sync-academy-account" || action2 === "create-academy-recovery-code" || action2 === "disconnect-academy-account";
   }
+  const SETTINGS_FOCUS_SCROLL_SELECTOR = [
+    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
+    "select",
+    "textarea"
+  ].join(",");
+  const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
+  const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
+  function installFocusedControlScrolling(form2) {
+    form2.addEventListener("focusin", (event) => {
+      const control2 = focusedSettingsControl(event.target, form2);
+      if (control2) requestSettingsControlVisibility(form2, control2);
+    });
+  }
+  function focusedSettingsControl(target2, form2) {
+    if (!(target2 instanceof HTMLElement)) return null;
+    const control2 = target2.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
+    if ((control2 instanceof HTMLInputElement || control2 instanceof HTMLSelectElement || control2 instanceof HTMLTextAreaElement) && form2.contains(control2)) return control2;
+    return null;
+  }
+  function requestSettingsControlVisibility(form2, control2) {
+    const run = () => scrollSettingsControlIntoView(form2, control2);
+    requestFrame(() => requestFrame(run));
+    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
+  }
+  function requestFrame(callback2) {
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(() => callback2());
+    else window.setTimeout(callback2, 16);
+  }
+  function scrollSettingsControlIntoView(form2, control2) {
+    const geometry = settingsControlScrollGeometry(form2, control2);
+    if (geometry) applySettingsControlScroll(geometry);
+  }
+  function settingsControlScrollGeometry(form2, control2) {
+    if (!canScrollFocusedSettingsControl(form2, control2)) return null;
+    const scroll = settingsControlScrollContainer(form2, control2);
+    if (!scroll) return null;
+    const pageScale = overlayViewport().pageScale;
+    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = sourceRectToOverlay(control2.getBoundingClientRect(), control2, pageScale);
+    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
+    const limits = settingsControlScrollLimits(form2, scrollRect, pageScale);
+    return limits ? { scroll, controlRect, ...limits } : null;
+  }
+  function canScrollFocusedSettingsControl(form2, control2) {
+    return form2.isConnected && control2.isConnected && document.activeElement === control2;
+  }
+  function settingsControlScrollContainer(form2, control2) {
+    const scroll = control2.closest(".jpdb-reader-settings-scroll");
+    return scroll && form2.contains(scroll) ? scroll : null;
+  }
+  function settingsControlScrollLimits(form2, scrollRect, pageScale) {
+    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
+    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form2, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
+  }
+  function settingsControlViewportBounds(scrollRect, pageScale) {
+    if (pageScale > 1) {
+      const viewport = overlayViewportBounds();
+      return { bottom: viewport.bottom, top: viewport.top };
+    }
+    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
+    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
+    return { bottom: top + height, top };
+  }
+  function settingsControlViewportHeightFallback(scrollRect) {
+    if (window.innerHeight) return window.innerHeight;
+    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
+    return scrollRect.bottom;
+  }
+  function measuredSettingsFooterTop(form2, pageScale) {
+    const footer = form2.querySelector(".footer");
+    const footerRect = footer ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
+    return !footerRect || !hasMeasuredRect(footerRect) ? Number.POSITIVE_INFINITY : footerRect.top;
+  }
+  function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }) {
+    if (controlRect.bottom > bottomLimit) scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
+    else if (controlRect.top < topLimit) scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
+  }
+  function hasMeasuredRect(rect) {
+    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
+  }
   const AUTHENTICATION_INFO_PERMISSION = "authenticationInfo";
   const AUTHENTICATION_FIELDS = [
     "apiKey",
@@ -369997,14 +370099,7 @@ ${options.version}`;
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
-  const SETTINGS_FOCUS_SCROLL_SELECTOR = [
-    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
-    "select",
-    "textarea"
-  ].join(",");
-  const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-  const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
   function settingsStatusSetter(form2, control2) {
@@ -370154,26 +370249,6 @@ ${options.version}`;
   function selectedSettingsPanel(control2) {
     return control2?.dataset.panel ?? "api";
   }
-  function focusedSettingsControl(target2, form2) {
-    if (!(target2 instanceof HTMLElement)) return null;
-    const control2 = target2.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
-    if ((control2 instanceof HTMLInputElement || control2 instanceof HTMLSelectElement || control2 instanceof HTMLTextAreaElement) && form2.contains(control2)) {
-      return control2;
-    }
-    return null;
-  }
-  function requestSettingsControlVisibility(form2, control2) {
-    const run = () => scrollSettingsControlIntoView(form2, control2);
-    requestFrame(() => requestFrame(run));
-    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
-  }
-  function requestFrame(callback2) {
-    if (typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(() => callback2());
-      return;
-    }
-    window.setTimeout(callback2, 16);
-  }
   function requestCancelableFrame(callback2) {
     if (typeof window.requestAnimationFrame === "function") {
       return window.requestAnimationFrame(() => callback2());
@@ -370183,69 +370258,6 @@ ${options.version}`;
   function cancelCancelableFrame(id2) {
     if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id2);
     else window.clearTimeout(id2);
-  }
-  function scrollSettingsControlIntoView(form2, control2) {
-    const geometry = settingsControlScrollGeometry(form2, control2);
-    if (geometry) applySettingsControlScroll(geometry);
-  }
-  function settingsControlScrollGeometry(form2, control2) {
-    if (!canScrollFocusedSettingsControl(form2, control2)) return null;
-    const scroll = settingsControlScrollContainer(form2, control2);
-    if (!scroll) return null;
-    const pageScale = overlayViewport().pageScale;
-    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
-    const controlRect = sourceRectToOverlay(control2.getBoundingClientRect(), control2, pageScale);
-    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form2, scrollRect, pageScale);
-    return limits ? { scroll, controlRect, ...limits } : null;
-  }
-  function canScrollFocusedSettingsControl(form2, control2) {
-    return form2.isConnected && control2.isConnected && document.activeElement === control2;
-  }
-  function settingsControlScrollContainer(form2, control2) {
-    const scroll = control2.closest(".jpdb-reader-settings-scroll");
-    return scroll && form2.contains(scroll) ? scroll : null;
-  }
-  function settingsControlScrollLimits(form2, scrollRect, pageScale) {
-    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
-    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form2, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    return validSettingsControlScrollLimits(bottomLimit, topLimit);
-  }
-  function settingsControlViewportBounds(scrollRect, pageScale) {
-    if (pageScale > 1) {
-      const viewport = overlayViewportBounds();
-      return { bottom: viewport.bottom, top: viewport.top };
-    }
-    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
-    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
-    return { bottom: top + height, top };
-  }
-  function settingsControlViewportHeightFallback(scrollRect) {
-    if (window.innerHeight) return window.innerHeight;
-    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
-    return scrollRect.bottom;
-  }
-  function measuredSettingsFooterTop(form2, pageScale) {
-    const footer = form2.querySelector(".footer");
-    const footerRect = footer ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
-    if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
-    return footerRect.top;
-  }
-  function validSettingsControlScrollLimits(bottomLimit, topLimit) {
-    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
-  }
-  function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }) {
-    if (controlRect.bottom > bottomLimit) {
-      scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
-      return;
-    }
-    if (controlRect.top < topLimit) {
-      scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
-    }
-  }
-  function hasMeasuredRect(rect) {
-    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
   }
   function nextSettingsTabIndex(key2, currentIndex, tabCount) {
     if (currentIndex < 0 || tabCount <= 0) return -1;
@@ -370339,7 +370351,7 @@ ${options.version}`;
       const form2 = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form2);
-      this.bindFocusedControlScrolling(form2);
+      installFocusedControlScrolling(form2);
       this.bindSettingsSearch(form2);
       installCatalogBrowseFilter(form2);
       this.bindSettingsTabs(form2);
@@ -370495,13 +370507,6 @@ ${options.version}`;
       const input2 = form2.querySelector("[data-settings-search]");
       input2?.addEventListener("input", () => {
         applySettingsSearch(form2, input2.value);
-      });
-    }
-    bindFocusedControlScrolling(form2) {
-      form2.addEventListener("focusin", (event) => {
-        const control2 = focusedSettingsControl(event.target, form2);
-        if (!control2) return;
-        requestSettingsControlVisibility(form2, control2);
       });
     }
     bindSettingsTabs(form2) {

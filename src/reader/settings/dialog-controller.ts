@@ -96,11 +96,7 @@ import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary 
 import { waitForLocalDictionaryReplicationIdle } from '../dictionaries/replication';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
-import {
-    overlayViewport,
-    overlayViewportBounds,
-    sourceRectToOverlay,
-} from '../ui/page-scale';
+import { installFocusedControlScrolling } from './focused-control-scrolling';
 import {
     firefoxAuthenticationInfoRequiresExtensionPage,
     requestFirefoxAuthenticationInfoForChangedSettings,
@@ -197,14 +193,7 @@ const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
-const SETTINGS_FOCUS_SCROLL_SELECTOR = [
-    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
-    'select',
-    'textarea',
-].join(',');
-const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
 const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_action';
 const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
 
@@ -399,32 +388,6 @@ function selectedSettingsPanel(control: HTMLElement | null | undefined): string 
     return control?.dataset.panel ?? 'api';
 }
 
-function focusedSettingsControl(target: EventTarget | null, form: HTMLFormElement): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null {
-    if (!(target instanceof HTMLElement)) return null;
-    const control = target.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
-    if (
-        (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
-        && form.contains(control)
-    ) {
-        return control;
-    }
-    return null;
-}
-
-function requestSettingsControlVisibility(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
-    const run = () => scrollSettingsControlIntoView(form, control);
-    requestFrame(() => requestFrame(run));
-    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
-}
-
-function requestFrame(callback: () => void): void {
-    if (typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(() => callback());
-        return;
-    }
-    window.setTimeout(callback, 16);
-}
-
 function requestCancelableFrame(callback: () => void): number {
     if (typeof window.requestAnimationFrame === 'function') {
         return window.requestAnimationFrame(() => callback());
@@ -435,89 +398,6 @@ function requestCancelableFrame(callback: () => void): number {
 function cancelCancelableFrame(id: number): void {
     if (typeof window.cancelAnimationFrame === 'function') window.cancelAnimationFrame(id);
     else window.clearTimeout(id);
-}
-
-function scrollSettingsControlIntoView(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
-    const geometry = settingsControlScrollGeometry(form, control);
-    if (geometry) applySettingsControlScroll(geometry);
-}
-
-interface SettingsControlScrollGeometry {
-    bottomLimit: number;
-    controlRect: DOMRect;
-    scroll: HTMLElement;
-    topLimit: number;
-}
-
-function settingsControlScrollGeometry(form: HTMLFormElement, control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): SettingsControlScrollGeometry | null {
-    if (!canScrollFocusedSettingsControl(form, control)) return null;
-    const scroll = settingsControlScrollContainer(form, control);
-    if (!scroll) return null;
-    const pageScale = overlayViewport().pageScale;
-    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
-    const controlRect = sourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
-    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
-    return limits ? { scroll, controlRect, ...limits } : null;
-}
-
-function canScrollFocusedSettingsControl(form: HTMLFormElement, control: HTMLElement): boolean {
-    return form.isConnected && control.isConnected && document.activeElement === control;
-}
-
-function settingsControlScrollContainer(form: HTMLFormElement, control: HTMLElement): HTMLElement | null {
-    const scroll = control.closest<HTMLElement>('.jpdb-reader-settings-scroll');
-    return scroll && form.contains(scroll) ? scroll : null;
-}
-
-function settingsControlScrollLimits(form: HTMLFormElement, scrollRect: DOMRect, pageScale: number): { bottomLimit: number; topLimit: number } | null {
-    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
-    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    return validSettingsControlScrollLimits(bottomLimit, topLimit);
-}
-
-function settingsControlViewportBounds(scrollRect: DOMRect, pageScale: number): { bottom: number; top: number } {
-    if (pageScale > 1) {
-        const viewport = overlayViewportBounds();
-        return { bottom: viewport.bottom, top: viewport.top };
-    }
-    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
-    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
-    return { bottom: top + height, top };
-}
-
-function settingsControlViewportHeightFallback(scrollRect: DOMRect): number {
-    if (window.innerHeight) return window.innerHeight;
-    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
-    return scrollRect.bottom;
-}
-
-function measuredSettingsFooterTop(form: HTMLFormElement, pageScale: number): number {
-    const footer = form.querySelector<HTMLElement>('.footer');
-    const footerRect = footer
-        ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale)
-        : undefined;
-    if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
-    return footerRect.top;
-}
-
-function validSettingsControlScrollLimits(bottomLimit: number, topLimit: number): { bottomLimit: number; topLimit: number } | null {
-    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
-}
-
-function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }: SettingsControlScrollGeometry): void {
-    if (controlRect.bottom > bottomLimit) {
-        scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
-        return;
-    }
-    if (controlRect.top < topLimit) {
-        scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
-    }
-}
-
-function hasMeasuredRect(rect: DOMRect): boolean {
-    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
 }
 
 function nextSettingsTabIndex(key: string, currentIndex: number, tabCount: number): number {
@@ -639,7 +519,7 @@ export class SettingsDialogController {
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);
-        this.bindFocusedControlScrolling(form);
+        installFocusedControlScrolling(form);
         this.bindSettingsSearch(form);
         installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
@@ -833,14 +713,6 @@ export class SettingsDialogController {
         const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
         input?.addEventListener('input', () => {
             applySettingsSearch(form, input.value);
-        });
-    }
-
-    private bindFocusedControlScrolling(form: HTMLFormElement): void {
-        form.addEventListener('focusin', event => {
-            const control = focusedSettingsControl(event.target, form);
-            if (!control) return;
-            requestSettingsControlVisibility(form, control);
         });
     }
 

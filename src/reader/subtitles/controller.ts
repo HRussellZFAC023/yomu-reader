@@ -30,6 +30,7 @@ import {
     type SubtitleDrawerLayoutOptions,
     type TranscriptPanelLayout,
 } from './subtitle-layout';
+import { setClassState, shouldHonorExplicitYouTubeSideLayout, shouldPreservePlainSubtitleSelection } from './subtitle-dom-state';
 import {
     collectPageSubtitleSources,
     normalizedSubtitleUrl,
@@ -3583,7 +3584,7 @@ export class SubtitlePlayerController {
 
     private handleClick(event: MouseEvent): void {
         const eventTarget = event.target as HTMLElement;
-        if (this.shouldPreservePlainSubtitleSelection(eventTarget)) {
+        if (shouldPreservePlainSubtitleSelection(eventTarget, this.options.getSettings().annotationsPaused)) {
             // A drag selection ends with a click. Plain transcript rows are
             // themselves cue actions, and the native subtitle line is a blur
             // toggle, so letting that click through would seek/toggle and can
@@ -3616,26 +3617,6 @@ export class SubtitlePlayerController {
         handler(target);
         if (event.detail > 0) target.closest<HTMLButtonElement>('button')?.blur();
         if (action !== 'menu') this.syncControls();
-    }
-
-    private shouldPreservePlainSubtitleSelection(eventTarget: HTMLElement): boolean {
-        if (!this.options.getSettings().annotationsPaused) return false;
-        const surface = eventTarget.closest?.<HTMLElement>(
-            '.jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary',
-        );
-        if (!surface) return false;
-        const selection = window.getSelection?.();
-        if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
-        for (let index = 0; index < selection.rangeCount; index += 1) {
-            try {
-                if (selection.getRangeAt(index).intersectsNode(surface)) return true;
-            } catch {
-                // A live subtitle render can detach the selected node between
-                // mouseup and click. The containment fallback below remains
-                // safe for a selection whose endpoints are still connected.
-            }
-        }
-        return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
     }
 
     private handleSubtitleStyleInput(event: Event): void {
@@ -8489,12 +8470,4 @@ export class SubtitlePlayerController {
             resizeEventMode: options.resizeEventMode,
         });
     }
-}
-
-function setClassState(element: HTMLElement, className: string, enabled: boolean): void {
-    if (element.classList.contains(className) !== enabled) element.classList.toggle(className, enabled);
-}
-
-function shouldHonorExplicitYouTubeSideLayout(layout: TranscriptPanelLayout): boolean {
-    return layout.margin > 0 && layout.viewportWidth >= 900;
 }

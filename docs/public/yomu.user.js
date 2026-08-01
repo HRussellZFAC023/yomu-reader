@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.7cce787b7f4c.user.js#sha256=fM54e39MYzJLtPQGCAipC05f33hN/DXOV9bA9VuF8YA=
+// @require https://yomureader.com/greasyfork/yomu-runtime.7f6ffe64b11b.user.js#sha256=f2/+ZLEbjHbLXu9lFQj6ASFztGqIOq1XNzgQfCsdtbs=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -14264,10 +14264,6 @@ function renderReviewButtons(...args) {
 }
 function reviewButtonGrades(...args) {
   return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? [];
-}
-function currentFullscreenElement() {
-  const fullscreenDocument = document;
-  return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
 }
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
@@ -34917,7 +34913,10 @@ class ReaderCardLookupSession {
   );
   }
 }
-const log = Logger.scope("ReaderApp");
+function currentFullscreenElement() {
+  const fullscreenDocument = document;
+  return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+}
 const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2500;
@@ -35141,6 +35140,7 @@ function isProperRenderedWordSubword(token, subword) {
   if (subword.end > token.end) return false;
   return subword.start !== token.start || subword.end !== token.end;
 }
+const log = Logger.scope("ReaderApp");
 class ReaderApp {
   abortController = new AbortController();
   isDestroyed = false;

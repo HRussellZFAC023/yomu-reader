@@ -65,6 +65,7 @@ import { dictionaryDefinitionLanguage } from '../dictionaries/definition-languag
 import { googleTranslationLanguageCapability } from '../translation/google';
 import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
+import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -1309,23 +1310,13 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
 }
 
 function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalogBrowse: boolean): string {
-    const language = settings.interfaceLanguage;
-    const text = settingsText(language);
-    // Preferences are shared across origins, while imported rows live in this
-    // origin's IndexedDB. Keep installed-only controls empty until the dialog
-    // controller replaces them with the live dictionary summary.
+    const language = settings.interfaceLanguage; const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
-                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
-                    ${checkbox('localDictionariesEnabled', text('localDictionariesEnabled'), settings.localDictionariesEnabled)}
-                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapedUiText(language, 'localDictionarySiteStorageHelp')}</div>
-                    <div class="jpdb-reader-help-actions">
-                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapedUiText(language, 'clearLocalDictionarySiteStorage')}</button>
-                    </div>
-                </div>
+                ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}

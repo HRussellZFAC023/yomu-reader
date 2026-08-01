@@ -3944,6 +3944,32 @@
     en: EN_SUBTITLE_SETTINGS_COPY,
     ja: JA_SUBTITLE_SETTINGS_COPY
   };
+  const LOCAL_DICTIONARY_STORAGE_COPY = {
+    enSettings: {
+      localDictionariesEnabled: "Show imported dictionary definitions",
+      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
+      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
+      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+      clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
+      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept."
+    },
+    enImport: {
+      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+      dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}."
+    },
+    jaImport: {
+      dictionaryImportComplete: "{sources}から{records}件インポートしました。",
+      dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
+    },
+    jaSettings: {
+      localDictionariesEnabled: "インポート済み辞書の定義を表示",
+      localDictionarySiteStorageHelp: "インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。",
+      clearLocalDictionarySiteStorage: "すべてで無効にし、このサイトのコピーを削除",
+      clearLocalDictionarySiteStorageConfirm: "インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。",
+      clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
+      clearLocalDictionarySiteStorageDone: "インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。"
+    }
+  };
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -4496,12 +4522,7 @@
       ankiMappingLowConfidence: "Low",
       ankiHelp: "Install AnkiConnect and keep desktop Anki open. If CORS appears, add this site to webCorsOriginList. Mobile handoff creates notes only.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
-      localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
-      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
-      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
-      clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
-      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept.",
+      ...LOCAL_DICTIONARY_STORAGE_COPY.enSettings,
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
@@ -4614,8 +4635,7 @@
       dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
-      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
-      dictionaryImportResultWithFailures: "Imported {records} from {sources} source{plural}. {failed} file{failedPlural} failed: {files}.",
+      ...LOCAL_DICTIONARY_STORAGE_COPY.enImport,
       dictionaryRecordsImported: "{dictionary}: {records} records.",
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
@@ -5326,8 +5346,7 @@ dictionaryImportQueueStatus	{count}件インストール中。完了後に保存
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
-dictionaryImportComplete	{sources}から{records}件インポートしました。
-dictionaryImportResultWithFailures	{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。
+${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaImport).map(([key, value]) => `${key}	${value}`).join("\n")}
 dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
@@ -6193,12 +6212,7 @@ ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
 ankiHelp	AnkiConnectを入れてデスクトップ版Ankiを開きます。CORS表示が出る場合はこのサイトをwebCorsOriginListに追加してください。モバイル受け渡しは新規ノート作成のみです。
 jpdbDefinitionsEnabled	JPDB定義を表示
-localDictionariesEnabled	インポート済み辞書の定義を表示
-localDictionarySiteStorageHelp	インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。
-clearLocalDictionarySiteStorage	すべてで無効にし、このサイトのコピーを削除
-clearLocalDictionarySiteStorageConfirm	インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。
-clearLocalDictionarySiteStorageClearing	インポート済み辞書を無効にし、このサイトのコピーを削除中...
-clearLocalDictionarySiteStorageDone	インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。
+${Object.entries(LOCAL_DICTIONARY_STORAGE_COPY.jaSettings).map(([key, value]) => `${key}	${value}`).join("\n")}
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
@@ -97706,6 +97720,18 @@ ${reading}`);
   function isSelectableStudyTarget(id) {
     return learningTargetRosterEntry(id).studyTargetReadiness !== "planned";
   }
+  function renderLocalDictionaryStorageControls(settings) {
+    const language2 = settings.interfaceLanguage;
+    const text2 = settingsText(language2);
+    return `
+                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
+                    ${checkbox("localDictionariesEnabled", text2("localDictionariesEnabled"), settings.localDictionariesEnabled)}
+                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapeHtml$2(uiText(language2, "localDictionarySiteStorageHelp"))}</div>
+                    <div class="jpdb-reader-help-actions">
+                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapeHtml$2(uiText(language2, "clearLocalDictionarySiteStorage"))}</button>
+                    </div>
+                </div>`;
+  }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   function syncSubtitlePreview(form) {
     const preview = form.querySelector("[data-subtitle-preview]");
@@ -98795,13 +98821,7 @@ ${reading}`);
                 <legend>${escapedUiText(language2, "sources")}</legend>
                 <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language2, "checkingDictionaries")}</div>
-                <div class="jpdb-reader-settings-subsection" data-local-dictionary-storage>
-                    ${checkbox("localDictionariesEnabled", text2("localDictionariesEnabled"), settings.localDictionariesEnabled)}
-                    <div class="jpdb-reader-help" data-help-key="localDictionarySiteStorageHelp">${escapedUiText(language2, "localDictionarySiteStorageHelp")}</div>
-                    <div class="jpdb-reader-help-actions">
-                        <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="clear-local-dictionary-site-storage">${escapedUiText(language2, "clearLocalDictionarySiteStorage")}</button>
-                    </div>
-                </div>
+                ${renderLocalDictionaryStorageControls(settings)}
                 <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language2, "parserProviderHelp")}</div>
                     ${select("parserProvider", text2("parserProvider"), settings.parserProvider, localizedOptions(text2, PARSER_PROVIDER_OPTIONS))}
@@ -102425,6 +102445,88 @@ ${reading}`);
   function isAcademyReaderAccountAction(action) {
     return action === "connect-academy-account" || action === "sync-academy-account" || action === "create-academy-recovery-code" || action === "disconnect-academy-account";
   }
+  const SETTINGS_FOCUS_SCROLL_SELECTOR = [
+    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
+    "select",
+    "textarea"
+  ].join(",");
+  const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
+  const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
+  function installFocusedControlScrolling(form) {
+    form.addEventListener("focusin", (event) => {
+      const control = focusedSettingsControl(event.target, form);
+      if (control) requestSettingsControlVisibility(form, control);
+    });
+  }
+  function focusedSettingsControl(target, form) {
+    if (!(target instanceof HTMLElement)) return null;
+    const control = target.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
+    if ((control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) && form.contains(control)) return control;
+    return null;
+  }
+  function requestSettingsControlVisibility(form, control) {
+    const run = () => scrollSettingsControlIntoView(form, control);
+    requestFrame(() => requestFrame(run));
+    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
+  }
+  function requestFrame(callback) {
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(() => callback());
+    else window.setTimeout(callback, 16);
+  }
+  function scrollSettingsControlIntoView(form, control) {
+    const geometry = settingsControlScrollGeometry(form, control);
+    if (geometry) applySettingsControlScroll(geometry);
+  }
+  function settingsControlScrollGeometry(form, control) {
+    if (!canScrollFocusedSettingsControl(form, control)) return null;
+    const scroll = settingsControlScrollContainer(form, control);
+    if (!scroll) return null;
+    const pageScale = overlayViewport().pageScale;
+    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
+    const controlRect = sourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
+    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
+    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
+    return limits ? { scroll, controlRect, ...limits } : null;
+  }
+  function canScrollFocusedSettingsControl(form, control) {
+    return form.isConnected && control.isConnected && document.activeElement === control;
+  }
+  function settingsControlScrollContainer(form, control) {
+    const scroll = control.closest(".jpdb-reader-settings-scroll");
+    return scroll && form.contains(scroll) ? scroll : null;
+  }
+  function settingsControlScrollLimits(form, scrollRect, pageScale) {
+    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
+    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
+    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
+  }
+  function settingsControlViewportBounds(scrollRect, pageScale) {
+    if (pageScale > 1) {
+      const viewport = overlayViewportBounds();
+      return { bottom: viewport.bottom, top: viewport.top };
+    }
+    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
+    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
+    return { bottom: top + height, top };
+  }
+  function settingsControlViewportHeightFallback(scrollRect) {
+    if (window.innerHeight) return window.innerHeight;
+    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
+    return scrollRect.bottom;
+  }
+  function measuredSettingsFooterTop(form, pageScale) {
+    const footer = form.querySelector(".footer");
+    const footerRect = footer ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
+    return !footerRect || !hasMeasuredRect(footerRect) ? Number.POSITIVE_INFINITY : footerRect.top;
+  }
+  function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }) {
+    if (controlRect.bottom > bottomLimit) scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
+    else if (controlRect.top < topLimit) scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
+  }
+  function hasMeasuredRect(rect) {
+    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
+  }
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
@@ -102434,14 +102536,7 @@ ${reading}`);
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
-  const SETTINGS_FOCUS_SCROLL_SELECTOR = [
-    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
-    "select",
-    "textarea"
-  ].join(",");
-  const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
-  const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
   function settingsStatusSetter(form, control) {
@@ -102591,26 +102686,6 @@ ${reading}`);
   function selectedSettingsPanel(control) {
     return control?.dataset.panel ?? "api";
   }
-  function focusedSettingsControl(target, form) {
-    if (!(target instanceof HTMLElement)) return null;
-    const control = target.closest(SETTINGS_FOCUS_SCROLL_SELECTOR);
-    if ((control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement) && form.contains(control)) {
-      return control;
-    }
-    return null;
-  }
-  function requestSettingsControlVisibility(form, control) {
-    const run = () => scrollSettingsControlIntoView(form, control);
-    requestFrame(() => requestFrame(run));
-    window.setTimeout(run, SETTINGS_FOCUS_SCROLL_RETRY_MS);
-  }
-  function requestFrame(callback) {
-    if (typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(() => callback());
-      return;
-    }
-    window.setTimeout(callback, 16);
-  }
   function requestCancelableFrame(callback) {
     if (typeof window.requestAnimationFrame === "function") {
       return window.requestAnimationFrame(() => callback());
@@ -102620,69 +102695,6 @@ ${reading}`);
   function cancelCancelableFrame(id) {
     if (typeof window.cancelAnimationFrame === "function") window.cancelAnimationFrame(id);
     else window.clearTimeout(id);
-  }
-  function scrollSettingsControlIntoView(form, control) {
-    const geometry = settingsControlScrollGeometry(form, control);
-    if (geometry) applySettingsControlScroll(geometry);
-  }
-  function settingsControlScrollGeometry(form, control) {
-    if (!canScrollFocusedSettingsControl(form, control)) return null;
-    const scroll = settingsControlScrollContainer(form, control);
-    if (!scroll) return null;
-    const pageScale = overlayViewport().pageScale;
-    const scrollRect = sourceRectToOverlay(scroll.getBoundingClientRect(), scroll, pageScale);
-    const controlRect = sourceRectToOverlay(control.getBoundingClientRect(), control, pageScale);
-    if (!hasMeasuredRect(scrollRect) || !hasMeasuredRect(controlRect)) return null;
-    const limits = settingsControlScrollLimits(form, scrollRect, pageScale);
-    return limits ? { scroll, controlRect, ...limits } : null;
-  }
-  function canScrollFocusedSettingsControl(form, control) {
-    return form.isConnected && control.isConnected && document.activeElement === control;
-  }
-  function settingsControlScrollContainer(form, control) {
-    const scroll = control.closest(".jpdb-reader-settings-scroll");
-    return scroll && form.contains(scroll) ? scroll : null;
-  }
-  function settingsControlScrollLimits(form, scrollRect, pageScale) {
-    const viewport = settingsControlViewportBounds(scrollRect, pageScale);
-    const topLimit = Math.max(scrollRect.top, viewport.top) + SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    const bottomLimit = Math.min(scrollRect.bottom, viewport.bottom, measuredSettingsFooterTop(form, pageScale)) - SETTINGS_FOCUS_SCROLL_MARGIN_PX;
-    return validSettingsControlScrollLimits(bottomLimit, topLimit);
-  }
-  function settingsControlViewportBounds(scrollRect, pageScale) {
-    if (pageScale > 1) {
-      const viewport = overlayViewportBounds();
-      return { bottom: viewport.bottom, top: viewport.top };
-    }
-    const top = Math.max(0, Math.round(window.visualViewport?.offsetTop ?? 0));
-    const height = Math.max(0, Math.round(window.visualViewport?.height ?? settingsControlViewportHeightFallback(scrollRect)));
-    return { bottom: top + height, top };
-  }
-  function settingsControlViewportHeightFallback(scrollRect) {
-    if (window.innerHeight) return window.innerHeight;
-    if (document.documentElement.clientHeight) return document.documentElement.clientHeight;
-    return scrollRect.bottom;
-  }
-  function measuredSettingsFooterTop(form, pageScale) {
-    const footer = form.querySelector(".footer");
-    const footerRect = footer ? sourceRectToOverlay(footer.getBoundingClientRect(), footer, pageScale) : void 0;
-    if (!footerRect || !hasMeasuredRect(footerRect)) return Number.POSITIVE_INFINITY;
-    return footerRect.top;
-  }
-  function validSettingsControlScrollLimits(bottomLimit, topLimit) {
-    return bottomLimit > topLimit ? { bottomLimit, topLimit } : null;
-  }
-  function applySettingsControlScroll({ bottomLimit, controlRect, scroll, topLimit }) {
-    if (controlRect.bottom > bottomLimit) {
-      scroll.scrollTop += Math.ceil(controlRect.bottom - bottomLimit);
-      return;
-    }
-    if (controlRect.top < topLimit) {
-      scroll.scrollTop -= Math.ceil(topLimit - controlRect.top);
-    }
-  }
-  function hasMeasuredRect(rect) {
-    return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
   }
   function nextSettingsTabIndex(key, currentIndex, tabCount) {
     if (currentIndex < 0 || tabCount <= 0) return -1;
@@ -102776,7 +102788,7 @@ ${reading}`);
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
-      this.bindFocusedControlScrolling(form);
+      installFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
       installCatalogBrowseFilter(form);
       this.bindSettingsTabs(form);
@@ -102951,13 +102963,6 @@ ${reading}`);
       const input2 = form.querySelector("[data-settings-search]");
       input2?.addEventListener("input", () => {
         applySettingsSearch(form, input2.value);
-      });
-    }
-    bindFocusedControlScrolling(form) {
-      form.addEventListener("focusin", (event) => {
-        const control = focusedSettingsControl(event.target, form);
-        if (!control) return;
-        requestSettingsControlVisibility(form, control);
       });
     }
     bindSettingsTabs(form) {
@@ -107571,6 +107576,27 @@ ${reading}`);
   function clampRailFraction(value) {
     if (!Number.isFinite(value)) return 0;
     return Math.min(1, Math.max(0, value));
+  }
+  const PLAIN_SUBTITLE_SELECTION_SELECTOR = ".jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary";
+  function setClassState(element2, className, enabled) {
+    if (element2.classList.contains(className) !== enabled) element2.classList.toggle(className, enabled);
+  }
+  function shouldPreservePlainSubtitleSelection(eventTarget, annotationsPaused) {
+    if (!annotationsPaused) return false;
+    const surface = eventTarget.closest?.(PLAIN_SUBTITLE_SELECTION_SELECTOR);
+    if (!surface) return false;
+    const selection = window.getSelection?.();
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      try {
+        if (selection.getRangeAt(index).intersectsNode(surface)) return true;
+      } catch {
+      }
+    }
+    return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
+  }
+  function shouldHonorExplicitYouTubeSideLayout(layout) {
+    return layout.margin > 0 && layout.viewportWidth >= 900;
   }
   function collectPageSubtitleSources(root = document) {
     const pageTitle = pageSubtitleTitle(root);
@@ -115555,7 +115581,7 @@ ${reading}`);
     }
     handleClick(event) {
       const eventTarget = event.target;
-      if (this.shouldPreservePlainSubtitleSelection(eventTarget)) {
+      if (shouldPreservePlainSubtitleSelection(eventTarget, this.options.getSettings().annotationsPaused)) {
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -115580,22 +115606,6 @@ ${reading}`);
       handler(target);
       if (event.detail > 0) target.closest("button")?.blur();
       if (action !== "menu") this.syncControls();
-    }
-    shouldPreservePlainSubtitleSelection(eventTarget) {
-      if (!this.options.getSettings().annotationsPaused) return false;
-      const surface = eventTarget.closest?.(
-        ".jpdb-subtitle-primary, .jpdb-subtitle-secondary, .jpdb-subtitle-row-text, .jpdb-subtitle-row-secondary"
-      );
-      if (!surface) return false;
-      const selection = window.getSelection?.();
-      if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString()) return false;
-      for (let index = 0; index < selection.rangeCount; index += 1) {
-        try {
-          if (selection.getRangeAt(index).intersectsNode(surface)) return true;
-        } catch {
-        }
-      }
-      return surface.contains(selection.anchorNode) || surface.contains(selection.focusNode);
     }
     handleSubtitleStyleInput(event) {
       const target = event.target instanceof HTMLElement ? event.target.closest("[data-subtitle-style-setting]") : null;
@@ -119547,12 +119557,6 @@ ${reading}`);
         resizeEventMode: options.resizeEventMode
       });
     }
-  }
-  function setClassState(element2, className, enabled) {
-    if (element2.classList.contains(className) !== enabled) element2.classList.toggle(className, enabled);
-  }
-  function shouldHonorExplicitYouTubeSideLayout(layout) {
-    return layout.margin > 0 && layout.viewportWidth >= 900;
   }
   const YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS = [
     { id: "all", label: "All" },
