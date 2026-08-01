@@ -2,6 +2,7 @@ import { Logger } from '../app/logger';
 import { gmStorageDelete, gmStorageGet, gmStorageGetForResetEnumeration, gmStorageSet } from '../app/storage';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportIntegrity } from './yomitan/types';
+import { localBytesFromBlob } from '../platform/binary-realm';
 
 const log = Logger.scope('DictionaryArchiveCache');
 
@@ -156,13 +157,7 @@ function archiveChunkKey(identity: string, chunk: number): string {
 // Blob.arrayBuffer is universal in target browsers; the FileReader path keeps
 // jsdom-based tests honest.
 async function blobBytes(blob: Blob): Promise<Uint8Array> {
-    if (typeof blob.arrayBuffer === 'function') return new Uint8Array(await blob.arrayBuffer());
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read dictionary archive blob.'));
-        reader.readAsArrayBuffer(blob);
-    });
+    return localBytesFromBlob(blob);
 }
 
 function bytesToBase64(bytes: Uint8Array): string {

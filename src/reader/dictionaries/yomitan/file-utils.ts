@@ -4,6 +4,7 @@ import { Logger } from '../../app/logger';
 import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
 import type { InterfaceLanguage } from '../../app/types';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../../userscript/index';
+import { localBytesFromView } from '../../platform/binary-realm';
 
 const log = Logger.scope('Yomitan');
 
@@ -136,7 +137,9 @@ async function requestBlobViaFetch(
 
 function throwMissingDictionaryDownloadBridge(done: () => void, language: InterfaceLanguage): never {
     done();
-    throw new Error(uiText(language, 'dictionaryDownloadNeedsBridge'));
+    throw userFacingError('dictionaryDownloadNeedsBridge', {
+        diagnostic: uiText(language, 'dictionaryDownloadNeedsBridge'),
+    });
 }
 
 async function fetchDictionaryBlob(
@@ -165,8 +168,9 @@ async function responseBlobWithProgress(response: Response, onProgress: ((messag
     for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
+        const chunk = localBytesFromView(value);
+        chunks.push(chunk);
+        loaded += chunk.byteLength;
         onProgress(formatDictionaryDownloadProgress(language, loaded, total));
     }
     const bytes = new Uint8Array(loaded);

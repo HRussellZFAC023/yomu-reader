@@ -1,5 +1,5 @@
 import { inflateSync } from 'fflate';
-import { readBlobWithFileReader } from './blob-reader';
+import { localBytesFromArrayBuffer, localBytesFromBlob, localBytesFromView } from '../../platform/binary-realm';
 
 export interface ZipFileEntry {
     name: string;
@@ -70,8 +70,16 @@ export class ZipArchive {
     }
 }
 
-export async function readZipArchive(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<ZipArchive> {
+export async function readZipArchive(
+    file: Blob,
+    onProgress?: (progress: ZipReadProgress) => void,
+    validateBytes?: (bytes: Uint8Array<ArrayBuffer>) => void | Promise<void>,
+): Promise<ZipArchive> {
     const bytes = await readBlobBytes(file, onProgress);
+    // Catalogue integrity runs here so the same one-time local byte copy feeds
+    // both SHA-256 and ZIP parsing. Validating before directory parsing also
+    // keeps malformed remote bytes away from the importer.
+    await validateBytes?.(bytes);
     const archive = readZipArchiveBytes(bytes);
     onProgress?.({
         phase: 'directory',
@@ -84,25 +92,27 @@ export async function readZipArchive(file: Blob, onProgress?: (progress: ZipRead
 
 /** Parse already-read ZIP bytes without another Blob/cross-realm copy. */
 export function readZipArchiveBytes(bytes: Uint8Array): ZipArchive {
+    bytes = localBytesFromView(bytes);
     return new ZipArchive(bytes, readZipCentralDirectory(bytes));
 }
 
-async function readBlobBytes(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<Uint8Array> {
+async function readBlobBytes(file: Blob, onProgress?: (progress: ZipReadProgress) => void): Promise<Uint8Array<ArrayBuffer>> {
     const total = file.size;
     if (!onProgress || typeof file.stream !== 'function') {
-        const bytes = new Uint8Array(await readBlobArrayBuffer(file));
+        const bytes = await localBytesFromBlob(file);
         onProgress?.({ phase: 'read', loaded: bytes.byteLength, total: total || bytes.byteLength });
         return bytes;
     }
     const reader = file.stream().getReader();
-    const chunks: Uint8Array[] = [];
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
     let loaded = 0;
     onProgress({ phase: 'read', loaded, total });
     for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
-        chunks.push(value);
-        loaded += value.byteLength;
+        const chunk = localBytesFromView(value);
+        chunks.push(chunk);
+        loaded += chunk.byteLength;
         onProgress({ phase: 'read', loaded, total });
     }
     const bytes = new Uint8Array(loaded);
@@ -198,7 +208,7 @@ async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
 
 async function inflateRawWithStream(bytes: Uint8Array): Promise<Uint8Array> {
     const stream = new Blob([arrayBufferSlice(bytes)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    return localBytesFromArrayBuffer(await new Response(stream).arrayBuffer());
 }
 
 function assertSignature(view: DataView, offset: number, expected: number, label: string): void {
@@ -217,9 +227,4 @@ function dataView(bytes: Uint8Array): DataView {
 
 function arrayBufferSlice(bytes: Uint8Array): ArrayBuffer {
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-}
-
-function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
-    if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
-    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), reader => reader.result as ArrayBuffer);
 }

@@ -2100,8 +2100,11 @@ describe('settings dialog dictionary imports', () => {
     // The matcher it exercised substring-matched exactly that fiction, so the test
     // passed while the real recovery path was unreachable for every user. It now
     // rejects with the error the download layer actually throws.
-    it('shows a toast with the manual download hint when automatic dictionary download is blocked', async () => {
-        const importFromUrl = vi.fn().mockRejectedValue(userFacingError('dictionaryDownloadBlocked'));
+    it.each([
+        ['dictionaryDownloadBlocked', 'Download blocked.'],
+        ['dictionaryDownloadNeedsBridge', 'Download needs bridge;'],
+    ] as const)('shows a toast with the manual download hint for %s', async (copyKey, expectedMessage) => {
+        const importFromUrl = vi.fn().mockRejectedValue(userFacingError(copyKey));
         const { dependencies, form } = createSettingsDialog({
             dictionaries: {
                 summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
@@ -2113,7 +2116,7 @@ describe('settings dialog dictionary imports', () => {
         await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
 
         const status = form.querySelector<HTMLElement>('[data-import-status]')?.textContent ?? '';
-        expect(status).toContain('Download blocked.');
+        expect(status).toContain(expectedMessage);
         expect(status).toContain('import the ZIP');
         expect(dependencies.toast).toHaveBeenCalledWith(status);
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
