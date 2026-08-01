@@ -23680,6 +23680,94 @@ ${item.sequence ?? ""}`;
       deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
     } : null;
   }
+  function firefoxXrayWaiver(value) {
+    if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
+    try {
+      const wrapped = value.wrappedJSObject;
+      return wrapped !== void 0 && wrapped !== null ? wrapped : value;
+    } catch {
+      return value;
+    }
+  }
+  function localBytesFromArrayBuffer(value) {
+    return localBytesFromBufferSource(value);
+  }
+  function localBytesFromView(value) {
+    return localBytesFromBufferSource(value);
+  }
+  function localBytesFromBufferSource(value) {
+    if (firefoxXrayWaiver(value) === value) {
+      const local = safelyOwnBufferSource(value);
+      if (local) return local;
+    }
+    return cloneForeignBufferSource(value);
+  }
+  async function localBytesFromBlob(value) {
+    if (typeof value.arrayBuffer === "function") {
+      return localBytesFromArrayBuffer(await value.arrayBuffer());
+    }
+    const buffer = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read binary data."));
+      reader.readAsArrayBuffer(value);
+    });
+    return localBytesFromArrayBuffer(buffer);
+  }
+  function safelyOwnBufferSource(value) {
+    try {
+      if (ArrayBuffer.isView(value)) {
+        const view = value;
+        const backing = view.buffer;
+        const length = view.byteLength;
+        if (view instanceof Uint8Array && backing instanceof ArrayBuffer) return view;
+        const bytes2 = new Uint8Array(length);
+        bytes2.set(view);
+        return bytes2;
+      }
+      if (value instanceof ArrayBuffer) return new Uint8Array(value);
+      const source = new Uint8Array(value);
+      const bytes = new Uint8Array(source.byteLength);
+      bytes.set(source);
+      return bytes;
+    } catch {
+      return void 0;
+    }
+  }
+  function cloneForeignBufferSource(value) {
+    const clone = globalThis.structuredClone;
+    if (typeof clone === "function") {
+      const waived = firefoxXrayWaiver(value);
+      for (const candidate of waived === value ? [value] : [value, waived]) {
+        try {
+          const copied = clone(candidate);
+          if (isArrayBufferValue(copied) || ArrayBuffer.isView(copied)) {
+            const bytes = copyClonedBufferSource(copied);
+            if (bytes) return bytes;
+          }
+        } catch {
+        }
+      }
+    }
+    throw new Error("This browser could not copy a cross-realm dictionary BufferSource. Update Firefox or import the ZIP with the extension.");
+  }
+  function isArrayBufferValue(value) {
+    try {
+      return value instanceof ArrayBuffer || Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+    } catch {
+      return false;
+    }
+  }
+  function copyClonedBufferSource(value) {
+    try {
+      const source = ArrayBuffer.isView(value) ? value : new Uint8Array(value);
+      const bytes = new Uint8Array(source.byteLength);
+      bytes.set(source);
+      return bytes;
+    } catch {
+      return void 0;
+    }
+  }
   const log$J = Logger.scope("DictionaryArchiveCache");
   const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
   const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
@@ -23788,13 +23876,7 @@ ${item.sequence ?? ""}`;
     return `${ARCHIVE_CHUNK_PREFIX}${identity}:${chunk}`;
   }
   async function blobBytes(blob) {
-    if (typeof blob.arrayBuffer === "function") return new Uint8Array(await blob.arrayBuffer());
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(new Uint8Array(reader.result));
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read dictionary archive blob."));
-      reader.readAsArrayBuffer(blob);
-    });
+    return localBytesFromBlob(blob);
   }
   function bytesToBase64(bytes) {
     let binary = "";
@@ -23814,34 +23896,24 @@ ${item.sequence ?? ""}`;
     return SHA256_PATTERN.test(value);
   }
   async function sha256Hex(data) {
-    const source = data instanceof Blob ? new Uint8Array(await blobArrayBuffer$1(data)) : data instanceof Uint8Array ? data : new Uint8Array(data);
-    const bytes = new Uint8Array(source.byteLength);
-    bytes.set(source);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  }
-  function blobArrayBuffer$1(blob) {
-    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read dictionary download."));
-      reader.readAsArrayBuffer(blob);
-    });
+    const source = data instanceof Blob ? await localBytesFromBlob(data) : localBytesFromBufferSource(data);
+    const digest = localBytesFromArrayBuffer(await crypto.subtle.digest("SHA-256", source));
+    return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
   async function verifyDictionaryObject(data, expectedSha256) {
     if (!isSha256Hex(expectedSha256)) return false;
     return await sha256Hex(data) === expectedSha256;
   }
   async function assertDictionaryObjectIntegrity(data, expected) {
-    const actualBytes = data instanceof Blob ? data.size : data instanceof Uint8Array ? data.byteLength : data.byteLength;
+    const localData = data instanceof Blob ? data : localBytesFromBufferSource(data);
+    const actualBytes = localData instanceof Blob ? localData.size : localData.byteLength;
     if (!Number.isSafeInteger(expected.bytes) || expected.bytes <= 0) {
       throw new Error("Dictionary catalogue contains an invalid byte length.");
     }
     if (actualBytes !== expected.bytes) {
       throw new Error(`Dictionary download size mismatch (expected ${expected.bytes} bytes, received ${actualBytes}).`);
     }
-    if (!await verifyDictionaryObject(data, expected.sha256)) {
+    if (!await verifyDictionaryObject(localData, expected.sha256)) {
       throw new Error("Dictionary download SHA-256 mismatch.");
     }
   }
@@ -24270,7 +24342,9 @@ ${item.sequence ?? ""}`;
   }
   function throwMissingDictionaryDownloadBridge(done, language2) {
     done();
-    throw new Error(uiText(language2, "dictionaryDownloadNeedsBridge"));
+    throw userFacingError("dictionaryDownloadNeedsBridge", {
+      diagnostic: uiText(language2, "dictionaryDownloadNeedsBridge")
+    });
   }
   async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language2) {
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
@@ -24290,8 +24364,9 @@ ${item.sequence ?? ""}`;
     for (; ; ) {
       const { value, done } = await reader.read();
       if (done) break;
-      chunks2.push(value);
-      loaded += value.byteLength;
+      const chunk = localBytesFromView(value);
+      chunks2.push(chunk);
+      loaded += chunk.byteLength;
       onProgress(formatDictionaryDownloadProgress(language2, loaded, total));
     }
     const bytes = new Uint8Array(loaded);
@@ -25494,8 +25569,9 @@ ${scopedInner}
       throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);
     }
   }
-  async function readZipArchive(file, onProgress) {
+  async function readZipArchive(file, onProgress, validateBytes) {
     const bytes = await readBlobBytes(file, onProgress);
+    await validateBytes?.(bytes);
     const archive = readZipArchiveBytes(bytes);
     onProgress?.({
       phase: "directory",
@@ -25506,12 +25582,13 @@ ${scopedInner}
     return archive;
   }
   function readZipArchiveBytes(bytes) {
+    bytes = localBytesFromView(bytes);
     return new ZipArchive(bytes, readZipCentralDirectory(bytes));
   }
   async function readBlobBytes(file, onProgress) {
     const total = file.size;
     if (!onProgress || typeof file.stream !== "function") {
-      const bytes2 = new Uint8Array(await readBlobArrayBuffer(file));
+      const bytes2 = await localBytesFromBlob(file);
       onProgress?.({ phase: "read", loaded: bytes2.byteLength, total: total || bytes2.byteLength });
       return bytes2;
     }
@@ -25522,8 +25599,9 @@ ${scopedInner}
     for (; ; ) {
       const { value, done } = await reader.read();
       if (done) break;
-      chunks2.push(value);
-      loaded += value.byteLength;
+      const chunk = localBytesFromView(value);
+      chunks2.push(chunk);
+      loaded += chunk.byteLength;
       onProgress({ phase: "read", loaded, total });
     }
     const bytes = new Uint8Array(loaded);
@@ -25608,7 +25686,7 @@ ${scopedInner}
   }
   async function inflateRawWithStream(bytes) {
     const stream = new Blob([arrayBufferSlice(bytes)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
+    return localBytesFromArrayBuffer(await new Response(stream).arrayBuffer());
   }
   function assertSignature(view, offset, expected, label) {
     if (offset < 0 || offset + 4 > view.byteLength || view.getUint32(offset, true) !== expected) {
@@ -25623,10 +25701,6 @@ ${scopedInner}
   }
   function arrayBufferSlice(bytes) {
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  }
-  function readBlobArrayBuffer(blob) {
-    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
-    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
   const MAX_SURFACE_CODE_POINTS = 18;
   class InlineTermCandidateCollector {
@@ -26671,7 +26745,7 @@ ${entry.reading}`;
       const done = log$G.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
         log$G.info("Dictionary file import started", fileSummary(file, sourceUrl));
-        if (options.integrity) await assertDictionaryObjectIntegrity(file, options.integrity);
+        if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
         log$G.info("Dictionary file import completed", summary);
@@ -26703,7 +26777,7 @@ ${entry.reading}`;
           return;
         }
         onProgress?.(`${this.text("dictionaryReadingZip")} ${progress.entries?.toLocaleString() ?? "0"} files found. ${uiText(language2, "dictionaryCheckingIndex")}`);
-      });
+      }, options.integrity ? (bytes) => assertDictionaryObjectIntegrity(bytes, options.integrity) : void 0);
       const zipEntries = zip.entries();
       onProgress?.(`${this.text("dictionaryReadingZip")} ${zipEntries.length.toLocaleString()} files found. ${uiText(language2, "dictionaryCheckingIndex")}`);
       const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
@@ -59212,7 +59286,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.68".trim() ? "1.8.68".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.69".trim() ? "1.8.69".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
