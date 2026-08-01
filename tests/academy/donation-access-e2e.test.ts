@@ -115,20 +115,56 @@ describe('support donation to Academy access', () => {
     });
 });
 
+/**
+ * A donation ledger that actually stores what it is given.
+ *
+ * This used to answer `null` to every read while reporting every write as a
+ * success. `recordDonationEvent` verifies its own INSERT by reading the row back
+ * (it refuses to hand a receipt it cannot observe), so against that stub it always
+ * concluded `insert_not_observed`, returned false, and the webhook handler
+ * returned 200 without ever forwarding the Academy claim -- which is why all three
+ * currency cases saw an empty `purchases` table. Production is unaffected: the
+ * columns exist via migration 0006.
+ *
+ * Idempotency mirrors the real schema: migration 0006 puts a UNIQUE index on
+ * stripe_session_id, so a replayed webhook inserts nothing and still reads back
+ * the original receipt.
+ */
 function supportDonationDb() {
-    const eventIds = new Set<string>();
+    const rows: Array<Record<string, unknown>> = [];
     return {
-        prepare() {
+        prepare(sql: string) {
             let values: unknown[] = [];
+            const isInsert = /INSERT\s+OR\s+IGNORE\s+INTO\s+donation_events/i.test(sql);
+            const isReadback = /FROM\s+donation_events/i.test(sql)
+                && /stripe_session_id\s*=\s*\?\s*OR\s+id\s*=\s*\?/i.test(sql);
             return {
                 bind(...bound: unknown[]) {
                     values = bound;
                     return this;
                 },
-                async first() { return null; },
+                async first() {
+                    if (!isReadback) return null;
+                    const [sessionId, id] = values;
+                    return rows.find(row => row.stripe_session_id === sessionId || row.id === id) ?? null;
+                },
                 async all() { return { results: [] }; },
                 async run() {
-                    eventIds.add(String(values[0] ?? ''));
+                    if (isInsert) {
+                        const [id, day, amountMinor, currency, eventType, stripeSessionId] = values;
+                        const duplicate = rows.some(row =>
+                            row.id === id || row.stripe_session_id === stripeSessionId);
+                        if (!duplicate) {
+                            rows.push({
+                                id,
+                                day,
+                                amount_minor: amountMinor,
+                                currency,
+                                event_type: eventType,
+                                stripe_session_id: stripeSessionId,
+                            });
+                        }
+                    }
                     return { success: true, meta: { changes: 1 } };
                 },
             };

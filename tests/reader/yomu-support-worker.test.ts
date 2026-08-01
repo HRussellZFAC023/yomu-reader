@@ -303,6 +303,21 @@ describe("Yomu support Worker", () => {
   });
 
   it("quarantines historical test Checkout rows from donation progress", async () => {
+    // Frozen to mid-month on purpose. The rows below are dated the 1st and the
+    // assertion is that they reach the MONTH bucket but not TODAY's -- which is
+    // only true while the 1st is not today. Unfrozen, this passes for 27-30 days
+    // and fails every month on the 1st; it went red on 2026-08-01. Only Date is
+    // faked, so the Worker's own async paths still use real timers.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 7, 15, 12, 0, 0)));
+    try {
+      await runQuarantineCase();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  async function runQuarantineCase(): Promise<void> {
     const day = `${monthKey()}-01`;
     const db = mockSupportDb([
       stripeDonationRow("live-gbp", day, 500, "gbp"),
@@ -321,7 +336,7 @@ describe("Yomu support Worker", () => {
       totalTodayGbp: 0,
       totalThisMonthGbp: 5,
     });
-  });
+  }
 
   it("keeps a Stripe receipt pending when an implausible FX rate would round it to zero", async () => {
     const day = `${monthKey()}-01`;
