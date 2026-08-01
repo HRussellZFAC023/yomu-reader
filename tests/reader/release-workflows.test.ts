@@ -145,6 +145,22 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).not.toContain('YOMU_CI_MAX_WORKERS: 3');
     });
 
+    it('bounds Playwright installation on the proven bootstrap Node, then restores the audited runtime', () => {
+        const bootstrap = releaseWorkflow.indexOf("node-version: '24.18.0'");
+        const browserInstall = releaseWorkflow.indexOf('npx playwright install --with-deps chromium webkit');
+        const restore = releaseWorkflow.indexOf('name: Restore audited release Node');
+        const releaseGate = releaseWorkflow.indexOf('npm run check:release');
+
+        expect(bootstrap).toBeGreaterThan(-1);
+        expect(browserInstall).toBeGreaterThan(bootstrap);
+        expect(releaseWorkflow.slice(bootstrap, browserInstall)).toContain('name: Install layout smoke browsers');
+        expect(releaseWorkflow.slice(bootstrap, restore)).toContain('timeout-minutes: 15');
+        expect(restore).toBeGreaterThan(browserInstall);
+        expect(releaseWorkflow.slice(restore, releaseGate)).toContain("node-version-file: '.nvmrc'");
+        expect(releaseWorkflow.slice(restore, releaseGate)).toContain('npm install --global npm@11.9.0');
+        expect(releaseGate).toBeGreaterThan(restore);
+    });
+
     it('gives desktop gaming artifacts one release owner', () => {
         expect(releaseWorkflow).not.toContain('Build Yomu Gaming release packages');
         expect(releaseWorkflow).not.toContain('npm run release:gaming:');
@@ -195,7 +211,7 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).toContain(`ref: ${USER_SCRIPT_COMPILER_COMMIT}`);
         expect(nodeVersion).toBe('24.16.0');
         expect(releaseWorkflow).toContain("node-version-file: '.nvmrc'");
-        expect(releaseWorkflow).not.toMatch(/\bnode-version:\s/);
+        expect(releaseWorkflow).toContain("node-version: '24.18.0'");
         expect(amoSourceBuildTemplate).toContain(`- Node.js ${nodeVersion}`);
         expect(releaseWorkflow).toContain('npm install --global npm@11.9.0');
         expect(releaseWorkflow).toContain('node scripts/build-amo-source-package.mjs');

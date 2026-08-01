@@ -88,8 +88,24 @@ jobs:
             vitepress-${{ runner.os }}-
       - name: Ensure Electron runtime
         run: npm run prepare:electron
+      # Node 24.16.0 is the audited build/parity runtime below, but Playwright's
+      # browser extractor has hung after its 100% Chromium download on that
+      # patch release since v1.8.62. CI's layout job proves 24.18.0 can install
+      # the same pinned Playwright browsers; use it only for this bootstrap,
+      # bound the step, then restore the audited runtime before any gate/build.
+      - name: Use stable Node for layout browser installation
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.18.0'
       - name: Install layout smoke browsers
+        timeout-minutes: 15
         run: npx playwright install --with-deps chromium webkit
+      - name: Restore audited release Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: '.nvmrc'
+      - name: Restore pinned npm for release gates
+        run: npm install --global npm@11.9.0
       # Releases force byte-level hashing and full academy re-sync (no memo /
       # revision-skip shortcuts) while keeping the parallel stage graph.
       - run: npm run check:release
