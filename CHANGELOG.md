@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.66] - 2026-08-01
+
+### Fixed
+
+- On iPad YouTube, Shorts action labels and the left mini-guide stay fully readable instead of gaining an ellipsis when Yomu annotates the page; video titles and reading content remain annotated.
+
 ## [1.8.65] - 2026-08-01
 
 ### Fixed

@@ -195,6 +195,7 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'On iPad YouTube, Shorts action labels and the left mini-guide stay fully readable instead of gaining an ellipsis when Yomu annotates the page; video titles and reading content remain annotated.': 'iPad版YouTubeで、よむがページに注釈を付けても、Shortsの操作ラベルと左側のミニガイドが「…」で省略されず、最後まで読めるようになりました。動画タイトルと読解対象の本文には、引き続き注釈が付きます。',
     'X/Twitter video subtitles no longer show internal word-timing tags, character ranges, or their translated metadata alongside the dialogue.': 'X/Twitterの動画字幕では、内部の単語タイミングタグ、文字範囲、またはそれらを翻訳したメタデータが台詞と一緒に表示されなくなりました。',
     'Factory Reset now inventories and verifies every declared Yomu store, including the Firefox/Tampermonkey compatibility path, private settings, local study data, caches, dictionaries, and dictionary archives. If a store cannot be enumerated or cleared, reset stops with recovery guidance instead of reporting false success (GitHub #38).': 'Factory Resetでは、Firefox/Tampermonkey互換経路、非公開設定、端末内の学習データ、キャッシュ、辞書、辞書アーカイブを含む、よむが管理対象として宣言しているすべてのストアを一覧化して検証するようになりました。ストアを列挙または消去できない場合は、成功したと誤って報告せず、復旧手順を案内してリセットを中止します（GitHub #38）。',
     'A completed reset now advances a durable state generation, so stale tabs, origins, companion bundles, delayed writes, and surviving dictionary archives cannot restore deleted data.': 'リセットが完了すると永続的な状態世代が進むようになり、古いタブ、オリジン、コンパニオンバンドル、遅延書き込み、残存する辞書アーカイブから削除済みデータが復元されるのを防ぎます。',

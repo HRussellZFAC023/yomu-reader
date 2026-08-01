@@ -4898,8 +4898,7 @@ function setReviewCardFrontPredicate(predicate) {
 }
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
-  if (isEditableComposingContext(element2)) return "skip";
-  if (reviewCardFrontPredicate?.(element2)) return "skip";
+  if (decorationMustBeSkipped(element2)) return "skip";
   const control = interactivePassiveControl(element2);
   if (control) {
   if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
@@ -4909,6 +4908,67 @@ function classifyDecoration(element2) {
   if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
   if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
   return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+}
+function decorationMustBeSkipped(element2) {
+  if (isEditableComposingContext(element2)) return true;
+  if (reviewCardFrontPredicate?.(element2)) return true;
+  return element2 instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element2);
+}
+const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
+  "ytd-mini-guide-entry-renderer",
+  "yt-mini-guide-entry-renderer",
+  "ytm-mini-guide-entry-renderer"
+].join(",");
+const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
+  "ytd-reel-player-overlay-renderer",
+  "yt-reel-player-overlay-renderer",
+  "ytm-reel-player-overlay-renderer",
+  "ytd-shorts",
+  "ytm-shorts"
+].join(",");
+const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
+const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+function youtubeEllipsisChromeMustRemainPageOwned(element2) {
+  if (!isYouTubeAppHostname()) return false;
+  const chrome = youtubeNativeChromeControl(element2);
+  if (!chrome) return false;
+  const clipRow = youtubeEllipsisRow(element2);
+  if (!clipRow) return false;
+  return elementsShareComposedBranch(chrome, clipRow);
+}
+function youtubeNativeChromeControl(element2) {
+  const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
+  if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
+  const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
+  return shorts ? composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+}
+function youtubeEllipsisRow(element2) {
+  const clipRow = closestRubyFragileConstrainedRow(element2);
+  if (!clipRow) return null;
+  return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+}
+function composedClosestMatching(element2, selector) {
+  let current = element2;
+  for (let depth = 0; current && depth < 16; depth += 1) {
+  if (safeElementMatches(current, selector)) return current;
+  current = composedAncestorElement(current);
+  }
+  return null;
+}
+function composedControlInside(element2, selector, boundary) {
+  const control = composedClosestMatching(element2, selector);
+  return control && isComposedAncestor(boundary, control) ? control : null;
+}
+function elementsShareComposedBranch(first, second) {
+  return isComposedAncestor(first, second) || isComposedAncestor(second, first);
+}
+function isComposedAncestor(ancestor, descendant) {
+  let current = descendant;
+  for (let depth = 0; current && depth < 16; depth += 1) {
+  if (current === ancestor) return true;
+  current = composedAncestorElement(current);
+  }
+  return false;
 }
 function decorationSuppressesRuby(state) {
   return state === "interactive-passive";
@@ -4974,7 +5034,8 @@ const decorationPolicy = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.de
   safeElementMatches,
   selectorPairs,
   setReviewCardFrontPredicate,
-  stampDecorationState
+  stampDecorationState,
+  youtubeEllipsisChromeMustRemainPageOwned
 }, Symbol.toStringTag, { value: "Module" }));
 const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
 function registerDecorationPolicyRuntimeApi(api) {
@@ -15996,7 +16057,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.65".trim() ? "1.8.65".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.66".trim() ? "1.8.66".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

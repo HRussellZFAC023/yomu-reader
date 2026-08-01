@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.65
+// @version 1.8.66
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.1d00823e19f9.user.js#sha256=HQCCPhn5OR0I4LQ0JBL4cDICTek0IOkA7VBHxSpsmOQ=
+// @require https://yomureader.com/greasyfork/yomu-runtime.206bd82c5c58.user.js#sha256=IGvYLFxYtZIkH9Tcvxwgt+uuhJBW2Vr7UY5qQrUv6fw=
 // @resource yomuCss  https://yomureader.com/yomu.760b3a6fec4a.css#sha256=dgs6b+xKH42TBI+ES0WdxdzxeqEZBlDUKDtQjoUIayM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -4193,8 +4193,21 @@ const {
   safeElementMatches: safeElementMatches$1,
   selectorPairs,
   setReviewCardFrontPredicate,
-  stampDecorationState
+  stampDecorationState,
+  youtubeEllipsisChromeMustRemainPageOwned
 } = policy;
+function rubyFriendlyMirrorLineHeight(style) {
+  const fontSize = cssPixels(style.fontSize) || 16;
+  const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
+  return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
+}
+function detachedReadingLaneLineHeight(style, alreadyReserved) {
+  const fontSize = cssPixels(style.fontSize) || 16;
+  const minimum = Math.ceil(fontSize * 2) + 1;
+  const current = cssPixels(style.lineHeight);
+  if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+  return current >= minimum ? "" : `${minimum}px`;
+}
 const BLOCKED_HTML_ELEMENTS = new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
 const BLOCKED_ATTRIBUTES = new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
 const URL_ATTRIBUTES = new Set(["href", "poster", "src", "xlink:href"]);
@@ -10899,6 +10912,10 @@ function projectAdditiveTextMirrors(root = document) {
   for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
+  if (youtubeEllipsisChromeMustRemainPageOwned(host)) {
+    removeTextMirror(host);
+    continue;
+  }
   entries2.push({ mirror, host });
   }
   if (settleTextMirrorReadingLanes(entries2)) {
@@ -11671,18 +11688,6 @@ function hostCentersTextVertically(host, style) {
   if (itemized) return style.alignItems === "center" || style.alignContent === "center";
   return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
 }
-function rubyFriendlyMirrorLineHeight(style) {
-  const fontSize = cssPixels(style.fontSize) || 16;
-  const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-  return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
-}
-function detachedReadingLaneLineHeight(style, alreadyReserved) {
-  const fontSize = cssPixels(style.fontSize) || 16;
-  const minimum = Math.ceil(fontSize * 2) + 1;
-  const current = cssPixels(style.lineHeight);
-  if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-  return current >= minimum ? "" : `${minimum}px`;
-}
 function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
@@ -11717,6 +11722,7 @@ function observeTextMirrorHost(host) {
   );
   if (hostAttributeMutations.length) {
     noteConstrainedRowLayoutSettled();
+    if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
     if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
       const mirror = currentTextMirror(liveHost);
       if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
@@ -33628,8 +33634,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.65"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.65"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.66"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.66"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33772,7 +33778,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.65"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.66"}`;
   } catch {
   return null;
   }

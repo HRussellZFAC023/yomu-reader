@@ -14484,8 +14484,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function classifyDecoration(element2) {
     if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
-    if (isEditableComposingContext(element2)) return "skip";
-    if (reviewCardFrontPredicate?.(element2)) return "skip";
+    if (decorationMustBeSkipped(element2)) return "skip";
     const control = interactivePassiveControl(element2);
     if (control) {
       if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
@@ -14495,6 +14494,67 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
     if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
     return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+  }
+  function decorationMustBeSkipped(element2) {
+    if (isEditableComposingContext(element2)) return true;
+    if (reviewCardFrontPredicate?.(element2)) return true;
+    return element2 instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element2);
+  }
+  const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
+    "ytd-mini-guide-entry-renderer",
+    "yt-mini-guide-entry-renderer",
+    "ytm-mini-guide-entry-renderer"
+  ].join(",");
+  const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
+    "ytd-reel-player-overlay-renderer",
+    "yt-reel-player-overlay-renderer",
+    "ytm-reel-player-overlay-renderer",
+    "ytd-shorts",
+    "ytm-shorts"
+  ].join(",");
+  const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
+  const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+  function youtubeEllipsisChromeMustRemainPageOwned(element2) {
+    if (!isYouTubeAppHostname()) return false;
+    const chrome = youtubeNativeChromeControl(element2);
+    if (!chrome) return false;
+    const clipRow = youtubeEllipsisRow(element2);
+    if (!clipRow) return false;
+    return elementsShareComposedBranch(chrome, clipRow);
+  }
+  function youtubeNativeChromeControl(element2) {
+    const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
+    if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
+    const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
+    return shorts ? composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+  }
+  function youtubeEllipsisRow(element2) {
+    const clipRow = closestRubyFragileConstrainedRow(element2);
+    if (!clipRow) return null;
+    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+  }
+  function composedClosestMatching(element2, selector) {
+    let current = element2;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (safeElementMatches(current, selector)) return current;
+      current = composedAncestorElement(current);
+    }
+    return null;
+  }
+  function composedControlInside(element2, selector, boundary) {
+    const control = composedClosestMatching(element2, selector);
+    return control && isComposedAncestor(boundary, control) ? control : null;
+  }
+  function elementsShareComposedBranch(first2, second) {
+    return isComposedAncestor(first2, second) || isComposedAncestor(second, first2);
+  }
+  function isComposedAncestor(ancestor, descendant) {
+    let current = descendant;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (current === ancestor) return true;
+      current = composedAncestorElement(current);
+    }
+    return false;
   }
   function decorationSuppressesRuby(state2) {
     return state2 === "interactive-passive";
@@ -14560,8 +14620,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     safeElementMatches,
     selectorPairs,
     setReviewCardFrontPredicate,
-    stampDecorationState
+    stampDecorationState,
+    youtubeEllipsisChromeMustRemainPageOwned
   }, Symbol.toStringTag, { value: "Module" }));
+  function rubyFriendlyMirrorLineHeight(style) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
+  }
+  function detachedReadingLaneLineHeight(style, alreadyReserved) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const minimum = Math.ceil(fontSize * 2) + 1;
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? "" : `${minimum}px`;
+  }
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
   const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -21004,6 +21077,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
       const host = registeredTextMirrorHostFor(mirror);
       if (!host?.isConnected) continue;
+      if (youtubeEllipsisChromeMustRemainPageOwned(host)) {
+        removeTextMirror(host);
+        continue;
+      }
       entries2.push({ mirror, host });
     }
     if (settleTextMirrorReadingLanes(entries2)) {
@@ -21644,18 +21721,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (itemized) return style.alignItems === "center" || style.alignContent === "center";
     return host.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
   }
-  function rubyFriendlyMirrorLineHeight(style) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
-  }
-  function detachedReadingLaneLineHeight(style, alreadyReserved) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const minimum = Math.ceil(fontSize * 2) + 1;
-    const current = cssPixels(style.lineHeight);
-    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-    return current >= minimum ? "" : `${minimum}px`;
-  }
   function observeTextMirrorHost(host) {
     const state2 = textMirrorHosts.get(host);
     if (!state2) return;
@@ -21690,6 +21755,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       );
       if (hostAttributeMutations.length) {
         noteConstrainedRowLayoutSettled();
+        if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
         if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
           const mirror = currentTextMirror(liveHost);
           if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
@@ -58957,7 +59023,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.65".trim() ? "1.8.65".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.66".trim() ? "1.8.66".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

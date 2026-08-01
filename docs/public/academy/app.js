@@ -36173,6 +36173,19 @@ ${spelling}`);
     warn: "#a15c00",
     error: "#b91c1c"
   };
+  const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "music.youtube.com",
+    "studio.youtube.com",
+    "kids.youtube.com",
+    "gaming.youtube.com",
+    "youtu.be"
+  ]);
+  function isYouTubeAppHostname(hostname = location.hostname) {
+    return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+  }
   const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
   const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
   const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
@@ -36744,7 +36757,7 @@ ${spelling}`);
   }
   function classifyDecoration(element2) {
     if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
-    if (isEditableComposingContext(element2)) return "skip";
+    if (decorationMustBeSkipped(element2)) return "skip";
     const control2 = interactivePassiveControl(element2);
     if (control2) {
       if (control2.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
@@ -36754,6 +36767,66 @@ ${spelling}`);
     if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
     if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
     return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+  }
+  function decorationMustBeSkipped(element2) {
+    if (isEditableComposingContext(element2)) return true;
+    return element2 instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element2);
+  }
+  const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
+    "ytd-mini-guide-entry-renderer",
+    "yt-mini-guide-entry-renderer",
+    "ytm-mini-guide-entry-renderer"
+  ].join(",");
+  const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
+    "ytd-reel-player-overlay-renderer",
+    "yt-reel-player-overlay-renderer",
+    "ytm-reel-player-overlay-renderer",
+    "ytd-shorts",
+    "ytm-shorts"
+  ].join(",");
+  const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
+  const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+  function youtubeEllipsisChromeMustRemainPageOwned(element2) {
+    if (!isYouTubeAppHostname()) return false;
+    const chrome = youtubeNativeChromeControl(element2);
+    if (!chrome) return false;
+    const clipRow = youtubeEllipsisRow(element2);
+    if (!clipRow) return false;
+    return elementsShareComposedBranch(chrome, clipRow);
+  }
+  function youtubeNativeChromeControl(element2) {
+    const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
+    if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
+    const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
+    return shorts ? composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+  }
+  function youtubeEllipsisRow(element2) {
+    const clipRow = closestRubyFragileConstrainedRow(element2);
+    if (!clipRow) return null;
+    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+  }
+  function composedClosestMatching(element2, selector) {
+    let current = element2;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (safeElementMatches(current, selector)) return current;
+      current = composedAncestorElement(current);
+    }
+    return null;
+  }
+  function composedControlInside(element2, selector, boundary) {
+    const control2 = composedClosestMatching(element2, selector);
+    return control2 && isComposedAncestor(boundary, control2) ? control2 : null;
+  }
+  function elementsShareComposedBranch(first2, second) {
+    return isComposedAncestor(first2, second) || isComposedAncestor(second, first2);
+  }
+  function isComposedAncestor(ancestor, descendant) {
+    let current = descendant;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (current === ancestor) return true;
+      current = composedAncestorElement(current);
+    }
+    return false;
   }
   function decorationSuppressesRuby(state) {
     return state === "interactive-passive";
@@ -36767,6 +36840,18 @@ ${spelling}`);
     const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
     const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
     return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
+  }
+  function rubyFriendlyMirrorLineHeight(style) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
+  }
+  function detachedReadingLaneLineHeight(style, alreadyReserved) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const minimum = Math.ceil(fontSize * 2) + 1;
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? "" : `${minimum}px`;
   }
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
@@ -46988,6 +47073,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
       const host2 = registeredTextMirrorHostFor(mirror);
       if (!host2?.isConnected) continue;
+      if (youtubeEllipsisChromeMustRemainPageOwned(host2)) {
+        removeTextMirror(host2);
+        continue;
+      }
       entries2.push({ mirror, host: host2 });
     }
     if (settleTextMirrorReadingLanes(entries2)) {
@@ -47628,18 +47717,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (itemized) return style.alignItems === "center" || style.alignContent === "center";
     return host2.matches('button,input[type="button"],input[type="submit"],input[type="reset"]');
   }
-  function rubyFriendlyMirrorLineHeight(style) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
-  }
-  function detachedReadingLaneLineHeight(style, alreadyReserved) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const minimum = Math.ceil(fontSize * 2) + 1;
-    const current = cssPixels(style.lineHeight);
-    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-    return current >= minimum ? "" : `${minimum}px`;
-  }
   function observeTextMirrorHost(host2) {
     const state = textMirrorHosts.get(host2);
     if (!state) return;
@@ -47674,6 +47751,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       );
       if (hostAttributeMutations.length) {
         noteConstrainedRowLayoutSettled();
+        if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
         if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
           const mirror = currentTextMirror(liveHost);
           if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
