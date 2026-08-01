@@ -7748,6 +7748,76 @@ const GRAMMAR_UI_COPY = {
   grammarLevelCore: "基本"
   }
 };
+const EN_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "Enable video subtitle player",
+  subtitleAutoDetect: "Auto-detect page subtitles",
+  subtitleOverlayVisible: "Show subtitle overlay",
+  subtitleSecondaryVisible: "Show native subtitles",
+  subtitleNativeBlurred: "Blur native subtitles until hover",
+  subtitleNativeDisplay: "Translation",
+  subtitleNativeDisplayBlurred: "Blur until reveal (recommended)",
+  subtitleNativeDisplayShown: "Always show",
+  subtitleNativeDisplayHidden: "Hide completely",
+  subtitleNativeBlurStrength: "Blur strength",
+  subtitleKaraokeMode: "Karaoke word timing",
+  subtitleTranscriptVisible: "Open transcript panel by default",
+  subtitlePausePanel: "Open side panel when paused",
+  subtitleShadowAutoPause: "Auto-pause after each shadow line",
+  subtitleTranscriptPlacement: "Transcript panel position",
+  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
+  subtitleAutoCopyLine: "Auto-copy subtitle lines",
+  subtitleMiningPause: "Pause video on subtitle click",
+  subtitleHoverPause: "Pause video on subtitle hover",
+  subtitleControlsMode: "Subtitle controls",
+  subtitleFontSize: "Subtitle font size (px)",
+  subtitleBottomOffset: "Subtitle bottom offset (%)",
+  subtitleTextColor: "Subtitle color",
+  subtitleOutlineColor: "Subtitle outline",
+  subtitleBackgroundColor: "Subtitle background",
+  subtitleBackgroundOpacity: "Subtitle background opacity",
+  subtitleFontFamily: "Subtitle font family",
+  subtitleFontWeight: "Subtitle font weight",
+  subtitleSeekPadding: "Subtitle seek padding (s)",
+  subtitlePreview: "Live subtitle preview"
+};
+const JA_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "動画字幕プレイヤーを有効にする",
+  subtitleAutoDetect: "ページの字幕を自動検出",
+  subtitleOverlayVisible: "字幕オーバーレイを表示",
+  subtitleSecondaryVisible: "利用可能ならネイティブ字幕を表示",
+  subtitleNativeBlurred: "ホバーするまでネイティブ字幕をぼかす",
+  subtitleNativeDisplay: "母語訳",
+  subtitleNativeDisplayBlurred: "表示するまでぼかす（おすすめ）",
+  subtitleNativeDisplayShown: "常に表示",
+  subtitleNativeDisplayHidden: "完全に隠す",
+  subtitleNativeBlurStrength: "ぼかしの強さ",
+  subtitleKaraokeMode: "カラオケ風の単語タイミング",
+  subtitleTranscriptVisible: "文字起こしパネルを標準で開く",
+  subtitlePausePanel: "一時停止時にサイドパネルを開く",
+  subtitleShadowAutoPause: "シャドー中は各行の後で一時停止",
+  subtitleTranscriptPlacement: "文字起こしパネル位置",
+  subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+  subtitleTranscriptAutoScrollResumeSeconds: "手動スクロール後の再開 (秒)",
+  subtitleAutoCopyLine: "各字幕行を再生時に自動コピー",
+  subtitleMiningPause: "字幕クリック時に動画を一時停止",
+  subtitleHoverPause: "字幕ホバー時に動画を一時停止",
+  subtitleControlsMode: "字幕コントロール",
+  subtitleFontSize: "字幕フォントサイズ (px)",
+  subtitleBottomOffset: "字幕下端オフセット (%)",
+  subtitleTextColor: "字幕の色",
+  subtitleOutlineColor: "字幕の縁取り",
+  subtitleBackgroundColor: "字幕背景",
+  subtitleBackgroundOpacity: "字幕背景の不透明度",
+  subtitleFontFamily: "字幕フォントファミリー",
+  subtitleFontWeight: "字幕フォントの太さ",
+  subtitleSeekPadding: "字幕シーク余白 (s)",
+  subtitlePreview: "字幕ライブプレビュー"
+};
+const SUBTITLE_SETTINGS_COPY = {
+  en: EN_SUBTITLE_SETTINGS_COPY,
+  ja: JA_SUBTITLE_SETTINGS_COPY
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -8204,38 +8274,13 @@ const COPY = {
   ocrHelp: "Reads nearby images. Google Lens needs no setup.",
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
-  subtitlePlayerEnabled: "Enable video subtitle player",
-  subtitleAutoDetect: "Auto-detect page subtitles",
-  subtitleOverlayVisible: "Show subtitle overlay",
-  subtitleSecondaryVisible: "Show native subtitles",
-  subtitleNativeBlurred: "Blur native subtitles until hover",
-  subtitleKaraokeMode: "Karaoke word timing",
-  subtitleTranscriptVisible: "Open transcript panel by default",
-  subtitlePausePanel: "Open side panel when paused",
-  subtitleShadowAutoPause: "Auto-pause after each shadow line",
-  subtitleTranscriptPlacement: "Transcript panel position",
-  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
-  subtitleAutoCopyLine: "Auto-copy subtitle lines",
-  subtitleMiningPause: "Pause video on subtitle click",
-  subtitleHoverPause: "Pause video on subtitle hover",
-  subtitleControlsMode: "Subtitle controls",
+  ...SUBTITLE_SETTINGS_COPY.en,
   right: "Right",
   left: "Left",
   bottom: "Below",
   showWhenNeeded: "Compact controls",
   hideControls: "Hide controls",
   alwaysVisible: "Always visible",
-  subtitleFontSize: "Subtitle font size (px)",
-  subtitleBottomOffset: "Subtitle bottom offset (%)",
-  subtitleTextColor: "Subtitle color",
-  subtitleOutlineColor: "Subtitle outline",
-  subtitleBackgroundColor: "Subtitle background",
-  subtitleBackgroundOpacity: "Subtitle background opacity",
-  subtitleFontFamily: "Subtitle font family",
-  subtitleFontWeight: "Subtitle font weight",
-  subtitleSeekPadding: "Subtitle seek padding (s)",
-  subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "{language} YouTube only",
   preferJapaneseSiteLanguage: "Open {language} versions of sites",
@@ -9534,7 +9579,8 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja
 };
-const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
+const JA_SETTINGS_COPY = {
+  ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -9917,22 +9963,6 @@ cloudVisionApiKey	Google Cloud Vision APIキー
 ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
 ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
 ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
-subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
-subtitleAutoDetect	ページの字幕を自動検出
-subtitleOverlayVisible	字幕オーバーレイを表示
-subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
-subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
-subtitleKaraokeMode	カラオケ風の単語タイミング
-subtitleTranscriptVisible	文字起こしパネルを標準で開く
-subtitlePausePanel	一時停止時にサイドパネルを開く
-subtitleShadowAutoPause	シャドー中は各行の後で一時停止
-subtitleTranscriptPlacement	文字起こしパネル位置
-subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
-subtitleAutoCopyLine	各字幕行を再生時に自動コピー
-subtitleMiningPause	字幕クリック時に動画を一時停止
-subtitleHoverPause	字幕ホバー時に動画を一時停止
-subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
@@ -9944,16 +9974,6 @@ bottom	下
 showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
-subtitleFontSize	字幕フォントサイズ (px)
-subtitleBottomOffset	字幕下端オフセット (%)
-subtitleTextColor	字幕の色
-subtitleOutlineColor	字幕の縁取り
-subtitleBackgroundColor	字幕背景
-subtitleBackgroundOpacity	字幕背景の不透明度
-subtitleFontFamily	字幕フォントファミリー
-subtitleFontWeight	字幕フォントの太さ
-subtitleSeekPadding	字幕シーク余白 (s)
-subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	{language}のYouTubeのみ
 preferJapaneseSiteLanguage	{language}版のサイトを開く
@@ -10268,7 +10288,9 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
-`);
+`),
+  ...SUBTITLE_SETTINGS_COPY.ja
+};
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
   return browserPrefersJapanese() ? "ja" : "en";
@@ -11548,6 +11570,39 @@ const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
   IMMERSION_KIT_LOOKUP_LINK.id,
   UCHISEN_LOOKUP_LINK.id
 ]];
+function createDefaultSubtitleSettings(fontFamily) {
+  return {
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: false,
+  subtitleSecondaryVisible: false,
+  subtitleOverlayVisibleChosen: false,
+  subtitleSecondaryVisibleChosen: false,
+  subtitleNativeBlurred: true,
+  subtitleNativeBlurStrength: 12,
+  subtitleKaraokeMode: true,
+  subtitleTranscriptVisible: false,
+  subtitlePausePanel: false,
+  subtitleShadowAutoPause: false,
+  subtitleTranscriptPlacement: "right",
+  subtitleTranscriptAutoScroll: true,
+  subtitleTranscriptAutoScrollResumeSeconds: 30,
+  subtitleAutoCopyLine: false,
+  subtitleCopyIncludeTranslation: true,
+  subtitleControlsMode: "auto",
+  subtitleFontSize: 28,
+  subtitleBottomOffset: 16,
+  subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
+  subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
+  subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
+  subtitleBackgroundOpacity: 0,
+  subtitleFontFamily: fontFamily,
+  subtitleFontWeight: 760,
+  subtitleMiningPause: true,
+  subtitleHoverPause: true,
+  subtitleSeekPadding: 0.08
+  };
+}
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
   const parts = parseShortcut(shortcut);
@@ -11608,12 +11663,8 @@ const SETTINGS_STORAGE_KEYS = [
 ];
 Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
-const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 const AUDIO_SOURCE_TYPE_VALUES = [
@@ -11848,34 +11899,7 @@ const DEFAULT_SETTINGS = {
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: false,
-  subtitleSecondaryVisible: false,
-  subtitleOverlayVisibleChosen: false,
-  subtitleSecondaryVisibleChosen: false,
-  subtitleNativeBlurred: true,
-  subtitleKaraokeMode: true,
-  subtitleTranscriptVisible: false,
-  subtitlePausePanel: false,
-  subtitleShadowAutoPause: false,
-  subtitleTranscriptPlacement: "right",
-  subtitleTranscriptAutoScroll: true,
-  subtitleTranscriptAutoScrollResumeSeconds: 30,
-  subtitleAutoCopyLine: false,
-  subtitleCopyIncludeTranslation: true,
-  subtitleControlsMode: "auto",
-  subtitleFontSize: 28,
-  subtitleBottomOffset: 16,
-  subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-  subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-  subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-  subtitleBackgroundOpacity: 0,
-  subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
-  subtitleFontWeight: 760,
-  subtitleMiningPause: true,
-  subtitleHoverPause: true,
-  subtitleSeekPadding: 0.08,
+  ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
@@ -13417,6 +13441,24 @@ function subtitleText(language, key) {
 function formatSubtitleText(language, key, values) {
   return subtitleText(language, key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, name) => String(values[name] ?? ""));
 }
+const NATIVE_SUBTITLE_DISPLAY_MODES = ["blurred", "shown", "hidden"];
+function isNativeSubtitleDisplayMode(value) {
+  return NATIVE_SUBTITLE_DISPLAY_MODES.includes(value);
+}
+function nativeSubtitleDisplayMode(settings) {
+  if (!settings.subtitleSecondaryVisible && settings.subtitleSecondaryVisibleChosen) return "hidden";
+  return settings.subtitleNativeBlurred ? "blurred" : "shown";
+}
+function applyNativeSubtitleDisplayMode(settings, mode, options = {}) {
+  const visible = mode !== "hidden";
+  const blurred = mode === "blurred";
+  const markVisibilityChosen = options.markVisibilityChosen ?? true;
+  const changed = settings.subtitleSecondaryVisible !== visible || settings.subtitleNativeBlurred !== blurred || markVisibilityChosen && !settings.subtitleSecondaryVisibleChosen;
+  settings.subtitleSecondaryVisible = visible;
+  settings.subtitleNativeBlurred = blurred;
+  if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
+  return changed;
+}
 const SUBTITLE_MIN_VISIBLE_VIDEO_RATIO = 0.45;
 const SUBTITLE_MIN_VISIBLE_VIDEO_WIDTH = 120;
 const SUBTITLE_MIN_VISIBLE_VIDEO_HEIGHT = 80;
@@ -13502,9 +13544,19 @@ function renderPanelOptionsPlacementItem(placement, currentPlacement, groupLabel
 }
 function renderSubtitleStyleControls(settings, language) {
   const label = uiText(language, "subtitleStyle");
+  const nativeDisplay = nativeSubtitleDisplayMode(settings);
   return `
     <button class="jpdb-subtitle-style-toggle" type="button" data-action="style" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-haspopup="true" aria-expanded="false" aria-controls="jpdb-subtitle-style-popover">${subtitleIcon("style")}</button>
     <div class="jpdb-subtitle-style-popover" id="jpdb-subtitle-style-popover" data-subtitle-style-popover role="group" aria-label="${escapeHtml(label)}" hidden>
+        <label class="jpdb-subtitle-style-field jpdb-subtitle-style-select">
+            <span>${escapeHtml(uiText(language, "subtitleNativeDisplay"))}</span>
+            <select data-subtitle-style-setting="subtitleNativeDisplay">
+                <option value="blurred" ${nativeDisplay === "blurred" ? "selected" : ""}>${escapeHtml(uiText(language, "subtitleNativeDisplayBlurred"))}</option>
+                <option value="shown" ${nativeDisplay === "shown" ? "selected" : ""}>${escapeHtml(uiText(language, "subtitleNativeDisplayShown"))}</option>
+                <option value="hidden" ${nativeDisplay === "hidden" ? "selected" : ""}>${escapeHtml(uiText(language, "subtitleNativeDisplayHidden"))}</option>
+            </select>
+        </label>
+        ${renderSubtitleStyleRange("subtitleNativeBlurStrength", uiText(language, "subtitleNativeBlurStrength"), settings.subtitleNativeBlurStrength, 4, 20, 1, "px", nativeDisplay !== "blurred")}
         ${renderSubtitleStyleRange("subtitleFontSize", uiText(language, "subtitleFontSize"), settings.subtitleFontSize, 16, 64, 2, "px")}
         ${renderSubtitleStyleRange("subtitleFontWeight", uiText(language, "subtitleFontWeight"), settings.subtitleFontWeight, 300, 900, 20, "weight")}
         ${renderSubtitleStyleRange("subtitleBackgroundOpacity", uiText(language, "subtitleBackgroundOpacity"), settings.subtitleBackgroundOpacity, 0, 0.7, 0.05, "")}
@@ -13526,9 +13578,9 @@ function renderSubtitleStyleControls(settings, language) {
     </div>
   `;
 }
-function renderSubtitleStyleRange(setting, label, value, min, max, step, suffix) {
+function renderSubtitleStyleRange(setting, label, value, min, max, step, suffix, hidden = false) {
   return `
-    <label class="jpdb-subtitle-style-field">
+    <label class="jpdb-subtitle-style-field" data-subtitle-style-field="${setting}" ${hidden ? "hidden" : ""}>
         <span>${escapeHtml(label)}</span>
         <output data-subtitle-style-output="${setting}">${escapeHtml(subtitleStyleDisplayValue(value, suffix))}</output>
         <input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-subtitle-style-setting="${setting}">
@@ -16575,6 +16627,164 @@ function suppressPressedCaptionButtons(video) {
 function genericCaptionButtonScope(video) {
   return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
 }
+const POPOVER_GAP_PX = 8;
+const VIEWPORT_MARGIN_PX = 9;
+const POPOVER_MAX_HEIGHT_PX = 520;
+const POPOVER_MAX_WIDTH_PX = 282;
+function currentViewport() {
+  const viewport = window.visualViewport;
+  return {
+  left: viewport?.offsetLeft ?? 0,
+  top: viewport?.offsetTop ?? 0,
+  width: viewport?.width ?? window.innerWidth,
+  height: viewport?.height ?? window.innerHeight
+  };
+}
+function positionSubtitleStylePopover(popover, rail, viewport = currentViewport()) {
+  if (viewport.width <= 0 || viewport.height <= 0) return;
+  const railRect = rail.getBoundingClientRect();
+  const viewportRight = viewport.left + viewport.width;
+  const viewportBottom = viewport.top + viewport.height;
+  const spaceAbove = Math.max(0, railRect.top - viewport.top - POPOVER_GAP_PX - VIEWPORT_MARGIN_PX);
+  const spaceBelow = Math.max(0, viewportBottom - railRect.bottom - POPOVER_GAP_PX - VIEWPORT_MARGIN_PX);
+  const wantedHeight = Math.min(POPOVER_MAX_HEIGHT_PX, popover.scrollHeight || POPOVER_MAX_HEIGHT_PX);
+  const placeAbove = spaceBelow < wantedHeight && spaceAbove > spaceBelow;
+  const availableHeight = placeAbove ? spaceAbove : spaceBelow;
+  popover.style.top = placeAbove ? "auto" : "calc(100% + 8px)";
+  popover.style.bottom = placeAbove ? "calc(100% + 8px)" : "auto";
+  popover.style.maxHeight = `${Math.floor(Math.min(POPOVER_MAX_HEIGHT_PX, availableHeight))}px`;
+  const width = Math.min(POPOVER_MAX_WIDTH_PX, Math.max(0, viewport.width - VIEWPORT_MARGIN_PX * 2));
+  const desiredLeft = Math.min(
+  Math.max(railRect.left, viewport.left + VIEWPORT_MARGIN_PX),
+  viewportRight - VIEWPORT_MARGIN_PX - width
+  );
+  popover.style.left = `${Math.round(desiredLeft - railRect.left)}px`;
+  popover.style.right = "auto";
+}
+const NATIVE_DISPLAY_EXPLICIT_KEYS = [
+  "subtitleSecondaryVisible",
+  "subtitleSecondaryVisibleChosen",
+  "subtitleNativeBlurred"
+];
+const RESET_EXPLICIT_KEYS = [
+  ...NATIVE_DISPLAY_EXPLICIT_KEYS,
+  "subtitleNativeBlurStrength",
+  "subtitleFontSize",
+  "subtitleFontWeight",
+  "subtitleBottomOffset",
+  "subtitleBackgroundOpacity",
+  "subtitleFontFamily",
+  "subtitleMiningPause",
+  "subtitleHoverPause"
+];
+function updateNumberSetting(settings, key, value, min, max) {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return false;
+  const next = Math.min(Math.max(parsed, min), max);
+  const normalized = key === "subtitleBackgroundOpacity" ? Number(next.toFixed(2)) : Math.round(next);
+  if (settings[key] === normalized) return false;
+  settings[key] = normalized;
+  return true;
+}
+function applySubtitleStyleControl(settings, control) {
+  const setting = control.dataset.subtitleStyleSetting;
+  if (setting === "subtitleNativeDisplay" && isNativeSubtitleDisplayMode(control.value)) {
+  return applyNativeSubtitleDisplayMode(settings, control.value) ? NATIVE_DISPLAY_EXPLICIT_KEYS : void 0;
+  }
+  if (setting === "subtitleNativeBlurStrength") {
+  return updateNumberSetting(settings, setting, control.value, 4, 20) ? [setting] : void 0;
+  }
+  if (setting === "subtitleFontSize") {
+  return updateNumberSetting(settings, setting, control.value, 16, 64) ? [setting] : void 0;
+  }
+  if (setting === "subtitleFontWeight") {
+  return updateNumberSetting(settings, setting, control.value, 300, 900) ? [setting] : void 0;
+  }
+  if (setting === "subtitleBackgroundOpacity") {
+  return updateNumberSetting(settings, setting, control.value, 0, 0.7) ? [setting] : void 0;
+  }
+  if (setting === "subtitleFontFamily") {
+  const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
+  if (settings.subtitleFontFamily === next) return void 0;
+  settings.subtitleFontFamily = next;
+  return [setting];
+  }
+  if (setting === "subtitleHoverPause" && control instanceof HTMLInputElement) {
+  if (settings.subtitleHoverPause === control.checked) return void 0;
+  settings.subtitleHoverPause = control.checked;
+  return [setting];
+  }
+  if (setting === "subtitleMiningPause" && control instanceof HTMLInputElement) {
+  if (settings.subtitleMiningPause === control.checked) return void 0;
+  settings.subtitleMiningPause = control.checked;
+  return [setting];
+  }
+  return void 0;
+}
+function resetSubtitleStyleSettings(settings) {
+  let changed = applyNativeSubtitleDisplayMode(settings, "blurred");
+  const reset = (key) => {
+  if (settings[key] === DEFAULT_SETTINGS[key]) return;
+  settings[key] = DEFAULT_SETTINGS[key];
+  changed = true;
+  };
+  reset("subtitleNativeBlurStrength");
+  reset("subtitleFontSize");
+  reset("subtitleFontWeight");
+  reset("subtitleBottomOffset");
+  reset("subtitleBackgroundOpacity");
+  reset("subtitleFontFamily");
+  reset("subtitleMiningPause");
+  reset("subtitleHoverPause");
+  return changed ? RESET_EXPLICIT_KEYS : void 0;
+}
+function syncNativeSubtitleBlurVariables(surfaces, strength) {
+  for (const surface of surfaces) {
+  if (!surface) continue;
+  setStylePropertyIfChanged(surface, "--subtitle-native-blur-radius", `${strength}px`);
+  setStylePropertyIfChanged(surface, "--subtitle-native-blur-outer-radius", `${strength + 4}px`);
+  }
+}
+function syncRangeControl(root, key, value, suffix) {
+  const control = root.querySelector(`[data-subtitle-style-setting="${key}"]`);
+  const nextValue = key === "subtitleBackgroundOpacity" ? String(Number(value.toFixed(2))) : String(Math.round(value));
+  if (control && control.value !== nextValue) control.value = nextValue;
+  const output = root.querySelector(`[data-subtitle-style-output="${key}"]`);
+  if (!output) return;
+  if (suffix === "weight") output.textContent = String(Math.round(value));
+  else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
+}
+function syncSubtitleStylePopoverControls(root, settings, requestedOpen) {
+  const open = requestedOpen && settings.subtitleControlsMode !== "hidden";
+  root.classList.toggle("jpdb-subtitle-style-open", open);
+  const button = root.querySelector('[data-action="style"]');
+  if (button) {
+  const label = uiText(settings.interfaceLanguage, "subtitleStyle");
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  button.setAttribute("aria-expanded", String(open));
+  }
+  const popover = root.querySelector("[data-subtitle-style-popover]");
+  if (!popover) return;
+  popover.hidden = !open;
+  const nativeDisplay = nativeSubtitleDisplayMode(settings);
+  const nativeDisplaySelect = popover.querySelector('[data-subtitle-style-setting="subtitleNativeDisplay"]');
+  if (nativeDisplaySelect && nativeDisplaySelect.value !== nativeDisplay) nativeDisplaySelect.value = nativeDisplay;
+  const nativeBlurStrengthField = popover.querySelector('[data-subtitle-style-field="subtitleNativeBlurStrength"]');
+  if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== "blurred";
+  syncRangeControl(popover, "subtitleNativeBlurStrength", settings.subtitleNativeBlurStrength, "px");
+  syncRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
+  syncRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
+  syncRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
+  const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
+  if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
+  const hoverPause = popover.querySelector('[data-subtitle-style-setting="subtitleHoverPause"]');
+  if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
+  const miningPause = popover.querySelector('[data-subtitle-style-setting="subtitleMiningPause"]');
+  if (miningPause) miningPause.checked = settings.subtitleMiningPause;
+  const rail = root.querySelector(".jpdb-subtitle-rail");
+  if (open && rail) positionSubtitleStylePopover(popover, rail);
+}
 function mutationNodes(mutation, options = {}) {
   const nodes = [
   mutation.target,
@@ -17856,6 +18066,7 @@ function bindSubtitleControlRail(root, onActivity, options = {}) {
     x: fractionWithinRailAxis(safePosition.left, bounds.maxLeft),
     y: fractionWithinRailAxis(safePosition.top, bounds.maxTop)
   };
+  options.onPositionChange?.();
   if (persist) saveSubtitleControlRailPosition(position);
   };
   const syncPosition = () => {
@@ -19000,24 +19211,6 @@ function looksLikeNativeSubtitleFile(name) {
 function normalizeHostedSubtitleOpenPanel(value) {
   return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
 }
-function updateNumberSetting(settings, key, value, min, max) {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return false;
-  const next = Math.min(Math.max(parsed, min), max);
-  const normalized = key === "subtitleBackgroundOpacity" ? Number(next.toFixed(2)) : Math.round(next);
-  if (settings[key] === normalized) return false;
-  settings[key] = normalized;
-  return true;
-}
-function syncSubtitleStyleRangeControl(root, key, value, suffix) {
-  const control = root.querySelector(`[data-subtitle-style-setting="${key}"]`);
-  const nextValue = key === "subtitleBackgroundOpacity" ? String(Number(value.toFixed(2))) : String(Math.round(value));
-  if (control && control.value !== nextValue) control.value = nextValue;
-  const output = root.querySelector(`[data-subtitle-style-output="${key}"]`);
-  if (!output) return;
-  if (suffix === "weight") output.textContent = String(Math.round(value));
-  else output.textContent = suffix ? `${Math.round(value)}${suffix}` : `${Math.round(value * 100)}%`;
-}
 class SubtitlePlayerController {
   constructor(options) {
   this.options = options;
@@ -19539,6 +19732,7 @@ class SubtitlePlayerController {
   syncRootStyleSettings(settings) {
   if (!this.root) return;
   this.syncRootFontSize(settings);
+  syncNativeSubtitleBlurVariables([this.root, this.transcriptPanel], settings.subtitleNativeBlurStrength);
   this.applyEffectiveSubtitleBottom();
   this.syncSubtitleDragOffsetStyle();
   this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
@@ -19618,7 +19812,12 @@ class SubtitlePlayerController {
   this.subtitleControlRail = bindSubtitleControlRail(
     root,
     () => this.showControlsTemporarily({ independentOfPlayerChrome: true }),
-    { getReservedRects: () => this.nativePlayerControlSafeZones() }
+    {
+      getReservedRects: () => this.nativePlayerControlSafeZones(),
+      onPositionChange: () => {
+        if (this.subtitleStylePanelOpen) this.syncSubtitleStyleControls();
+      }
+    }
   ) ?? void 0;
   this.bindSubtitleDragHandle();
   this.restoreSubtitleDragOffset();
@@ -21301,11 +21500,12 @@ class SubtitlePlayerController {
   const target = event.target instanceof HTMLElement ? event.target.closest("[data-subtitle-style-setting]") : null;
   if (!target || !this.root?.contains(target)) return;
   event.stopPropagation();
-  if (!this.applySubtitleStyleControlValue(target)) return;
+  const explicitUserChoiceKeys = applySubtitleStyleControl(this.options.getSettings(), target);
+  if (!explicitUserChoiceKeys) return;
   this.syncRootStyleSettings(this.options.getSettings());
   this.syncSubtitleStyleControls();
   this.render();
-  this.options.onSettingsChange();
+  this.options.onSettingsChange(explicitUserChoiceKeys);
   this.showControlsTemporarily();
   }
   stopSubtitleStylePopoverPropagation(event) {
@@ -21415,50 +21615,14 @@ class SubtitlePlayerController {
   this.positionTranscriptPanel({ realignAfterInset: true });
   this.syncControls();
   }
-  applySubtitleStyleControlValue(control) {
-  const settings = this.options.getSettings();
-  const setting = control.dataset.subtitleStyleSetting;
-  if (setting === "subtitleFontSize") return updateNumberSetting(settings, "subtitleFontSize", control.value, 16, 64);
-  if (setting === "subtitleFontWeight") return updateNumberSetting(settings, "subtitleFontWeight", control.value, 300, 900);
-  if (setting === "subtitleBackgroundOpacity") return updateNumberSetting(settings, "subtitleBackgroundOpacity", control.value, 0, 0.7);
-  if (setting === "subtitleFontFamily") {
-    const next = SUBTITLE_STYLE_FONT_FAMILY_VALUES.includes(control.value) ? control.value : settings.subtitleFontFamily;
-    if (settings.subtitleFontFamily === next) return false;
-    settings.subtitleFontFamily = next;
-    return true;
-  }
-  if (setting === "subtitleHoverPause" && control instanceof HTMLInputElement) {
-    if (settings.subtitleHoverPause === control.checked) return false;
-    settings.subtitleHoverPause = control.checked;
-    return true;
-  }
-  if (setting === "subtitleMiningPause" && control instanceof HTMLInputElement) {
-    if (settings.subtitleMiningPause === control.checked) return false;
-    settings.subtitleMiningPause = control.checked;
-    return true;
-  }
-  return false;
-  }
   resetSubtitleStyleDefaults() {
   const settings = this.options.getSettings();
-  let changed = false;
-  const reset = (key) => {
-    if (settings[key] === DEFAULT_SETTINGS[key]) return;
-    settings[key] = DEFAULT_SETTINGS[key];
-    changed = true;
-  };
-  reset("subtitleFontSize");
-  reset("subtitleFontWeight");
-  reset("subtitleBottomOffset");
-  reset("subtitleBackgroundOpacity");
-  reset("subtitleFontFamily");
-  reset("subtitleMiningPause");
-  reset("subtitleHoverPause");
+  const explicitUserChoiceKeys = resetSubtitleStyleSettings(settings);
   this.resetLegacySubtitleDragOffset();
   this.syncRootStyleSettings(settings);
   this.syncSubtitleStyleControls();
   this.render();
-  if (changed) this.options.onSettingsChange();
+  if (explicitUserChoiceKeys) this.options.onSettingsChange(explicitUserChoiceKeys);
   this.showControlsTemporarily();
   }
   handlePointerActivity(event) {
@@ -23193,7 +23357,8 @@ class SubtitlePlayerController {
   const settings = this.options.getSettings();
   settings.subtitleNativeBlurred = !settings.subtitleNativeBlurred;
   const appliedInline = this.applyNativeSubtitleBlurState(settings.subtitleNativeBlurred, settings.interfaceLanguage, target);
-  this.options.onSettingsChange();
+  this.syncSubtitleStyleControls();
+  this.options.onSettingsChange(["subtitleNativeBlurred"]);
   if (!appliedInline) this.render();
   }
   applyNativeSubtitleBlurState(nativeBlurred, language, target) {
@@ -23314,28 +23479,7 @@ class SubtitlePlayerController {
   }
   syncSubtitleStyleControls() {
   if (!this.root) return;
-  const settings = this.options.getSettings();
-  const open = this.subtitleStylePanelOpen && settings.subtitleControlsMode !== "hidden";
-  setClassState(this.root, "jpdb-subtitle-style-open", open);
-  const button = this.root.querySelector('[data-action="style"]');
-  if (button) {
-    const label = uiText(settings.interfaceLanguage, "subtitleStyle");
-    button.title = label;
-    button.setAttribute("aria-label", label);
-    button.setAttribute("aria-expanded", String(open));
-  }
-  const popover = this.root.querySelector("[data-subtitle-style-popover]");
-  if (!popover) return;
-  popover.hidden = !open;
-  syncSubtitleStyleRangeControl(popover, "subtitleFontSize", settings.subtitleFontSize, "px");
-  syncSubtitleStyleRangeControl(popover, "subtitleFontWeight", settings.subtitleFontWeight, "weight");
-  syncSubtitleStyleRangeControl(popover, "subtitleBackgroundOpacity", settings.subtitleBackgroundOpacity, "");
-  const fontSelect = popover.querySelector('[data-subtitle-style-setting="subtitleFontFamily"]');
-  if (fontSelect && fontSelect.value !== settings.subtitleFontFamily) fontSelect.value = settings.subtitleFontFamily;
-  const hoverPause = popover.querySelector('[data-subtitle-style-setting="subtitleHoverPause"]');
-  if (hoverPause) hoverPause.checked = settings.subtitleHoverPause;
-  const miningPause = popover.querySelector('[data-subtitle-style-setting="subtitleMiningPause"]');
-  if (miningPause) miningPause.checked = settings.subtitleMiningPause;
+  syncSubtitleStylePopoverControls(this.root, this.options.getSettings(), this.subtitleStylePanelOpen);
   }
   schedulePauseTranscriptPanelSync() {
   if (this.pausePanelSyncScheduled) return;

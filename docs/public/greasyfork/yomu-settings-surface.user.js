@@ -9476,6 +9476,76 @@ const GRAMMAR_UI_COPY = {
   grammarLevelCore: "基本"
   }
 };
+const EN_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "Enable video subtitle player",
+  subtitleAutoDetect: "Auto-detect page subtitles",
+  subtitleOverlayVisible: "Show subtitle overlay",
+  subtitleSecondaryVisible: "Show native subtitles",
+  subtitleNativeBlurred: "Blur native subtitles until hover",
+  subtitleNativeDisplay: "Translation",
+  subtitleNativeDisplayBlurred: "Blur until reveal (recommended)",
+  subtitleNativeDisplayShown: "Always show",
+  subtitleNativeDisplayHidden: "Hide completely",
+  subtitleNativeBlurStrength: "Blur strength",
+  subtitleKaraokeMode: "Karaoke word timing",
+  subtitleTranscriptVisible: "Open transcript panel by default",
+  subtitlePausePanel: "Open side panel when paused",
+  subtitleShadowAutoPause: "Auto-pause after each shadow line",
+  subtitleTranscriptPlacement: "Transcript panel position",
+  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
+  subtitleAutoCopyLine: "Auto-copy subtitle lines",
+  subtitleMiningPause: "Pause video on subtitle click",
+  subtitleHoverPause: "Pause video on subtitle hover",
+  subtitleControlsMode: "Subtitle controls",
+  subtitleFontSize: "Subtitle font size (px)",
+  subtitleBottomOffset: "Subtitle bottom offset (%)",
+  subtitleTextColor: "Subtitle color",
+  subtitleOutlineColor: "Subtitle outline",
+  subtitleBackgroundColor: "Subtitle background",
+  subtitleBackgroundOpacity: "Subtitle background opacity",
+  subtitleFontFamily: "Subtitle font family",
+  subtitleFontWeight: "Subtitle font weight",
+  subtitleSeekPadding: "Subtitle seek padding (s)",
+  subtitlePreview: "Live subtitle preview"
+};
+const JA_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "動画字幕プレイヤーを有効にする",
+  subtitleAutoDetect: "ページの字幕を自動検出",
+  subtitleOverlayVisible: "字幕オーバーレイを表示",
+  subtitleSecondaryVisible: "利用可能ならネイティブ字幕を表示",
+  subtitleNativeBlurred: "ホバーするまでネイティブ字幕をぼかす",
+  subtitleNativeDisplay: "母語訳",
+  subtitleNativeDisplayBlurred: "表示するまでぼかす（おすすめ）",
+  subtitleNativeDisplayShown: "常に表示",
+  subtitleNativeDisplayHidden: "完全に隠す",
+  subtitleNativeBlurStrength: "ぼかしの強さ",
+  subtitleKaraokeMode: "カラオケ風の単語タイミング",
+  subtitleTranscriptVisible: "文字起こしパネルを標準で開く",
+  subtitlePausePanel: "一時停止時にサイドパネルを開く",
+  subtitleShadowAutoPause: "シャドー中は各行の後で一時停止",
+  subtitleTranscriptPlacement: "文字起こしパネル位置",
+  subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+  subtitleTranscriptAutoScrollResumeSeconds: "手動スクロール後の再開 (秒)",
+  subtitleAutoCopyLine: "各字幕行を再生時に自動コピー",
+  subtitleMiningPause: "字幕クリック時に動画を一時停止",
+  subtitleHoverPause: "字幕ホバー時に動画を一時停止",
+  subtitleControlsMode: "字幕コントロール",
+  subtitleFontSize: "字幕フォントサイズ (px)",
+  subtitleBottomOffset: "字幕下端オフセット (%)",
+  subtitleTextColor: "字幕の色",
+  subtitleOutlineColor: "字幕の縁取り",
+  subtitleBackgroundColor: "字幕背景",
+  subtitleBackgroundOpacity: "字幕背景の不透明度",
+  subtitleFontFamily: "字幕フォントファミリー",
+  subtitleFontWeight: "字幕フォントの太さ",
+  subtitleSeekPadding: "字幕シーク余白 (s)",
+  subtitlePreview: "字幕ライブプレビュー"
+};
+const SUBTITLE_SETTINGS_COPY = {
+  en: EN_SUBTITLE_SETTINGS_COPY,
+  ja: JA_SUBTITLE_SETTINGS_COPY
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -9932,38 +10002,13 @@ const COPY = {
   ocrHelp: "Reads nearby images. Google Lens needs no setup.",
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
-  subtitlePlayerEnabled: "Enable video subtitle player",
-  subtitleAutoDetect: "Auto-detect page subtitles",
-  subtitleOverlayVisible: "Show subtitle overlay",
-  subtitleSecondaryVisible: "Show native subtitles",
-  subtitleNativeBlurred: "Blur native subtitles until hover",
-  subtitleKaraokeMode: "Karaoke word timing",
-  subtitleTranscriptVisible: "Open transcript panel by default",
-  subtitlePausePanel: "Open side panel when paused",
-  subtitleShadowAutoPause: "Auto-pause after each shadow line",
-  subtitleTranscriptPlacement: "Transcript panel position",
-  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
-  subtitleAutoCopyLine: "Auto-copy subtitle lines",
-  subtitleMiningPause: "Pause video on subtitle click",
-  subtitleHoverPause: "Pause video on subtitle hover",
-  subtitleControlsMode: "Subtitle controls",
+  ...SUBTITLE_SETTINGS_COPY.en,
   right: "Right",
   left: "Left",
   bottom: "Below",
   showWhenNeeded: "Compact controls",
   hideControls: "Hide controls",
   alwaysVisible: "Always visible",
-  subtitleFontSize: "Subtitle font size (px)",
-  subtitleBottomOffset: "Subtitle bottom offset (%)",
-  subtitleTextColor: "Subtitle color",
-  subtitleOutlineColor: "Subtitle outline",
-  subtitleBackgroundColor: "Subtitle background",
-  subtitleBackgroundOpacity: "Subtitle background opacity",
-  subtitleFontFamily: "Subtitle font family",
-  subtitleFontWeight: "Subtitle font weight",
-  subtitleSeekPadding: "Subtitle seek padding (s)",
-  subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "{language} YouTube only",
   preferJapaneseSiteLanguage: "Open {language} versions of sites",
@@ -11262,7 +11307,8 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja
 };
-const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
+const JA_SETTINGS_COPY = {
+  ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -11645,22 +11691,6 @@ cloudVisionApiKey	Google Cloud Vision APIキー
 ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
 ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
 ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
-subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
-subtitleAutoDetect	ページの字幕を自動検出
-subtitleOverlayVisible	字幕オーバーレイを表示
-subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
-subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
-subtitleKaraokeMode	カラオケ風の単語タイミング
-subtitleTranscriptVisible	文字起こしパネルを標準で開く
-subtitlePausePanel	一時停止時にサイドパネルを開く
-subtitleShadowAutoPause	シャドー中は各行の後で一時停止
-subtitleTranscriptPlacement	文字起こしパネル位置
-subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
-subtitleAutoCopyLine	各字幕行を再生時に自動コピー
-subtitleMiningPause	字幕クリック時に動画を一時停止
-subtitleHoverPause	字幕ホバー時に動画を一時停止
-subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
@@ -11672,16 +11702,6 @@ bottom	下
 showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
-subtitleFontSize	字幕フォントサイズ (px)
-subtitleBottomOffset	字幕下端オフセット (%)
-subtitleTextColor	字幕の色
-subtitleOutlineColor	字幕の縁取り
-subtitleBackgroundColor	字幕背景
-subtitleBackgroundOpacity	字幕背景の不透明度
-subtitleFontFamily	字幕フォントファミリー
-subtitleFontWeight	字幕フォントの太さ
-subtitleSeekPadding	字幕シーク余白 (s)
-subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	{language}のYouTubeのみ
 preferJapaneseSiteLanguage	{language}版のサイトを開く
@@ -11996,7 +12016,9 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
-`);
+`),
+  ...SUBTITLE_SETTINGS_COPY.ja
+};
 function resolveUiLanguage(language2) {
   if (language2 === "ja" || language2 === "en") return language2;
   return browserPrefersJapanese() ? "ja" : "en";
@@ -13671,7 +13693,9 @@ const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
   "subtitleOverlayVisible",
   "subtitleSecondaryVisible",
   "subtitleOverlayVisibleChosen",
-  "subtitleSecondaryVisibleChosen"
+  "subtitleSecondaryVisibleChosen",
+  "subtitleNativeBlurred",
+  "subtitleNativeBlurStrength"
 ];
 const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
   ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
@@ -13691,6 +13715,39 @@ function changedAutomationProtectedSettingsKeys(previous, next) {
   return coupledExplicitUserChoiceKeys(
   AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
   );
+}
+function createDefaultSubtitleSettings(fontFamily) {
+  return {
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: false,
+  subtitleSecondaryVisible: false,
+  subtitleOverlayVisibleChosen: false,
+  subtitleSecondaryVisibleChosen: false,
+  subtitleNativeBlurred: true,
+  subtitleNativeBlurStrength: 12,
+  subtitleKaraokeMode: true,
+  subtitleTranscriptVisible: false,
+  subtitlePausePanel: false,
+  subtitleShadowAutoPause: false,
+  subtitleTranscriptPlacement: "right",
+  subtitleTranscriptAutoScroll: true,
+  subtitleTranscriptAutoScrollResumeSeconds: 30,
+  subtitleAutoCopyLine: false,
+  subtitleCopyIncludeTranslation: true,
+  subtitleControlsMode: "auto",
+  subtitleFontSize: 28,
+  subtitleBottomOffset: 16,
+  subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
+  subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
+  subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
+  subtitleBackgroundOpacity: 0,
+  subtitleFontFamily: fontFamily,
+  subtitleFontWeight: 760,
+  subtitleMiningPause: true,
+  subtitleHoverPause: true,
+  subtitleSeekPadding: 0.08
+  };
 }
 function audioSubSourceProviderName(name) {
   const trimmed = name.trim().normalize("NFC");
@@ -13761,7 +13818,6 @@ const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
 const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 const AUDIO_GUIDE_URL = "https://yomitan.wiki/advanced/#audio";
@@ -14152,34 +14208,7 @@ const DEFAULT_SETTINGS = {
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: false,
-  subtitleSecondaryVisible: false,
-  subtitleOverlayVisibleChosen: false,
-  subtitleSecondaryVisibleChosen: false,
-  subtitleNativeBlurred: true,
-  subtitleKaraokeMode: true,
-  subtitleTranscriptVisible: false,
-  subtitlePausePanel: false,
-  subtitleShadowAutoPause: false,
-  subtitleTranscriptPlacement: "right",
-  subtitleTranscriptAutoScroll: true,
-  subtitleTranscriptAutoScrollResumeSeconds: 30,
-  subtitleAutoCopyLine: false,
-  subtitleCopyIncludeTranslation: true,
-  subtitleControlsMode: "auto",
-  subtitleFontSize: 28,
-  subtitleBottomOffset: 16,
-  subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-  subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-  subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-  subtitleBackgroundOpacity: 0,
-  subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
-  subtitleFontWeight: 760,
-  subtitleMiningPause: true,
-  subtitleHoverPause: true,
-  subtitleSeekPadding: 0.08,
+  ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
@@ -14809,6 +14838,7 @@ function normalizeSubtitleSettings(value) {
   subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
   subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
   subtitleBackgroundOpacity: clampNumber$1(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+  subtitleNativeBlurStrength: clampNumber$1(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
   subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
   subtitleFontWeight: clampNumber$1(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
   };
@@ -15966,7 +15996,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.63".trim() ? "1.8.63".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.64".trim() ? "1.8.64".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -51750,6 +51780,21 @@ function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
   return settings.ocrAutoScanImages ? "auto" : "manual";
 }
+const NATIVE_SUBTITLE_DISPLAY_MODES = ["blurred", "shown", "hidden"];
+function nativeSubtitleDisplayMode(settings) {
+  if (!settings.subtitleSecondaryVisible && settings.subtitleSecondaryVisibleChosen) return "hidden";
+  return settings.subtitleNativeBlurred ? "blurred" : "shown";
+}
+function applyNativeSubtitleDisplayMode(settings, mode, options = {}) {
+  const visible = mode !== "hidden";
+  const blurred = mode === "blurred";
+  const markVisibilityChosen = options.markVisibilityChosen ?? true;
+  const changed = settings.subtitleSecondaryVisible !== visible || settings.subtitleNativeBlurred !== blurred || markVisibilityChosen && !settings.subtitleSecondaryVisibleChosen;
+  settings.subtitleSecondaryVisible = visible;
+  settings.subtitleNativeBlurred = blurred;
+  if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
+  return changed;
+}
 const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
   "auto",
   ...availableInterfaceLocales().map((locale) => locale.tag)
@@ -52322,18 +52367,25 @@ function readOcrFormSettings(reader, current) {
 function readSubtitleFormSettings(reader, current) {
   const { get, has, clamped } = reader;
   const overlayVisible = has("subtitleOverlayVisible");
-  const secondaryVisible = has("subtitleSecondaryVisible");
+  const currentNativeDisplay = nativeSubtitleDisplayMode(current);
+  const nativeDisplay = readOption(get("subtitleNativeDisplay"), NATIVE_SUBTITLE_DISPLAY_MODES, currentNativeDisplay);
+  const nativeDisplaySettings = {
+  subtitleSecondaryVisible: current.subtitleSecondaryVisible,
+  subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen,
+  subtitleNativeBlurred: current.subtitleNativeBlurred
+  };
+  applyNativeSubtitleDisplayMode(nativeDisplaySettings, nativeDisplay, {
+  markVisibilityChosen: nativeDisplay !== currentNativeDisplay
+  });
   return {
   subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
   subtitleAutoDetect: has("subtitleAutoDetect"),
   subtitleOverlayVisible: overlayVisible,
-  subtitleSecondaryVisible: secondaryVisible,
+  ...nativeDisplaySettings,
   // Only a flip is a deliberate choice: saving the dialog after editing
   // something unrelated must not freeze an overlay the user never touched
   // out of the automatic reveal that first shows it.
   subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
-  subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen || secondaryVisible !== current.subtitleSecondaryVisible,
-  subtitleNativeBlurred: has("subtitleNativeBlurred"),
   subtitleKaraokeMode: has("subtitleKaraokeMode"),
   subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
   subtitlePausePanel: has("subtitlePausePanel"),
@@ -52353,6 +52405,7 @@ function readSubtitleFormSettings(reader, current) {
   subtitleOutlineColor: sanitizeAccentColor(get("subtitleOutlineColor"), current.subtitleOutlineColor),
   subtitleBackgroundColor: sanitizeAccentColor(get("subtitleBackgroundColor"), current.subtitleBackgroundColor),
   subtitleBackgroundOpacity: clamped("subtitleBackgroundOpacity", 0, 1, current.subtitleBackgroundOpacity),
+  subtitleNativeBlurStrength: clamped("subtitleNativeBlurStrength", 4, 20, current.subtitleNativeBlurStrength),
   subtitleFontFamily: readFontFamilySetting(reader, "subtitleFontFamily", current.subtitleFontFamily),
   subtitleFontWeight: clamped("subtitleFontWeight", 100, 900, current.subtitleFontWeight),
   subtitleMiningPause: has("subtitleMiningPause"),
@@ -55234,6 +55287,61 @@ function isSelectableStudyTarget(id) {
   return learningTargetRosterEntry(id).studyTargetReadiness !== "planned";
 }
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
+function syncSubtitlePreview(form) {
+  const preview = form.querySelector("[data-subtitle-preview]");
+  if (!preview) return;
+  const value = (name, fallback) => namedControl(form, name)?.value || fallback;
+  const numberValue = (name, fallback) => {
+  const number = Number(value(name, String(fallback)));
+  return Number.isFinite(number) ? number : fallback;
+  };
+  preview.style.setProperty("--subtitle-font-size", `${Math.max(16, Math.min(64, numberValue("subtitleFontSize", 28)))}px`);
+  preview.style.setProperty("--subtitle-color", sanitizeAccentColor(value("subtitleTextColor", DEFAULT_OVERLAY_TEXT_COLOR), DEFAULT_OVERLAY_TEXT_COLOR));
+  preview.style.setProperty("--subtitle-outline", sanitizeAccentColor(value("subtitleOutlineColor", DEFAULT_OVERLAY_OUTLINE_COLOR), DEFAULT_OVERLAY_OUTLINE_COLOR));
+  preview.style.setProperty(
+  "--subtitle-background-rgba",
+  accentToRgba(
+    sanitizeAccentColor(value("subtitleBackgroundColor", DEFAULT_OVERLAY_BACKGROUND_COLOR), DEFAULT_OVERLAY_BACKGROUND_COLOR),
+    Math.max(0, Math.min(1, numberValue("subtitleBackgroundOpacity", 0)))
+  )
+  );
+  preview.style.setProperty("--subtitle-family", formFontFamilyValue(form, "subtitleFontFamily", "system-ui"));
+  preview.style.setProperty("--subtitle-weight", String(Math.max(100, Math.min(900, numberValue("subtitleFontWeight", 760)))));
+  const nativeDisplay = value("subtitleNativeDisplay", "blurred");
+  const nativeBlurStrength = Math.max(4, Math.min(20, numberValue("subtitleNativeBlurStrength", DEFAULT_SETTINGS.subtitleNativeBlurStrength)));
+  preview.style.setProperty("--subtitle-native-blur-radius", `${nativeBlurStrength}px`);
+  preview.style.setProperty("--subtitle-native-blur-outer-radius", `${nativeBlurStrength + 4}px`);
+  const nativePreview = preview.querySelector(".jpdb-subtitle-secondary");
+  if (nativePreview) {
+  nativePreview.hidden = nativeDisplay === "hidden";
+  nativePreview.classList.toggle("jpdb-subtitle-secondary-blurred", nativeDisplay === "blurred");
+  nativePreview.classList.toggle("jpdb-subtitle-secondary-clear", nativeDisplay === "shown");
+  }
+  const nativeBlurStrengthField = namedControl(form, "subtitleNativeBlurStrength")?.closest("label");
+  if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== "blurred";
+  syncSubtitlePreviewColorClasses(form, preview);
+}
+function namedControl(form, name) {
+  return form.querySelector(`[name="${name}"]`);
+}
+function formFontFamilyValue(form, name, fallback) {
+  const value = namedControl(form, name)?.value.trim() ?? "";
+  if (value === CUSTOM_FONT_FAMILY_VALUE) return namedControl(form, `${name}Custom`)?.value.trim() || fallback;
+  return value || fallback;
+}
+function syncSubtitlePreviewColorClasses(form, preview) {
+  const value = (name, fallback) => namedControl(form, name)?.value || fallback;
+  const classes = {
+  highlight: readOption(value("subtitleHighlightColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb"),
+  underline: readOption(value("subtitleUnderlineColorSource", "pitch"), COLOR_SOURCE_VALUES, "pitch"),
+  text: readOption(value("subtitleTextColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb")
+  };
+  Object.keys(classes).forEach((channel) => {
+  COLOR_SOURCE_CLASS_VALUES.forEach((source) => {
+    preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
+  });
+  });
+}
 const DEFAULT_JITEN_SETTINGS_URL = "https://jiten.moe/settings";
 const DEFAULT_BUNPRO_SETTINGS_URL = "https://bunpro.jp/settings/api";
 const ACADEMY_ACCOUNT_SYNC_URL = "https://yomureader.com/academy/?view=profile-sync";
@@ -55881,6 +55989,11 @@ const SUBTITLE_CONTROLS_MODE_OPTIONS = [
   ["hidden", "hideControls"],
   ["always", "alwaysVisible"]
 ];
+const NATIVE_SUBTITLE_DISPLAY_OPTIONS = [
+  ["blurred", "subtitleNativeDisplayBlurred"],
+  ["shown", "subtitleNativeDisplayShown"],
+  ["hidden", "subtitleNativeDisplayHidden"]
+];
 const OCR_PROVIDER_OPTIONS = [
   ["google-lens", "googleLens"],
   ["cloud-vision", "cloudVision"],
@@ -56207,8 +56320,6 @@ function renderVideoSettingsPanel(settings) {
                     ${checkbox("subtitlePlayerEnabled", text2("subtitlePlayerEnabled"), settings.subtitlePlayerEnabled)}
                     ${checkbox("subtitleAutoDetect", text2("subtitleAutoDetect"), settings.subtitleAutoDetect)}
                     ${checkbox("subtitleOverlayVisible", text2("subtitleOverlayVisible"), settings.subtitleOverlayVisible)}
-                    ${checkbox("subtitleSecondaryVisible", text2("subtitleSecondaryVisible"), settings.subtitleSecondaryVisible)}
-                    ${checkbox("subtitleNativeBlurred", text2("subtitleNativeBlurred"), settings.subtitleNativeBlurred)}
                     ${checkbox("subtitleKaraokeMode", text2("subtitleKaraokeMode"), settings.subtitleKaraokeMode)}
                     ${checkbox("subtitleTranscriptVisible", text2("subtitleTranscriptVisible"), settings.subtitleTranscriptVisible)}
                     ${checkbox("subtitlePausePanel", text2("subtitlePausePanel"), settings.subtitlePausePanel)}
@@ -56220,6 +56331,8 @@ function renderVideoSettingsPanel(settings) {
                     ${checkbox("subtitleHoverPause", text2("subtitleHoverPause"), settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
+                    ${select("subtitleNativeDisplay", text2("subtitleNativeDisplay"), nativeSubtitleDisplayMode(settings), localizedOptions(text2, NATIVE_SUBTITLE_DISPLAY_OPTIONS))}
+                    ${input("subtitleNativeBlurStrength", text2("subtitleNativeBlurStrength"), String(settings.subtitleNativeBlurStrength), "number")}
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", text2("subtitleTranscriptAutoScrollResumeSeconds"), String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${select("subtitleControlsMode", text2("subtitleControlsMode"), settings.subtitleControlsMode, localizedOptions(text2, SUBTITLE_CONTROLS_MODE_OPTIONS))}
                     ${input("subtitleFontSize", text2("subtitleFontSize"), String(settings.subtitleFontSize), "number")}
@@ -56818,6 +56931,7 @@ function localizeMediaSettingsSelects(form, text2) {
   setSelectOptionLabels(form, "immersionKitSort", localizedOptions(text2, IMMERSION_KIT_SORT_OPTIONS));
   localizeOcrSettingsSelects(form, text2);
   setSelectOptionLabels(form, "subtitleControlsMode", localizedOptions(text2, SUBTITLE_CONTROLS_MODE_OPTIONS));
+  setSelectOptionLabels(form, "subtitleNativeDisplay", localizedOptions(text2, NATIVE_SUBTITLE_DISPLAY_OPTIONS));
   setSelectOptionLabels(form, "subtitleTranscriptPlacement", [
   ["right", text2("right")],
   ["left", text2("left")],
@@ -57340,8 +57454,8 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
   "subtitlePlayerEnabled",
   "subtitleAutoDetect",
   "subtitleOverlayVisible",
-  "subtitleSecondaryVisible",
-  "subtitleNativeBlurred",
+  "subtitleNativeDisplay",
+  "subtitleNativeBlurStrength",
   "subtitleKaraokeMode",
   "subtitleTranscriptVisible",
   "subtitlePausePanel",
@@ -57760,46 +57874,6 @@ function syncFontFamilyControls(form) {
   const selectElement = control.querySelector("select");
   const customField = control.querySelector("[data-font-family-custom]");
   if (customField) customField.hidden = selectElement?.value !== CUSTOM_FONT_FAMILY_VALUE;
-  });
-}
-function syncSubtitlePreview(form) {
-  const preview = form.querySelector("[data-subtitle-preview]");
-  if (!preview) return;
-  const value = (name, fallback) => getNamedControl(form, name)?.value || fallback;
-  const numberValue = (name, fallback) => {
-  const number = Number(value(name, String(fallback)));
-  return Number.isFinite(number) ? number : fallback;
-  };
-  preview.style.setProperty("--subtitle-font-size", `${Math.max(16, Math.min(64, numberValue("subtitleFontSize", 28)))}px`);
-  preview.style.setProperty("--subtitle-color", sanitizeAccentColor(value("subtitleTextColor", DEFAULT_OVERLAY_TEXT_COLOR), DEFAULT_OVERLAY_TEXT_COLOR));
-  preview.style.setProperty("--subtitle-outline", sanitizeAccentColor(value("subtitleOutlineColor", DEFAULT_OVERLAY_OUTLINE_COLOR), DEFAULT_OVERLAY_OUTLINE_COLOR));
-  preview.style.setProperty(
-  "--subtitle-background-rgba",
-  accentToRgba(
-    sanitizeAccentColor(value("subtitleBackgroundColor", DEFAULT_OVERLAY_BACKGROUND_COLOR), DEFAULT_OVERLAY_BACKGROUND_COLOR),
-    Math.max(0, Math.min(1, numberValue("subtitleBackgroundOpacity", 0)))
-  )
-  );
-  preview.style.setProperty("--subtitle-family", formFontFamilyValue(form, "subtitleFontFamily", "system-ui"));
-  preview.style.setProperty("--subtitle-weight", String(Math.max(100, Math.min(900, numberValue("subtitleFontWeight", 760)))));
-  syncSubtitlePreviewColorClasses(form, preview);
-}
-function formFontFamilyValue(form, name, fallback) {
-  const value = getNamedControl(form, name)?.value.trim() ?? "";
-  if (value === CUSTOM_FONT_FAMILY_VALUE) return getNamedControl(form, `${name}Custom`)?.value.trim() || fallback;
-  return value || fallback;
-}
-function syncSubtitlePreviewColorClasses(form, preview) {
-  const value = (name, fallback) => getNamedControl(form, name)?.value || fallback;
-  const classes = {
-  highlight: readOption(value("subtitleHighlightColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb"),
-  underline: readOption(value("subtitleUnderlineColorSource", "pitch"), COLOR_SOURCE_VALUES, "pitch"),
-  text: readOption(value("subtitleTextColorSource", "jpdb"), COLOR_SOURCE_VALUES, "jpdb")
-  };
-  Object.keys(classes).forEach((channel) => {
-  COLOR_SOURCE_CLASS_VALUES.forEach((source) => {
-    preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
-  });
   });
 }
 function renderDictionarySourceRows(settings) {

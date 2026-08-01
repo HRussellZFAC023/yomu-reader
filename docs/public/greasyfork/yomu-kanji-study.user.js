@@ -8069,6 +8069,76 @@ const GRAMMAR_UI_COPY = {
   grammarLevelCore: "基本"
   }
 };
+const EN_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "Enable video subtitle player",
+  subtitleAutoDetect: "Auto-detect page subtitles",
+  subtitleOverlayVisible: "Show subtitle overlay",
+  subtitleSecondaryVisible: "Show native subtitles",
+  subtitleNativeBlurred: "Blur native subtitles until hover",
+  subtitleNativeDisplay: "Translation",
+  subtitleNativeDisplayBlurred: "Blur until reveal (recommended)",
+  subtitleNativeDisplayShown: "Always show",
+  subtitleNativeDisplayHidden: "Hide completely",
+  subtitleNativeBlurStrength: "Blur strength",
+  subtitleKaraokeMode: "Karaoke word timing",
+  subtitleTranscriptVisible: "Open transcript panel by default",
+  subtitlePausePanel: "Open side panel when paused",
+  subtitleShadowAutoPause: "Auto-pause after each shadow line",
+  subtitleTranscriptPlacement: "Transcript panel position",
+  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
+  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
+  subtitleAutoCopyLine: "Auto-copy subtitle lines",
+  subtitleMiningPause: "Pause video on subtitle click",
+  subtitleHoverPause: "Pause video on subtitle hover",
+  subtitleControlsMode: "Subtitle controls",
+  subtitleFontSize: "Subtitle font size (px)",
+  subtitleBottomOffset: "Subtitle bottom offset (%)",
+  subtitleTextColor: "Subtitle color",
+  subtitleOutlineColor: "Subtitle outline",
+  subtitleBackgroundColor: "Subtitle background",
+  subtitleBackgroundOpacity: "Subtitle background opacity",
+  subtitleFontFamily: "Subtitle font family",
+  subtitleFontWeight: "Subtitle font weight",
+  subtitleSeekPadding: "Subtitle seek padding (s)",
+  subtitlePreview: "Live subtitle preview"
+};
+const JA_SUBTITLE_SETTINGS_COPY = {
+  subtitlePlayerEnabled: "動画字幕プレイヤーを有効にする",
+  subtitleAutoDetect: "ページの字幕を自動検出",
+  subtitleOverlayVisible: "字幕オーバーレイを表示",
+  subtitleSecondaryVisible: "利用可能ならネイティブ字幕を表示",
+  subtitleNativeBlurred: "ホバーするまでネイティブ字幕をぼかす",
+  subtitleNativeDisplay: "母語訳",
+  subtitleNativeDisplayBlurred: "表示するまでぼかす（おすすめ）",
+  subtitleNativeDisplayShown: "常に表示",
+  subtitleNativeDisplayHidden: "完全に隠す",
+  subtitleNativeBlurStrength: "ぼかしの強さ",
+  subtitleKaraokeMode: "カラオケ風の単語タイミング",
+  subtitleTranscriptVisible: "文字起こしパネルを標準で開く",
+  subtitlePausePanel: "一時停止時にサイドパネルを開く",
+  subtitleShadowAutoPause: "シャドー中は各行の後で一時停止",
+  subtitleTranscriptPlacement: "文字起こしパネル位置",
+  subtitleTranscriptAutoScroll: "再生に合わせて文字起こしをスクロール",
+  subtitleTranscriptAutoScrollResumeSeconds: "手動スクロール後の再開 (秒)",
+  subtitleAutoCopyLine: "各字幕行を再生時に自動コピー",
+  subtitleMiningPause: "字幕クリック時に動画を一時停止",
+  subtitleHoverPause: "字幕ホバー時に動画を一時停止",
+  subtitleControlsMode: "字幕コントロール",
+  subtitleFontSize: "字幕フォントサイズ (px)",
+  subtitleBottomOffset: "字幕下端オフセット (%)",
+  subtitleTextColor: "字幕の色",
+  subtitleOutlineColor: "字幕の縁取り",
+  subtitleBackgroundColor: "字幕背景",
+  subtitleBackgroundOpacity: "字幕背景の不透明度",
+  subtitleFontFamily: "字幕フォントファミリー",
+  subtitleFontWeight: "字幕フォントの太さ",
+  subtitleSeekPadding: "字幕シーク余白 (s)",
+  subtitlePreview: "字幕ライブプレビュー"
+};
+const SUBTITLE_SETTINGS_COPY = {
+  en: EN_SUBTITLE_SETTINGS_COPY,
+  ja: JA_SUBTITLE_SETTINGS_COPY
+};
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
@@ -8525,38 +8595,13 @@ const COPY = {
   ocrHelp: "Reads nearby images. Google Lens needs no setup.",
   ocrCloudHelp: "Paste a Google Cloud Vision API key.",
   ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
-  subtitlePlayerEnabled: "Enable video subtitle player",
-  subtitleAutoDetect: "Auto-detect page subtitles",
-  subtitleOverlayVisible: "Show subtitle overlay",
-  subtitleSecondaryVisible: "Show native subtitles",
-  subtitleNativeBlurred: "Blur native subtitles until hover",
-  subtitleKaraokeMode: "Karaoke word timing",
-  subtitleTranscriptVisible: "Open transcript panel by default",
-  subtitlePausePanel: "Open side panel when paused",
-  subtitleShadowAutoPause: "Auto-pause after each shadow line",
-  subtitleTranscriptPlacement: "Transcript panel position",
-  subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-  subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
-  subtitleAutoCopyLine: "Auto-copy subtitle lines",
-  subtitleMiningPause: "Pause video on subtitle click",
-  subtitleHoverPause: "Pause video on subtitle hover",
-  subtitleControlsMode: "Subtitle controls",
+  ...SUBTITLE_SETTINGS_COPY.en,
   right: "Right",
   left: "Left",
   bottom: "Below",
   showWhenNeeded: "Compact controls",
   hideControls: "Hide controls",
   alwaysVisible: "Always visible",
-  subtitleFontSize: "Subtitle font size (px)",
-  subtitleBottomOffset: "Subtitle bottom offset (%)",
-  subtitleTextColor: "Subtitle color",
-  subtitleOutlineColor: "Subtitle outline",
-  subtitleBackgroundColor: "Subtitle background",
-  subtitleBackgroundOpacity: "Subtitle background opacity",
-  subtitleFontFamily: "Subtitle font family",
-  subtitleFontWeight: "Subtitle font weight",
-  subtitleSeekPadding: "Subtitle seek padding (s)",
-  subtitlePreview: "Live subtitle preview",
   preview: "Preview",
   youtubeImmersionEnabled: "{language} YouTube only",
   preferJapaneseSiteLanguage: "Open {language} versions of sites",
@@ -9855,7 +9900,8 @@ translating	翻訳中...
 `),
   ...GRAMMAR_UI_COPY.ja
 };
-const JA_SETTINGS_COPY = parseUiCopyTable(String.raw`
+const JA_SETTINGS_COPY = {
+  ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -10238,22 +10284,6 @@ cloudVisionApiKey	Google Cloud Vision APIキー
 ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
 ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
 ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
-subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
-subtitleAutoDetect	ページの字幕を自動検出
-subtitleOverlayVisible	字幕オーバーレイを表示
-subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
-subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
-subtitleKaraokeMode	カラオケ風の単語タイミング
-subtitleTranscriptVisible	文字起こしパネルを標準で開く
-subtitlePausePanel	一時停止時にサイドパネルを開く
-subtitleShadowAutoPause	シャドー中は各行の後で一時停止
-subtitleTranscriptPlacement	文字起こしパネル位置
-subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
-subtitleAutoCopyLine	各字幕行を再生時に自動コピー
-subtitleMiningPause	字幕クリック時に動画を一時停止
-subtitleHoverPause	字幕ホバー時に動画を一時停止
-subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
@@ -10265,16 +10295,6 @@ bottom	下
 showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
-subtitleFontSize	字幕フォントサイズ (px)
-subtitleBottomOffset	字幕下端オフセット (%)
-subtitleTextColor	字幕の色
-subtitleOutlineColor	字幕の縁取り
-subtitleBackgroundColor	字幕背景
-subtitleBackgroundOpacity	字幕背景の不透明度
-subtitleFontFamily	字幕フォントファミリー
-subtitleFontWeight	字幕フォントの太さ
-subtitleSeekPadding	字幕シーク余白 (s)
-subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	{language}のYouTubeのみ
 preferJapaneseSiteLanguage	{language}版のサイトを開く
@@ -10589,7 +10609,9 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
-`);
+`),
+  ...SUBTITLE_SETTINGS_COPY.ja
+};
 const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
 let jaGrammarRuleCopyPromise;
 function resolveUiLanguage(language) {

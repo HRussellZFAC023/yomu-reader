@@ -11503,6 +11503,8 @@ html.jpdb-reader-doodle-active * {
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
   --subtitle-secondary-font-size: 17px;
+  --subtitle-native-blur-radius: 12px;
+  --subtitle-native-blur-outer-radius: 16px;
   --subtitle-bottom: 16%;
   --subtitle-drag-offset-y: 0px;
   --subtitle-color: var(--jpdb-reader-video-text);
@@ -11741,7 +11743,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 .jpdb-subtitle-secondary-blurred {
   color: transparent !important;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 6px var(--jpdb-subtitle-secondary-color), 0 0 9px var(--jpdb-reader-video-shadow-heavy);
+  text-shadow:
+    0 0 var(--subtitle-native-blur-radius) var(--jpdb-subtitle-secondary-color),
+    0 0 var(--subtitle-native-blur-outer-radius) var(--jpdb-reader-video-shadow-heavy);
   opacity: .82;
 }
 /* Peek-on-hover is a mouse affordance. A touch browser latches :hover from the
@@ -12413,6 +12417,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   display: grid;
   gap: 10px;
   width: min(282px, calc(100vw - 18px));
+  max-height: calc(100vh - 24px);
+  max-height: min(520px, calc(100dvh - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
   border: 1px solid var(--jpdb-subtitle-style-border);
   border-radius: 8px;
@@ -12442,6 +12450,9 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   margin: 0;
   color: var(--jpdb-reader-muted);
   font: 700 12px/1.2 var(--jpdb-reader-font);
+}
+.jpdb-subtitle-style-field[hidden] {
+  display: none;
 }
 .jpdb-subtitle-style-field > span,
 .jpdb-subtitle-style-toggle-field > span {
@@ -13386,6 +13397,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font-size: 11px;
 }
 .jpdb-subtitle-shadow-secondary {
+  --jpdb-subtitle-secondary-color: var(--jpdb-reader-muted);
   display: block;
   width: 100%;
   min-height: 0;

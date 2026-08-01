@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.63
+// @version 1.8.64
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.831410a9e76d.user.js#sha256=gxQQqedt/+OtDnA85aPGf+AYIAWC0uumZ8MMMj+xZQU=
-// @resource yomuCss  https://yomureader.com/yomu.6a14e6bb96eb.css#sha256=ahTmu5brbQylkzT08b4SOMlmSbVM7Q1EQ4YTssTra48=
+// @require https://yomureader.com/greasyfork/yomu-runtime.4fb3b57f6d56.user.js#sha256=T7O1f21WZ6LOnpfKkBW31YifK4U7ENKTjHzVqnh/9hA=
+// @resource yomuCss  https://yomureader.com/yomu.760b3a6fec4a.css#sha256=dgs6b+xKH42TBI+ES0WdxdzxeqEZBlDUKDtQjoUIayM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -6705,8 +6705,43 @@ const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
   "subtitleOverlayVisible",
   "subtitleSecondaryVisible",
   "subtitleOverlayVisibleChosen",
-  "subtitleSecondaryVisibleChosen"
+  "subtitleSecondaryVisibleChosen",
+  "subtitleNativeBlurred",
+  "subtitleNativeBlurStrength"
 ];
+function createDefaultSubtitleSettings(fontFamily) {
+  return {
+  subtitlePlayerEnabled: true,
+  subtitleAutoDetect: true,
+  subtitleOverlayVisible: false,
+  subtitleSecondaryVisible: false,
+  subtitleOverlayVisibleChosen: false,
+  subtitleSecondaryVisibleChosen: false,
+  subtitleNativeBlurred: true,
+  subtitleNativeBlurStrength: 12,
+  subtitleKaraokeMode: true,
+  subtitleTranscriptVisible: false,
+  subtitlePausePanel: false,
+  subtitleShadowAutoPause: false,
+  subtitleTranscriptPlacement: "right",
+  subtitleTranscriptAutoScroll: true,
+  subtitleTranscriptAutoScrollResumeSeconds: 30,
+  subtitleAutoCopyLine: false,
+  subtitleCopyIncludeTranslation: true,
+  subtitleControlsMode: "auto",
+  subtitleFontSize: 28,
+  subtitleBottomOffset: 16,
+  subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
+  subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
+  subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
+  subtitleBackgroundOpacity: 0,
+  subtitleFontFamily: fontFamily,
+  subtitleFontWeight: 760,
+  subtitleMiningPause: true,
+  subtitleHoverPause: true,
+  subtitleSeekPadding: 0.08
+  };
+}
 function audioSubSourceProviderName(name) {
   const trimmed = name.trim().normalize("NFC");
   return trimmed.split(/\s+/, 1)[0] ?? trimmed;
@@ -6792,14 +6827,10 @@ const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$7 = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
-const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_OVERLAY_BACKGROUND_COLOR = OVERLAY_COLOR_TOKENS.background;
 const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
 const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 function isPopupLookupEnabled(settings) {
@@ -7178,34 +7209,7 @@ const DEFAULT_SETTINGS = {
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
   dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: false,
-  subtitleSecondaryVisible: false,
-  subtitleOverlayVisibleChosen: false,
-  subtitleSecondaryVisibleChosen: false,
-  subtitleNativeBlurred: true,
-  subtitleKaraokeMode: true,
-  subtitleTranscriptVisible: false,
-  subtitlePausePanel: false,
-  subtitleShadowAutoPause: false,
-  subtitleTranscriptPlacement: "right",
-  subtitleTranscriptAutoScroll: true,
-  subtitleTranscriptAutoScrollResumeSeconds: 30,
-  subtitleAutoCopyLine: false,
-  subtitleCopyIncludeTranslation: true,
-  subtitleControlsMode: "auto",
-  subtitleFontSize: 28,
-  subtitleBottomOffset: 16,
-  subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-  subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-  subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-  subtitleBackgroundOpacity: 0,
-  subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
-  subtitleFontWeight: 760,
-  subtitleMiningPause: true,
-  subtitleHoverPause: true,
-  subtitleSeekPadding: 0.08,
+  ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
   youtubeImmersionEnabled: true,
   youtubeImmersionEnabledChosen: false,
   youtubeShowFilterNotice: true,
@@ -7809,6 +7813,7 @@ function normalizeSubtitleSettings(value) {
   subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
   subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
   subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+  subtitleNativeBlurStrength: clampNumber(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
   subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
   subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
   };
@@ -33623,8 +33628,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.63"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.63"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.64"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.64"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33767,7 +33772,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.63"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.64"}`;
   } catch {
   return null;
   }
@@ -35689,7 +35694,7 @@ class ReaderApp {
     mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(candidates),
     gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
     toast: (message) => this.toast(message),
-    onSettingsChange: () => void saveSettings(this.settings)
+    onSettingsChange: (explicitUserChoiceKeys) => void saveSettings(this.settings, { explicitUserChoiceKeys })
   });
   }
   createYoutubeFilter() {

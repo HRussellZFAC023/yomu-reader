@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.64] - 2026-08-01
+
+### Added
+
+- Video subtitle controls now offer three explicit translation modes—Blur until reveal (recommended), Always show, and Hide completely—plus a persistent blur-strength slider.
+
+### Fixed
+
+- Translation display mode and blur strength now survive navigation and stale tabs, and the settings popover stays on-screen when the control rail is moved near a viewport edge.
+
 ## [1.8.63] - 2026-08-01
 
 ### Fixed

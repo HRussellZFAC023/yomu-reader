@@ -7722,7 +7722,8 @@ translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `)
 });
-parseUiCopyTable(String.raw`
+({
+  ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -8105,22 +8106,6 @@ cloudVisionApiKey	Google Cloud Vision APIキー
 ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
 ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
 ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
-subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
-subtitleAutoDetect	ページの字幕を自動検出
-subtitleOverlayVisible	字幕オーバーレイを表示
-subtitleSecondaryVisible	利用可能ならネイティブ字幕を表示
-subtitleNativeBlurred	ホバーするまでネイティブ字幕をぼかす
-subtitleKaraokeMode	カラオケ風の単語タイミング
-subtitleTranscriptVisible	文字起こしパネルを標準で開く
-subtitlePausePanel	一時停止時にサイドパネルを開く
-subtitleShadowAutoPause	シャドー中は各行の後で一時停止
-subtitleTranscriptPlacement	文字起こしパネル位置
-subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
-subtitleAutoCopyLine	各字幕行を再生時に自動コピー
-subtitleMiningPause	字幕クリック時に動画を一時停止
-subtitleHoverPause	字幕ホバー時に動画を一時停止
-subtitleControlsMode	字幕コントロール
 subtitleStyle	字幕スタイル
 subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
@@ -8132,16 +8117,6 @@ bottom	下
 showWhenNeeded	コンパクト表示
 hideControls	コントロールを隠す
 alwaysVisible	常に表示
-subtitleFontSize	字幕フォントサイズ (px)
-subtitleBottomOffset	字幕下端オフセット (%)
-subtitleTextColor	字幕の色
-subtitleOutlineColor	字幕の縁取り
-subtitleBackgroundColor	字幕背景
-subtitleBackgroundOpacity	字幕背景の不透明度
-subtitleFontFamily	字幕フォントファミリー
-subtitleFontWeight	字幕フォントの太さ
-subtitleSeekPadding	字幕シーク余白 (s)
-subtitlePreview	字幕ライブプレビュー
 preview	プレビュー
 youtubeImmersionEnabled	{language}のYouTubeのみ
 preferJapaneseSiteLanguage	{language}版のサイトを開く
@@ -8456,7 +8431,8 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
-`);
+`)
+});
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
 const shared = [
