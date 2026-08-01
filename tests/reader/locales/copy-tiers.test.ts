@@ -48,6 +48,16 @@ describe('D43 copy tiers are a property of the string', () => {
         expect(copyTierOf(legacyChromeMessageId('gradeGood'))).toMatchObject({
             category: 'study-loop',
         });
+        expect(copyTierOf(legacyChromeMessageId('clearLocalDictionarySiteStorage'))).toMatchObject({
+            tier: 'human-critical',
+            category: 'destructive-actions',
+            rule: 'destructive-and-irreversible',
+        });
+        expect(copyTierOf(legacyChromeMessageId('localDictionarySiteStorageHelp'))).toMatchObject({
+            tier: 'machine-draft-ok',
+            category: 'supplementary',
+            rule: 'default-supplementary-copy',
+        });
         expect(COPY_TIER_RULE_NAMES.at(-1)).toBe('default-supplementary-copy');
     });
 
@@ -134,10 +144,10 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        expect(messages).toHaveLength(1253);
-        expect(humanCritical).toHaveLength(390);
+        expect(messages).toHaveLength(1259);
+        expect(humanCritical).toHaveLength(395);
 
-        // Split by WHAT classified each one. 384 are human-critical from their ID
+        // Split by WHAT classified each one. 389 are human-critical from their ID
         // alone, so deleting the rule table collapses that number while the
         // source-text check above stays green. The other 6 reach the tier only
         // through text escalation, which is exactly the case that rule exists for
@@ -145,7 +155,7 @@ describe('D43 copy tiers are a property of the string', () => {
         // it discusses credentials). Both counts are pinned because a change in
         // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(384);
+        expect(byIdAlone).toHaveLength(389);
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 

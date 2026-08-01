@@ -3229,7 +3229,9 @@ describe('hover lookup', () => {
                 { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS },
             );
             expect(hoverLookup.handlePointerTextHover).not.toHaveBeenCalled();
+            internals.activePointerTextLookup = { text: '今日は読む', start: 3, end: 5, anchor: activeWord };
             expect(internals.isHoverContextActive({ ignoreCssHover: true, ignorePointerPosition: true })).toBe(true);
+            internals.activePointerTextLookup = undefined;
 
             // The bridge is a narrow route, not the whole bounding box between
             // word and popup; moving sideways still permits a genuine next lookup.

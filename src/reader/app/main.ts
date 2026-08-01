@@ -5271,12 +5271,12 @@ export class ReaderApp {
 
     private isHoverContextActive(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
         if (this.hasDirectHoverContext()) return true;
+        if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
         if (this.hasActiveLookupHoverContext(options)) return true;
         return this.hasPopoverHoverContext(options);
     }
 
     private hasActiveLookupHoverContext(options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean {
-        if (this.activePointerTextLookup) return this.isPointerTextHoverContextActive(options);
         return Boolean(this.activeHoverWord && this.isWordHoverActive(this.activeHoverWord, options));
     }
 
