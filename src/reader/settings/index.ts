@@ -7,6 +7,7 @@ import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCre
 import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { AUTOMATION_PROTECTED_SETTINGS_KEYS } from './explicit-user-choice';
+import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 export { changedSettingsKeys } from './store-reconciliation';
@@ -56,7 +57,6 @@ const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
 const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
 export const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 export const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 
@@ -481,35 +481,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({ ...link })),
-    subtitlePlayerEnabled: true,
-    subtitleAutoDetect: true,
-    subtitleOverlayVisible: false,
-    subtitleSecondaryVisible: false,
-    subtitleOverlayVisibleChosen: false,
-    subtitleSecondaryVisibleChosen: false,
-    subtitleNativeBlurred: true,
-    subtitleNativeBlurStrength: 12,
-    subtitleKaraokeMode: true,
-    subtitleTranscriptVisible: false,
-    subtitlePausePanel: false,
-    subtitleShadowAutoPause: false,
-    subtitleTranscriptPlacement: 'right',
-    subtitleTranscriptAutoScroll: true,
-    subtitleTranscriptAutoScrollResumeSeconds: 30,
-    subtitleAutoCopyLine: false,
-    subtitleCopyIncludeTranslation: true,
-    subtitleControlsMode: 'auto',
-    subtitleFontSize: 28,
-    subtitleBottomOffset: 16,
-    subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
-    subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
-    subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-    subtitleBackgroundOpacity: 0,
-    subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
-    subtitleFontWeight: 760,
-    subtitleMiningPause: true,
-    subtitleHoverPause: true,
-    subtitleSeekPadding: 0.08,
+    ...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
     youtubeImmersionEnabled: true,
     youtubeImmersionEnabledChosen: false,
     youtubeShowFilterNotice: true,

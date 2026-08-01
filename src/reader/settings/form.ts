@@ -9,11 +9,11 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_SETTINGS, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
+import { AUDIO_GUIDE_URL, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
-import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, readOption, settingsColorSourceValue } from './form-read';
+import { CUSTOM_FONT_FAMILY_VALUE, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { FONT_FAMILY_PRESETS } from './font-presets';
 import { renderRowOrderTools, renderSourceRowsList } from './form-source-rows';
@@ -32,7 +32,7 @@ import {
     renderWanikaniStatusLine,
 } from './status-lines';
 import { uniqueStrings } from '../core/string-utils';
-import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderSettings } from '../app/types';
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLanguageProfile, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
 import { catalogBrowseDescription, catalogBrowseSectionGroups, catalogBrowseTotalBytes, formatDictionaryBytes, headwordLanguageEndonym, headwordLanguageName, type CatalogBrowseLanguageSection } from '../dictionaries/catalog-browse';
@@ -67,13 +67,13 @@ import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/stu
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
+export { syncSubtitlePreview } from './subtitle-preview';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';
 export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
 
-const COLOR_SOURCE_CLASS_VALUES: Exclude<ReaderColorSource, 'auto' | 'off'>[] = ['status', 'jpdb', 'anki', 'pitch'];
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const DEFAULT_BUNPRO_SETTINGS_URL = 'https://bunpro.jp/settings/api';
 const ACADEMY_ACCOUNT_SYNC_URL = 'https://yomureader.com/academy/?view=profile-sync';
@@ -2883,62 +2883,6 @@ export function syncFontFamilyControls(form: HTMLFormElement): void {
         const selectElement = control.querySelector<HTMLSelectElement>('select');
         const customField = control.querySelector<HTMLElement>('[data-font-family-custom]');
         if (customField) customField.hidden = selectElement?.value !== CUSTOM_FONT_FAMILY_VALUE;
-    });
-}
-
-export function syncSubtitlePreview(form: HTMLFormElement): void {
-    const preview = form.querySelector<HTMLElement>('[data-subtitle-preview]');
-    if (!preview) return;
-    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement | HTMLSelectElement>(form, name)?.value || fallback;
-    const numberValue = (name: string, fallback: number) => {
-        const number = Number(value(name, String(fallback)));
-        return Number.isFinite(number) ? number : fallback;
-    };
-    preview.style.setProperty('--subtitle-font-size', `${Math.max(16, Math.min(64, numberValue('subtitleFontSize', 28)))}px`);
-    preview.style.setProperty('--subtitle-color', sanitizeAccentColor(value('subtitleTextColor', DEFAULT_OVERLAY_TEXT_COLOR), DEFAULT_OVERLAY_TEXT_COLOR));
-    preview.style.setProperty('--subtitle-outline', sanitizeAccentColor(value('subtitleOutlineColor', DEFAULT_OVERLAY_OUTLINE_COLOR), DEFAULT_OVERLAY_OUTLINE_COLOR));
-    preview.style.setProperty(
-        '--subtitle-background-rgba',
-        accentToRgba(
-            sanitizeAccentColor(value('subtitleBackgroundColor', DEFAULT_OVERLAY_BACKGROUND_COLOR), DEFAULT_OVERLAY_BACKGROUND_COLOR),
-            Math.max(0, Math.min(1, numberValue('subtitleBackgroundOpacity', 0))),
-        ),
-    );
-    preview.style.setProperty('--subtitle-family', formFontFamilyValue(form, 'subtitleFontFamily', 'system-ui'));
-    preview.style.setProperty('--subtitle-weight', String(Math.max(100, Math.min(900, numberValue('subtitleFontWeight', 760)))));
-    const nativeDisplay = value('subtitleNativeDisplay', 'blurred');
-    const nativeBlurStrength = Math.max(4, Math.min(20, numberValue('subtitleNativeBlurStrength', DEFAULT_SETTINGS.subtitleNativeBlurStrength)));
-    preview.style.setProperty('--subtitle-native-blur-radius', `${nativeBlurStrength}px`);
-    preview.style.setProperty('--subtitle-native-blur-outer-radius', `${nativeBlurStrength + 4}px`);
-    const nativePreview = preview.querySelector<HTMLElement>('.jpdb-subtitle-secondary');
-    if (nativePreview) {
-        nativePreview.hidden = nativeDisplay === 'hidden';
-        nativePreview.classList.toggle('jpdb-subtitle-secondary-blurred', nativeDisplay === 'blurred');
-        nativePreview.classList.toggle('jpdb-subtitle-secondary-clear', nativeDisplay === 'shown');
-    }
-    const nativeBlurStrengthInput = getNamedControl<HTMLInputElement>(form, 'subtitleNativeBlurStrength');
-    const nativeBlurStrengthField = nativeBlurStrengthInput?.closest<HTMLElement>('label');
-    if (nativeBlurStrengthField) nativeBlurStrengthField.hidden = nativeDisplay !== 'blurred';
-    syncSubtitlePreviewColorClasses(form, preview);
-}
-
-function formFontFamilyValue(form: HTMLFormElement, name: FontFamilySettingName, fallback: string): string {
-    const value = getNamedControl<HTMLInputElement | HTMLSelectElement>(form, name)?.value.trim() ?? '';
-    if (value === CUSTOM_FONT_FAMILY_VALUE) return getNamedControl<HTMLInputElement>(form, `${name}Custom`)?.value.trim() || fallback;
-    return value || fallback;
-}
-
-function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLElement): void {
-    const value = (name: string, fallback: string) => getNamedControl<HTMLInputElement | HTMLSelectElement>(form, name)?.value || fallback;
-    const classes = {
-        highlight: readOption(value('subtitleHighlightColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
-        underline: readOption(value('subtitleUnderlineColorSource', 'pitch'), COLOR_SOURCE_VALUES, 'pitch'),
-        text: readOption(value('subtitleTextColorSource', 'jpdb'), COLOR_SOURCE_VALUES, 'jpdb'),
-    };
-    (Object.keys(classes) as Array<keyof typeof classes>).forEach(channel => {
-        COLOR_SOURCE_CLASS_VALUES.forEach(source => {
-            preview.classList.toggle(`jpdb-reader-subtitle-${channel}-${source}`, classes[channel] === source);
-        });
     });
 }
 

@@ -56,6 +56,19 @@ describe('D43 copy tiers are a property of the string', () => {
         // machine draft for a tooltip is no tooltip in that language at all.
         expect(copyTierOf(legacyChromeMessageId('furiganaDifficultKanjiHelp')).tier)
             .toBe('machine-draft-ok');
+        for (const key of [
+            'subtitleNativeDisplay',
+            'subtitleNativeDisplayBlurred',
+            'subtitleNativeDisplayShown',
+            'subtitleNativeDisplayHidden',
+            'subtitleNativeBlurStrength',
+        ]) {
+            expect(copyTierOf(legacyChromeMessageId(key))).toMatchObject({
+                tier: 'machine-draft-ok',
+                category: 'supplementary',
+                rule: 'default-supplementary-copy',
+            });
+        }
     });
 
     it('escalates any default-tier string whose English text can cost a learner something', () => {
@@ -121,7 +134,7 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        expect(messages).toHaveLength(1248);
+        expect(messages).toHaveLength(1253);
         expect(humanCritical).toHaveLength(390);
 
         // Split by WHAT classified each one. 384 are human-critical from their ID

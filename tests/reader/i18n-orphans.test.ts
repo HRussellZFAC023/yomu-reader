@@ -5,19 +5,21 @@ import { describe, expect, it } from 'vitest';
 
 // Guards against i18n copy keys that survive in the en COPY table after their only
 // call site is deleted (the "88 dead keys" purge). Extracts every en key straight
-// from src/reader/app/i18n.ts and asserts each is still referenced by real
-// consumer code, so a future dead key trips CI instead of quietly bloating the
-// bundle and both translation tables.
+// from the app i18n source and its focused copy leaves, then asserts each is
+// still referenced by real consumer code. A future dead key therefore trips CI
+// instead of quietly bloating the bundle and both translation tables.
 
 const SRC_DIR = join(process.cwd(), 'src');
 const I18N_PATH = join(SRC_DIR, 'reader/app/i18n.ts');
+const SUBTITLE_SETTINGS_COPY_PATH = join(SRC_DIR, 'reader/app/subtitle-settings-copy.ts');
+const I18N_COPY_PATHS = new Set([I18N_PATH, SUBTITLE_SETTINGS_COPY_PATH]);
 
 function collectTsFiles(dir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir)) {
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) out.push(...collectTsFiles(full));
-        else if (full.endsWith('.ts') && full !== I18N_PATH) out.push(full);
+        else if (full.endsWith('.ts') && !I18N_COPY_PATHS.has(full)) out.push(full);
     }
     return out;
 }
@@ -43,12 +45,22 @@ function i18nConsumerText(i18n: string): { consumer: string; keys: string[] } {
     for (let i = 0; i < blanked.length; i += 1) {
         if (/parseUiCopyTable\(String\.raw`/.test(blanked[i])) {
             for (let j = i + 1; j < blanked.length; j += 1) {
-                if (/^`\);/.test(blanked[j])) { i = j; break; }
+                if (/^`\)[,;]/.test(blanked[j])) { i = j; break; }
                 blanked[j] = '';
             }
         }
     }
     return { consumer: blanked.join('\n'), keys };
+}
+
+function subtitleSettingsCopyInventory(source: string): { consumer: string; keys: string[] } {
+    const lines = source.split('\n');
+    const enStart = lines.findIndex(line => /^const EN_SUBTITLE_SETTINGS_COPY = \{/.test(line));
+    const enEnd = lines.findIndex((line, index) => index > enStart && /^} as const;/.test(line));
+    if (enStart === -1 || enEnd === -1) throw new Error('English subtitle settings copy table not found');
+    const keys = [...lines.slice(enStart + 1, enEnd).join('\n').matchAll(/^ {4}([A-Za-z][A-Za-z0-9_]*)\s*:/gm)]
+        .map(match => match[1]);
+    return { consumer: '', keys };
 }
 
 // Every identifier that appears between a matching pair of quotes, collected in one
@@ -63,11 +75,17 @@ function quotedIdentifiers(haystack: string): Set<string> {
 
 describe('i18n en copy keys', () => {
     it('are all referenced by consumer code (no orphans)', () => {
-        const i18n = readFileSync(I18N_PATH, 'utf8');
-        const { consumer, keys } = i18nConsumerText(i18n);
+        const inventories = [
+            i18nConsumerText(readFileSync(I18N_PATH, 'utf8')),
+            subtitleSettingsCopyInventory(readFileSync(SUBTITLE_SETTINGS_COPY_PATH, 'utf8')),
+        ];
+        const keys = inventories.flatMap(inventory => inventory.keys);
         expect(keys.length).toBeGreaterThan(500);
 
-        const haystack = [consumer, ...collectTsFiles(SRC_DIR).map(file => readFileSync(file, 'utf8'))].join('\n');
+        const haystack = [
+            ...inventories.map(inventory => inventory.consumer),
+            ...collectTsFiles(SRC_DIR).map(file => readFileSync(file, 'utf8')),
+        ].join('\n');
         // The property-access form stays a substring scan (`.key` also counts inside a
         // longer member name), but only the handful of keys no quoted literal claimed
         // ever reach it.
