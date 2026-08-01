@@ -2794,6 +2794,7 @@ const COPY = {
   dictionaryStatusUnavailable: "Unavailable.",
   noLocalDictionariesImported: "No dictionaries imported yet. Start with a term dictionary for definitions.",
   dictionaryDownloadFailed: "Dictionary download failed.",
+  storageRuntimeUnavailable: "よむ storage is unavailable. Reload the page; if this continues, reinstall よむ.",
   dictionaryDownloadTimedOut: "Dictionary download timed out.",
   dictionaryDownloadNotZip: "Download was not a ZIP.",
   dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
@@ -3504,6 +3505,7 @@ targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
 targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
+storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。

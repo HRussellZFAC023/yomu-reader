@@ -143,10 +143,10 @@ function supportDonationDb() {
                     values = bound;
                     return this;
                 },
-                async first() {
+                async first<T>() {
                     if (!isReadback) return null;
                     const [sessionId, id] = values;
-                    return rows.find(row => row.stripe_session_id === sessionId || row.id === id) ?? null;
+                    return (rows.find(row => row.stripe_session_id === sessionId || row.id === id) ?? null) as T | null;
                 },
                 async all() { return { results: [] }; },
                 async run() {

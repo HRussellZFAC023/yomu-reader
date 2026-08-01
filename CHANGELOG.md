@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.63] - 2026-08-01
+
+### Fixed
+
+- Dictionary installation keeps its own userscript-manager storage fallback when the core and runtime companion are placed in different sandbox realms.
+- A missing storage runtime now asks the learner to reload or reinstall よむ instead of reporting a dictionary download failure.
+
 ## [1.8.62] - 2026-07-31
 
 ### Fixed

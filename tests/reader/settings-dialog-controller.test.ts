@@ -2077,6 +2077,24 @@ describe('settings dialog dictionary imports', () => {
         expect(recommendedButton(form, 'jitendex').disabled).toBe(false);
     });
 
+    it('identifies a missing storage runtime instead of reporting a dictionary download failure', async () => {
+        const importFromUrl = vi.fn().mockRejectedValue(userFacingError('storageRuntimeUnavailable'));
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFromUrl,
+            },
+        });
+
+        recommendedButton(form, 'jitendex').click();
+        await waitForCondition(() => (dependencies.toast as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+
+        const expected = 'よむ storage is unavailable. Reload the page; if this continues, reinstall よむ.';
+        expect(form.querySelector<HTMLElement>('[data-import-status]')?.textContent).toBe(expected);
+        expect(dependencies.toast).toHaveBeenCalledWith(expected);
+        expect(dependencies.toast).not.toHaveBeenCalledWith('Dictionary download failed.');
+    });
+
     // GitHub #39. This test used to reject with `new Error('Dictionary download is
     // blocked in this browser.')` -- a sentence no production code has ever produced.
     // The matcher it exercised substring-matched exactly that fiction, so the test

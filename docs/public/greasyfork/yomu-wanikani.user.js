@@ -7325,6 +7325,7 @@ targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
 targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
+storageRuntimeUnavailable	よむの保存機能を利用できません。ページを再読み込みし、解決しない場合はよむを再インストールしてください。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
 dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。

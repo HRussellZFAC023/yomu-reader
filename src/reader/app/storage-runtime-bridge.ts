@@ -70,7 +70,10 @@ export function registerStorageRuntimeApi(api: StorageRuntimeApi): void {
 export function storageRuntimeApi(): StorageRuntimeApi {
     const api = (globalThis as StorageRuntimeRealm)[STORAGE_RUNTIME_API_SLOT];
     if (!isStorageRuntimeApi(api)) {
-        throw new Error('The authoritative Yomu storage runtime is not installed.');
+        throw Object.assign(
+            new Error('The authoritative Yomu storage runtime is not installed.'),
+            { name: 'StorageRuntimeUnavailableError', yomuUiCopyKey: 'storageRuntimeUnavailable' as const },
+        );
     }
     return api;
 }

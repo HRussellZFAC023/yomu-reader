@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -54,7 +55,10 @@ describe('aggregate runtime storage split', () => {
     });
 
     it('fails closed until core installs the authoritative implementation', () => {
-        expect(() => storageRuntimeApi()).toThrow('authoritative Yomu storage runtime is not installed');
+        expect(() => storageRuntimeApi()).toThrow(expect.objectContaining({
+            message: expect.stringContaining('authoritative Yomu storage runtime is not installed'),
+            yomuUiCopyKey: 'storageRuntimeUnavailable',
+        }));
         expect(() => managedSessionStorage.getItem('yomu:test')).toThrow(
             'authoritative Yomu storage runtime is not installed',
         );
@@ -71,16 +75,49 @@ describe('aggregate runtime storage split', () => {
         expect(bridge).not.toMatch(/\bwindow\b/u);
     });
 
-    it('aliases storage only for the aggregate runtime build', () => {
-        const config = readFileSync(
-            path.join(repoRoot, 'config/vite/greasyfork-library.config.ts'),
+    it('ships an independent storage implementation in the aggregate runtime', () => {
+        const runtime = readFileSync(
+            path.join(repoRoot, 'docs/public/greasyfork/yomu-runtime.user.js'),
             'utf8',
         );
-        expect(config).toContain("library.id === 'runtime'");
-        expect(config).toContain("'storage-runtime-facade.ts'");
-        expect(config).toContain("'../app/storage': runtimeStorageFacade");
-        expect(config).toContain("'../../app/storage': runtimeStorageFacade");
-        expect(config).toContain("'./storage': runtimeStorageFacade");
+        expect(runtime).toMatch(/\bGM_getValue\b/u);
+        expect(runtime).toMatch(/\bGM_setValue\b/u);
+        expect(runtime).not.toContain('The authoritative Yomu storage runtime is not installed.');
+    });
+
+    it('reaches GM storage when core registration and the companion run in distinct realms', () => {
+        const artifact = path.join(repoRoot, 'docs/public/greasyfork/yomu-runtime.user.js');
+        const proof = `
+            import { readFileSync } from 'node:fs';
+            import { TextDecoder, TextEncoder } from 'node:util';
+            import { JSDOM } from 'jsdom';
+            const core = new JSDOM('<!doctype html>', { runScripts: 'outside-only' });
+            const companion = new JSDOM('<!doctype html>', { runScripts: 'outside-only', url: 'https://example.test/' });
+            const slot = core.window.Symbol.for('yomu.storage-runtime-api.v1');
+            Object.defineProperty(core.window, slot, { value: { realm: 'core' } });
+            const calls = [];
+            Object.assign(companion.window, {
+                Blob, Headers, Request, Response, TextDecoder, TextEncoder, fetch,
+                GM_getValue: (key, fallback) => { calls.push(key); return fallback; },
+                GM_setValue: () => undefined,
+                GM_deleteValue: () => undefined,
+                GM_listValues: () => [],
+            });
+            companion.window.eval(readFileSync(${JSON.stringify(artifact)}, 'utf8'));
+            if (companion.window[companion.window.Symbol.for('yomu.storage-runtime-api.v1')] !== undefined) {
+                throw new Error('the core slot leaked across realms');
+            }
+            const keys = await companion.window.__yomuCompanions.localDictionaries.enumerateDictionaryArchiveStorageKeys();
+            if (keys.length !== 0 || !calls.includes('yomu-dictionary-archives')) {
+                throw new Error('the companion did not reach its ambient GM storage implementation');
+            }
+            core.window.close();
+            companion.window.close();
+        `;
+        expect(() => execFileSync(process.execPath, ['--input-type=module', '--eval', proof], {
+            cwd: repoRoot,
+            stdio: 'pipe',
+        })).not.toThrow();
     });
 });
 
