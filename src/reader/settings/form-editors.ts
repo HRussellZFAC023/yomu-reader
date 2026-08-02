@@ -480,10 +480,14 @@ function frequencyLookupPillNote(link: DictionaryLookupLink): string {
 export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: string, control?: HTMLElement | null): void {
     const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
     if (!container) return;
-    const data = new FormData(form);
-    const links = readDictionaryLookupLinks(data);
     const row = control?.closest<HTMLElement>('[data-lookup-link-row]');
     const index = row ? Array.from(container.querySelectorAll('[data-lookup-link-row]')).indexOf(row) : -1;
+    if (action === 'lookup-link-up' || action === 'lookup-link-down') {
+        moveSourceRow(container, index, action === 'lookup-link-up' ? index - 1 : index + 1);
+        return;
+    }
+    const data = new FormData(form);
+    const links = readDictionaryLookupLinks(data);
     updateDictionaryLookupLinks(links, action, index);
     // The target lives in this same form, so re-rendering a row keeps the
     // component notes and the gap line describing the language on screen.
@@ -497,8 +501,6 @@ function formTargetLanguage(data: FormData): string {
 function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {
     if (action === 'lookup-link-add') addDictionaryLookupLink(links);
     if (action === 'lookup-link-remove') removeDictionaryLookupLink(links, index);
-    if (action === 'lookup-link-up') moveDictionaryLookupLink(links, index, index - 1);
-    if (action === 'lookup-link-down') moveDictionaryLookupLink(links, index, index + 1);
 }
 
 function addDictionaryLookupLink(links: DictionaryLookupLink[]): void {
@@ -513,10 +515,4 @@ function addDictionaryLookupLink(links: DictionaryLookupLink[]): void {
 
 function removeDictionaryLookupLink(links: DictionaryLookupLink[], index: number): void {
     if (index >= 0 && links.length > 1 && links[index]?.action !== 'copy') links.splice(index, 1);
-}
-
-function moveDictionaryLookupLink(links: DictionaryLookupLink[], from: number, to: number): void {
-    if (from < 0 || to < 0 || from >= links.length || to >= links.length) return;
-    const [link] = links.splice(from, 1);
-    links.splice(to, 0, link);
 }

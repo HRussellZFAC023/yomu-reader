@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { renderLookupPillsEditor } from '../../../src/reader/settings/form';
+import { updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form-editors';
+import { renderWordPills } from '../../../src/reader/sources/word-pills';
+import type { JPDBCard } from '../../../src/reader/app/types';
 import {
     frequencySettings,
     localizeSettingsForm,
@@ -62,6 +65,105 @@ describe('frequency dictionary preferences', () => {
         expect(frequencyPills.find(link => link.id === 'frequency-local:JPDB Freq')?.enabled).toBe(true);
         expect(frequencyPills.find(link => link.id === 'jiten-frequency')?.enabled).toBe(true);
         expect(frequencyPills.find(link => link.id === 'jpdb-frequency')?.enabled).toBe(true);
+    });
+
+    it('moves BCCWJ above Jiten in saved dictionary config and rendered frequency pills', () => {
+        const jitenFirstSettings = {
+            ...frequencySettings,
+            dictionaryPreferences: [
+                frequencySettings.dictionaryPreferences[0]!,
+                { ...frequencySettings.dictionaryPreferences[2]!, priority: 1 },
+                { name: 'Secondary Terms', alias: 'Secondary Terms', enabled: true, priority: 2, type: 'terms' as const },
+                { ...frequencySettings.dictionaryPreferences[1]!, priority: 3 },
+                { ...frequencySettings.dictionaryPreferences[3]!, priority: 4 },
+            ],
+        };
+        const baselineForm = renderSettingsTestForm(jitenFirstSettings);
+        baselineForm.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!.innerHTML = renderLookupPillsEditor(jitenFirstSettings);
+        const baselineSaved = readFormSettings(new FormData(baselineForm), jitenFirstSettings);
+        expect(baselineSaved.dictionaryPreferences
+            .filter(preference => preference.type === 'frequency')
+            .map(preference => preference.name))
+            .toEqual(['Jiten', 'BCCWJ', 'JPDB Freq']);
+
+        const form = renderSettingsTestForm(jitenFirstSettings);
+        const editor = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
+        editor.innerHTML = renderLookupPillsEditor(jitenFirstSettings);
+        const rowIndex = (id: string) => Array.from(editor.querySelectorAll<HTMLElement>('[data-lookup-link-row]'))
+            .findIndex(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value === id);
+        const bccwjId = 'frequency-local:BCCWJ';
+        const jitenId = 'frequency-local:Jiten';
+        const moves = rowIndex(bccwjId) - rowIndex(jitenId);
+
+        for (let index = 0; index < moves; index++) {
+            const bccwjRow = editor.querySelector<HTMLInputElement>(`input[name$=".id"][value="${bccwjId}"]`)!
+                .closest<HTMLElement>('[data-lookup-link-row]')!;
+            updateDictionaryLookupLinkEditor(form, 'lookup-link-up', bccwjRow);
+        }
+
+        expect(rowIndex(bccwjId)).toBeLessThan(rowIndex(jitenId));
+        const saved = readFormSettings(new FormData(form), jitenFirstSettings);
+        expect(saved.dictionaryLookupLinks
+            .filter(link => link.action === 'frequency-local')
+            .map(link => link.id))
+            .toEqual([bccwjId, jitenId, 'frequency-local:JPDB Freq']);
+        const savedFrequencyPreferences = saved.dictionaryPreferences
+            .filter(preference => preference.type === 'frequency');
+        expect(savedFrequencyPreferences.map(preference => preference.name))
+            .toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
+        expect(savedFrequencyPreferences[0]!.priority).toBeLessThan(savedFrequencyPreferences[1]!.priority);
+        expect(saved.dictionaryPreferences
+            .filter(preference => preference.type !== 'frequency')
+            .map(preference => [preference.name, preference.priority]))
+            .toEqual(baselineSaved.dictionaryPreferences
+                .filter(preference => preference.type !== 'frequency')
+                .map(preference => [preference.name, preference.priority]));
+
+        const rerendered = renderSettingsTestForm(saved);
+        const rerenderedEditor = rerendered.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!;
+        rerenderedEditor.innerHTML = renderLookupPillsEditor(saved);
+        const resaved = readFormSettings(new FormData(rerendered), saved);
+        expect(resaved.dictionaryPreferences
+            .map(preference => [preference.name, preference.priority]))
+            .toEqual(saved.dictionaryPreferences.map(preference => [preference.name, preference.priority]));
+
+        const card: JPDBCard = {
+            vid: 0,
+            sid: 0,
+            rid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'local',
+        };
+        const html = renderWordPills({
+            card,
+            jpdbUrl: '',
+            settings: {
+                ...resaved,
+                showLookupPillFrequency: false,
+                dictionaryLookupLinks: resaved.dictionaryLookupLinks.map(link => ({
+                    ...link,
+                    enabled: link.action === 'frequency-local',
+                })),
+            },
+            metaEntries: [
+                { expression: '読む', mode: 'freq', data: { frequency: 20 }, dictionary: 'Jiten' },
+                { expression: '読む', mode: 'freq', data: { frequency: 10 }, dictionary: 'BCCWJ' },
+            ],
+            isJpdbBackedCard: () => false,
+            dictionaryLabel: name => name,
+        });
+        const result = document.createElement('div');
+        result.innerHTML = html;
+        expect(Array.from(result.querySelectorAll<HTMLElement>('[data-frequency-source="local"]'))
+            .map(pill => pill.dataset.dictionary))
+            .toEqual(['BCCWJ', 'Jiten']);
     });
 
     it('localizes combined lookup pill settings', () => {

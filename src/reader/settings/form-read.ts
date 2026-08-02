@@ -156,7 +156,11 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         bunpro: hasSourceRow(has, 'bunproDefinitions'),
         wanikani: hasSourceRow(has, 'wanikaniDefinitions'),
     };
-    const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
+    const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
+    const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
+        readDictionaryPreferences(data, current.dictionaryPreferences, reader),
+        dictionaryLookupLinks,
+    );
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
     const apiCredentials = readApiCredentialsFromFormData(data);
     const interfaceLanguage = readOption(
@@ -189,7 +193,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readOcrFormSettings(reader, current),
         ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
         dictionaryPreferences,
-        dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
+        dictionaryLookupLinks,
         ...readSubtitleFormSettings(reader, current),
         ...readYoutubeFormSettings(reader, current),
         ...readAnkiFormSettings(reader, current),
@@ -859,6 +863,32 @@ function readDictionaryPreferences(data: FormData, current: DictionaryPreference
     }))
         .filter(item => item.name)
         .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+}
+
+function reorderLocalFrequencyDictionaryPreferences(
+    preferences: DictionaryPreference[],
+    lookupLinks: DictionaryLookupLink[],
+): DictionaryPreference[] {
+    // Frequency dictionaries share the lookup-pill order editor, but older
+    // installs also persist their order in dictionaryPreferences. Move the
+    // linked frequency entries through their existing slots so both arrays
+    // agree without disturbing term, kanji, or pronunciation dictionaries.
+    const localFrequencyPrefix = 'frequency-local:';
+    const preferenceByName = new Map(preferences
+        .filter(preference => preference.type === 'frequency')
+        .map(preference => [preference.name, preference]));
+    const ordered = lookupLinks
+        .filter(link => link.action === 'frequency-local' && link.id.startsWith(localFrequencyPrefix))
+        .map(link => preferenceByName.get(link.id.slice(localFrequencyPrefix.length)))
+        .filter((preference): preference is DictionaryPreference => preference !== undefined);
+    if (ordered.length < 2) return preferences;
+
+    const orderedNames = new Set(ordered.map(preference => preference.name));
+    let next = 0;
+    return preferences.map(slot => {
+        if (slot.type !== 'frequency' || !orderedNames.has(slot.name)) return slot;
+        return { ...ordered[next++]!, priority: slot.priority };
+    });
 }
 
 function readDictionaryType(value: string): DictionaryPreference['type'] {
