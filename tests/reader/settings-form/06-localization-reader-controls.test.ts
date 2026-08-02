@@ -22,6 +22,19 @@ import {
     topLevelLegendsForControl,
 } from './fixtures';
 
+const STATUS_COLOR_SOURCE_VALUES = ['status', 'jpdb', 'anki'] as const;
+
+function statusColorSourceLabels(form: HTMLFormElement, name: string): string[] {
+    return STATUS_COLOR_SOURCE_VALUES.map(value => optionText(form, name, value));
+}
+
+function expectDistinctStatusColorSourceLabels(form: HTMLFormElement): void {
+    form.querySelectorAll<HTMLSelectElement>('select[name$="ColorSource"]').forEach(select => {
+        const labels = statusColorSourceLabels(form, select.name);
+        expect(new Set(labels).size, `${select.name} repeats a study-status label`).toBe(labels.length);
+    });
+}
+
 describe('settings form localization', () => {
     registerSettingsFormCleanup();
 
@@ -332,7 +345,7 @@ describe('settings form localization', () => {
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
 
-    it('exposes combined JPDB and Anki status as a word color source', () => {
+    it('names each saved study-status colour policy distinctly', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
@@ -341,12 +354,17 @@ describe('settings form localization', () => {
         }, 'https://jpdb.io/settings');
 
         const textColor = form.querySelector<HTMLSelectElement>('select[name="wordTextColorSource"]')!;
-        expect(optionText(form, 'wordTextColorSource', 'status')).toBe('JPDB + Anki status');
+        expect(optionText(form, 'wordTextColorSource', 'status')).toBe('All study statuses');
         expect(textColor.value).toBe('status');
         expect(readFormSettings(new FormData(form), DEFAULT_SETTINGS).wordTextColorSource).toBe('status');
 
         localizeSettingsForm(form, 'ja');
-        expect(optionText(form, 'wordTextColorSource', 'status')).toContain('Anki');
+        expect(statusColorSourceLabels(form, 'wordTextColorSource')).toEqual([
+            'すべての学習状態',
+            'メインデッキの学習状態',
+            'Ankiの学習状態',
+        ]);
+        expectDistinctStatusColorSourceLabels(form);
 
         const jitenForm = document.createElement('form');
         jitenForm.innerHTML = renderSettingsForm({
@@ -357,8 +375,8 @@ describe('settings form localization', () => {
             wordTextColorSource: 'status',
         }, 'https://jpdb.io/settings');
 
-        expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('Jiten + Anki status');
-        expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Jiten status');
+        expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (Jiten / JPDB)');
         expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
@@ -366,8 +384,8 @@ describe('settings form localization', () => {
         expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
         expect(labelForControl(jitenForm, 'localDictionaryMaxResults')).toBe('');
 
-        // A20: with no API key the state channel is fed by Yomu's own deck, so
-        // it is named after that deck instead of a product the learner lacks.
+        // The labels describe stable policies rather than today's provider;
+        // adding or removing a credential must not silently rename a choice.
         const academyForm = document.createElement('form');
         academyForm.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
@@ -377,10 +395,10 @@ describe('settings form localization', () => {
             wordTextColorSource: 'status',
         }, 'https://jpdb.io/settings');
 
-        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Academy status');
-        expect(optionText(academyForm, 'wordTextColorSource', 'status')).toBe('Academy + Anki status');
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+        expect(optionText(academyForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
         localizeSettingsForm(academyForm, 'en');
-        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Academy status');
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
 
         const ankiForm = document.createElement('form');
         ankiForm.innerHTML = renderSettingsForm({
@@ -391,9 +409,21 @@ describe('settings form localization', () => {
             yomuLocalSrsEnabled: false,
         }, 'https://jpdb.io/settings');
         localizeSettingsForm(ankiForm, 'en');
-        expect(optionText(ankiForm, 'wordHighlightColorSource', 'jpdb')).toBe('Anki status');
-        expect(optionText(ankiForm, 'wordTextColorSource', 'status')).toBe('Anki status');
+        expect(statusColorSourceLabels(ankiForm, 'wordTextColorSource')).toEqual([
+            'All study statuses',
+            'Primary deck status',
+            'Anki status',
+        ]);
+        expectDistinctStatusColorSourceLabels(ankiForm);
         expect(ankiForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(true);
+
+        localizeSettingsForm(ankiForm, 'ja');
+        expect(statusColorSourceLabels(ankiForm, 'wordTextColorSource')).toEqual([
+            'すべての学習状態',
+            'メインデッキの学習状態',
+            'Ankiの学習状態',
+        ]);
+        expectDistinctStatusColorSourceLabels(ankiForm);
 
         const decklessForm = document.createElement('form');
         decklessForm.innerHTML = renderSettingsForm({
@@ -404,8 +434,9 @@ describe('settings form localization', () => {
             yomuLocalSrsEnabled: false,
         }, 'https://jpdb.io/settings');
         localizeSettingsForm(decklessForm, 'en');
-        expect(optionText(decklessForm, 'wordHighlightColorSource', 'jpdb')).toBe('Deck status');
-        expect(optionText(decklessForm, 'wordTextColorSource', 'status')).toBe('Deck status');
+        expect(optionText(decklessForm, 'wordHighlightColorSource', 'jpdb')).toBe('Primary deck status');
+        expect(optionText(decklessForm, 'wordTextColorSource', 'status')).toBe('All study statuses');
+        expectDistinctStatusColorSourceLabels(decklessForm);
         expect(decklessForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(false);
     });
 

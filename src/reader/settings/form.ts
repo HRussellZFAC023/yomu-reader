@@ -9,7 +9,7 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
+import { AUDIO_GUIDE_URL, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -314,18 +314,14 @@ function ocrEngineOptions(text: SettingsText): [ReaderSettings['ocrEngine'], str
     ];
 }
 
-function colorSourceSelectOptions(text: SettingsText, statusSourceLabel: string): Array<[string, string, string?]> {
-    const sourceStatus = statusSourceLabel
-        ? text('colorSourceJpdb').replace('JPDB', statusSourceLabel)
-        : text('colorSourceDeck');
-    const combinedStatus = statusSourceLabel === 'Anki'
-        ? text('colorSourceAnki')
-        : statusSourceLabel
-            ? text('colorSourceStatus').replace('JPDB', statusSourceLabel)
-            : text('colorSourceDeck');
+function colorSourceSelectOptions(text: SettingsText): Array<[string, string, string?]> {
+    // These are saved policies, not a snapshot of the providers connected
+    // today: `status` follows every study source, `jpdb` the primary deck
+    // lane, and `anki` only Anki. Stable names stay truthful when a learner
+    // connects another provider later and prevent duplicate labels (#40).
     return [
-        ['status', combinedStatus],
-        ['jpdb', sourceStatus],
+        ['status', text('colorSourceStatus')],
+        ['jpdb', text('colorSourceJpdb')],
         ['anki', text('colorSourceAnki')],
         ['pitch', text('colorSourcePitch'), 'jp-only'],
         ['off', text('colorSourceNone')],
@@ -963,10 +959,9 @@ function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
     const text = settingsText(settings.interfaceLanguage);
-    // A20: the status channels are named after whichever deck actually feeds
-    // them. A keyless learner reviewing in Yomu's own deck was offered "JPDB
-    // status", a product they do not have.
-    const options = colorSourceSelectOptions(text, statusColorSourceLabel(settings));
+    // A20/#40: describe the saved colour policies, not whichever provider is
+    // connected today, so choices stay distinct as sources come and go.
+    const options = colorSourceSelectOptions(text);
     const noSourceHidden = hasStatusColorSource(settings) ? ' hidden' : '';
     return `
                 <div class="jpdb-reader-settings-subsection">
@@ -1803,14 +1798,6 @@ function apiCredentialSettingsFromForm(form: HTMLFormElement): Pick<ReaderSettin
     };
 }
 
-function statusColorSourceLabelFromForm(form: HTMLFormElement): string {
-    return statusColorSourceLabel({
-        ...apiCredentialSettingsFromForm(form),
-        ankiEnabled: getNamedControl<HTMLInputElement>(form, 'ankiEnabled')?.checked ?? false,
-        yomuLocalSrsEnabled: getNamedControl<HTMLInputElement>(form, 'yomuLocalSrsEnabled')?.checked ?? false,
-    });
-}
-
 function localizeSettingsLabels(form: HTMLFormElement, text: SettingsText): void {
     SETTINGS_CONTROL_LABELS.forEach(([name, key]) => setControlLabel(form, name, text(key)));
     const jpdbSettings = form.querySelector<HTMLAnchorElement>('label a[href*="jpdb.io/settings"]');
@@ -1919,7 +1906,7 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
 }
 
 function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): void {
-    const options = colorSourceSelectOptions(text, statusColorSourceLabelFromForm(form));
+    const options = colorSourceSelectOptions(text);
     COLOR_CHANNEL_FIELDS.forEach(([name]) => setSelectOptionLabels(form, name, options));
 }
 
