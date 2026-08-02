@@ -294563,7 +294563,15 @@ ${entry2.reading}`;
             const entries2 = await this.getTermLookupEntries(
               db,
               expressionVariants,
-              readingVariants.filter((item2) => !expressionVariants.includes(item2)),
+              // Expression and reading are separate indexes. A
+              // kana-only parser card can legitimately pass the
+              // same value for both (for example, やさしい /
+              // やさしい) while JMdict stores that value only as
+              // the reading of a kanji headword such as 易しい.
+              // Deduplicating by value here skipped the reading
+              // index entirely and made the installed dictionary
+              // disappear from exact-pointer OCR lookups.
+              readingVariants,
               Math.max(limit * 40, 500),
               Math.max(limit * 20, 250)
             );

@@ -52,6 +52,44 @@ describe('Yomitan ZIP import performance path', () => {
         expect(progress).toContain('Importing Multi Bank JMdict: terms 6 entries saved...');
     });
 
+    it('uses the reading index when a kana-only card repeats its spelling as its reading', async () => {
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Kana Card JMdict', format: 3 },
+            'term_bank_1.json': [
+                ['易しい', 'やさしい', '', 'adj-i', 10, ['easy; plain; simple'], 1, ''],
+            ],
+        })], 'kana-card-jmdict.zip', { type: 'application/zip' }));
+
+        await expect(store.lookup('やさしい', 'やさしい', 5)).resolves.toMatchObject([{
+            dictionary: 'Kana Card JMdict',
+            expression: '易しい',
+            reading: 'やさしい',
+            glossary: ['easy; plain; simple'],
+        }]);
+    });
+
+    it('deduplicates overlapping index hits and keeps an exact spelling ahead of reading aliases', async () => {
+        const store = createStore();
+        await store.clear();
+        await store.importFile(new File([yomitanZipBlob({
+            'index.json': { title: 'Overlapping Index JMdict', format: 3 },
+            'term_bank_1.json': [
+                ['やさしい', 'やさしい', '', 'adj-i', 1, ['easy in kana'], 1, ''],
+                ['易しい', 'やさしい', '', 'adj-i', 10, ['easy with kanji'], 2, ''],
+            ],
+        })], 'overlapping-index-jmdict.zip', { type: 'application/zip' }));
+
+        const entries = await store.lookup('やさしい', 'やさしい', 5);
+        expect(entries.map(entry => entry.expression)).toEqual(['やさしい', '易しい']);
+        expect(new Set(entries.map(entry => `${entry.dictionary}\n${entry.sequence}`)).size).toBe(entries.length);
+        await expect(store.lookup('やさしい', 'やさしい', 1)).resolves.toMatchObject([{
+            expression: 'やさしい',
+            reading: 'やさしい',
+        }]);
+    });
+
     it('imports and retrieves supplementary-plane kanji without splitting the character', async () => {
         const store = createStore();
         await store.clear();

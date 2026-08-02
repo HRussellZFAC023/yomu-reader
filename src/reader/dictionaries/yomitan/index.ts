@@ -302,7 +302,7 @@ export class YomitanDictionaryStore {
                     const entries = await this.getTermLookupEntries(
                         db,
                         expressionVariants,
-                        readingVariants.filter(item => !expressionVariants.includes(item)),
+                        readingVariants, // Distinct index: equal kana keys still need reading-only headwords.
                         Math.max(limit * 40, 500),
                         Math.max(limit * 20, 250),
                     );

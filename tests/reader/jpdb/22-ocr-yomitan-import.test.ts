@@ -363,7 +363,9 @@ describe('reader helpers', () => {
                 store.lookup('猫', '猫', 5),
             ]);
             expect(first).toEqual(second);
-            expect(getAllSpy).toHaveBeenCalledTimes(1);
+            // One shared lookup reads both the expression and reading indexes;
+            // the second concurrent call reuses that same in-flight result.
+            expect(getAllSpy).toHaveBeenCalledTimes(2);
 
             const primaryOnly = await store.lookup('猫', '猫', 5, [
                 { name: 'Primary', alias: 'Primary', enabled: true, priority: 0 },
