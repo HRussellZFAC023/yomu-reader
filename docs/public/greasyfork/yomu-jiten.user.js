@@ -7759,10 +7759,9 @@ const COPY = {
   subtitleHighlightColorSource: "Subtitle highlight color",
   subtitleUnderlineColorSource: "Subtitle underline color",
   subtitleTextColorSource: "Subtitle text color",
-  colorSourceStatus: "JPDB + Anki status",
-  colorSourceJpdb: "JPDB status",
+  colorSourceStatus: "All study statuses",
+  colorSourceJpdb: "Primary deck status",
   colorSourceAnki: "Anki status",
-  colorSourceDeck: "Deck status",
   colorSourcePitch: "Pitch accent",
   colorSourceNone: "None",
   popupLookup: "Popup lookup",
@@ -9451,10 +9450,9 @@ wordTextColorSource	単語テキストの色
 subtitleHighlightColorSource	字幕ハイライトの色
 subtitleUnderlineColorSource	字幕下線の色
 subtitleTextColorSource	字幕テキストの色
-colorSourceStatus	JPDB + Ankiの状態
-colorSourceJpdb	JPDBの状態
-colorSourceAnki	Ankiの状態
-colorSourceDeck	デッキの学習状態
+colorSourceStatus	すべての学習状態
+colorSourceJpdb	メインデッキの学習状態
+colorSourceAnki	Ankiの学習状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
 popupLookup	ポップアップ検索

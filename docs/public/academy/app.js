@@ -39452,10 +39452,9 @@ ${spelling}`);
       subtitleHighlightColorSource: "Subtitle highlight color",
       subtitleUnderlineColorSource: "Subtitle underline color",
       subtitleTextColorSource: "Subtitle text color",
-      colorSourceStatus: "JPDB + Anki status",
-      colorSourceJpdb: "JPDB status",
+      colorSourceStatus: "All study statuses",
+      colorSourceJpdb: "Primary deck status",
       colorSourceAnki: "Anki status",
-      colorSourceDeck: "Deck status",
       colorSourcePitch: "Pitch accent",
       colorSourceNone: "None",
       popupLookup: "Popup lookup",
@@ -41163,10 +41162,9 @@ wordTextColorSource	単語テキストの色
 subtitleHighlightColorSource	字幕ハイライトの色
 subtitleUnderlineColorSource	字幕下線の色
 subtitleTextColorSource	字幕テキストの色
-colorSourceStatus	JPDB + Ankiの状態
-colorSourceJpdb	JPDBの状態
-colorSourceAnki	Ankiの状態
-colorSourceDeck	デッキの学習状態
+colorSourceStatus	すべての学習状態
+colorSourceJpdb	メインデッキの学習状態
+colorSourceAnki	Ankiの学習状態
 colorSourcePitch	ピッチアクセント
 colorSourceNone	なし
 popupLookup	ポップアップ検索
@@ -45063,15 +45061,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function hasStatusColorSource(settings) {
     return effectiveAvailableStatusSource(settings, true) !== "off";
-  }
-  function statusColorSourceLabel(settings) {
-    if (hasJpdbStatusSource(settings)) return combinedApiCredentialLabel(apiCredentials(settings));
-    if (hasLocalSrsStatusSource(settings)) return ACADEMY_SRS_LABEL;
-    if (hasAnkiStatusSource(settings)) return "Anki";
-    return "";
-  }
-  function apiCredentials(settings) {
-    return { apiKey: settings.apiKey ?? "", jitenApiKey: settings.jitenApiKey ?? "" };
   }
   function hasJpdbStatusSource(settings) {
     const credentials = {
@@ -363808,9 +363797,13 @@ ${options.version}`;
       bunpro: hasSourceRow(has, "bunproDefinitions"),
       wanikani: hasSourceRow(has, "wanikaniDefinitions")
     };
-    const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
+    const dictionaryLookupLinks = readTargetAwareDictionaryLookupLinks(data, current);
+    const dictionaryPreferences = reorderLocalFrequencyDictionaryPreferences(
+      readDictionaryPreferences(data, current.dictionaryPreferences, reader),
+      dictionaryLookupLinks
+    );
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
-    const apiCredentials2 = readApiCredentialsFromFormData(data);
+    const apiCredentials = readApiCredentialsFromFormData(data);
     const interfaceLanguage = readOption(
       get("interfaceLanguage"),
       SELECTABLE_INTERFACE_LANGUAGES,
@@ -363818,11 +363811,11 @@ ${options.version}`;
     );
     const settings = {
       ...current,
-      ...apiCredentials2,
+      ...apiCredentials,
       // The deprecated key is no longer shown because Bunpro's full Yomu
       // integration uses only the frontend token. Preserve an older saved
       // value so opening Settings does not silently destroy user data.
-      bunproApiKey: apiCredentials2.bunproApiKey || current.bunproApiKey,
+      bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
       interfaceLanguage,
       ...readLanguageProfileFormSettings(
         data,
@@ -363841,7 +363834,7 @@ ${options.version}`;
       ...readOcrFormSettings(reader, current),
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
-      dictionaryLookupLinks: readTargetAwareDictionaryLookupLinks(data, current),
+      dictionaryLookupLinks,
       ...readSubtitleFormSettings(reader, current),
       ...readYoutubeFormSettings(reader, current),
       ...readAnkiFormSettings(reader, current),
@@ -364402,6 +364395,18 @@ ${options.version}`;
       priority: reader.number(`dictionaryPreferences.${index}.priority`, index),
       type: readDictionaryType(get(`dictionaryPreferences.${index}.type`))
     })).filter((item2) => item2.name).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+  }
+  function reorderLocalFrequencyDictionaryPreferences(preferences, lookupLinks) {
+    const localFrequencyPrefix = "frequency-local:";
+    const preferenceByName = new Map(preferences.filter((preference) => preference.type === "frequency").map((preference) => [preference.name, preference]));
+    const ordered = lookupLinks.filter((link) => link.action === "frequency-local" && link.id.startsWith(localFrequencyPrefix)).map((link) => preferenceByName.get(link.id.slice(localFrequencyPrefix.length))).filter((preference) => preference !== void 0);
+    if (ordered.length < 2) return preferences;
+    const orderedNames = new Set(ordered.map((preference) => preference.name));
+    let next = 0;
+    return preferences.map((slot) => {
+      if (slot.type !== "frequency" || !orderedNames.has(slot.name)) return slot;
+      return { ...ordered[next++], priority: slot.priority };
+    });
   }
   function readDictionaryType(value) {
     return value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata" ? value : "terms";
@@ -365232,10 +365237,14 @@ ${options.version}`;
   function updateDictionaryLookupLinkEditor(form2, action2, control2) {
     const container = form2.querySelector(".jpdb-reader-lookup-links");
     if (!container) return;
-    const data = new FormData(form2);
-    const links = readDictionaryLookupLinks(data);
     const row2 = control2?.closest("[data-lookup-link-row]");
     const index = row2 ? Array.from(container.querySelectorAll("[data-lookup-link-row]")).indexOf(row2) : -1;
+    if (action2 === "lookup-link-up" || action2 === "lookup-link-down") {
+      moveSourceRow(container, index, action2 === "lookup-link-up" ? index - 1 : index + 1);
+      return;
+    }
+    const data = new FormData(form2);
+    const links = readDictionaryLookupLinks(data);
     updateDictionaryLookupLinks(links, action2, index);
     setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
   }
@@ -365245,8 +365254,6 @@ ${options.version}`;
   function updateDictionaryLookupLinks(links, action2, index) {
     if (action2 === "lookup-link-add") addDictionaryLookupLink(links);
     if (action2 === "lookup-link-remove") removeDictionaryLookupLink(links, index);
-    if (action2 === "lookup-link-up") moveDictionaryLookupLink(links, index, index - 1);
-    if (action2 === "lookup-link-down") moveDictionaryLookupLink(links, index, index + 1);
   }
   function addDictionaryLookupLink(links) {
     if (links.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
@@ -365259,11 +365266,6 @@ ${options.version}`;
   }
   function removeDictionaryLookupLink(links, index) {
     if (index >= 0 && links.length > 1 && links[index]?.action !== "copy") links.splice(index, 1);
-  }
-  function moveDictionaryLookupLink(links, from, to) {
-    if (from < 0 || to < 0 || from >= links.length || to >= links.length) return;
-    const [link] = links.splice(from, 1);
-    links.splice(to, 0, link);
   }
   const JAPANESE_SANS_FONT_FAMILY = '"Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif';
   const HIRAGINO_YU_GOTHIC_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif';
@@ -366537,12 +366539,10 @@ ${options.version}`;
       ["AppleVision", text2("ocrEngineAppleVision")]
     ];
   }
-  function colorSourceSelectOptions(text2, statusSourceLabel) {
-    const sourceStatus = statusSourceLabel ? text2("colorSourceJpdb").replace("JPDB", statusSourceLabel) : text2("colorSourceDeck");
-    const combinedStatus2 = statusSourceLabel === "Anki" ? text2("colorSourceAnki") : statusSourceLabel ? text2("colorSourceStatus").replace("JPDB", statusSourceLabel) : text2("colorSourceDeck");
+  function colorSourceSelectOptions(text2) {
     return [
-      ["status", combinedStatus2],
-      ["jpdb", sourceStatus],
+      ["status", text2("colorSourceStatus")],
+      ["jpdb", text2("colorSourceJpdb")],
       ["anki", text2("colorSourceAnki")],
       ["pitch", text2("colorSourcePitch"), "jp-only"],
       ["off", text2("colorSourceNone")]
@@ -367087,7 +367087,7 @@ ${options.version}`;
   }
   function renderColorChannelSettingsSubsection(settings) {
     const text2 = settingsText(settings.interfaceLanguage);
-    const options = colorSourceSelectOptions(text2, statusColorSourceLabel(settings));
+    const options = colorSourceSelectOptions(text2);
     const noSourceHidden = hasStatusColorSource(settings) ? " hidden" : "";
     return `
                 <div class="jpdb-reader-settings-subsection">
@@ -367872,13 +367872,6 @@ ${options.version}`;
       jitenApiKey: getNamedControl(form2, "jitenApiKey")?.value ?? ""
     };
   }
-  function statusColorSourceLabelFromForm(form2) {
-    return statusColorSourceLabel({
-      ...apiCredentialSettingsFromForm(form2),
-      ankiEnabled: getNamedControl(form2, "ankiEnabled")?.checked ?? false,
-      yomuLocalSrsEnabled: getNamedControl(form2, "yomuLocalSrsEnabled")?.checked ?? false
-    });
-  }
   function localizeSettingsLabels(form2, text2) {
     SETTINGS_CONTROL_LABELS.forEach(([name, key2]) => setControlLabel(form2, name, text2(key2)));
     const jpdbSettings = form2.querySelector('label a[href*="jpdb.io/settings"]');
@@ -367965,7 +367958,7 @@ ${options.version}`;
     setSelectOptionLabels(form2, "furiganaMode", localizedOptions(text2, FURIGANA_MODE_OPTIONS));
   }
   function localizeColorSourceSelects(form2, text2) {
-    const options = colorSourceSelectOptions(text2, statusColorSourceLabelFromForm(form2));
+    const options = colorSourceSelectOptions(text2);
     COLOR_CHANNEL_FIELDS.forEach(([name]) => setSelectOptionLabels(form2, name, options));
   }
   function localizeMediaSettingsSelects(form2, text2) {
