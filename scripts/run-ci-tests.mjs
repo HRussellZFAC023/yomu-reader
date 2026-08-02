@@ -20,6 +20,25 @@ const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 // eight in the equivalent isolated pass until repeated isolate:false runs prove
 // a narrower boundary.
 const ISOLATED_PASS_FILES = [
+    // MEASURED 2026-08-02: these two expand the 2.6 MB published dictionary
+    // catalogue into JS objects and peak at 1,676 MB and 1,032 MB resident ON
+    // THEIR OWN, against a 2,304 MB --max-old-space-size cap. They are here to
+    // keep the two largest allocations out of a fork that other files also share.
+    //
+    // This REDUCES the pressure; it does not remove it. The reusable pass runs
+    // isolate:false, so a fork accumulates heap across every file it handles, and
+    // after moving these two out a later run lost a different pair
+    // (appearance-preview, cloud-settings-sync) to the same abort. Whichever files
+    // happen to be executing when a fork crosses the cap are the casualties, so
+    // quarantining the current victims is chasing the symptom. The real fix is to
+    // bound per-fork accumulation, and it needs a measurement nobody has taken
+    // yet. Do not raise the heap cap instead: that hides the next pair.
+    //
+    // What IS handled: the gate can no longer report this as a failing test.
+    // scripts/run-ci-suite.mjs detects a dead worker and says so, and names the
+    // files that never ran.
+    join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),
+    join(ROOT, 'tests/reader/catalog-browse-search-and-locale.test.ts'),
     // Selects the active learning target through mocked modules, so it must not
     // share a host with the reader pass that reads the real registry.
     join(ROOT, 'tests/reader/languages/learning-target-selection.test.ts'),

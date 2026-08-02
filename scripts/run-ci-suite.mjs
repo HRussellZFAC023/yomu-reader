@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runtimeDeathReason } from './lib/check-log-guard.mjs';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -27,6 +28,13 @@ const TEST_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_TEST_TIMEOUT_MS ?? '
 // the race and we never mask which shard hung.
 const SUITE_CHILD_TIMEOUT_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_TIMEOUT_MS ?? String(TEST_TIMEOUT_MS + 90000), 'YOMU_CI_SUITE_CHILD_TIMEOUT_MS');
 const SUITE_CHILD_KILL_GRACE_MS = readPositiveInt(process.env.YOMU_CI_SUITE_CHILD_KILL_GRACE_MS ?? '5000', 'YOMU_CI_SUITE_CHILD_KILL_GRACE_MS');
+// Written through unchanged; retained only far enough back to still contain the
+// abort message, which V8 prints immediately before the process dies. Declared
+// up here with the other constants because teeShardOutput runs on the child's
+// FIRST chunk: a `const` further down the file is still in its temporal dead
+// zone at that point, and reading it threw ReferenceError — which crashed the
+// runner on exactly the path that was supposed to explain the crash.
+const SHARD_TAIL_BYTES = 64 * 1024;
 const targetedVitestArgs = process.argv.slice(2);
 
 if (targetedVitestArgs.length) {
@@ -49,20 +57,48 @@ if (process.env.YOMU_CI_SHARDED === '1') {
         ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
     ]);
 } else {
-    runAllInOneProcess();
+    await runAllInOneProcess();
 }
 
-function runAllInOneProcess() {
-    const result = spawnSync(process.execPath, [
+async function runAllInOneProcess() {
+    const { status, deathReason } = await runTeedChild([
         join(ROOT, 'scripts/run-ci-tests.mjs'),
         '--kind', 'all',
         ...ciTestVitestApiArgs(VITEST_API_BASE_PORT),
-    ], {
-        cwd: ROOT,
-        stdio: 'inherit',
-        env: process.env,
+    ], 'the reader suite');
+    if (status !== 0) process.exit(status ?? 1);
+    if (deathReason) process.exit(1);
+}
+
+/**
+ * Spawn a child with its output written straight through AND readable here.
+ *
+ * `stdio: 'inherit'` is invisible to this process, which is why a dead worker
+ * could look exactly like a failing test: the only evidence is in the child's
+ * own output. Piping and echoing costs nothing at this volume and lets
+ * reportRuntimeDeath say what actually happened.
+ */
+function runTeedChild(args, label) {
+    return new Promise(resolve => {
+        const child = spawn(process.execPath, args, {
+            cwd: ROOT,
+            stdio: ['inherit', 'pipe', 'pipe'],
+            env: process.env,
+        });
+        const context = { label, deathReason: null };
+        teeShardOutput(child, context);
+        child.on('error', error => {
+            console.error(error);
+            resolve({ status: 1, deathReason: context.deathReason });
+        });
+        child.on('exit', (code, signal) => {
+            // A SIGKILL'd child reports code null; the OS killed it, which is
+            // itself a runtime death rather than a test result.
+            if (!context.deathReason && signal) context.deathReason = `a worker was killed by signal ${signal}`;
+            if (context.deathReason) reportRuntimeDeath(context);
+            resolve({ status: code ?? 1, deathReason: context.deathReason });
+        });
     });
-    if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 function runShard(kind, shard, total, extraArgs = []) {
@@ -163,10 +199,17 @@ async function runParallelShards(kind, total, concurrency, extraArgsForShard = (
             ...extraArgsForShard(shard),
         ], {
             cwd: ROOT,
-            stdio: 'inherit',
+            // Piped rather than inherited so the runner can READ what the shard
+            // printed. A fork that dies of heap exhaustion produces an
+            // all-passing summary and exit 1, which is indistinguishable from a
+            // real test failure unless someone scans the output — see
+            // runtimeDeathReason below. Everything is written straight through,
+            // so the console is unchanged.
+            stdio: ['inherit', 'pipe', 'pipe'],
             env: process.env,
         });
-        const context = { label, startedAt, timeout: undefined, killTimer: undefined, timedOut: false, stoppingAfterFailure: false };
+        const context = { label, startedAt, timeout: undefined, killTimer: undefined, timedOut: false, stoppingAfterFailure: false, deathReason: null };
+        teeShardOutput(child, context);
         context.timeout = setTimeout(() => {
             context.timedOut = true;
             console.error(`[ci-suite] ${label} exceeded ${formatDuration(SUITE_CHILD_TIMEOUT_MS)}; terminating.`);
@@ -215,6 +258,33 @@ function shardExitStatus(code, context) {
 function logShardExit(code, context, status) {
     const suffix = context.timedOut ? 'timed out' : code === 0 ? 'passed' : `failed with exit ${status}`;
     console.log(`[ci-suite] Finished ${context.label} in ${formatDuration(Date.now() - context.startedAt)} (${suffix}).`);
+    if (code !== 0 && context.deathReason) reportRuntimeDeath(context);
+}
+
+// A worker that dies takes its files' results with it. Reported here rather than
+// left to the reader of a summary that looks green.
+function reportRuntimeDeath(context) {
+    console.error('');
+    console.error(`[ci-suite] ${context.label} DID NOT FINISH: ${context.deathReason}.`);
+    console.error('[ci-suite] This is NOT a test failure — some files never ran, so the pass count');
+    console.error('[ci-suite] above is smaller than the suite and proves nothing about them.');
+    console.error('[ci-suite] Compare "Test Files N passed (M)": any M > N are the files that died.');
+    console.error('[ci-suite] Re-run those files alone. If they pass, the fix belongs in');
+    console.error('[ci-suite] ISOLATED_PASS_FILES (scripts/run-ci-tests.mjs), not in the tests.');
+    console.error('');
+}
+
+function teeShardOutput(child, context) {
+    let tail = '';
+    const consume = (chunk, sink) => {
+        const text = String(chunk);
+        sink.write(text);
+        if (context.deathReason) return;
+        tail = (tail + text).slice(-SHARD_TAIL_BYTES);
+        context.deathReason = runtimeDeathReason(tail);
+    };
+    child.stdout?.on('data', chunk => consume(chunk, process.stdout));
+    child.stderr?.on('data', chunk => consume(chunk, process.stderr));
 }
 
 function shardFailureStatus(status, failureStatus, active, child) {
