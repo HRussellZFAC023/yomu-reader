@@ -3,6 +3,7 @@ import { isTargetLanguageText } from '../lookup/target-text';
 import { clearProjectedReadingsWithin } from './detached-reading-overlay';
 import { coordinateInRange, hasPositiveRectArea } from './rect';
 import { JAPANESE_SENTENCE_PUNCTUATION, KANA, KANJI_LIKE_WITH_COUNTERS } from '../lookup/japanese-script';
+import { activeLearningTarget } from '../languages/target-runtime';
 
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -362,15 +363,20 @@ function hardBoundedSentenceRange(text: string, start: number, end: number): { t
 }
 
 function sentenceStartIndex(text: string, index: number): number {
+    // Which characters end a sentence is the TARGET's fact, not a constant: the
+    // old CJK-only class had no full stop, so Latin sentences never split at
+    // their real end and mined cards ran to the node edge (A50).
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
     for (let i = index - 1; i >= 0; i--) {
-        if (/[。！？!?]/u.test(text[i] ?? '')) return i + 1;
+        if (terminators.has(text[i] ?? '')) return i + 1;
     }
     return 0;
 }
 
 function sentenceEndIndex(text: string, index: number): number {
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
     for (let i = index; i < text.length; i++) {
-        if (/[。！？!?]/u.test(text[i] ?? '')) return i + 1;
+        if (terminators.has(text[i] ?? '')) return i + 1;
     }
     return text.length;
 }
@@ -402,7 +408,7 @@ function trimSoftSentenceBoundaryAroundRange(sentence: string, start: number, en
 
 function shouldUseSoftSentenceTrim(clean: string, trimmed: string, omitted: string): boolean {
     if (!trimmed || trimmed === clean) return false;
-    return clean.length > 48 || /[。！？!?]/u.test(omitted);
+    return clean.length > 48 || activeLearningTarget().sentenceBoundaries.terminators.some(mark => omitted.includes(mark));
 }
 
 function softBoundaryStart(text: string, index: number): number {
@@ -420,6 +426,11 @@ function softBoundaryEnd(text: string, index: number): number {
 }
 
 function isStrongWhitespaceBoundary(text: string, index: number): boolean {
+    // Japanese does not space its words, so a space inside target text really is
+    // a break there. In a space-separated language EVERY inter-word gap matched,
+    // clipping mined sentences to one or two words (A50). The target says which
+    // rule applies.
+    if (!activeLearningTarget().sentenceBoundaries.whitespaceIsBoundary) return false;
     const char = text[index] ?? '';
     if (!/\s/u.test(char)) return false;
     const before = text.slice(Math.max(0, index - 24), index);

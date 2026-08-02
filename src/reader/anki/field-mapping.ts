@@ -1,5 +1,7 @@
 import type { AnkiFieldMapping, AnkiFieldMappings, JPDBCard, ReaderSettings } from '../app/types';
 import { unique } from '../core/array-utils';
+import { activeLearningTarget } from '../languages/target-runtime';
+import { LEARNING_TARGET_ROSTER } from '../languages/roster';
 import {
     ANKI_FIELD_ROLES,
     type AnkiFieldContentSample,
@@ -83,6 +85,7 @@ export function scanAnkiModelFields(modelName: string, fields: string[], sampleN
     const usedFields = new Set<string>();
     const samples = ankiFieldContentSamples(fields, sampleNotes);
     const suggestions = (Object.keys(ANKI_FIELD_ROLE_CANDIDATES) as AnkiFieldRole[])
+        .filter(role => role !== 'reading' || activeLearningTarget().featureSemantics.readingAnnotation !== 'none')
         .map(role => {
             const suggestion = suggestAnkiField(role, fields, usedFields, samples);
             if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
@@ -102,13 +105,27 @@ function suggestAnkiField(
     usedFields: Set<string>,
     samples: AnkiFieldContentSamples = {},
 ): AnkiFieldSuggestion {
-    const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
+    const candidates = ankiFieldRoleCandidates(role);
     const availableFields = fields.filter(field => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
     const exact = firstMatchingAnkiField(availableFields, candidates);
     const content = suggestAnkiFieldFromContent(role, availableFields, samples);
     const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
     const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
     return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
+}
+
+function ankiFieldRoleCandidates(role: AnkiFieldRole): string[] {
+    if (role !== 'expression') return ANKI_FIELD_ROLE_CANDIDATES[role];
+    const language = activeLearningTarget().language.split('-')[0];
+    const roster = LEARNING_TARGET_ROSTER.find(entry => entry.id === language);
+    if (!roster) return ANKI_FIELD_ROLE_CANDIDATES.expression;
+    return unique([
+        roster.englishName,
+        roster.nativeName,
+        `${roster.englishName} Word`,
+        `${roster.nativeName} Word`,
+        ...ANKI_FIELD_ROLE_CANDIDATES.expression,
+    ]);
 }
 
 function bestAnkiFieldSuggestion(
@@ -342,12 +359,16 @@ interface AnkiTextRoleMetrics {
     kanaLength: number;
     hasLatin: boolean;
     sentenceLike: boolean;
+    targetText: boolean;
 }
 
 type AnkiTextRole = Extract<AnkiFieldRole, 'expression' | 'reading' | 'meaning' | 'sentence'>;
 
 const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics) => number> = {
-    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
+    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike, targetText }) {
+        if (activeLearningTarget().language.split('-')[0] !== 'ja') {
+            return targetText && !sentenceLike && length <= 40 ? 64 + Math.max(0, 12 - Math.floor(length / 2)) : 0;
+        }
         if (!hasJapanese || sentenceLike || length > 40) return 0;
         return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
     },
@@ -356,12 +377,19 @@ const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics
         const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
         return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
     },
-    meaning({ length, hasJapanese, hasLatin }) {
+    meaning({ length, hasJapanese, hasLatin, targetText }) {
+        if (activeLearningTarget().language.split('-')[0] !== 'ja') {
+            if (targetText) return 0;
+            return hasLatin ? 54 + (length > 8 ? 6 : 0) : length >= 2 ? 24 : 0;
+        }
         if (hasJapanese) return 0;
         if (hasLatin) return 54 + (length > 8 ? 6 : 0);
         return length >= 2 ? 24 : 0;
     },
-    sentence({ length, hasJapanese, sentenceLike }) {
+    sentence({ length, hasJapanese, sentenceLike, targetText }) {
+        if (activeLearningTarget().language.split('-')[0] !== 'ja') {
+            return targetText && sentenceLike ? 65 + (length > 20 ? 8 : 0) : 0;
+        }
         if (!hasJapanese) return 0;
         if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
         return length >= 14 ? 42 : 0;
@@ -386,6 +414,7 @@ function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldC
         kanaLength: kanaCharacterCount(text),
         hasLatin: /[A-Za-z]/.test(text),
         sentenceLike: japaneseSentenceLike(text),
+        targetText: activeLearningTarget().isLookupableText(text),
     });
 }
 
@@ -426,6 +455,11 @@ function kanaCharacterCount(value: string): number {
 }
 
 function japaneseSentenceLike(value: string): boolean {
+    if (activeLearningTarget().language.split('-')[0] !== 'ja') {
+        const target = activeLearningTarget();
+        return target.sentenceBoundaries.terminators.some(mark => value.includes(mark))
+            || (value.length >= 24 && /\s/u.test(value));
+    }
     const japaneseLength = japaneseCharacterCount(value);
     return /[。！？!?]/u.test(value)
         || japaneseLength >= 12

@@ -30976,6 +30976,10 @@ ${candidate2.depth}`;
         languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
       }),
       grammar,
+      sentenceBoundaries: Object.freeze({
+        terminators: Object.freeze([...spec.sentenceBoundaries?.terminators ?? [".", "!", "?"]]),
+        whitespaceIsBoundary: spec.sentenceBoundaries?.whitespaceIsBoundary ?? false
+      }),
       lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
       ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
       ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
@@ -33314,6 +33318,7 @@ ${candidate2.depth}`;
           readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
         },
         grammar: grammarForRosterTarget(language2.id),
+        sentenceBoundaries: sentenceBoundariesForScripts(language2.scripts),
         typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
         ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
@@ -33330,6 +33335,12 @@ ${candidate2.depth}`;
       });
     })
   );
+  function sentenceBoundariesForScripts(scripts) {
+    const has = (script) => scripts.includes(script);
+    const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+    const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+    return { terminators, whitespaceIsBoundary };
+  }
   function ocrHintFor(runtimeLocale) {
     const hint2 = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
     return hint2 ? { languageHint: hint2 } : void 0;
@@ -33947,6 +33958,10 @@ ${spelling}`);
       readingAnnotation: "furigana"
     },
     grammar: JAPANESE_GRAMMAR,
+    sentenceBoundaries: {
+      terminators: ["。", "！", "？", "!", "?"],
+      whitespaceIsBoundary: true
+    },
     typography: {
       contentLocale: "ja",
       readingAnnotationMode: "ruby",
@@ -37224,7 +37239,6 @@ ${spelling}`);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   function unwrapReaderWords(root = document, options = {}) {
     const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
-    const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
     const parents = /* @__PURE__ */ new Set();
     words.forEach(clearProjectedReadingsWithin);
     for (const word of words) {
@@ -37232,13 +37246,6 @@ ${spelling}`);
       if (!parent) continue;
       parents.add(parent);
       word.replaceWith(document.createTextNode(readerWordSurfaceText$1(word)));
-    }
-    for (const bind of numberBinds) {
-      if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
-      const parent = bind.parentNode;
-      if (!parent) continue;
-      parents.add(parent);
-      bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
     }
     parents.forEach((parent) => parent.normalize());
     return words.length;
@@ -37343,14 +37350,16 @@ ${spelling}`);
     };
   }
   function sentenceStartIndex(text2, index) {
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
     for (let i2 = index - 1; i2 >= 0; i2--) {
-      if (/[。！？!?]/u.test(text2[i2] ?? "")) return i2 + 1;
+      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
     }
     return 0;
   }
   function sentenceEndIndex(text2, index) {
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
     for (let i2 = index; i2 < text2.length; i2++) {
-      if (/[。！？!?]/u.test(text2[i2] ?? "")) return i2 + 1;
+      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
     }
     return text2.length;
   }
@@ -37379,7 +37388,7 @@ ${spelling}`);
   }
   function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
     if (!trimmed || trimmed === clean) return false;
-    return clean.length > 48 || /[。！？!?]/u.test(omitted);
+    return clean.length > 48 || activeLearningTarget().sentenceBoundaries.terminators.some((mark) => omitted.includes(mark));
   }
   function softBoundaryStart(text2, index) {
     for (let i2 = index - 1; i2 >= 0; i2--) {
@@ -37394,6 +37403,7 @@ ${spelling}`);
     return text2.length;
   }
   function isStrongWhitespaceBoundary(text2, index) {
+    if (!activeLearningTarget().sentenceBoundaries.whitespaceIsBoundary) return false;
     const char = text2[index] ?? "";
     if (!/\s/u.test(char)) return false;
     const before = text2.slice(Math.max(0, index - 24), index);
@@ -37665,6 +37675,77 @@ ${spelling}`);
   function unique$f(items) {
     return [...new Set(items)];
   }
+  const SLICE1_TARGET_LANGUAGE = "ja";
+  const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
+  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    scripts: Object.freeze(["Jpan"]),
+    direction: "ltr",
+    studyTargetReadiness: "full"
+  });
+  const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+  const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
+  const LEARNING_TARGET_ROSTER = Object.freeze([
+    JAPANESE_TARGET_ROSTER_ENTRY,
+    ...LEARNER_LANGUAGES.map((language2) => Object.freeze({
+      ...language2,
+      studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
+    }))
+  ]);
+  function learningTargetRosterEntry(id2) {
+    const target2 = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id2);
+    if (!target2) throw new Error(`Unknown learning target: ${id2}`);
+    return target2;
+  }
+  Object.freeze(
+    LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
+  );
+  function canonicalTagForSlice1Language(id2) {
+    const runtimeLocale = learnerLanguageById(id2).runtimeLocale;
+    return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
+  }
+  function canonicalTagForLearningTarget(id2) {
+    return id2 === SLICE1_TARGET_LANGUAGE ? SLICE1_TARGET_LANGUAGE : canonicalTagForSlice1Language(id2);
+  }
+  function learningTargetRosterIdForTag(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
+    return slice1LanguageIdForTag(value);
+  }
+  function isLearningTargetRosterId(value) {
+    return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
+  }
+  function slice1LanguageIdForTag(value) {
+    if (typeof value !== "string") return null;
+    const input2 = value.trim().toLowerCase().replace(/_/g, "-");
+    const inputBase = input2.split("-")[0] ?? "";
+    if (isLearnerLanguageId(inputBase)) return inputBase;
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return null;
+    const base = languageSubtag(canonical);
+    if (!base) return null;
+    if (base === "sr" || base === "hr" || base === "bs") return "sh";
+    if (base === "fil") return "tl";
+    return isLearnerLanguageId(base) ? base : null;
+  }
+  function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
+    if (typeof value === "string") {
+      const input2 = value.trim().toLowerCase().replace(/_/g, "-");
+      if (isLearnerLanguageId(input2)) return canonicalTagForSlice1Language(input2);
+    }
+    const canonical = canonicalLanguageTag(value);
+    const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
+    if (canonical && canonicalId) {
+      if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
+      return canonical;
+    }
+    const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+    return canonicalTagForSlice1Language(fallbackId);
+  }
   const ankiFieldNames = (names) => names.split("|");
   const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
     "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -37849,77 +37930,6 @@ ${spelling}`);
   }
   function booleanValue(value, fallback) {
     return typeof value === "boolean" ? value : fallback;
-  }
-  const SLICE1_TARGET_LANGUAGE = "ja";
-  const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-    id: "ja",
-    runtimeLocale: "ja",
-    englishName: "Japanese",
-    nativeName: "日本語",
-    defaultScript: "Jpan",
-    scripts: Object.freeze(["Jpan"]),
-    direction: "ltr",
-    studyTargetReadiness: "full"
-  });
-  const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
-  const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
-  const LEARNING_TARGET_ROSTER = Object.freeze([
-    JAPANESE_TARGET_ROSTER_ENTRY,
-    ...LEARNER_LANGUAGES.map((language2) => Object.freeze({
-      ...language2,
-      studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language2.id) ? "reading-only" : "planned"
-    }))
-  ]);
-  function learningTargetRosterEntry(id2) {
-    const target2 = LEARNING_TARGET_ROSTER.find((language2) => language2.id === id2);
-    if (!target2) throw new Error(`Unknown learning target: ${id2}`);
-    return target2;
-  }
-  Object.freeze(
-    LEARNER_LANGUAGES.map((language2) => canonicalLanguageTag(language2.runtimeLocale) ?? language2.runtimeLocale)
-  );
-  function canonicalTagForSlice1Language(id2) {
-    const runtimeLocale = learnerLanguageById(id2).runtimeLocale;
-    return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-  }
-  function canonicalTagForLearningTarget(id2) {
-    return id2 === SLICE1_TARGET_LANGUAGE ? SLICE1_TARGET_LANGUAGE : canonicalTagForSlice1Language(id2);
-  }
-  function learningTargetRosterIdForTag(value) {
-    const canonical = canonicalLanguageTag(value);
-    if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
-    return slice1LanguageIdForTag(value);
-  }
-  function isLearningTargetRosterId(value) {
-    return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
-  }
-  function slice1LanguageIdForTag(value) {
-    if (typeof value !== "string") return null;
-    const input2 = value.trim().toLowerCase().replace(/_/g, "-");
-    const inputBase = input2.split("-")[0] ?? "";
-    if (isLearnerLanguageId(inputBase)) return inputBase;
-    const canonical = canonicalLanguageTag(value);
-    if (!canonical) return null;
-    const base = languageSubtag(canonical);
-    if (!base) return null;
-    if (base === "sr" || base === "hr" || base === "bs") return "sh";
-    if (base === "fil") return "tl";
-    return isLearnerLanguageId(base) ? base : null;
-  }
-  function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
-    if (typeof value === "string") {
-      const input2 = value.trim().toLowerCase().replace(/_/g, "-");
-      if (isLearnerLanguageId(input2)) return canonicalTagForSlice1Language(input2);
-    }
-    const canonical = canonicalLanguageTag(value);
-    const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
-    if (canonical && canonicalId) {
-      if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
-      return canonical;
-    }
-    const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-    return canonicalTagForSlice1Language(fallbackId);
   }
   const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
   const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;

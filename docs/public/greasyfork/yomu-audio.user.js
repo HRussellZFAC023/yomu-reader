@@ -7272,6 +7272,10 @@ function createLearningTargetModule(spec) {
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
   grammar,
+  sentenceBoundaries: Object.freeze({
+    terminators: Object.freeze([...spec.sentenceBoundaries?.terminators ?? [".", "!", "?"]]),
+    whitespaceIsBoundary: spec.sentenceBoundaries?.whitespaceIsBoundary ?? false
+  }),
   lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   ...spec.lookupSubsegments ? { lookupSubsegments: spec.lookupSubsegments } : {},
   ...spec.lookupRunSegments ? { lookupRunSegments: spec.lookupRunSegments } : {},
@@ -7823,6 +7827,10 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   readingAnnotation: "furigana"
   },
   grammar: JAPANESE_GRAMMAR,
+  sentenceBoundaries: {
+  terminators: ["。", "！", "？", "!", "?"],
+  whitespaceIsBoundary: true
+  },
   typography: {
   contentLocale: "ja",
   readingAnnotationMode: "ruby",
@@ -9079,6 +9087,7 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
       readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
     },
     grammar: grammarForRosterTarget(language.id),
+    sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
     typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language.runtimeLocale),
     detectsText: scriptDetector(language.scripts),
@@ -9095,6 +9104,12 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
   });
   })
 );
+function sentenceBoundariesForScripts(scripts) {
+  const has = (script) => scripts.includes(script);
+  const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+  const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+  return { terminators, whitespaceIsBoundary };
+}
 function ocrHintFor(runtimeLocale) {
   const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
   return hint ? { languageHint: hint } : void 0;

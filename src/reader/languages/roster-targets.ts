@@ -58,6 +58,7 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                         : 'none',
                 },
                 grammar: grammarForRosterTarget(language.id),
+                sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
                 typography: readingAnnotation ? { readingAnnotationMode: 'ruby' } : undefined,
                 ocr: ocrHintFor(language.runtimeLocale),
                 detectsText: scriptDetector(language.scripts),
@@ -74,6 +75,17 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
             });
         }),
 );
+
+function sentenceBoundariesForScripts(scripts: readonly string[]) {
+    const has = (script: string) => scripts.includes(script);
+    const terminators = has('Arab') ? ['.', '!', '?', '؟']
+        : has('Deva') ? ['.', '!', '?', '।']
+            : has('Grek') ? ['.', '!', '?', ';']
+                : has('Hans') || has('Hant') ? ['。', '！', '？', '!', '?']
+                    : ['.', '!', '?'];
+    const whitespaceIsBoundary = scripts.some(script => ['Hans', 'Hant', 'Thai', 'Laoo', 'Khmr', 'Mymr'].includes(script));
+    return { terminators, whitespaceIsBoundary };
+}
 
 function ocrHintFor(runtimeLocale: string): { languageHint: string } | undefined {
     const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split('-')[0]];
