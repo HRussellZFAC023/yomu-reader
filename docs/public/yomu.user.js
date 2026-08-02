@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.5ce053ff7837.user.js#sha256=XOBT/3g3Gx2RkFbMDgVFwZzri4FKX0l+elB0/+pUFIM=
+// @require https://yomureader.com/greasyfork/yomu-runtime.ec5dedecc117.user.js#sha256=7F3t7MEX9hsbl5e5qht5oz2E4NSS9sejH9org6ye2yc=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -4753,6 +4753,7 @@ const READABLE_IGNORED_TAGS = new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 function unwrapReaderWords(root = document, options = {}) {
   const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$3)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR$3)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
   const parents = new Set();
   words.forEach(clearProjectedReadingsWithin);
   for (const word of words) {
@@ -4760,6 +4761,13 @@ function unwrapReaderWords(root = document, options = {}) {
   if (!parent) continue;
   parents.add(parent);
   word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  }
+  for (const bind of numberBinds) {
+  if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+  const parent = bind.parentNode;
+  if (!parent) continue;
+  parents.add(parent);
+  bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
   }
   parents.forEach((parent) => parent.normalize());
   return words.length;

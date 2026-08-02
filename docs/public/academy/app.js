@@ -37239,6 +37239,7 @@ ${spelling}`);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   function unwrapReaderWords(root = document, options = {}) {
     const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+    const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
     const parents = /* @__PURE__ */ new Set();
     words.forEach(clearProjectedReadingsWithin);
     for (const word of words) {
@@ -37246,6 +37247,13 @@ ${spelling}`);
       if (!parent) continue;
       parents.add(parent);
       word.replaceWith(document.createTextNode(readerWordSurfaceText$1(word)));
+    }
+    for (const bind of numberBinds) {
+      if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+      const parent = bind.parentNode;
+      if (!parent) continue;
+      parents.add(parent);
+      bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
     }
     parents.forEach((parent) => parent.normalize());
     return words.length;
