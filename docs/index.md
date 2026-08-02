@@ -62,13 +62,15 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
      states the approach once, in four lines, and hands off to /learn/ for the long
      version. Deliberately short: this is a campaign page, not the guide. -->
 <section class="yomu-fits" aria-labelledby="yomu-method-title">
-  <h2 id="yomu-method-title">Learn it the way you learned your first one</h2>
-  <ul class="yomu-fits-list">
-    <li><strong>Read a little above what you know.</strong> Meet the language in something you wanted to read anyway, often, and slightly beyond you. Grammar tables can wait.</li>
-    <li><strong>Get the first two thousand words early.</strong> They cover roughly four fifths of ordinary text, so front-loading them makes everything after easier. Ten minutes a day does it.</li>
-    <li><strong>Then read a lot, and let the hard words go.</strong> Skip what you do not know and keep moving. Yomu collects what you skipped so you can come back to it later.</li>
-    <li><a href="/learn/">The whole approach, in order</a></li>
-  </ul>
+  <div class="yomu-paper yomu-fits-inner">
+    <h2 id="yomu-method-title">Learn it the way you learned your first one</h2>
+    <ul class="yomu-fits-list">
+      <li><strong>Read a little above what you know.</strong> Meet the language in something you wanted to read anyway, often, and slightly beyond you. Grammar tables can wait.</li>
+      <li><strong>Get the first two thousand words early.</strong> They cover roughly four fifths of ordinary text, so front-loading them makes everything after easier. Ten minutes a day does it.</li>
+      <li><strong>Then read a lot, and let the hard words go.</strong> Skip what you do not know and keep moving. Yomu collects what you skipped so you can come back to it later.</li>
+      <li><a href="/learn/">The whole approach, in order</a></li>
+    </ul>
+  </div>
 </section>
 
 <section class="yomu-band yomu-reveal" id="read" data-bleed="right" aria-labelledby="yomu-band-pages">
@@ -122,13 +124,51 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </figure>
 </section>
 
+<section class="yomu-band yomu-reveal" id="manga" data-bleed="left" aria-labelledby="yomu-band-manga">
+  <img class="yomu-band-ground" src="/home/ground-manga.webp" width="1600" height="900" alt="" aria-hidden="true" loading="lazy" decoding="async" data-yomu-ocr="ignore" />
+  <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">漫</p>
+  <div class="yomu-band-copy">
+    <p class="yomu-band-kicker">Manga</p>
+    <h2 id="yomu-band-manga">Press a word inside the picture.</h2>
+    <p class="yomu-band-lead">Tap a panel and よむ finds the Japanese in it, on a laptop or with a thumb on an iPad.</p>
+    <p class="yomu-band-lead">This panel is live. よむ is reading the words in it.</p>
+  </div>
+  <!-- The ONE live OCR surface on this page, on purpose. No data-yomu-ocr="ignore"
+       here: the reader recognises this panel for real, exactly as it would on a
+       manga site, because a claim about reading pictures should be demonstrated by
+       reading a picture. Every other image on the page opts out, INCLUDING the
+       painting behind this band — a lamplit interior is not something a reader
+       should be made to OCR. -->
+  <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
+    <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
+  </figure>
+</section>
+
+<section class="yomu-band yomu-band-plate yomu-reveal" id="mobile" data-bleed="right" aria-labelledby="yomu-band-mobile">
+  <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">手</p>
+  <div class="yomu-band-copy">
+    <p class="yomu-band-kicker">Mobile</p>
+    <h2 id="yomu-band-mobile">The same reader, on your phone.</h2>
+    <p class="yomu-band-lead">Press a word on your phone or tablet and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On Android, よむ is one click from the Firefox store; on iPhone and iPad it runs in Safari through a free userscript manager.</p>
+  </div>
+  <!-- Both captures are the evidence, so neither bleeds off the page edge: a
+       severed phone reads as a bug rather than as a composition. They keep the
+       band's rotation and nothing else. -->
+  <figure class="yomu-band-frame yomu-band-devices" data-yomu-ocr="ignore">
+    <img class="yomu-device-phone" src="/home/phone.webp" width="390" height="844" loading="lazy" decoding="async" alt="よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons." />
+    <img class="yomu-device-tablet" src="/home/ipad.webp" width="820" height="1180" loading="lazy" decoding="async" alt="よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences." />
+  </figure>
+</section>
+
 <section class="yomu-fits" aria-labelledby="yomu-fits-title">
-  <h2 id="yomu-fits-title">It fits the deck you already review in</h2>
-  <ul class="yomu-fits-list">
-    <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows. Migaku is next.</li>
-    <li><strong>Or keep the words in Yomu.</strong> Its deck schedules on SM-2 and carries the sentence, the audio and the picture with each word.</li>
-    <li><strong>Coming from Migaku or Duolingo?</strong> <a href="/faq#how-yomu-compares-with-migaku-and-duolingo">The plain comparison, item by item</a></li>
-  </ul>
+  <div class="yomu-paper yomu-fits-inner">
+    <h2 id="yomu-fits-title">It fits the deck you already review in</h2>
+    <ul class="yomu-fits-list">
+      <li><strong>Anki, jpdb, jiten, Bunpro.</strong> Yomu writes the word there and reads back what that service already knows. Migaku is next.</li>
+      <li><strong>Or keep the words in Yomu.</strong> Its deck schedules on SM-2 and carries the sentence, the audio and the picture with each word.</li>
+      <li><strong>Coming from Migaku or Duolingo?</strong> <a href="/faq#how-yomu-compares-with-migaku-and-duolingo">The plain comparison, item by item</a></li>
+    </ul>
+  </div>
 </section>
 
 <section class="yomu-band yomu-band-concept yomu-reveal" id="gaming" data-bleed="left" aria-labelledby="yomu-band-gaming">
@@ -151,8 +191,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   </div>
 </section>
 
+<!-- The live OCR panel this section's fourth link points at is the #manga band
+     above: it is the one image on the page the reader really reads, and it
+     belongs beside the claim it proves rather than as a second copy here. -->
 <section class="yomu-no-install" id="try-ocr" aria-labelledby="yomu-no-install-title">
-  <div class="yomu-no-install-copy">
+  <div class="yomu-paper yomu-no-install-copy">
     <h2 id="yomu-no-install-title">Everything here runs in this tab, with nothing installed</h2>
     <div class="yomu-no-install-links">
       <a href="/study/"><strong>Study</strong><span>Open a review card.</span></a>
@@ -161,12 +204,6 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
       <a href="#yomu-live-ocr"><strong>OCR</strong><span>Press a word in the panel.</span></a>
     </div>
   </div>
-  <!-- The ONE live OCR surface on this page, on purpose. No data-yomu-ocr="ignore"
-       here: the reader recognises this panel for real, exactly as it would on a
-       manga site. Every other image on the page opts out. -->
-  <figure class="yomu-band-frame yomu-manga-figure" id="yomu-live-ocr" data-yomu-runtime-surface>
-    <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
-  </figure>
 </section>
 
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
@@ -189,9 +226,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 </section>
 
 <section class="yomu-discord" aria-labelledby="yomu-discord-title">
-  <h2 id="yomu-discord-title">Come and say hello.</h2>
-  <p>Discord is where users compare setups, report rough edges and help shape what comes next. Bring a question or a screenshot. Do not be shy.</p>
-  <a href="https://discord.gg/jD6NPURewD">Join the Yomu Discord</a>
+  <div class="yomu-paper yomu-discord-inner">
+    <h2 id="yomu-discord-title">Come and say hello.</h2>
+    <p>Discord is where users compare setups, report rough edges and help shape what comes next. Bring a question or a screenshot. Do not be shy.</p>
+    <a href="https://discord.gg/jD6NPURewD">Join the Yomu Discord</a>
+  </div>
 </section>
 
 <section class="yomu-next" aria-label="More from Yomu">

@@ -10,9 +10,17 @@ afterEach(() => {
 });
 
 // Hosted docs annotate only declared Reader Surfaces. Navigation, hero,
-// install chrome, link grids, and docs prose are translated site copy; mass
-// annotating them caused long tasks and a very slow first hover in Japanese
-// mode. Pages that do not declare this scope retain ordinary scanning.
+// install chrome, the "nothing installed" link row, and docs prose are
+// translated site copy; mass annotating them caused long tasks and a very slow
+// first hover in Japanese mode. Pages that do not declare this scope retain
+// ordinary scanning.
+//
+// The chrome fixture below mirrors what docs/index.md actually ships: the
+// install band is .yomu-install-inner and the app links are
+// .yomu-no-install-links. It used to assert against .yomu-install-panel and
+// .yomu-link-grid.yomu-next-grid, neither of which has existed on the homepage
+// since the landing page was rebuilt — a boundary test whose fixture is not the
+// page proves nothing about the page.
 describe('hosted docs homepage chrome scan boundary', () => {
     it('matches the hosted-docs parser on the homepage', () => {
         const profiles = getMatchingSiteParsers(YOMU_HOMEPAGE_URL);
@@ -43,14 +51,12 @@ describe('hosted docs homepage chrome scan boundary', () => {
                         </div>
                     </div>
                 </div>
-                <div class="yomu-install-panel">
-                    <div class="yomu-install-copy">
-                        <strong>数ステップで準備完了</strong>
-                        <p>ユーザースクリプトマネージャーを選んでインストールしてください。</p>
-                    </div>
+                <div class="yomu-install-inner">
+                    <h2>数ステップで準備完了</h2>
+                    <p class="yomu-install-lead">ユーザースクリプトマネージャーを選んでインストールしてください。</p>
                 </div>
-                <div class="yomu-link-grid yomu-next-grid">
-                    <a class="yomu-link-card" href="/study/">
+                <div class="yomu-no-install-links">
+                    <a href="/study/">
                         <strong>学習</strong>
                         <span>保存した単語や統計を確認します。</span>
                     </a>
