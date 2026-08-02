@@ -40,7 +40,11 @@ jobs:
       # download fails (620 vs 619 packages on the runs that broke this job).
       - name: Ensure fallow platform binary
         run: node -e "require.resolve('@fallow-cli/linux-x64-gnu/package.json')" || npm install --no-save @fallow-cli/linux-x64-gnu@"$(node -p "require('fallow/package.json').version")"
-      - run: npm run fallow:dead-code
+      # A ratchet, not a wall: 136 pre-existing findings are recorded in
+      # config/quality/dead-code-baseline.json and only NEW ones fail. The raw
+      # `fallow:dead-code` failed on every commit for months, including docs-only
+      # ones, so the job stopped carrying information (U63).
+      - run: npm run quality:dead-code
       - run: npm run fallow:audit
 
   typecheck:

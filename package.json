@@ -127,6 +127,7 @@
     "fallow": "fallow",
     "fallow:audit": "git diff --unified=0 --no-ext-diff ${FALLOW_BASE:-origin/main} -- . | fallow audit --format compact --base ${FALLOW_BASE:-origin/main} --diff-stdin",
     "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
+    "quality:dead-code": "node scripts/dead-code-audit.mjs",
     "fixture:mokuro": "node scripts/lib/build-mokuro-fixture.mjs",
     "profile:performance": "node scripts/profile-performance.mjs",
     "package:gaming": "npm run smoke:gaming && node scripts/package-gaming-electron.mjs --target=dir",
