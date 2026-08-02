@@ -6,7 +6,7 @@ import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from
 import { hasTargetLookupSites, isTargetLookupLinkId, targetLookupLinks } from './lookup-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
-export const MAX_DICTIONARY_LOOKUP_LINKS = 16;
+export const MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS = 16;
 
 const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jpdb',
@@ -149,6 +149,12 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     UCHISEN_LOOKUP_LINK,
     COPY_LOOKUP_LINK,
 ];
+
+// The shipped Japanese row already contains 16 built-ins. Imported frequency
+// dictionaries and learner-created links are additional rows, not replacements
+// for those built-ins, so reserve a separate capacity for them.
+export const MAX_DICTIONARY_LOOKUP_LINKS = DEFAULT_DICTIONARY_LOOKUP_LINKS.length
+    + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS;
 
 type LegacyLookupLinkSpec = Pick<DictionaryLookupLink, 'id' | 'label' | 'urlTemplate' | 'enabled'> & {
     action?: DictionaryLookupLink['action'];
@@ -416,11 +422,16 @@ export function normalizeDictionaryLookupLinks(
 
     const normalized: DictionaryLookupLink[] = [];
     const seen = new Set<string>();
+    const builtInIds = new Set(builtIns.map(link => link.id));
+    let additionalCount = 0;
     const add = (link: DictionaryLookupLink) => {
         const id = link.id.trim();
-        if (!id || seen.has(id) || normalized.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+        if (!id || seen.has(id)) return;
+        const builtIn = builtInIds.has(id);
+        if (!builtIn && additionalCount >= MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
         seen.add(id);
         normalized.push({ ...link, id });
+        if (!builtIn) additionalCount++;
     };
 
     for (const item of value) {
@@ -430,7 +441,7 @@ export function normalizeDictionaryLookupLinks(
 
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
-    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS)));
+    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
 }
 
 function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {

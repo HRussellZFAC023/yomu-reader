@@ -414,6 +414,8 @@ describe('settings form localization', () => {
             'Primary deck status',
             'Anki status',
         ]);
+        expect(optionText(ankiForm, 'wordTextColorSource', 'pitch')).toBe('Pitch accent');
+        expect(optionText(ankiForm, 'wordTextColorSource', 'off')).toBe('None');
         expectDistinctStatusColorSourceLabels(ankiForm);
         expect(ankiForm.querySelector<HTMLElement>('[data-status-color-no-source]')?.hidden).toBe(true);
 
@@ -423,6 +425,8 @@ describe('settings form localization', () => {
             'メインデッキの学習状態',
             'Ankiの学習状態',
         ]);
+        expect(optionText(ankiForm, 'wordTextColorSource', 'pitch')).toBe('ピッチアクセント');
+        expect(optionText(ankiForm, 'wordTextColorSource', 'off')).toBe('なし');
         expectDistinctStatusColorSourceLabels(ankiForm);
 
         const decklessForm = document.createElement('form');

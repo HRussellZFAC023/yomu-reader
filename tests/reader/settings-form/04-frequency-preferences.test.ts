@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderLookupPillsEditor } from '../../../src/reader/settings/form';
 import { updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form-editors';
+import { DEFAULT_DICTIONARY_LOOKUP_LINKS } from '../../../src/reader/settings/dictionary';
 import { renderWordPills } from '../../../src/reader/sources/word-pills';
 import type { JPDBCard } from '../../../src/reader/app/types';
 import {
@@ -65,6 +66,35 @@ describe('frequency dictionary preferences', () => {
         expect(frequencyPills.find(link => link.id === 'frequency-local:JPDB Freq')?.enabled).toBe(true);
         expect(frequencyPills.find(link => link.id === 'jiten-frequency')?.enabled).toBe(true);
         expect(frequencyPills.find(link => link.id === 'jpdb-frequency')?.enabled).toBe(true);
+    });
+
+    it('keeps all built-ins and local frequency rows through render, save, and reopen', () => {
+        const builtInIds = DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => link.id);
+        const localFrequencyIds = ['frequency-local:BCCWJ', 'frequency-local:Jiten', 'frequency-local:JPDB Freq'];
+        const expectedIds = [...builtInIds, ...localFrequencyIds];
+        const assertCompleteRow = (ids: string[]) => {
+            expect(ids).toHaveLength(19);
+            expect(new Set(ids).size).toBe(19);
+            expect(ids.filter(id => builtInIds.includes(id))).toEqual(builtInIds);
+            expect([...ids].sort()).toEqual([...expectedIds].sort());
+        };
+        const renderedIds = (form: HTMLFormElement) => Array.from(form
+            .querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'))
+            .map(input => input.value);
+
+        const form = renderSettingsTestForm(frequencySettings);
+        form.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!.innerHTML = renderLookupPillsEditor(frequencySettings);
+        assertCompleteRow(renderedIds(form));
+
+        const saved = readFormSettings(new FormData(form), frequencySettings);
+        assertCompleteRow(saved.dictionaryLookupLinks.map(link => link.id));
+
+        const reopened = renderSettingsTestForm(saved);
+        assertCompleteRow(renderedIds(reopened));
+        reopened.querySelector<HTMLElement>('.jpdb-reader-lookup-links')!.innerHTML = renderLookupPillsEditor(saved);
+        assertCompleteRow(renderedIds(reopened));
+        const resaved = readFormSettings(new FormData(reopened), saved);
+        assertCompleteRow(resaved.dictionaryLookupLinks.map(link => link.id));
     });
 
     it('moves BCCWJ above Jiten in saved dictionary config and rendered frequency pills', () => {

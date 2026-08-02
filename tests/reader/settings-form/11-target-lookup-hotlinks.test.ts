@@ -3,6 +3,7 @@ import {
     DEFAULT_DICTIONARY_LOOKUP_LINKS,
     defaultDictionaryLookupLinks,
     dictionaryLookupLinksForTarget,
+    MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS,
     MAX_DICTIONARY_LOOKUP_LINKS,
 } from '../../../src/reader/settings/dictionary';
 import {
@@ -83,7 +84,8 @@ describe('U46 per-target lookup hotlinks', () => {
         for (const id of NON_JAPANESE_TARGETS) {
             expect(hasTargetLookupSites(id), id).toBe(true);
             const links = defaultDictionaryLookupLinks('local', id);
-            expect(links.length, id).toBeLessThanOrEqual(MAX_DICTIONARY_LOOKUP_LINKS);
+            expect(links.length + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS, id)
+                .toBeLessThanOrEqual(MAX_DICTIONARY_LOOKUP_LINKS);
             // Yomu's own search leads and Copy closes, exactly as in Japanese.
             expect(links.at(0)?.id, id).toBe('yomu-search');
             expect(links.at(-1)?.id, id).toBe('copy');

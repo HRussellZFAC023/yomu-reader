@@ -28,7 +28,6 @@ import { WanikaniClient } from '../wanikani/wanikani';
 import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
-    activeLearnerLanguageId,
     activeTargetLanguageId,
     applySettingsSearch,
     ankiStatusLineForSettings,
@@ -49,10 +48,7 @@ import {
     renderNewTabAnkiDeckSelector,
     renderDeckControls,
     renderDictionaryLookupLinkEditor,
-    renderDictionarySourceRows,
-    renderLookupPillsEditor,
-    readDictionaryLookupLinks,
-    renderRecommendedDictionaries,
+    readSubmittedDictionaryLookupLinks,
     appearancePreviewContentHtml,
     renderSettingsForm,
     bunproStatusLineForSettings,
@@ -79,13 +75,11 @@ import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSett
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, pickFiles, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
-import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
 import { isUserFacingError, userFacingCopyKeyOf, userFacingError, userFacingErrorText } from '../app/user-facing-errors';
 import {
     isLearningTargetRosterId,
     learningTargetRosterEntry,
-    type LearningTargetRosterId,
 } from '../languages';
 import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
@@ -104,6 +98,15 @@ import {
     requestFirefoxAuthenticationInfoPermission,
     type FirefoxAuthenticationInfoConsent,
 } from './firefox-data-consent';
+import {
+    dictionaryStatusElements,
+    dictionaryStatusSettingsForRender,
+    renderDictionaryStatusElements,
+    selectedLearnerLanguage,
+    selectedTargetLanguage,
+    type DictionaryStatusElements,
+    type DictionaryStatusSummary,
+} from './dictionary-status-view';
 
 interface Refreshable {
     refresh: () => void;
@@ -145,20 +148,12 @@ interface SettingsDialogDependencies {
 }
 
 type SettingsStatusSetter = (message: string) => void;
-type DictionarySummary = Awaited<ReturnType<YomitanDictionaryStore['summary']>>;
 type CloudSettingsAction = 'sync-cloud-settings' | 'restore-cloud-settings';
 
 interface PendingCloudSettingsAction {
     action: CloudSettingsAction;
     startedAt: number;
     href: string;
-}
-
-interface DictionaryStatusElements {
-    status: HTMLElement | null;
-    priorities: HTMLElement | null;
-    lookupPills: HTMLElement | null;
-    recommended: HTMLElement | null;
 }
 
 function isSettingsCommandWord(word: HTMLElement): boolean {
@@ -427,44 +422,7 @@ function shouldReenableSettingsAction(action: string): boolean {
     return action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary';
 }
 
-function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElements {
-    return {
-        status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
-        priorities: form.querySelector<HTMLElement>('[data-definition-source-editor]'),
-        lookupPills: form.querySelector<HTMLElement>('.jpdb-reader-lookup-links'),
-        recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
-    };
-}
-
-function renderDictionaryStatusElements(
-    elements: DictionaryStatusElements,
-    summary: DictionarySummary,
-    settings: ReaderSettings,
-    learnerLanguage: LearnerLanguageId,
-    targetLanguage: LearningTargetRosterId,
-): void {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
-    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
-    if (elements.recommended) {
-        setInnerHtml(
-            elements.recommended,
-            renderRecommendedDictionaries(summary.dictionaries, learnerLanguage, true, targetLanguage),
-        );
-    }
-}
-
-function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
-    const value = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value;
-    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
-}
-
-function selectedTargetLanguage(form: HTMLFormElement, settings: ReaderSettings): LearningTargetRosterId {
-    const value = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value;
-    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
-}
-
-function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
+function dictionaryStatusText(summary: DictionaryStatusSummary, language: InterfaceLanguage): string {
     if (summary.dictionaries.length) {
         return formatUiTemplate(uiText(language, 'dictionaryStatusSummary'), {
             dictionaries: summary.dictionaries.length.toLocaleString(),
@@ -501,6 +459,7 @@ export class SettingsDialogController {
     private ankiLibraryScanId = 0;
     private ankiModelUpdatePromptId = 0;
     private yomuUpdateCheckId = 0;
+    private dictionaryStatusRefreshId = 0;
     private targetDictionaryAvailabilityRequestId = 0;
     private publishedDictionaryLanguagesPromise?: Promise<ReadonlySet<string>>;
     private readonly academyAccountSync: AcademyAccountSyncSettingsController;
@@ -927,7 +886,7 @@ export class SettingsDialogController {
     private renderLookupPillsForTarget(form: HTMLFormElement, targetLanguage: string): void {
         const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
         if (!container) return;
-        const submitted = readDictionaryLookupLinks(new FormData(form));
+        const submitted = readSubmittedDictionaryLookupLinks(new FormData(form));
         setInnerHtml(container, renderDictionaryLookupLinkEditor(
             dictionaryLookupLinksForTarget(submitted, targetLanguage),
             [],
@@ -1501,14 +1460,23 @@ export class SettingsDialogController {
     }
 
     private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
+        const requestId = ++this.dictionaryStatusRefreshId;
         const elements = dictionaryStatusElements(form);
         try {
             const summary = await this.dependencies.dictionaries.summary();
-            await this.applyDictionaryStatus(form, elements, summary);
+            if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
+            await this.applyDictionaryStatus(form, elements, summary, requestId);
         } catch (error) {
+            if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
             log.warn('Dictionary status unavailable', error);
             setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         }
+    }
+
+    private shouldApplyDictionaryStatus(form: HTMLFormElement, requestId: number): boolean {
+        return this.currentForm === form
+            && form.isConnected
+            && requestId === this.dictionaryStatusRefreshId;
     }
 
     private async refreshYomuUpdateStatus(form: HTMLFormElement): Promise<void> {
@@ -1559,15 +1527,25 @@ export class SettingsDialogController {
         }
     }
 
-    private async applyDictionaryStatus(form: HTMLFormElement, elements: DictionaryStatusElements, summary: DictionarySummary): Promise<void> {
+    private async applyDictionaryStatus(
+        form: HTMLFormElement,
+        elements: DictionaryStatusElements,
+        summary: DictionaryStatusSummary,
+        requestId: number,
+    ): Promise<void> {
         await this.mergeDictionaryPreferencesFromSummary(summary);
+        if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
         await this.dependencies.refreshDictionaryStyles();
+        if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
+        const renderSettings = dictionaryStatusSettingsForRender(form, elements, this.settings);
+        const targetLanguage = selectedTargetLanguage(form, this.settings);
         renderDictionaryStatusElements(
             elements,
             summary,
-            this.settings,
+            renderSettings,
             selectedLearnerLanguage(form, this.settings),
-            selectedTargetLanguage(form, this.settings),
+            targetLanguage,
+            dictionaryStatusText(summary, renderSettings.interfaceLanguage),
         );
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         // The Sources panel re-renders its whole dictionary block here, so the
@@ -1590,7 +1568,7 @@ export class SettingsDialogController {
         });
     }
 
-    private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {
+    private async mergeDictionaryPreferencesFromSummary(summary: DictionaryStatusSummary): Promise<void> {
         const names = summary.dictionaries.map(item => item.title);
         const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
         const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
@@ -1600,6 +1578,7 @@ export class SettingsDialogController {
     }
 
     private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
+        this.dictionaryStatusRefreshId++;
         this.pendingDictionaryOperations++;
         this.syncDictionaryOperationState(form);
         const operation = this.dictionaryOperationQueue.then(task);
@@ -2516,6 +2495,7 @@ export class SettingsDialogController {
         const dictionary = control?.dataset.dictionaryName;
         if (!dictionary) throw new Error('Dictionary not found.');
         if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoveConfirm'), { dictionary }))) return;
+        this.dictionaryStatusRefreshId++;
         control?.setAttribute('disabled', 'true');
         setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoving'), { dictionary }));
         await this.dependencies.dictionaries.deleteDictionary(dictionary);
@@ -2697,6 +2677,7 @@ export class SettingsDialogController {
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
         const file = await pickFile(form, 'settings');
         if (!file) return;
+        this.dictionaryStatusRefreshId++;
         const previousSettings = this.settings;
         const json = JSON.parse(await file.text()) as unknown;
         try {

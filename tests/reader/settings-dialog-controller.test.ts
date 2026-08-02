@@ -2054,6 +2054,142 @@ describe('settings dialog dictionary imports', () => {
         expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
     });
 
+    it('keeps a lookup-pill reorder made while the dictionary summary is in flight', async () => {
+        const summaryValue = {
+            dictionaries: [
+                { title: 'Jiten', alias: 'Jiten', enabled: true, priority: 0, type: 'frequency' as const },
+                { title: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 1, type: 'frequency' as const },
+            ],
+            terms: 42,
+            kanji: 0,
+            termMeta: 2,
+            kanjiMeta: 0,
+        };
+        const summaryResult = deferred<typeof summaryValue>();
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [
+                { name: 'Jiten', alias: 'Jiten', enabled: true, priority: 0, type: 'frequency' },
+                { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 1, type: 'frequency' },
+            ],
+            dictionaryLookupLinks: [
+                { id: 'frequency-local:Jiten', label: 'Jiten', urlTemplate: '', enabled: true, action: 'frequency-local', priority: 0 },
+                { id: 'frequency-local:BCCWJ', label: 'BCCWJ', urlTemplate: '', enabled: true, action: 'frequency-local', priority: 1 },
+            ],
+        };
+        const summary = vi.fn(() => summaryResult.promise);
+        const dialog = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: { summary },
+        });
+        const jitenId = 'frequency-local:Jiten';
+        const bccwjId = 'frequency-local:BCCWJ';
+        const lookupOrder = (form: HTMLFormElement): string[] => Array.from(
+            form.querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'),
+            input => input.value,
+        );
+
+        const refresh = dialog.refreshDictionaryStatus(dialog.form);
+        await waitForCondition(() => summary.mock.calls.length === 1);
+        const sourceOrder = (form: HTMLFormElement): string[] => Array.from(
+            form.querySelectorAll<HTMLElement>('[data-definition-source-editor] [data-dictionary-source-row]'),
+            row => row.dataset.sourceId ?? '',
+        );
+        const jitenSource = dialog.form.querySelector<HTMLElement>('[data-definition-source-editor] [data-source-id="__jiten__"]')!;
+        const alias = jitenSource.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]')!;
+        alias.value = 'Jiten live edit';
+        const jpdbSource = dialog.form.querySelector<HTMLElement>('[data-definition-source-editor] [data-source-id="__jpdb__"]')!;
+        jpdbSource.querySelector<HTMLButtonElement>('[data-action="dictionary-source-down"]')!.click();
+        const liveSourceOrder = sourceOrder(dialog.form);
+        const initialOrder = lookupOrder(dialog.form);
+        const moves = initialOrder.indexOf(bccwjId) - initialOrder.indexOf(jitenId);
+        expect(moves).toBeGreaterThan(0);
+
+        for (let index = 0; index < moves; index++) {
+            const bccwjRow = dialog.form.querySelector<HTMLInputElement>(`input[name$=".id"][value="${bccwjId}"]`)!
+                .closest<HTMLElement>('[data-lookup-link-row]')!;
+            bccwjRow.querySelector<HTMLButtonElement>('[data-action="lookup-link-up"]')!.click();
+        }
+        expect(lookupOrder(dialog.form).indexOf(bccwjId)).toBeLessThan(lookupOrder(dialog.form).indexOf(jitenId));
+
+        summaryResult.resolve(summaryValue);
+        await refresh;
+
+        expect(dialog.form.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]')?.value)
+            .toBe('Jiten live edit');
+        expect(sourceOrder(dialog.form)).toEqual(liveSourceOrder);
+        expect(lookupOrder(dialog.form).indexOf(bccwjId)).toBeLessThan(lookupOrder(dialog.form).indexOf(jitenId));
+        expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
+        expect(dialog.dependencies.refreshDictionaryStyles).toHaveBeenCalled();
+
+        dialog.form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => dialog.dismiss.mock.calls.length === 1);
+        expect(settings.dictionaryLookupLinks.map(link => link.id).indexOf(bccwjId))
+            .toBeLessThan(settings.dictionaryLookupLinks.map(link => link.id).indexOf(jitenId));
+
+        dialog.form.remove();
+        dialog.controller.open();
+        const reopenedForm = Array.from(document.querySelectorAll<HTMLFormElement>('.jpdb-reader-settings')).at(-1)!;
+        expect(lookupOrder(reopenedForm).indexOf(bccwjId)).toBeLessThan(lookupOrder(reopenedForm).indexOf(jitenId));
+    });
+
+    it('does not let an older summary re-add a dictionary while it is being deleted', async () => {
+        const staleSummary = deferred<{
+            dictionaries: Array<{ title: string; alias: string; enabled: boolean; priority: number; type: 'terms' }>;
+            terms: number;
+            kanji: number;
+            termMeta: number;
+            kanjiMeta: number;
+        }>();
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [{
+                name: 'Deleted dictionary',
+                alias: 'Deleted dictionary',
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+            }],
+        };
+        const deleteDictionary = vi.fn().mockResolvedValue(undefined);
+        const dialog = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn(() => staleSummary.promise),
+                deleteDictionary,
+            },
+        });
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+        const staleRefresh = dialog.refreshDictionaryStatus(dialog.form);
+        await waitForCondition(() => dialog.form.querySelector('[data-dictionary-name="Deleted dictionary"]') !== null);
+        dialog.form.querySelector<HTMLButtonElement>(
+            '[data-action="delete-yomitan-dictionary"][data-dictionary-name="Deleted dictionary"]',
+        )!.click();
+        await waitForCondition(() => deleteDictionary.mock.calls.length === 1
+            && !settings.dictionaryPreferences.some(preference => preference.name === 'Deleted dictionary'));
+
+        staleSummary.resolve({
+            dictionaries: [{
+                title: 'Deleted dictionary',
+                alias: 'Deleted dictionary',
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+            }],
+            terms: 1,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+        await staleRefresh;
+
+        expect(settings.dictionaryPreferences.map(preference => preference.name))
+            .not.toContain('Deleted dictionary');
+    });
+
     it('keeps the active and unsaved learner language through dictionary refreshes', async () => {
         const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
         let settings: ReaderSettings = {
@@ -2121,7 +2257,63 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector('[data-catalog-recommendation="wty-es-en-ipa"]')?.getAttribute('data-headword-language'))
             .toBe('es');
         expect(form.querySelector('[data-dictionary-id="jitendex"]')).toBeNull();
+        const lookupIds = Array.from(
+            form.querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'),
+            input => input.value,
+        );
+        expect(lookupIds).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
+        expect(lookupIds).not.toEqual(expect.arrayContaining(['jiten', 'jpdb', 'bunpro']));
         expect(summary).toHaveBeenCalled();
+    });
+
+    it('keeps all learner rows when switching target at lookup-pill capacity', async () => {
+        const portableLinks = [
+            ...Array.from({ length: 15 }, (_, index) => ({
+                id: `custom-${index}`,
+                label: `Custom ${index}`,
+                urlTemplate: `https://example.com/${index}?q={query}`,
+                enabled: true,
+                priority: DEFAULT_SETTINGS.dictionaryLookupLinks.length + index,
+            })),
+            {
+                id: 'frequency-local:BCCWJ',
+                label: 'BCCWJ',
+                urlTemplate: '',
+                enabled: false,
+                action: 'frequency-local' as const,
+                priority: DEFAULT_SETTINGS.dictionaryLookupLinks.length + 15,
+            },
+        ];
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryLookupLinks: [...DEFAULT_SETTINGS.dictionaryLookupLinks, ...portableLinks],
+        };
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFromUrl: vi.fn(),
+            },
+        });
+
+        const targetLanguage = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        targetLanguage.value = 'es';
+        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        await waitForCondition(() => form.querySelector('[data-catalog-recommendation-target="es"]') !== null);
+
+        const lookupIds = Array.from(
+            form.querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'),
+            input => input.value,
+        );
+        expect(lookupIds).toEqual(expect.arrayContaining(portableLinks.map(link => link.id)));
+        expect(lookupIds).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
+        expect(lookupIds).not.toEqual(expect.arrayContaining(['jiten', 'jpdb', 'bunpro']));
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => dismiss.mock.calls.length === 1);
+        expect(settings.dictionaryLookupLinks.map(link => link.id))
+            .toEqual(expect.arrayContaining(portableLinks.map(link => link.id)));
     });
 
     it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {

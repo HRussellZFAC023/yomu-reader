@@ -2,7 +2,7 @@ import { escapeHtml, setInnerHtml } from '../dom/index';
 import { audioSourceLabel, uiText } from '../app/i18n';
 import { settingsText } from './settings-text';
 import { speakerIcon } from '../ui/icons';
-import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
+import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, defaultDictionaryLookupLinks, MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
 import { knownAudioSubSourceNames } from '../audio/candidates';
 import { moveSourceRow } from './form-order';
@@ -342,7 +342,7 @@ export function renderDictionaryLookupLinkEditor(
     localFrequencyPreferences: DictionaryPreference[] = [],
     targetLanguage = 'ja',
 ): string {
-    const rows = lookupPillEditorRows(links, localFrequencyPreferences);
+    const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
             <span>On</span>
@@ -439,8 +439,12 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
     `;
 }
 
-function lookupPillEditorRows(links: DictionaryLookupLink[], localFrequencyPreferences: DictionaryPreference[]): DictionaryLookupLink[] {
-    const normalized = normalizeDictionaryLookupLinks(links);
+function lookupPillEditorRows(
+    links: DictionaryLookupLink[],
+    localFrequencyPreferences: DictionaryPreference[],
+    targetLanguage: string,
+): DictionaryLookupLink[] {
+    const normalized = normalizeDictionaryLookupLinks(links, false, targetLanguage);
     const byId = new Map(normalized.map(link => [link.id, link]));
     for (const preference of localFrequencyPreferences) {
         const id = localFrequencyLookupPillId(preference.name);
@@ -455,9 +459,8 @@ function lookupPillEditorRows(links: DictionaryLookupLink[], localFrequencyPrefe
             });
         }
     }
-    return Array.from(byId.values())
-        .sort(compareLookupPillEditorRows)
-        .slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+    return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, targetLanguage)
+        .sort(compareLookupPillEditorRows);
 }
 
 function compareLookupPillEditorRows(a: DictionaryLookupLink, b: DictionaryLookupLink): number {
@@ -488,23 +491,26 @@ export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: 
     }
     const data = new FormData(form);
     const links = readDictionaryLookupLinks(data);
-    updateDictionaryLookupLinks(links, action, index);
+    const targetLanguage = formTargetLanguage(data);
+    updateDictionaryLookupLinks(links, action, index, targetLanguage);
     // The target lives in this same form, so re-rendering a row keeps the
     // component notes and the gap line describing the language on screen.
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], targetLanguage));
 }
 
 function formTargetLanguage(data: FormData): string {
     return String(data.get('targetLanguage') ?? '') || 'ja';
 }
 
-function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number): void {
-    if (action === 'lookup-link-add') addDictionaryLookupLink(links);
+function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number, targetLanguage: string): void {
+    if (action === 'lookup-link-add') addDictionaryLookupLink(links, targetLanguage);
     if (action === 'lookup-link-remove') removeDictionaryLookupLink(links, index);
 }
 
-function addDictionaryLookupLink(links: DictionaryLookupLink[]): void {
-    if (links.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+function addDictionaryLookupLink(links: DictionaryLookupLink[], targetLanguage: string): void {
+    const builtInIds = new Set(defaultDictionaryLookupLinks('local', targetLanguage).map(link => link.id));
+    const additionalCount = links.filter(link => !builtInIds.has(link.id)).length;
+    if (additionalCount >= MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
     links.push({
         id: `custom-${Date.now().toString(36)}`,
         label: '',
