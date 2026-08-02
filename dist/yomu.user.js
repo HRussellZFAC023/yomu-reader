@@ -33360,7 +33360,7 @@ function criticalRubyCss() {
   ".jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}",
   ".jpdb-reader-ruby-base{display:inline}",
   ".jpdb-reader-word rp{display:none}",
-  ".jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:none;text-decoration:none!important}",
+  ".jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:auto;text-decoration:none!important}",
   ".jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}",
   ".jpdb-reader-furi{font-size:.58em;font-weight:700;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}"
   ].join("\n");

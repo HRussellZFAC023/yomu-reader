@@ -91,6 +91,27 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toContain('-webkit-ruby-align');
     });
 
+    it("keeps a word's own furigana pressable, because it is part of the word", () => {
+        // MEASURED 2026-08-02 in Chromium: at 18px the word's client rects are
+        // 51-72 and its reading sits at 40-52, so with pointer-events:none the top
+        // 12px of a 32px word — 37% of what the reader sees and aims at —
+        // hit-tested to the surrounding paragraph. A word is display:inline so its
+        // rects never include the ruby annotation, every fallback in
+        // readerWordForPointerEvent is rect-based, and the raw-text fallback
+        // refuses a caret inside a reader word: pressing a word's furigana did
+        // nothing whatsoever. `auto` needs no geometry — the rt box belongs to
+        // exactly one word, so target.closest('.jpdb-reader-word') resolves it.
+        const css = initialReaderCss('');
+
+        const rtRule = css.split('\n').find(line => line.startsWith('.jpdb-reader-word rt{'));
+        expect(rtRule).toBeDefined();
+        expect(rtRule).toContain('pointer-events:auto');
+        expect(rtRule).not.toContain('pointer-events:none');
+        // Scoped inside a reader word, so a host page's own ruby keeps its own
+        // pointer behaviour and Yomu does not start swallowing its presses.
+        expect(css).not.toContain('\nrt{');
+    });
+
     it('uses the full reader CSS when the userscript resource is available', () => {
         expect(initialReaderCss(FULL_READER_CSS)).toBe(FULL_READER_CSS);
     });

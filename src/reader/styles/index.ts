@@ -84,7 +84,19 @@ function criticalRubyCss(): string {
         '.jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}',
         '.jpdb-reader-ruby-base{display:inline}',
         '.jpdb-reader-word rp{display:none}',
-        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:none;text-decoration:none!important}',
+        // MEASURED 2026-08-02 in Chromium: with pointer-events:none the READING is a
+        // dead tap target. At 18px text the word's own rects are 51-72 and the
+        // reading sits at 40-52, so 12px of a 32px word — 37% of what a reader sees
+        // and aims at — hit-tested to the paragraph instead. Every fallback in
+        // readerWordForPointerEvent is rect-based and a word is display:inline, so
+        // none of them covers the annotation either, and the raw-text fallback
+        // deliberately refuses a caret inside a reader word. Pressing a word's own
+        // furigana therefore did nothing at all — no lookup, no feedback — which is
+        // the product's core gesture failing on its most Japanese-looking words.
+        // `auto` needs no geometry: the rt box belongs to exactly one word, so
+        // target.closest('.jpdb-reader-word') resolves it exactly. Scoped inside
+        // .jpdb-reader-word, so a host page's own ruby is untouched.
+        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:auto;text-decoration:none!important}',
         '.jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}',
         '.jpdb-reader-furi{font-size:.58em;font-weight:700;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}',
     ].join('\n');
