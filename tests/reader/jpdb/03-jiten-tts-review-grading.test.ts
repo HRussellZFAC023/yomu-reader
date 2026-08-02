@@ -1057,14 +1057,20 @@ describe('reader helpers', () => {
             subtitleUnderlineColorSource: 'pitch',
             subtitleTextColorSource: 'anki',
         } as const;
+        const expectedLabels = [
+            'All study statuses',
+            'Primary deck status',
+            'Anki status',
+            'Pitch accent',
+            'None',
+        ];
 
         Object.entries(expected).forEach(([name, value]) => {
             const select = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             expect(select?.value).toBe(value);
             expect(Array.from(select?.options ?? []).map(option => option.value)).toEqual(['status', 'jpdb', 'anki', 'pitch', 'off']);
-            expect(Array.from(select?.options ?? []).map(option => option.textContent)).not.toContain('Available status');
+            expect(Array.from(select?.options ?? []).map(option => option.textContent)).toEqual(expectedLabels);
         });
-        expect(form.textContent).toContain('JPDB + Anki status');
         expect(form.querySelector<HTMLSelectElement>('select[name="wordHighlightMode"]')).toBeNull();
 
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
