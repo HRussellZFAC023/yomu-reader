@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -378,6 +379,16 @@ describe('multilingual parity ratchet input validation', () => {
             `baseline Node runtime is v0.0.0-not-a-runtime, current runtime is ${process.version}`,
             `baseline ICU runtime is 0.0, current runtime is ${process.versions.icu ?? 'unknown'}`,
         ]));
+    });
+
+    it('records the checked-in baseline on the audited release Node', async () => {
+        const [nodeVersion, baselineJson] = await Promise.all([
+            readFile('.nvmrc', 'utf8'),
+            readFile('config/quality/multilingual-lookup-baseline.json', 'utf8'),
+        ]);
+        const baseline = JSON.parse(baselineJson) as MultilingualParityBaseline;
+
+        expect(baseline.node).toBe(`v${nodeVersion.trim()}`);
     });
 
     it('rejects baseline misses that are not the exact corpus spans', async () => {
