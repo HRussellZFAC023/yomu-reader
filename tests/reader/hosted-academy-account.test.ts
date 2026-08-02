@@ -288,6 +288,54 @@ describe('hosted Academy account controls', () => {
         controls.destroy();
     });
 
+    // The owner's screenshot: an account pill reading "Learner", a dropdown saying
+    // "Signed in as Learner", and Profile & sync landing on a 404. Three defects in
+    // one flow, pinned together.
+    it('escapes the VitePress router so Profile & sync reaches the real Academy shell', async () => {
+        hostedNavShell();
+        const client = new HostedAcademyAccountClient({
+            request: vi.fn(async input => String(input) === '/academy/api/session/status'
+                ? response({ state: 'linked' })
+                : response(account('Aakash'))),
+        });
+        const controls = new HostedAcademyAccountControls({ client, document });
+        controls.sync('en');
+        await client.ensureLoaded();
+
+        const link = document.querySelector<HTMLAnchorElement>('#yomu-hosted-account a')!;
+        // The Academy shell lives in docs/public/, outside the VitePress page map.
+        // Without a target attribute VitePress intercepts the click and renders its
+        // stock 404 client-side — the server is never asked, so a WORKING page
+        // appeared broken. The router skips any anchor that carries a target.
+        expect(link.getAttribute('target')).toBe('_self');
+        controls.destroy();
+    });
+
+    it('never greets an account by the placeholder name it did not choose', async () => {
+        hostedNavShell();
+        // Accounts are created as 'Learner' with nameChosen false — the Google name
+        // is deliberately never stored. Greeting someone as Learner reads as a bug,
+        // and the dropdown gave no hint that a name could be chosen at all.
+        const unnamed = { ...account('Learner'), nameChosen: false };
+        const client = new HostedAcademyAccountClient({
+            request: vi.fn(async input => String(input) === '/academy/api/session/status'
+                ? response({ state: 'linked' })
+                : response(unnamed)),
+        });
+        const controls = new HostedAcademyAccountControls({ client, document });
+        controls.sync('en');
+        await client.ensureLoaded();
+
+        const control = document.querySelector<HTMLElement>('#yomu-hosted-account')!;
+        expect(control.textContent).not.toContain('Signed in as Learner');
+        expect(control.textContent).toContain('Signed in');
+        // The pill falls back to the neutral label, and the profile link becomes
+        // the next step instead of a destination.
+        expect(control.querySelector('.yomu-hosted-account-summary-text')?.textContent).toBe('Account');
+        expect(control.querySelector('a')?.textContent).toBe('Choose your name');
+        controls.destroy();
+    });
+
     it('mounts before the direct navbar group when Appearance is nested', () => {
         hostedNavShell();
         const target = document.querySelector<HTMLElement>('.VPNavBar .content-body')!;

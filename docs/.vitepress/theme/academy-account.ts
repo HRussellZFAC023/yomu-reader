@@ -6,6 +6,13 @@ export type HostedAcademyAccountPhase = 'loading' | 'signed-out' | 'signed-in' |
 export interface HostedAcademyAccountState {
     readonly phase: HostedAcademyAccountPhase;
     readonly displayName: string | null;
+    /**
+     * Whether the learner has picked their own name. Accounts are created as
+     * 'Learner' with name_chosen = 0 (the Google name is deliberately never
+     * stored), so displayName alone cannot distinguish "is called Learner" from
+     * "has not chosen yet" — and greeting someone as Learner reads like a bug.
+     */
+    readonly nameChosen: boolean;
     readonly busy: boolean;
     readonly error: boolean;
 }
@@ -49,6 +56,7 @@ const COPY = {
         signIn: 'Sign in',
         createAccount: 'Create account',
         profileSync: 'Profile & sync',
+        chooseName: 'Choose your name',
         signOut: 'Sign out',
     },
     ja: {
@@ -61,6 +69,7 @@ const COPY = {
         signIn: 'サインイン',
         createAccount: 'アカウントを作成',
         profileSync: 'プロフィールと同期',
+        chooseName: '名前を設定',
         signOut: 'サインアウト',
     },
 } as const;
@@ -68,6 +77,7 @@ const COPY = {
 const INITIAL_STATE: HostedAcademyAccountState = {
     phase: 'loading',
     displayName: null,
+    nameChosen: false,
     busy: false,
     error: false,
 };
@@ -135,7 +145,7 @@ export class HostedAcademyAccountClient {
         try {
             const response = await this.request(LOGOUT_PATH, mutationInit(false));
             if (!response.ok) throw new Error('Reader account sign-out failed.');
-            this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+            this.setState({ phase: 'signed-out', displayName: null, nameChosen: false, busy: false, error: false });
         } catch {
             this.setState({ ...this.currentState, busy: false, error: true });
         }
@@ -146,7 +156,7 @@ export class HostedAcademyAccountClient {
         try {
             let session = await this.resolveSessionStatus();
             if (session.state !== 'linked') {
-                return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+                return this.setState({ phase: 'signed-out', displayName: null, nameChosen: false, busy: false, error: false });
             }
             let response = await this.accountRequest();
             if (response.status === 401) {
@@ -154,11 +164,11 @@ export class HostedAcademyAccountClient {
                 // protected read. Resolve once more, then stop.
                 session = await this.resolveSessionStatus();
                 if (session.state !== 'linked') {
-                    return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+                    return this.setState({ phase: 'signed-out', displayName: null, nameChosen: false, busy: false, error: false });
                 }
                 response = await this.accountRequest();
                 if (response.status === 401) {
-                    return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+                    return this.setState({ phase: 'signed-out', displayName: null, nameChosen: false, busy: false, error: false });
                 }
             }
             if (!response.ok) throw new Error('Reader account status failed.');
@@ -166,11 +176,12 @@ export class HostedAcademyAccountClient {
             return this.setState({
                 phase: 'signed-in',
                 displayName: account.identity.displayName,
+                nameChosen: account.nameChosen,
                 busy: false,
                 error: false,
             });
         } catch {
-            return this.setState({ phase: 'error', displayName: null, busy: false, error: true });
+            return this.setState({ phase: 'error', displayName: null, nameChosen: false, busy: false, error: true });
         }
     }
 
@@ -315,7 +326,7 @@ export class HostedAcademyAccountControls {
         summary.setAttribute('aria-label', copy.account);
         const summaryText = this.document.createElement('span');
         summaryText.className = 'yomu-hosted-account-summary-text';
-        summaryText.textContent = state.phase === 'signed-in' && state.displayName
+        summaryText.textContent = state.phase === 'signed-in' && state.nameChosen && state.displayName
             ? state.displayName
             : copy.account;
         const stateMark = this.document.createElement('span');
@@ -338,7 +349,7 @@ export class HostedAcademyAccountControls {
         const actionsDisabled = state.phase === 'loading' || state.busy;
         if (state.phase === 'signed-in') {
             actions.append(
-                this.accountLink(copy.profileSync, PROFILE_SYNC_PATH),
+                this.accountLink(state.nameChosen ? copy.profileSync : copy.chooseName, PROFILE_SYNC_PATH),
                 this.actionButton(copy.signOut, () => this.client.signOut(), actionsDisabled),
             );
         } else {
@@ -367,6 +378,13 @@ export class HostedAcademyAccountControls {
         link.className = 'yomu-hosted-account-action';
         link.textContent = label;
         link.href = href;
+        // The Academy shell lives in docs/public/, OUTSIDE the VitePress page map.
+        // VitePress's router intercepts every plain same-origin anchor and
+        // client-renders its stock 404 for paths it does not know — the server is
+        // never asked, so the working /academy/ page appeared broken. The router
+        // skips any link carrying a target attribute; _self keeps the same-tab
+        // behaviour while forcing a real navigation.
+        link.target = '_self';
         return link;
     }
 }
@@ -376,7 +394,7 @@ type HostedAcademyAccountCopy = typeof COPY.en | typeof COPY.ja;
 function accountStatusText(state: HostedAcademyAccountState, copy: HostedAcademyAccountCopy): string {
     if (state.error) return copy.unavailable;
     if (state.phase === 'loading') return copy.loading;
-    if (state.phase === 'signed-in' && state.displayName) return copy.signedInAs(state.displayName);
+    if (state.phase === 'signed-in' && state.nameChosen && state.displayName) return copy.signedInAs(state.displayName);
     if (state.phase === 'signed-in') return copy.signedIn;
     return copy.signedOut;
 }
