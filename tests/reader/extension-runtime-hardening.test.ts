@@ -331,7 +331,7 @@ describe('extension runtime hardening', () => {
         ].join('\n');
         const unresolved = hardenExtensionSubmissionGuide(source);
         const hardened = hardenExtensionSubmissionGuide(source, {
-            firefoxHasInnerHtmlAssignment: false,
+            firefoxHasUnsafeHtmlAssignment: false,
             safariHasBrowserOverride: false,
             safariHasFileUrlMatch: false,
         });

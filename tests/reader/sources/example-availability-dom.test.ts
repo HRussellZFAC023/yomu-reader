@@ -290,6 +290,36 @@ describe('U46 target example mounts in the definition stack', () => {
         await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('empty'));
         expect(document.body.textContent).not.toContain('Loading');
     });
+
+    it('sanitizes the loaded replacement before it enters the live document', async () => {
+        document.body.innerHTML = '<details data-example-source="tatoeba" data-availability="pending"></details>';
+        const baseAdapter = createTatoebaExampleSource({ fetchJson: async () => TATOEBA_EMPTY_PAYLOAD });
+        const adapter = {
+            ...baseAdapter,
+            search: async () => ({
+                availability: 'loaded' as const,
+                items: [{
+                    ...record(),
+                    text: { value: '<img src=x onerror="window.__yomuUnsafe = true">', language: 'spa' },
+                    source: { ...record().source, url: 'javascript:alert(1)' },
+                }],
+            }),
+        };
+        installTargetExampleSources(document.body, {
+            settings: spanishTarget(),
+            term: 'agua',
+            sourceAttributes: () => 'data-safe-marker="kept" onclick="window.__yomuUnsafe = true"',
+            adapters: [adapter],
+        });
+
+        await vi.waitFor(() => expect(document.body.querySelector('[data-example-source="tatoeba"]')?.getAttribute('data-availability')).toBe('loaded'));
+        const loaded = document.body.querySelector<HTMLElement>('[data-example-source="tatoeba"]')!;
+        expect(loaded.dataset.safeMarker).toBe('kept');
+        expect(loaded.getAttribute('onclick')).toBeNull();
+        expect(loaded.querySelector('[data-example-provenance] a')?.getAttribute('href')).toBeNull();
+        expect(loaded.querySelector('[data-provider-example-sentence]')?.textContent).toContain('<img src=x');
+        expect(loaded.querySelector('img')).toBeNull();
+    });
 });
 
 function record(): ExampleRecord {

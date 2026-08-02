@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.72] - 2026-08-02
+
+### Fixed
+
+- Firefox example-source cards now refresh through Yomu's sanitized DOM boundary instead of assigning dynamic `outerHTML`. The exact XPI is also linted before GitHub publication, so AMO warnings fail the release before a store submission is attempted.
+
 ## [1.8.71] - 2026-08-02
 
 ### Fixed

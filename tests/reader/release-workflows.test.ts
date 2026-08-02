@@ -221,6 +221,17 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).toContain('--upload-source-code=browser-store-artifacts/yomureader.com-firefox-source.zip');
     });
 
+    it('fails closed on Firefox lint warnings before publishing the GitHub release', () => {
+        const extensionBuild = releaseWorkflow.indexOf('name: Build extension release packages');
+        const firefoxLint = releaseWorkflow.indexOf('name: Lint the reviewed Firefox package');
+        const publish = releaseWorkflow.indexOf('name: Publish GitHub release');
+
+        expect(firefoxLint).toBeGreaterThan(extensionBuild);
+        expect(releaseWorkflow.slice(firefoxLint, publish)).toContain('web-ext@10.5.0 lint');
+        expect(releaseWorkflow.slice(firefoxLint, publish)).toContain('--warnings-as-errors');
+        expect(publish).toBeGreaterThan(firefoxLint);
+    });
+
     it('publishes feature releases through isolated, fail-closed store jobs', () => {
         expect(releaseWorkflow).toContain('environment: browser-store-production');
         expect(releaseWorkflow.match(/environment: browser-store-production/g)).toHaveLength(2);

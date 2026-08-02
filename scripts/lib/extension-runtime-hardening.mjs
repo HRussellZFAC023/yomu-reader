@@ -305,7 +305,7 @@ export function hardenExtensionSubmissionGuide(source, evidence = {}) {
             '**Study page:** keep Study files inside the extension package; do not add a browser new-tab override.',
         );
     let guide = hardenSafariSubmissionGuide(hardened, evidence);
-    if (evidence.firefoxHasInnerHtmlAssignment === false) {
+    if (evidence.firefoxHasUnsafeHtmlAssignment === false) {
         guide = guide.replace(/^\s*- \[warning\] amo\.innerHTML: .*\n?/gm, '');
     }
     if (evidence.safariHasBrowserOverride === false) {

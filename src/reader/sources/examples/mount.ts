@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../dom/index';
+import { escapeHtml, htmlToFirstElement } from '../../dom/index';
 import { uiText } from '../../app/i18n';
 import { outputLanguageOf, targetLanguageOf } from '../../languages/selection';
 import { installProviderTranslationReveal } from '../provider-examples';
@@ -135,7 +135,7 @@ async function loadOneSource(
     if (options.isCurrentRoot && !options.isCurrentRoot(root)) return;
     const card = root.querySelector<HTMLElement>(`[data-example-source="${cssEscape(adapter.id)}"]`);
     if (!card?.isConnected) return;
-    card.outerHTML = renderExampleSourceRow({
+    const replacement = htmlToFirstElement(renderExampleSourceRow({
         sourceId: adapter.id,
         sourceName: adapter.name,
         interfaceLanguage: options.settings.interfaceLanguage,
@@ -145,7 +145,8 @@ async function loadOneSource(
         collection,
         sourceAttributes: options.sourceAttributes,
         blurTranslations: options.settings.immersionKitRevealTranslationOnClick,
-    });
+    }));
+    if (replacement) card.replaceWith(replacement);
 }
 
 function exampleLimit(settings: ReaderSettings): number {

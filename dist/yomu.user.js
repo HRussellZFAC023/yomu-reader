@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.71
+// @version 1.8.72
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.a70df71dde89.user.js#sha256=pw33Hd6JPX9dFU2WOY42KPuELeEo61+3KR6GKnz2KAM=
+// @require https://yomureader.com/greasyfork/yomu-runtime.b657dfe8ce10.user.js#sha256=tlff6M4QogxWOqPly0KDqEJa0WDT6Ks+6SSNvBb2b9s=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -26832,7 +26832,7 @@ async function loadOneSource(root, adapter, options, controller) {
   if (options.isCurrentRoot && !options.isCurrentRoot(root)) return;
   const card = root.querySelector(`[data-example-source="${cssEscape(adapter.id)}"]`);
   if (!card?.isConnected) return;
-  card.outerHTML = renderExampleSourceRow({
+  const replacement = htmlToFirstElement(renderExampleSourceRow({
   sourceId: adapter.id,
   sourceName: adapter.name,
   interfaceLanguage: options.settings.interfaceLanguage,
@@ -26842,7 +26842,8 @@ async function loadOneSource(root, adapter, options, controller) {
   collection,
   sourceAttributes: options.sourceAttributes,
   blurTranslations: options.settings.immersionKitRevealTranslationOnClick
-  });
+  }));
+  if (replacement) card.replaceWith(replacement);
 }
 function exampleLimit(settings) {
   return settings.immersionKitLimitEnabled && settings.immersionKitLimit > 0 ? settings.immersionKitLimit : DEFAULT_EXAMPLE_LIMIT;
@@ -33478,8 +33479,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.71"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.71"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.72"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.72"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33622,7 +33623,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.71"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.72"}`;
   } catch {
   return null;
   }

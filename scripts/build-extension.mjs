@@ -54,6 +54,7 @@ const publicExtensionIcons = path.join(root, 'public', 'extension-icons');
 const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
 const runtimeDictionaryCatalog = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'runtime-catalog.json');
 const out = path.join(root, 'dist', 'extension');
+const UNSAFE_HTML_ASSIGNMENT = /\.(?:inner|outer)HTML\s*(?:\+=|\|\|=|&&=|\?\?=|=(?!=))/;
 const generatedAt = await extensionGeneratedAt();
 
 for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices, runtimeDictionaryCatalog]) {
@@ -143,7 +144,7 @@ async function finalSubmissionGuideEvidence() {
     const safariMatches = (safariManifest.content_scripts ?? [])
         .flatMap(contentScript => contentScript.matches ?? []);
     return {
-        firefoxHasInnerHtmlAssignment: /\.innerHTML\s*=/.test(firefoxExecutableSource),
+        firefoxHasUnsafeHtmlAssignment: UNSAFE_HTML_ASSIGNMENT.test(firefoxExecutableSource),
         safariHasBrowserOverride: Boolean(
             safariManifest.chrome_url_overrides
             || safariManifest.browser_url_overrides
@@ -407,8 +408,8 @@ function verifyStorePackage(entries, target) {
         .filter(([file]) => file.endsWith('.js') || file.endsWith('.html'))
         .map(([file, bytes]) => `${file}\n${new TextDecoder().decode(bytes)}`)
         .join('\n');
-    if (target === 'firefox' && /\.innerHTML\s*=/.test(executableSource)) {
-        throw new Error('Firefox store package contains an innerHTML assignment that AMO will warn about.');
+    if (target === 'firefox' && UNSAFE_HTML_ASSIGNMENT.test(executableSource)) {
+        throw new Error('Firefox store package contains an innerHTML or outerHTML assignment that AMO will warn about.');
     }
     if (!executableSource.includes('yomu-extension-packaged-reader-css')) {
         throw new Error(`${target} store package does not route reader CSS loading to its packaged asset.`);
