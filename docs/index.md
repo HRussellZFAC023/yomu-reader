@@ -207,7 +207,12 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
 </section>
 
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
-  <div class="yomu-install-inner">
+  <!-- The conversion band gets the page's grammar like every other section: a
+       stamped numeral carrying the rotation token, and the copy on a slab
+       rather than loose on the plate. Undesigned, it was the flattest thing on
+       a page whose whole argument is that it was drawn by someone. -->
+  <p class="yomu-install-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">入</p>
+  <div class="yomu-slab yomu-install-inner">
     <h2 id="yomu-install-title">Take Yomu to the rest of the web.</h2>
     <!-- The numbered "1 Install / 2 Read" chips were deleted (A24.2). They labelled a
          sequence this sentence already states and that the buttons below it already

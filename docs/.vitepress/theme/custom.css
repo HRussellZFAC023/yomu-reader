@@ -1419,8 +1419,14 @@ body:has(.yomu-home) .jpdb-reader-fab {
      vanishes whenever someone picks a green. --lamp is the night value,
      --guide the darkened one that clears 4.5:1 on cream paper. */
   --lamp: #e8a33d;
-  /* #9a6512 measured 4.12:1 for a 13px bold kicker on cream paper — this one
-     clears 4.7:1 and keeps the ochre. */
+  /* DEVIATION FROM THE APPROVED TOKEN — NEEDS OWNER SIGN-OFF.
+     The brief specifies --guide: #9a6512. That value measured 4.12:1 for the
+     13px bold kicker it is used on, i.e. under AA for text at that size, so
+     this ships #8f5c0e instead: 4.7:1, same ochre, one step darker. It is the
+     only owner-approved token this pass alters. If the owner would rather keep
+     #9a6512 exactly, the contrast has to be bought somewhere else — a larger
+     or heavier kicker, or the kicker moved off cream — not by reverting this
+     line on its own. */
   --guide: #8f5c0e;
   /* Guidance drawn on the page GROUND rather than on a paper card: the ground
      flips with the theme, the cards do not, so the two cannot share a token. */
@@ -1875,7 +1881,9 @@ html.dark:has(.yomu-home) {
   order: 3;
   margin: var(--s-1) 0 0;
   color: var(--ink-quiet);
-  font-size: 13px;
+  /* One micro step, 14px, shared with .yomu-fold-micro. 12 and 13 were two
+     different sizes of the same thing and both sat under the readable floor. */
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1920,7 +1928,7 @@ html.dark:has(.yomu-home) {
 .yomu-fold-micro {
   margin: var(--s-3) 0 0;
   color: var(--ink-quiet);
-  font-size: 12px;
+  font-size: 14px;
   letter-spacing: 0.02em;
 }
 
@@ -1994,8 +2002,16 @@ html.dark:has(.yomu-home) {
    carries ONE rotation token, and no two neighbours carry the same one. */
 .yomu-band {
   /* How far the product frame slides past the page edge. Declared once so
-     every breakpoint can restate it in one place. */
+     every breakpoint can restate it in one place. --bleed-portrait is the
+     shallow variant a capped PORTRAIT capture uses: a landscape screenshot can
+     lose a third of itself off the edge and still read, a page-shaped one
+     cannot. Derived from --bleed so a breakpoint only ever restates one value. */
   --bleed: calc(var(--gutter) + 9vw);
+  /* Both are measured from the COLUMN edge, which sits one --gutter inside the
+     page, so anything at or under --gutter does not reach the page edge at all
+     and is not a bleed. Hence gutter + a shallow 5vw rather than a fraction of
+     --bleed: a fraction landed the manga panel flush against the viewport. */
+  --bleed-portrait: calc(var(--gutter) + 5vw);
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -2035,24 +2051,40 @@ html.dark:has(.yomu-home) {
   );
 }
 
-/* The band numeral: an outlined kanji in lamplight, rotated off the grid.
-   Transparent on purpose — it is a stamp on the painting, not a chip. */
-.yomu-band-numeral {
-  position: absolute;
-  top: clamp(18px, 4vh, 44px);
-  /* Above the copy card, not level with it: at the same z-index the card is
-     painted later and clipped the numeral's lower third. */
-  z-index: 4;
+/* The band numeral: an OUTLINED kanji in lamplight, rotated off the grid.
+   Outlined is the whole point — a solid amber glyph inside a keyline box is a
+   chip, and the grammar asks for a stamp pressed onto the painting. The fill
+   is knocked out with -webkit-text-stroke, which every engine we ship to
+   supports; `color: var(--lamp)` stays as the no-stroke fallback, so an engine
+   without it gets the old filled glyph rather than an invisible one. */
+.yomu-band-numeral,
+.yomu-install-numeral {
   margin: 0;
   padding: 4px 16px 10px;
   border: var(--keyline-w) solid var(--paper);
   border-radius: 3px 14px 4px 11px;
   background: transparent;
   color: var(--lamp);
+  -webkit-text-stroke: 2px var(--lamp);
   font-family: var(--ja-font);
   font-size: clamp(2.4rem, 6vw, 4.4rem);
   font-weight: 900;
   line-height: 1;
+}
+
+@supports (-webkit-text-stroke: 2px currentColor) {
+  .yomu-band-numeral,
+  .yomu-install-numeral {
+    color: transparent;
+  }
+}
+
+.yomu-band-numeral {
+  position: absolute;
+  top: clamp(18px, 4vh, 44px);
+  /* Above the copy card, not level with it: at the same z-index the card is
+     painted later and clipped the numeral's lower third. */
+  z-index: 4;
 }
 
 .yomu-band[data-bleed="right"] .yomu-band-numeral {
@@ -2163,20 +2195,23 @@ html.dark:has(.yomu-home) {
 }
 
 /* A manga page is portrait: at the band frame's full grid width it would tower
-   over the copy, so it is capped and centred in its half instead of bleeding. */
+   over the copy, so it is capped. It still bleeds — every band bleeds exactly
+   once, and a centred capped panel made this the one band with no edge — but at
+   a portrait-scaled depth. A full-depth bleed took half of the live OCR panel
+   off the page; --bleed-portrait leaves the pressable majority of it on. */
 #manga .yomu-band-frame {
-  margin-left: 0;
-  max-width: min(420px, 86%);
-  justify-self: center;
+  justify-self: start;
+  max-width: min(540px, 100%);
+  margin-left: calc(-1 * var(--bleed-portrait));
 }
 
-/* The other bands bleed a single landscape frame off the edge, and losing a few
-   pixels of a screenshot there costs nothing. Here the frames ARE the evidence —
-   a severed phone reads as a bug — and clipping does NOT raise scrollWidth, so
-   an overflow assertion passes while the device is visibly cut. Keep the
-   rotation, drop the bleed. */
+/* #mobile bleeds the iPad and nothing else. Both captures are the evidence, so
+   the frame is a flex row with the PHONE first: the row bleeds off the right
+   edge, which takes a strip of the tablet and leaves the phone whole. Dropping
+   the bleed outright (the previous pass) cost the band its edge and left ~45%
+   of an unpainted plate as dead space to the right of the devices. */
 #mobile .yomu-band-frame {
-  margin-right: 0;
+  margin-right: calc(-1 * var(--bleed));
 }
 
 .yomu-band-player {
@@ -2302,11 +2337,18 @@ html.dark:has(.yomu-home) {
   background: none;
 }
 
+/* Both the keyline and the shadow have to read against the PLATE, not against
+   the card: they are the edge between a cream sheet and a near-black ground.
+   #29271f ink on #181b18 plate measured 1.14:1 and a black offset shadow on it
+   measured nothing at all, which left these three cards as bare cream
+   rectangles pasted on black — no keyline, no lift. Folded paper for the
+   keyline and pencil for the offset are the two warm tones that clear the
+   plate in both themes while staying clearly darker than the sheet. */
 .yomu-band-plate .yomu-band-copy,
 .yomu-band-concept .yomu-band-copy {
-  border-color: var(--paper-ink);
+  border-color: var(--paper-folded);
   background: var(--paper);
-  box-shadow: 8px 9px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 8px 9px 0 var(--pencil);
   color: var(--paper-ink);
 }
 
@@ -2529,14 +2571,32 @@ html.dark:has(.yomu-home) {
   color: var(--on-plate);
 }
 
-.yomu-install-inner {
+/* The stamped numeral, in flow above the slab and carrying the section's one
+   rotation token — the concept bands' arrangement, so the CTA is built out of
+   the same parts as everything above it. */
+.yomu-install-numeral {
+  display: inline-block;
+  margin-bottom: var(--s-3);
+  transform: rotate(var(--rot-1));
+}
+
+/* The copy is a SLAB on the plate, not loose text on it: keyline, corners and
+   an offset shadow, like every other block of copy on this page. --shadow-ink
+   is a near-black, which on the near-black plate paints nothing, so the offset
+   comes up in pencil the way the plate bands' cards do. */
+/* Scoped with .yomu-home so it OUTRANKS `.yomu-home .yomu-slab`, whose
+   --shadow-ink offset is the near-black that paints nothing here. */
+.yomu-home .yomu-install-inner {
   max-width: min(760px, 100%);
   margin: 0;
+  padding: clamp(24px, 3.4vw, 42px);
+  box-shadow: 8px 9px 0 var(--pencil);
+  color: var(--ink-strong);
 }
 
 .yomu-install-inner h2 {
   margin: 0;
-  color: var(--on-plate);
+  color: var(--ink-strong);
   font-size: clamp(28px, 3.2vw, 42px);
   font-weight: 800;
   line-height: 1.08;
@@ -2546,7 +2606,7 @@ html.dark:has(.yomu-home) {
 .yomu-install-lead {
   max-width: 42ch;
   margin: var(--s-3) 0 0;
-  color: var(--on-plate-quiet);
+  color: var(--ink-body);
   font-size: clamp(17px, 1.4vw, 20px);
   line-height: 1.55;
 }
@@ -2564,43 +2624,23 @@ html.dark:has(.yomu-home) {
 
 .yomu-install-lead a:hover,
 .yomu-install-lead a:focus-visible {
-  color: var(--on-plate);
+  color: var(--ink-strong);
 }
 
-.yomu-install .yomu-install-route {
-  color: var(--on-plate-quiet);
-}
-
-.yomu-install .yomu-install-route:hover,
-.yomu-install .yomu-install-route:focus-visible {
-  color: var(--on-plate);
-}
-
-.yomu-install .yomu-install-route:is(
-    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
-    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
-    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
-    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
-  ) {
-  border-color: var(--on-plate);
-  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.5);
-  color: var(--on-accent);
-}
-
-.yomu-install .yomu-fold-micro,
-.yomu-install .yomu-install-routes-note {
-  color: var(--on-plate-quiet);
-}
+/* The routes sit on a slab now, so the shared .yomu-install-route rules — the
+   ones the fold already uses — are correct here unchanged. The on-plate
+   overrides that used to live at this point were undoing them for a plate this
+   copy no longer sits directly on. */
 
 .yomu-install-note {
   margin: var(--s-5) 0 0;
-  color: var(--on-plate-quiet);
+  color: var(--ink-body);
   font-size: 14px;
   line-height: 1.5;
 }
 
 .yomu-install-note a {
-  color: var(--on-plate);
+  color: var(--ink-strong);
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
@@ -2613,15 +2653,18 @@ html.dark:has(.yomu-home) {
   color: var(--ink-strong);
 }
 
+/* Green is the primary action and nothing else. This sheet took a full 3px
+   accent keyline AND an accent-mixed fill, so the close read as a green-trimmed
+   green panel sitting behind a green button — measured (94,167,128) on the
+   keyline and a green-shifted (232,230,212) on the fill, and worse at night.
+   It is an ordinary .yomu-paper sheet now: it keeps its rotation and its tape,
+   and the BUTTON carries the only green in the section. */
 .yomu-home .yomu-discord-inner {
   width: min(100%, 1040px);
   margin: 0 auto;
   padding: clamp(26px, 4vw, 48px);
-  /* The accent marks this sheet with a keyline and a breath of tint, and the
-     button carries the fill. A heavier wash turned the warm close into a green
-     panel, which is the one thing this page must never look like again. */
-  border-color: var(--accent-fill);
-  background: color-mix(in srgb, var(--accent-fill) 6%, var(--surface-slab));
+  border-color: var(--keyline);
+  background: var(--surface-slab);
   transform: rotate(0.35deg);
 }
 
@@ -2684,21 +2727,32 @@ html.dark:has(.yomu-home) {
   transition: clip-path var(--motion-mid) cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
+/* A clip-path clips the element's box-shadow too, so `inset(0 0 0 0)` as the
+   REST state silently deleted the zero-blur offset shadow from every band card
+   and every band frame — permanently, not just during the wipe. One of the four
+   named grammar elements, gone, measured as zero shadow pixels off the #study
+   card's right edge. Every side except the wipe front is inset NEGATIVELY, far
+   enough to clear the deepest offset on the page (10px), so the clip only ever
+   cuts along the front the wipe is actually travelling on. */
 .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
 .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame {
-  clip-path: inset(0 100% 0 0);
+  clip-path: inset(-24px 100% -24px -24px);
 }
 
 .yomu-reveal.is-in .yomu-band-copy,
 .yomu-reveal.is-in .yomu-band-frame {
-  clip-path: inset(0 0 0 0);
+  clip-path: inset(-24px -24px -24px -24px);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .yomu-band .yomu-band-copy,
   .yomu-band .yomu-band-frame,
   .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
-  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame {
+  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame,
+  /* The settled state too: with no wipe to run there is no reason to leave a
+     clip on the card at all, and a clip is what ate the shadows. */
+  .yomu-reveal.is-in .yomu-band-copy,
+  .yomu-reveal.is-in .yomu-band-frame {
     clip-path: none;
     transition: none;
   }
@@ -2761,11 +2815,10 @@ html.dark:has(.yomu-home) {
     margin-right: 0;
   }
 
-  #manga .yomu-band-frame,
-  #mobile .yomu-band-frame {
-    margin-left: 0;
-    margin-right: 0;
-  }
+  /* #manga and #mobile are NOT zeroed here any more. Their own id rules above
+     already carry the right bleed (portrait depth off the left, full depth off
+     the right) and outrank these generic ones at every width, so stacking keeps
+     the edge instead of losing it — the tablet half of the same defect. */
 
   .yomu-no-install-links {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2836,7 +2889,8 @@ html.dark:has(.yomu-home) {
     padding-block: var(--band-y);
   }
 
-  .yomu-band-numeral {
+  .yomu-band-numeral,
+  .yomu-install-numeral {
     font-size: 2.4rem;
   }
 
