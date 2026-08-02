@@ -53,10 +53,10 @@ Some rows say Not yet described. That marks a real stored setting whose wording 
 | Due | — | `#5fb3b3` | `wordColorDue` |
 | Failed | — | `#ff6b6b` | `wordColorFailed` |
 | Ignored, suspended, and blacklisted | — | `#b8a7ff` | `wordColorIgnored` |
-| Word highlight color | — | Academy status (`jpdb`) | `wordHighlightColorSource` |
+| Word highlight color | — | Primary deck status (`jpdb`) | `wordHighlightColorSource` |
 | Word underline color | — | Pitch accent (`pitch`) | `wordUnderlineColorSource` |
 | Word text color | — | Anki status (`anki`) | `wordTextColorSource` |
-| Subtitle highlight color | — | Academy status (`jpdb`) | `subtitleHighlightColorSource` |
+| Subtitle highlight color | — | Primary deck status (`jpdb`) | `subtitleHighlightColorSource` |
 | Subtitle underline color | — | Pitch accent (`pitch`) | `subtitleUnderlineColorSource` |
 | Subtitle text color | — | Anki status (`anki`) | `subtitleTextColorSource` |
 | Not yet described | — | `#223c2e` | `ocrBackgroundColor` |
