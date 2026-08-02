@@ -34923,6 +34923,21 @@ function noopKanjiPracticeDoodle() {
   const noop2 = () => void 0;
   return { reassess: noop2, clear: noop2 };
 }
+const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
+  "button",
+  "a[href]",
+  "input",
+  "select",
+  "textarea",
+  '[role="button"]',
+  ".jpdb-reader-popover"
+].join(",");
+function isPointerOnInertOcrOverlay(element) {
+  const overlay = element?.closest(".jpdb-ocr-layer");
+  if (!overlay) return false;
+  const control = element?.closest(OCR_OVERLAY_INTERACTIVE_SELECTOR);
+  return !(control && overlay.contains(control));
+}
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
   "[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)",
   ".jpdb-ocr-layer",
@@ -34938,6 +34953,10 @@ const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
   'button[name="r"]',
   'input[name="r"]'
 ].join(",");
+function keepsModalPopoverForOwnedSurface(element) {
+  if (isPointerOnInertOcrOverlay(element)) return false;
+  return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+}
 function fullscreenPopoverMountParent(anchor) {
   const fullscreenElement = currentFullscreenElement();
   if (!(fullscreenElement instanceof HTMLElement) || fullscreenElement instanceof HTMLVideoElement) return void 0;
@@ -38448,7 +38467,7 @@ class ReaderApp {
   shouldKeepModalPopoverForOutsidePointer(target) {
   const element = target instanceof Element ? target : target?.parentElement;
   if (this.isPointerOnStackedSettingsDialog(element)) return false;
-  return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+  return keepsModalPopoverForOwnedSurface(element);
   }
   isPointerOnStackedSettingsDialog(element) {
   if (!this.shouldDismissStackedLookupOnly()) return false;

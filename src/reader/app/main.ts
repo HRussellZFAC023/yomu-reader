@@ -445,8 +445,7 @@ import {
     createNoopImageOcrController,
     ocrModeToastKey,
     noopKanjiPracticeDoodle,
-    OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR,
-    REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR,
+    keepsModalPopoverForOwnedSurface,
     fullscreenPopoverMountParent,
     isJsdomRuntime,
     firstLocalPitchPattern,
@@ -4964,8 +4963,7 @@ export class ReaderApp {
         // data-jpdb-reader-root, so it would otherwise match the owned-surface
         // keep-open selector and trap the stacked lookup open (notably on touch).
         if (this.isPointerOnStackedSettingsDialog(element)) return false;
-        return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR)
-            || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+        return keepsModalPopoverForOwnedSurface(element);
     }
 
     private isPointerOnStackedSettingsDialog(element: Element | null | undefined): boolean {

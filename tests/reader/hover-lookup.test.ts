@@ -1648,8 +1648,12 @@ describe('hover lookup', () => {
         popover.className = 'jpdb-reader-popover';
         popover.dataset.jpdbReaderRoot = 'true';
         popover.textContent = '辞書';
+        // The subtitle list, not the OCR overlay: this asserts that Yomu's own
+        // INTERACTIVE panels hold the popover open while you use them. The OCR
+        // overlay used to be the fixture here, which quietly made a manga page's
+        // inert paint behave like a control — see the case below.
         const overlay = document.createElement('div');
-        overlay.className = 'jpdb-ocr-layer';
+        overlay.className = 'jpdb-subtitle-list';
         overlay.dataset.jpdbReaderRoot = 'true';
         overlay.textContent = 'overlay';
         document.body.append(popover, overlay);
@@ -1663,6 +1667,65 @@ describe('hover lookup', () => {
             expect(popover.isConnected).toBe(true);
             expect(internals.activePopover).toBe(popover);
             expect(internals.activePopoverMode).toBe('modal');
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    // Reported by blurvy on MangaFire: the popup could not be closed by tapping
+    // away from it. The OCR overlay's line boxes tile a manga page's speech
+    // bubbles and are pointer-events:auto, so a tap on the empty part of a bubble
+    // is "outside the popup" to the reader but matched the owned-surface
+    // keep-open allowlist. On a phone shouldUseSheet suppresses the backdrop, so
+    // that allowlist is the ONLY way to dismiss and the popup became stuck.
+    it('dismisses a modal popover when a press lands on inert OCR overlay paint', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-ocr-layer';
+        overlay.dataset.jpdbReaderRoot = 'true';
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        overlay.append(line);
+        document.body.append(popover, overlay);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            // A press that hit an OCR WORD never reaches here: handleOcrReaderWordPointerDown
+            // returns first and opens the new lookup. So a press arriving over the
+            // overlay resolved nothing, and is exactly the press that must dismiss.
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(line, 'touch', 'pointerdown'));
+
+            expect(internals.activePopover).toBeFalsy();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('still keeps the popover for a real control painted inside the OCR overlay', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-ocr-layer';
+        overlay.dataset.jpdbReaderRoot = 'true';
+        const button = document.createElement('button');
+        button.type = 'button';
+        overlay.append(button);
+        document.body.append(popover, overlay);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+
+        try {
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(button, 'touch', 'pointerdown'));
+
+            expect(internals.activePopover).toBe(popover);
         } finally {
             cleanupReaderApp(app);
         }

@@ -286,6 +286,45 @@ export function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => 
     return { reassess: noop, clear: noop };
 }
 
+/**
+ * What counts as a control inside the OCR overlay, and therefore keeps an open
+ * popover alive. Everything else in that overlay is inert paint over a manga page
+ * and must dismiss like any other outside tap — see isPointerOnInertOcrOverlay.
+ * Deliberately does NOT list .jpdb-ocr-line: a line box is where the words are
+ * drawn, and a press that actually hit a word never reaches the dismissal chain.
+ */
+export const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
+    'button',
+    'a[href]',
+    'input',
+    'select',
+    'textarea',
+    '[role="button"]',
+    '.jpdb-reader-popover',
+].join(',');
+
+/**
+ * The OCR overlay is a Yomu surface, but almost none of it is a control.
+ *
+ * Its line boxes tile a manga page's speech bubbles and are pointer-events:auto,
+ * so a tap on the empty part of a bubble is "outside the popup" to the reader
+ * and "my own surface, keep it open" to the allowlist — and on a phone there is
+ * no backdrop (shouldUseSheet), so that allowlist is the ONLY way to dismiss.
+ * Reported by blurvy on MangaFire: the popup could not be closed by tapping away
+ * from it.
+ *
+ * Presses that mean something never arrive here — handleOcrReaderWordPointerDown
+ * returns before the dismissal chain runs and opens the new lookup itself — so a
+ * press reaching this point over the overlay resolved nothing. The only thing
+ * left worth protecting is a real control Yomu painted inside the overlay.
+ */
+function isPointerOnInertOcrOverlay(element: Element | null | undefined): boolean {
+    const overlay = element?.closest('.jpdb-ocr-layer');
+    if (!overlay) return false;
+    const control = element?.closest(OCR_OVERLAY_INTERACTIVE_SELECTOR);
+    return !(control && overlay.contains(control));
+}
+
 export const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
     '.jpdb-ocr-layer',
@@ -301,6 +340,18 @@ export const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     'button[name="r"]',
     'input[name="r"]',
 ].join(',');
+
+/**
+ * Whether a press outside an open modal popover landed somewhere that should keep
+ * it open. Lives beside the selectors it consults, because the answer is entirely
+ * a question of which surface was pressed — the caller only adds the one case that
+ * needs reader state (a lookup stacked over the settings dialog).
+ */
+export function keepsModalPopoverForOwnedSurface(element: Element | null | undefined): boolean {
+    if (isPointerOnInertOcrOverlay(element)) return false;
+    return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR)
+        || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+}
 
 export interface CardPopoverHydrationContext {
     popover: HTMLElement;
