@@ -67,7 +67,7 @@ import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/stu
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 
-export { readDictionaryLookupLinks, readFormSettings, readSubmittedDictionaryLookupLinks } from './form-read';
+export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
 export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';

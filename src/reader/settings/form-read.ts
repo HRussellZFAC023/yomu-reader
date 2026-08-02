@@ -1,4 +1,4 @@
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, dictionaryLookupLinksForTarget, MAX_LOOKUP_LINK_ROWS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -950,12 +950,12 @@ function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<
  * (the gaming surface, older fixtures) reads as Japanese, which is what it is.
  */
 export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
-    return normalizeDictionaryLookupLinks(readSubmittedDictionaryLookupLinks(data), false, readTargetLanguage(data, 'ja'));
+    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, 'ja'));
 }
 
-export function readSubmittedDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
+export function lookupLinkRows(data: FormData): DictionaryLookupLink[] {
     const get = (key: string) => String(data.get(key) ?? '');
-    const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get('dictionaryLookupLinkCount')) || 0));
+    const count = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get('dictionaryLookupLinkCount')) || 0));
     const links: DictionaryLookupLink[] = [];
 
     for (let index = 0; index < count; index++) {
@@ -981,7 +981,7 @@ function readTargetAwareDictionaryLookupLinks(data: FormData, current: ReaderSet
     const next = readTargetLanguage(data, previous);
     return next === previous
         ? readDictionaryLookupLinks(data)
-        : dictionaryLookupLinksForTarget(readSubmittedDictionaryLookupLinks(data), next);
+        : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
 }
 
 function readDictionaryLookupLinkRow(

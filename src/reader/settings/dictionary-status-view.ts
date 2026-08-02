@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { formatUiText, uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/index';
 import { isLearningTargetRosterId, type LearningTargetRosterId } from '../languages';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
@@ -30,13 +31,13 @@ export function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatu
     };
 }
 
-export function dictionaryStatusSettingsForRender(
+export function liveDictionarySettings(
     form: HTMLFormElement,
     settings: ReaderSettings,
 ): ReaderSettings {
     const live = readFormSettings(new FormData(form), settings);
-    const missing = new Map(settings.dictionaryPreferences.map(preference => [preference.name, preference]));
-    live.dictionaryPreferences = live.dictionaryPreferences.filter(preference => missing.delete(preference.name));
+    const missing = new Map(settings.dictionaryPreferences.map(item => [item.name, item]));
+    live.dictionaryPreferences = live.dictionaryPreferences.filter(item => missing.delete(item.name));
     live.dictionaryPreferences.push(...missing.values());
     return live;
 }
@@ -47,9 +48,17 @@ export function renderDictionaryStatusElements(
     settings: ReaderSettings,
     learnerLanguage: LearnerLanguageId,
     targetLanguage: LearningTargetRosterId,
-    statusText: string,
 ): void {
-    if (elements.status) elements.status.textContent = statusText;
+    if (elements.status) {
+        elements.status.textContent = summary.dictionaries.length
+            ? formatUiText(settings.interfaceLanguage, 'dictionaryStatusSummary', {
+                dictionaries: summary.dictionaries.length.toLocaleString(),
+                terms: summary.terms.toLocaleString(),
+                kanji: summary.kanji.toLocaleString(),
+                metadata: summary.termMeta.toLocaleString(),
+            })
+            : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
+    }
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.lookupPills) {
         setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage));

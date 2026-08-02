@@ -2,7 +2,7 @@ import { escapeHtml, setInnerHtml } from '../dom/index';
 import { audioSourceLabel, uiText } from '../app/i18n';
 import { settingsText } from './settings-text';
 import { speakerIcon } from '../ui/icons';
-import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, defaultDictionaryLookupLinks, MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
+import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, defaultDictionaryLookupLinks, MAX_EXTRA_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
 import { knownAudioSubSourceNames } from '../audio/candidates';
 import { moveSourceRow } from './form-order';
@@ -442,9 +442,9 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
 function lookupPillEditorRows(
     links: DictionaryLookupLink[],
     localFrequencyPreferences: DictionaryPreference[],
-    targetLanguage: string,
+    target: string,
 ): DictionaryLookupLink[] {
-    const normalized = normalizeDictionaryLookupLinks(links, false, targetLanguage);
+    const normalized = normalizeDictionaryLookupLinks(links, false, target);
     const byId = new Map(normalized.map(link => [link.id, link]));
     for (const preference of localFrequencyPreferences) {
         const id = localFrequencyLookupPillId(preference.name);
@@ -459,7 +459,7 @@ function lookupPillEditorRows(
             });
         }
     }
-    return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, targetLanguage)
+    return normalizeDictionaryLookupLinks(Array.from(byId.values()), false, target)
         .sort(compareLookupPillEditorRows);
 }
 
@@ -491,25 +491,25 @@ export function updateDictionaryLookupLinkEditor(form: HTMLFormElement, action: 
     }
     const data = new FormData(form);
     const links = readDictionaryLookupLinks(data);
-    const targetLanguage = formTargetLanguage(data);
-    updateDictionaryLookupLinks(links, action, index, targetLanguage);
+    const target = formTargetLanguage(data);
+    updateDictionaryLookupLinks(links, action, index, target);
     // The target lives in this same form, so re-rendering a row keeps the
     // component notes and the gap line describing the language on screen.
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], targetLanguage));
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], target));
 }
 
 function formTargetLanguage(data: FormData): string {
     return String(data.get('targetLanguage') ?? '') || 'ja';
 }
 
-function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number, targetLanguage: string): void {
-    if (action === 'lookup-link-add') addDictionaryLookupLink(links, targetLanguage);
+function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: string, index: number, target: string): void {
+    if (action === 'lookup-link-add') addDictionaryLookupLink(links, target);
     if (action === 'lookup-link-remove') removeDictionaryLookupLink(links, index);
 }
 
-function addDictionaryLookupLink(links: DictionaryLookupLink[], targetLanguage: string): void {
-    if (links.length >= defaultDictionaryLookupLinks('local', targetLanguage).length
-        + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
+function addDictionaryLookupLink(links: DictionaryLookupLink[], target: string): void {
+    if (links.length >= defaultDictionaryLookupLinks('local', target).length
+        + MAX_EXTRA_LOOKUP_LINKS) return;
     links.push({
         id: `custom-${Date.now().toString(36)}`,
         label: '',

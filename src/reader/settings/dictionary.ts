@@ -6,7 +6,7 @@ import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from
 import { hasTargetLookupSites, isTargetLookupLinkId, targetLookupLinks } from './lookup-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
 
-export const MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS = 16;
+export const MAX_EXTRA_LOOKUP_LINKS = 16;
 
 const JPDB_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'jpdb',
@@ -150,8 +150,7 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     COPY_LOOKUP_LINK,
 ];
 
-export const MAX_DICTIONARY_LOOKUP_LINKS = DEFAULT_DICTIONARY_LOOKUP_LINKS.length
-    + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS;
+export const MAX_LOOKUP_LINK_ROWS = DEFAULT_DICTIONARY_LOOKUP_LINKS.length + MAX_EXTRA_LOOKUP_LINKS;
 
 type LegacyLookupLinkSpec = Pick<DictionaryLookupLink, 'id' | 'label' | 'urlTemplate' | 'enabled'> & {
     action?: DictionaryLookupLink['action'];
@@ -419,16 +418,16 @@ export function normalizeDictionaryLookupLinks(
 
     const normalized: DictionaryLookupLink[] = [];
     const seen = new Set<string>();
-    const builtInIds = new Set(builtIns.map(link => link.id));
-    let additionalCount = 0;
+    const defaults = new Set(builtIns.map(link => link.id));
+    let extras = 0;
     const add = (link: DictionaryLookupLink) => {
         const id = link.id.trim();
         if (!id || seen.has(id)) return;
-        const builtIn = builtInIds.has(id);
-        if (!builtIn && additionalCount >= MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
+        const known = defaults.has(id);
+        if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
         seen.add(id);
         normalized.push({ ...link, id });
-        if (!builtIn) additionalCount++;
+        if (!known) extras++;
     };
 
     for (const item of value) {
