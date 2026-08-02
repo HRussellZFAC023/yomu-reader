@@ -809,7 +809,14 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'よむ — A complete system for learning Japanese': 'よむ — 日本語学習のための一式',
     'よむ — A complete system for learning 日本語': 'よむ — 日本語学習のための一式',
     'Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.': '日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。パソコン、スマートフォン、タブレットで無料で使えます。',
-    'A complete system for learning': '学ぶためのすべてがそろう',
+    // The demoted multilingual line. Split into three keys because the count
+    // between them is rendered by a component and is deliberately not translated.
+    'It reads': '対応言語は日本語のほかに',
+    'other languages too, from Spanish to Korean.': '言語。スペイン語から韓国語まで。',
+    'Which ones': '対応言語を見る',
+    // The whole sentence, because Japanese reorders it: 日本語 leads. The old
+    // fragment key existed only because a rotator split the headline in two.
+    'A complete system for learning 日本語.': '日本語を学ぶための、すべてがそろう。',
     'Japanese': '日本語',
     'Chinese': '中国語',
     'Cantonese': '広東語',
@@ -5842,33 +5849,10 @@ function syncHostedLanguageFromSettingsEvent(event: Event): void {
 // homepage reveal sections.
 // All are idempotent (guarded by data flags) so they survive route re-runs.
 function installHostedHomepageInteractions(): void {
-    startHostedLanguageRotator();
     armHostedRevealElements();
     bindHostedYouTubeLiteEmbeds();
     bindHostedDemoVideos();
     watchHostedFoldRuntime();
-}
-
-// No JavaScript and reduced-motion both show the ordinary static word
-// "Japanese". JavaScript only stamps the progressive state; CSS owns the fade
-// so the headline cannot arrive blank while the docs bundle is loading.
-function startHostedLanguageRotator(): void {
-    const rotator = document.querySelector<HTMLElement>('[data-yomu-language-rotator]:not([data-yomu-language-rotator-ready])');
-    if (!rotator) return;
-    const languages = Array.from(rotator.querySelectorAll<HTMLElement>('.yomu-language-cycle > span'));
-    if (languages.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let activeIndex = 0;
-    languages[activeIndex]?.setAttribute('data-yomu-language-active', '');
-    rotator.dataset.yomuLanguageRotatorReady = 'true';
-    const timer = window.setInterval(() => {
-        if (!rotator.isConnected) {
-            window.clearInterval(timer);
-            return;
-        }
-        languages[activeIndex]?.removeAttribute('data-yomu-language-active');
-        activeIndex = (activeIndex + 1) % languages.length;
-        languages[activeIndex]?.setAttribute('data-yomu-language-active', '');
-    }, 2_000);
 }
 
 // The fold's live line is pre-annotated static markup, so it still looks
@@ -6439,33 +6423,27 @@ function clearLocalHostedRuntimeCaches(): void {
     }
 }
 
-const YomuLanguageRotator = defineComponent({
-    name: 'YomuLanguageRotator',
+/**
+ * The count of study targets Yomu reads, beyond Japanese.
+ *
+ * This replaces a rotator that cycled all 33 target names through the H1 itself.
+ * The headline is the one line that has to be true at every instant, and on any
+ * given tick it read "A complete system for learning Shqip." — a real product's
+ * first sentence naming a language chosen by a 2-second timer. Screenshots and
+ * social unfurls inherited whichever word happened to be showing.
+ *
+ * The number still comes from the same asserted roster the rotator used
+ * (`heroStudyLanguages()`, which throws if a listed target's readiness does not
+ * meet the claim), so demoting the claim did not weaken its verification: it is
+ * measured at build time, minus Japanese, which the headline already names.
+ */
+const YomuStudyTargetCount = defineComponent({
+    name: 'YomuStudyTargetCount',
     setup() {
-        const languages = __YOMU_HERO_LANGUAGES__;
-        const first = languages[0];
-        if (!first) throw new Error('The homepage language rotator has no supported study target.');
-        return () => h('span', {
-            class: 'yomu-language-rotator',
-            'data-yomu-language-rotator': '',
-            'aria-label': languages.map(language => language.englishName).join(', '),
-        }, [
-            h('span', {
-                class: 'yomu-language-static',
-                lang: first.locale,
-                dir: first.direction,
-                'data-yomu-localize': 'off',
-            }, `${first.nativeName}.`),
-            h('span', {
-                class: 'yomu-language-cycle',
-                'aria-hidden': 'true',
-            }, languages.map(language => h('span', {
-                lang: language.locale,
-                dir: language.direction,
-                'data-yomu-language-id': language.id,
-                'data-yomu-localize': 'off',
-            }, `${language.nativeName}.`))),
-        ]);
+        const beyondJapanese = __YOMU_HERO_LANGUAGES__
+            .filter(language => !language.id.startsWith('ja')).length;
+        if (beyondJapanese < 1) throw new Error('The homepage claims other study targets but the roster has none.');
+        return () => h('span', { class: 'yomu-target-count', 'data-yomu-localize': 'off' }, String(beyondJapanese));
     },
 });
 
@@ -6487,7 +6465,7 @@ export default {
     Layout: YomuLayout,
     enhanceApp(ctx) {
         DefaultTheme.enhanceApp?.(ctx);
-        ctx.app.component('YomuLanguageRotator', YomuLanguageRotator);
+        ctx.app.component('YomuStudyTargetCount', YomuStudyTargetCount);
         // Delegated from document, so it survives VitePress's client-side route
         // changes without re-binding per page. Guarded because enhanceApp also
         // runs during SSR, where there is no document to listen on.

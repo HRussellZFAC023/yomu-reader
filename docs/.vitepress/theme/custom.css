@@ -1688,6 +1688,12 @@ html.dark:has(.yomu-home) {
 }
 
 .yomu-fold-h1 {
+  /* One text node, not a wrapped span: Japanese puts the object first
+     (日本語を学ぶための…), so the sentence can only be translated naturally as a
+     whole — a span would pin 日本語 to the English word order. Per-glyph
+     fallback does the typography instead: Latin from the base face, 日本語 from
+     the Japanese face, which is what a font stack is for. */
+  font-family: var(--vp-font-family-base), var(--ja-font);
   max-width: 18ch;
   margin: 0;
   color: var(--ink-strong);
@@ -1696,6 +1702,27 @@ html.dark:has(.yomu-home) {
   line-height: 0.98;
   letter-spacing: -0.02em;
   word-break: keep-all;
+}
+
+/* The multilingual claim, at the weight a secondary fact deserves. It used to be
+   the SUBJECT of the headline via a rotator; it is true, it is worth stating, and
+   it is not what Yomu is. */
+.yomu-fold-also {
+  /* Wide enough to hold the sentence and its link on one line at the fold's
+     column width: at 46ch "Which ones" dropped to a line of its own and read as
+     a stray orphan under the routes. */
+  max-width: 62ch;
+  margin: var(--s-4) 0 0;
+  color: var(--ink-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.yomu-fold-also a {
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .yomu-fold-live {
@@ -2223,6 +2250,33 @@ html.dark:has(.yomu-home) {
   color: var(--ink-strong);
 }
 
+/* Heading beside its list, not stacked above it.
+   Stacked, these sections were a 780px column against a 1440px page: four
+   screens in a row where the right half of the viewport held nothing at all,
+   which is what made a finished page read as an unfinished draft. The bands
+   either side of them are already two-column, so this is the page's own rhythm
+   rather than a new idea. Single column below 1080 where there is no width to
+   share. */
+@media (min-width: 1080px) {
+  .yomu-fits {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr);
+    align-items: start;
+    gap: 0 var(--s-7);
+  }
+
+  .yomu-fits > h2 {
+    /* Holds the heading beside its own list while that list scrolls past,
+       so the pairing stays legible on a tall section. */
+    position: sticky;
+    top: calc(var(--vp-nav-height) + var(--s-5));
+  }
+
+  .yomu-fits-list {
+    margin-top: 0;
+  }
+}
+
 .yomu-fits h2 {
   max-width: 22ch;
   margin: 0;
@@ -2513,33 +2567,12 @@ html.dark:has(.yomu-home) {
 }
 
 /* --- The hero language rotator (list owned by A37) ------------------ */
-.yomu-language-rotator {
-  /* Inherits the heading ink. It used --accent-ink, which put the accent on the
-     headline as well as the guidance label, the arrow, the card edge and the
-     primary action — five accented things at once, which is what turned the
-     page green. The visual system spends the accent on "focus, selected edges,
-     underlines, stamps, and primary actions"; a headline is none of those. */
-  display: inline-block;
-  position: relative;
-  vertical-align: baseline;
-}
 
-.yomu-language-static {
-  white-space: nowrap;
-}
 
-.yomu-language-cycle {
-  display: none;
-}
 
 /* Out of flow, not merely transparent. `opacity: 0` alone still reserved this
    span's width beside the cycle, which is the other half of why the full stop was
    stranded: the rotator measured the no-JS fallback plus the active word. */
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
 
 /* Only the ACTIVE word occupies space; the rest are lifted out of flow on top of
    it. With the old inline-grid every word shared one cell, so the rotator was
@@ -2547,45 +2580,18 @@ html.dark:has(.yomu-home) {
    sentence's full stop stranded a couple of characters to the right of a short
    word like "Japanese". The line now reflows as the word changes, which is what
    the reference treatment does too. */
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle {
-  display: inline-block;
-  position: relative;
-}
 
 /* The outgoing word leaves quickly, the incoming one waits for it. Both used the
    same slow duration, so for most of every transition two words in different
    scripts sat on top of each other at half opacity and read as a rendering
    fault rather than a fade. 160ms matches the system's response timing. */
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span {
-  position: absolute;
-  left: 0;
-  top: 0;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateY(-0.12em);
-  transition: opacity 160ms ease, transform 160ms ease;
-}
 
-.yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active] {
-  /* Back in flow, so it — and only it — gives the rotator its width. */
-  position: relative;
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity var(--motion-slow) ease 170ms, transform var(--motion-slow) ease 170ms;
-}
 
 @media (prefers-reduced-motion: reduce) {
   /* Position as well as opacity: the static word is taken out of flow above, so
      restoring only its opacity would leave a reduced-motion reader with a word
      that paints over a zero-width rotator instead of sitting in the sentence. */
-  .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-static {
-    position: relative;
-    opacity: 1;
-  }
 
-  .yomu-language-rotator[data-yomu-language-rotator-ready] .yomu-language-cycle {
-    display: none;
-  }
 }
 
 /* --- Tablet ---
@@ -2701,10 +2707,6 @@ html.dark:has(.yomu-home) {
     flex: 1 1 100%;
   }
 
-  .yomu-language-rotator {
-    display: inline;
-    min-width: 0;
-  }
 }
 
 @media (max-width: 420px) {

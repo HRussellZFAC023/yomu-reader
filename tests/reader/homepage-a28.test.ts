@@ -20,14 +20,22 @@ describe('A28 homepage contract', () => {
         expect(homepage).not.toContain('<figcaption');
     });
 
-    it('keeps the no-JS reading headline and enables only a progressive fade', () => {
-        expect(homepage).toContain('A complete system for learning <YomuLanguageRotator />');
-        expect(homepageStyles).toContain('[data-yomu-language-rotator-ready] .yomu-language-cycle > span[data-yomu-language-active]');
-        // The component appends the sentence's full stop to each language name, so
-        // the markup must NOT add a second one — and only the active word may take
-        // up space, or the stop is stranded to the right of a short name.
-        expect(homepage).not.toContain('<YomuLanguageRotator />.');
-        expect(homepageStyles).toContain('.yomu-language-cycle > span[data-yomu-language-active]');
+    it('names Japanese in the headline and never a language chosen by a timer', () => {
+        // The owner asked for this sentence verbatim. A rotator that cycled all 33
+        // study targets through the H1 meant the product's own first line read "A
+        // complete system for learning Shqip." to whoever arrived on that tick, and
+        // every screenshot and social unfurl inherited whichever word was showing.
+        expect(homepage).toContain('>A complete system for learning 日本語.</h1>');
+        expect(homepage).not.toContain('YomuLanguageRotator');
+        expect(homepageStyles).not.toContain('.yomu-language-cycle');
+    });
+
+    it('keeps the multilingual claim on the page, demoted and still measured', () => {
+        // Demoting it must not delete it: 32 other targets really are supported, and
+        // the count is rendered from the same asserted roster the rotator read, so a
+        // roster change still cannot leave a stale number in the copy.
+        expect(homepage).toContain('<YomuStudyTargetCount />');
+        expect(homepage).toContain('yomu-fold-also');
     });
 
     it('keeps one live OCR image and all other images opted out', () => {
